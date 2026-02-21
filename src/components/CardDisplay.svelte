@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { AnyCard } from '../data/types';
-  import { colorToHex } from '../data/colors';
+  import { colorToHex, blendColors, textColorForBackground } from '../data/colors';
   import { getCardPips } from '../data/cards';
 
   let { card, selected = false, onclick }: {
@@ -11,6 +11,8 @@
 
   let abilityText = $derived(formatAbility(card));
   let pips = $derived(getCardPips(card));
+  let blendedHex = $derived(blendColors(pips));
+  let swatchTextColor = $derived(textColorForBackground(blendedHex));
 
   function formatAbility(c: AnyCard): string {
     if (c.kind === 'garment') return '';
@@ -60,6 +62,7 @@
         <span class="pip" style="background-color: {colorToHex(pip)}" title={pip}></span>
       {/each}
     </div>
+    <div class="color-swatch" style="background-color: {blendedHex}"></div>
   {/if}
 
   {#if card.kind === 'fabric'}
@@ -170,8 +173,8 @@
   }
 
   .pip {
-    width: 12px;
-    height: 12px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     border: 1px solid rgba(0, 0, 0, 0.3);
     display: inline-block;
@@ -203,8 +206,13 @@
   }
 
   .color-cost .pip {
-    width: 10px;
-    height: 10px;
+    width: 20px;
+    height: 20px;
+  }
+
+  .color-swatch {
+    height: 18px;
+    border-radius: 3px;
   }
 
   .ability {

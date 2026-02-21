@@ -50,3 +50,27 @@ export function colorToHex(color: Color): string {
   };
   return map[color];
 }
+
+export function blendColors(colors: Color[]): string {
+  if (colors.length === 0) return '#000000';
+  const hexes = colors.map(c => colorToHex(c));
+  let r = 0, g = 0, b = 0;
+  for (const hex of hexes) {
+    r += parseInt(hex.slice(1, 3), 16);
+    g += parseInt(hex.slice(3, 5), 16);
+    b += parseInt(hex.slice(5, 7), 16);
+  }
+  const n = hexes.length;
+  r = Math.round(r / n);
+  g = Math.round(g / n);
+  b = Math.round(b / n);
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
+export function textColorForBackground(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+  return yiq >= 128 ? '#000000' : '#ffffff';
+}
