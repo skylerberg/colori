@@ -10,278 +10,98 @@ export function getCardPips(card: AnyCard): Color[] {
 }
 
 export const DYE_CARDS: DyeCard[] = [
-  // 1
+  // Primary (3) — makeGarment
   {
     kind: 'dye',
     name: 'Kermes',
     colors: ['Red', 'Red', 'Red'],
     ability: { type: 'makeGarment' },
   },
-  // 2
-  {
-    kind: 'dye',
-    name: 'Cochineal',
-    colors: ['Red', 'Red', 'Magenta'],
-    ability: { type: 'drawCards', count: 2 },
-  },
-  // 3
-  {
-    kind: 'dye',
-    name: 'Madder',
-    colors: ['Red', 'Red', 'Vermilion'],
-    ability: { type: 'makeMaterials', count: 3 },
-  },
-  // 4
-  {
-    kind: 'dye',
-    name: 'Brazilwood',
-    colors: ['Red', 'Red'],
-    ability: { type: 'drawCards', count: 1 },
-  },
-  // 5
-  {
-    kind: 'dye',
-    name: 'Lac',
-    colors: ['Red', 'Red', 'Magenta'],
-    ability: { type: 'mixColors', count: 1 },
-  },
-  // 6
-  {
-    kind: 'dye',
-    name: 'Safflower',
-    colors: ['Red', 'Magenta'],
-    ability: { type: 'drawCards', count: 1 },
-  },
-  // 7
-  {
-    kind: 'dye',
-    name: 'Alkanet',
-    colors: ['Red', 'Purple'],
-    ability: { type: 'mixColors', count: 1 },
-  },
-  // 8
-  {
-    kind: 'dye',
-    name: "Dragon's Blood",
-    colors: ['Red', 'Red', 'Vermilion'],
-    ability: { type: 'destroyCards', count: 1 },
-  },
-  // 9
-  {
-    kind: 'dye',
-    name: 'Venetian Red Earth',
-    colors: ['Red', 'Vermilion', 'Amber'],
-    ability: { type: 'makeMaterials', count: 2 },
-  },
-  // 10
-  {
-    kind: 'dye',
-    name: 'Vermilion (Mineral)',
-    colors: ['Red', 'Vermilion', 'Vermilion'],
-    ability: { type: 'destroyCards', count: 1 },
-  },
-  // 11
-  {
-    kind: 'dye',
-    name: 'Woad',
-    colors: ['Blue', 'Blue'],
-    ability: { type: 'makeMaterials', count: 3 },
-  },
-  // 12
-  {
-    kind: 'dye',
-    name: 'Indigo',
-    colors: ['Blue', 'Blue', 'Indigo'],
-    ability: { type: 'makeGarment' },
-  },
-  // 13
-  {
-    kind: 'dye',
-    name: 'Smalt',
-    colors: ['Blue', 'Blue', 'Indigo'],
-    ability: { type: 'destroyCards', count: 1 },
-  },
-  // 14
-  {
-    kind: 'dye',
-    name: 'Azurite',
-    colors: ['Blue', 'Blue', 'Teal'],
-    ability: { type: 'makeMaterials', count: 2 },
-  },
-  // 15
-  {
-    kind: 'dye',
-    name: 'Logwood',
-    colors: ['Blue', 'Indigo', 'Purple'],
-    ability: { type: 'mixColors', count: 2 },
-  },
-  // 16
   {
     kind: 'dye',
     name: 'Weld',
     colors: ['Yellow', 'Yellow', 'Yellow'],
     ability: { type: 'makeGarment' },
   },
-  // 17
   {
     kind: 'dye',
-    name: 'Saffron',
-    colors: ['Yellow', 'Yellow', 'Amber'],
-    ability: { type: 'drawCards', count: 3 },
+    name: 'Woad',
+    colors: ['Blue', 'Blue', 'Blue'],
+    ability: { type: 'makeGarment' },
   },
-  // 18
+  // Secondary (6) — makeMaterials x3
+  {
+    kind: 'dye',
+    name: 'Madder',
+    colors: ['Orange', 'Red'],
+    ability: { type: 'makeMaterials', count: 3 },
+  },
   {
     kind: 'dye',
     name: 'Turmeric',
-    colors: ['Yellow', 'Amber', 'Orange'],
-    ability: { type: 'mixColors', count: 1 },
-  },
-  // 19
-  {
-    kind: 'dye',
-    name: "Dyer's Broom",
-    colors: ['Yellow', 'Yellow'],
-    ability: { type: 'drawCards', count: 1 },
-  },
-  // 20
-  {
-    kind: 'dye',
-    name: 'Spanish Broom',
-    colors: ['Yellow', 'Yellow'],
-    ability: { type: 'makeMaterials', count: 2 },
-  },
-  // 21
-  {
-    kind: 'dye',
-    name: 'Old Fustic',
-    colors: ['Yellow', 'Yellow', 'Amber'],
+    colors: ['Orange', 'Yellow'],
     ability: { type: 'makeMaterials', count: 3 },
   },
-  // 22
   {
     kind: 'dye',
-    name: 'Venetian Sumac',
-    colors: ['Yellow', 'Amber', 'Orange'],
-    ability: { type: 'mixColors', count: 1 },
+    name: "Dyer's Greenweed",
+    colors: ['Green', 'Yellow'],
+    ability: { type: 'makeMaterials', count: 3 },
   },
-  // 23
-  {
-    kind: 'dye',
-    name: 'Persian Berries',
-    colors: ['Yellow', 'Chartreuse'],
-    ability: { type: 'drawCards', count: 1 },
-  },
-  // 24
-  {
-    kind: 'dye',
-    name: 'Tyrian Purple',
-    colors: ['Purple', 'Purple', 'Magenta'],
-    ability: { type: 'makeGarment' },
-  },
-  // 25
-  {
-    kind: 'dye',
-    name: 'Orchil',
-    colors: ['Purple', 'Magenta', 'Red'],
-    ability: { type: 'mixColors', count: 2 },
-  },
-  // 26
-  {
-    kind: 'dye',
-    name: 'Turnsole',
-    colors: ['Purple', 'Purple'],
-    ability: { type: 'makeMaterials', count: 2 },
-  },
-  // 27
-  {
-    kind: 'dye',
-    name: 'Elderberry',
-    colors: ['Purple', 'Indigo'],
-    ability: { type: 'drawCards', count: 2 },
-  },
-  // 28
   {
     kind: 'dye',
     name: 'Verdigris',
-    colors: ['Green', 'Green', 'Teal'],
-    ability: { type: 'destroyCards', count: 1 },
+    colors: ['Green', 'Blue'],
+    ability: { type: 'makeMaterials', count: 3 },
   },
-  // 29
   {
     kind: 'dye',
-    name: 'Lincoln Green',
-    colors: ['Green', 'Teal', 'Blue'],
-    ability: { type: 'mixColors', count: 3 },
+    name: 'Orchil',
+    colors: ['Purple', 'Red'],
+    ability: { type: 'makeMaterials', count: 3 },
   },
-  // 30
   {
     kind: 'dye',
-    name: 'Saxon Green',
-    colors: ['Green', 'Green', 'Chartreuse'],
-    ability: { type: 'makeMaterials', count: 4 },
+    name: 'Logwood',
+    colors: ['Purple', 'Blue'],
+    ability: { type: 'makeMaterials', count: 3 },
   },
-  // 31
+  // Tertiary (6) — mixColors x2
   {
     kind: 'dye',
-    name: 'Gall Nuts',
-    colors: ['Yellow', 'Amber'],
-    ability: { type: 'destroyCards', count: 1 },
+    name: 'Vermilion',
+    colors: ['Vermilion'],
+    ability: { type: 'mixColors', count: 2 },
   },
-  // 32
   {
     kind: 'dye',
-    name: 'Walnut Hulls',
-    colors: ['Vermilion', 'Amber', 'Orange'],
-    ability: { type: 'drawCards', count: 1 },
+    name: 'Saffron',
+    colors: ['Amber'],
+    ability: { type: 'mixColors', count: 2 },
   },
-  // 33
   {
     kind: 'dye',
-    name: 'Oak Bark',
-    colors: ['Yellow', 'Amber'],
-    ability: { type: 'makeMaterials', count: 2 },
+    name: 'Persian Berries',
+    colors: ['Chartreuse'],
+    ability: { type: 'mixColors', count: 2 },
   },
-  // 34
   {
     kind: 'dye',
-    name: 'Cutch',
-    colors: ['Red', 'Amber', 'Orange'],
-    ability: { type: 'mixColors', count: 1 },
+    name: 'Azurite',
+    colors: ['Teal'],
+    ability: { type: 'mixColors', count: 2 },
   },
-  // 35
   {
     kind: 'dye',
-    name: 'Chestnut',
-    colors: ['Amber', 'Orange'],
-    ability: { type: 'drawCards', count: 1 },
+    name: 'Indigo',
+    colors: ['Indigo'],
+    ability: { type: 'mixColors', count: 2 },
   },
-  // 36
   {
     kind: 'dye',
-    name: 'Alder Bark',
-    colors: ['Red', 'Amber'],
-    ability: { type: 'makeMaterials', count: 2 },
-  },
-  // 37
-  {
-    kind: 'dye',
-    name: 'Iron Black',
-    colors: ['Blue', 'Purple', 'Indigo'],
-    ability: { type: 'destroyCards', count: 1 },
-  },
-  // 38
-  {
-    kind: 'dye',
-    name: 'Annatto',
-    colors: ['Orange', 'Amber', 'Yellow'],
-    ability: { type: 'mixColors', count: 1 },
-  },
-  // 39
-  {
-    kind: 'dye',
-    name: 'Henna',
-    colors: ['Orange', 'Vermilion'],
-    ability: { type: 'makeMaterials', count: 2 },
+    name: 'Cochineal',
+    colors: ['Magenta'],
+    ability: { type: 'mixColors', count: 2 },
   },
 ];
 
@@ -290,25 +110,25 @@ export const FABRIC_CARDS: FabricCard[] = [
     kind: 'fabric',
     name: 'Wool',
     fabricType: 'Wool',
-    ability: { type: 'drawCards', count: 1 },
+    ability: { type: 'destroyCards', count: 1 },
   },
   {
     kind: 'fabric',
     name: 'Silk',
     fabricType: 'Silk',
-    ability: { type: 'drawCards', count: 2 },
+    ability: { type: 'destroyCards', count: 1 },
   },
   {
     kind: 'fabric',
     name: 'Linen',
     fabricType: 'Linen',
-    ability: { type: 'makeMaterials', count: 2 },
+    ability: { type: 'destroyCards', count: 1 },
   },
   {
     kind: 'fabric',
     name: 'Cotton',
     fabricType: 'Cotton',
-    ability: { type: 'mixColors', count: 1 },
+    ability: { type: 'destroyCards', count: 1 },
   },
 ];
 
@@ -317,19 +137,19 @@ export const BASIC_DYE_CARDS: BasicDyeCard[] = [
     kind: 'basicDye',
     name: 'Basic Red',
     color: 'Red',
-    ability: { type: 'makeMaterials', count: 2 },
+    ability: { type: 'makeGarment' },
   },
   {
     kind: 'basicDye',
     name: 'Basic Yellow',
     color: 'Yellow',
-    ability: { type: 'makeMaterials', count: 2 },
+    ability: { type: 'makeGarment' },
   },
   {
     kind: 'basicDye',
     name: 'Basic Blue',
     color: 'Blue',
-    ability: { type: 'makeMaterials', count: 2 },
+    ability: { type: 'makeGarment' },
   },
 ];
 

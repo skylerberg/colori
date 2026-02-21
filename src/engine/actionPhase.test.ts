@@ -90,9 +90,9 @@ describe('destroyDraftedCard', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
 
-    // Basic Red has makeMaterials ability with count 2
-    const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
-    const instances = createCardInstances([basicRed]);
+    // Madder has makeMaterials ability with count 3
+    const madder = DYE_CARDS.find(c => c.name === 'Madder')!;
+    const instances = createCardInstances([madder]);
     state.players[0].draftedCards = instances;
 
     destroyDraftedCard(state, instances[0].instanceId);
@@ -206,25 +206,20 @@ describe('resolveDestroyCards', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
 
-    // Use a card that has drawCards ability so we can verify chaining
-    const brazilwood = DYE_CARDS.find(c => c.name === 'Brazilwood')!;
-    const instances = createCardInstances([brazilwood]);
+    // Use Madder which has makeMaterials x3 to verify chaining
+    const madder = DYE_CARDS.find(c => c.name === 'Madder')!;
+    const instances = createCardInstances([madder]);
     state.players[0].drawnCards = [...instances];
-
-    // Give player cards in their personal deck to draw from
-    const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
-    state.players[0].deck = createCardInstances([basicRed, basicRed]);
 
     const actionState = getActionState(state);
     actionState.pendingChoice = { type: 'chooseCardsToDestroy', count: 1 };
 
     resolveDestroyCards(state, [instances[0].instanceId]);
 
-    // Brazilwood has drawCards: 1, which auto-resolves
+    // Madder has makeMaterials: 3, which sets a pendingChoice
     expect(state.destroyedPile).toHaveLength(1);
-    // The drawCards ability should have drawn 1 card
-    expect(state.players[0].drawnCards).toHaveLength(1);
-    expect(state.players[0].deck).toHaveLength(1);
+    expect(actionState.pendingChoice).not.toBeNull();
+    expect(actionState.pendingChoice?.type).toBe('chooseCardsForMaterials');
   });
 });
 

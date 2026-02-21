@@ -10,8 +10,8 @@ import { createEmptyWheel, createEmptyFabrics } from './colorWheel';
  *   2 Basic Red, 2 Basic Yellow, 2 Basic Blue, 1 Wool, 1 Silk, 1 Linen, 1 Cotton.
  *
  * Draft deck contains:
- *   - 2 copies of each of the 39 dye cards (78 total)
- *   - 8 copies of each of the 4 fabric types (32 total)
+ *   - 4 copies of each of the 15 dye cards (60 total)
+ *   - 4 copies of each of the 4 fabric types (16 total)
  *
  * Garment deck: 1 copy of each of 39 garments (39 total).
  * Garment display: 6 cards dealt from the garment deck.
@@ -56,14 +56,16 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
   // Build draft deck
   const draftCards = [];
 
-  // 2 copies of each of 39 dye cards
+  // 4 copies of each of 15 dye cards
   for (const dye of DYE_CARDS) {
-    draftCards.push(dye, dye);
+    for (let i = 0; i < 4; i++) {
+      draftCards.push(dye);
+    }
   }
 
-  // 8 copies of each of 4 fabric types
+  // 4 copies of each of 4 fabric types
   for (const fabric of FABRIC_CARDS) {
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 4; i++) {
       draftCards.push(fabric);
     }
   }
