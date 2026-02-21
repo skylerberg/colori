@@ -14,14 +14,14 @@ describe('createInitialGameState', () => {
     expect(state.players[1].name).toBe('Bob');
   });
 
-  it('gives each player a deck of 8 cards', () => {
+  it('gives each player a deck of 10 cards', () => {
     const state = createInitialGameState(['Alice', 'Bob', 'Charlie']);
     for (const player of state.players) {
-      expect(player.deck).toHaveLength(8);
+      expect(player.deck).toHaveLength(10);
     }
   });
 
-  it('each player starts with 2 Basic Red, 2 Basic Yellow, 2 Basic Blue, 1 Wool, 1 Silk', () => {
+  it('each player starts with 2 Basic Red, 2 Basic Yellow, 2 Basic Blue, 1 Wool, 1 Silk, 1 Linen, 1 Cotton', () => {
     const state = createInitialGameState(['Alice']);
     const player = state.players[0];
     const cardNames = player.deck.map(c => c.card.name);
@@ -35,6 +35,8 @@ describe('createInitialGameState', () => {
       .map(c => (c.card as { fabricType: string }).fabricType);
     expect(fabricTypes).toContain('Wool');
     expect(fabricTypes).toContain('Silk');
+    expect(fabricTypes).toContain('Linen');
+    expect(fabricTypes).toContain('Cotton');
   });
 
   it('creates correct draft deck size for 2 players', () => {

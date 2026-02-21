@@ -6,8 +6,8 @@ import { createEmptyWheel, createEmptyFabrics } from './colorWheel';
 /**
  * Create the initial game state for a new game.
  *
- * Each player starts with a personal deck of 8 cards:
- *   2 Basic Red, 2 Basic Yellow, 2 Basic Blue, 1 Wool, 1 Silk.
+ * Each player starts with a personal deck of 10 cards:
+ *   2 Basic Red, 2 Basic Yellow, 2 Basic Blue, 1 Wool, 1 Silk, 1 Linen, 1 Cotton.
  *
  * Draft deck contains:
  *   - 2 copies of each of the 39 dye cards (78 total)
@@ -26,6 +26,8 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
   const basicBlue = BASIC_DYE_CARDS.find(c => c.name === 'Basic Blue')!;
   const woolCard = FABRIC_CARDS.find(c => c.fabricType === 'Wool')!;
   const silkCard = FABRIC_CARDS.find(c => c.fabricType === 'Silk')!;
+  const linenCard = FABRIC_CARDS.find(c => c.fabricType === 'Linen')!;
+  const cottonCard = FABRIC_CARDS.find(c => c.fabricType === 'Cotton')!;
 
   // Create players
   const players: PlayerState[] = playerNames.map(name => {
@@ -35,6 +37,8 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
       basicBlue, basicBlue,
       woolCard,
       silkCard,
+      linenCard,
+      cottonCard,
     ];
     const deck = shuffle(createCardInstances(personalCards));
     return {
