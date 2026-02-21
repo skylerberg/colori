@@ -13,6 +13,8 @@
   import DrawPhaseView from './DrawPhaseView.svelte';
   import DraftPhaseView from './DraftPhaseView.svelte';
   import ActionPhaseView from './ActionPhaseView.svelte';
+  import GameLog from './GameLog.svelte';
+  import { mixResult } from '../data/colors';
 
   let { gameState, onGameUpdated }: {
     gameState: GameState;
@@ -22,6 +24,11 @@
   let drawExecutedForRound: number | null = $state(null);
   let showDrawPhase = $state(false);
   let aiThinking = $state(false);
+  let gameLog: string[] = $state([]);
+
+  function addLog(entry: string) {
+    gameLog.push(entry);
+  }
 
   const aiController = new AIController();
 
@@ -32,6 +39,7 @@
   $effect(() => {
     if (gameState.phase.type === 'draw' && drawExecutedForRound !== gameState.round) {
       drawExecutedForRound = gameState.round;
+      addLog(`Round ${gameState.round} began`);
       executeDrawPhase(gameState);
       // Reset seenHands for the new draft round
       seenHands = new Map();
@@ -72,6 +80,8 @@
 
   // Apply an AI choice to the game state
   function applyAIChoice(choice: ColoriChoice) {
+    const playerIdx = getActivePlayerIndex(gameState);
+    const name = playerIdx >= 0 ? gameState.players[playerIdx].name : 'Unknown';
     switch (choice.type) {
       case 'draftPick':
         playerPick(gameState, choice.cardInstanceId);
@@ -79,33 +89,59 @@
           confirmPass(gameState);
         }
         break;
-      case 'destroyDraftedCard':
+      case 'destroyDraftedCard': {
+        const card = gameState.players[playerIdx].draftedCards.find(c => c.instanceId === choice.cardInstanceId);
+        addLog(`${name} destroyed ${card?.card.name ?? 'a card'} from drafted cards`);
         destroyDraftedCard(gameState, choice.cardInstanceId);
         break;
+      }
       case 'endTurn':
+        addLog(`${name} ended their turn`);
         endPlayerTurn(gameState);
         if (gameState.phase.type === 'draw') {
           // Will be handled by the draw phase effect
         }
         break;
-      case 'makeMaterials':
+      case 'makeMaterials': {
+        const cardNames = choice.cardInstanceIds.map(id => {
+          const c = gameState.players[playerIdx].drawnCards.find(c => c.instanceId === id);
+          return c?.card.name ?? 'a card';
+        });
+        addLog(`${name} stored materials from ${cardNames.join(', ')}`);
         resolveMakeMaterials(gameState, choice.cardInstanceIds);
         break;
-      case 'destroyDrawnCards':
+      }
+      case 'destroyDrawnCards': {
+        const cardNames = choice.cardInstanceIds.map(id => {
+          const c = gameState.players[playerIdx].drawnCards.find(c => c.instanceId === id);
+          return c?.card.name ?? 'a card';
+        });
+        addLog(`${name} destroyed ${cardNames.join(', ')} from drawn cards`);
         resolveDestroyCards(gameState, choice.cardInstanceIds);
         break;
-      case 'mix':
+      }
+      case 'mix': {
+        const result = mixResult(choice.colorA, choice.colorB);
+        addLog(`${name} mixed ${choice.colorA} + ${choice.colorB} to make ${result}`);
         resolveMixColors(gameState, choice.colorA, choice.colorB);
         break;
+      }
       case 'skipMix':
+        addLog(`${name} skipped remaining mixes`);
         skipMix(gameState);
         break;
       case 'chooseGarment':
         resolveChooseGarment(gameState, choice.garmentInstanceId);
         break;
-      case 'garmentPayment':
+      case 'garmentPayment': {
+        const pending = gameState.phase.type === 'action' ? gameState.phase.actionState.pendingChoice : null;
+        if (pending && pending.type === 'chooseGarmentPayment') {
+          const garment = gameState.garmentDisplay.find(g => g.instanceId === pending.garmentInstanceId);
+          addLog(`${name} completed ${garment?.card.name ?? 'a garment'}`);
+        }
         resolveGarmentPayment(gameState);
         break;
+      }
     }
     onGameUpdated(gameState);
   }
@@ -177,9 +213,13 @@
     {:else if gameState.phase.type === 'draft' && !isCurrentPlayerAI(gameState)}
       <DraftPhaseView {gameState} onGameUpdated={handleGameUpdated} />
     {:else if gameState.phase.type === 'action' && !isCurrentPlayerAI(gameState)}
-      <ActionPhaseView {gameState} onGameUpdated={handleGameUpdated} />
+      <ActionPhaseView {gameState} onGameUpdated={handleGameUpdated} onLog={addLog} />
     {/if}
   </div>
+
+  {#if gameLog.length > 0}
+    <GameLog entries={gameLog} />
+  {/if}
 </div>
 
 <style>

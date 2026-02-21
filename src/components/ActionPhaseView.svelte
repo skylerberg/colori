@@ -7,9 +7,10 @@
   import AbilityPrompt from './AbilityPrompt.svelte';
   import OpponentBoardPanel from './OpponentBoardPanel.svelte';
 
-  let { gameState, onGameUpdated }: {
+  let { gameState, onGameUpdated, onLog }: {
     gameState: GameState;
     onGameUpdated: () => void;
+    onLog: (entry: string) => void;
   } = $props();
 
   let actionState = $derived(
@@ -25,11 +26,14 @@
 
   function handleDestroyDrafted(cardInstanceId: number) {
     if (hasPendingChoice) return;
+    const card = currentPlayer?.draftedCards.find(c => c.instanceId === cardInstanceId);
+    onLog(`${currentPlayer?.name} destroyed ${card?.card.name ?? 'a card'} from drafted cards`);
     destroyDraftedCard(gameState, cardInstanceId);
     onGameUpdated();
   }
 
   function handleEndTurn() {
+    onLog(`${currentPlayer?.name} ended their turn`);
     endPlayerTurn(gameState);
     onGameUpdated();
   }
@@ -54,7 +58,7 @@
     </div>
 
     {#if hasPendingChoice}
-      <AbilityPrompt {gameState} onResolved={handleAbilityResolved} />
+      <AbilityPrompt {gameState} onResolved={handleAbilityResolved} {onLog} />
     {/if}
 
     <div class="sections">

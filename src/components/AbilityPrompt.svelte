@@ -1,14 +1,15 @@
 <script lang="ts">
   import type { GameState, Color, CardInstance } from '../data/types';
   import { resolveMakeMaterials, resolveMixColors, skipMix, resolveDestroyCards, resolveChooseGarment, resolveGarmentPayment } from '../engine/actionPhase';
-  import { canMix } from '../data/colors';
+  import { canMix, mixResult } from '../data/colors';
   import CardList from './CardList.svelte';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import GarmentDisplay from './GarmentDisplay.svelte';
 
-  let { gameState, onResolved }: {
+  let { gameState, onResolved, onLog }: {
     gameState: GameState;
     onResolved: () => void;
+    onLog: (entry: string) => void;
   } = $props();
 
   let actionState = $derived(
@@ -51,6 +52,11 @@
   }
 
   function confirmMaterials() {
+    const cardNames = selectedMaterialIds.map(id => {
+      const c = currentPlayer?.drawnCards.find(c => c.instanceId === id);
+      return c?.card.name ?? 'a card';
+    });
+    onLog(`${currentPlayer?.name} stored materials from ${cardNames.join(', ')}`);
     resolveMakeMaterials(gameState, selectedMaterialIds);
     onResolved();
   }
@@ -67,6 +73,11 @@
   }
 
   function confirmDestroy() {
+    const cardNames = selectedDestroyIds.map(id => {
+      const c = currentPlayer?.drawnCards.find(c => c.instanceId === id);
+      return c?.card.name ?? 'a card';
+    });
+    onLog(`${currentPlayer?.name} destroyed ${cardNames.join(', ')} from drawn cards`);
     resolveDestroyCards(gameState, selectedDestroyIds);
     onResolved();
   }
@@ -82,6 +93,8 @@
         selectedMixColors = [];
       } else if (canMix(first, color) && currentPlayer && currentPlayer.colorWheel[first] > 0 && currentPlayer.colorWheel[color] > 0) {
         // Perform mix
+        const result = mixResult(first, color);
+        onLog(`${currentPlayer.name} mixed ${first} + ${color} to make ${result}`);
         resolveMixColors(gameState, first, color);
         selectedMixColors = [];
         onResolved();
@@ -93,6 +106,7 @@
   }
 
   function handleSkipMix() {
+    onLog(`${currentPlayer?.name} skipped remaining mixes`);
     skipMix(gameState);
     onResolved();
   }
@@ -105,6 +119,11 @@
 
   // -- Garment Payment --
   function confirmGarmentPayment() {
+    const pending = actionState?.pendingChoice;
+    if (pending && pending.type === 'chooseGarmentPayment') {
+      const garment = gameState.garmentDisplay.find(g => g.instanceId === pending.garmentInstanceId);
+      onLog(`${currentPlayer?.name} completed ${garment?.card.name ?? 'a garment'}`);
+    }
     resolveGarmentPayment(gameState);
     onResolved();
   }
