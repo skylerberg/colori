@@ -78,7 +78,7 @@ export const DYE_CARDS: DyeCard[] = [
     kind: 'dye',
     name: 'Vermilion (Mineral)',
     colors: ['Red', 'Vermilion', 'Vermilion'],
-    ability: { type: 'destroyCards', count: 2 },
+    ability: { type: 'destroyCards', count: 1 },
   },
   // 11
   {
@@ -267,7 +267,7 @@ export const DYE_CARDS: DyeCard[] = [
     kind: 'dye',
     name: 'Iron Black',
     colors: ['Blue', 'Purple', 'Indigo'],
-    ability: { type: 'destroyCards', count: 2 },
+    ability: { type: 'destroyCards', count: 1 },
   },
   // 38
   {
