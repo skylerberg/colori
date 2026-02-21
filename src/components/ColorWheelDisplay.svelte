@@ -2,18 +2,18 @@
   import type { Color } from '../data/types';
   import { WHEEL_ORDER, colorToHex } from '../data/colors';
 
-  let { wheel, interactive = false, onColorClick, selectedColors = [] }: {
+  let { wheel, interactive = false, onColorClick, selectedColors = [], size = 200 }: {
     wheel: Record<Color, number>;
     interactive?: boolean;
     onColorClick?: (color: Color) => void;
     selectedColors?: Color[];
+    size?: number;
   } = $props();
 
-  const size = 200;
-  const cx = size / 2;
-  const cy = size / 2;
-  const outerRadius = 85;
-  const innerRadius = 45;
+  let cx = $derived(size / 2);
+  let cy = $derived(size / 2);
+  let outerRadius = $derived(size * 0.425);
+  let innerRadius = $derived(size * 0.225);
 
   function segmentPath(index: number): string {
     const angleStep = (2 * Math.PI) / 12;
@@ -71,7 +71,7 @@
         y={pos.y}
         text-anchor="middle"
         dominant-baseline="central"
-        font-size="11"
+        font-size={Math.round(size * 0.055)}
         font-weight="bold"
         fill={wheel[color] > 0 ? '#fff' : '#999'}
         stroke={wheel[color] > 0 ? 'rgba(0,0,0,0.5)' : 'none'}

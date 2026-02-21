@@ -5,6 +5,7 @@
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import GarmentDisplay from './GarmentDisplay.svelte';
   import AbilityPrompt from './AbilityPrompt.svelte';
+  import OpponentBoardPanel from './OpponentBoardPanel.svelte';
 
   let { gameState, onGameUpdated }: {
     gameState: GameState;
@@ -89,6 +90,17 @@
         <div class="garment-section">
           <GarmentDisplay garments={gameState.garmentDisplay} />
         </div>
+      </div>
+    </div>
+
+    <div class="opponents-section">
+      <h3>Other Players</h3>
+      <div class="opponents-list">
+        {#each gameState.players as player, i}
+          {#if i !== actionState.currentPlayerIndex}
+            <OpponentBoardPanel {player} />
+          {/if}
+        {/each}
       </div>
     </div>
 
@@ -234,5 +246,22 @@
   .end-turn-btn:disabled {
     background: #ccc;
     cursor: not-allowed;
+  }
+
+  .opponents-section {
+    border-top: 2px solid #e0e0e0;
+    padding-top: 1rem;
+  }
+
+  .opponents-section h3 {
+    font-size: 0.85rem;
+    color: #888;
+    margin-bottom: 8px;
+  }
+
+  .opponents-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
 </style>

@@ -4,6 +4,7 @@
   import CardList from './CardList.svelte';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import GarmentDisplay from './GarmentDisplay.svelte';
+  import OpponentBoardPanel from './OpponentBoardPanel.svelte';
   import PassScreen from './PassScreen.svelte';
 
   let { gameState, onGameUpdated }: {
@@ -91,6 +92,17 @@
       <div class="section">
         <h3>Drawn Cards</h3>
         <CardList cards={currentPlayer?.drawnCards ?? []} />
+      </div>
+
+      <div class="opponents-section">
+        <h3>Other Players</h3>
+        <div class="opponents-list">
+          {#each gameState.players as player, i}
+            {#if i !== draftState.currentPlayerIndex}
+              <OpponentBoardPanel {player} />
+            {/if}
+          {/each}
+        </div>
       </div>
     </div>
   {/if}
@@ -198,5 +210,22 @@
 
   .fabric-count {
     font-weight: 600;
+  }
+
+  .opponents-section {
+    border-top: 2px solid #e0e0e0;
+    padding-top: 1rem;
+  }
+
+  .opponents-section h3 {
+    font-size: 0.85rem;
+    color: #888;
+    margin-bottom: 8px;
+  }
+
+  .opponents-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
 </style>
