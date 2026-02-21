@@ -12,7 +12,6 @@ import { createEmptyWheel } from './colorWheel';
  * Draft deck contains:
  *   - 2 copies of each of the 39 dye cards (78 total)
  *   - 6 copies of each of the 4 fabric types (24 total)
- *   - (20 - 2*N) copies of each of the 3 basic dyes for N players
  *
  * Garment deck: 2 copies of each of 39 garments (78 total).
  * Garment display: 6 cards dealt from the garment deck.
@@ -61,14 +60,6 @@ export function createInitialGameState(playerNames: string[]): GameState {
   for (const fabric of FABRIC_CARDS) {
     for (let i = 0; i < 6; i++) {
       draftCards.push(fabric);
-    }
-  }
-
-  // (20 - 2*N) copies of each basic dye
-  const basicDyeCopies = 20 - 2 * numPlayers;
-  for (const basic of BASIC_DYE_CARDS) {
-    for (let i = 0; i < basicDyeCopies; i++) {
-      draftCards.push(basic);
     }
   }
 

@@ -58,17 +58,17 @@
 
     <div class="sections">
       <div class="section">
-        <h3>Drawn Cards</h3>
-        <CardList cards={currentPlayer.drawnCards} />
-      </div>
-
-      <div class="section">
         <h3>Drafted Cards <span class="hint">(click to destroy and activate ability)</span></h3>
         <CardList
           cards={currentPlayer.draftedCards}
           selectable={!hasPendingChoice}
           onCardClick={handleDestroyDrafted}
         />
+      </div>
+
+      <div class="section">
+        <h3>Drawn Cards</h3>
+        <CardList cards={currentPlayer.drawnCards} />
       </div>
 
       <div class="section side-by-side">
