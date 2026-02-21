@@ -104,7 +104,7 @@
         resolveChooseGarment(gameState, choice.garmentInstanceId);
         break;
       case 'garmentPayment':
-        resolveGarmentPayment(gameState, choice.fabricCardId, choice.paymentType, choice.dyeCardId);
+        resolveGarmentPayment(gameState, choice.fabricCardId);
         break;
     }
     onGameUpdated(gameState);

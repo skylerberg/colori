@@ -11,7 +11,6 @@ function makePlayerWithGarments(name: string, stars: number[]): PlayerState {
       name: `Garment ${i}`,
       stars: s,
       requiredFabric: 'Wool' as const,
-      matchingDyeName: 'Kermes',
       colorCost: [],
     },
   }));

@@ -1,4 +1,4 @@
-import type { GameState, ActionState, Ability, Color, CardInstance, GarmentCard } from '../data/types';
+import type { GameState, ActionState, Ability, Color, CardInstance } from '../data/types';
 import { getCardPips } from '../data/cards';
 import { drawFromDeck } from './deckUtils';
 import { storeColor, performMix, canPayCost, payCost } from './colorWheel';
@@ -105,8 +105,8 @@ export function processQueue(state: GameState): void {
 
 /**
  * Check if the current player can make any garment from the display.
- * Player needs a matching fabric in drawnCards and can pay for at least one
- * garment (either via colorWheel or via a matching dye in drawnCards).
+ * Player needs a matching fabric in drawnCards and can pay the color cost
+ * from the color wheel.
  */
 function canMakeAnyGarment(state: GameState): boolean {
   const actionState = getActionState(state);
@@ -123,12 +123,6 @@ function canMakeAnyGarment(state: GameState): boolean {
 
     // Check if player can pay via colorWheel
     if (canPayCost(player.colorWheel, garment.colorCost)) return true;
-
-    // Check if player has a matching dye card in drawnCards
-    const hasMatchingDye = player.drawnCards.some(
-      c => (c.card.kind === 'dye' || c.card.kind === 'basicDye') && c.card.name === garment.matchingDyeName
-    );
-    if (hasMatchingDye) return true;
   }
 
   return false;
@@ -232,8 +226,7 @@ export function resolveChooseGarment(state: GameState, garmentInstanceId: number
 /**
  * Resolve garment payment.
  * - Remove the fabric card from drawnCards, move to discard.
- * - If paymentType === 'colorWheel': pay the garment's colorCost from the wheel.
- * - If paymentType === 'dyeCard': remove the matching dye card from drawnCards, move to discard.
+ * - Pay the garment's colorCost from the wheel.
  * - Move garment from garmentDisplay to player's completedGarments.
  * - Refill garment display from garment deck (if available).
  * - Clear pendingChoice. Process queue.
@@ -241,8 +234,6 @@ export function resolveChooseGarment(state: GameState, garmentInstanceId: number
 export function resolveGarmentPayment(
   state: GameState,
   fabricCardId: number,
-  paymentType: 'colorWheel' | 'dyeCard',
-  dyeCardId?: number,
 ): void {
   const actionState = getActionState(state);
   const player = state.players[actionState.currentPlayerIndex];
@@ -267,22 +258,10 @@ export function resolveGarmentPayment(
   }
   const garment = state.garmentDisplay[garmentIndex];
 
-  // Pay for the garment
-  if (paymentType === 'colorWheel') {
-    const success = payCost(player.colorWheel, garment.card.colorCost);
-    if (!success) {
-      throw new Error('Cannot pay garment color cost from color wheel');
-    }
-  } else if (paymentType === 'dyeCard') {
-    if (dyeCardId === undefined) {
-      throw new Error('dyeCardId required when paying with dyeCard');
-    }
-    const dyeIndex = player.drawnCards.findIndex(c => c.instanceId === dyeCardId);
-    if (dyeIndex === -1) {
-      throw new Error(`Dye card ${dyeCardId} not found in player's drawnCards`);
-    }
-    const [dyeCard] = player.drawnCards.splice(dyeIndex, 1);
-    player.discard.push(dyeCard);
+  // Pay the color cost from the wheel
+  const success = payCost(player.colorWheel, garment.card.colorCost);
+  if (!success) {
+    throw new Error('Cannot pay garment color cost from color wheel');
   }
 
   // Move garment from display to completed garments

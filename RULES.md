@@ -146,9 +146,7 @@ You **must** make a garment if you are able to. If you cannot afford any garment
 To make a garment:
 1. Choose a garment from the 6 face-up garments in the display.
 2. Discard a fabric card of the required type from your **drawn cards**.
-3. Pay the color cost using **one** of these methods:
-   - **From the color wheel**: Remove the required colors from your wheel.
-   - **From drawn cards**: Discard the matching dye card (the dye the garment is named after) from your drawn cards. This replaces the entire color cost.
+3. Pay the color cost by removing the required colors from your color wheel.
 4. The garment goes into your **discard pile** (it will cycle through your deck but has no useful effect — it clogs your deck).
 5. Immediately refill the garment display from the garment deck.
 
@@ -223,7 +221,7 @@ After 8 rounds, the game ends. Each player totals the stars on all garments they
 
 ### Garment Cards (39 unique, 2 copies each)
 
-Each garment is associated with a dye card. The color cost is the dye's colors × 2. The garment can be paid for by discarding the matching dye from drawn cards instead of paying from the color wheel.
+Each garment is associated with a dye card. The color cost is the dye's colors × 2.
 
 | # | Name | Fabric | Color Cost | Stars |
 |---|------|--------|------------|-------|

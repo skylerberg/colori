@@ -340,7 +340,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Kermes Crimson Robe',
     stars: 5,
     requiredFabric: 'Silk',
-    matchingDyeName: 'Kermes',
     colorCost: ['Red', 'Red', 'Red', 'Red', 'Red', 'Red'],
   },
   // 2 - Cochineal
@@ -349,7 +348,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Cochineal Magenta Gown',
     stars: 4,
     requiredFabric: 'Silk',
-    matchingDyeName: 'Cochineal',
     colorCost: ['Red', 'Red', 'Red', 'Red', 'Magenta', 'Magenta'],
   },
   // 3 - Madder
@@ -358,7 +356,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Madder Red Doublet',
     stars: 3,
     requiredFabric: 'Wool',
-    matchingDyeName: 'Madder',
     colorCost: ['Red', 'Red', 'Red', 'Red', 'Vermilion', 'Vermilion'],
   },
   // 4 - Brazilwood
@@ -367,7 +364,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Brazilwood Rose Cloak',
     stars: 2,
     requiredFabric: 'Wool',
-    matchingDyeName: 'Brazilwood',
     colorCost: ['Red', 'Red', 'Red', 'Red'],
   },
   // 5 - Lac
@@ -376,7 +372,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Lac Crimson Sash',
     stars: 4,
     requiredFabric: 'Silk',
-    matchingDyeName: 'Lac',
     colorCost: ['Red', 'Red', 'Red', 'Red', 'Magenta', 'Magenta'],
   },
   // 6 - Safflower
@@ -385,7 +380,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Safflower Pink Veil',
     stars: 2,
     requiredFabric: 'Silk',
-    matchingDyeName: 'Safflower',
     colorCost: ['Red', 'Red', 'Magenta', 'Magenta'],
   },
   // 7 - Alkanet
@@ -394,7 +388,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Alkanet Violet Bodice',
     stars: 2,
     requiredFabric: 'Linen',
-    matchingDyeName: 'Alkanet',
     colorCost: ['Red', 'Red', 'Purple', 'Purple'],
   },
   // 8 - Dragon's Blood
@@ -403,7 +396,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: "Dragon's Blood Scarlet Cape",
     stars: 3,
     requiredFabric: 'Wool',
-    matchingDyeName: "Dragon's Blood",
     colorCost: ['Red', 'Red', 'Red', 'Red', 'Vermilion', 'Vermilion'],
   },
   // 9 - Venetian Red Earth
@@ -412,7 +404,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Venetian Earth Russet Tunic',
     stars: 3,
     requiredFabric: 'Linen',
-    matchingDyeName: 'Venetian Red Earth',
     colorCost: ['Red', 'Red', 'Vermilion', 'Vermilion', 'Amber', 'Amber'],
   },
   // 10 - Vermilion (Mineral)
@@ -421,7 +412,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Vermilion Ceremonial Stole',
     stars: 4,
     requiredFabric: 'Silk',
-    matchingDyeName: 'Vermilion (Mineral)',
     colorCost: ['Red', 'Red', 'Vermilion', 'Vermilion', 'Vermilion', 'Vermilion'],
   },
   // 11 - Woad
@@ -430,7 +420,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: "Woad Blue Workman's Apron",
     stars: 2,
     requiredFabric: 'Linen',
-    matchingDyeName: 'Woad',
     colorCost: ['Blue', 'Blue', 'Blue', 'Blue'],
   },
   // 12 - Indigo
@@ -439,7 +428,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: "Indigo Merchant's Coat",
     stars: 4,
     requiredFabric: 'Wool',
-    matchingDyeName: 'Indigo',
     colorCost: ['Blue', 'Blue', 'Blue', 'Blue', 'Indigo', 'Indigo'],
   },
   // 13 - Smalt
@@ -448,7 +436,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Smalt Blue Brocade Vest',
     stars: 4,
     requiredFabric: 'Silk',
-    matchingDyeName: 'Smalt',
     colorCost: ['Blue', 'Blue', 'Blue', 'Blue', 'Indigo', 'Indigo'],
   },
   // 14 - Azurite
@@ -457,7 +444,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Azurite Sky-Blue Mantle',
     stars: 3,
     requiredFabric: 'Wool',
-    matchingDyeName: 'Azurite',
     colorCost: ['Blue', 'Blue', 'Blue', 'Blue', 'Teal', 'Teal'],
   },
   // 15 - Logwood
@@ -466,7 +452,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Logwood Twilight Cassock',
     stars: 4,
     requiredFabric: 'Wool',
-    matchingDyeName: 'Logwood',
     colorCost: ['Blue', 'Blue', 'Indigo', 'Indigo', 'Purple', 'Purple'],
   },
   // 16 - Weld
@@ -475,7 +460,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Weld Golden Festival Dress',
     stars: 5,
     requiredFabric: 'Linen',
-    matchingDyeName: 'Weld',
     colorCost: ['Yellow', 'Yellow', 'Yellow', 'Yellow', 'Yellow', 'Yellow'],
   },
   // 17 - Saffron
@@ -484,7 +468,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Saffron Gold Silk Turban',
     stars: 4,
     requiredFabric: 'Silk',
-    matchingDyeName: 'Saffron',
     colorCost: ['Yellow', 'Yellow', 'Yellow', 'Yellow', 'Amber', 'Amber'],
   },
   // 18 - Turmeric
@@ -493,7 +476,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Turmeric Amber Headscarf',
     stars: 3,
     requiredFabric: 'Cotton',
-    matchingDyeName: 'Turmeric',
     colorCost: ['Yellow', 'Yellow', 'Amber', 'Amber', 'Orange', 'Orange'],
   },
   // 19 - Dyer's Broom
@@ -502,7 +484,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: "Dyer's Broom Yellow Kirtle",
     stars: 2,
     requiredFabric: 'Wool',
-    matchingDyeName: "Dyer's Broom",
     colorCost: ['Yellow', 'Yellow', 'Yellow', 'Yellow'],
   },
   // 20 - Spanish Broom
@@ -511,7 +492,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Spanish Broom Sunlight Shawl',
     stars: 2,
     requiredFabric: 'Wool',
-    matchingDyeName: 'Spanish Broom',
     colorCost: ['Yellow', 'Yellow', 'Yellow', 'Yellow'],
   },
   // 21 - Old Fustic
@@ -520,7 +500,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Old Fustic Amber Jerkin',
     stars: 3,
     requiredFabric: 'Wool',
-    matchingDyeName: 'Old Fustic',
     colorCost: ['Yellow', 'Yellow', 'Yellow', 'Yellow', 'Amber', 'Amber'],
   },
   // 22 - Venetian Sumac
@@ -529,7 +508,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Venetian Sumac Harvest Skirt',
     stars: 3,
     requiredFabric: 'Linen',
-    matchingDyeName: 'Venetian Sumac',
     colorCost: ['Yellow', 'Yellow', 'Amber', 'Amber', 'Orange', 'Orange'],
   },
   // 23 - Persian Berries
@@ -538,7 +516,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Persian Berry Chartreuse Sleeve',
     stars: 3,
     requiredFabric: 'Silk',
-    matchingDyeName: 'Persian Berries',
     colorCost: ['Yellow', 'Yellow', 'Chartreuse', 'Chartreuse'],
   },
   // 24 - Tyrian Purple
@@ -547,7 +524,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Tyrian Purple Imperial Toga',
     stars: 5,
     requiredFabric: 'Silk',
-    matchingDyeName: 'Tyrian Purple',
     colorCost: ['Purple', 'Purple', 'Purple', 'Purple', 'Magenta', 'Magenta'],
   },
   // 25 - Orchil
@@ -556,7 +532,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Orchil Plum Petticoat',
     stars: 3,
     requiredFabric: 'Wool',
-    matchingDyeName: 'Orchil',
     colorCost: ['Purple', 'Purple', 'Magenta', 'Magenta', 'Red', 'Red'],
   },
   // 26 - Turnsole
@@ -565,7 +540,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Turnsole Violet Hood',
     stars: 2,
     requiredFabric: 'Wool',
-    matchingDyeName: 'Turnsole',
     colorCost: ['Purple', 'Purple', 'Purple', 'Purple'],
   },
   // 27 - Elderberry
@@ -574,7 +548,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Elderberry Dusk Stockings',
     stars: 3,
     requiredFabric: 'Wool',
-    matchingDyeName: 'Elderberry',
     colorCost: ['Purple', 'Purple', 'Indigo', 'Indigo'],
   },
   // 28 - Verdigris
@@ -583,7 +556,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Verdigris Copper-Green Surcoat',
     stars: 3,
     requiredFabric: 'Linen',
-    matchingDyeName: 'Verdigris',
     colorCost: ['Green', 'Green', 'Green', 'Green', 'Teal', 'Teal'],
   },
   // 29 - Lincoln Green
@@ -592,7 +564,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: "Lincoln Green Huntsman's Coat",
     stars: 4,
     requiredFabric: 'Wool',
-    matchingDyeName: 'Lincoln Green',
     colorCost: ['Green', 'Green', 'Teal', 'Teal', 'Blue', 'Blue'],
   },
   // 30 - Saxon Green
@@ -601,7 +572,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Saxon Green Emerald Gown',
     stars: 5,
     requiredFabric: 'Silk',
-    matchingDyeName: 'Saxon Green',
     colorCost: ['Green', 'Green', 'Green', 'Green', 'Chartreuse', 'Chartreuse'],
   },
   // 31 - Gall Nuts
@@ -610,7 +580,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Gall Nut Tan Breeches',
     stars: 1,
     requiredFabric: 'Linen',
-    matchingDyeName: 'Gall Nuts',
     colorCost: ['Yellow', 'Yellow', 'Amber', 'Amber'],
   },
   // 32 - Walnut Hulls
@@ -619,7 +588,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: "Walnut Brown Traveler's Cloak",
     stars: 3,
     requiredFabric: 'Wool',
-    matchingDyeName: 'Walnut Hulls',
     colorCost: ['Vermilion', 'Vermilion', 'Amber', 'Amber', 'Orange', 'Orange'],
   },
   // 33 - Oak Bark
@@ -628,7 +596,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Oak Bark Tawny Coif',
     stars: 1,
     requiredFabric: 'Linen',
-    matchingDyeName: 'Oak Bark',
     colorCost: ['Yellow', 'Yellow', 'Amber', 'Amber'],
   },
   // 34 - Cutch
@@ -637,7 +604,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Catechu Cinnamon Gloves',
     stars: 3,
     requiredFabric: 'Wool',
-    matchingDyeName: 'Cutch',
     colorCost: ['Red', 'Red', 'Amber', 'Amber', 'Orange', 'Orange'],
   },
   // 35 - Chestnut
@@ -646,7 +612,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Chestnut Autumn Vest',
     stars: 2,
     requiredFabric: 'Cotton',
-    matchingDyeName: 'Chestnut',
     colorCost: ['Amber', 'Amber', 'Orange', 'Orange'],
   },
   // 36 - Alder Bark
@@ -655,7 +620,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Alder Bark Russet Apron',
     stars: 2,
     requiredFabric: 'Linen',
-    matchingDyeName: 'Alder Bark',
     colorCost: ['Red', 'Red', 'Amber', 'Amber'],
   },
   // 37 - Iron Black
@@ -664,7 +628,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: "Iron Black Magistrate's Mantle",
     stars: 5,
     requiredFabric: 'Wool',
-    matchingDyeName: 'Iron Black',
     colorCost: ['Blue', 'Blue', 'Purple', 'Purple', 'Indigo', 'Indigo'],
   },
   // 38 - Annatto
@@ -673,7 +636,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Annatto Sunset Bandana',
     stars: 3,
     requiredFabric: 'Cotton',
-    matchingDyeName: 'Annatto',
     colorCost: ['Orange', 'Orange', 'Amber', 'Amber', 'Yellow', 'Yellow'],
   },
   // 39 - Henna
@@ -682,7 +644,6 @@ export const GARMENT_CARDS: GarmentCard[] = [
     name: 'Henna Terra Cotta Sash',
     stars: 2,
     requiredFabric: 'Cotton',
-    matchingDyeName: 'Henna',
     colorCost: ['Orange', 'Orange', 'Vermilion', 'Vermilion'],
   },
 ];

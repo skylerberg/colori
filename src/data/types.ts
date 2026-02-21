@@ -36,8 +36,7 @@ export interface GarmentCard {
   name: string;
   stars: number;
   requiredFabric: FabricType;
-  matchingDyeName: string;     // dye card name that can substitute for color cost
-  colorCost: Color[];          // dye's colors × 2
+  colorCost: Color[];
 }
 
 export type AnyCard = DyeCard | BasicDyeCard | FabricCard | GarmentCard;

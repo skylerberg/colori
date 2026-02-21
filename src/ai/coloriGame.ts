@@ -27,7 +27,7 @@ export type ColoriChoice =
   | { type: 'mix'; colorA: Color; colorB: Color }
   | { type: 'skipMix' }
   | { type: 'chooseGarment'; garmentInstanceId: number }
-  | { type: 'garmentPayment'; fabricCardId: number; paymentType: 'colorWheel' | 'dyeCard'; dyeCardId?: number };
+  | { type: 'garmentPayment'; fabricCardId: number };
 
 // ── Deep clone ──
 
@@ -116,10 +116,7 @@ function canAffordGarment(
     c => c.card.kind === 'fabric' && c.card.fabricType === garment.requiredFabric,
   );
   if (!hasFabric) return false;
-  if (canPayCost(player.colorWheel, garment.colorCost)) return true;
-  return player.drawnCards.some(
-    c => (c.card.kind === 'dye' || c.card.kind === 'basicDye') && c.card.name === garment.matchingDyeName,
-  );
+  return canPayCost(player.colorWheel, garment.colorCost);
 }
 
 // ── Choice enumeration ──
@@ -204,19 +201,7 @@ function enumerateChoices(state: GameState): ColoriChoice[] {
             choices.push({
               type: 'garmentPayment',
               fabricCardId: fabric.instanceId,
-              paymentType: 'colorWheel',
             });
-          }
-
-          for (const dye of player.drawnCards) {
-            if ((dye.card.kind === 'dye' || dye.card.kind === 'basicDye') && dye.card.name === garment.matchingDyeName) {
-              choices.push({
-                type: 'garmentPayment',
-                fabricCardId: fabric.instanceId,
-                paymentType: 'dyeCard',
-                dyeCardId: dye.instanceId,
-              });
-            }
           }
         }
         return choices;
@@ -248,7 +233,7 @@ function choiceToKey(choice: ColoriChoice): string {
     case 'chooseGarment':
       return `chooseGarment:${choice.garmentInstanceId}`;
     case 'garmentPayment':
-      return `garmentPayment:${choice.fabricCardId}:${choice.paymentType}:${choice.dyeCardId ?? ''}`;
+      return `garmentPayment:${choice.fabricCardId}`;
   }
 }
 
@@ -290,7 +275,7 @@ function applyChoiceToState(state: GameState, choice: ColoriChoice): void {
       resolveChooseGarment(state, choice.garmentInstanceId);
       break;
     case 'garmentPayment':
-      resolveGarmentPayment(state, choice.fabricCardId, choice.paymentType, choice.dyeCardId);
+      resolveGarmentPayment(state, choice.fabricCardId);
       break;
   }
 }
@@ -341,11 +326,6 @@ function checkChoiceAvailable(state: GameState, choice: ColoriChoice): boolean {
       const player = state.players[state.phase.actionState.currentPlayerIndex];
       const hasFabric = player.drawnCards.some(c => c.instanceId === choice.fabricCardId);
       if (!hasFabric) return false;
-      if (choice.paymentType === 'dyeCard') {
-        return choice.dyeCardId !== undefined &&
-               player.drawnCards.some(c => c.instanceId === choice.dyeCardId);
-      }
-      if (state.phase.type !== 'action') return false;
       const pending = state.phase.actionState.pendingChoice;
       if (!pending || pending.type !== 'chooseGarmentPayment') return false;
       const garmentInst = state.garmentDisplay.find(g => g.instanceId === pending.garmentInstanceId);
@@ -545,23 +525,18 @@ function getRolloutChoice(state: GameState): ColoriChoice {
         const garmentInst = state.garmentDisplay.find(g => g.instanceId === pending.garmentInstanceId);
         if (!garmentInst) {
           // Fallback
-          return { type: 'garmentPayment', fabricCardId: 0, paymentType: 'colorWheel' };
+          return { type: 'garmentPayment', fabricCardId: 0 };
         }
         const garment = garmentInst.card;
         const options: ColoriChoice[] = [];
         for (const fabric of player.drawnCards) {
           if (fabric.card.kind !== 'fabric' || fabric.card.fabricType !== garment.requiredFabric) continue;
           if (canPayCost(player.colorWheel, garment.colorCost)) {
-            options.push({ type: 'garmentPayment', fabricCardId: fabric.instanceId, paymentType: 'colorWheel' });
-          }
-          for (const dye of player.drawnCards) {
-            if ((dye.card.kind === 'dye' || dye.card.kind === 'basicDye') && dye.card.name === garment.matchingDyeName) {
-              options.push({ type: 'garmentPayment', fabricCardId: fabric.instanceId, paymentType: 'dyeCard', dyeCardId: dye.instanceId });
-            }
+            options.push({ type: 'garmentPayment', fabricCardId: fabric.instanceId });
           }
         }
         if (options.length === 0) {
-          return { type: 'garmentPayment', fabricCardId: 0, paymentType: 'colorWheel' };
+          return { type: 'garmentPayment', fabricCardId: 0 };
         }
         return options[Math.floor(Math.random() * options.length)];
       }

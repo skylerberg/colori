@@ -2,7 +2,6 @@
   import type { GameState, Color, CardInstance } from '../data/types';
   import { resolveStoreColors, resolveMixColors, skipMix, resolveDestroyCards, resolveChooseGarment, resolveGarmentPayment } from '../engine/actionPhase';
   import { canMix } from '../data/colors';
-  import { canPayCost } from '../engine/colorWheel';
   import CardList from './CardList.svelte';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import GarmentDisplay from './GarmentDisplay.svelte';
@@ -33,8 +32,6 @@
 
   // Garment payment state
   let selectedFabricId: number | null = $state(null);
-  let paymentType: 'colorWheel' | 'dyeCard' | null = $state(null);
-  let selectedDyeId: number | null = $state(null);
 
   // Reset local state when pendingChoice changes
   $effect(() => {
@@ -44,8 +41,6 @@
     selectedDestroyIds = [];
     selectedMixColors = [];
     selectedFabricId = null;
-    paymentType = null;
-    selectedDyeId = null;
   });
 
   // -- Store Colors --
@@ -128,45 +123,13 @@
       : []
   );
 
-  let matchingDyes = $derived(
-    currentPlayer && pendingChoice?.type === 'chooseGarmentPayment' && garmentForPayment()
-      ? currentPlayer.drawnCards.filter(
-          c => (c.card.kind === 'dye' || c.card.kind === 'basicDye') && c.card.name === garmentForPayment()!.card.matchingDyeName
-        )
-      : []
-  );
-
-  let canPayWithWheel = $derived(
-    currentPlayer && pendingChoice?.type === 'chooseGarmentPayment' && garmentForPayment()
-      ? canPayCost(currentPlayer.colorWheel, garmentForPayment()!.card.colorCost)
-      : false
-  );
-
   function selectFabric(id: number) {
     selectedFabricId = id;
   }
 
-  function selectPaymentType(type: 'colorWheel' | 'dyeCard') {
-    paymentType = type;
-    if (type === 'colorWheel') {
-      selectedDyeId = null;
-    }
-  }
-
-  function selectDyeCard(id: number) {
-    selectedDyeId = id;
-    paymentType = 'dyeCard';
-  }
-
   function confirmGarmentPayment() {
-    if (selectedFabricId === null || paymentType === null) return;
-    if (paymentType === 'dyeCard' && selectedDyeId === null) return;
-    resolveGarmentPayment(
-      gameState,
-      selectedFabricId,
-      paymentType,
-      paymentType === 'dyeCard' ? selectedDyeId! : undefined
-    );
+    if (selectedFabricId === null) return;
+    resolveGarmentPayment(gameState, selectedFabricId);
     onResolved();
   }
 </script>
@@ -238,7 +201,7 @@
 
         {#if garmentForPayment()}
           <div class="payment-step">
-            <h4>1. Select a {garmentForPayment()!.card.requiredFabric} fabric card:</h4>
+            <h4>Select a {garmentForPayment()!.card.requiredFabric} fabric card:</h4>
             <CardList
               cards={availableFabrics}
               selectable={true}
@@ -248,36 +211,9 @@
           </div>
 
           {#if selectedFabricId !== null}
-            <div class="payment-step">
-              <h4>2. Choose payment method:</h4>
-              <div class="payment-options">
-                {#if canPayWithWheel}
-                  <button
-                    class="payment-btn"
-                    class:active={paymentType === 'colorWheel'}
-                    onclick={() => selectPaymentType('colorWheel')}
-                  >
-                    Pay with Color Wheel
-                  </button>
-                {/if}
-                {#if matchingDyes.length > 0}
-                  <div class="dye-payment">
-                    <p>Or pay with matching dye card:</p>
-                    <CardList
-                      cards={matchingDyes}
-                      selectable={true}
-                      selectedIds={selectedDyeId !== null ? [selectedDyeId] : []}
-                      onCardClick={selectDyeCard}
-                    />
-                  </div>
-                {/if}
-              </div>
-            </div>
-
             <button
               class="confirm-btn"
               onclick={confirmGarmentPayment}
-              disabled={paymentType === null || (paymentType === 'dyeCard' && selectedDyeId === null)}
             >
               Confirm Payment
             </button>
@@ -361,30 +297,4 @@
     padding-top: 10px;
   }
 
-  .payment-options {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .payment-btn {
-    padding: 8px 16px;
-    border: 2px solid #ccc;
-    border-radius: 6px;
-    background: #fff;
-    font-weight: 600;
-    align-self: flex-start;
-  }
-
-  .payment-btn.active {
-    border-color: #2a6bcf;
-    background: #eef3ff;
-    color: #2a6bcf;
-  }
-
-  .dye-payment p {
-    font-size: 0.8rem;
-    color: #666;
-    text-align: left;
-  }
 </style>
