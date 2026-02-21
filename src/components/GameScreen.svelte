@@ -147,7 +147,7 @@
     aiThinking = true;
     const playerSeenHands = seenHands.get(playerIdx);
 
-    aiController.getAIChoice(gameState, playerIdx, 10000, playerSeenHands).then((choice) => {
+    aiController.getAIChoice(gameState, playerIdx, 100000, playerSeenHands).then((choice) => {
       aiThinking = false;
       applyAIChoice(choice);
     });
