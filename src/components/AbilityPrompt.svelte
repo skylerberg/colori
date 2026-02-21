@@ -51,7 +51,6 @@
   }
 
   function confirmMaterials() {
-    if (selectedMaterialIds.length === 0) return;
     resolveMakeMaterials(gameState, selectedMaterialIds);
     onResolved();
   }
@@ -68,7 +67,6 @@
   }
 
   function confirmDestroy() {
-    if (selectedDestroyIds.length === 0) return;
     resolveDestroyCards(gameState, selectedDestroyIds);
     onResolved();
   }
@@ -126,7 +124,6 @@
         <button
           class="confirm-btn"
           onclick={confirmMaterials}
-          disabled={selectedMaterialIds.length === 0}
         >
           Confirm Materials ({selectedMaterialIds.length} selected)
         </button>
@@ -144,7 +141,6 @@
         <button
           class="confirm-btn"
           onclick={confirmDestroy}
-          disabled={selectedDestroyIds.length === 0}
         >
           Confirm Destroy ({selectedDestroyIds.length} selected)
         </button>
