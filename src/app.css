@@ -1,0 +1,41 @@
+:root {
+  font-family: system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  color: #1a1a1a;
+  background-color: #f5f0e8;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
+}
+
+#app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+button {
+  cursor: pointer;
+  border: 2px solid #333;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  background: #fff;
+  transition: background 0.15s;
+}
+
+button:hover {
+  background: #e8e0d0;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
