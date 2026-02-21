@@ -100,10 +100,10 @@ describe('confirmPass', () => {
 });
 
 describe('full draft flow', () => {
-  it('completes after 5 pick rounds with 2 players', () => {
+  it('completes after 4 pick rounds with 2 players', () => {
     const state = setupDraftState(['Alice', 'Bob']);
 
-    for (let pick = 0; pick < 5; pick++) {
+    for (let pick = 0; pick < 4; pick++) {
       const draftState = getDraftState(state);
 
       // Player 0 picks
@@ -124,19 +124,19 @@ describe('full draft flow', () => {
       if (state.phase.type !== 'draft') break;
 
       // If not the last round, confirm pass for next round
-      if (pick < 4) {
+      if (pick < 3) {
         confirmPass(state);
       }
     }
 
-    // After 5 pick rounds, should transition to action phase
+    // After 4 pick rounds, should transition to action phase
     expect(state.phase.type).toBe('action');
   });
 
-  it('each player ends up with 5 drafted cards after a full draft', () => {
+  it('each player ends up with 4 drafted cards after a full draft', () => {
     const state = setupDraftState(['Alice', 'Bob']);
 
-    for (let pick = 0; pick < 5; pick++) {
+    for (let pick = 0; pick < 4; pick++) {
       const draftState = getDraftState(state);
       const card0 = draftState.hands[0][0];
       playerPick(state, card0.instanceId);
@@ -149,16 +149,40 @@ describe('full draft flow', () => {
       playerPick(state, card1.instanceId);
 
       if (state.phase.type !== 'draft') break;
-      if (pick < 4) confirmPass(state);
+      if (pick < 3) confirmPass(state);
     }
 
-    expect(state.players[0].draftedCards).toHaveLength(5);
-    expect(state.players[1].draftedCards).toHaveLength(5);
+    expect(state.players[0].draftedCards).toHaveLength(4);
+    expect(state.players[1].draftedCards).toHaveLength(4);
+  });
+
+  it('remaining undrafted cards go to destroyedPile after draft completes', () => {
+    const state = setupDraftState(['Alice', 'Bob']);
+    const destroyedBefore = state.destroyedPile.length;
+
+    for (let pick = 0; pick < 4; pick++) {
+      const draftState = getDraftState(state);
+      const card0 = draftState.hands[0][0];
+      playerPick(state, card0.instanceId);
+
+      if (state.phase.type !== 'draft') break;
+      confirmPass(state);
+
+      const updatedDraftState = getDraftState(state);
+      const card1 = updatedDraftState.hands[1][0];
+      playerPick(state, card1.instanceId);
+
+      if (state.phase.type !== 'draft') break;
+      if (pick < 3) confirmPass(state);
+    }
+
+    // Each player had 5 cards and picked 4, so 1 card per player remains = 2 destroyed
+    expect(state.destroyedPile.length).toBe(destroyedBefore + 2);
   });
 });
 
 describe('isDraftComplete', () => {
-  it('returns false when pickNumber < 5', () => {
+  it('returns false when pickNumber < 4', () => {
     const draftState: DraftState = {
       pickNumber: 3,
       currentPlayerIndex: 0,
@@ -169,9 +193,9 @@ describe('isDraftComplete', () => {
     expect(isDraftComplete(draftState)).toBe(false);
   });
 
-  it('returns true when pickNumber >= 5', () => {
+  it('returns true when pickNumber >= 4', () => {
     const draftState: DraftState = {
-      pickNumber: 5,
+      pickNumber: 4,
       currentPlayerIndex: 0,
       hands: [],
       direction: 1,

@@ -58,7 +58,7 @@ export interface PlayerState {
 }
 
 export interface DraftState {
-  pickNumber: number;            // 0-4
+  pickNumber: number;            // 0-3
   currentPlayerIndex: number;
   hands: CardInstance[][];
   direction: 1 | -1;

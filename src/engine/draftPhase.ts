@@ -69,7 +69,7 @@ export function playerPick(state: GameState, cardInstanceId: number): void {
 
 /**
  * Rotate hands in the draft direction. Increment pickNumber.
- * If pickNumber >= 5, transition to action phase.
+ * If pickNumber >= 4, transition to action phase.
  * Otherwise, set currentPlayerIndex = 0 and waitingForPass = true.
  */
 export function advanceDraft(state: GameState): void {
@@ -95,8 +95,13 @@ export function advanceDraft(state: GameState): void {
 
   draftState.pickNumber++;
 
-  if (draftState.pickNumber >= 5) {
-    // Drafting is complete, transition to action phase
+  if (draftState.pickNumber >= 4) {
+    // Drafting is complete — destroy remaining undrafted cards (no abilities triggered)
+    for (const hand of draftState.hands) {
+      for (const card of hand) {
+        state.destroyedPile.push(card);
+      }
+    }
     initializeActionPhase(state);
   } else {
     draftState.currentPlayerIndex = 0;
@@ -113,7 +118,7 @@ export function confirmPass(state: GameState): void {
 }
 
 export function isDraftComplete(draftState: DraftState): boolean {
-  return draftState.pickNumber >= 5;
+  return draftState.pickNumber >= 4;
 }
 
 /** Helper to extract DraftState from GameState with type narrowing. */

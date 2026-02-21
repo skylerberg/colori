@@ -48,7 +48,7 @@
       <div class="draft-header">
         <h2>Draft Phase - Round {gameState.round}</h2>
         <div class="draft-info">
-          <span class="pick-number">Pick {draftState.pickNumber + 1} of 5</span>
+          <span class="pick-number">Pick {draftState.pickNumber + 1} of 4</span>
           <span class="direction">Passing: {directionLabel}</span>
         </div>
       </div>
