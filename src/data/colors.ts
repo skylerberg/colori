@@ -11,24 +11,40 @@ export function colorIndex(color: Color): number {
   return WHEEL_ORDER.indexOf(color);
 }
 
-// Can two colors be mixed? They must be exactly 2 positions apart on the wheel (wrapping).
+const PRIMARY_INDICES = new Set([0, 4, 8]);    // Red, Yellow, Blue
+const SECONDARY_INDICES = new Set([2, 6, 10]); // Orange, Green, Purple
+
+// Can two colors be mixed?
+// Valid mixes: primary+primary, or primary+secondary that are 2 apart on the wheel.
 export function canMix(a: Color, b: Color): boolean {
-  const diff = Math.abs(colorIndex(a) - colorIndex(b));
-  return diff === 2 || diff === WHEEL_ORDER.length - 2;
+  const ai = colorIndex(a);
+  const bi = colorIndex(b);
+  const diff = Math.abs(ai - bi);
+  const distance = Math.min(diff, WHEEL_ORDER.length - diff);
+
+  if (PRIMARY_INDICES.has(ai) && PRIMARY_INDICES.has(bi)) {
+    return ai !== bi;
+  }
+
+  const oneIsPrimary = PRIMARY_INDICES.has(ai) || PRIMARY_INDICES.has(bi);
+  const oneIsSecondary = SECONDARY_INDICES.has(ai) || SECONDARY_INDICES.has(bi);
+  return oneIsPrimary && oneIsSecondary && distance === 2;
 }
 
-// Returns the color produced by mixing a and b (the one between them).
+// Returns the color produced by mixing a and b.
 // Throws if they can't be mixed.
 export function mixResult(a: Color, b: Color): Color {
   if (!canMix(a, b)) throw new Error(`Cannot mix ${a} and ${b}`);
   const ai = colorIndex(a);
   const bi = colorIndex(b);
-  const diff = bi - ai;
-  // Handle wrapping
-  if (diff === 2 || diff === -(WHEEL_ORDER.length - 2)) {
-    return WHEEL_ORDER[(ai + 1) % WHEEL_ORDER.length];
+  const n = WHEEL_ORDER.length;
+  // Find midpoint along the shorter arc
+  const forwardDist = (bi - ai + n) % n;
+  if (forwardDist <= n / 2) {
+    return WHEEL_ORDER[(ai + forwardDist / 2) % n];
   } else {
-    return WHEEL_ORDER[(bi + 1) % WHEEL_ORDER.length];
+    const backDist = n - forwardDist;
+    return WHEEL_ORDER[(ai - backDist / 2 + n) % n];
   }
 }
 

@@ -59,16 +59,47 @@ describe('performMix', () => {
     expect(wheel['Vermilion']).toBe(1);
   });
 
-  it('fails for non-adjacent colors (distance != 2)', () => {
+  it('mixes two primary colors (Red + Yellow → Orange)', () => {
     const wheel = createEmptyWheel();
-    // Red and Yellow are 4 apart
     storeColor(wheel, 'Red');
     storeColor(wheel, 'Yellow');
     const result = performMix(wheel, 'Red', 'Yellow');
+    expect(result).toBe(true);
+    expect(wheel['Red']).toBe(0);
+    expect(wheel['Yellow']).toBe(0);
+    expect(wheel['Orange']).toBe(1);
+  });
+
+  it('mixes two primary colors (Red + Blue → Purple)', () => {
+    const wheel = createEmptyWheel();
+    storeColor(wheel, 'Red');
+    storeColor(wheel, 'Blue');
+    const result = performMix(wheel, 'Red', 'Blue');
+    expect(result).toBe(true);
+    expect(wheel['Red']).toBe(0);
+    expect(wheel['Blue']).toBe(0);
+    expect(wheel['Purple']).toBe(1);
+  });
+
+  it('mixes two primary colors (Yellow + Blue → Green)', () => {
+    const wheel = createEmptyWheel();
+    storeColor(wheel, 'Yellow');
+    storeColor(wheel, 'Blue');
+    const result = performMix(wheel, 'Yellow', 'Blue');
+    expect(result).toBe(true);
+    expect(wheel['Yellow']).toBe(0);
+    expect(wheel['Blue']).toBe(0);
+    expect(wheel['Green']).toBe(1);
+  });
+
+  it('fails for tertiary + tertiary mixing (Vermilion + Amber)', () => {
+    const wheel = createEmptyWheel();
+    storeColor(wheel, 'Vermilion');
+    storeColor(wheel, 'Amber');
+    const result = performMix(wheel, 'Vermilion', 'Amber');
     expect(result).toBe(false);
-    // Colors should not be consumed
-    expect(wheel['Red']).toBe(1);
-    expect(wheel['Yellow']).toBe(1);
+    expect(wheel['Vermilion']).toBe(1);
+    expect(wheel['Amber']).toBe(1);
   });
 
   it('fails when a required color has 0 count', () => {

@@ -153,7 +153,7 @@
     {:else if pendingChoice.type === 'chooseMix'}
       <div class="prompt-section">
         <h3>Mix Colors: Select two adjacent colors to mix ({pendingChoice.remaining} remaining)</h3>
-        <p class="hint">Click two colors that are 2 apart on the wheel. They must each have at least 1 stored.</p>
+        <p class="hint">Mix two primary colors, or a primary and an adjacent secondary. They must each have at least 1 stored.</p>
         <ColorWheelDisplay
           wheel={currentPlayer.colorWheel}
           interactive={true}
