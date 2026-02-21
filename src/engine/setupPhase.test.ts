@@ -41,18 +41,18 @@ describe('createInitialGameState', () => {
 
   it('creates correct draft deck size for 2 players', () => {
     // 2 copies * 39 dyes = 78
-    // 10 copies * 4 fabrics = 40
-    // Total = 78 + 40 = 118
+    // 8 copies * 4 fabrics = 32
+    // Total = 78 + 32 = 110
     const state = createInitialGameState(['Alice', 'Bob']);
-    expect(state.draftDeck).toHaveLength(118);
+    expect(state.draftDeck).toHaveLength(110);
   });
 
   it('creates correct draft deck size for 3 players', () => {
     // 2 copies * 39 dyes = 78
-    // 10 copies * 4 fabrics = 40
-    // Total = 78 + 40 = 118
+    // 8 copies * 4 fabrics = 32
+    // Total = 78 + 32 = 110
     const state = createInitialGameState(['Alice', 'Bob', 'Charlie']);
-    expect(state.draftDeck).toHaveLength(118);
+    expect(state.draftDeck).toHaveLength(110);
   });
 
   it('creates garment deck with correct size', () => {
