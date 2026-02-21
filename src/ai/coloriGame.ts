@@ -11,7 +11,7 @@ import { executeDrawPhase } from '../engine/drawPhase';
 import {
   destroyDraftedCard, endPlayerTurn, resolveMakeMaterials,
   resolveMixColors, skipMix, resolveDestroyCards,
-  resolveChooseGarment, resolveGarmentPayment,
+  resolveSelectGarment,
 } from '../engine/actionPhase';
 import { calculateScore } from '../engine/scoring';
 import { shuffle } from '../engine/deckUtils';
@@ -26,8 +26,7 @@ export type ColoriChoice =
   | { type: 'destroyDrawnCards'; cardInstanceIds: number[] }
   | { type: 'mix'; colorA: Color; colorB: Color }
   | { type: 'skipMix' }
-  | { type: 'chooseGarment'; garmentInstanceId: number }
-  | { type: 'garmentPayment' };
+  | { type: 'selectGarment'; garmentInstanceId: number };
 
 // ── Deep clone ──
 
@@ -182,19 +181,7 @@ function enumerateChoices(state: GameState): ColoriChoice[] {
       case 'chooseGarment': {
         return state.garmentDisplay
           .filter(g => canAffordGarment(player, g.card))
-          .map(g => ({ type: 'chooseGarment' as const, garmentInstanceId: g.instanceId }));
-      }
-      case 'chooseGarmentPayment': {
-        const garmentInst = state.garmentDisplay.find(
-          g => g.instanceId === pending.garmentInstanceId,
-        );
-        if (!garmentInst) return [];
-        const garment = garmentInst.card;
-
-        if (player.fabrics[garment.requiredFabric] > 0 && canPayCost(player.colorWheel, garment.colorCost)) {
-          return [{ type: 'garmentPayment' as const }];
-        }
-        return [];
+          .map(g => ({ type: 'selectGarment' as const, garmentInstanceId: g.instanceId }));
       }
     }
   }
@@ -220,10 +207,8 @@ function choiceToKey(choice: ColoriChoice): string {
       return `mix:${choice.colorA}:${choice.colorB}`;
     case 'skipMix':
       return 'skipMix';
-    case 'chooseGarment':
-      return `chooseGarment:${choice.garmentInstanceId}`;
-    case 'garmentPayment':
-      return 'garmentPayment';
+    case 'selectGarment':
+      return `selectGarment:${choice.garmentInstanceId}`;
   }
 }
 
@@ -261,11 +246,8 @@ function applyChoiceToState(state: GameState, choice: ColoriChoice): void {
     case 'skipMix':
       skipMix(state);
       break;
-    case 'chooseGarment':
-      resolveChooseGarment(state, choice.garmentInstanceId);
-      break;
-    case 'garmentPayment':
-      resolveGarmentPayment(state);
+    case 'selectGarment':
+      resolveSelectGarment(state, choice.garmentInstanceId);
       break;
   }
 }
@@ -304,21 +286,12 @@ function checkChoiceAvailable(state: GameState, choice: ColoriChoice): boolean {
              player.colorWheel[choice.colorB] > 0 &&
              canMix(choice.colorA, choice.colorB);
     }
-    case 'chooseGarment': {
+    case 'selectGarment': {
       if (state.phase.type !== 'action') return false;
       const player = state.players[state.phase.actionState.currentPlayerIndex];
       const garmentInst = state.garmentDisplay.find(g => g.instanceId === choice.garmentInstanceId);
       if (!garmentInst) return false;
       return canAffordGarment(player, garmentInst.card);
-    }
-    case 'garmentPayment': {
-      if (state.phase.type !== 'action') return false;
-      const player = state.players[state.phase.actionState.currentPlayerIndex];
-      const pending = state.phase.actionState.pendingChoice;
-      if (!pending || pending.type !== 'chooseGarmentPayment') return false;
-      const garmentInst = state.garmentDisplay.find(g => g.instanceId === pending.garmentInstanceId);
-      if (!garmentInst) return false;
-      return player.fabrics[garmentInst.card.requiredFabric] > 0 && canPayCost(player.colorWheel, garmentInst.card.colorCost);
     }
   }
 }
@@ -506,11 +479,8 @@ function getRolloutChoice(state: GameState): ColoriChoice {
       }
       case 'chooseGarment': {
         const affordable = state.garmentDisplay.filter(g => canAffordGarment(player, g.card));
-        if (affordable.length === 0) return { type: 'chooseGarment', garmentInstanceId: state.garmentDisplay[0]?.instanceId ?? 0 };
-        return { type: 'chooseGarment', garmentInstanceId: affordable[Math.floor(Math.random() * affordable.length)].instanceId };
-      }
-      case 'chooseGarmentPayment': {
-        return { type: 'garmentPayment' };
+        if (affordable.length === 0) return { type: 'selectGarment', garmentInstanceId: state.garmentDisplay[0]?.instanceId ?? 0 };
+        return { type: 'selectGarment', garmentInstanceId: affordable[Math.floor(Math.random() * affordable.length)].instanceId };
       }
     }
   }

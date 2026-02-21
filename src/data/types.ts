@@ -69,8 +69,7 @@ export type PendingChoice =
   | { type: 'chooseCardsForMaterials'; count: number }
   | { type: 'chooseCardsToDestroy'; count: number }
   | { type: 'chooseMix'; remaining: number }
-  | { type: 'chooseGarment' }
-  | { type: 'chooseGarmentPayment'; garmentInstanceId: number };
+  | { type: 'chooseGarment' };
 
 export interface ActionState {
   currentPlayerIndex: number;

@@ -5,7 +5,7 @@
   import {
     destroyDraftedCard, endPlayerTurn, resolveMakeMaterials,
     resolveMixColors, skipMix, resolveDestroyCards,
-    resolveChooseGarment, resolveGarmentPayment,
+    resolveSelectGarment,
   } from '../engine/actionPhase';
   import { AIController } from '../ai/aiController';
   import type { ColoriChoice } from '../ai/coloriGame';
@@ -130,16 +130,10 @@
         addLog(`${name} skipped remaining mixes`);
         skipMix(gameState);
         break;
-      case 'chooseGarment':
-        resolveChooseGarment(gameState, choice.garmentInstanceId);
-        break;
-      case 'garmentPayment': {
-        const pending = gameState.phase.type === 'action' ? gameState.phase.actionState.pendingChoice : null;
-        if (pending && pending.type === 'chooseGarmentPayment') {
-          const garment = gameState.garmentDisplay.find(g => g.instanceId === pending.garmentInstanceId);
-          addLog(`${name} completed ${garment?.card.name ?? 'a garment'}`);
-        }
-        resolveGarmentPayment(gameState);
+      case 'selectGarment': {
+        const garment = gameState.garmentDisplay.find(g => g.instanceId === choice.garmentInstanceId);
+        addLog(`${name} completed ${garment?.card.name ?? 'a garment'}`);
+        resolveSelectGarment(gameState, choice.garmentInstanceId);
         break;
       }
     }

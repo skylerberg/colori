@@ -104,24 +104,27 @@ export function processQueue(state: GameState): void {
 }
 
 /**
- * Check if the current player can make any garment from the display.
+ * Check if the current player can afford a specific garment from the display.
  * Player needs stored fabric of the required type and can pay the color cost
  * from the color wheel.
  */
-function canMakeAnyGarment(state: GameState): boolean {
+export function canMakeGarment(state: GameState, garmentInstanceId: number): boolean {
   const actionState = getActionState(state);
   const player = state.players[actionState.currentPlayerIndex];
+  const garmentInstance = state.garmentDisplay.find(g => g.instanceId === garmentInstanceId);
+  if (!garmentInstance) return false;
+  const garment = garmentInstance.card;
+  if (player.fabrics[garment.requiredFabric] <= 0) return false;
+  return canPayCost(player.colorWheel, garment.colorCost);
+}
 
+/**
+ * Check if the current player can make any garment from the display.
+ */
+function canMakeAnyGarment(state: GameState): boolean {
   for (const garmentInstance of state.garmentDisplay) {
-    const garment = garmentInstance.card;
-
-    // Check if player has the required fabric in storage
-    if (player.fabrics[garment.requiredFabric] <= 0) continue;
-
-    // Check if player can pay via colorWheel
-    if (canPayCost(player.colorWheel, garment.colorCost)) return true;
+    if (canMakeGarment(state, garmentInstance.instanceId)) return true;
   }
-
   return false;
 }
 
@@ -218,31 +221,17 @@ export function resolveDestroyCards(state: GameState, selectedCardIds: number[])
 }
 
 /**
- * Resolve choose garment: set pendingChoice to chooseGarmentPayment.
+ * Select and pay for a garment in one step.
+ * - Validates the player can afford the garment.
+ * - Decrements the required fabric from player's stored fabrics.
+ * - Pays the garment's colorCost from the wheel.
+ * - Moves garment from garmentDisplay to player's completedGarments.
+ * - Refills garment display from garment deck (if available).
+ * - Clears pendingChoice. Process queue.
  */
-export function resolveChooseGarment(state: GameState, garmentInstanceId: number): void {
-  const actionState = getActionState(state);
-  actionState.pendingChoice = { type: 'chooseGarmentPayment', garmentInstanceId };
-}
-
-/**
- * Resolve garment payment.
- * - Decrement the required fabric from player's stored fabrics.
- * - Pay the garment's colorCost from the wheel.
- * - Move garment from garmentDisplay to player's completedGarments.
- * - Refill garment display from garment deck (if available).
- * - Clear pendingChoice. Process queue.
- */
-export function resolveGarmentPayment(
-  state: GameState,
-): void {
+export function resolveSelectGarment(state: GameState, garmentInstanceId: number): void {
   const actionState = getActionState(state);
   const player = state.players[actionState.currentPlayerIndex];
-
-  if (actionState.pendingChoice?.type !== 'chooseGarmentPayment') {
-    throw new Error('No garment payment pending');
-  }
-  const garmentInstanceId = actionState.pendingChoice.garmentInstanceId;
 
   // Find the garment in the display
   const garmentIndex = state.garmentDisplay.findIndex(c => c.instanceId === garmentInstanceId);

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { GameState, Color, CardInstance } from '../data/types';
-  import { resolveMakeMaterials, resolveMixColors, skipMix, resolveDestroyCards, resolveChooseGarment, resolveGarmentPayment } from '../engine/actionPhase';
+  import { resolveMakeMaterials, resolveMixColors, skipMix, resolveDestroyCards, resolveSelectGarment, canMakeGarment } from '../engine/actionPhase';
   import { canMix, mixResult } from '../data/colors';
   import CardList from './CardList.svelte';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
@@ -31,6 +31,9 @@
   // Mix colors state
   let selectedMixColors: Color[] = $state([]);
 
+  // Garment selection state
+  let selectedGarmentId: number | undefined = $state(undefined);
+
   // Reset local state when pendingChoice changes
   $effect(() => {
     // Read pendingChoice to track it
@@ -38,6 +41,7 @@
     selectedMaterialIds = [];
     selectedDestroyIds = [];
     selectedMixColors = [];
+    selectedGarmentId = undefined;
   });
 
   // -- Make Materials --
@@ -112,19 +116,15 @@
   }
 
   // -- Choose Garment --
-  function handleGarmentSelect(garmentInstanceId: number) {
-    resolveChooseGarment(gameState, garmentInstanceId);
-    onResolved();
+  function toggleGarmentSelect(garmentInstanceId: number) {
+    selectedGarmentId = selectedGarmentId === garmentInstanceId ? undefined : garmentInstanceId;
   }
 
-  // -- Garment Payment --
-  function confirmGarmentPayment() {
-    const pending = actionState?.pendingChoice;
-    if (pending && pending.type === 'chooseGarmentPayment') {
-      const garment = gameState.garmentDisplay.find(g => g.instanceId === pending.garmentInstanceId);
-      onLog(`${currentPlayer?.name} completed ${garment?.card.name ?? 'a garment'}`);
-    }
-    resolveGarmentPayment(gameState);
+  function confirmGarment() {
+    if (selectedGarmentId === undefined) return;
+    const garment = gameState.garmentDisplay.find(g => g.instanceId === selectedGarmentId);
+    onLog(`${currentPlayer?.name} completed ${garment?.card.name ?? 'a garment'}`);
+    resolveSelectGarment(gameState, selectedGarmentId);
     onResolved();
   }
 </script>
@@ -182,20 +182,17 @@
       <div class="prompt-section">
         <h3>Choose a Garment to make</h3>
         <GarmentDisplay
-          garments={gameState.garmentDisplay}
+          garments={gameState.garmentDisplay.filter(g => canMakeGarment(gameState, g.instanceId))}
           selectable={true}
-          onSelect={handleGarmentSelect}
+          selectedId={selectedGarmentId}
+          onSelect={toggleGarmentSelect}
         />
-      </div>
-
-    {:else if pendingChoice.type === 'chooseGarmentPayment'}
-      <div class="prompt-section">
-        <h3>Pay for Garment</h3>
         <button
           class="confirm-btn"
-          onclick={confirmGarmentPayment}
+          disabled={selectedGarmentId === undefined}
+          onclick={confirmGarment}
         >
-          Confirm Payment
+          Confirm Garment
         </button>
       </div>
     {/if}

@@ -2,9 +2,10 @@
   import type { CardInstance, GarmentCard } from '../data/types';
   import CardDisplay from './CardDisplay.svelte';
 
-  let { garments, selectable = false, onSelect }: {
+  let { garments, selectable = false, selectedId, onSelect }: {
     garments: CardInstance<GarmentCard>[];
     selectable?: boolean;
+    selectedId?: number;
     onSelect?: (instanceId: number) => void;
   } = $props();
 </script>
@@ -15,6 +16,7 @@
     {#each garments as gi (gi.instanceId)}
       <CardDisplay
         card={gi.card}
+        selected={selectedId === gi.instanceId}
         onclick={selectable && onSelect ? () => onSelect!(gi.instanceId) : undefined}
       />
     {/each}
