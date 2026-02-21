@@ -27,7 +27,7 @@
   function handleDestroyDrafted(cardInstanceId: number) {
     if (hasPendingChoice) return;
     const card = currentPlayer?.draftedCards.find(c => c.instanceId === cardInstanceId);
-    onLog(`${currentPlayer?.name} destroyed ${card?.card.name ?? 'a card'} from drafted cards`);
+    onLog(`${currentPlayer?.name} destroyed ${card && 'name' in card.card ? card.card.name : 'a card'} from drafted cards`);
     destroyDraftedCard(gameState, cardInstanceId);
     onGameUpdated();
   }

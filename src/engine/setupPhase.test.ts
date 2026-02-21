@@ -24,7 +24,7 @@ describe('createInitialGameState', () => {
   it('each player starts with 2 Basic Red, 2 Basic Yellow, 2 Basic Blue, 1 Wool, 1 Silk, 1 Linen, 1 Cotton', () => {
     const state = createInitialGameState(['Alice']);
     const player = state.players[0];
-    const cardNames = player.deck.map(c => c.card.name);
+    const cardNames = player.deck.map(c => 'name' in c.card ? c.card.name : '');
 
     expect(cardNames.filter(n => n === 'Basic Red')).toHaveLength(2);
     expect(cardNames.filter(n => n === 'Basic Yellow')).toHaveLength(2);
@@ -56,9 +56,9 @@ describe('createInitialGameState', () => {
   });
 
   it('creates garment deck with correct size', () => {
-    // 39 garments, minus 6 in display = 33
+    // 12 per tier × 4 tiers = 48 garments, minus 6 in display = 42
     const state = createInitialGameState(['Alice', 'Bob']);
-    expect(state.garmentDeck).toHaveLength(33);
+    expect(state.garmentDeck).toHaveLength(42);
   });
 
   it('garment display has 6 cards', () => {

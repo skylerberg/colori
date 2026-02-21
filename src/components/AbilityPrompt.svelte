@@ -58,7 +58,7 @@
   function confirmMaterials() {
     const cardNames = selectedMaterialIds.map(id => {
       const c = currentPlayer?.drawnCards.find(c => c.instanceId === id);
-      return c?.card.name ?? 'a card';
+      return c && 'name' in c.card ? c.card.name : 'a card';
     });
     onLog(`${currentPlayer?.name} stored materials from ${cardNames.join(', ')}`);
     resolveMakeMaterials(gameState, selectedMaterialIds);
@@ -79,7 +79,7 @@
   function confirmDestroy() {
     const cardNames = selectedDestroyIds.map(id => {
       const c = currentPlayer?.drawnCards.find(c => c.instanceId === id);
-      return c?.card.name ?? 'a card';
+      return c && 'name' in c.card ? c.card.name : 'a card';
     });
     onLog(`${currentPlayer?.name} destroyed ${cardNames.join(', ')} from drawn cards`);
     resolveDestroyCards(gameState, selectedDestroyIds);
@@ -123,7 +123,7 @@
   function confirmGarment() {
     if (selectedGarmentId === undefined) return;
     const garment = gameState.garmentDisplay.find(g => g.instanceId === selectedGarmentId);
-    onLog(`${currentPlayer?.name} completed ${garment?.card.name ?? 'a garment'}`);
+    onLog(`${currentPlayer?.name} completed a ${garment?.card.stars ?? '?'}-star garment`);
     resolveSelectGarment(gameState, selectedGarmentId);
     onResolved();
   }

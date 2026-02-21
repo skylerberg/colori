@@ -33,7 +33,6 @@ export interface FabricCard {
 
 export interface GarmentCard {
   kind: 'garment';
-  name: string;
   stars: number;
   requiredFabric: FabricType;
   colorCost: Color[];

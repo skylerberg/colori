@@ -305,37 +305,35 @@ describe('resolveSelectGarment', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
 
-    // Use Madder Red Doublet: requires Wool, costs [Red, Red, Red, Red, Vermilion, Vermilion]
-    const garment = GARMENT_CARDS.find(c => c.name === 'Madder Red Doublet')!;
+    // Find a Linen garment (stars: 3) with a known colorCost
+    const garment = GARMENT_CARDS.find(c => c.requiredFabric === 'Linen' && c.stars === 3)!;
     const garmentInstances = createCardInstances([garment]) as CardInstance<GarmentCard>[];
     state.garmentDisplay = garmentInstances;
 
     // Put a spare garment in the deck for refill
-    const spareGarment = GARMENT_CARDS.find(c => c.name === 'Kermes Crimson Robe')!;
+    const spareGarment = GARMENT_CARDS.find(c => c !== garment)!;
     state.garmentDeck = createCardInstances([spareGarment]) as CardInstance<GarmentCard>[];
 
     // Give player the required resources
     const player = state.players[0];
-    player.fabrics.Wool = 1;
-    storeColor(player.colorWheel, 'Red');
-    storeColor(player.colorWheel, 'Red');
-    storeColor(player.colorWheel, 'Red');
-    storeColor(player.colorWheel, 'Red');
-    storeColor(player.colorWheel, 'Vermilion');
-    storeColor(player.colorWheel, 'Vermilion');
+    player.fabrics.Linen = 1;
+    for (const color of garment.colorCost) {
+      storeColor(player.colorWheel, color);
+    }
 
     const actionState = getActionState(state);
     actionState.pendingChoice = { type: 'chooseGarment' };
 
     resolveSelectGarment(state, garmentInstances[0].instanceId);
 
-    expect(player.fabrics.Wool).toBe(0);
-    expect(player.colorWheel['Red']).toBe(0);
-    expect(player.colorWheel['Vermilion']).toBe(0);
+    expect(player.fabrics.Linen).toBe(0);
+    for (const color of garment.colorCost) {
+      expect(player.colorWheel[color]).toBe(0);
+    }
     expect(player.completedGarments).toHaveLength(1);
-    expect(player.completedGarments[0].card.name).toBe('Madder Red Doublet');
+    expect(player.completedGarments[0].card.stars).toBe(3);
     expect(state.garmentDisplay).toHaveLength(1);
-    expect(state.garmentDisplay[0].card.name).toBe('Kermes Crimson Robe');
+    expect(state.garmentDisplay[0].card).toBe(spareGarment);
     expect(state.garmentDeck).toHaveLength(0);
     expect(actionState.pendingChoice).toBeNull();
   });
@@ -350,18 +348,15 @@ describe('canMakeGarment', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
 
-    const garment = GARMENT_CARDS.find(c => c.name === 'Madder Red Doublet')!;
+    const garment = GARMENT_CARDS.find(c => c.requiredFabric === 'Linen' && c.stars === 3)!;
     const garmentInstances = createCardInstances([garment]) as CardInstance<GarmentCard>[];
     state.garmentDisplay = garmentInstances;
 
     const player = state.players[0];
-    player.fabrics.Wool = 1;
-    storeColor(player.colorWheel, 'Red');
-    storeColor(player.colorWheel, 'Red');
-    storeColor(player.colorWheel, 'Red');
-    storeColor(player.colorWheel, 'Red');
-    storeColor(player.colorWheel, 'Vermilion');
-    storeColor(player.colorWheel, 'Vermilion');
+    player.fabrics.Linen = 1;
+    for (const color of garment.colorCost) {
+      storeColor(player.colorWheel, color);
+    }
 
     expect(canMakeGarment(state, garmentInstances[0].instanceId)).toBe(true);
   });
@@ -370,18 +365,15 @@ describe('canMakeGarment', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
 
-    const garment = GARMENT_CARDS.find(c => c.name === 'Madder Red Doublet')!;
+    const garment = GARMENT_CARDS.find(c => c.requiredFabric === 'Linen' && c.stars === 3)!;
     const garmentInstances = createCardInstances([garment]) as CardInstance<GarmentCard>[];
     state.garmentDisplay = garmentInstances;
 
-    // Has colors but no Wool fabric
+    // Has colors but no Linen fabric
     const player = state.players[0];
-    storeColor(player.colorWheel, 'Red');
-    storeColor(player.colorWheel, 'Red');
-    storeColor(player.colorWheel, 'Red');
-    storeColor(player.colorWheel, 'Red');
-    storeColor(player.colorWheel, 'Vermilion');
-    storeColor(player.colorWheel, 'Vermilion');
+    for (const color of garment.colorCost) {
+      storeColor(player.colorWheel, color);
+    }
 
     expect(canMakeGarment(state, garmentInstances[0].instanceId)).toBe(false);
   });
@@ -390,14 +382,13 @@ describe('canMakeGarment', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
 
-    const garment = GARMENT_CARDS.find(c => c.name === 'Madder Red Doublet')!;
+    const garment = GARMENT_CARDS.find(c => c.requiredFabric === 'Linen' && c.stars === 3)!;
     const garmentInstances = createCardInstances([garment]) as CardInstance<GarmentCard>[];
     state.garmentDisplay = garmentInstances;
 
     // Has fabric but not enough colors
     const player = state.players[0];
-    player.fabrics.Wool = 1;
-    storeColor(player.colorWheel, 'Red');
+    player.fabrics.Linen = 1;
 
     expect(canMakeGarment(state, garmentInstances[0].instanceId)).toBe(false);
   });

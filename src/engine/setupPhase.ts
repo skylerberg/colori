@@ -13,7 +13,7 @@ import { createEmptyWheel, createEmptyFabrics } from './colorWheel';
  *   - 4 copies of each of the 15 dye cards (60 total)
  *   - 4 copies of each of the 4 fabric types (16 total)
  *
- * Garment deck: 1 copy of each of 39 garments (39 total).
+ * Garment deck: 12 random garments from each of the 4 star tiers (48 total).
  * Garment display: 6 cards dealt from the garment deck.
  * Game starts at round 1, phase = 'draw'.
  */
@@ -72,12 +72,19 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
 
   const draftDeck = shuffle(createCardInstances(draftCards));
 
-  // Build garment deck: 1 copy of each garment
-  const garmentCards: GarmentCard[] = [];
+  // Build garment deck: 12 random garments from each star tier (48 total)
+  const garmentsByStars = new Map<number, GarmentCard[]>();
   for (const garment of GARMENT_CARDS) {
-    garmentCards.push(garment);
+    const list = garmentsByStars.get(garment.stars) ?? [];
+    list.push(garment);
+    garmentsByStars.set(garment.stars, list);
   }
-  const garmentDeck = shuffle(createCardInstances(garmentCards));
+  const selectedGarments: GarmentCard[] = [];
+  for (const stars of [2, 3, 4, 5]) {
+    const tier = shuffle([...(garmentsByStars.get(stars) ?? [])]);
+    selectedGarments.push(...tier.slice(0, 12));
+  }
+  const garmentDeck = shuffle(createCardInstances(selectedGarments));
 
   // Deal 6 garments to the display
   const garmentDisplay: CardInstance<GarmentCard>[] = [];

@@ -1,4 +1,5 @@
-import type { AnyCard, Color, DyeCard, BasicDyeCard, FabricCard, GarmentCard } from './types';
+import type { AnyCard, Color, FabricType, DyeCard, BasicDyeCard, FabricCard, GarmentCard } from './types';
+import { ALL_COLORS } from './colors';
 
 export function getCardPips(card: AnyCard): Color[] {
   switch (card.kind) {
@@ -153,317 +154,44 @@ export const BASIC_DYE_CARDS: BasicDyeCard[] = [
   },
 ];
 
-export const GARMENT_CARDS: GarmentCard[] = [
-  // 1 - Kermes
-  {
-    kind: 'garment',
-    name: 'Kermes Crimson Robe',
-    stars: 5,
-    requiredFabric: 'Silk',
-    colorCost: ['Red', 'Red', 'Red', 'Red', 'Red', 'Red'],
-  },
-  // 2 - Cochineal
-  {
-    kind: 'garment',
-    name: 'Cochineal Magenta Gown',
-    stars: 4,
-    requiredFabric: 'Silk',
-    colorCost: ['Red', 'Red', 'Red', 'Red', 'Magenta', 'Magenta'],
-  },
-  // 3 - Madder
-  {
-    kind: 'garment',
-    name: 'Madder Red Doublet',
-    stars: 3,
-    requiredFabric: 'Wool',
-    colorCost: ['Red', 'Red', 'Red', 'Red', 'Vermilion', 'Vermilion'],
-  },
-  // 4 - Brazilwood
-  {
-    kind: 'garment',
-    name: 'Brazilwood Rose Cloak',
-    stars: 2,
-    requiredFabric: 'Wool',
-    colorCost: ['Red', 'Red', 'Red', 'Red'],
-  },
-  // 5 - Lac
-  {
-    kind: 'garment',
-    name: 'Lac Crimson Sash',
-    stars: 4,
-    requiredFabric: 'Silk',
-    colorCost: ['Red', 'Red', 'Red', 'Red', 'Magenta', 'Magenta'],
-  },
-  // 6 - Safflower
-  {
-    kind: 'garment',
-    name: 'Safflower Pink Veil',
-    stars: 2,
-    requiredFabric: 'Silk',
-    colorCost: ['Red', 'Red', 'Magenta', 'Magenta'],
-  },
-  // 7 - Alkanet
-  {
-    kind: 'garment',
-    name: 'Alkanet Violet Bodice',
-    stars: 2,
-    requiredFabric: 'Linen',
-    colorCost: ['Red', 'Red', 'Purple', 'Purple'],
-  },
-  // 8 - Dragon's Blood
-  {
-    kind: 'garment',
-    name: "Dragon's Blood Scarlet Cape",
-    stars: 3,
-    requiredFabric: 'Wool',
-    colorCost: ['Red', 'Red', 'Red', 'Red', 'Vermilion', 'Vermilion'],
-  },
-  // 9 - Venetian Red Earth
-  {
-    kind: 'garment',
-    name: 'Venetian Earth Russet Tunic',
-    stars: 3,
-    requiredFabric: 'Linen',
-    colorCost: ['Red', 'Red', 'Vermilion', 'Vermilion', 'Amber', 'Amber'],
-  },
-  // 10 - Vermilion (Mineral)
-  {
-    kind: 'garment',
-    name: 'Vermilion Ceremonial Stole',
-    stars: 4,
-    requiredFabric: 'Silk',
-    colorCost: ['Red', 'Red', 'Vermilion', 'Vermilion', 'Vermilion', 'Vermilion'],
-  },
-  // 11 - Woad
-  {
-    kind: 'garment',
-    name: "Woad Blue Workman's Apron",
-    stars: 2,
-    requiredFabric: 'Linen',
-    colorCost: ['Blue', 'Blue', 'Blue', 'Blue'],
-  },
-  // 12 - Indigo
-  {
-    kind: 'garment',
-    name: "Indigo Merchant's Coat",
-    stars: 4,
-    requiredFabric: 'Wool',
-    colorCost: ['Blue', 'Blue', 'Blue', 'Blue', 'Indigo', 'Indigo'],
-  },
-  // 13 - Smalt
-  {
-    kind: 'garment',
-    name: 'Smalt Blue Brocade Vest',
-    stars: 4,
-    requiredFabric: 'Silk',
-    colorCost: ['Blue', 'Blue', 'Blue', 'Blue', 'Indigo', 'Indigo'],
-  },
-  // 14 - Azurite
-  {
-    kind: 'garment',
-    name: 'Azurite Sky-Blue Mantle',
-    stars: 3,
-    requiredFabric: 'Wool',
-    colorCost: ['Blue', 'Blue', 'Blue', 'Blue', 'Teal', 'Teal'],
-  },
-  // 15 - Logwood
-  {
-    kind: 'garment',
-    name: 'Logwood Twilight Cassock',
-    stars: 4,
-    requiredFabric: 'Wool',
-    colorCost: ['Blue', 'Blue', 'Indigo', 'Indigo', 'Purple', 'Purple'],
-  },
-  // 16 - Weld
-  {
-    kind: 'garment',
-    name: 'Weld Golden Festival Dress',
-    stars: 5,
-    requiredFabric: 'Linen',
-    colorCost: ['Yellow', 'Yellow', 'Yellow', 'Yellow', 'Yellow', 'Yellow'],
-  },
-  // 17 - Saffron
-  {
-    kind: 'garment',
-    name: 'Saffron Gold Silk Turban',
-    stars: 4,
-    requiredFabric: 'Silk',
-    colorCost: ['Yellow', 'Yellow', 'Yellow', 'Yellow', 'Amber', 'Amber'],
-  },
-  // 18 - Turmeric
-  {
-    kind: 'garment',
-    name: 'Turmeric Amber Headscarf',
-    stars: 3,
-    requiredFabric: 'Cotton',
-    colorCost: ['Yellow', 'Yellow', 'Amber', 'Amber', 'Orange', 'Orange'],
-  },
-  // 19 - Dyer's Broom
-  {
-    kind: 'garment',
-    name: "Dyer's Broom Yellow Kirtle",
-    stars: 2,
-    requiredFabric: 'Wool',
-    colorCost: ['Yellow', 'Yellow', 'Yellow', 'Yellow'],
-  },
-  // 20 - Spanish Broom
-  {
-    kind: 'garment',
-    name: 'Spanish Broom Sunlight Shawl',
-    stars: 2,
-    requiredFabric: 'Wool',
-    colorCost: ['Yellow', 'Yellow', 'Yellow', 'Yellow'],
-  },
-  // 21 - Old Fustic
-  {
-    kind: 'garment',
-    name: 'Old Fustic Amber Jerkin',
-    stars: 3,
-    requiredFabric: 'Wool',
-    colorCost: ['Yellow', 'Yellow', 'Yellow', 'Yellow', 'Amber', 'Amber'],
-  },
-  // 22 - Venetian Sumac
-  {
-    kind: 'garment',
-    name: 'Venetian Sumac Harvest Skirt',
-    stars: 3,
-    requiredFabric: 'Linen',
-    colorCost: ['Yellow', 'Yellow', 'Amber', 'Amber', 'Orange', 'Orange'],
-  },
-  // 23 - Persian Berries
-  {
-    kind: 'garment',
-    name: 'Persian Berry Chartreuse Sleeve',
-    stars: 3,
-    requiredFabric: 'Silk',
-    colorCost: ['Yellow', 'Yellow', 'Chartreuse', 'Chartreuse'],
-  },
-  // 24 - Tyrian Purple
-  {
-    kind: 'garment',
-    name: 'Tyrian Purple Imperial Toga',
-    stars: 5,
-    requiredFabric: 'Silk',
-    colorCost: ['Purple', 'Purple', 'Purple', 'Purple', 'Magenta', 'Magenta'],
-  },
-  // 25 - Orchil
-  {
-    kind: 'garment',
-    name: 'Orchil Plum Petticoat',
-    stars: 3,
-    requiredFabric: 'Wool',
-    colorCost: ['Purple', 'Purple', 'Magenta', 'Magenta', 'Red', 'Red'],
-  },
-  // 26 - Turnsole
-  {
-    kind: 'garment',
-    name: 'Turnsole Violet Hood',
-    stars: 2,
-    requiredFabric: 'Wool',
-    colorCost: ['Purple', 'Purple', 'Purple', 'Purple'],
-  },
-  // 27 - Elderberry
-  {
-    kind: 'garment',
-    name: 'Elderberry Dusk Stockings',
-    stars: 3,
-    requiredFabric: 'Wool',
-    colorCost: ['Purple', 'Purple', 'Indigo', 'Indigo'],
-  },
-  // 28 - Verdigris
-  {
-    kind: 'garment',
-    name: 'Verdigris Copper-Green Surcoat',
-    stars: 3,
-    requiredFabric: 'Linen',
-    colorCost: ['Green', 'Green', 'Green', 'Green', 'Teal', 'Teal'],
-  },
-  // 29 - Lincoln Green
-  {
-    kind: 'garment',
-    name: "Lincoln Green Huntsman's Coat",
-    stars: 4,
-    requiredFabric: 'Wool',
-    colorCost: ['Green', 'Green', 'Teal', 'Teal', 'Blue', 'Blue'],
-  },
-  // 30 - Saxon Green
-  {
-    kind: 'garment',
-    name: 'Saxon Green Emerald Gown',
-    stars: 5,
-    requiredFabric: 'Silk',
-    colorCost: ['Green', 'Green', 'Green', 'Green', 'Chartreuse', 'Chartreuse'],
-  },
-  // 31 - Gall Nuts
-  {
-    kind: 'garment',
-    name: 'Gall Nut Tan Breeches',
-    stars: 1,
-    requiredFabric: 'Linen',
-    colorCost: ['Yellow', 'Yellow', 'Amber', 'Amber'],
-  },
-  // 32 - Walnut Hulls
-  {
-    kind: 'garment',
-    name: "Walnut Brown Traveler's Cloak",
-    stars: 3,
-    requiredFabric: 'Wool',
-    colorCost: ['Vermilion', 'Vermilion', 'Amber', 'Amber', 'Orange', 'Orange'],
-  },
-  // 33 - Oak Bark
-  {
-    kind: 'garment',
-    name: 'Oak Bark Tawny Coif',
-    stars: 1,
-    requiredFabric: 'Linen',
-    colorCost: ['Yellow', 'Yellow', 'Amber', 'Amber'],
-  },
-  // 34 - Cutch
-  {
-    kind: 'garment',
-    name: 'Catechu Cinnamon Gloves',
-    stars: 3,
-    requiredFabric: 'Wool',
-    colorCost: ['Red', 'Red', 'Amber', 'Amber', 'Orange', 'Orange'],
-  },
-  // 35 - Chestnut
-  {
-    kind: 'garment',
-    name: 'Chestnut Autumn Vest',
-    stars: 2,
-    requiredFabric: 'Cotton',
-    colorCost: ['Amber', 'Amber', 'Orange', 'Orange'],
-  },
-  // 36 - Alder Bark
-  {
-    kind: 'garment',
-    name: 'Alder Bark Russet Apron',
-    stars: 2,
-    requiredFabric: 'Linen',
-    colorCost: ['Red', 'Red', 'Amber', 'Amber'],
-  },
-  // 37 - Iron Black
-  {
-    kind: 'garment',
-    name: "Iron Black Magistrate's Mantle",
-    stars: 5,
-    requiredFabric: 'Wool',
-    colorCost: ['Blue', 'Blue', 'Purple', 'Purple', 'Indigo', 'Indigo'],
-  },
-  // 38 - Annatto
-  {
-    kind: 'garment',
-    name: 'Annatto Sunset Bandana',
-    stars: 3,
-    requiredFabric: 'Cotton',
-    colorCost: ['Orange', 'Orange', 'Amber', 'Amber', 'Yellow', 'Yellow'],
-  },
-  // 39 - Henna
-  {
-    kind: 'garment',
-    name: 'Henna Terra Cotta Sash',
-    stars: 2,
-    requiredFabric: 'Cotton',
-    colorCost: ['Orange', 'Orange', 'Vermilion', 'Vermilion'],
-  },
-];
+const COLOR_VALUES: Record<Color, number> = {
+  Red: 1, Yellow: 1, Blue: 1,
+  Orange: 2, Green: 2, Purple: 2,
+  Vermilion: 3, Amber: 3, Chartreuse: 3, Teal: 3, Indigo: 3, Magenta: 3,
+};
+
+const TIER_MAP: Record<number, { stars: number; fabric: FabricType }> = {
+  3: { stars: 2, fabric: 'Cotton' },
+  4: { stars: 3, fabric: 'Linen' },
+  5: { stars: 4, fabric: 'Wool' },
+  6: { stars: 5, fabric: 'Silk' },
+};
+
+function generateAllGarments(): GarmentCard[] {
+  const colors = ALL_COLORS;
+  const garments: GarmentCard[] = [];
+
+  // Enumerate all subsets of the 12 colors (each color at most once)
+  for (let mask = 1; mask < (1 << colors.length); mask++) {
+    let totalValue = 0;
+    const subset: Color[] = [];
+    for (let i = 0; i < colors.length; i++) {
+      if (mask & (1 << i)) {
+        subset.push(colors[i]);
+        totalValue += COLOR_VALUES[colors[i]];
+      }
+    }
+    if (totalValue < 3 || totalValue > 6) continue;
+    const tier = TIER_MAP[totalValue];
+    garments.push({
+      kind: 'garment',
+      stars: tier.stars,
+      requiredFabric: tier.fabric,
+      colorCost: subset,
+    });
+  }
+
+  return garments;
+}
+
+export const GARMENT_CARDS: GarmentCard[] = generateAllGarments();

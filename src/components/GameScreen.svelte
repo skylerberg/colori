@@ -91,7 +91,7 @@
         break;
       case 'destroyDraftedCard': {
         const card = gameState.players[playerIdx].draftedCards.find(c => c.instanceId === choice.cardInstanceId);
-        addLog(`${name} destroyed ${card?.card.name ?? 'a card'} from drafted cards`);
+        addLog(`${name} destroyed ${card && 'name' in card.card ? card.card.name : 'a card'} from drafted cards`);
         destroyDraftedCard(gameState, choice.cardInstanceId);
         break;
       }
@@ -105,7 +105,7 @@
       case 'makeMaterials': {
         const cardNames = choice.cardInstanceIds.map(id => {
           const c = gameState.players[playerIdx].drawnCards.find(c => c.instanceId === id);
-          return c?.card.name ?? 'a card';
+          return c && 'name' in c.card ? c.card.name : 'a card';
         });
         addLog(`${name} stored materials from ${cardNames.join(', ')}`);
         resolveMakeMaterials(gameState, choice.cardInstanceIds);
@@ -114,7 +114,7 @@
       case 'destroyDrawnCards': {
         const cardNames = choice.cardInstanceIds.map(id => {
           const c = gameState.players[playerIdx].drawnCards.find(c => c.instanceId === id);
-          return c?.card.name ?? 'a card';
+          return c && 'name' in c.card ? c.card.name : 'a card';
         });
         addLog(`${name} destroyed ${cardNames.join(', ')} from drawn cards`);
         resolveDestroyCards(gameState, choice.cardInstanceIds);
@@ -132,7 +132,7 @@
         break;
       case 'selectGarment': {
         const garment = gameState.garmentDisplay.find(g => g.instanceId === choice.garmentInstanceId);
-        addLog(`${name} completed ${garment?.card.name ?? 'a garment'}`);
+        addLog(`${name} completed a ${garment?.card.stars ?? '?'}-star garment`);
         resolveSelectGarment(gameState, choice.garmentInstanceId);
         break;
       }

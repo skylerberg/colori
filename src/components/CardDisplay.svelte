@@ -54,7 +54,9 @@
     {/if}
   </div>
 
-  <div class="card-name">{card.name}</div>
+  {#if 'name' in card}
+    <div class="card-name">{card.name}</div>
+  {/if}
 
   {#if card.kind === 'dye' || card.kind === 'basicDye'}
     <div class="pips">

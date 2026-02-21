@@ -35,7 +35,7 @@ Each player has their own color wheel that tracks how many of each color they ha
 - Linen | Destroy: Store Colors ×1
 - Cotton | Destroy: Mix Colors ×1
 
-**Garment Cards** (2 copies of each, 78 total): 39 unique garments, each requiring a specific fabric type and color cost. Each garment is worth 1–5 stars.
+**Garment Cards** (179 possible, 48 per game): Each garment requires a specific fabric type and a unique subset of colors as its cost. At game start, 12 garments are randomly selected from each of the 4 star tiers. Each garment is worth 2–5 stars.
 
 ### Decks
 
@@ -219,48 +219,19 @@ After 8 rounds, the game ends. Each player totals the stars on all garments they
 | Basic Yellow | 1 Yellow | Store Colors ×1 |
 | Basic Blue | 1 Blue | Store Colors ×1 |
 
-### Garment Cards (39 unique, 2 copies each)
+### Garment Cards (179 possible, 48 per game)
 
-Each garment is associated with a dye card. The color cost is the dye's colors × 2.
+Garments do not have names. Each garment's color cost is a unique subset of the 12 colors on the wheel (each color appears at most once). The total "primary value" of the subset determines the garment's tier:
 
-| # | Name | Fabric | Color Cost | Stars |
-|---|------|--------|------------|-------|
-| 1 | Kermes Crimson Robe | Silk | 6 Red | 5 |
-| 2 | Cochineal Magenta Gown | Silk | 4 Red, 2 Magenta | 4 |
-| 3 | Madder Red Doublet | Wool | 4 Red, 2 Vermilion | 3 |
-| 4 | Brazilwood Rose Cloak | Wool | 4 Red | 2 |
-| 5 | Lac Crimson Sash | Silk | 4 Red, 2 Magenta | 4 |
-| 6 | Safflower Pink Veil | Silk | 2 Red, 2 Magenta | 2 |
-| 7 | Alkanet Violet Bodice | Linen | 2 Red, 2 Purple | 2 |
-| 8 | Dragon's Blood Scarlet Cape | Wool | 4 Red, 2 Vermilion | 3 |
-| 9 | Venetian Earth Russet Tunic | Linen | 2 Red, 2 Vermilion, 2 Amber | 3 |
-| 10 | Vermilion Ceremonial Stole | Silk | 2 Red, 4 Vermilion | 4 |
-| 11 | Woad Blue Workman's Apron | Linen | 4 Blue | 2 |
-| 12 | Indigo Merchant's Coat | Wool | 4 Blue, 2 Indigo | 4 |
-| 13 | Smalt Blue Brocade Vest | Silk | 4 Blue, 2 Indigo | 4 |
-| 14 | Azurite Sky-Blue Mantle | Wool | 4 Blue, 2 Teal | 3 |
-| 15 | Logwood Twilight Cassock | Wool | 2 Blue, 2 Indigo, 2 Purple | 4 |
-| 16 | Weld Golden Festival Dress | Linen | 6 Yellow | 5 |
-| 17 | Saffron Gold Silk Turban | Silk | 4 Yellow, 2 Amber | 4 |
-| 18 | Turmeric Amber Headscarf | Cotton | 2 Yellow, 2 Amber, 2 Orange | 3 |
-| 19 | Dyer's Broom Yellow Kirtle | Wool | 4 Yellow | 2 |
-| 20 | Spanish Broom Sunlight Shawl | Wool | 4 Yellow | 2 |
-| 21 | Old Fustic Amber Jerkin | Wool | 4 Yellow, 2 Amber | 3 |
-| 22 | Venetian Sumac Harvest Skirt | Linen | 2 Yellow, 2 Amber, 2 Orange | 3 |
-| 23 | Persian Berry Chartreuse Sleeve | Silk | 2 Yellow, 2 Chartreuse | 3 |
-| 24 | Tyrian Purple Imperial Toga | Silk | 4 Purple, 2 Magenta | 5 |
-| 25 | Orchil Plum Petticoat | Wool | 2 Purple, 2 Magenta, 2 Red | 3 |
-| 26 | Turnsole Violet Hood | Wool | 4 Purple | 2 |
-| 27 | Elderberry Dusk Stockings | Wool | 2 Purple, 2 Indigo | 3 |
-| 28 | Verdigris Copper-Green Surcoat | Linen | 4 Green, 2 Teal | 3 |
-| 29 | Lincoln Green Huntsman's Coat | Wool | 2 Green, 2 Teal, 2 Blue | 4 |
-| 30 | Saxon Green Emerald Gown | Silk | 4 Green, 2 Chartreuse | 5 |
-| 31 | Gall Nut Tan Breeches | Linen | 2 Yellow, 2 Amber | 1 |
-| 32 | Walnut Brown Traveler's Cloak | Wool | 2 Vermilion, 2 Amber, 2 Orange | 3 |
-| 33 | Oak Bark Tawny Coif | Linen | 2 Yellow, 2 Amber | 1 |
-| 34 | Catechu Cinnamon Gloves | Wool | 2 Red, 2 Amber, 2 Orange | 3 |
-| 35 | Chestnut Autumn Vest | Cotton | 2 Amber, 2 Orange | 2 |
-| 36 | Alder Bark Russet Apron | Linen | 2 Red, 2 Amber | 2 |
-| 37 | Iron Black Magistrate's Mantle | Wool | 2 Blue, 2 Purple, 2 Indigo | 5 |
-| 38 | Annatto Sunset Bandana | Cotton | 2 Orange, 2 Amber, 2 Yellow | 3 |
-| 39 | Henna Terra Cotta Sash | Cotton | 2 Orange, 2 Vermilion | 2 |
+- **Primaries** (Red, Yellow, Blue) = value 1
+- **Secondaries** (Orange, Green, Purple) = value 2
+- **Tertiaries** (Vermilion, Amber, Chartreuse, Teal, Indigo, Magenta) = value 3
+
+| Total Value | Stars | Fabric | Possible Count |
+|-------------|-------|--------|----------------|
+| 3           | 2     | Cotton | 16             |
+| 4           | 3     | Linen  | 30             |
+| 5           | 4     | Wool   | 48             |
+| 6           | 5     | Silk   | 85             |
+
+At game start, 12 garments are randomly selected from each star tier (48 total). These are shuffled together to form the garment deck.
