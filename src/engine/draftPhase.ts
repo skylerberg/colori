@@ -29,7 +29,7 @@ export function initializeDraft(state: GameState): void {
 
   const draftState: DraftState = {
     pickNumber: 0,
-    currentPlayerIndex: 0,
+    currentPlayerIndex: (state.round - 1) % numPlayers,
     hands,
     direction: state.round % 2 === 1 ? 1 : -1,
     waitingForPass: false,
@@ -57,9 +57,10 @@ export function playerPick(state: GameState, cardInstanceId: number): void {
   const [card] = hand.splice(cardIndex, 1);
   state.players[playerIndex].draftedCards.push(card);
 
-  draftState.currentPlayerIndex++;
+  const startingPlayer = (state.round - 1) % state.players.length;
+  draftState.currentPlayerIndex = (draftState.currentPlayerIndex + 1) % state.players.length;
 
-  if (draftState.currentPlayerIndex >= state.players.length) {
+  if (draftState.currentPlayerIndex === startingPlayer) {
     // All players have picked for this round
     advanceDraft(state);
   } else {
@@ -104,7 +105,7 @@ export function advanceDraft(state: GameState): void {
     }
     initializeActionPhase(state);
   } else {
-    draftState.currentPlayerIndex = 0;
+    draftState.currentPlayerIndex = (state.round - 1) % numPlayers;
     draftState.waitingForPass = true;
   }
 }

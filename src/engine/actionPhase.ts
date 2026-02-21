@@ -26,7 +26,7 @@ function getCardAbility(card: CardInstance): Ability {
  */
 export function initializeActionPhase(state: GameState): void {
   const actionState: ActionState = {
-    currentPlayerIndex: 0,
+    currentPlayerIndex: (state.round - 1) % state.players.length,
     abilityQueue: [],
     pendingChoice: null,
   };
@@ -292,9 +292,10 @@ export function endPlayerTurn(state: GameState): void {
   player.discard.push(...player.draftedCards);
   player.draftedCards = [];
 
-  actionState.currentPlayerIndex++;
+  const startingPlayer = (state.round - 1) % state.players.length;
+  actionState.currentPlayerIndex = (actionState.currentPlayerIndex + 1) % state.players.length;
 
-  if (actionState.currentPlayerIndex >= state.players.length) {
+  if (actionState.currentPlayerIndex === startingPlayer) {
     endRound(state);
   } else {
     actionState.abilityQueue = [];
