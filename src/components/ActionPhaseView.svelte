@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { GameState } from '../data/types';
-  import { destroyDraftedCard, endPlayerTurn } from '../engine/actionPhase';
+  import { destroyDraftedCard, endPlayerTurn, resolveMakeMaterials, resolveDestroyCards } from '../engine/actionPhase';
   import CardList from './CardList.svelte';
   import AbilityPrompt from './AbilityPrompt.svelte';
   import OpponentBoardPanel from './OpponentBoardPanel.svelte';
@@ -19,8 +19,64 @@
     actionState ? gameState.players[actionState.currentPlayerIndex] : null
   );
 
+  let pendingChoice = $derived(actionState?.pendingChoice ?? null);
   let hasPendingChoice = $derived(actionState?.pendingChoice !== null);
   let hasAbilitiesQueued = $derived((actionState?.abilityQueue.length ?? 0) > 0);
+
+  let drawnCardChoice = $derived(
+    pendingChoice?.type === 'chooseCardsForMaterials' || pendingChoice?.type === 'chooseCardsToDestroy'
+      ? pendingChoice : null
+  );
+
+  // Drawn-card selection state
+  let selectedMaterialIds: number[] = $state([]);
+  let selectedDestroyIds: number[] = $state([]);
+
+  $effect(() => {
+    const _pc = pendingChoice;
+    selectedMaterialIds = [];
+    selectedDestroyIds = [];
+  });
+
+  function toggleMaterialCard(instanceId: number) {
+    if (!pendingChoice || pendingChoice.type !== 'chooseCardsForMaterials') return;
+    const idx = selectedMaterialIds.indexOf(instanceId);
+    if (idx >= 0) {
+      selectedMaterialIds = selectedMaterialIds.filter(id => id !== instanceId);
+    } else if (selectedMaterialIds.length < pendingChoice.count) {
+      selectedMaterialIds = [...selectedMaterialIds, instanceId];
+    }
+  }
+
+  function confirmMaterials() {
+    const cardNames = selectedMaterialIds.map(id => {
+      const c = currentPlayer?.drawnCards.find(c => c.instanceId === id);
+      return c && 'name' in c.card ? c.card.name : 'a card';
+    });
+    onLog(`${currentPlayer?.name} stored materials from ${cardNames.join(', ')}`);
+    resolveMakeMaterials(gameState, selectedMaterialIds);
+    onGameUpdated();
+  }
+
+  function toggleDestroyCard(instanceId: number) {
+    if (!pendingChoice || pendingChoice.type !== 'chooseCardsToDestroy') return;
+    const idx = selectedDestroyIds.indexOf(instanceId);
+    if (idx >= 0) {
+      selectedDestroyIds = selectedDestroyIds.filter(id => id !== instanceId);
+    } else if (selectedDestroyIds.length < pendingChoice.count) {
+      selectedDestroyIds = [...selectedDestroyIds, instanceId];
+    }
+  }
+
+  function confirmDestroy() {
+    const cardNames = selectedDestroyIds.map(id => {
+      const c = currentPlayer?.drawnCards.find(c => c.instanceId === id);
+      return c && 'name' in c.card ? c.card.name : 'a card';
+    });
+    onLog(`${currentPlayer?.name} destroyed ${cardNames.join(', ')} from drawn cards`);
+    resolveDestroyCards(gameState, selectedDestroyIds);
+    onGameUpdated();
+  }
 
   function handleDestroyDrafted(cardInstanceId: number) {
     if (hasPendingChoice) return;
@@ -55,7 +111,7 @@
       </div>
     </div>
 
-    {#if hasPendingChoice}
+    {#if hasPendingChoice && !drawnCardChoice}
       <AbilityPrompt {gameState} onResolved={handleAbilityResolved} {onLog} />
     {/if}
 
@@ -69,9 +125,33 @@
         />
       </div>
 
-      <div class="section">
-        <h3>Drawn Cards</h3>
-        <CardList cards={currentPlayer.drawnCards} />
+      <div class="section" class:active-choice={drawnCardChoice}>
+        {#if pendingChoice?.type === 'chooseCardsForMaterials'}
+          <h3>Drawn Cards — Select up to {pendingChoice.count} card(s) to store</h3>
+          <CardList
+            cards={currentPlayer.drawnCards}
+            selectable={true}
+            selectedIds={selectedMaterialIds}
+            onCardClick={toggleMaterialCard}
+          />
+          <button class="confirm-btn" onclick={confirmMaterials}>
+            Confirm Materials ({selectedMaterialIds.length} selected)
+          </button>
+        {:else if pendingChoice?.type === 'chooseCardsToDestroy'}
+          <h3>Drawn Cards — Select up to {pendingChoice.count} card(s) to destroy</h3>
+          <CardList
+            cards={currentPlayer.drawnCards}
+            selectable={true}
+            selectedIds={selectedDestroyIds}
+            onCardClick={toggleDestroyCard}
+          />
+          <button class="confirm-btn" onclick={confirmDestroy}>
+            Confirm Destroy ({selectedDestroyIds.length} selected)
+          </button>
+        {:else}
+          <h3>Drawn Cards</h3>
+          <CardList cards={currentPlayer.drawnCards} />
+        {/if}
       </div>
 
     </div>
@@ -157,6 +237,26 @@
     font-size: 0.7rem;
     color: #999;
     font-weight: 400;
+  }
+
+  .active-choice {
+    border-color: #d4a017;
+    border-width: 2px;
+    background: #fffef0;
+  }
+
+  .confirm-btn {
+    padding: 8px 20px;
+    font-weight: 600;
+    background: #2a6bcf;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    align-self: flex-start;
+  }
+
+  .confirm-btn:hover {
+    background: #1e56a8;
   }
 
   .action-footer {
