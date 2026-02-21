@@ -13,7 +13,7 @@ import { createEmptyWheel, createEmptyFabrics } from './colorWheel';
  *   - 2 copies of each of the 39 dye cards (78 total)
  *   - 8 copies of each of the 4 fabric types (32 total)
  *
- * Garment deck: 2 copies of each of 39 garments (78 total).
+ * Garment deck: 1 copy of each of 39 garments (39 total).
  * Garment display: 6 cards dealt from the garment deck.
  * Game starts at round 1, phase = 'draw'.
  */
@@ -70,10 +70,10 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
 
   const draftDeck = shuffle(createCardInstances(draftCards));
 
-  // Build garment deck: 2 copies of each of 39 garments
+  // Build garment deck: 1 copy of each garment
   const garmentCards: GarmentCard[] = [];
   for (const garment of GARMENT_CARDS) {
-    garmentCards.push(garment, garment);
+    garmentCards.push(garment);
   }
   const garmentDeck = shuffle(createCardInstances(garmentCards));
 

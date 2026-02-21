@@ -56,9 +56,9 @@ describe('createInitialGameState', () => {
   });
 
   it('creates garment deck with correct size', () => {
-    // 2 copies * 39 garments = 78, minus 6 in display = 72
+    // 39 garments, minus 6 in display = 33
     const state = createInitialGameState(['Alice', 'Bob']);
-    expect(state.garmentDeck).toHaveLength(72);
+    expect(state.garmentDeck).toHaveLength(33);
   });
 
   it('garment display has 6 cards', () => {
