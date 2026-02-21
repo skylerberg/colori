@@ -57,11 +57,11 @@ export function colorToHex(color: Color): string {
     'Amber': '#e9c46a',
     'Yellow': '#f2e205',
     'Chartreuse': '#a7c957',
-    'Green': '#2d6a4f',
+    'Green': '#2ecc71',
     'Teal': '#219ebc',
-    'Blue': '#264653',
-    'Indigo': '#3a0ca3',
-    'Purple': '#7209b7',
+    'Blue': '#3b82f6',
+    'Indigo': '#6366f1',
+    'Purple': '#a855f7',
     'Magenta': '#d63384',
   };
   return map[color];
