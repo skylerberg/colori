@@ -1,5 +1,5 @@
 import type { GameState, CardInstance } from '../data/types';
-import { cloneGameState, type ColoriChoice } from './coloriGame';
+import type { ColoriChoice } from './coloriGame';
 import AIWorkerModule from './aiWorker?worker';
 
 export class AIController {
@@ -19,9 +19,8 @@ export class AIController {
       this.worker.onmessage = (event: MessageEvent<ColoriChoice>) => {
         resolve(event.data);
       };
-      const plainState = cloneGameState(gameState);
-      const plainSeenHands = seenHands?.map(hand => [...hand]);
-      this.worker.postMessage({ gameState: plainState, playerIndex, iterations, seenHands: plainSeenHands });
+      const plain = JSON.parse(JSON.stringify({ gameState, playerIndex, iterations, seenHands }));
+      this.worker.postMessage(plain);
     });
   }
 
