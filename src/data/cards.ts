@@ -29,7 +29,7 @@ export const DYE_CARDS: DyeCard[] = [
     kind: 'dye',
     name: 'Madder',
     colors: ['Red', 'Red', 'Vermilion'],
-    ability: { type: 'storeColors', count: 2 },
+    ability: { type: 'makeMaterials', count: 3 },
   },
   // 4
   {
@@ -71,7 +71,7 @@ export const DYE_CARDS: DyeCard[] = [
     kind: 'dye',
     name: 'Venetian Red Earth',
     colors: ['Red', 'Vermilion', 'Amber'],
-    ability: { type: 'storeColors', count: 1 },
+    ability: { type: 'makeMaterials', count: 2 },
   },
   // 10
   {
@@ -85,7 +85,7 @@ export const DYE_CARDS: DyeCard[] = [
     kind: 'dye',
     name: 'Woad',
     colors: ['Blue', 'Blue'],
-    ability: { type: 'storeColors', count: 2 },
+    ability: { type: 'makeMaterials', count: 3 },
   },
   // 12
   {
@@ -106,7 +106,7 @@ export const DYE_CARDS: DyeCard[] = [
     kind: 'dye',
     name: 'Azurite',
     colors: ['Blue', 'Blue', 'Teal'],
-    ability: { type: 'storeColors', count: 1 },
+    ability: { type: 'makeMaterials', count: 2 },
   },
   // 15
   {
@@ -148,14 +148,14 @@ export const DYE_CARDS: DyeCard[] = [
     kind: 'dye',
     name: 'Spanish Broom',
     colors: ['Yellow', 'Yellow'],
-    ability: { type: 'storeColors', count: 1 },
+    ability: { type: 'makeMaterials', count: 2 },
   },
   // 21
   {
     kind: 'dye',
     name: 'Old Fustic',
     colors: ['Yellow', 'Yellow', 'Amber'],
-    ability: { type: 'storeColors', count: 2 },
+    ability: { type: 'makeMaterials', count: 3 },
   },
   // 22
   {
@@ -190,7 +190,7 @@ export const DYE_CARDS: DyeCard[] = [
     kind: 'dye',
     name: 'Turnsole',
     colors: ['Purple', 'Purple'],
-    ability: { type: 'storeColors', count: 1 },
+    ability: { type: 'makeMaterials', count: 2 },
   },
   // 27
   {
@@ -218,7 +218,7 @@ export const DYE_CARDS: DyeCard[] = [
     kind: 'dye',
     name: 'Saxon Green',
     colors: ['Green', 'Green', 'Chartreuse'],
-    ability: { type: 'storeColors', count: 3 },
+    ability: { type: 'makeMaterials', count: 4 },
   },
   // 31
   {
@@ -239,7 +239,7 @@ export const DYE_CARDS: DyeCard[] = [
     kind: 'dye',
     name: 'Oak Bark',
     colors: ['Yellow', 'Amber'],
-    ability: { type: 'storeColors', count: 1 },
+    ability: { type: 'makeMaterials', count: 2 },
   },
   // 34
   {
@@ -260,7 +260,7 @@ export const DYE_CARDS: DyeCard[] = [
     kind: 'dye',
     name: 'Alder Bark',
     colors: ['Red', 'Amber'],
-    ability: { type: 'storeColors', count: 1 },
+    ability: { type: 'makeMaterials', count: 2 },
   },
   // 37
   {
@@ -281,7 +281,7 @@ export const DYE_CARDS: DyeCard[] = [
     kind: 'dye',
     name: 'Henna',
     colors: ['Orange', 'Vermilion'],
-    ability: { type: 'storeColors', count: 1 },
+    ability: { type: 'makeMaterials', count: 2 },
   },
 ];
 
@@ -302,7 +302,7 @@ export const FABRIC_CARDS: FabricCard[] = [
     kind: 'fabric',
     name: 'Linen',
     fabricType: 'Linen',
-    ability: { type: 'storeColors', count: 1 },
+    ability: { type: 'makeMaterials', count: 2 },
   },
   {
     kind: 'fabric',
@@ -317,19 +317,19 @@ export const BASIC_DYE_CARDS: BasicDyeCard[] = [
     kind: 'basicDye',
     name: 'Basic Red',
     color: 'Red',
-    ability: { type: 'storeColors', count: 1 },
+    ability: { type: 'makeMaterials', count: 2 },
   },
   {
     kind: 'basicDye',
     name: 'Basic Yellow',
     color: 'Yellow',
-    ability: { type: 'storeColors', count: 1 },
+    ability: { type: 'makeMaterials', count: 2 },
   },
   {
     kind: 'basicDye',
     name: 'Basic Blue',
     color: 'Blue',
-    ability: { type: 'storeColors', count: 1 },
+    ability: { type: 'makeMaterials', count: 2 },
   },
 ];
 

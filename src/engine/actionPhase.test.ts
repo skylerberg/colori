@@ -7,7 +7,7 @@ import {
   initializeActionPhase,
   destroyDraftedCard,
   processQueue,
-  resolveStoreColors,
+  resolveMakeMaterials,
   resolveDestroyCards,
   endPlayerTurn,
   endRound,
@@ -25,6 +25,7 @@ function makeTestPlayer(name: string): PlayerState {
     drawnCards: [],
     draftedCards: [],
     colorWheel: createEmptyWheel(),
+    fabrics: { Wool: 0, Silk: 0, Linen: 0, Cotton: 0 },
     completedGarments: [],
   };
 }
@@ -87,17 +88,17 @@ describe('destroyDraftedCard', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
 
-    // Basic Red has storeColors ability with count 1
+    // Basic Red has makeMaterials ability with count 2
     const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
     const instances = createCardInstances([basicRed]);
     state.players[0].draftedCards = instances;
 
     destroyDraftedCard(state, instances[0].instanceId);
 
-    // storeColors triggers a pendingChoice
+    // makeMaterials triggers a pendingChoice
     const actionState = getActionState(state);
     expect(actionState.pendingChoice).not.toBeNull();
-    expect(actionState.pendingChoice?.type).toBe('chooseCardsForStore');
+    expect(actionState.pendingChoice?.type).toBe('chooseCardsForMaterials');
   });
 
   it('throws when card is not in draftedCards', () => {
@@ -132,25 +133,25 @@ describe('processQueue - drawCards', () => {
   });
 });
 
-describe('processQueue - storeColors', () => {
+describe('processQueue - makeMaterials', () => {
   beforeEach(() => {
     resetInstanceIdCounter();
   });
 
-  it('sets pendingChoice for storeColors', () => {
+  it('sets pendingChoice for makeMaterials', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
 
     const actionState = getActionState(state);
-    actionState.abilityQueue.push({ type: 'storeColors', count: 2 });
+    actionState.abilityQueue.push({ type: 'makeMaterials', count: 2 });
 
     processQueue(state);
 
-    expect(actionState.pendingChoice).toEqual({ type: 'chooseCardsForStore', count: 2 });
+    expect(actionState.pendingChoice).toEqual({ type: 'chooseCardsForMaterials', count: 2 });
   });
 });
 
-describe('resolveStoreColors', () => {
+describe('resolveMakeMaterials', () => {
   beforeEach(() => {
     resetInstanceIdCounter();
   });
@@ -164,11 +165,30 @@ describe('resolveStoreColors', () => {
     state.players[0].drawnCards = instances;
 
     const actionState = getActionState(state);
-    actionState.pendingChoice = { type: 'chooseCardsForStore', count: 1 };
+    actionState.pendingChoice = { type: 'chooseCardsForMaterials', count: 1 };
 
-    resolveStoreColors(state, [instances[0].instanceId]);
+    resolveMakeMaterials(state, [instances[0].instanceId]);
 
     expect(state.players[0].colorWheel['Red']).toBe(1);
+    expect(state.players[0].drawnCards).toHaveLength(0);
+    expect(state.players[0].discard).toHaveLength(1);
+    expect(actionState.pendingChoice).toBeNull();
+  });
+
+  it('stores fabric card as stored fabric instead of pips', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+
+    const woolCard = FABRIC_CARDS.find(c => c.fabricType === 'Wool')!;
+    const instances = createCardInstances([woolCard]);
+    state.players[0].drawnCards = instances;
+
+    const actionState = getActionState(state);
+    actionState.pendingChoice = { type: 'chooseCardsForMaterials', count: 1 };
+
+    resolveMakeMaterials(state, [instances[0].instanceId]);
+
+    expect(state.players[0].fabrics.Wool).toBe(1);
     expect(state.players[0].drawnCards).toHaveLength(0);
     expect(state.players[0].discard).toHaveLength(1);
     expect(actionState.pendingChoice).toBeNull();

@@ -78,8 +78,8 @@ export function processQueue(state: GameState): void {
       processQueue(state);
       break;
     }
-    case 'storeColors': {
-      actionState.pendingChoice = { type: 'chooseCardsForStore', count: ability.count };
+    case 'makeMaterials': {
+      actionState.pendingChoice = { type: 'chooseCardsForMaterials', count: ability.count };
       break;
     }
     case 'mixColors': {
@@ -105,7 +105,7 @@ export function processQueue(state: GameState): void {
 
 /**
  * Check if the current player can make any garment from the display.
- * Player needs a matching fabric in drawnCards and can pay the color cost
+ * Player needs stored fabric of the required type and can pay the color cost
  * from the color wheel.
  */
 function canMakeAnyGarment(state: GameState): boolean {
@@ -115,11 +115,8 @@ function canMakeAnyGarment(state: GameState): boolean {
   for (const garmentInstance of state.garmentDisplay) {
     const garment = garmentInstance.card;
 
-    // Check if player has the required fabric in drawnCards
-    const hasFabric = player.drawnCards.some(
-      c => c.card.kind === 'fabric' && c.card.fabricType === garment.requiredFabric
-    );
-    if (!hasFabric) continue;
+    // Check if player has the required fabric in storage
+    if (player.fabrics[garment.requiredFabric] <= 0) continue;
 
     // Check if player can pay via colorWheel
     if (canPayCost(player.colorWheel, garment.colorCost)) return true;
@@ -129,11 +126,12 @@ function canMakeAnyGarment(state: GameState): boolean {
 }
 
 /**
- * Resolve store colors: for each selected card (from drawnCards), get its pips,
- * store each pip on the player's colorWheel. Move those cards to player's
+ * Resolve make materials: for each selected card (from drawnCards), if it's a
+ * fabric card, increment the player's stored fabrics; otherwise get its pips
+ * and store each pip on the player's colorWheel. Move those cards to player's
  * discard. Clear pendingChoice. Process queue.
  */
-export function resolveStoreColors(state: GameState, selectedCardIds: number[]): void {
+export function resolveMakeMaterials(state: GameState, selectedCardIds: number[]): void {
   const actionState = getActionState(state);
   const player = state.players[actionState.currentPlayerIndex];
 
@@ -144,9 +142,13 @@ export function resolveStoreColors(state: GameState, selectedCardIds: number[]):
     }
 
     const [card] = player.drawnCards.splice(cardIndex, 1);
-    const pips = getCardPips(card.card);
-    for (const pip of pips) {
-      storeColor(player.colorWheel, pip);
+    if (card.card.kind === 'fabric') {
+      player.fabrics[card.card.fabricType]++;
+    } else {
+      const pips = getCardPips(card.card);
+      for (const pip of pips) {
+        storeColor(player.colorWheel, pip);
+      }
     }
     player.discard.push(card);
   }
@@ -225,7 +227,7 @@ export function resolveChooseGarment(state: GameState, garmentInstanceId: number
 
 /**
  * Resolve garment payment.
- * - Remove the fabric card from drawnCards, move to discard.
+ * - Decrement the required fabric from player's stored fabrics.
  * - Pay the garment's colorCost from the wheel.
  * - Move garment from garmentDisplay to player's completedGarments.
  * - Refill garment display from garment deck (if available).
@@ -233,7 +235,6 @@ export function resolveChooseGarment(state: GameState, garmentInstanceId: number
  */
 export function resolveGarmentPayment(
   state: GameState,
-  fabricCardId: number,
 ): void {
   const actionState = getActionState(state);
   const player = state.players[actionState.currentPlayerIndex];
@@ -243,20 +244,18 @@ export function resolveGarmentPayment(
   }
   const garmentInstanceId = actionState.pendingChoice.garmentInstanceId;
 
-  // Remove fabric card from drawnCards, move to discard
-  const fabricIndex = player.drawnCards.findIndex(c => c.instanceId === fabricCardId);
-  if (fabricIndex === -1) {
-    throw new Error(`Fabric card ${fabricCardId} not found in player's drawnCards`);
-  }
-  const [fabricCard] = player.drawnCards.splice(fabricIndex, 1);
-  player.discard.push(fabricCard);
-
   // Find the garment in the display
   const garmentIndex = state.garmentDisplay.findIndex(c => c.instanceId === garmentInstanceId);
   if (garmentIndex === -1) {
     throw new Error(`Garment ${garmentInstanceId} not found in garment display`);
   }
   const garment = state.garmentDisplay[garmentIndex];
+
+  // Decrement stored fabric
+  if (player.fabrics[garment.card.requiredFabric] <= 0) {
+    throw new Error(`No stored ${garment.card.requiredFabric} fabric`);
+  }
+  player.fabrics[garment.card.requiredFabric]--;
 
   // Pay the color cost from the wheel
   const success = payCost(player.colorWheel, garment.card.colorCost);

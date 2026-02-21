@@ -1,7 +1,7 @@
 import type { GameState, PlayerState, CardInstance, GarmentCard } from '../data/types';
 import { BASIC_DYE_CARDS, FABRIC_CARDS, DYE_CARDS, GARMENT_CARDS } from '../data/cards';
 import { createCardInstances, shuffle } from './deckUtils';
-import { createEmptyWheel } from './colorWheel';
+import { createEmptyWheel, createEmptyFabrics } from './colorWheel';
 
 /**
  * Create the initial game state for a new game.
@@ -44,6 +44,7 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
       drawnCards: [],
       draftedCards: [],
       colorWheel: createEmptyWheel(),
+      fabrics: createEmptyFabrics(),
       completedGarments: [],
     };
   });

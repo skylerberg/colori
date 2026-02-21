@@ -9,7 +9,7 @@ import { canPayCost } from '../engine/colorWheel';
 import { playerPick, confirmPass } from '../engine/draftPhase';
 import { executeDrawPhase } from '../engine/drawPhase';
 import {
-  destroyDraftedCard, endPlayerTurn, resolveStoreColors,
+  destroyDraftedCard, endPlayerTurn, resolveMakeMaterials,
   resolveMixColors, skipMix, resolveDestroyCards,
   resolveChooseGarment, resolveGarmentPayment,
 } from '../engine/actionPhase';
@@ -22,12 +22,12 @@ export type ColoriChoice =
   | { type: 'draftPick'; cardInstanceId: number }
   | { type: 'destroyDraftedCard'; cardInstanceId: number }
   | { type: 'endTurn' }
-  | { type: 'storeColors'; cardInstanceIds: number[] }
+  | { type: 'makeMaterials'; cardInstanceIds: number[] }
   | { type: 'destroyDrawnCards'; cardInstanceIds: number[] }
   | { type: 'mix'; colorA: Color; colorB: Color }
   | { type: 'skipMix' }
   | { type: 'chooseGarment'; garmentInstanceId: number }
-  | { type: 'garmentPayment'; fabricCardId: number };
+  | { type: 'garmentPayment' };
 
 // ── Deep clone ──
 
@@ -39,6 +39,7 @@ function clonePlayerState(p: PlayerState): PlayerState {
     drawnCards: [...p.drawnCards],
     draftedCards: [...p.draftedCards],
     colorWheel: { ...p.colorWheel },
+    fabrics: { ...p.fabrics },
     completedGarments: [...p.completedGarments],
   };
 }
@@ -112,10 +113,7 @@ function canAffordGarment(
   player: PlayerState,
   garment: GarmentCard,
 ): boolean {
-  const hasFabric = player.drawnCards.some(
-    c => c.card.kind === 'fabric' && c.card.fabricType === garment.requiredFabric,
-  );
-  if (!hasFabric) return false;
+  if (player.fabrics[garment.requiredFabric] <= 0) return false;
   return canPayCost(player.colorWheel, garment.colorCost);
 }
 
@@ -146,17 +144,17 @@ function enumerateChoices(state: GameState): ColoriChoice[] {
     }
 
     switch (pending.type) {
-      case 'chooseCardsForStore': {
-        const cardsWithPips = player.drawnCards
-          .filter(c => getCardPips(c.card).length > 0)
+      case 'chooseCardsForMaterials': {
+        const eligibleCards = player.drawnCards
+          .filter(c => c.card.kind === 'dye' || c.card.kind === 'basicDye' || c.card.kind === 'fabric')
           .map(c => c.instanceId);
-        const storeSubsets = getSubsets(cardsWithPips, pending.count)
-          .map(ids => ({ type: 'storeColors' as const, cardInstanceIds: ids }));
-        // If no cards with pips, must still resolve with empty selection
-        if (storeSubsets.length === 0) {
-          return [{ type: 'storeColors' as const, cardInstanceIds: [] }];
+        const materialSubsets = getSubsets(eligibleCards, pending.count)
+          .map(ids => ({ type: 'makeMaterials' as const, cardInstanceIds: ids }));
+        // If no eligible cards, must still resolve with empty selection
+        if (materialSubsets.length === 0) {
+          return [{ type: 'makeMaterials' as const, cardInstanceIds: [] }];
         }
-        return storeSubsets;
+        return materialSubsets;
       }
       case 'chooseCardsToDestroy': {
         const cardIds = player.drawnCards.map(c => c.instanceId);
@@ -192,19 +190,11 @@ function enumerateChoices(state: GameState): ColoriChoice[] {
         );
         if (!garmentInst) return [];
         const garment = garmentInst.card;
-        const choices: ColoriChoice[] = [];
 
-        for (const fabric of player.drawnCards) {
-          if (fabric.card.kind !== 'fabric' || fabric.card.fabricType !== garment.requiredFabric) continue;
-
-          if (canPayCost(player.colorWheel, garment.colorCost)) {
-            choices.push({
-              type: 'garmentPayment',
-              fabricCardId: fabric.instanceId,
-            });
-          }
+        if (player.fabrics[garment.requiredFabric] > 0 && canPayCost(player.colorWheel, garment.colorCost)) {
+          return [{ type: 'garmentPayment' as const }];
         }
-        return choices;
+        return [];
       }
     }
   }
@@ -222,8 +212,8 @@ function choiceToKey(choice: ColoriChoice): string {
       return `destroyDrafted:${choice.cardInstanceId}`;
     case 'endTurn':
       return 'endTurn';
-    case 'storeColors':
-      return `storeColors:${[...choice.cardInstanceIds].sort((a, b) => a - b).join(',')}`;
+    case 'makeMaterials':
+      return `makeMaterials:${[...choice.cardInstanceIds].sort((a, b) => a - b).join(',')}`;
     case 'destroyDrawnCards':
       return `destroyDrawn:${[...choice.cardInstanceIds].sort((a, b) => a - b).join(',')}`;
     case 'mix':
@@ -233,7 +223,7 @@ function choiceToKey(choice: ColoriChoice): string {
     case 'chooseGarment':
       return `chooseGarment:${choice.garmentInstanceId}`;
     case 'garmentPayment':
-      return `garmentPayment:${choice.fabricCardId}`;
+      return 'garmentPayment';
   }
 }
 
@@ -258,8 +248,8 @@ function applyChoiceToState(state: GameState, choice: ColoriChoice): void {
         executeDrawPhase(state);
       }
       break;
-    case 'storeColors':
-      resolveStoreColors(state, choice.cardInstanceIds);
+    case 'makeMaterials':
+      resolveMakeMaterials(state, choice.cardInstanceIds);
       break;
     case 'destroyDrawnCards':
       resolveDestroyCards(state, choice.cardInstanceIds);
@@ -275,7 +265,7 @@ function applyChoiceToState(state: GameState, choice: ColoriChoice): void {
       resolveChooseGarment(state, choice.garmentInstanceId);
       break;
     case 'garmentPayment':
-      resolveGarmentPayment(state, choice.fabricCardId);
+      resolveGarmentPayment(state);
       break;
   }
 }
@@ -297,7 +287,7 @@ function checkChoiceAvailable(state: GameState, choice: ColoriChoice): boolean {
     case 'endTurn':
     case 'skipMix':
       return true;
-    case 'storeColors': {
+    case 'makeMaterials': {
       if (state.phase.type !== 'action') return false;
       const player = state.players[state.phase.actionState.currentPlayerIndex];
       return choice.cardInstanceIds.every(id => player.drawnCards.some(c => c.instanceId === id));
@@ -324,13 +314,11 @@ function checkChoiceAvailable(state: GameState, choice: ColoriChoice): boolean {
     case 'garmentPayment': {
       if (state.phase.type !== 'action') return false;
       const player = state.players[state.phase.actionState.currentPlayerIndex];
-      const hasFabric = player.drawnCards.some(c => c.instanceId === choice.fabricCardId);
-      if (!hasFabric) return false;
       const pending = state.phase.actionState.pendingChoice;
       if (!pending || pending.type !== 'chooseGarmentPayment') return false;
       const garmentInst = state.garmentDisplay.find(g => g.instanceId === pending.garmentInstanceId);
       if (!garmentInst) return false;
-      return canPayCost(player.colorWheel, garmentInst.card.colorCost);
+      return player.fabrics[garmentInst.card.requiredFabric] > 0 && canPayCost(player.colorWheel, garmentInst.card.colorCost);
     }
   }
 }
@@ -485,13 +473,13 @@ function getRolloutChoice(state: GameState): ColoriChoice {
     }
 
     switch (pending.type) {
-      case 'chooseCardsForStore': {
-        const cardsWithPips = player.drawnCards.filter(c => getCardPips(c.card).length > 0);
-        if (cardsWithPips.length === 0) return { type: 'storeColors', cardInstanceIds: [] };
-        const count = Math.min(pending.count, cardsWithPips.length);
+      case 'chooseCardsForMaterials': {
+        const eligibleCards = player.drawnCards.filter(c => c.card.kind === 'dye' || c.card.kind === 'basicDye' || c.card.kind === 'fabric');
+        if (eligibleCards.length === 0) return { type: 'makeMaterials', cardInstanceIds: [] };
+        const count = Math.min(pending.count, eligibleCards.length);
         const pick = Math.floor(Math.random() * count) + 1;
-        const shuffled = [...cardsWithPips].sort(() => Math.random() - 0.5);
-        return { type: 'storeColors', cardInstanceIds: shuffled.slice(0, pick).map(c => c.instanceId) };
+        const shuffled = [...eligibleCards].sort(() => Math.random() - 0.5);
+        return { type: 'makeMaterials', cardInstanceIds: shuffled.slice(0, pick).map(c => c.instanceId) };
       }
       case 'chooseCardsToDestroy': {
         const count = Math.min(pending.count, player.drawnCards.length);
@@ -522,23 +510,7 @@ function getRolloutChoice(state: GameState): ColoriChoice {
         return { type: 'chooseGarment', garmentInstanceId: affordable[Math.floor(Math.random() * affordable.length)].instanceId };
       }
       case 'chooseGarmentPayment': {
-        const garmentInst = state.garmentDisplay.find(g => g.instanceId === pending.garmentInstanceId);
-        if (!garmentInst) {
-          // Fallback
-          return { type: 'garmentPayment', fabricCardId: 0 };
-        }
-        const garment = garmentInst.card;
-        const options: ColoriChoice[] = [];
-        for (const fabric of player.drawnCards) {
-          if (fabric.card.kind !== 'fabric' || fabric.card.fabricType !== garment.requiredFabric) continue;
-          if (canPayCost(player.colorWheel, garment.colorCost)) {
-            options.push({ type: 'garmentPayment', fabricCardId: fabric.instanceId });
-          }
-        }
-        if (options.length === 0) {
-          return { type: 'garmentPayment', fabricCardId: 0 };
-        }
-        return options[Math.floor(Math.random() * options.length)];
+        return { type: 'garmentPayment' };
       }
     }
   }

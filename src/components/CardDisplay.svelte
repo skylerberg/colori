@@ -16,7 +16,7 @@
     if (c.kind === 'garment') return '';
     const a = c.ability;
     switch (a.type) {
-      case 'storeColors': return `Store x${a.count}`;
+      case 'makeMaterials': return `Materials x${a.count}`;
       case 'drawCards': return `Draw x${a.count}`;
       case 'mixColors': return `Mix x${a.count}`;
       case 'destroyCards': return `Destroy x${a.count}`;

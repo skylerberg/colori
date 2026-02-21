@@ -3,7 +3,7 @@
   import { executeDrawPhase } from '../engine/drawPhase';
   import { playerPick, confirmPass } from '../engine/draftPhase';
   import {
-    destroyDraftedCard, endPlayerTurn, resolveStoreColors,
+    destroyDraftedCard, endPlayerTurn, resolveMakeMaterials,
     resolveMixColors, skipMix, resolveDestroyCards,
     resolveChooseGarment, resolveGarmentPayment,
   } from '../engine/actionPhase';
@@ -88,8 +88,8 @@
           // Will be handled by the draw phase effect
         }
         break;
-      case 'storeColors':
-        resolveStoreColors(gameState, choice.cardInstanceIds);
+      case 'makeMaterials':
+        resolveMakeMaterials(gameState, choice.cardInstanceIds);
         break;
       case 'destroyDrawnCards':
         resolveDestroyCards(gameState, choice.cardInstanceIds);
@@ -104,7 +104,7 @@
         resolveChooseGarment(gameState, choice.garmentInstanceId);
         break;
       case 'garmentPayment':
-        resolveGarmentPayment(gameState, choice.fabricCardId);
+        resolveGarmentPayment(gameState);
         break;
     }
     onGameUpdated(gameState);

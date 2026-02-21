@@ -77,6 +77,15 @@
           <ColorWheelDisplay wheel={currentPlayer.colorWheel} />
         </div>
 
+        <div class="fabrics-section">
+          <h3>Stored Fabrics</h3>
+          <div class="fabric-counts">
+            {#each Object.entries(currentPlayer.fabrics) as [fabric, count]}
+              <span class="fabric-count">{fabric}: {count}</span>
+            {/each}
+          </div>
+        </div>
+
         <div class="garment-section">
           <GarmentDisplay garments={gameState.garmentDisplay} />
         </div>
@@ -171,6 +180,30 @@
     font-size: 0.85rem;
     color: #4a3728;
     margin-bottom: 6px;
+  }
+
+  .fabrics-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .fabrics-section h3 {
+    font-size: 0.85rem;
+    color: #4a3728;
+    margin-bottom: 6px;
+  }
+
+  .fabric-counts {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.8rem;
+    color: #8b6914;
+  }
+
+  .fabric-count {
+    font-weight: 600;
   }
 
   .garment-section {

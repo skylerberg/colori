@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { GameState, Color, CardInstance } from '../data/types';
-  import { resolveStoreColors, resolveMixColors, skipMix, resolveDestroyCards, resolveChooseGarment, resolveGarmentPayment } from '../engine/actionPhase';
+  import { resolveMakeMaterials, resolveMixColors, skipMix, resolveDestroyCards, resolveChooseGarment, resolveGarmentPayment } from '../engine/actionPhase';
   import { canMix } from '../data/colors';
   import CardList from './CardList.svelte';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
@@ -21,8 +21,8 @@
     actionState ? gameState.players[actionState.currentPlayerIndex] : null
   );
 
-  // Store colors state
-  let selectedStoreIds: number[] = $state([]);
+  // Make materials state
+  let selectedMaterialIds: number[] = $state([]);
 
   // Destroy cards state
   let selectedDestroyIds: number[] = $state([]);
@@ -30,33 +30,29 @@
   // Mix colors state
   let selectedMixColors: Color[] = $state([]);
 
-  // Garment payment state
-  let selectedFabricId: number | null = $state(null);
-
   // Reset local state when pendingChoice changes
   $effect(() => {
     // Read pendingChoice to track it
     const _pc = pendingChoice;
-    selectedStoreIds = [];
+    selectedMaterialIds = [];
     selectedDestroyIds = [];
     selectedMixColors = [];
-    selectedFabricId = null;
   });
 
-  // -- Store Colors --
-  function toggleStoreCard(instanceId: number) {
-    if (!pendingChoice || pendingChoice.type !== 'chooseCardsForStore') return;
-    const idx = selectedStoreIds.indexOf(instanceId);
+  // -- Make Materials --
+  function toggleMaterialCard(instanceId: number) {
+    if (!pendingChoice || pendingChoice.type !== 'chooseCardsForMaterials') return;
+    const idx = selectedMaterialIds.indexOf(instanceId);
     if (idx >= 0) {
-      selectedStoreIds = selectedStoreIds.filter(id => id !== instanceId);
-    } else if (selectedStoreIds.length < pendingChoice.count) {
-      selectedStoreIds = [...selectedStoreIds, instanceId];
+      selectedMaterialIds = selectedMaterialIds.filter(id => id !== instanceId);
+    } else if (selectedMaterialIds.length < pendingChoice.count) {
+      selectedMaterialIds = [...selectedMaterialIds, instanceId];
     }
   }
 
-  function confirmStore() {
-    if (selectedStoreIds.length === 0) return;
-    resolveStoreColors(gameState, selectedStoreIds);
+  function confirmMaterials() {
+    if (selectedMaterialIds.length === 0) return;
+    resolveMakeMaterials(gameState, selectedMaterialIds);
     onResolved();
   }
 
@@ -110,47 +106,29 @@
   }
 
   // -- Garment Payment --
-  let garmentForPayment = $derived(() => {
-    if (!pendingChoice || pendingChoice.type !== 'chooseGarmentPayment') return null;
-    return gameState.garmentDisplay.find(g => g.instanceId === pendingChoice.garmentInstanceId) ?? null;
-  });
-
-  let availableFabrics = $derived(
-    currentPlayer && pendingChoice?.type === 'chooseGarmentPayment' && garmentForPayment()
-      ? currentPlayer.drawnCards.filter(
-          c => c.card.kind === 'fabric' && c.card.fabricType === garmentForPayment()!.card.requiredFabric
-        )
-      : []
-  );
-
-  function selectFabric(id: number) {
-    selectedFabricId = id;
-  }
-
   function confirmGarmentPayment() {
-    if (selectedFabricId === null) return;
-    resolveGarmentPayment(gameState, selectedFabricId);
+    resolveGarmentPayment(gameState);
     onResolved();
   }
 </script>
 
 {#if pendingChoice && currentPlayer}
   <div class="ability-prompt">
-    {#if pendingChoice.type === 'chooseCardsForStore'}
+    {#if pendingChoice.type === 'chooseCardsForMaterials'}
       <div class="prompt-section">
-        <h3>Store Colors: Select up to {pendingChoice.count} card(s) to store on your color wheel</h3>
+        <h3>Make Materials: Select up to {pendingChoice.count} card(s) to store</h3>
         <CardList
           cards={currentPlayer.drawnCards}
           selectable={true}
-          selectedIds={selectedStoreIds}
-          onCardClick={toggleStoreCard}
+          selectedIds={selectedMaterialIds}
+          onCardClick={toggleMaterialCard}
         />
         <button
           class="confirm-btn"
-          onclick={confirmStore}
-          disabled={selectedStoreIds.length === 0}
+          onclick={confirmMaterials}
+          disabled={selectedMaterialIds.length === 0}
         >
-          Confirm Store ({selectedStoreIds.length} selected)
+          Confirm Materials ({selectedMaterialIds.length} selected)
         </button>
       </div>
 
@@ -198,27 +176,12 @@
     {:else if pendingChoice.type === 'chooseGarmentPayment'}
       <div class="prompt-section">
         <h3>Pay for Garment</h3>
-
-        {#if garmentForPayment()}
-          <div class="payment-step">
-            <h4>Select a {garmentForPayment()!.card.requiredFabric} fabric card:</h4>
-            <CardList
-              cards={availableFabrics}
-              selectable={true}
-              selectedIds={selectedFabricId !== null ? [selectedFabricId] : []}
-              onCardClick={selectFabric}
-            />
-          </div>
-
-          {#if selectedFabricId !== null}
-            <button
-              class="confirm-btn"
-              onclick={confirmGarmentPayment}
-            >
-              Confirm Payment
-            </button>
-          {/if}
-        {/if}
+        <button
+          class="confirm-btn"
+          onclick={confirmGarmentPayment}
+        >
+          Confirm Payment
+        </button>
       </div>
     {/if}
   </div>
@@ -241,12 +204,6 @@
   h3 {
     font-size: 0.95rem;
     color: #4a3728;
-    text-align: left;
-  }
-
-  h4 {
-    font-size: 0.85rem;
-    color: #555;
     text-align: left;
   }
 
@@ -289,12 +246,5 @@
     background: #ddd;
   }
 
-  .payment-step {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    border-top: 1px solid #eee;
-    padding-top: 10px;
-  }
 
 </style>

@@ -4,7 +4,7 @@ export type Color = 'Red' | 'Vermilion' | 'Orange' | 'Amber' | 'Yellow' |
 export type FabricType = 'Wool' | 'Silk' | 'Linen' | 'Cotton';
 
 export type Ability =
-  | { type: 'storeColors'; count: number }
+  | { type: 'makeMaterials'; count: number }
   | { type: 'drawCards'; count: number }
   | { type: 'mixColors'; count: number }
   | { type: 'destroyCards'; count: number }
@@ -21,7 +21,7 @@ export interface BasicDyeCard {
   kind: 'basicDye';
   name: string;
   color: Color;
-  ability: Ability;  // always { type: 'storeColors', count: 1 }
+  ability: Ability;  // always { type: 'makeMaterials', count: 2 }
 }
 
 export interface FabricCard {
@@ -53,6 +53,7 @@ export interface PlayerState {
   drawnCards: CardInstance[];
   draftedCards: CardInstance[];
   colorWheel: Record<Color, number>;
+  fabrics: Record<FabricType, number>;
   completedGarments: CardInstance<GarmentCard>[];
 }
 
@@ -65,7 +66,7 @@ export interface DraftState {
 }
 
 export type PendingChoice =
-  | { type: 'chooseCardsForStore'; count: number }
+  | { type: 'chooseCardsForMaterials'; count: number }
   | { type: 'chooseCardsToDestroy'; count: number }
   | { type: 'chooseMix'; remaining: number }
   | { type: 'chooseGarment' }
