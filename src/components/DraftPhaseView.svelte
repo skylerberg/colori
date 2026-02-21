@@ -2,8 +2,6 @@
   import type { GameState } from '../data/types';
   import { playerPick, confirmPass } from '../engine/draftPhase';
   import CardList from './CardList.svelte';
-  import ColorWheelDisplay from './ColorWheelDisplay.svelte';
-  import GarmentDisplay from './GarmentDisplay.svelte';
   import OpponentBoardPanel from './OpponentBoardPanel.svelte';
   import PassScreen from './PassScreen.svelte';
 
@@ -47,10 +45,6 @@
     />
   {:else}
     <div class="draft-phase">
-      <div class="section">
-        <GarmentDisplay garments={gameState.garmentDisplay} />
-      </div>
-
       <div class="draft-header">
         <h2>Draft Phase - Round {gameState.round}</h2>
         <div class="draft-info">
@@ -71,22 +65,6 @@
       <div class="section">
         <h3>Drafted Cards</h3>
         <CardList cards={currentPlayer?.draftedCards ?? []} />
-      </div>
-
-      <div class="section side-by-side">
-        <div class="color-wheel-section">
-          <h3>Color Wheel</h3>
-          <ColorWheelDisplay wheel={currentPlayer?.colorWheel ?? []} />
-        </div>
-
-        <div class="fabrics-section">
-          <h3>Stored Fabrics</h3>
-          <div class="fabric-counts">
-            {#each Object.entries(currentPlayer?.fabrics ?? {}) as [fabric, count]}
-              <span class="fabric-count">{fabric}: {count}</span>
-            {/each}
-          </div>
-        </div>
       </div>
 
       <div class="section">
@@ -168,48 +146,6 @@
     font-size: 0.85rem;
     color: #4a3728;
     margin-bottom: 6px;
-  }
-
-  .side-by-side {
-    display: flex;
-    gap: 1rem;
-    flex-wrap: wrap;
-  }
-
-  .color-wheel-section {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .color-wheel-section h3 {
-    font-size: 0.85rem;
-    color: #4a3728;
-    margin-bottom: 6px;
-  }
-
-  .fabrics-section {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .fabrics-section h3 {
-    font-size: 0.85rem;
-    color: #4a3728;
-    margin-bottom: 6px;
-  }
-
-  .fabric-counts {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.8rem;
-    color: #8b6914;
-  }
-
-  .fabric-count {
-    font-weight: 600;
   }
 
   .opponents-section {

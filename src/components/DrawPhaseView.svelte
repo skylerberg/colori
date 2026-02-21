@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { GameState } from '../data/types';
   import CardList from './CardList.svelte';
-  import GarmentDisplay from './GarmentDisplay.svelte';
 
   let { gameState, onContinue }: {
     gameState: GameState;
@@ -20,10 +19,6 @@
         <CardList cards={player.drawnCards} />
       </div>
     {/each}
-  </div>
-
-  <div class="section">
-    <GarmentDisplay garments={gameState.garmentDisplay} />
   </div>
 
   <button class="continue-btn" onclick={onContinue}>Continue to Draft</button>
@@ -66,15 +61,6 @@
     font-size: 0.9rem;
     color: #4a3728;
     margin-bottom: 4px;
-  }
-
-  .section {
-    width: 100%;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 10px 12px;
-    background: #fff;
-    text-align: left;
   }
 
   .continue-btn {

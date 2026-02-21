@@ -14,6 +14,8 @@
   import DraftPhaseView from './DraftPhaseView.svelte';
   import ActionPhaseView from './ActionPhaseView.svelte';
   import GameLog from './GameLog.svelte';
+  import ColorWheelDisplay from './ColorWheelDisplay.svelte';
+  import GarmentDisplay from './GarmentDisplay.svelte';
   import { mixResult } from '../data/colors';
 
   let { gameState, onGameUpdated }: {
@@ -62,6 +64,12 @@
   }
 
   let activePlayerIndex = $derived(getActivePlayerIndex(gameState));
+  let currentPlayer = $derived(activePlayerIndex >= 0 ? gameState.players[activePlayerIndex] : null);
+  let showSidebar = $derived(
+    !aiThinking && !showDrawPhase && currentPlayer !== null &&
+    (gameState.phase.type === 'draft' || gameState.phase.type === 'action') &&
+    !isCurrentPlayerAI(gameState)
+  );
 
   function getActivePlayerIndex(gs: GameState): number {
     if (gs.phase.type === 'draft') {
@@ -194,26 +202,52 @@
     </div>
   </div>
 
-  <div class="phase-content">
-    {#if aiThinking}
-      <div class="ai-thinking">
-        <div class="spinner"></div>
-        <p>AI is thinking...</p>
-      </div>
-    {/if}
+  <div class="game-body">
+    <div class="main-column">
+      <div class="phase-content">
+        {#if aiThinking}
+          <div class="ai-thinking">
+            <div class="spinner"></div>
+            <p>AI is thinking...</p>
+          </div>
+        {/if}
 
-    {#if showDrawPhase && gameState.phase.type === 'draft'}
-      <DrawPhaseView {gameState} onContinue={handleDrawContinue} />
-    {:else if gameState.phase.type === 'draft' && !isCurrentPlayerAI(gameState)}
-      <DraftPhaseView {gameState} onGameUpdated={handleGameUpdated} />
-    {:else if gameState.phase.type === 'action' && !isCurrentPlayerAI(gameState)}
-      <ActionPhaseView {gameState} onGameUpdated={handleGameUpdated} onLog={addLog} />
+        {#if showDrawPhase && gameState.phase.type === 'draft'}
+          <DrawPhaseView {gameState} onContinue={handleDrawContinue} />
+        {:else if gameState.phase.type === 'draft' && !isCurrentPlayerAI(gameState)}
+          <DraftPhaseView {gameState} onGameUpdated={handleGameUpdated} />
+        {:else if gameState.phase.type === 'action' && !isCurrentPlayerAI(gameState)}
+          <ActionPhaseView {gameState} onGameUpdated={handleGameUpdated} onLog={addLog} />
+        {/if}
+      </div>
+
+      {#if gameLog.length > 0}
+        <GameLog entries={gameLog} />
+      {/if}
+    </div>
+
+    {#if showSidebar && currentPlayer}
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <h3>Color Wheel</h3>
+          <ColorWheelDisplay wheel={currentPlayer.colorWheel} size={160} />
+        </div>
+
+        <div class="sidebar-section">
+          <h3>Stored Fabrics</h3>
+          <div class="fabric-counts">
+            {#each Object.entries(currentPlayer.fabrics) as [fabric, count]}
+              <span class="fabric-count">{fabric}: {count}</span>
+            {/each}
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <GarmentDisplay garments={gameState.garmentDisplay} />
+        </div>
+      </aside>
     {/if}
   </div>
-
-  {#if gameLog.length > 0}
-    <GameLog entries={gameLog} />
-  {/if}
 </div>
 
 <style>
@@ -246,8 +280,54 @@
     flex-wrap: wrap;
   }
 
+  .game-body {
+    display: flex;
+    gap: 1rem;
+  }
+
+  .main-column {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
   .phase-content {
     min-height: 300px;
+  }
+
+  .sidebar {
+    width: 250px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .sidebar-section {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: #fff;
+  }
+
+  .sidebar-section h3 {
+    font-size: 0.85rem;
+    color: #4a3728;
+    margin-bottom: 6px;
+  }
+
+  .fabric-counts {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.8rem;
+    color: #8b6914;
+  }
+
+  .fabric-count {
+    font-weight: 600;
   }
 
   .ai-thinking {

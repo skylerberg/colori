@@ -41,7 +41,7 @@
   .garment-grid {
     display: flex;
     gap: 8px;
-    overflow-x: auto;
+    flex-wrap: wrap;
     padding: 4px;
   }
 
