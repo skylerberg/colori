@@ -41,6 +41,7 @@ function makeTestGameState(numPlayers: number = 2): GameState {
     garmentDisplay: [],
     phase: { type: 'draw' },
     round: 1,
+    aiPlayers: Array.from({ length: numPlayers }, () => false),
   };
 }
 

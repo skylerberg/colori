@@ -17,7 +17,7 @@ import { createEmptyWheel } from './colorWheel';
  * Garment display: 6 cards dealt from the garment deck.
  * Game starts at round 1, phase = 'draw'.
  */
-export function createInitialGameState(playerNames: string[]): GameState {
+export function createInitialGameState(playerNames: string[], aiPlayers?: boolean[]): GameState {
   const numPlayers = playerNames.length;
 
   // Find the specific basic dye and fabric cards by name/type
@@ -86,5 +86,6 @@ export function createInitialGameState(playerNames: string[]): GameState {
     garmentDisplay,
     phase: { type: 'draw' },
     round: 1,
+    aiPlayers: aiPlayers ?? playerNames.map(() => false),
   };
 }

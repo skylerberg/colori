@@ -1,9 +1,10 @@
 <script lang="ts">
   import type { PlayerState } from '../data/types';
 
-  let { player, active = false }: {
+  let { player, active = false, isAI = false }: {
     player: PlayerState;
     active?: boolean;
+    isAI?: boolean;
   } = $props();
 
   let score = $derived(player.completedGarments.reduce((sum, g) => sum + g.card.stars, 0));
@@ -11,7 +12,7 @@
 </script>
 
 <div class="player-status" class:active>
-  <div class="player-name">{player.name}</div>
+  <div class="player-name">{player.name}{#if isAI} <span class="ai-badge">AI</span>{/if}</div>
   <div class="stats">
     <span class="stat" title="Score (stars)">{'*'} {score}</span>
     <span class="stat" title="Completed garments">Garments: {garmentCount}</span>
@@ -57,5 +58,15 @@
 
   .stat {
     white-space: nowrap;
+  }
+
+  .ai-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    background: #e67e22;
+    color: #fff;
+    padding: 1px 5px;
+    border-radius: 4px;
+    vertical-align: middle;
   }
 </style>

@@ -8,6 +8,7 @@
 
   let playerCount = $state(2);
   let playerNames: string[] = $state(['Player 1', 'Player 2', 'Player 3', 'Player 4', 'Player 5']);
+  let isAI: boolean[] = $state([false, false, false, false, false]);
 
   function updatePlayerCount(count: number) {
     playerCount = count;
@@ -18,9 +19,19 @@
     playerNames[index] = target.value;
   }
 
+  function toggleAI(index: number) {
+    isAI[index] = !isAI[index];
+    if (isAI[index] && playerNames[index] === `Player ${index + 1}`) {
+      playerNames[index] = `AI Player ${index + 1}`;
+    } else if (!isAI[index] && playerNames[index] === `AI Player ${index + 1}`) {
+      playerNames[index] = `Player ${index + 1}`;
+    }
+  }
+
   function startGame() {
     const names = playerNames.slice(0, playerCount).map((n, i) => n.trim() || `Player ${i + 1}`);
-    const state = createInitialGameState(names);
+    const aiPlayers = isAI.slice(0, playerCount);
+    const state = createInitialGameState(names, aiPlayers);
     onGameStarted(state);
   }
 </script>
@@ -55,6 +66,13 @@
           oninput={(e: Event) => handleNameInput(i, e)}
           placeholder="Player {i + 1}"
         />
+        <button
+          class="ai-toggle"
+          class:ai-active={isAI[i]}
+          onclick={() => toggleAI(i)}
+        >
+          {isAI[i] ? 'AI' : 'Human'}
+        </button>
       </div>
     {/each}
   </div>
@@ -138,6 +156,23 @@
   .name-input-row input:focus {
     outline: none;
     border-color: #2a6bcf;
+  }
+
+  .ai-toggle {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 2px solid #999;
+    border-radius: 6px;
+    background: #fff;
+    min-width: 64px;
+    cursor: pointer;
+  }
+
+  .ai-toggle.ai-active {
+    border-color: #e67e22;
+    background: #e67e22;
+    color: #fff;
   }
 
   .start-btn {

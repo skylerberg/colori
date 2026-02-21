@@ -92,4 +92,5 @@ export interface GameState {
   garmentDisplay: CardInstance<GarmentCard>[];
   phase: GamePhase;
   round: number;  // 1-8
+  aiPlayers: boolean[];
 }
