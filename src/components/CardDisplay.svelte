@@ -61,7 +61,7 @@
   {#if card.kind === 'dye' || card.kind === 'basicDye'}
     <div class="pips">
       {#each pips as pip}
-        <span class="pip" style="background-color: {colorToHex(pip)}" title={pip}></span>
+        <span class="pip" style="background-color: {colorToHex(pip)}; color: {textColorForBackground(colorToHex(pip))}" title={pip}>{pip[0]}</span>
       {/each}
     </div>
     <div class="color-swatch" style="background-color: {blendedHex}"></div>
@@ -76,7 +76,7 @@
       <div class="required-fabric">{card.requiredFabric}</div>
       <div class="color-cost">
         {#each card.colorCost as color}
-          <span class="pip" style="background-color: {colorToHex(color)}" title={color}></span>
+          <span class="pip" style="background-color: {colorToHex(color)}; color: {textColorForBackground(colorToHex(color))}" title={color}>{color[0]}</span>
         {/each}
       </div>
     </div>
@@ -179,7 +179,11 @@
     height: 24px;
     border-radius: 50%;
     border: 1px solid rgba(0, 0, 0, 0.3);
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: bold;
   }
 
   .fabric-type {

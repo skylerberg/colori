@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Color } from '../data/types';
-  import { WHEEL_ORDER, colorToHex } from '../data/colors';
+  import { WHEEL_ORDER, colorToHex, textColorForBackground } from '../data/colors';
 
   let { wheel, interactive = false, onColorClick, selectedColors = [], size = 200 }: {
     wheel: Record<Color, number>;
@@ -39,6 +39,13 @@
     return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
   }
 
+  function outerLabelPosition(index: number): { x: number; y: number } {
+    const angleStep = (2 * Math.PI) / 12;
+    const angle = index * angleStep - Math.PI / 2;
+    const r = outerRadius + size * 0.06;
+    return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+  }
+
   function handleClick(color: Color) {
     if (interactive && onColorClick && wheel[color] > 0) {
       onColorClick(color);
@@ -54,6 +61,7 @@
   <svg width={size} height={size} viewBox="0 0 {size} {size}">
     {#each WHEEL_ORDER as color, i}
       {@const pos = labelPosition(i)}
+      {@const outerPos = outerLabelPosition(i)}
       <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
       <path
         d={segmentPath(i)}
@@ -73,13 +81,25 @@
         dominant-baseline="central"
         font-size={Math.round(size * 0.055)}
         font-weight="bold"
-        fill={wheel[color] > 0 ? '#fff' : '#999'}
-        stroke={wheel[color] > 0 ? 'rgba(0,0,0,0.5)' : 'none'}
-        stroke-width="0.5"
+        fill={textColorForBackground(colorToHex(color))}
         pointer-events="none"
       >
-        {wheel[color]}
+        {color[0]}
       </text>
+      {#if wheel[color] > 0}
+        <text
+          x={outerPos.x}
+          y={outerPos.y}
+          text-anchor="middle"
+          dominant-baseline="central"
+          font-size={Math.round(size * 0.045)}
+          font-weight="bold"
+          fill="#333"
+          pointer-events="none"
+        >
+          {wheel[color]}
+        </text>
+      {/if}
     {/each}
   </svg>
 </div>
