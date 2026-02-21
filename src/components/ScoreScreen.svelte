@@ -2,10 +2,25 @@
   import type { GameState } from '../data/types';
   import { calculateScores, determineWinner } from '../engine/scoring';
 
-  let { gameState, onPlayAgain }: {
+  let { gameState, gameStartTime, onPlayAgain }: {
     gameState: GameState;
+    gameStartTime: number | null;
     onPlayAgain: () => void;
   } = $props();
+
+  function formatTime(seconds: number): string {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (h > 0) {
+      return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+
+  let finalTime = $derived(
+    gameStartTime !== null ? formatTime(Math.floor((Date.now() - gameStartTime) / 1000)) : null
+  );
 
   let scores = $derived(calculateScores(gameState.players));
   let winner = $derived(determineWinner(gameState.players));
@@ -18,6 +33,10 @@
   <div class="winner-banner">
     {winner} wins!
   </div>
+
+  {#if finalTime}
+    <div class="game-time">Game time: {finalTime}</div>
+  {/if}
 
   <div class="scores-list">
     {#each sortedScores as entry, i}
@@ -55,6 +74,11 @@
     border: 3px solid #d4a017;
     border-radius: 12px;
     background: #fffde7;
+  }
+
+  .game-time {
+    font-size: 1rem;
+    color: #666;
   }
 
   .scores-list {

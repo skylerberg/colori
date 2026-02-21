@@ -5,9 +5,11 @@
   import ScoreScreen from './components/ScoreScreen.svelte';
 
   let gameState: GameState | null = $state(null);
+  let gameStartTime: number | null = $state(null);
 
   function handleGameStarted(state: GameState) {
     gameState = state;
+    gameStartTime = Date.now();
   }
 
   function handleGameUpdated(state: GameState) {
@@ -16,6 +18,7 @@
 
   function handlePlayAgain() {
     gameState = null;
+    gameStartTime = null;
   }
 </script>
 
@@ -24,9 +27,9 @@
   {#if gameState === null}
     <SetupScreen onGameStarted={handleGameStarted} />
   {:else if gameState.phase.type === 'gameOver'}
-    <ScoreScreen {gameState} onPlayAgain={handlePlayAgain} />
+    <ScoreScreen {gameState} {gameStartTime} onPlayAgain={handlePlayAgain} />
   {:else}
-    <GameScreen {gameState} onGameUpdated={handleGameUpdated} />
+    <GameScreen {gameState} {gameStartTime} onGameUpdated={handleGameUpdated} />
   {/if}
 </main>
 

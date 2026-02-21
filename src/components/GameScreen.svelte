@@ -19,10 +19,32 @@
   import GarmentDisplay from './GarmentDisplay.svelte';
   import { mixResult } from '../data/colors';
 
-  let { gameState, onGameUpdated }: {
+  let { gameState, gameStartTime, onGameUpdated }: {
     gameState: GameState;
+    gameStartTime: number | null;
     onGameUpdated: (state: GameState) => void;
   } = $props();
+
+  let elapsedSeconds = $state(0);
+
+  function formatTime(seconds: number): string {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (h > 0) {
+      return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+
+  $effect(() => {
+    if (gameStartTime === null) return;
+    elapsedSeconds = Math.floor((Date.now() - gameStartTime) / 1000);
+    const interval = setInterval(() => {
+      elapsedSeconds = Math.floor((Date.now() - gameStartTime) / 1000);
+    }, 1000);
+    return () => clearInterval(interval);
+  });
 
   let drawExecutedForRound: number | null = $state(null);
   let showDrawPhase = $state(false);
@@ -242,7 +264,7 @@
 
 <div class="game-screen">
   <div class="top-bar">
-    <div class="round-indicator">Round {gameState.round} of 8</div>
+    <div class="round-indicator">Round {gameState.round} of 8 &mdash; {formatTime(elapsedSeconds)}</div>
     <div class="player-bar">
       {#each gameState.players as player, i}
         <PlayerStatus {player} active={i === activePlayerIndex} isAI={gameState.aiPlayers[i]} />
