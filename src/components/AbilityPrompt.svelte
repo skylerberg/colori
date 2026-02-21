@@ -5,10 +5,11 @@
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import GarmentDisplay from './GarmentDisplay.svelte';
 
-  let { gameState, onResolved, onLog }: {
+  let { gameState, onResolved, onLog, onBeforeAction }: {
     gameState: GameState;
     onResolved: () => void;
     onLog: (entry: string) => void;
+    onBeforeAction: () => void;
   } = $props();
 
   let actionState = $derived(
@@ -45,6 +46,7 @@
         selectedMixColors = [];
       } else if (canMix(first, color) && currentPlayer && currentPlayer.colorWheel[first] > 0 && currentPlayer.colorWheel[color] > 0) {
         // Perform mix
+        onBeforeAction();
         const result = mixResult(first, color);
         onLog(`${currentPlayer.name} mixed ${first} + ${color} to make ${result}`);
         resolveMixColors(gameState, first, color);
@@ -58,6 +60,7 @@
   }
 
   function handleSkipMix() {
+    onBeforeAction();
     onLog(`${currentPlayer?.name} skipped remaining mixes`);
     skipMix(gameState);
     onResolved();
@@ -70,6 +73,7 @@
 
   function confirmGarment() {
     if (selectedGarmentId === undefined) return;
+    onBeforeAction();
     const garment = gameState.garmentDisplay.find(g => g.instanceId === selectedGarmentId);
     onLog(`${currentPlayer?.name} completed a ${garment?.card.stars ?? '?'}-star garment`);
     resolveSelectGarment(gameState, selectedGarmentId);

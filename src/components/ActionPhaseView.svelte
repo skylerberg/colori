@@ -5,10 +5,13 @@
   import AbilityPrompt from './AbilityPrompt.svelte';
   import OpponentBoardPanel from './OpponentBoardPanel.svelte';
 
-  let { gameState, onGameUpdated, onLog }: {
+  let { gameState, onGameUpdated, onLog, onBeforeAction, onUndo, undoAvailable }: {
     gameState: GameState;
     onGameUpdated: () => void;
     onLog: (entry: string) => void;
+    onBeforeAction: () => void;
+    onUndo: () => void;
+    undoAvailable: boolean;
   } = $props();
 
   let actionState = $derived(
@@ -49,6 +52,7 @@
   }
 
   function confirmMaterials() {
+    onBeforeAction();
     const cardNames = selectedMaterialIds.map(id => {
       const c = currentPlayer?.drawnCards.find(c => c.instanceId === id);
       return c && 'name' in c.card ? c.card.name : 'a card';
@@ -69,6 +73,7 @@
   }
 
   function confirmDestroy() {
+    onBeforeAction();
     const cardNames = selectedDestroyIds.map(id => {
       const c = currentPlayer?.drawnCards.find(c => c.instanceId === id);
       return c && 'name' in c.card ? c.card.name : 'a card';
@@ -79,6 +84,7 @@
   }
 
   function handleDestroyDrafted(cardInstanceId: number) {
+    onBeforeAction();
     if (hasPendingChoice) return;
     const card = currentPlayer?.draftedCards.find(c => c.instanceId === cardInstanceId);
     onLog(`${currentPlayer?.name} destroyed ${card && 'name' in card.card ? card.card.name : 'a card'} from drafted cards`);
@@ -112,7 +118,7 @@
     </div>
 
     {#if hasPendingChoice && !drawnCardChoice}
-      <AbilityPrompt {gameState} onResolved={handleAbilityResolved} {onLog} />
+      <AbilityPrompt {gameState} onResolved={handleAbilityResolved} {onLog} {onBeforeAction} />
     {/if}
 
     <div class="sections">
@@ -168,6 +174,9 @@
     </div>
 
     <div class="action-footer">
+      <button class="undo-btn" onclick={onUndo} disabled={!undoAvailable}>
+        Undo
+      </button>
       <button
         class="end-turn-btn"
         onclick={handleEndTurn}
@@ -262,7 +271,27 @@
   .action-footer {
     display: flex;
     justify-content: center;
+    gap: 12px;
     padding-top: 8px;
+  }
+
+  .undo-btn {
+    padding: 10px 24px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    background: #888;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+  }
+
+  .undo-btn:hover:not(:disabled) {
+    background: #666;
+  }
+
+  .undo-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
   }
 
   .end-turn-btn {

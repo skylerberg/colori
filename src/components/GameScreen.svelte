@@ -51,6 +51,37 @@
   let aiThinking = $state(false);
   let gameLog: string[] = $state([]);
 
+  let undoStack: { gameState: GameState; logLength: number }[] = $state([]);
+  let undoPlayerIndex: number | null = $state(null);
+
+  function pushUndoSnapshot() {
+    undoStack.push({
+      gameState: cloneGameState(gameState),
+      logLength: gameLog.length,
+    });
+  }
+
+  function performUndo() {
+    if (undoStack.length === 0) return;
+    const snapshot = undoStack.pop()!;
+    gameState = snapshot.gameState;
+    gameLog = gameLog.slice(0, snapshot.logLength);
+    onGameUpdated(gameState);
+  }
+
+  $effect(() => {
+    if (gameState.phase.type !== 'action') {
+      undoStack = [];
+      undoPlayerIndex = null;
+      return;
+    }
+    const currentIdx = gameState.phase.actionState.currentPlayerIndex;
+    if (currentIdx !== undoPlayerIndex) {
+      undoStack = [];
+      undoPlayerIndex = currentIdx;
+    }
+  });
+
   function addLog(entry: string) {
     gameLog.push(entry);
   }
@@ -287,7 +318,7 @@
         {:else if gameState.phase.type === 'draft' && !isCurrentPlayerAI(gameState)}
           <DraftPhaseView {gameState} onGameUpdated={handleGameUpdated} />
         {:else if gameState.phase.type === 'action' && !isCurrentPlayerAI(gameState)}
-          <ActionPhaseView {gameState} onGameUpdated={handleGameUpdated} onLog={addLog} />
+          <ActionPhaseView {gameState} onGameUpdated={handleGameUpdated} onLog={addLog} onBeforeAction={pushUndoSnapshot} onUndo={performUndo} undoAvailable={undoStack.length > 0} />
         {/if}
       </div>
 
