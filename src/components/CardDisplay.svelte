@@ -213,6 +213,7 @@
   .color-swatch {
     height: 18px;
     border-radius: 3px;
+    margin-top: auto;
   }
 
   .ability {
