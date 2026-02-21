@@ -2,6 +2,7 @@
   import type { GameState } from '../data/types';
   import { playerPick, confirmPass } from '../engine/draftPhase';
   import CardList from './CardList.svelte';
+  import GarmentDisplay from './GarmentDisplay.svelte';
   import PassScreen from './PassScreen.svelte';
 
   let { gameState, onGameUpdated }: {
@@ -60,6 +61,15 @@
           onCardClick={handlePick}
         />
       </div>
+
+      <div class="section">
+        <h3>Drawn Cards</h3>
+        <CardList cards={currentPlayer?.drawnCards ?? []} />
+      </div>
+
+      <div class="section">
+        <GarmentDisplay garments={gameState.garmentDisplay} />
+      </div>
     </div>
   {/if}
 {/if}
@@ -110,5 +120,19 @@
     color: #2a6bcf;
     margin-bottom: 8px;
     text-align: left;
+  }
+
+  .section {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: #fff;
+    text-align: left;
+  }
+
+  .section h3 {
+    font-size: 0.85rem;
+    color: #4a3728;
+    margin-bottom: 6px;
   }
 </style>
