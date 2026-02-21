@@ -9,6 +9,7 @@
   } from '../engine/actionPhase';
   import { AIController } from '../ai/aiController';
   import type { ColoriChoice } from '../ai/coloriGame';
+  import { cloneGameState } from '../ai/coloriGame';
   import PlayerStatus from './PlayerStatus.svelte';
   import DrawPhaseView from './DrawPhaseView.svelte';
   import DraftPhaseView from './DraftPhaseView.svelte';
@@ -148,6 +149,42 @@
     onGameUpdated(gameState);
   }
 
+  // Precompute next AI player's draft pick while human is deciding
+  $effect(() => {
+    if (gameState.phase.type !== 'draft') {
+      aiController.cancelPrecomputation();
+      return;
+    }
+    const ds = gameState.phase.draftState;
+    if (ds.waitingForPass) return;
+    if (aiThinking) return;
+
+    const currentIdx = ds.currentPlayerIndex;
+    if (gameState.aiPlayers[currentIdx]) return; // current player is AI, not human
+
+    const numPlayers = gameState.players.length;
+    const nextIdx = (currentIdx + 1) % numPlayers;
+    const startingPlayer = (gameState.round - 1) % numPlayers;
+    if (nextIdx === startingPlayer) return; // human is last picker this round, hands will rotate
+    if (!gameState.aiPlayers[nextIdx]) return; // next player is not AI
+
+    const clone = cloneGameState(gameState);
+    const cloneDs = (clone.phase as { type: 'draft'; draftState: typeof ds }).draftState;
+    cloneDs.currentPlayerIndex = nextIdx;
+    cloneDs.waitingForPass = false;
+
+    // Build seenHands snapshot for the AI player
+    const aiSeenHands = seenHands.has(nextIdx)
+      ? [...seenHands.get(nextIdx)!.map(h => [...h])]
+      : [];
+    const nextHand = ds.hands[nextIdx];
+    if (aiSeenHands.length <= ds.pickNumber) {
+      aiSeenHands.push([...nextHand]);
+    }
+
+    aiController.precomputeDraftPick(clone, nextIdx, ds.pickNumber, 100000, aiSeenHands);
+  });
+
   // Trigger AI turn when the active player is AI
   $effect(() => {
     if (aiThinking) return;
@@ -179,6 +216,17 @@
       const playerSeenHands = seenHands.get(playerIdx)!;
       if (playerSeenHands.length <= ds.pickNumber) {
         playerSeenHands.push([...hand]);
+      }
+
+      // Try to use precomputed result for draft picks
+      const precomputed = aiController.waitForPrecomputedChoice(playerIdx, ds.pickNumber);
+      if (precomputed !== null) {
+        aiThinking = true;
+        precomputed.then((choice) => {
+          aiThinking = false;
+          applyAIChoice(choice);
+        });
+        return;
       }
     }
 
