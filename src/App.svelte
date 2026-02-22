@@ -66,6 +66,22 @@
     screen = { type: 'mainMenu' };
   }
 
+  function handleLeaveGame() {
+    clearSavedGame();
+    gameState = null;
+    gameStartTime = null;
+    savedGameLog = [];
+    hasSavedGame = false;
+    screen = { type: 'mainMenu' };
+  }
+
+  function handleLeaveOnlineGame() {
+    cleanupNetwork();
+    gameState = null;
+    gameStartTime = null;
+    screen = { type: 'mainMenu' };
+  }
+
   // -- Navigation --
 
   function goToLocalSetup() {
@@ -184,7 +200,7 @@
       onBack={goToMainMenu}
     />
   {:else if screen.type === 'localGame' && gameState !== null}
-    <GameScreen {gameState} {gameStartTime} onGameUpdated={handleGameUpdated} initialGameLog={savedGameLog} />
+    <GameScreen {gameState} {gameStartTime} onGameUpdated={handleGameUpdated} initialGameLog={savedGameLog} onLeaveGame={handleLeaveGame} />
   {:else if screen.type === 'onlineGame' && gameState !== null}
     <OnlineGameScreen
       role={screen.role}
@@ -192,6 +208,7 @@
       {guestController}
       onGameOver={handleOnlineGameOver}
       gameStartTime={gameStartTime ?? Date.now()}
+      onLeaveGame={handleLeaveOnlineGame}
     />
   {:else if screen.type === 'score' && gameState !== null}
     <ScoreScreen {gameState} {gameStartTime} onPlayAgain={handlePlayAgain} />

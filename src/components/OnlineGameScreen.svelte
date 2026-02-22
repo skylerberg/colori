@@ -15,13 +15,20 @@
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import GarmentDisplay from './GarmentDisplay.svelte';
 
-  let { role, hostController, guestController, onGameOver, gameStartTime }: {
+  let { role, hostController, guestController, onGameOver, gameStartTime, onLeaveGame }: {
     role: 'host' | 'guest';
     hostController?: HostController;
     guestController?: GuestController;
     onGameOver: (gameState: GameState) => void;
     gameStartTime: number;
+    onLeaveGame: () => void;
   } = $props();
+
+  function handleLeaveGame() {
+    if (confirm('Are you sure you want to leave this game? Your progress will be lost.')) {
+      onLeaveGame();
+    }
+  }
 
   // Host state
   let hostGameState: GameState | null = $state(null);
@@ -211,7 +218,10 @@
 {#if gameState}
   <div class="game-screen">
     <div class="top-bar">
-      <div class="round-indicator">Round {gameState.round} of 8 &mdash; {formatTime(elapsedSeconds)}</div>
+      <div class="top-bar-row">
+        <div class="round-indicator">Round {gameState.round} of 8 &mdash; {formatTime(elapsedSeconds)}</div>
+        <button class="leave-btn" onclick={handleLeaveGame}>Leave Game</button>
+      </div>
       <div class="player-bar">
         {#each gameState.players as player, i}
           <PlayerStatus {player} active={i === activePlayerIndex} isAI={gameState.aiPlayers[i]} />
@@ -294,11 +304,34 @@
     border-bottom: 2px solid #e0d5c5;
   }
 
+  .top-bar-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
   .round-indicator {
     font-size: 0.85rem;
     font-weight: 600;
     color: #4a3728;
     text-align: center;
+  }
+
+  .leave-btn {
+    position: absolute;
+    right: 0;
+    padding: 4px 12px;
+    font-size: 0.75rem;
+    background: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .leave-btn:hover {
+    background: #c0392b;
   }
 
   .player-bar {
