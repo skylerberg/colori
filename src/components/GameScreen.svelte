@@ -304,6 +304,24 @@
   </div>
 
   <div class="game-body">
+    {#if showSidebar && currentPlayer}
+      <aside class="left-sidebar">
+        <div class="sidebar-section">
+          <h3>Color Wheel</h3>
+          <ColorWheelDisplay wheel={currentPlayer.colorWheel} size={160} />
+        </div>
+
+        <div class="sidebar-section">
+          <h3>Stored Fabrics</h3>
+          <div class="fabric-counts">
+            {#each Object.entries(currentPlayer.fabrics) as [fabric, count]}
+              <span class="fabric-count">{fabric}: {count}</span>
+            {/each}
+          </div>
+        </div>
+      </aside>
+    {/if}
+
     <div class="main-column">
       <div class="phase-content">
         {#if aiThinking}
@@ -329,20 +347,6 @@
 
     {#if showSidebar && currentPlayer}
       <aside class="sidebar">
-        <div class="sidebar-section">
-          <h3>Color Wheel</h3>
-          <ColorWheelDisplay wheel={currentPlayer.colorWheel} size={160} />
-        </div>
-
-        <div class="sidebar-section">
-          <h3>Stored Fabrics</h3>
-          <div class="fabric-counts">
-            {#each Object.entries(currentPlayer.fabrics) as [fabric, count]}
-              <span class="fabric-count">{fabric}: {count}</span>
-            {/each}
-          </div>
-        </div>
-
         <div class="sidebar-section">
           <GarmentDisplay garments={gameState.garmentDisplay} />
         </div>
@@ -396,6 +400,14 @@
 
   .phase-content {
     min-height: 300px;
+  }
+
+  .left-sidebar {
+    width: 250px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
   }
 
   .sidebar {
