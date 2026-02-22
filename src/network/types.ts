@@ -1,0 +1,68 @@
+import type { CardInstance, GarmentCard, Color, FabricType, PendingChoice, Ability } from '../data/types';
+import type { ColoriChoice } from '../ai/coloriGame';
+
+export interface SanitizedPlayerState {
+  name: string;
+  deckCount: number;
+  discardCount: number;
+  drawnCards: CardInstance[];
+  draftedCards: CardInstance[];
+  colorWheel: Record<Color, number>;
+  fabrics: Record<FabricType, number>;
+  completedGarments: CardInstance<GarmentCard>[];
+}
+
+export interface SanitizedDraftState {
+  pickNumber: number;
+  currentPlayerIndex: number;
+  hands: CardInstance[][];
+  direction: 1 | -1;
+  waitingForPass: boolean;
+}
+
+export interface SanitizedActionState {
+  currentPlayerIndex: number;
+  abilityQueue: Ability[];
+  pendingChoice: PendingChoice | null;
+}
+
+export type SanitizedGamePhase =
+  | { type: 'draw' }
+  | { type: 'draft'; draftState: SanitizedDraftState }
+  | { type: 'action'; actionState: SanitizedActionState }
+  | { type: 'gameOver' };
+
+export interface SanitizedGameState {
+  players: SanitizedPlayerState[];
+  draftDeckCount: number;
+  destroyedPile: CardInstance[];
+  garmentDeckCount: number;
+  garmentDisplay: CardInstance<GarmentCard>[];
+  phase: SanitizedGamePhase;
+  round: number;
+  aiPlayers: boolean[];
+  myPlayerIndex: number;
+  logEntries: string[];
+}
+
+export interface LobbyPlayer {
+  peerId: string;
+  name: string;
+  playerIndex: number;
+  isHost: boolean;
+  connected: boolean;
+}
+
+export type HostMessage =
+  | { type: 'lobbyUpdate'; players: LobbyPlayer[]; playerCount: number }
+  | { type: 'gameStarted'; state: SanitizedGameState }
+  | { type: 'stateUpdate'; state: SanitizedGameState }
+  | { type: 'gameOver'; state: SanitizedGameState }
+  | { type: 'error'; message: string }
+  | { type: 'playerDisconnected'; playerIndex: number; playerName: string }
+  | { type: 'playerReconnected'; playerIndex: number; playerName: string };
+
+export type GuestMessage =
+  | { type: 'joinRequest'; name: string }
+  | { type: 'rejoinRequest'; name: string }
+  | { type: 'action'; choice: ColoriChoice };

@@ -1,15 +1,14 @@
 <script lang="ts">
   import type { GameState, Color } from '../data/types';
-  import { resolveMixColors, skipMix, resolveSelectGarment, canMakeGarment } from '../engine/actionPhase';
-  import { canMix, mixResult } from '../data/colors';
+  import type { ColoriChoice } from '../ai/coloriGame';
+  import { canMakeGarment } from '../engine/actionPhase';
+  import { canMix } from '../data/colors';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import GarmentDisplay from './GarmentDisplay.svelte';
 
-  let { gameState, onResolved, onLog, onBeforeAction }: {
+  let { gameState, onAction }: {
     gameState: GameState;
-    onResolved: () => void;
-    onLog: (entry: string) => void;
-    onBeforeAction: () => void;
+    onAction: (choice: ColoriChoice) => void;
   } = $props();
 
   let actionState = $derived(
@@ -22,62 +21,42 @@
     actionState ? gameState.players[actionState.currentPlayerIndex] : null
   );
 
-  // Mix colors state
   let selectedMixColors: Color[] = $state([]);
-
-  // Garment selection state
   let selectedGarmentId: number | undefined = $state(undefined);
 
-  // Reset local state when pendingChoice changes
   $effect(() => {
     const _pc = pendingChoice;
     selectedMixColors = [];
     selectedGarmentId = undefined;
   });
 
-  // -- Mix Colors --
   function handleMixColorClick(color: Color) {
     if (selectedMixColors.length === 0) {
       selectedMixColors = [color];
     } else if (selectedMixColors.length === 1) {
       const first = selectedMixColors[0];
       if (first === color) {
-        // Deselect
         selectedMixColors = [];
       } else if (canMix(first, color) && currentPlayer && currentPlayer.colorWheel[first] > 0 && currentPlayer.colorWheel[color] > 0) {
-        // Perform mix
-        onBeforeAction();
-        const result = mixResult(first, color);
-        onLog(`${currentPlayer.name} mixed ${first} + ${color} to make ${result}`);
-        resolveMixColors(gameState, first, color);
+        onAction({ type: 'mix', colorA: first, colorB: color });
         selectedMixColors = [];
-        onResolved();
       } else {
-        // Pick a new first color
         selectedMixColors = [color];
       }
     }
   }
 
   function handleSkipMix() {
-    onBeforeAction();
-    onLog(`${currentPlayer?.name} skipped remaining mixes`);
-    skipMix(gameState);
-    onResolved();
+    onAction({ type: 'skipMix' });
   }
 
-  // -- Choose Garment --
   function toggleGarmentSelect(garmentInstanceId: number) {
     selectedGarmentId = selectedGarmentId === garmentInstanceId ? undefined : garmentInstanceId;
   }
 
   function confirmGarment() {
     if (selectedGarmentId === undefined) return;
-    onBeforeAction();
-    const garment = gameState.garmentDisplay.find(g => g.instanceId === selectedGarmentId);
-    onLog(`${currentPlayer?.name} completed a ${garment?.card.stars ?? '?'}-star garment`);
-    resolveSelectGarment(gameState, selectedGarmentId);
-    onResolved();
+    onAction({ type: 'selectGarment', garmentInstanceId: selectedGarmentId });
   }
 </script>
 

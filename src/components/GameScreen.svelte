@@ -114,10 +114,6 @@
     onGameUpdated(gameState, gameLog);
   }
 
-  function handleGameUpdated() {
-    onGameUpdated(gameState, gameLog);
-  }
-
   let activePlayerIndex = $derived(getActivePlayerIndex(gameState));
   let currentPlayer = $derived(activePlayerIndex >= 0 ? gameState.players[activePlayerIndex] : null);
   let showSidebar = $derived(
@@ -141,10 +137,16 @@
     return idx >= 0 && gs.aiPlayers[idx];
   }
 
-  // Apply an AI choice to the game state
-  function applyAIChoice(choice: ColoriChoice) {
+  // Unified action handler for both human UI and AI choices
+  function handleAction(choice: ColoriChoice) {
     const playerIdx = getActivePlayerIndex(gameState);
     const name = playerIdx >= 0 ? gameState.players[playerIdx].name : 'Unknown';
+
+    // Push undo snapshot for action phase choices (except endTurn)
+    if (gameState.phase.type === 'action' && choice.type !== 'endTurn') {
+      pushUndoSnapshot();
+    }
+
     switch (choice.type) {
       case 'draftPick':
         playerPick(gameState, choice.cardInstanceId);
@@ -161,9 +163,6 @@
       case 'endTurn':
         addLog(`${name} ended their turn`);
         endPlayerTurn(gameState);
-        if (gameState.phase.type === 'draw') {
-          // Will be handled by the draw phase effect
-        }
         break;
       case 'makeMaterials': {
         const cardNames = choice.cardInstanceIds.map(id => {
@@ -278,7 +277,7 @@
         aiThinking = true;
         precomputed.then((choice) => {
           aiThinking = false;
-          applyAIChoice(choice);
+          handleAction(choice);
         });
         return;
       }
@@ -289,7 +288,7 @@
 
     aiController.getAIChoice(gameState, playerIdx, 100000, playerSeenHands).then((choice) => {
       aiThinking = false;
-      applyAIChoice(choice);
+      handleAction(choice);
     });
   });
 </script>
@@ -335,9 +334,9 @@
         {#if showDrawPhase && gameState.phase.type === 'draft'}
           <DrawPhaseView {gameState} onContinue={handleDrawContinue} />
         {:else if gameState.phase.type === 'draft' && !isCurrentPlayerAI(gameState)}
-          <DraftPhaseView {gameState} onGameUpdated={handleGameUpdated} />
+          <DraftPhaseView {gameState} onAction={handleAction} onGameUpdated={() => onGameUpdated(gameState, gameLog)} />
         {:else if gameState.phase.type === 'action' && !isCurrentPlayerAI(gameState)}
-          <ActionPhaseView {gameState} onGameUpdated={handleGameUpdated} onLog={addLog} onBeforeAction={pushUndoSnapshot} onUndo={performUndo} undoAvailable={undoStack.length > 0} />
+          <ActionPhaseView {gameState} onAction={handleAction} onUndo={performUndo} undoAvailable={undoStack.length > 0} />
         {/if}
       </div>
 

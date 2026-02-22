@@ -1,13 +1,15 @@
 <script lang="ts">
   import type { GameState } from '../data/types';
-  import { playerPick, confirmPass } from '../engine/draftPhase';
+  import type { ColoriChoice } from '../ai/coloriGame';
+  import { confirmPass } from '../engine/draftPhase';
   import CardList from './CardList.svelte';
   import OpponentBoardPanel from './OpponentBoardPanel.svelte';
   import PassScreen from './PassScreen.svelte';
 
-  let { gameState, onGameUpdated }: {
+  let { gameState, onAction, onGameUpdated }: {
     gameState: GameState;
-    onGameUpdated: () => void;
+    onAction: (choice: ColoriChoice) => void;
+    onGameUpdated?: () => void;
   } = $props();
 
   let draftState = $derived(
@@ -27,13 +29,12 @@
   );
 
   function handlePick(cardInstanceId: number) {
-    playerPick(gameState, cardInstanceId);
-    onGameUpdated();
+    onAction({ type: 'draftPick', cardInstanceId });
   }
 
   function handlePassReady() {
     confirmPass(gameState);
-    onGameUpdated();
+    onGameUpdated?.();
   }
 </script>
 

@@ -1,15 +1,13 @@
 <script lang="ts">
   import type { GameState } from '../data/types';
-  import { destroyDraftedCard, endPlayerTurn, resolveMakeMaterials, resolveDestroyCards } from '../engine/actionPhase';
+  import type { ColoriChoice } from '../ai/coloriGame';
   import CardList from './CardList.svelte';
   import AbilityPrompt from './AbilityPrompt.svelte';
   import OpponentBoardPanel from './OpponentBoardPanel.svelte';
 
-  let { gameState, onGameUpdated, onLog, onBeforeAction, onUndo, undoAvailable }: {
+  let { gameState, onAction, onUndo, undoAvailable }: {
     gameState: GameState;
-    onGameUpdated: () => void;
-    onLog: (entry: string) => void;
-    onBeforeAction: () => void;
+    onAction: (choice: ColoriChoice) => void;
     onUndo: () => void;
     undoAvailable: boolean;
   } = $props();
@@ -31,7 +29,6 @@
       ? pendingChoice : null
   );
 
-  // Drawn-card selection state
   let selectedMaterialIds: number[] = $state([]);
   let selectedDestroyIds: number[] = $state([]);
 
@@ -52,14 +49,7 @@
   }
 
   function confirmMaterials() {
-    onBeforeAction();
-    const cardNames = selectedMaterialIds.map(id => {
-      const c = currentPlayer?.drawnCards.find(c => c.instanceId === id);
-      return c && 'name' in c.card ? c.card.name : 'a card';
-    });
-    onLog(`${currentPlayer?.name} stored materials from ${cardNames.join(', ')}`);
-    resolveMakeMaterials(gameState, selectedMaterialIds);
-    onGameUpdated();
+    onAction({ type: 'makeMaterials', cardInstanceIds: selectedMaterialIds });
   }
 
   function toggleDestroyCard(instanceId: number) {
@@ -73,33 +63,16 @@
   }
 
   function confirmDestroy() {
-    onBeforeAction();
-    const cardNames = selectedDestroyIds.map(id => {
-      const c = currentPlayer?.drawnCards.find(c => c.instanceId === id);
-      return c && 'name' in c.card ? c.card.name : 'a card';
-    });
-    onLog(`${currentPlayer?.name} destroyed ${cardNames.join(', ')} from drawn cards`);
-    resolveDestroyCards(gameState, selectedDestroyIds);
-    onGameUpdated();
+    onAction({ type: 'destroyDrawnCards', cardInstanceIds: selectedDestroyIds });
   }
 
   function handleDestroyDrafted(cardInstanceId: number) {
-    onBeforeAction();
     if (hasPendingChoice) return;
-    const card = currentPlayer?.draftedCards.find(c => c.instanceId === cardInstanceId);
-    onLog(`${currentPlayer?.name} destroyed ${card && 'name' in card.card ? card.card.name : 'a card'} from drafted cards`);
-    destroyDraftedCard(gameState, cardInstanceId);
-    onGameUpdated();
+    onAction({ type: 'destroyDraftedCard', cardInstanceId });
   }
 
   function handleEndTurn() {
-    onLog(`${currentPlayer?.name} ended their turn`);
-    endPlayerTurn(gameState);
-    onGameUpdated();
-  }
-
-  function handleAbilityResolved() {
-    onGameUpdated();
+    onAction({ type: 'endTurn' });
   }
 </script>
 
@@ -118,7 +91,7 @@
     </div>
 
     {#if hasPendingChoice && !drawnCardChoice}
-      <AbilityPrompt {gameState} onResolved={handleAbilityResolved} {onLog} {onBeforeAction} />
+      <AbilityPrompt {gameState} {onAction} />
     {/if}
 
     <div class="sections">
