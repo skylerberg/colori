@@ -56,6 +56,12 @@
   let undoPlayerIndex: number | null = $state(null);
 
   function pushUndoSnapshot() {
+    if (gameState.phase.type !== 'action') return;
+    const currentIdx = gameState.phase.actionState.currentPlayerIndex;
+    if (currentIdx !== undoPlayerIndex) {
+      undoStack = [];
+      undoPlayerIndex = currentIdx;
+    }
     undoStack.push({
       gameState: cloneGameState(gameState),
       logLength: gameLog.length,
@@ -74,12 +80,6 @@
     if (gameState.phase.type !== 'action') {
       undoStack = [];
       undoPlayerIndex = null;
-      return;
-    }
-    const currentIdx = gameState.phase.actionState.currentPlayerIndex;
-    if (currentIdx !== undoPlayerIndex) {
-      undoStack = [];
-      undoPlayerIndex = currentIdx;
     }
   });
 
