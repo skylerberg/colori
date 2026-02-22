@@ -7,6 +7,7 @@
     ring: 'inner' | 'middle' | 'outer';
     startAngleDeg: number;
     spanDeg: number;
+    isExtension?: boolean;
   }
 
   const WHEEL_SEGMENTS: WheelSegment[] = [
@@ -14,10 +15,13 @@
     { color: 'Red', ring: 'inner', startAngleDeg: 300, spanDeg: 120 },
     { color: 'Yellow', ring: 'inner', startAngleDeg: 60, spanDeg: 120 },
     { color: 'Blue', ring: 'inner', startAngleDeg: 180, spanDeg: 120 },
-    // Middle ring - secondaries (120° each)
-    { color: 'Orange', ring: 'middle', startAngleDeg: 0, spanDeg: 120 },
-    { color: 'Green', ring: 'middle', startAngleDeg: 120, spanDeg: 120 },
-    { color: 'Purple', ring: 'middle', startAngleDeg: 240, spanDeg: 120 },
+    // Middle ring - primary extensions and secondaries (60° each)
+    { color: 'Red', ring: 'middle', startAngleDeg: 330, spanDeg: 60, isExtension: true },
+    { color: 'Orange', ring: 'middle', startAngleDeg: 30, spanDeg: 60 },
+    { color: 'Yellow', ring: 'middle', startAngleDeg: 90, spanDeg: 60, isExtension: true },
+    { color: 'Green', ring: 'middle', startAngleDeg: 150, spanDeg: 60 },
+    { color: 'Blue', ring: 'middle', startAngleDeg: 210, spanDeg: 60, isExtension: true },
+    { color: 'Purple', ring: 'middle', startAngleDeg: 270, spanDeg: 60 },
     // Outer ring - tertiaries (60° each)
     { color: 'Vermilion', ring: 'outer', startAngleDeg: 0, spanDeg: 60 },
     { color: 'Amber', ring: 'outer', startAngleDeg: 60, spanDeg: 60 },
@@ -116,31 +120,33 @@
         role={interactive && wheel[seg.color] > 0 ? 'button' : undefined}
         tabindex={interactive && wheel[seg.color] > 0 ? 0 : undefined}
       />
-      <text
-        x={pos.x}
-        y={pos.y}
-        text-anchor="middle"
-        dominant-baseline="central"
-        font-size={fontSize}
-        font-weight="bold"
-        fill={textColorForBackground(colorToHex(seg.color))}
-        pointer-events="none"
-      >
-        {seg.color[0]}
-      </text>
-      {#if wheel[seg.color] > 0 && size >= 140}
+      {#if !seg.isExtension}
         <text
           x={pos.x}
-          y={pos.y + fontSize * 0.9}
+          y={pos.y}
           text-anchor="middle"
           dominant-baseline="central"
-          font-size={Math.round(fontSize * 0.75)}
+          font-size={fontSize}
           font-weight="bold"
           fill={textColorForBackground(colorToHex(seg.color))}
           pointer-events="none"
         >
-          {wheel[seg.color]}
+          {seg.color[0]}
         </text>
+        {#if wheel[seg.color] > 0 && size >= 140}
+          <text
+            x={pos.x}
+            y={pos.y + fontSize * 0.9}
+            text-anchor="middle"
+            dominant-baseline="central"
+            font-size={Math.round(fontSize * 0.75)}
+            font-weight="bold"
+            fill={textColorForBackground(colorToHex(seg.color))}
+            pointer-events="none"
+          >
+            {wheel[seg.color]}
+          </text>
+        {/if}
       {/if}
     {/each}
   </svg>
