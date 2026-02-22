@@ -39,10 +39,14 @@
   }
 
   .garment-grid {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 8px;
-    flex-wrap: wrap;
     padding: 4px;
+  }
+
+  .garment-grid :global(.card) {
+    width: auto;
   }
 
   .empty {
