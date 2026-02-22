@@ -3,22 +3,34 @@
   import SetupScreen from './components/SetupScreen.svelte';
   import GameScreen from './components/GameScreen.svelte';
   import ScoreScreen from './components/ScoreScreen.svelte';
+  import { saveGame, loadGame, clearSavedGame } from './persistence';
 
-  let gameState: GameState | null = $state(null);
-  let gameStartTime: number | null = $state(null);
+  const saved = loadGame();
+  let gameState: GameState | null = $state(saved?.gameState ?? null);
+  let gameStartTime: number | null = $state(saved?.gameStartTime ?? null);
+  let savedGameLog: string[] = $state(saved?.gameLog ?? []);
 
   function handleGameStarted(state: GameState) {
     gameState = state;
     gameStartTime = Date.now();
+    savedGameLog = [];
+    saveGame(state, gameStartTime!, []);
   }
 
-  function handleGameUpdated(state: GameState) {
+  function handleGameUpdated(state: GameState, log: string[]) {
     gameState = state;
+    if (state.phase.type === 'gameOver') {
+      clearSavedGame();
+    } else {
+      saveGame(state, gameStartTime!, log);
+    }
   }
 
   function handlePlayAgain() {
     gameState = null;
     gameStartTime = null;
+    savedGameLog = [];
+    clearSavedGame();
   }
 </script>
 
@@ -29,7 +41,7 @@
   {:else if gameState.phase.type === 'gameOver'}
     <ScoreScreen {gameState} {gameStartTime} onPlayAgain={handlePlayAgain} />
   {:else}
-    <GameScreen {gameState} {gameStartTime} onGameUpdated={handleGameUpdated} />
+    <GameScreen {gameState} {gameStartTime} onGameUpdated={handleGameUpdated} initialGameLog={savedGameLog} />
   {/if}
 </main>
 

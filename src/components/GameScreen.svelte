@@ -19,10 +19,11 @@
   import GarmentDisplay from './GarmentDisplay.svelte';
   import { mixResult } from '../data/colors';
 
-  let { gameState, gameStartTime, onGameUpdated }: {
+  let { gameState, gameStartTime, onGameUpdated, initialGameLog }: {
     gameState: GameState;
     gameStartTime: number | null;
-    onGameUpdated: (state: GameState) => void;
+    onGameUpdated: (state: GameState, log: string[]) => void;
+    initialGameLog: string[];
   } = $props();
 
   let elapsedSeconds = $state(0);
@@ -49,7 +50,7 @@
   let drawExecutedForRound: number | null = $state(null);
   let showDrawPhase = $state(false);
   let aiThinking = $state(false);
-  let gameLog: string[] = $state([]);
+  let gameLog: string[] = $state(initialGameLog);
 
   let undoStack: { gameState: GameState; logLength: number }[] = $state([]);
   let undoPlayerIndex: number | null = $state(null);
@@ -66,7 +67,7 @@
     const snapshot = undoStack.pop()!;
     gameState = snapshot.gameState;
     gameLog = gameLog.slice(0, snapshot.logLength);
-    onGameUpdated(gameState);
+    onGameUpdated(gameState, gameLog);
   }
 
   $effect(() => {
@@ -104,17 +105,17 @@
       if (hasHuman) {
         showDrawPhase = true;
       }
-      onGameUpdated(gameState);
+      onGameUpdated(gameState, gameLog);
     }
   });
 
   function handleDrawContinue() {
     showDrawPhase = false;
-    onGameUpdated(gameState);
+    onGameUpdated(gameState, gameLog);
   }
 
   function handleGameUpdated() {
-    onGameUpdated(gameState);
+    onGameUpdated(gameState, gameLog);
   }
 
   let activePlayerIndex = $derived(getActivePlayerIndex(gameState));
@@ -199,7 +200,7 @@
         break;
       }
     }
-    onGameUpdated(gameState);
+    onGameUpdated(gameState, gameLog);
   }
 
   // Precompute next AI player's draft pick while human is deciding
@@ -250,7 +251,7 @@
       const nextPlayer = gameState.phase.draftState.currentPlayerIndex;
       if (gameState.aiPlayers[nextPlayer]) {
         confirmPass(gameState);
-        onGameUpdated(gameState);
+        onGameUpdated(gameState, gameLog);
       }
       return;
     }
