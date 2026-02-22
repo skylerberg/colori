@@ -9,7 +9,7 @@ export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
     drawnCards: sp.drawnCards,
     draftedCards: sp.draftedCards,
     colorWheel: sp.colorWheel,
-    fabrics: sp.fabrics,
+    materials: sp.materials,
     completedGarments: sp.completedGarments,
   }));
 

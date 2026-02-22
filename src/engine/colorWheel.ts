@@ -1,4 +1,4 @@
-import type { Color, FabricType } from '../data/types';
+import type { Color, MaterialType } from '../data/types';
 import { ALL_COLORS, canMix, mixResult } from '../data/colors';
 
 export function createEmptyWheel(): Record<Color, number> {
@@ -7,8 +7,8 @@ export function createEmptyWheel(): Record<Color, number> {
   return wheel as Record<Color, number>;
 }
 
-export function createEmptyFabrics(): Record<FabricType, number> {
-  return { Wool: 0, Silk: 0, Linen: 0, Cotton: 0 };
+export function createEmptyMaterials(): Record<MaterialType, number> {
+  return { Glass: 0, Textiles: 0, Ceramics: 0, Paintings: 0 };
 }
 
 export function storeColor(wheel: Record<Color, number>, color: Color): void {

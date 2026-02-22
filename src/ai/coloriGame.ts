@@ -38,7 +38,7 @@ function clonePlayerState(p: PlayerState): PlayerState {
     drawnCards: [...p.drawnCards],
     draftedCards: [...p.draftedCards],
     colorWheel: { ...p.colorWheel },
-    fabrics: { ...p.fabrics },
+    materials: { ...p.materials },
     completedGarments: [...p.completedGarments],
   };
 }
@@ -112,7 +112,7 @@ function canAffordGarment(
   player: PlayerState,
   garment: GarmentCard,
 ): boolean {
-  if (player.fabrics[garment.requiredFabric] <= 0) return false;
+  if (player.materials[garment.requiredMaterial] <= 0) return false;
   return canPayCost(player.colorWheel, garment.colorCost);
 }
 
@@ -145,7 +145,7 @@ function enumerateChoices(state: GameState): ColoriChoice[] {
     switch (pending.type) {
       case 'chooseCardsForMaterials': {
         const eligibleCards = player.drawnCards
-          .filter(c => c.card.kind === 'dye' || c.card.kind === 'basicDye' || c.card.kind === 'fabric')
+          .filter(c => c.card.kind === 'dye' || c.card.kind === 'basicDye' || c.card.kind === 'material')
           .map(c => c.instanceId);
         const materialSubsets = getSubsets(eligibleCards, pending.count)
           .map(ids => ({ type: 'makeMaterials' as const, cardInstanceIds: ids }));
@@ -447,7 +447,7 @@ function getRolloutChoice(state: GameState): ColoriChoice {
 
     switch (pending.type) {
       case 'chooseCardsForMaterials': {
-        const eligibleCards = player.drawnCards.filter(c => c.card.kind === 'dye' || c.card.kind === 'basicDye' || c.card.kind === 'fabric');
+        const eligibleCards = player.drawnCards.filter(c => c.card.kind === 'dye' || c.card.kind === 'basicDye' || c.card.kind === 'material');
         if (eligibleCards.length === 0) return { type: 'makeMaterials', cardInstanceIds: [] };
         const count = Math.min(pending.count, eligibleCards.length);
         const pick = Math.floor(Math.random() * count) + 1;

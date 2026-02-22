@@ -18,7 +18,7 @@
     if (c.kind === 'garment') return '';
     const a = c.ability;
     switch (a.type) {
-      case 'makeMaterials': return `Materials x${a.count}`;
+      case 'makeMaterials': return `Materials / Pigments x${a.count}`;
       case 'drawCards': return `Draw x${a.count}`;
       case 'mixColors': return `Mix x${a.count}`;
       case 'destroyCards': return `Destroy x${a.count}`;
@@ -30,7 +30,7 @@
     switch (c.kind) {
       case 'dye': return 'Dye';
       case 'basicDye': return 'Basic Dye';
-      case 'fabric': return 'Fabric';
+      case 'material': return 'Material';
       case 'garment': return 'Garment';
     }
   }
@@ -42,7 +42,7 @@
   class:clickable={!!onclick}
   class:dye={card.kind === 'dye'}
   class:basic-dye={card.kind === 'basicDye'}
-  class:fabric={card.kind === 'fabric'}
+  class:material={card.kind === 'material'}
   class:garment={card.kind === 'garment'}
   onclick={onclick}
   disabled={!onclick}
@@ -67,13 +67,13 @@
     <div class="color-swatch" style="background-color: {blendedHex}"></div>
   {/if}
 
-  {#if card.kind === 'fabric'}
-    <div class="fabric-type">{card.fabricType}</div>
+  {#if card.kind === 'material'}
+    <div class="material-type">{card.materialType}</div>
   {/if}
 
   {#if card.kind === 'garment'}
     <div class="garment-info">
-      <div class="required-fabric">{card.requiredFabric}</div>
+      <div class="required-material">{card.requiredMaterial}</div>
       <div class="color-cost">
         {#each card.colorCost as color}
           <span class="pip" style="background-color: {colorToHex(color)}; color: {textColorForBackground(colorToHex(color))}" title={color}>{color[0]}</span>
@@ -133,7 +133,7 @@
     border-left: 4px solid #999;
   }
 
-  .card.fabric {
+  .card.material {
     border-left: 4px solid #8b6914;
   }
 
@@ -186,7 +186,7 @@
     font-weight: bold;
   }
 
-  .fabric-type {
+  .material-type {
     font-size: 0.75rem;
     color: #8b6914;
     font-weight: 600;
@@ -199,7 +199,7 @@
     gap: 3px;
   }
 
-  .required-fabric {
+  .required-material {
     font-size: 0.65rem;
     color: #8b6914;
     font-style: italic;

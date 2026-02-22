@@ -105,7 +105,7 @@ export function processQueue(state: GameState): void {
 
 /**
  * Check if the current player can afford a specific garment from the display.
- * Player needs stored fabric of the required type and can pay the color cost
+ * Player needs stored material of the required type and can pay the color cost
  * from the color wheel.
  */
 export function canMakeGarment(state: GameState, garmentInstanceId: number): boolean {
@@ -114,7 +114,7 @@ export function canMakeGarment(state: GameState, garmentInstanceId: number): boo
   const garmentInstance = state.garmentDisplay.find(g => g.instanceId === garmentInstanceId);
   if (!garmentInstance) return false;
   const garment = garmentInstance.card;
-  if (player.fabrics[garment.requiredFabric] <= 0) return false;
+  if (player.materials[garment.requiredMaterial] <= 0) return false;
   return canPayCost(player.colorWheel, garment.colorCost);
 }
 
@@ -130,7 +130,7 @@ function canMakeAnyGarment(state: GameState): boolean {
 
 /**
  * Resolve make materials: for each selected card (from drawnCards), if it's a
- * fabric card, increment the player's stored fabrics; otherwise get its pips
+ * material card, increment the player's stored materials; otherwise get its pips
  * and store each pip on the player's colorWheel. Move those cards to player's
  * discard. Clear pendingChoice. Process queue.
  */
@@ -145,8 +145,8 @@ export function resolveMakeMaterials(state: GameState, selectedCardIds: number[]
     }
 
     const [card] = player.drawnCards.splice(cardIndex, 1);
-    if (card.card.kind === 'fabric') {
-      player.fabrics[card.card.fabricType]++;
+    if (card.card.kind === 'material') {
+      player.materials[card.card.materialType]++;
     } else {
       const pips = getCardPips(card.card);
       for (const pip of pips) {
@@ -223,7 +223,7 @@ export function resolveDestroyCards(state: GameState, selectedCardIds: number[])
 /**
  * Select and pay for a garment in one step.
  * - Validates the player can afford the garment.
- * - Decrements the required fabric from player's stored fabrics.
+ * - Decrements the required material from player's stored materials.
  * - Pays the garment's colorCost from the wheel.
  * - Moves garment from garmentDisplay to player's completedGarments.
  * - Refills garment display from garment deck (if available).
@@ -240,11 +240,11 @@ export function resolveSelectGarment(state: GameState, garmentInstanceId: number
   }
   const garment = state.garmentDisplay[garmentIndex];
 
-  // Decrement stored fabric
-  if (player.fabrics[garment.card.requiredFabric] <= 0) {
-    throw new Error(`No stored ${garment.card.requiredFabric} fabric`);
+  // Decrement stored material
+  if (player.materials[garment.card.requiredMaterial] <= 0) {
+    throw new Error(`No stored ${garment.card.requiredMaterial} material`);
   }
-  player.fabrics[garment.card.requiredFabric]--;
+  player.materials[garment.card.requiredMaterial]--;
 
   // Pay the color cost from the wheel
   const success = payCost(player.colorWheel, garment.card.colorCost);

@@ -322,10 +322,10 @@
         </div>
 
         <div class="sidebar-section">
-          <h3>Stored Fabrics</h3>
-          <div class="fabric-counts">
-            {#each Object.entries(currentPlayer.fabrics) as [fabric, count]}
-              <span class="fabric-count">{fabric}: {count}</span>
+          <h3>Stored Materials</h3>
+          <div class="material-counts">
+            {#each Object.entries(currentPlayer.materials) as [material, count]}
+              <span class="material-count">{material}: {count}</span>
             {/each}
           </div>
         </div>
@@ -464,7 +464,7 @@
     margin-bottom: 6px;
   }
 
-  .fabric-counts {
+  .material-counts {
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -472,7 +472,7 @@
     color: #8b6914;
   }
 
-  .fabric-count {
+  .material-count {
     font-weight: 600;
   }
 

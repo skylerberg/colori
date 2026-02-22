@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import type { GameState, ActionState, PlayerState, CardInstance, AnyCard, GarmentCard } from '../data/types';
-import { BASIC_DYE_CARDS, FABRIC_CARDS, DYE_CARDS, GARMENT_CARDS } from '../data/cards';
+import { BASIC_DYE_CARDS, MATERIAL_CARDS, DYE_CARDS, GARMENT_CARDS } from '../data/cards';
 import { resetInstanceIdCounter, createCardInstances } from './deckUtils';
 import { createEmptyWheel, storeColor } from './colorWheel';
 import {
@@ -27,7 +27,7 @@ function makeTestPlayer(name: string): PlayerState {
     drawnCards: [],
     draftedCards: [],
     colorWheel: createEmptyWheel(),
-    fabrics: { Wool: 0, Silk: 0, Linen: 0, Cotton: 0 },
+    materials: { Glass: 0, Textiles: 0, Ceramics: 0, Paintings: 0 },
     completedGarments: [],
   };
 }
@@ -177,12 +177,12 @@ describe('resolveMakeMaterials', () => {
     expect(actionState.pendingChoice).toBeNull();
   });
 
-  it('stores fabric card as stored fabric instead of pips', () => {
+  it('stores material card as stored material instead of pips', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
 
-    const woolCard = FABRIC_CARDS.find(c => c.fabricType === 'Wool')!;
-    const instances = createCardInstances([woolCard]);
+    const ceramicsCard = MATERIAL_CARDS.find(c => c.materialType === 'Ceramics')!;
+    const instances = createCardInstances([ceramicsCard]);
     state.players[0].drawnCards = instances;
 
     const actionState = getActionState(state);
@@ -190,7 +190,7 @@ describe('resolveMakeMaterials', () => {
 
     resolveMakeMaterials(state, [instances[0].instanceId]);
 
-    expect(state.players[0].fabrics.Wool).toBe(1);
+    expect(state.players[0].materials.Ceramics).toBe(1);
     expect(state.players[0].drawnCards).toHaveLength(0);
     expect(state.players[0].discard).toHaveLength(1);
     expect(actionState.pendingChoice).toBeNull();
@@ -305,8 +305,8 @@ describe('resolveSelectGarment', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
 
-    // Find a Linen garment (stars: 3) with a known colorCost
-    const garment = GARMENT_CARDS.find(c => c.requiredFabric === 'Linen' && c.stars === 3)!;
+    // Find a Textiles garment (stars: 2) with a known colorCost
+    const garment = GARMENT_CARDS.find(c => c.requiredMaterial === 'Textiles' && c.stars === 2)!;
     const garmentInstances = createCardInstances([garment]) as CardInstance<GarmentCard>[];
     state.garmentDisplay = garmentInstances;
 
@@ -316,7 +316,7 @@ describe('resolveSelectGarment', () => {
 
     // Give player the required resources
     const player = state.players[0];
-    player.fabrics.Linen = 1;
+    player.materials.Textiles = 1;
     for (const color of garment.colorCost) {
       storeColor(player.colorWheel, color);
     }
@@ -326,12 +326,12 @@ describe('resolveSelectGarment', () => {
 
     resolveSelectGarment(state, garmentInstances[0].instanceId);
 
-    expect(player.fabrics.Linen).toBe(0);
+    expect(player.materials.Textiles).toBe(0);
     for (const color of garment.colorCost) {
       expect(player.colorWheel[color]).toBe(0);
     }
     expect(player.completedGarments).toHaveLength(1);
-    expect(player.completedGarments[0].card.stars).toBe(3);
+    expect(player.completedGarments[0].card.stars).toBe(2);
     expect(state.garmentDisplay).toHaveLength(1);
     expect(state.garmentDisplay[0].card).toBe(spareGarment);
     expect(state.garmentDeck).toHaveLength(0);
@@ -348,12 +348,12 @@ describe('canMakeGarment', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
 
-    const garment = GARMENT_CARDS.find(c => c.requiredFabric === 'Linen' && c.stars === 3)!;
+    const garment = GARMENT_CARDS.find(c => c.requiredMaterial === 'Textiles' && c.stars === 2)!;
     const garmentInstances = createCardInstances([garment]) as CardInstance<GarmentCard>[];
     state.garmentDisplay = garmentInstances;
 
     const player = state.players[0];
-    player.fabrics.Linen = 1;
+    player.materials.Textiles = 1;
     for (const color of garment.colorCost) {
       storeColor(player.colorWheel, color);
     }
@@ -361,15 +361,15 @@ describe('canMakeGarment', () => {
     expect(canMakeGarment(state, garmentInstances[0].instanceId)).toBe(true);
   });
 
-  it('returns false when player lacks fabric', () => {
+  it('returns false when player lacks material', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
 
-    const garment = GARMENT_CARDS.find(c => c.requiredFabric === 'Linen' && c.stars === 3)!;
+    const garment = GARMENT_CARDS.find(c => c.requiredMaterial === 'Textiles' && c.stars === 2)!;
     const garmentInstances = createCardInstances([garment]) as CardInstance<GarmentCard>[];
     state.garmentDisplay = garmentInstances;
 
-    // Has colors but no Linen fabric
+    // Has colors but no Textiles material
     const player = state.players[0];
     for (const color of garment.colorCost) {
       storeColor(player.colorWheel, color);
@@ -382,13 +382,13 @@ describe('canMakeGarment', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
 
-    const garment = GARMENT_CARDS.find(c => c.requiredFabric === 'Linen' && c.stars === 3)!;
+    const garment = GARMENT_CARDS.find(c => c.requiredMaterial === 'Textiles' && c.stars === 2)!;
     const garmentInstances = createCardInstances([garment]) as CardInstance<GarmentCard>[];
     state.garmentDisplay = garmentInstances;
 
-    // Has fabric but not enough colors
+    // Has material but not enough colors
     const player = state.players[0];
-    player.fabrics.Linen = 1;
+    player.materials.Textiles = 1;
 
     expect(canMakeGarment(state, garmentInstances[0].instanceId)).toBe(false);
   });

@@ -1,11 +1,10 @@
-import type { AnyCard, Color, FabricType, DyeCard, BasicDyeCard, FabricCard, GarmentCard } from './types';
-import { ALL_COLORS } from './colors';
+import type { AnyCard, Color, DyeCard, BasicDyeCard, MaterialCard, GarmentCard } from './types';
 
 export function getCardPips(card: AnyCard): Color[] {
   switch (card.kind) {
     case 'dye': return card.colors;
     case 'basicDye': return [card.color];
-    case 'fabric': return [];
+    case 'material': return [];
     case 'garment': return [];
   }
 }
@@ -106,29 +105,29 @@ export const DYE_CARDS: DyeCard[] = [
   },
 ];
 
-export const FABRIC_CARDS: FabricCard[] = [
+export const MATERIAL_CARDS: MaterialCard[] = [
   {
-    kind: 'fabric',
-    name: 'Wool',
-    fabricType: 'Wool',
+    kind: 'material',
+    name: 'Ceramics',
+    materialType: 'Ceramics',
     ability: { type: 'destroyCards', count: 1 },
   },
   {
-    kind: 'fabric',
-    name: 'Silk',
-    fabricType: 'Silk',
+    kind: 'material',
+    name: 'Paintings',
+    materialType: 'Paintings',
     ability: { type: 'destroyCards', count: 1 },
   },
   {
-    kind: 'fabric',
-    name: 'Linen',
-    fabricType: 'Linen',
+    kind: 'material',
+    name: 'Textiles',
+    materialType: 'Textiles',
     ability: { type: 'destroyCards', count: 1 },
   },
   {
-    kind: 'fabric',
-    name: 'Cotton',
-    fabricType: 'Cotton',
+    kind: 'material',
+    name: 'Glass',
+    materialType: 'Glass',
     ability: { type: 'destroyCards', count: 1 },
   },
 ];
@@ -154,43 +153,34 @@ export const BASIC_DYE_CARDS: BasicDyeCard[] = [
   },
 ];
 
-const COLOR_VALUES: Record<Color, number> = {
-  Red: 1, Yellow: 1, Blue: 1,
-  Orange: 2, Green: 2, Purple: 2,
-  Vermilion: 3, Amber: 3, Chartreuse: 3, Teal: 3, Indigo: 3, Magenta: 3,
-};
-
-const TIER_MAP: Record<number, { stars: number; fabric: FabricType }> = {
-  3: { stars: 2, fabric: 'Cotton' },
-  4: { stars: 3, fabric: 'Linen' },
-  5: { stars: 4, fabric: 'Wool' },
-  6: { stars: 5, fabric: 'Silk' },
-};
+const PRIMARIES: Color[] = ['Red', 'Yellow', 'Blue'];
+const SECONDARIES: Color[] = ['Orange', 'Green', 'Purple'];
+const TERTIARIES: Color[] = ['Vermilion', 'Amber', 'Chartreuse', 'Teal', 'Indigo', 'Magenta'];
 
 function generateAllGarments(): GarmentCard[] {
-  const colors = ALL_COLORS;
   const garments: GarmentCard[] = [];
-
-  // Enumerate all subsets of the 12 colors (each color at most once)
-  for (let mask = 1; mask < (1 << colors.length); mask++) {
-    let totalValue = 0;
-    const subset: Color[] = [];
-    for (let i = 0; i < colors.length; i++) {
-      if (mask & (1 << i)) {
-        subset.push(colors[i]);
-        totalValue += COLOR_VALUES[colors[i]];
-      }
-    }
-    if (totalValue < 3 || totalValue > 6) continue;
-    const tier = TIER_MAP[totalValue];
-    garments.push({
-      kind: 'garment',
-      stars: tier.stars,
-      requiredFabric: tier.fabric,
-      colorCost: subset,
-    });
-  }
-
+  // Glass (1pt): two primaries with repeats
+  for (let i = 0; i < PRIMARIES.length; i++)
+    for (let j = i; j < PRIMARIES.length; j++)
+      garments.push({ kind: 'garment', stars: 1, requiredMaterial: 'Glass', colorCost: [PRIMARIES[i], PRIMARIES[j]] });
+  // Glass (1pt): one secondary
+  for (const s of SECONDARIES)
+    garments.push({ kind: 'garment', stars: 1, requiredMaterial: 'Glass', colorCost: [s] });
+  // Textiles (2pt): one tertiary
+  for (const t of TERTIARIES)
+    garments.push({ kind: 'garment', stars: 2, requiredMaterial: 'Textiles', colorCost: [t] });
+  // Textiles (2pt): one secondary + one primary
+  for (const s of SECONDARIES)
+    for (const p of PRIMARIES)
+      garments.push({ kind: 'garment', stars: 2, requiredMaterial: 'Textiles', colorCost: [s, p] });
+  // Ceramics (3pt): one tertiary + one primary
+  for (const t of TERTIARIES)
+    for (const p of PRIMARIES)
+      garments.push({ kind: 'garment', stars: 3, requiredMaterial: 'Ceramics', colorCost: [t, p] });
+  // Paintings (4pt): one tertiary + one secondary
+  for (const t of TERTIARIES)
+    for (const s of SECONDARIES)
+      garments.push({ kind: 'garment', stars: 4, requiredMaterial: 'Paintings', colorCost: [t, s] });
   return garments;
 }
 

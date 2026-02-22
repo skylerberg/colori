@@ -21,7 +21,7 @@ describe('createInitialGameState', () => {
     }
   });
 
-  it('each player starts with 2 Basic Red, 2 Basic Yellow, 2 Basic Blue, 1 Wool, 1 Silk, 1 Linen, 1 Cotton', () => {
+  it('each player starts with 2 Basic Red, 2 Basic Yellow, 2 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles, 1 Glass', () => {
     const state = createInitialGameState(['Alice']);
     const player = state.players[0];
     const cardNames = player.deck.map(c => 'name' in c.card ? c.card.name : '');
@@ -30,18 +30,18 @@ describe('createInitialGameState', () => {
     expect(cardNames.filter(n => n === 'Basic Yellow')).toHaveLength(2);
     expect(cardNames.filter(n => n === 'Basic Blue')).toHaveLength(2);
 
-    const fabricTypes = player.deck
-      .filter(c => c.card.kind === 'fabric')
-      .map(c => (c.card as { fabricType: string }).fabricType);
-    expect(fabricTypes).toContain('Wool');
-    expect(fabricTypes).toContain('Silk');
-    expect(fabricTypes).toContain('Linen');
-    expect(fabricTypes).toContain('Cotton');
+    const materialTypes = player.deck
+      .filter(c => c.card.kind === 'material')
+      .map(c => (c.card as { materialType: string }).materialType);
+    expect(materialTypes).toContain('Ceramics');
+    expect(materialTypes).toContain('Paintings');
+    expect(materialTypes).toContain('Textiles');
+    expect(materialTypes).toContain('Glass');
   });
 
   it('creates correct draft deck size for 2 players', () => {
     // 4 copies * 15 dyes = 60
-    // 4 copies * 4 fabrics = 16
+    // 4 copies * 4 materials = 16
     // Total = 60 + 16 = 76
     const state = createInitialGameState(['Alice', 'Bob']);
     expect(state.draftDeck).toHaveLength(76);
@@ -49,16 +49,16 @@ describe('createInitialGameState', () => {
 
   it('creates correct draft deck size for 3 players', () => {
     // 4 copies * 15 dyes = 60
-    // 4 copies * 4 fabrics = 16
+    // 4 copies * 4 materials = 16
     // Total = 60 + 16 = 76
     const state = createInitialGameState(['Alice', 'Bob', 'Charlie']);
     expect(state.draftDeck).toHaveLength(76);
   });
 
   it('creates garment deck with correct size', () => {
-    // 12 per tier × 4 tiers = 48 garments, minus 6 in display = 42
+    // 60 total garments minus 6 in display = 54
     const state = createInitialGameState(['Alice', 'Bob']);
-    expect(state.garmentDeck).toHaveLength(42);
+    expect(state.garmentDeck).toHaveLength(54);
   });
 
   it('garment display has 6 cards', () => {

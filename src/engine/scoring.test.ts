@@ -10,7 +10,7 @@ function makePlayerWithGarments(name: string, stars: number[]): PlayerState {
       kind: 'garment' as const,
       name: `Garment ${i}`,
       stars: s,
-      requiredFabric: 'Wool' as const,
+      requiredMaterial: 'Ceramics' as const,
       colorCost: [],
     },
   }));
@@ -22,7 +22,7 @@ function makePlayerWithGarments(name: string, stars: number[]): PlayerState {
     drawnCards: [],
     draftedCards: [],
     colorWheel: createEmptyWheel(),
-    fabrics: { Wool: 0, Silk: 0, Linen: 0, Cotton: 0 },
+    materials: { Glass: 0, Textiles: 0, Ceramics: 0, Paintings: 0 },
     completedGarments,
   };
 }

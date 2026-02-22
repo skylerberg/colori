@@ -11,7 +11,7 @@
 
   let score = $derived(player.completedGarments.reduce((sum, g) => sum + g.card.stars, 0));
   let garmentCount = $derived(player.completedGarments.length);
-  let totalFabrics = $derived(Object.values(player.fabrics).reduce((sum, n) => sum + n, 0));
+  let totalMaterials = $derived(Object.values(player.materials).reduce((sum, n) => sum + n, 0));
 
   function toggle() {
     expanded = !expanded;
@@ -24,7 +24,7 @@
     <span class="header-stats">
       <span>* {score}</span>
       <span>Garments: {garmentCount}</span>
-      <span>Fabrics: {totalFabrics}</span>
+      <span>Materials: {totalMaterials}</span>
     </span>
     <span class="chevron" class:open={expanded}></span>
   </button>
@@ -37,11 +37,11 @@
           <ColorWheelDisplay wheel={player.colorWheel} size={120} />
         </div>
 
-        <div class="fabrics-section">
-          <h4>Stored Fabrics</h4>
-          <div class="fabric-counts">
-            {#each Object.entries(player.fabrics) as [fabric, count]}
-              <span class="fabric-count">{fabric}: {count}</span>
+        <div class="materials-section">
+          <h4>Stored Materials</h4>
+          <div class="material-counts">
+            {#each Object.entries(player.materials) as [material, count]}
+              <span class="material-count">{material}: {count}</span>
             {/each}
           </div>
         </div>
@@ -133,7 +133,7 @@
   }
 
   .color-wheel-section,
-  .fabrics-section {
+  .materials-section {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -145,7 +145,7 @@
     margin: 0 0 4px;
   }
 
-  .fabric-counts {
+  .material-counts {
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -153,7 +153,7 @@
     color: #8b6914;
   }
 
-  .fabric-count {
+  .material-count {
     font-weight: 600;
   }
 

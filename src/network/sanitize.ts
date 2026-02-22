@@ -13,7 +13,7 @@ export function sanitizeGameState(
     drawnCards: [...p.drawnCards],
     draftedCards: [...p.draftedCards],
     colorWheel: { ...p.colorWheel },
-    fabrics: { ...p.fabrics },
+    materials: { ...p.materials },
     completedGarments: [...p.completedGarments],
   }));
 

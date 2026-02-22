@@ -1,7 +1,9 @@
 export type Color = 'Red' | 'Vermilion' | 'Orange' | 'Amber' | 'Yellow' |
   'Chartreuse' | 'Green' | 'Teal' | 'Blue' | 'Indigo' | 'Purple' | 'Magenta';
 
-export type FabricType = 'Wool' | 'Silk' | 'Linen' | 'Cotton';
+export type MaterialType = 'Glass' | 'Textiles' | 'Ceramics' | 'Paintings';
+
+export const ALL_MATERIAL_TYPES: MaterialType[] = ['Glass', 'Textiles', 'Ceramics', 'Paintings'];
 
 export type Ability =
   | { type: 'makeMaterials'; count: number }
@@ -24,21 +26,21 @@ export interface BasicDyeCard {
   ability: Ability;  // always { type: 'makeMaterials', count: 2 }
 }
 
-export interface FabricCard {
-  kind: 'fabric';
+export interface MaterialCard {
+  kind: 'material';
   name: string;
-  fabricType: FabricType;
+  materialType: MaterialType;
   ability: Ability;
 }
 
 export interface GarmentCard {
   kind: 'garment';
   stars: number;
-  requiredFabric: FabricType;
+  requiredMaterial: MaterialType;
   colorCost: Color[];
 }
 
-export type AnyCard = DyeCard | BasicDyeCard | FabricCard | GarmentCard;
+export type AnyCard = DyeCard | BasicDyeCard | MaterialCard | GarmentCard;
 
 export interface CardInstance<T extends AnyCard = AnyCard> {
   instanceId: number;
@@ -52,7 +54,7 @@ export interface PlayerState {
   drawnCards: CardInstance[];
   draftedCards: CardInstance[];
   colorWheel: Record<Color, number>;
-  fabrics: Record<FabricType, number>;
+  materials: Record<MaterialType, number>;
   completedGarments: CardInstance<GarmentCard>[];
 }
 

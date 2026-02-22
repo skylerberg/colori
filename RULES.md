@@ -2,7 +2,7 @@
 
 ## Overview
 
-Colori is a deck-building game for 2–5 players about dyeing fabrics and crafting garments. Over 8 rounds, players draft dye and fabric cards, destroy them to store colors on a color wheel, mix colors, and craft garments worth stars. The player with the most stars at the end wins.
+Colori is a deck-building game for 2–5 players about dyeing materials and crafting garments. Over 8 rounds, players draft dye and material cards, destroy them to store colors on a color wheel, mix colors, and craft garments worth stars. The player with the most stars at the end wins.
 
 ## Components
 
@@ -29,24 +29,24 @@ Each player has their own color wheel that tracks how many of each color they ha
 
 **Dye Cards** (2 copies of each, 78 total): 39 unique dyes, each with color pips and a destroy ability. See the card reference below.
 
-**Fabric Cards** (6 copies of each, 24 total):
-- Wool | Destroy: Draw Cards ×1
-- Silk | Destroy: Draw Cards ×2
-- Linen | Destroy: Store Colors ×1
-- Cotton | Destroy: Mix Colors ×1
+**Material Cards** (6 copies of each, 24 total):
+- Ceramics | Destroy: Draw Cards ×1
+- Paintings | Destroy: Draw Cards ×2
+- Textiles | Destroy: Store Colors ×1
+- Glass | Destroy: Mix Colors ×1
 
-**Garment Cards** (179 possible, 48 per game): Each garment requires a specific fabric type and a unique subset of colors as its cost. At game start, 12 garments are randomly selected from each of the 4 star tiers. Each garment is worth 2–5 stars.
+**Garment Cards** (60 total, single deck): Each garment requires a specific material type and a set of colors as its cost. All 60 garments are shuffled into a single deck. Each garment is worth 1–4 stars.
 
 ### Decks
 
-- **Draft Deck**: Contains all dye cards, fabric cards, and basic dyes not in players' starting decks. When the draft deck runs out, shuffle all destroyed cards back in.
+- **Draft Deck**: Contains all dye cards, material cards, and basic dyes not in players' starting decks. When the draft deck runs out, shuffle all destroyed cards back in.
 - **Garment Deck**: Contains all garment cards. 6 garments are displayed face-up at all times.
 - **Personal Deck**: Each player has their own deck that they draw from and build over the course of the game.
 
 ## Setup
 
-1. Each player receives a starting personal deck of 8 cards: 2 Basic Red, 2 Basic Yellow, 2 Basic Blue, 1 Wool, 1 Silk. Shuffle it.
-2. Place remaining basic dyes, all dye cards, and all fabric cards into the draft deck. Shuffle it.
+1. Each player receives a starting personal deck of 8 cards: 2 Basic Red, 2 Basic Yellow, 2 Basic Blue, 1 Ceramics, 1 Paintings. Shuffle it.
+2. Place remaining basic dyes, all dye cards, and all material cards into the draft deck. Shuffle it.
 3. Shuffle the garment deck and reveal 6 garments face-up in the garment display.
 
 ## Player Area
@@ -145,7 +145,7 @@ You **must** make a garment if you are able to. If you cannot afford any garment
 
 To make a garment:
 1. Choose a garment from the 6 face-up garments in the display.
-2. Discard a fabric card of the required type from your **drawn cards**.
+2. Discard a material card of the required type from your **drawn cards**.
 3. Pay the color cost by removing the required colors from your color wheel.
 4. The garment goes into your **discard pile** (it will cycle through your deck but has no useful effect — it clogs your deck).
 5. Immediately refill the garment display from the garment deck.
@@ -202,14 +202,14 @@ After 8 rounds, the game ends. Each player totals the stars on all garments they
 | 38 | Annatto | 1 Orange, 1 Amber, 1 Yellow | Mix Colors ×1 |
 | 39 | Henna | 1 Orange, 1 Vermilion | Store Colors ×1 |
 
-### Fabric Cards (4 types, 6 copies each)
+### Material Cards (4 types, 6 copies each)
 
 | Name | Destroy Ability |
 |------|-----------------|
-| Wool | Draw Cards ×1 |
-| Silk | Draw Cards ×2 |
-| Linen | Store Colors ×1 |
-| Cotton | Mix Colors ×1 |
+| Ceramics | Draw Cards ×1 |
+| Paintings | Draw Cards ×2 |
+| Textiles | Store Colors ×1 |
+| Glass | Mix Colors ×1 |
 
 ### Basic Dye Cards (3 types, 20 copies each)
 
@@ -219,19 +219,15 @@ After 8 rounds, the game ends. Each player totals the stars on all garments they
 | Basic Yellow | 1 Yellow | Store Colors ×1 |
 | Basic Blue | 1 Blue | Store Colors ×1 |
 
-### Garment Cards (179 possible, 48 per game)
+### Garment Cards (60 total, single deck)
 
-Garments do not have names. Each garment's color cost is a unique subset of the 12 colors on the wheel (each color appears at most once). The total "primary value" of the subset determines the garment's tier:
+Garments do not have names. Each garment requires a specific material type and a set of colors as its cost.
 
-- **Primaries** (Red, Yellow, Blue) = value 1
-- **Secondaries** (Orange, Green, Purple) = value 2
-- **Tertiaries** (Vermilion, Amber, Chartreuse, Teal, Indigo, Magenta) = value 3
+| Material | Stars | Requirement | Count |
+|----------|-------|-------------|-------|
+| Glass | 1 | Two primaries (repeats OK) OR one secondary | 9 |
+| Textiles | 2 | One tertiary OR one secondary + one primary | 15 |
+| Ceramics | 3 | One tertiary + one primary | 18 |
+| Paintings | 4 | One tertiary + one secondary | 18 |
 
-| Total Value | Stars | Fabric | Possible Count |
-|-------------|-------|--------|----------------|
-| 3           | 2     | Cotton | 16             |
-| 4           | 3     | Linen  | 30             |
-| 5           | 4     | Wool   | 48             |
-| 6           | 5     | Silk   | 85             |
-
-At game start, 12 garments are randomly selected from each star tier (48 total). These are shuffled together to form the garment deck.
+All 60 garments are shuffled into a single deck. 6 garments are displayed face-up at all times.

@@ -9,7 +9,7 @@
 
   let score = $derived(player.completedGarments.reduce((sum, g) => sum + g.card.stars, 0));
   let garmentCount = $derived(player.completedGarments.length);
-  let totalFabrics = $derived(Object.values(player.fabrics).reduce((sum, n) => sum + n, 0));
+  let totalMaterials = $derived(Object.values(player.materials).reduce((sum, n) => sum + n, 0));
 </script>
 
 <div class="player-status" class:active>
@@ -17,7 +17,7 @@
   <div class="stats">
     <span class="stat" title="Score (stars)">{'*'} {score}</span>
     <span class="stat" title="Completed garments">Garments: {garmentCount}</span>
-    <span class="stat" title="Stored fabrics">Fabrics: {totalFabrics}</span>
+    <span class="stat" title="Stored materials">Materials: {totalMaterials}</span>
     <span class="stat" title="Deck size">Deck: {player.deck.length}</span>
     <span class="stat" title="Discard size">Discard: {player.discard.length}</span>
   </div>

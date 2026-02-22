@@ -21,7 +21,7 @@ function makePlayer(deckSize: number, discardSize: number = 0): PlayerState {
     drawnCards: [],
     draftedCards: [],
     colorWheel: createEmptyWheel(),
-    fabrics: { Wool: 0, Silk: 0, Linen: 0, Cotton: 0 },
+    materials: { Glass: 0, Textiles: 0, Ceramics: 0, Paintings: 0 },
     completedGarments: [],
   };
 }

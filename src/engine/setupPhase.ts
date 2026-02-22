@@ -1,33 +1,33 @@
 import type { GameState, PlayerState, CardInstance, GarmentCard } from '../data/types';
-import { BASIC_DYE_CARDS, FABRIC_CARDS, DYE_CARDS, GARMENT_CARDS } from '../data/cards';
+import { BASIC_DYE_CARDS, MATERIAL_CARDS, DYE_CARDS, GARMENT_CARDS } from '../data/cards';
 import { createCardInstances, shuffle } from './deckUtils';
-import { createEmptyWheel, createEmptyFabrics } from './colorWheel';
+import { createEmptyWheel, createEmptyMaterials } from './colorWheel';
 
 /**
  * Create the initial game state for a new game.
  *
  * Each player starts with a personal deck of 10 cards:
- *   2 Basic Red, 2 Basic Yellow, 2 Basic Blue, 1 Wool, 1 Silk, 1 Linen, 1 Cotton.
+ *   2 Basic Red, 2 Basic Yellow, 2 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles, 1 Glass.
  *
  * Draft deck contains:
  *   - 4 copies of each of the 15 dye cards (60 total)
- *   - 4 copies of each of the 4 fabric types (16 total)
+ *   - 4 copies of each of the 4 material types (16 total)
  *
- * Garment deck: 12 random garments from each of the 4 star tiers (48 total).
+ * Garment deck: all 60 garments shuffled into a single deck.
  * Garment display: 6 cards dealt from the garment deck.
  * Game starts at round 1, phase = 'draw'.
  */
 export function createInitialGameState(playerNames: string[], aiPlayers?: boolean[]): GameState {
   const numPlayers = playerNames.length;
 
-  // Find the specific basic dye and fabric cards by name/type
+  // Find the specific basic dye and material cards by name/type
   const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
   const basicYellow = BASIC_DYE_CARDS.find(c => c.name === 'Basic Yellow')!;
   const basicBlue = BASIC_DYE_CARDS.find(c => c.name === 'Basic Blue')!;
-  const woolCard = FABRIC_CARDS.find(c => c.fabricType === 'Wool')!;
-  const silkCard = FABRIC_CARDS.find(c => c.fabricType === 'Silk')!;
-  const linenCard = FABRIC_CARDS.find(c => c.fabricType === 'Linen')!;
-  const cottonCard = FABRIC_CARDS.find(c => c.fabricType === 'Cotton')!;
+  const ceramicsCard = MATERIAL_CARDS.find(c => c.materialType === 'Ceramics')!;
+  const paintingsCard = MATERIAL_CARDS.find(c => c.materialType === 'Paintings')!;
+  const textilesCard = MATERIAL_CARDS.find(c => c.materialType === 'Textiles')!;
+  const glassCard = MATERIAL_CARDS.find(c => c.materialType === 'Glass')!;
 
   // Create players
   const players: PlayerState[] = playerNames.map(name => {
@@ -35,10 +35,10 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
       basicRed, basicRed,
       basicYellow, basicYellow,
       basicBlue, basicBlue,
-      woolCard,
-      silkCard,
-      linenCard,
-      cottonCard,
+      ceramicsCard,
+      paintingsCard,
+      textilesCard,
+      glassCard,
     ];
     const deck = shuffle(createCardInstances(personalCards));
     return {
@@ -48,7 +48,7 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
       drawnCards: [],
       draftedCards: [],
       colorWheel: createEmptyWheel(),
-      fabrics: createEmptyFabrics(),
+      materials: createEmptyMaterials(),
       completedGarments: [],
     };
   });
@@ -63,28 +63,17 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
     }
   }
 
-  // 4 copies of each of 4 fabric types
-  for (const fabric of FABRIC_CARDS) {
+  // 4 copies of each of 4 material types
+  for (const material of MATERIAL_CARDS) {
     for (let i = 0; i < 4; i++) {
-      draftCards.push(fabric);
+      draftCards.push(material);
     }
   }
 
   const draftDeck = shuffle(createCardInstances(draftCards));
 
-  // Build garment deck: 12 random garments from each star tier (48 total)
-  const garmentsByStars = new Map<number, GarmentCard[]>();
-  for (const garment of GARMENT_CARDS) {
-    const list = garmentsByStars.get(garment.stars) ?? [];
-    list.push(garment);
-    garmentsByStars.set(garment.stars, list);
-  }
-  const selectedGarments: GarmentCard[] = [];
-  for (const stars of [2, 3, 4, 5]) {
-    const tier = shuffle([...(garmentsByStars.get(stars) ?? [])]);
-    selectedGarments.push(...tier.slice(0, 12));
-  }
-  const garmentDeck = shuffle(createCardInstances(selectedGarments));
+  // Build garment deck: all garments shuffled into a single deck
+  const garmentDeck = shuffle(createCardInstances(GARMENT_CARDS));
 
   // Deal 6 garments to the display
   const garmentDisplay: CardInstance<GarmentCard>[] = [];
