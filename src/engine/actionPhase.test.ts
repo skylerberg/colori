@@ -284,15 +284,30 @@ describe('endRound', () => {
     expect(state.phase.type).toBe('draw');
   });
 
-  it('transitions to gameOver after round 8', () => {
+  it('transitions to gameOver when a player has 15+ points', () => {
     const state = makeTestGameState();
-    state.round = 8;
+    state.round = 3;
+    initializeActionPhase(state);
+
+    // Give player 0 enough completed garments to reach 16 points (4 x 4-star)
+    const garment4star = GARMENT_CARDS.find(c => c.stars === 4)!;
+    state.players[0].completedGarments = createCardInstances([garment4star, garment4star, garment4star, garment4star]) as CardInstance<GarmentCard>[];
+
+    endRound(state);
+
+    expect(state.round).toBe(4);
+    expect(state.phase.type).toBe('gameOver');
+  });
+
+  it('does not end game when no player has 15+ points even at high round numbers', () => {
+    const state = makeTestGameState();
+    state.round = 20;
     initializeActionPhase(state);
 
     endRound(state);
 
-    expect(state.round).toBe(9);
-    expect(state.phase.type).toBe('gameOver');
+    expect(state.round).toBe(21);
+    expect(state.phase.type).toBe('draw');
   });
 });
 

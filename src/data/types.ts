@@ -91,6 +91,6 @@ export interface GameState {
   garmentDeck: CardInstance<GarmentCard>[];
   garmentDisplay: CardInstance<GarmentCard>[];
   phase: GamePhase;
-  round: number;  // 1-8
+  round: number;
   aiPlayers: boolean[];
 }

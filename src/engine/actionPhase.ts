@@ -2,6 +2,7 @@ import type { GameState, ActionState, Ability, Color, CardInstance } from '../da
 import { getCardPips } from '../data/cards';
 import { drawFromDeck } from './deckUtils';
 import { storeColor, performMix, canPayCost, payCost } from './colorWheel';
+import { calculateScore } from './scoring';
 
 /** Helper to extract ActionState from GameState with type narrowing. */
 function getActionState(state: GameState): ActionState {
@@ -292,12 +293,13 @@ export function endPlayerTurn(state: GameState): void {
 }
 
 /**
- * End the current round. Increment round. If round > 8, set phase to
- * 'gameOver'. Otherwise, set phase to 'draw'.
+ * End the current round. Increment round. If any player has 15+ points,
+ * set phase to 'gameOver'. Otherwise, set phase to 'draw'.
  */
 export function endRound(state: GameState): void {
   state.round++;
-  if (state.round > 8) {
+  const anyPlayerReached15 = state.players.some(p => calculateScore(p) >= 15);
+  if (anyPlayerReached15) {
     state.phase = { type: 'gameOver' };
   } else {
     state.phase = { type: 'draw' };
