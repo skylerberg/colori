@@ -94,7 +94,7 @@
   {/if}
 
   {#if workshopText}
-    <div class="workshop-abilities">Workshop: {workshopText}</div>
+    <div class="workshop-abilities">{workshopText}</div>
   {/if}
 
   {#if abilityText}

@@ -111,7 +111,7 @@ export const MATERIAL_CARDS: MaterialCard[] = [
     kind: 'material',
     name: 'Ceramics',
     materialType: 'Ceramics',
-    ability: { type: 'makeMaterials', count: 2 },
+    ability: { type: 'workshop', count: 2 },
   },
   {
     kind: 'material',
