@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { AnyCard } from '../data/types';
+  import type { AnyCard, Ability } from '../data/types';
   import { colorToHex, blendColors, textColorForBackground } from '../data/colors';
   import { getCardPips } from '../data/cards';
 
@@ -10,13 +10,16 @@
   } = $props();
 
   let abilityText = $derived(formatAbility(card));
+  let workshopText = $derived(
+    card.kind === 'action'
+      ? card.workshopAbilities.map(formatSingleAbility).join(', ')
+      : ''
+  );
   let pips = $derived(getCardPips(card));
   let blendedHex = $derived(blendColors(pips));
   let swatchTextColor = $derived(textColorForBackground(blendedHex));
 
-  function formatAbility(c: AnyCard): string {
-    if (c.kind === 'garment') return '';
-    const a = c.ability;
+  function formatSingleAbility(a: Ability): string {
     switch (a.type) {
       case 'workshop': return `Workshop x${a.count}`;
       case 'drawCards': return `Draw x${a.count}`;
@@ -25,6 +28,11 @@
       case 'makeGarment': return 'Make Garment';
       case 'gainDucats': return `Gain ${a.count} Ducat(s)`;
     }
+  }
+
+  function formatAbility(c: AnyCard): string {
+    if (c.kind === 'garment') return '';
+    return formatSingleAbility(c.ability);
   }
 
   function cardKindLabel(c: AnyCard): string {
@@ -83,6 +91,10 @@
         {/each}
       </div>
     </div>
+  {/if}
+
+  {#if workshopText}
+    <div class="workshop-abilities">Workshop: {workshopText}</div>
   {/if}
 
   {#if abilityText}
@@ -196,6 +208,13 @@
   .material-type {
     font-size: 0.75rem;
     color: #8b6914;
+    font-weight: 600;
+    padding: 2px 0;
+  }
+
+  .workshop-abilities {
+    font-size: 0.75rem;
+    color: #2ecc71;
     font-weight: 600;
     padding: 2px 0;
   }
