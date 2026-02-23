@@ -119,7 +119,7 @@ function canAffordBuyer(
   player: PlayerState,
   buyer: BuyerCard,
 ): boolean {
-  if (player.materials[buyer.requiredMaterial] <= 0) return false;
+  if (player.materials[buyer.requiredMaterial] < 2) return false;
   return canPayCost(player.colorWheel, buyer.colorCost);
 }
 

@@ -31,17 +31,17 @@ describe('createInitialGameState', () => {
     expect(cardNames.filter(n => n === 'Basic Blue')).toHaveLength(1);
     expect(cardNames.filter(n => n === 'Chalk')).toHaveLength(1);
 
-    const materialTypes = player.deck
+    const materialNames = player.deck
       .filter(c => c.card.kind === 'material')
-      .map(c => (c.card as { materialType: string }).materialType);
-    expect(materialTypes).toContain('Ceramics');
-    expect(materialTypes).toContain('Paintings');
-    expect(materialTypes).toContain('Textiles');
+      .map(c => (c.card as import('../data/types').MaterialCard).name);
+    expect(materialNames).toContain('Ceramics');
+    expect(materialNames).toContain('Paintings');
+    expect(materialNames).toContain('Textiles');
   });
 
   it('creates correct draft deck size for 2 players', () => {
     // 4 copies * 15 dyes = 60
-    // 5 copies * 3 materials = 15
+    // 15 unique draft material cards = 15
     // 3 copies * 5 action cards = 15
     // Total = 60 + 15 + 15 = 90
     const state = createInitialGameState(['Alice', 'Bob']);
@@ -50,7 +50,7 @@ describe('createInitialGameState', () => {
 
   it('creates correct draft deck size for 3 players', () => {
     // 4 copies * 15 dyes = 60
-    // 5 copies * 3 materials = 15
+    // 15 unique draft material cards = 15
     // 3 copies * 5 action cards = 15
     // Total = 60 + 15 + 15 = 90
     const state = createInitialGameState(['Alice', 'Bob', 'Charlie']);
@@ -81,6 +81,15 @@ describe('createInitialGameState', () => {
       expect(player.drawnCards).toHaveLength(0);
       expect(player.draftedCards).toHaveLength(0);
       expect(player.completedBuyers).toHaveLength(0);
+    }
+  });
+
+  it('each player starts with 1 of each material type', () => {
+    const state = createInitialGameState(['Alice', 'Bob']);
+    for (const player of state.players) {
+      expect(player.materials.Ceramics).toBe(1);
+      expect(player.materials.Paintings).toBe(1);
+      expect(player.materials.Textiles).toBe(1);
     }
   });
 

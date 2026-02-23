@@ -4,7 +4,7 @@ export function getCardPips(card: AnyCard): Color[] {
   switch (card.kind) {
     case 'dye': return card.colors;
     case 'basicDye': return [card.color];
-    case 'material': return [];
+    case 'material': return card.colorPip ? [card.colorPip] : [];
     case 'action': return [];
     case 'buyer': return [];
   }
@@ -110,20 +110,127 @@ export const MATERIAL_CARDS: MaterialCard[] = [
   {
     kind: 'material',
     name: 'Ceramics',
-    materialType: 'Ceramics',
+    materialTypes: ['Ceramics'],
     ability: { type: 'workshop', count: 2 },
   },
   {
     kind: 'material',
     name: 'Paintings',
-    materialType: 'Paintings',
+    materialTypes: ['Paintings'],
     ability: { type: 'sell' },
   },
   {
     kind: 'material',
     name: 'Textiles',
-    materialType: 'Textiles',
+    materialTypes: ['Textiles'],
     ability: { type: 'drawCards', count: 2 },
+  },
+];
+
+export const DRAFT_MATERIAL_CARDS: MaterialCard[] = [
+  // Double material cards
+  {
+    kind: 'material',
+    name: 'Fine Ceramics',
+    materialTypes: ['Ceramics', 'Ceramics'],
+    ability: { type: 'workshop', count: 2 },
+  },
+  {
+    kind: 'material',
+    name: 'Fine Paintings',
+    materialTypes: ['Paintings', 'Paintings'],
+    ability: { type: 'sell' },
+  },
+  {
+    kind: 'material',
+    name: 'Fine Textiles',
+    materialTypes: ['Textiles', 'Textiles'],
+    ability: { type: 'drawCards', count: 2 },
+  },
+  // Material + color pip cards (Ceramics)
+  {
+    kind: 'material',
+    name: 'Terra Cotta',
+    materialTypes: ['Ceramics'],
+    colorPip: 'Red',
+    ability: { type: 'workshop', count: 2 },
+  },
+  {
+    kind: 'material',
+    name: 'Ochre Ware',
+    materialTypes: ['Ceramics'],
+    colorPip: 'Yellow',
+    ability: { type: 'workshop', count: 2 },
+  },
+  {
+    kind: 'material',
+    name: 'Cobalt Ware',
+    materialTypes: ['Ceramics'],
+    colorPip: 'Blue',
+    ability: { type: 'workshop', count: 2 },
+  },
+  // Material + color pip cards (Paintings)
+  {
+    kind: 'material',
+    name: 'Cinnabar & Canvas',
+    materialTypes: ['Paintings'],
+    colorPip: 'Red',
+    ability: { type: 'sell' },
+  },
+  {
+    kind: 'material',
+    name: 'Orpiment & Canvas',
+    materialTypes: ['Paintings'],
+    colorPip: 'Yellow',
+    ability: { type: 'sell' },
+  },
+  {
+    kind: 'material',
+    name: 'Ultramarine & Canvas',
+    materialTypes: ['Paintings'],
+    colorPip: 'Blue',
+    ability: { type: 'sell' },
+  },
+  // Material + color pip cards (Textiles)
+  {
+    kind: 'material',
+    name: 'Alizarin & Fabric',
+    materialTypes: ['Textiles'],
+    colorPip: 'Red',
+    ability: { type: 'drawCards', count: 2 },
+  },
+  {
+    kind: 'material',
+    name: 'Fustic & Fabric',
+    materialTypes: ['Textiles'],
+    colorPip: 'Yellow',
+    ability: { type: 'drawCards', count: 2 },
+  },
+  {
+    kind: 'material',
+    name: 'Pastel & Fabric',
+    materialTypes: ['Textiles'],
+    colorPip: 'Blue',
+    ability: { type: 'drawCards', count: 2 },
+  },
+  // Dual material cards
+  {
+    kind: 'material',
+    name: 'Clay & Canvas',
+    materialTypes: ['Ceramics', 'Paintings'],
+    ability: { type: 'destroyCards', count: 1 },
+  },
+  {
+    kind: 'material',
+    name: 'Clay & Fabric',
+    materialTypes: ['Ceramics', 'Textiles'],
+    ability: { type: 'destroyCards', count: 1 },
+  },
+  {
+    kind: 'material',
+    name: 'Canvas & Fabric',
+    materialTypes: ['Paintings', 'Textiles'],
+    ability: { type: 'destroyCards', count: 1 },
   },
 ];
 

@@ -1,17 +1,19 @@
 import type { GameState, PlayerState, CardInstance, BuyerCard } from '../data/types';
-import { BASIC_DYE_CARDS, MATERIAL_CARDS, DYE_CARDS, ACTION_CARDS, BUYER_CARDS, CHALK_CARD } from '../data/cards';
+import { BASIC_DYE_CARDS, MATERIAL_CARDS, DRAFT_MATERIAL_CARDS, DYE_CARDS, ACTION_CARDS, BUYER_CARDS, CHALK_CARD } from '../data/cards';
 import { createCardInstances, shuffle } from './deckUtils';
-import { createEmptyWheel, createEmptyMaterials } from './colorWheel';
+import { createEmptyWheel, createStartingMaterials } from './colorWheel';
 
 /**
  * Create the initial game state for a new game.
  *
  * Each player starts with a personal deck of 7 cards:
  *   1 Basic Red, 1 Basic Yellow, 1 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles, 1 Chalk.
+ * Each player starts with 1 of each material type.
  *
  * Draft deck contains:
  *   - 4 copies of each of the 15 dye cards (60 total)
- *   - 5 copies of each of the 3 material types (15 total)
+ *   - 15 unique draft material cards (15 total)
+ *   - 3 copies of each of 5 action cards (15 total)
  *
  * Buyer deck: all 51 buyers shuffled into a single deck.
  * Buyer display: 6 cards dealt from the buyer deck.
@@ -24,9 +26,9 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
   const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
   const basicYellow = BASIC_DYE_CARDS.find(c => c.name === 'Basic Yellow')!;
   const basicBlue = BASIC_DYE_CARDS.find(c => c.name === 'Basic Blue')!;
-  const ceramicsCard = MATERIAL_CARDS.find(c => c.materialType === 'Ceramics')!;
-  const paintingsCard = MATERIAL_CARDS.find(c => c.materialType === 'Paintings')!;
-  const textilesCard = MATERIAL_CARDS.find(c => c.materialType === 'Textiles')!;
+  const ceramicsCard = MATERIAL_CARDS.find(c => c.name === 'Ceramics')!;
+  const paintingsCard = MATERIAL_CARDS.find(c => c.name === 'Paintings')!;
+  const textilesCard = MATERIAL_CARDS.find(c => c.name === 'Textiles')!;
 
   // Create players
   const players: PlayerState[] = playerNames.map(name => {
@@ -51,7 +53,7 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
       drawnCards: [],
       draftedCards: [],
       colorWheel,
-      materials: createEmptyMaterials(),
+      materials: createStartingMaterials(),
       completedBuyers: [],
       ducats: 0,
     };
@@ -67,11 +69,9 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
     }
   }
 
-  // 5 copies of each of 3 material types
-  for (const material of MATERIAL_CARDS) {
-    for (let i = 0; i < 5; i++) {
-      draftCards.push(material);
-    }
+  // 15 unique draft material cards (1 copy each)
+  for (const material of DRAFT_MATERIAL_CARDS) {
+    draftCards.push(material);
   }
 
   // 3 copies of each of 5 action cards

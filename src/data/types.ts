@@ -33,7 +33,8 @@ export interface BasicDyeCard {
 export interface MaterialCard {
   kind: 'material';
   name: string;
-  materialType: MaterialType;
+  materialTypes: MaterialType[];
+  colorPip?: Color;
   ability: Ability;
 }
 

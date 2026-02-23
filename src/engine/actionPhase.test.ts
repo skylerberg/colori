@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import type { GameState, ActionState, PlayerState, CardInstance, AnyCard, BuyerCard } from '../data/types';
 import { BASIC_DYE_CARDS, MATERIAL_CARDS, DYE_CARDS, ACTION_CARDS, BUYER_CARDS } from '../data/cards';
 import { resetInstanceIdCounter, createCardInstances } from './deckUtils';
-import { createEmptyWheel, storeColor } from './colorWheel';
+import { createEmptyWheel, storeColor, createStartingMaterials } from './colorWheel';
 import {
   initializeActionPhase,
   destroyDraftedCard,
@@ -194,7 +194,7 @@ describe('resolveWorkshopChoice', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
 
-    const ceramicsCard = MATERIAL_CARDS.find(c => c.materialType === 'Ceramics')!;
+    const ceramicsCard = MATERIAL_CARDS.find(c => c.name === 'Ceramics')!;
     const instances = createCardInstances([ceramicsCard]);
     state.players[0].drawnCards = instances;
 
@@ -356,9 +356,9 @@ describe('resolveSelectBuyer', () => {
     const spareBuyer = BUYER_CARDS.find(c => c !== buyer)!;
     state.buyerDeck = createCardInstances([spareBuyer]) as CardInstance<BuyerCard>[];
 
-    // Give player the required resources
+    // Give player the required resources (buyers cost 2 materials)
     const player = state.players[0];
-    player.materials.Textiles = 1;
+    player.materials.Textiles = 2;
     for (const color of buyer.colorCost) {
       storeColor(player.colorWheel, color);
     }
@@ -395,7 +395,7 @@ describe('canSell', () => {
     state.buyerDisplay = buyerInstances;
 
     const player = state.players[0];
-    player.materials.Textiles = 1;
+    player.materials.Textiles = 2;
     for (const color of buyer.colorCost) {
       storeColor(player.colorWheel, color);
     }
@@ -411,8 +411,9 @@ describe('canSell', () => {
     const buyerInstances = createCardInstances([buyer]) as CardInstance<BuyerCard>[];
     state.buyerDisplay = buyerInstances;
 
-    // Has colors but no Textiles material
+    // Has colors but not enough Textiles material (need 2)
     const player = state.players[0];
+    player.materials.Textiles = 1;
     for (const color of buyer.colorCost) {
       storeColor(player.colorWheel, color);
     }
@@ -430,7 +431,7 @@ describe('canSell', () => {
 
     // Has material but not enough colors
     const player = state.players[0];
-    player.materials.Textiles = 1;
+    player.materials.Textiles = 2;
 
     expect(canSell(state, buyerInstances[0].instanceId)).toBe(false);
   });
@@ -811,7 +812,7 @@ describe('multi-select non-action workshop', () => {
     const player = state.players[0];
 
     const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
-    const ceramics = MATERIAL_CARDS.find(c => c.materialType === 'Ceramics')!;
+    const ceramics = MATERIAL_CARDS.find(c => c.name === 'Ceramics')!;
     const instances = createCardInstances([basicRed, ceramics]);
     player.drawnCards = [...instances];
 
@@ -824,5 +825,86 @@ describe('multi-select non-action workshop', () => {
     expect(player.materials.Ceramics).toBe(1);
     expect(player.drawnCards).toHaveLength(0);
     expect(player.discard).toHaveLength(2);
+  });
+});
+
+describe('draft material card workshop types', () => {
+  beforeEach(() => {
+    resetInstanceIdCounter();
+  });
+
+  it('double material card grants 2 of the same material', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+    const player = state.players[0];
+
+    const fineCeramics: import('../data/types').MaterialCard = {
+      kind: 'material',
+      name: 'Fine Ceramics',
+      materialTypes: ['Ceramics', 'Ceramics'],
+      ability: { type: 'workshop', count: 2 },
+    };
+    const instances = createCardInstances([fineCeramics]);
+    player.drawnCards = [...instances];
+
+    const actionState = getActionState(state);
+    actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 1 };
+
+    resolveWorkshopChoice(state, [instances[0].instanceId]);
+
+    expect(player.materials.Ceramics).toBe(2);
+    expect(player.drawnCards).toHaveLength(0);
+    expect(player.discard).toHaveLength(1);
+  });
+
+  it('dual material card grants 1 of each material type', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+    const player = state.players[0];
+
+    const clayCanvas: import('../data/types').MaterialCard = {
+      kind: 'material',
+      name: 'Clay & Canvas',
+      materialTypes: ['Ceramics', 'Paintings'],
+      ability: { type: 'destroyCards', count: 1 },
+    };
+    const instances = createCardInstances([clayCanvas]);
+    player.drawnCards = [...instances];
+
+    const actionState = getActionState(state);
+    actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 1 };
+
+    resolveWorkshopChoice(state, [instances[0].instanceId]);
+
+    expect(player.materials.Ceramics).toBe(1);
+    expect(player.materials.Paintings).toBe(1);
+    expect(player.drawnCards).toHaveLength(0);
+    expect(player.discard).toHaveLength(1);
+  });
+
+  it('material + color pip card grants material and stores color', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+    const player = state.players[0];
+
+    const terraCotta: import('../data/types').MaterialCard = {
+      kind: 'material',
+      name: 'Terra Cotta',
+      materialTypes: ['Ceramics'],
+      colorPip: 'Red',
+      ability: { type: 'workshop', count: 2 },
+    };
+    const instances = createCardInstances([terraCotta]);
+    player.drawnCards = [...instances];
+
+    const actionState = getActionState(state);
+    actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 1 };
+
+    resolveWorkshopChoice(state, [instances[0].instanceId]);
+
+    expect(player.materials.Ceramics).toBe(1);
+    expect(player.colorWheel['Red']).toBe(1);
+    expect(player.drawnCards).toHaveLength(0);
+    expect(player.discard).toHaveLength(1);
   });
 });

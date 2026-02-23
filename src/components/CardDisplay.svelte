@@ -82,12 +82,23 @@
   {/if}
 
   {#if card.kind === 'material'}
-    <div class="material-type">{card.materialType}</div>
+    <div class="material-type">
+      {#if card.materialTypes[0] === card.materialTypes[1]}
+        2x {card.materialTypes[0]}
+      {:else}
+        {card.materialTypes.join(' + ')}
+      {/if}
+    </div>
+    {#if card.colorPip}
+      <div class="pips">
+        <span class="pip" style="background-color: {colorToHex(card.colorPip)}; color: {textColorForBackground(colorToHex(card.colorPip))}" title={card.colorPip}>{card.colorPip[0]}</span>
+      </div>
+    {/if}
   {/if}
 
   {#if card.kind === 'buyer'}
     <div class="buyer-info">
-      <div class="required-material">{card.requiredMaterial}</div>
+      <div class="required-material">2x {card.requiredMaterial}</div>
       <div class="color-cost">
         {#each card.colorCost as color}
           <span class="pip" style="background-color: {colorToHex(color)}; color: {textColorForBackground(colorToHex(color))}" title={color}>{color[0]}</span>

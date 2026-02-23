@@ -143,7 +143,7 @@ export function canSell(state: GameState, buyerInstanceId: number): boolean {
   const buyerInstance = state.buyerDisplay.find(g => g.instanceId === buyerInstanceId);
   if (!buyerInstance) return false;
   const buyer = buyerInstance.card;
-  if (player.materials[buyer.requiredMaterial] <= 0) return false;
+  if (player.materials[buyer.requiredMaterial] < 2) return false;
   return canPayCost(player.colorWheel, buyer.colorCost);
 }
 
@@ -210,7 +210,12 @@ export function resolveWorkshopChoice(state: GameState, selectedCardIds: number[
       player.drawnCards.splice(cardIndex, 1);
 
       if (card.card.kind === 'material') {
-        player.materials[card.card.materialType]++;
+        for (const mt of card.card.materialTypes) {
+          player.materials[mt]++;
+        }
+        if (card.card.colorPip) {
+          storeColor(player.colorWheel, card.card.colorPip);
+        }
       } else {
         const pips = getCardPips(card.card);
         for (const pip of pips) {
@@ -314,11 +319,11 @@ export function resolveSelectBuyer(state: GameState, buyerInstanceId: number): v
   }
   const buyer = state.buyerDisplay[buyerIndex];
 
-  // Decrement stored material
-  if (player.materials[buyer.card.requiredMaterial] <= 0) {
-    throw new Error(`No stored ${buyer.card.requiredMaterial} material`);
+  // Decrement stored material (buyers cost 2)
+  if (player.materials[buyer.card.requiredMaterial] < 2) {
+    throw new Error(`Not enough stored ${buyer.card.requiredMaterial} material`);
   }
-  player.materials[buyer.card.requiredMaterial]--;
+  player.materials[buyer.card.requiredMaterial] -= 2;
 
   // Pay the color cost from the wheel
   const success = payCost(player.colorWheel, buyer.card.colorCost);

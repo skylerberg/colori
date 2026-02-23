@@ -30,7 +30,8 @@ Each player has their own color wheel that tracks how many of each color they ha
 - 6 Secondary dyes — 2 pips of two adjacent primary/secondary colors | Destroy: Workshop ×3
 - 6 Tertiary dyes — 1 pip of a tertiary color | Destroy: Mix Colors ×2
 
-**Material Cards** (3 types, 5 copies each, 15 total in draft deck):
+**Material Cards** (3 types in starting deck, 1 per player; 15 unique draft material cards in draft deck):
+Starting deck materials gain 1 material when workshopped. Draft material cards offer enhanced gains: double materials, material + color pip, or dual materials.
 - Ceramics | Destroy: Workshop ×2
 - Paintings | Destroy: Sell
 - Textiles | Destroy: Draw Cards ×2
@@ -39,11 +40,11 @@ Each player has their own color wheel that tracks how many of each color they ha
 Each action card has Destroy Cards ×1 as its destroy ability, plus workshop abilities that trigger when the card is chosen during Workshop resolution. See the card reference below.
 
 **Buyer Cards** (51 total, single deck):
-Each buyer requires a specific material type and a set of colors as its cost. All 51 buyers are shuffled into a single deck. Each buyer is worth 2–4 stars.
+Each buyer requires 2 of a specific material type and a set of colors as its cost. All 51 buyers are shuffled into a single deck. Each buyer is worth 2–4 stars.
 
 ### Decks
 
-- **Draft Deck**: Contains 60 dye cards + 15 material cards + 15 action cards (90 total). When the draft deck runs out, shuffle all destroyed cards back in.
+- **Draft Deck**: Contains 60 dye cards + 15 draft material cards + 15 action cards (90 total). When the draft deck runs out, shuffle all destroyed cards back in.
 - **Buyer Deck**: Contains all buyer cards. 6 buyers are displayed face-up at all times.
 - **Personal Deck**: Each player has their own deck that they draw from and build over the course of the game.
 
@@ -51,8 +52,9 @@ Each buyer requires a specific material type and a set of colors as its cost. Al
 
 1. Each player receives a starting personal deck of 7 cards: 1 Basic Red, 1 Basic Yellow, 1 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles, 1 Chalk. Shuffle it.
 2. Each player starts with 1 Red, 1 Yellow, and 1 Blue already stored on their color wheel.
-3. Place all dye cards (4 copies each), material cards (5 copies each), and action cards (3 copies each) into the draft deck. Shuffle it.
-4. Shuffle the buyer deck and reveal 6 buyers face-up in the buyer display.
+3. Each player starts with 1 of each stored material (1 Ceramics, 1 Paintings, 1 Textiles).
+4. Place all dye cards (4 copies each), 15 unique draft material cards, and action cards (3 copies each) into the draft deck. Shuffle it.
+5. Shuffle the buyer deck and reveal 6 buyers face-up in the buyer display.
 
 ## Player Area
 
@@ -106,7 +108,7 @@ When a card is destroyed, its destroy ability triggers. Abilities are resolved u
 Choose up to N cards from your **drawn cards** area. You may skip Workshop entirely (choosing 0 cards).
 
 For each chosen card:
-- **Material card**: Store 1 material of that type in your stored materials. The card is discarded.
+- **Material card**: Store all materials listed on the card (e.g., 2x Ceramics, or 1 Ceramics + 1 Paintings). If the card has a color pip, also store that color on your color wheel. The card is discarded.
 - **Dye or basic dye card**: Store ALL of its color pips on your color wheel. The card is discarded.
 - **Action card**: Consumes 1 pick. The action card's workshop abilities are pushed onto the ability stack, and any remaining Workshop picks carry over (pushed below the workshop abilities on the stack). The card is discarded.
 
@@ -144,7 +146,7 @@ You **must** sell to a buyer if you are able to. If you cannot afford any buyer 
 
 To sell to a buyer:
 1. Choose a buyer from the 6 face-up buyers in the display.
-2. Spend 1 stored material of the required type.
+2. Spend 2 stored materials of the required type.
 3. Pay the color cost by removing the required colors from your color wheel.
 4. The buyer goes to your **completed buyers** area.
 5. Immediately refill the buyer display from the buyer deck.
@@ -217,13 +219,33 @@ Each player's score = buyer stars + ducats. The player with the highest score wi
 | Indigo | 1 Indigo | Mix Colors ×2 |
 | Cochineal | 1 Magenta | Mix Colors ×2 |
 
-### Material Cards (3 types, 5 copies each in draft deck)
+### Starting Material Cards (3 types, 1 per player in starting deck)
 
-| Name | Destroy Ability |
-|------|-----------------|
-| Ceramics | Workshop ×2 |
-| Paintings | Sell |
-| Textiles | Draw Cards ×2 |
+| Name | Material Gain | Destroy Ability |
+|------|--------------|-----------------|
+| Ceramics | 1 Ceramics | Workshop ×2 |
+| Paintings | 1 Paintings | Sell |
+| Textiles | 1 Textiles | Draw Cards ×2 |
+
+### Draft Material Cards (15 unique in draft deck)
+
+| Name | Material Gain | Color Pip | Destroy Ability |
+|------|--------------|-----------|-----------------|
+| Fine Ceramics | 2x Ceramics | — | Workshop ×2 |
+| Fine Paintings | 2x Paintings | — | Sell |
+| Fine Textiles | 2x Textiles | — | Draw Cards ×2 |
+| Terra Cotta | 1 Ceramics | Red | Workshop ×2 |
+| Ochre Ware | 1 Ceramics | Yellow | Workshop ×2 |
+| Cobalt Ware | 1 Ceramics | Blue | Workshop ×2 |
+| Cinnabar & Canvas | 1 Paintings | Red | Sell |
+| Orpiment & Canvas | 1 Paintings | Yellow | Sell |
+| Ultramarine & Canvas | 1 Paintings | Blue | Sell |
+| Alizarin & Fabric | 1 Textiles | Red | Draw Cards ×2 |
+| Fustic & Fabric | 1 Textiles | Yellow | Draw Cards ×2 |
+| Pastel & Fabric | 1 Textiles | Blue | Draw Cards ×2 |
+| Clay & Canvas | 1 Ceramics + 1 Paintings | — | Destroy Cards ×1 |
+| Clay & Fabric | 1 Ceramics + 1 Textiles | — | Destroy Cards ×1 |
+| Canvas & Fabric | 1 Paintings + 1 Textiles | — | Destroy Cards ×1 |
 
 ### Action Cards (5 unique in draft deck, 3 copies each; plus Chalk as a starter)
 
@@ -240,7 +262,7 @@ All action cards have **Destroy Cards ×1** as their destroy ability. Their work
 
 ### Buyer Cards (51 total, single deck)
 
-Buyers do not have names. Each buyer requires a specific material type and a set of colors as its cost.
+Buyers do not have names. Each buyer requires 2 of a specific material type and a set of colors as its cost.
 
 | Material | Stars | Requirement | Count |
 |----------|-------|-------------|-------|
