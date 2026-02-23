@@ -10,6 +10,7 @@ export interface SanitizedPlayerState {
   colorWheel: Record<Color, number>;
   materials: Record<MaterialType, number>;
   completedGarments: CardInstance<GarmentCard>[];
+  ducats: number;
 }
 
 export interface SanitizedDraftState {
@@ -22,7 +23,7 @@ export interface SanitizedDraftState {
 
 export interface SanitizedActionState {
   currentPlayerIndex: number;
-  abilityQueue: Ability[];
+  abilityStack: Ability[];
   pendingChoice: PendingChoice | null;
 }
 

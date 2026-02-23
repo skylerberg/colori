@@ -22,34 +22,56 @@
 
   let pendingChoice = $derived(actionState?.pendingChoice ?? null);
   let hasPendingChoice = $derived(actionState?.pendingChoice !== null);
-  let hasAbilitiesQueued = $derived((actionState?.abilityQueue.length ?? 0) > 0);
+  let hasAbilitiesQueued = $derived((actionState?.abilityStack.length ?? 0) > 0);
 
   let drawnCardChoice = $derived(
-    pendingChoice?.type === 'chooseCardsForMaterials' || pendingChoice?.type === 'chooseCardsToDestroy'
+    pendingChoice?.type === 'chooseCardsForWorkshop' || pendingChoice?.type === 'chooseCardsToDestroy'
       ? pendingChoice : null
   );
 
-  let selectedMaterialIds: number[] = $state([]);
+  let selectedWorkshopIds: number[] = $state([]);
   let selectedDestroyIds: number[] = $state([]);
 
   $effect(() => {
     const _pc = pendingChoice;
-    selectedMaterialIds = [];
+    selectedWorkshopIds = [];
     selectedDestroyIds = [];
   });
 
-  function toggleMaterialCard(instanceId: number) {
-    if (!pendingChoice || pendingChoice.type !== 'chooseCardsForMaterials') return;
-    const idx = selectedMaterialIds.indexOf(instanceId);
-    if (idx >= 0) {
-      selectedMaterialIds = selectedMaterialIds.filter(id => id !== instanceId);
-    } else if (selectedMaterialIds.length < pendingChoice.count) {
-      selectedMaterialIds = [...selectedMaterialIds, instanceId];
+  function toggleWorkshopCard(instanceId: number) {
+    if (!pendingChoice || pendingChoice.type !== 'chooseCardsForWorkshop') return;
+    const card = currentPlayer?.drawnCards.find(c => c.instanceId === instanceId);
+    if (!card) return;
+    const isAction = card.card.kind === 'action';
+
+    if (isAction) {
+      // Action cards: toggle, deselect all non-action
+      if (selectedWorkshopIds.includes(instanceId)) {
+        selectedWorkshopIds = [];
+      } else {
+        selectedWorkshopIds = [instanceId];
+      }
+    } else {
+      // Non-action cards: deselect any action cards
+      const currentNonAction = selectedWorkshopIds.filter(id => {
+        const c = currentPlayer?.drawnCards.find(c => c.instanceId === id);
+        return c && c.card.kind !== 'action';
+      });
+      const idx = currentNonAction.indexOf(instanceId);
+      if (idx >= 0) {
+        selectedWorkshopIds = currentNonAction.filter(id => id !== instanceId);
+      } else if (currentNonAction.length < pendingChoice.count) {
+        selectedWorkshopIds = [...currentNonAction, instanceId];
+      }
     }
   }
 
-  function confirmMaterials() {
-    onAction({ type: 'makeMaterials', cardInstanceIds: selectedMaterialIds });
+  function confirmWorkshop() {
+    onAction({ type: 'workshop', cardInstanceIds: selectedWorkshopIds });
+  }
+
+  function handleSkipWorkshop() {
+    onAction({ type: 'skipWorkshop' });
   }
 
   function toggleDestroyCard(instanceId: number) {
@@ -82,7 +104,7 @@
       <h2>Action Phase - {currentPlayer.name}'s Turn</h2>
       <div class="queue-status">
         {#if hasAbilitiesQueued}
-          <span class="queue-info">Abilities queued: {actionState.abilityQueue.length}</span>
+          <span class="queue-info">Abilities queued: {actionState.abilityStack.length}</span>
         {/if}
         {#if hasPendingChoice}
           <span class="pending-info">Awaiting your choice...</span>
@@ -105,16 +127,19 @@
       </div>
 
       <div class="section" class:active-choice={drawnCardChoice}>
-        {#if pendingChoice?.type === 'chooseCardsForMaterials'}
-          <h3>Drawn Cards — Select up to {pendingChoice.count} card(s) to store</h3>
+        {#if pendingChoice?.type === 'chooseCardsForWorkshop'}
+          <h3>Drawn Cards — Workshop: Select cards ({pendingChoice.count} available)</h3>
           <CardList
             cards={currentPlayer.drawnCards}
             selectable={true}
-            selectedIds={selectedMaterialIds}
-            onCardClick={toggleMaterialCard}
+            selectedIds={selectedWorkshopIds}
+            onCardClick={toggleWorkshopCard}
           />
-          <button class="confirm-btn" onclick={confirmMaterials}>
-            Confirm Materials ({selectedMaterialIds.length} selected)
+          <button class="confirm-btn" onclick={confirmWorkshop}>
+            Confirm Workshop ({selectedWorkshopIds.length} selected)
+          </button>
+          <button class="confirm-btn skip-btn" onclick={handleSkipWorkshop}>
+            Skip Workshop
           </button>
         {:else if pendingChoice?.type === 'chooseCardsToDestroy'}
           <h3>Drawn Cards — Select up to {pendingChoice.count} card(s) to destroy</h3>
@@ -239,6 +264,14 @@
 
   .confirm-btn:hover {
     background: #1e56a8;
+  }
+
+  .skip-btn {
+    background: #888;
+  }
+
+  .skip-btn:hover {
+    background: #666;
   }
 
   .action-footer {

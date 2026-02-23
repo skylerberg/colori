@@ -10,6 +10,7 @@
   let score = $derived(player.completedGarments.reduce((sum, g) => sum + g.card.stars, 0));
   let garmentCount = $derived(player.completedGarments.length);
   let totalMaterials = $derived(Object.values(player.materials).reduce((sum, n) => sum + n, 0));
+  let ducats = $derived(player.ducats);
 </script>
 
 <div class="player-status" class:active>
@@ -18,6 +19,7 @@
     <span class="stat" title="Score (stars)">{'*'} {score}</span>
     <span class="stat" title="Completed garments">Garments: {garmentCount}</span>
     <span class="stat" title="Stored materials">Materials: {totalMaterials}</span>
+    {#if ducats > 0}<span class="stat" title="Ducats">Ducats: {ducats}</span>{/if}
     <span class="stat" title="Deck size">Deck: {player.deck.length}</span>
     <span class="stat" title="Discard size">Discard: {player.discard.length}</span>
   </div>

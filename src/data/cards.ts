@@ -1,10 +1,11 @@
-import type { AnyCard, Color, DyeCard, BasicDyeCard, MaterialCard, GarmentCard } from './types';
+import type { AnyCard, Color, DyeCard, BasicDyeCard, MaterialCard, ActionCard, GarmentCard } from './types';
 
 export function getCardPips(card: AnyCard): Color[] {
   switch (card.kind) {
     case 'dye': return card.colors;
     case 'basicDye': return [card.color];
     case 'material': return [];
+    case 'action': return [];
     case 'garment': return [];
   }
 }
@@ -29,42 +30,42 @@ export const DYE_CARDS: DyeCard[] = [
     colors: ['Blue', 'Blue', 'Blue'],
     ability: { type: 'makeGarment' },
   },
-  // Secondary (6) — makeMaterials x3
+  // Secondary (6) — workshop x3
   {
     kind: 'dye',
     name: 'Madder',
     colors: ['Orange', 'Red'],
-    ability: { type: 'makeMaterials', count: 3 },
+    ability: { type: 'workshop', count: 3 },
   },
   {
     kind: 'dye',
     name: 'Turmeric',
     colors: ['Orange', 'Yellow'],
-    ability: { type: 'makeMaterials', count: 3 },
+    ability: { type: 'workshop', count: 3 },
   },
   {
     kind: 'dye',
     name: "Dyer's Greenweed",
     colors: ['Green', 'Yellow'],
-    ability: { type: 'makeMaterials', count: 3 },
+    ability: { type: 'workshop', count: 3 },
   },
   {
     kind: 'dye',
     name: 'Verdigris',
     colors: ['Green', 'Blue'],
-    ability: { type: 'makeMaterials', count: 3 },
+    ability: { type: 'workshop', count: 3 },
   },
   {
     kind: 'dye',
     name: 'Orchil',
     colors: ['Purple', 'Red'],
-    ability: { type: 'makeMaterials', count: 3 },
+    ability: { type: 'workshop', count: 3 },
   },
   {
     kind: 'dye',
     name: 'Logwood',
     colors: ['Purple', 'Blue'],
-    ability: { type: 'makeMaterials', count: 3 },
+    ability: { type: 'workshop', count: 3 },
   },
   // Tertiary (6) — mixColors x2
   {
@@ -144,6 +145,39 @@ export const BASIC_DYE_CARDS: BasicDyeCard[] = [
     name: 'Basic Blue',
     color: 'Blue',
     ability: { type: 'makeGarment' },
+  },
+];
+
+export const ACTION_CARDS: ActionCard[] = [
+  {
+    kind: 'action',
+    name: 'Alum',
+    ability: { type: 'destroyCards', count: 1 },
+    workshopAbilities: [{ type: 'gainDucats', count: 1 }],
+  },
+  {
+    kind: 'action',
+    name: 'Lye',
+    ability: { type: 'destroyCards', count: 1 },
+    workshopAbilities: [{ type: 'destroyCards', count: 1 }],
+  },
+  {
+    kind: 'action',
+    name: 'Gum Arabic',
+    ability: { type: 'destroyCards', count: 1 },
+    workshopAbilities: [{ type: 'makeGarment' }],
+  },
+  {
+    kind: 'action',
+    name: 'Ox Gall',
+    ability: { type: 'destroyCards', count: 1 },
+    workshopAbilities: [{ type: 'drawCards', count: 2 }, { type: 'workshop', count: 1 }],
+  },
+  {
+    kind: 'action',
+    name: 'Cream of Tartar',
+    ability: { type: 'destroyCards', count: 1 },
+    workshopAbilities: [{ type: 'mixColors', count: 2 }],
   },
 ];
 

@@ -18,11 +18,12 @@
     if (c.kind === 'garment') return '';
     const a = c.ability;
     switch (a.type) {
-      case 'makeMaterials': return `Materials / Pigments x${a.count}`;
+      case 'workshop': return `Workshop x${a.count}`;
       case 'drawCards': return `Draw x${a.count}`;
       case 'mixColors': return `Mix x${a.count}`;
       case 'destroyCards': return `Destroy x${a.count}`;
       case 'makeGarment': return 'Make Garment';
+      case 'gainDucats': return `Gain ${a.count} Ducat(s)`;
     }
   }
 
@@ -32,6 +33,7 @@
       case 'basicDye': return 'Basic Dye';
       case 'material': return 'Material';
       case 'garment': return 'Garment';
+      case 'action': return 'Reagent';
     }
   }
 </script>
@@ -44,6 +46,7 @@
   class:basic-dye={card.kind === 'basicDye'}
   class:material={card.kind === 'material'}
   class:garment={card.kind === 'garment'}
+  class:action={card.kind === 'action'}
   onclick={onclick}
   disabled={!onclick}
 >
@@ -135,6 +138,10 @@
 
   .card.material {
     border-left: 4px solid #8b6914;
+  }
+
+  .card.action {
+    border-left: 4px solid #2ecc71;
   }
 
   .card.garment {

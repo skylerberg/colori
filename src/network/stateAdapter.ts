@@ -11,6 +11,7 @@ export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
     colorWheel: sp.colorWheel,
     materials: sp.materials,
     completedGarments: sp.completedGarments,
+    ducats: sp.ducats,
   }));
 
   let phase: GamePhase;

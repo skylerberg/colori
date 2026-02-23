@@ -3,8 +3,8 @@
   import { executeDrawPhase } from '../engine/drawPhase';
   import { playerPick, confirmPass } from '../engine/draftPhase';
   import {
-    destroyDraftedCard, endPlayerTurn, resolveMakeMaterials,
-    resolveMixColors, skipMix, resolveDestroyCards,
+    destroyDraftedCard, endPlayerTurn, resolveWorkshopChoice,
+    resolveMixColors, skipMix, skipWorkshop, resolveDestroyCards,
     resolveSelectGarment,
   } from '../engine/actionPhase';
   import { AIController } from '../ai/aiController';
@@ -171,13 +171,13 @@
         addLog(`${name} ended their turn`);
         endPlayerTurn(gameState);
         break;
-      case 'makeMaterials': {
+      case 'workshop': {
         const cardNames = choice.cardInstanceIds.map(id => {
           const c = gameState.players[playerIdx].drawnCards.find(c => c.instanceId === id);
           return c && 'name' in c.card ? c.card.name : 'a card';
         });
-        addLog(`${name} stored materials from ${cardNames.join(', ')}`);
-        resolveMakeMaterials(gameState, choice.cardInstanceIds);
+        addLog(`${name} workshopped ${cardNames.join(', ')}`);
+        resolveWorkshopChoice(gameState, choice.cardInstanceIds);
         break;
       }
       case 'destroyDrawnCards': {
@@ -198,6 +198,10 @@
       case 'skipMix':
         addLog(`${name} skipped remaining mixes`);
         skipMix(gameState);
+        break;
+      case 'skipWorkshop':
+        addLog(`${name} skipped workshop`);
+        skipWorkshop(gameState);
         break;
       case 'selectGarment': {
         const garment = gameState.garmentDisplay.find(g => g.instanceId === choice.garmentInstanceId);
@@ -328,6 +332,9 @@
               <span class="material-count">{material}: {count}</span>
             {/each}
           </div>
+          {#if currentPlayer.ducats > 0}
+            <div class="ducats-count">Ducats: {currentPlayer.ducats}</div>
+          {/if}
         </div>
       </aside>
     {/if}
@@ -474,6 +481,13 @@
 
   .material-count {
     font-weight: 600;
+  }
+
+  .ducats-count {
+    font-size: 0.8rem;
+    color: #d4a017;
+    font-weight: 600;
+    margin-top: 4px;
   }
 
   .ai-thinking {

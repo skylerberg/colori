@@ -28,7 +28,7 @@ function getCardAbility(card: CardInstance): Ability {
 export function initializeActionPhase(state: GameState): void {
   const actionState: ActionState = {
     currentPlayerIndex: (state.round - 1) % state.players.length,
-    abilityQueue: [],
+    abilityStack: [],
     pendingChoice: null,
   };
   state.phase = { type: 'action', actionState };
@@ -36,7 +36,7 @@ export function initializeActionPhase(state: GameState): void {
 
 /**
  * Destroy a drafted card: remove it from the current player's draftedCards,
- * move to destroyedPile, push its ability to the back of abilityQueue.
+ * move to destroyedPile, push its ability to the back of abilityStack.
  * Then process queue.
  */
 export function destroyDraftedCard(state: GameState, cardInstanceId: number): void {
@@ -52,7 +52,7 @@ export function destroyDraftedCard(state: GameState, cardInstanceId: number): vo
   state.destroyedPile.push(card);
 
   // Push the card's ability to the queue
-  actionState.abilityQueue.push(getCardAbility(card));
+  actionState.abilityStack.push(getCardAbility(card));
 
   processQueue(state);
 }
@@ -66,9 +66,9 @@ export function processQueue(state: GameState): void {
   const actionState = getActionState(state);
 
   if (actionState.pendingChoice !== null) return;
-  if (actionState.abilityQueue.length === 0) return;
+  if (actionState.abilityStack.length === 0) return;
 
-  const ability = actionState.abilityQueue.shift()!;
+  const ability = actionState.abilityStack.pop()!;
   const player = state.players[actionState.currentPlayerIndex];
 
   switch (ability.type) {
@@ -79,8 +79,18 @@ export function processQueue(state: GameState): void {
       processQueue(state);
       break;
     }
-    case 'makeMaterials': {
-      actionState.pendingChoice = { type: 'chooseCardsForMaterials', count: ability.count };
+    case 'workshop': {
+      if (player.drawnCards.length === 0) {
+        // Fizzle: no drawn cards
+        processQueue(state);
+        break;
+      }
+      actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: ability.count };
+      break;
+    }
+    case 'gainDucats': {
+      player.ducats += ability.count;
+      processQueue(state);
       break;
     }
     case 'mixColors': {
@@ -130,33 +140,78 @@ function canMakeAnyGarment(state: GameState): boolean {
 }
 
 /**
- * Resolve make materials: for each selected card (from drawnCards), if it's a
- * material card, increment the player's stored materials; otherwise get its pips
- * and store each pip on the player's colorWheel. Move those cards to player's
- * discard. Clear pendingChoice. Process queue.
+ * Resolve workshop choice: handles both action cards and non-action cards.
+ * Action cards: consume 1 pick, push workshopAbilities onto stack, remaining picks carry over.
+ * Non-action cards: process all selected cards at once (store colors/materials).
  */
-export function resolveMakeMaterials(state: GameState, selectedCardIds: number[]): void {
+export function resolveWorkshopChoice(state: GameState, selectedCardIds: number[]): void {
   const actionState = getActionState(state);
   const player = state.players[actionState.currentPlayerIndex];
+  const choice = actionState.pendingChoice;
 
-  for (const cardId of selectedCardIds) {
-    const cardIndex = player.drawnCards.findIndex(c => c.instanceId === cardId);
-    if (cardIndex === -1) {
-      throw new Error(`Card ${cardId} not found in player's drawnCards`);
-    }
-
-    const [card] = player.drawnCards.splice(cardIndex, 1);
-    if (card.card.kind === 'material') {
-      player.materials[card.card.materialType]++;
-    } else {
-      const pips = getCardPips(card.card);
-      for (const pip of pips) {
-        storeColor(player.colorWheel, pip);
-      }
-    }
-    player.discard.push(card);
+  if (!choice || choice.type !== 'chooseCardsForWorkshop') {
+    throw new Error('No pending workshop choice');
   }
 
+  // Check if selection contains an action card
+  const selectedCards = selectedCardIds.map(id => {
+    const card = player.drawnCards.find(c => c.instanceId === id);
+    if (!card) throw new Error(`Card ${id} not found in player's drawnCards`);
+    return card;
+  });
+
+  const actionCard = selectedCards.find(c => c.card.kind === 'action');
+
+  if (actionCard) {
+    // Action card selected: consume 1 pick
+    const cardIndex = player.drawnCards.findIndex(c => c.instanceId === actionCard.instanceId);
+    player.drawnCards.splice(cardIndex, 1);
+
+    const remaining = choice.count - 1;
+    actionState.pendingChoice = null;
+
+    // Push remaining workshop picks onto stack first (bottom)
+    if (remaining > 0) {
+      actionState.abilityStack.push({ type: 'workshop', count: remaining });
+    }
+
+    // Push workshopAbilities in reverse order so first ability ends up on top
+    const abilities = (actionCard.card as import('../data/types').ActionCard).workshopAbilities;
+    for (let i = abilities.length - 1; i >= 0; i--) {
+      actionState.abilityStack.push({ ...abilities[i] });
+    }
+
+    // Move card to discard
+    player.discard.push(actionCard);
+
+    processQueue(state);
+  } else {
+    // Non-action cards: process all at once
+    for (const card of selectedCards) {
+      const cardIndex = player.drawnCards.findIndex(c => c.instanceId === card.instanceId);
+      player.drawnCards.splice(cardIndex, 1);
+
+      if (card.card.kind === 'material') {
+        player.materials[card.card.materialType]++;
+      } else {
+        const pips = getCardPips(card.card);
+        for (const pip of pips) {
+          storeColor(player.colorWheel, pip);
+        }
+      }
+      player.discard.push(card);
+    }
+
+    actionState.pendingChoice = null;
+    processQueue(state);
+  }
+}
+
+/**
+ * Skip the current workshop choice. Clear pendingChoice and process stack.
+ */
+export function skipWorkshop(state: GameState): void {
+  const actionState = getActionState(state);
   actionState.pendingChoice = null;
   processQueue(state);
 }
@@ -199,7 +254,7 @@ export function skipMix(state: GameState): void {
 
 /**
  * Resolve destroy cards: for each selected card (from drawnCards), remove from
- * drawnCards, move to destroyedPile, push its ability to back of abilityQueue.
+ * drawnCards, move to destroyedPile, push its ability to back of abilityStack.
  * Clear pendingChoice. Process queue.
  */
 export function resolveDestroyCards(state: GameState, selectedCardIds: number[]): void {
@@ -214,7 +269,7 @@ export function resolveDestroyCards(state: GameState, selectedCardIds: number[])
 
     const [card] = player.drawnCards.splice(cardIndex, 1);
     state.destroyedPile.push(card);
-    actionState.abilityQueue.push(getCardAbility(card));
+    actionState.abilityStack.push(getCardAbility(card));
   }
 
   actionState.pendingChoice = null;
@@ -269,7 +324,7 @@ export function resolveSelectGarment(state: GameState, garmentInstanceId: number
 /**
  * End the current player's turn. Move all remaining drawnCards + draftedCards
  * to player's discard. Advance currentPlayerIndex. If all players have gone,
- * call endRound. Otherwise, reset abilityQueue and pendingChoice for next player.
+ * call endRound. Otherwise, reset abilityStack and pendingChoice for next player.
  */
 export function endPlayerTurn(state: GameState): void {
   const actionState = getActionState(state);
@@ -287,7 +342,7 @@ export function endPlayerTurn(state: GameState): void {
   if (actionState.currentPlayerIndex === startingPlayer) {
     endRound(state);
   } else {
-    actionState.abilityQueue = [];
+    actionState.abilityStack = [];
     actionState.pendingChoice = null;
   }
 }

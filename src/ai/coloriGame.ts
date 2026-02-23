@@ -9,8 +9,8 @@ import { canPayCost } from '../engine/colorWheel';
 import { playerPick, confirmPass } from '../engine/draftPhase';
 import { executeDrawPhase } from '../engine/drawPhase';
 import {
-  destroyDraftedCard, endPlayerTurn, resolveMakeMaterials,
-  resolveMixColors, skipMix, resolveDestroyCards,
+  destroyDraftedCard, endPlayerTurn, resolveWorkshopChoice,
+  resolveMixColors, skipMix, skipWorkshop, resolveDestroyCards,
   resolveSelectGarment,
 } from '../engine/actionPhase';
 import { calculateScore } from '../engine/scoring';
@@ -22,7 +22,8 @@ export type ColoriChoice =
   | { type: 'draftPick'; cardInstanceId: number }
   | { type: 'destroyDraftedCard'; cardInstanceId: number }
   | { type: 'endTurn' }
-  | { type: 'makeMaterials'; cardInstanceIds: number[] }
+  | { type: 'workshop'; cardInstanceIds: number[] }
+  | { type: 'skipWorkshop' }
   | { type: 'destroyDrawnCards'; cardInstanceIds: number[] }
   | { type: 'mix'; colorA: Color; colorB: Color }
   | { type: 'skipMix' }
@@ -38,6 +39,7 @@ function clonePlayerState(p: PlayerState): PlayerState {
     drawnCards: [...p.drawnCards],
     draftedCards: [...p.draftedCards],
     colorWheel: { ...p.colorWheel },
+    ducats: p.ducats,
     materials: { ...p.materials },
     completedGarments: [...p.completedGarments],
   };
@@ -66,7 +68,7 @@ function clonePhase(phase: GamePhase): GamePhase {
         type: 'action',
         actionState: {
           currentPlayerIndex: as_.currentPlayerIndex,
-          abilityQueue: as_.abilityQueue.map(a => ({ ...a })),
+          abilityStack: as_.abilityStack.map(a => ({ ...a })),
           pendingChoice: as_.pendingChoice ? { ...as_.pendingChoice } : null,
         },
       };
@@ -143,17 +145,26 @@ function enumerateChoices(state: GameState): ColoriChoice[] {
     }
 
     switch (pending.type) {
-      case 'chooseCardsForMaterials': {
-        const eligibleCards = player.drawnCards
+      case 'chooseCardsForWorkshop': {
+        const choices: ColoriChoice[] = [{ type: 'skipWorkshop' }];
+        // Non-action card subsets
+        const eligibleNonAction = player.drawnCards
           .filter(c => c.card.kind === 'dye' || c.card.kind === 'basicDye' || c.card.kind === 'material')
           .map(c => c.instanceId);
-        const materialSubsets = getSubsets(eligibleCards, pending.count)
-          .map(ids => ({ type: 'makeMaterials' as const, cardInstanceIds: ids }));
-        // If no eligible cards, must still resolve with empty selection
-        if (materialSubsets.length === 0) {
-          return [{ type: 'makeMaterials' as const, cardInstanceIds: [] }];
+        const nonActionSubsets = getSubsets(eligibleNonAction, pending.count)
+          .map(ids => ({ type: 'workshop' as const, cardInstanceIds: ids }));
+        choices.push(...nonActionSubsets);
+        // Each action card as a separate choice
+        for (const card of player.drawnCards) {
+          if (card.card.kind === 'action') {
+            choices.push({ type: 'workshop', cardInstanceIds: [card.instanceId] });
+          }
         }
-        return materialSubsets;
+        // If no choices besides skip, add empty
+        if (choices.length === 1) {
+          choices.push({ type: 'workshop', cardInstanceIds: [] });
+        }
+        return choices;
       }
       case 'chooseCardsToDestroy': {
         const cardIds = player.drawnCards.map(c => c.instanceId);
@@ -199,8 +210,10 @@ function choiceToKey(choice: ColoriChoice): string {
       return `destroyDrafted:${choice.cardInstanceId}`;
     case 'endTurn':
       return 'endTurn';
-    case 'makeMaterials':
-      return `makeMaterials:${[...choice.cardInstanceIds].sort((a, b) => a - b).join(',')}`;
+    case 'workshop':
+      return `workshop:${[...choice.cardInstanceIds].sort((a, b) => a - b).join(',')}`;
+    case 'skipWorkshop':
+      return 'skipWorkshop';
     case 'destroyDrawnCards':
       return `destroyDrawn:${[...choice.cardInstanceIds].sort((a, b) => a - b).join(',')}`;
     case 'mix':
@@ -233,8 +246,11 @@ function applyChoiceToState(state: GameState, choice: ColoriChoice): void {
         executeDrawPhase(state);
       }
       break;
-    case 'makeMaterials':
-      resolveMakeMaterials(state, choice.cardInstanceIds);
+    case 'workshop':
+      resolveWorkshopChoice(state, choice.cardInstanceIds);
+      break;
+    case 'skipWorkshop':
+      skipWorkshop(state);
       break;
     case 'destroyDrawnCards':
       resolveDestroyCards(state, choice.cardInstanceIds);
@@ -268,8 +284,9 @@ function checkChoiceAvailable(state: GameState, choice: ColoriChoice): boolean {
     }
     case 'endTurn':
     case 'skipMix':
+    case 'skipWorkshop':
       return true;
-    case 'makeMaterials': {
+    case 'workshop': {
       if (state.phase.type !== 'action') return false;
       const player = state.players[state.phase.actionState.currentPlayerIndex];
       return choice.cardInstanceIds.every(id => player.drawnCards.some(c => c.instanceId === id));
@@ -446,13 +463,34 @@ function getRolloutChoice(state: GameState): ColoriChoice {
     }
 
     switch (pending.type) {
-      case 'chooseCardsForMaterials': {
+      case 'chooseCardsForWorkshop': {
+        // Randomly decide: skip, pick non-action cards, or pick an action card
+        const actionCards = player.drawnCards.filter(c => c.card.kind === 'action');
         const eligibleCards = player.drawnCards.filter(c => c.card.kind === 'dye' || c.card.kind === 'basicDye' || c.card.kind === 'material');
-        if (eligibleCards.length === 0) return { type: 'makeMaterials', cardInstanceIds: [] };
+
+        if (eligibleCards.length === 0 && actionCards.length === 0) return { type: 'skipWorkshop' };
+
+        // 20% chance to skip
+        if (Math.random() < 0.2) return { type: 'skipWorkshop' };
+
+        // 50% chance to pick action card if available
+        if (actionCards.length > 0 && Math.random() < 0.5) {
+          const card = actionCards[Math.floor(Math.random() * actionCards.length)];
+          return { type: 'workshop', cardInstanceIds: [card.instanceId] };
+        }
+
+        if (eligibleCards.length === 0) {
+          if (actionCards.length > 0) {
+            const card = actionCards[Math.floor(Math.random() * actionCards.length)];
+            return { type: 'workshop', cardInstanceIds: [card.instanceId] };
+          }
+          return { type: 'skipWorkshop' };
+        }
+
         const count = Math.min(pending.count, eligibleCards.length);
         const pick = Math.floor(Math.random() * count) + 1;
         const shuffled = [...eligibleCards].sort(() => Math.random() - 0.5);
-        return { type: 'makeMaterials', cardInstanceIds: shuffled.slice(0, pick).map(c => c.instanceId) };
+        return { type: 'workshop', cardInstanceIds: shuffled.slice(0, pick).map(c => c.instanceId) };
       }
       case 'chooseCardsToDestroy': {
         const count = Math.min(pending.count, player.drawnCards.length);

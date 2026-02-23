@@ -15,6 +15,7 @@ export function sanitizeGameState(
     colorWheel: { ...p.colorWheel },
     materials: { ...p.materials },
     completedGarments: [...p.completedGarments],
+    ducats: p.ducats,
   }));
 
   let phase: SanitizedGamePhase;
@@ -38,7 +39,7 @@ export function sanitizeGameState(
       type: 'action',
       actionState: {
         currentPlayerIndex: as_.currentPlayerIndex,
-        abilityQueue: as_.abilityQueue.map(a => ({ ...a })),
+        abilityStack: as_.abilityStack.map(a => ({ ...a })),
         pendingChoice: as_.pendingChoice ? { ...as_.pendingChoice } : null,
       },
     };

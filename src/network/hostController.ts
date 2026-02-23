@@ -6,8 +6,8 @@ import { createInitialGameState } from '../engine/setupPhase';
 import { executeDrawPhase } from '../engine/drawPhase';
 import { playerPick, confirmPass } from '../engine/draftPhase';
 import {
-  destroyDraftedCard, endPlayerTurn, resolveMakeMaterials,
-  resolveMixColors, skipMix, resolveDestroyCards,
+  destroyDraftedCard, endPlayerTurn, resolveWorkshopChoice,
+  resolveMixColors, skipMix, skipWorkshop, resolveDestroyCards,
   resolveSelectGarment,
 } from '../engine/actionPhase';
 import { mixResult } from '../data/colors';
@@ -268,15 +268,19 @@ export class HostController {
         newLogEntries.push(`${name} ended their turn`);
         endPlayerTurn(this.gameState);
         break;
-      case 'makeMaterials': {
+      case 'workshop': {
         const cardNames = choice.cardInstanceIds.map(id => {
           const c = this.gameState!.players[playerIndex].drawnCards.find(c => c.instanceId === id);
           return c && 'name' in c.card ? c.card.name : 'a card';
         });
-        newLogEntries.push(`${name} stored materials from ${cardNames.join(', ')}`);
-        resolveMakeMaterials(this.gameState, choice.cardInstanceIds);
+        newLogEntries.push(`${name} workshopped ${cardNames.join(', ')}`);
+        resolveWorkshopChoice(this.gameState, choice.cardInstanceIds);
         break;
       }
+      case 'skipWorkshop':
+        newLogEntries.push(`${name} skipped workshop`);
+        skipWorkshop(this.gameState);
+        break;
       case 'destroyDrawnCards': {
         const cardNames = choice.cardInstanceIds.map(id => {
           const c = this.gameState!.players[playerIndex].drawnCards.find(c => c.instanceId === id);

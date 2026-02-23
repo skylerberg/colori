@@ -6,11 +6,12 @@ export type MaterialType = 'Textiles' | 'Ceramics' | 'Paintings';
 export const ALL_MATERIAL_TYPES: MaterialType[] = ['Textiles', 'Ceramics', 'Paintings'];
 
 export type Ability =
-  | { type: 'makeMaterials'; count: number }
+  | { type: 'workshop'; count: number }
   | { type: 'drawCards'; count: number }
   | { type: 'mixColors'; count: number }
   | { type: 'destroyCards'; count: number }
-  | { type: 'makeGarment' };
+  | { type: 'makeGarment' }
+  | { type: 'gainDucats'; count: number };
 
 export interface DyeCard {
   kind: 'dye';
@@ -23,7 +24,7 @@ export interface BasicDyeCard {
   kind: 'basicDye';
   name: string;
   color: Color;
-  ability: Ability;  // always { type: 'makeMaterials', count: 2 }
+  ability: Ability;  // always { type: 'makeGarment' }
 }
 
 export interface MaterialCard {
@@ -33,6 +34,13 @@ export interface MaterialCard {
   ability: Ability;
 }
 
+export interface ActionCard {
+  kind: 'action';
+  name: string;
+  ability: Ability;
+  workshopAbilities: Ability[];
+}
+
 export interface GarmentCard {
   kind: 'garment';
   stars: number;
@@ -40,7 +48,7 @@ export interface GarmentCard {
   colorCost: Color[];
 }
 
-export type AnyCard = DyeCard | BasicDyeCard | MaterialCard | GarmentCard;
+export type AnyCard = DyeCard | BasicDyeCard | MaterialCard | ActionCard | GarmentCard;
 
 export interface CardInstance<T extends AnyCard = AnyCard> {
   instanceId: number;
@@ -56,6 +64,7 @@ export interface PlayerState {
   colorWheel: Record<Color, number>;
   materials: Record<MaterialType, number>;
   completedGarments: CardInstance<GarmentCard>[];
+  ducats: number;
 }
 
 export interface DraftState {
@@ -67,14 +76,14 @@ export interface DraftState {
 }
 
 export type PendingChoice =
-  | { type: 'chooseCardsForMaterials'; count: number }
+  | { type: 'chooseCardsForWorkshop'; count: number }
   | { type: 'chooseCardsToDestroy'; count: number }
   | { type: 'chooseMix'; remaining: number }
   | { type: 'chooseGarment' };
 
 export interface ActionState {
   currentPlayerIndex: number;
-  abilityQueue: Ability[];
+  abilityStack: Ability[];
   pendingChoice: PendingChoice | null;
 }
 

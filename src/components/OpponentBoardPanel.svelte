@@ -25,6 +25,7 @@
       <span>* {score}</span>
       <span>Garments: {garmentCount}</span>
       <span>Materials: {totalMaterials}</span>
+      {#if player.ducats > 0}<span>Ducats: {player.ducats}</span>{/if}
     </span>
     <span class="chevron" class:open={expanded}></span>
   </button>
@@ -44,6 +45,9 @@
               <span class="material-count">{material}: {count}</span>
             {/each}
           </div>
+          {#if player.ducats > 0}
+            <div class="ducats-count">Ducats: {player.ducats}</div>
+          {/if}
         </div>
       </div>
 
@@ -155,6 +159,13 @@
 
   .material-count {
     font-weight: 600;
+  }
+
+  .ducats-count {
+    font-size: 0.75rem;
+    color: #d4a017;
+    font-weight: 600;
+    margin-top: 4px;
   }
 
   .card-section {

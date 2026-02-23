@@ -1,5 +1,5 @@
 import type { GameState, PlayerState, CardInstance, GarmentCard } from '../data/types';
-import { BASIC_DYE_CARDS, MATERIAL_CARDS, DYE_CARDS, GARMENT_CARDS } from '../data/cards';
+import { BASIC_DYE_CARDS, MATERIAL_CARDS, DYE_CARDS, ACTION_CARDS, GARMENT_CARDS } from '../data/cards';
 import { createCardInstances, shuffle } from './deckUtils';
 import { createEmptyWheel, createEmptyMaterials } from './colorWheel';
 
@@ -52,6 +52,7 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
       colorWheel,
       materials: createEmptyMaterials(),
       completedGarments: [],
+      ducats: 0,
     };
   });
 
@@ -69,6 +70,13 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
   for (const material of MATERIAL_CARDS) {
     for (let i = 0; i < 5; i++) {
       draftCards.push(material);
+    }
+  }
+
+  // 3 copies of each of 5 action cards
+  for (const action of ACTION_CARDS) {
+    for (let i = 0; i < 3; i++) {
+      draftCards.push(action);
     }
   }
 

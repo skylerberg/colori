@@ -244,6 +244,9 @@
                 <span class="material-count">{material}: {count}</span>
               {/each}
             </div>
+            {#if myPlayer.ducats > 0}
+              <div class="ducats-count">Ducats: {myPlayer.ducats}</div>
+            {/if}
           </div>
         </aside>
       {/if}
@@ -398,6 +401,13 @@
 
   .material-count {
     font-weight: 600;
+  }
+
+  .ducats-count {
+    font-size: 0.8rem;
+    color: #d4a017;
+    font-weight: 600;
+    margin-top: 4px;
   }
 
   .ai-thinking, .waiting-overlay {

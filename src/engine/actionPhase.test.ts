@@ -1,13 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import type { GameState, ActionState, PlayerState, CardInstance, AnyCard, GarmentCard } from '../data/types';
-import { BASIC_DYE_CARDS, MATERIAL_CARDS, DYE_CARDS, GARMENT_CARDS } from '../data/cards';
+import { BASIC_DYE_CARDS, MATERIAL_CARDS, DYE_CARDS, ACTION_CARDS, GARMENT_CARDS } from '../data/cards';
 import { resetInstanceIdCounter, createCardInstances } from './deckUtils';
 import { createEmptyWheel, storeColor } from './colorWheel';
 import {
   initializeActionPhase,
   destroyDraftedCard,
   processQueue,
-  resolveMakeMaterials,
+  resolveWorkshopChoice,
+  skipWorkshop,
   resolveDestroyCards,
   resolveSelectGarment,
   canMakeGarment,
@@ -29,6 +30,7 @@ function makeTestPlayer(name: string): PlayerState {
     colorWheel: createEmptyWheel(),
     materials: { Textiles: 0, Ceramics: 0, Paintings: 0 },
     completedGarments: [],
+    ducats: 0,
   };
 }
 
@@ -60,7 +62,7 @@ describe('initializeActionPhase', () => {
     expect(state.phase.type).toBe('action');
     const actionState = getActionState(state);
     expect(actionState.currentPlayerIndex).toBe(0);
-    expect(actionState.abilityQueue).toHaveLength(0);
+    expect(actionState.abilityStack).toHaveLength(0);
     expect(actionState.pendingChoice).toBeNull();
   });
 });
@@ -90,17 +92,20 @@ describe('destroyDraftedCard', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
 
-    // Madder has makeMaterials ability with count 3
+    // Madder has workshop ability with count 3
     const madder = DYE_CARDS.find(c => c.name === 'Madder')!;
+    const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
     const instances = createCardInstances([madder]);
     state.players[0].draftedCards = instances;
+    // Give player drawn cards so workshop doesn't fizzle
+    state.players[0].drawnCards = createCardInstances([basicRed]);
 
     destroyDraftedCard(state, instances[0].instanceId);
 
-    // makeMaterials triggers a pendingChoice
+    // workshop triggers a pendingChoice
     const actionState = getActionState(state);
     expect(actionState.pendingChoice).not.toBeNull();
-    expect(actionState.pendingChoice?.type).toBe('chooseCardsForMaterials');
+    expect(actionState.pendingChoice?.type).toBe('chooseCardsForWorkshop');
   });
 
   it('throws when card is not in draftedCards', () => {
@@ -125,7 +130,7 @@ describe('processQueue - drawCards', () => {
 
     // Manually push a drawCards ability
     const actionState = getActionState(state);
-    actionState.abilityQueue.push({ type: 'drawCards', count: 2 });
+    actionState.abilityStack.push({ type: 'drawCards', count: 2 });
 
     processQueue(state);
 
@@ -135,25 +140,29 @@ describe('processQueue - drawCards', () => {
   });
 });
 
-describe('processQueue - makeMaterials', () => {
+describe('processQueue - workshop', () => {
   beforeEach(() => {
     resetInstanceIdCounter();
   });
 
-  it('sets pendingChoice for makeMaterials', () => {
+  it('sets pendingChoice for workshop', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
 
+    // Give player drawn cards so workshop doesn't fizzle
+    const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
+    state.players[0].drawnCards = createCardInstances([basicRed]);
+
     const actionState = getActionState(state);
-    actionState.abilityQueue.push({ type: 'makeMaterials', count: 2 });
+    actionState.abilityStack.push({ type: 'workshop', count: 2 });
 
     processQueue(state);
 
-    expect(actionState.pendingChoice).toEqual({ type: 'chooseCardsForMaterials', count: 2 });
+    expect(actionState.pendingChoice).toEqual({ type: 'chooseCardsForWorkshop', count: 2 });
   });
 });
 
-describe('resolveMakeMaterials', () => {
+describe('resolveWorkshopChoice', () => {
   beforeEach(() => {
     resetInstanceIdCounter();
   });
@@ -167,9 +176,9 @@ describe('resolveMakeMaterials', () => {
     state.players[0].drawnCards = instances;
 
     const actionState = getActionState(state);
-    actionState.pendingChoice = { type: 'chooseCardsForMaterials', count: 1 };
+    actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 1 };
 
-    resolveMakeMaterials(state, [instances[0].instanceId]);
+    resolveWorkshopChoice(state, [instances[0].instanceId]);
 
     expect(state.players[0].colorWheel['Red']).toBe(1);
     expect(state.players[0].drawnCards).toHaveLength(0);
@@ -186,9 +195,9 @@ describe('resolveMakeMaterials', () => {
     state.players[0].drawnCards = instances;
 
     const actionState = getActionState(state);
-    actionState.pendingChoice = { type: 'chooseCardsForMaterials', count: 1 };
+    actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 1 };
 
-    resolveMakeMaterials(state, [instances[0].instanceId]);
+    resolveWorkshopChoice(state, [instances[0].instanceId]);
 
     expect(state.players[0].materials.Ceramics).toBe(1);
     expect(state.players[0].drawnCards).toHaveLength(0);
@@ -206,20 +215,23 @@ describe('resolveDestroyCards', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
 
-    // Use Madder which has makeMaterials x3 to verify chaining
+    // Use Madder which has workshop x3 to verify chaining
     const madder = DYE_CARDS.find(c => c.name === 'Madder')!;
+    const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
     const instances = createCardInstances([madder]);
-    state.players[0].drawnCards = [...instances];
+    // Give player extra drawn cards so workshop doesn't fizzle after destroying Madder
+    const extraCards = createCardInstances([basicRed]);
+    state.players[0].drawnCards = [...instances, ...extraCards];
 
     const actionState = getActionState(state);
     actionState.pendingChoice = { type: 'chooseCardsToDestroy', count: 1 };
 
     resolveDestroyCards(state, [instances[0].instanceId]);
 
-    // Madder has makeMaterials: 3, which sets a pendingChoice
+    // Madder has workshop: 3, which sets a pendingChoice
     expect(state.destroyedPile).toHaveLength(1);
     expect(actionState.pendingChoice).not.toBeNull();
-    expect(actionState.pendingChoice?.type).toBe('chooseCardsForMaterials');
+    expect(actionState.pendingChoice?.type).toBe('chooseCardsForWorkshop');
   });
 });
 
@@ -251,7 +263,7 @@ describe('endPlayerTurn', () => {
 
     const actionState = getActionState(state);
     expect(actionState.currentPlayerIndex).toBe(1);
-    expect(actionState.abilityQueue).toHaveLength(0);
+    expect(actionState.abilityStack).toHaveLength(0);
     expect(actionState.pendingChoice).toBeNull();
   });
 
@@ -417,5 +429,246 @@ describe('canMakeGarment', () => {
     player.materials.Textiles = 1;
 
     expect(canMakeGarment(state, garmentInstances[0].instanceId)).toBe(false);
+  });
+});
+
+describe('workshop action cards', () => {
+  beforeEach(() => {
+    resetInstanceIdCounter();
+  });
+
+  it('workshop Alum gains 1 ducat', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+    const player = state.players[0];
+
+    const alum = ACTION_CARDS.find(c => c.name === 'Alum')!;
+    const instances = createCardInstances([alum]);
+    player.drawnCards = [...instances];
+
+    const actionState = getActionState(state);
+    actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 1 };
+
+    resolveWorkshopChoice(state, [instances[0].instanceId]);
+
+    expect(player.ducats).toBe(1);
+    expect(player.drawnCards).toHaveLength(0);
+    expect(player.discard).toHaveLength(1);
+    expect(actionState.pendingChoice).toBeNull();
+  });
+
+  it('workshop Lye triggers destroyCards:1', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+    const player = state.players[0];
+
+    const lye = ACTION_CARDS.find(c => c.name === 'Lye')!;
+    const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
+    const instances = createCardInstances([lye, basicRed]);
+    player.drawnCards = [...instances];
+
+    const actionState = getActionState(state);
+    actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 1 };
+
+    resolveWorkshopChoice(state, [instances[0].instanceId]);
+
+    expect(actionState.pendingChoice).toEqual({ type: 'chooseCardsToDestroy', count: 1 });
+  });
+
+  it('workshop Gum Arabic triggers makeGarment', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+    const player = state.players[0];
+
+    const gumArabic = ACTION_CARDS.find(c => c.name === 'Gum Arabic')!;
+    const instances = createCardInstances([gumArabic]);
+    player.drawnCards = [...instances];
+
+    const actionState = getActionState(state);
+    actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 1 };
+
+    // No garments affordable, so makeGarment fizzles
+    resolveWorkshopChoice(state, [instances[0].instanceId]);
+
+    expect(player.discard).toHaveLength(1);
+    expect(actionState.pendingChoice).toBeNull();
+  });
+
+  it('workshop Cream of Tartar triggers mixColors:2', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+    const player = state.players[0];
+
+    const cot = ACTION_CARDS.find(c => c.name === 'Cream of Tartar')!;
+    const instances = createCardInstances([cot]);
+    player.drawnCards = [...instances];
+
+    const actionState = getActionState(state);
+    actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 1 };
+
+    resolveWorkshopChoice(state, [instances[0].instanceId]);
+
+    expect(actionState.pendingChoice).toEqual({ type: 'chooseMix', remaining: 2 });
+  });
+
+  it('workshop Ox Gall draws 2 cards then grants workshop:1', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+    const player = state.players[0];
+
+    const oxGall = ACTION_CARDS.find(c => c.name === 'Ox Gall')!;
+    const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
+    const instances = createCardInstances([oxGall]);
+    player.drawnCards = [...instances];
+    // Put cards in deck to draw
+    player.deck = createCardInstances([basicRed, basicRed, basicRed]);
+
+    const actionState = getActionState(state);
+    actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 3 };
+
+    resolveWorkshopChoice(state, [instances[0].instanceId]);
+
+    // Ox Gall's workshopAbilities are [drawCards:2, workshop:1]
+    // Stack after push: [..., workshop:2 (remaining), workshop:1, drawCards:2]
+    // Pop resolves drawCards:2 first (auto), then workshop:1, then workshop:2
+    // drawCards:2 draws 2 cards, workshop:1 sets pending choice
+    expect(player.drawnCards).toHaveLength(2); // 2 drawn from deck
+    expect(actionState.pendingChoice).toEqual({ type: 'chooseCardsForWorkshop', count: 1 });
+    // After resolving workshop:1, the remaining workshop:2 is still on the stack
+    expect(actionState.abilityStack).toHaveLength(1);
+    expect(actionState.abilityStack[0]).toEqual({ type: 'workshop', count: 2 });
+  });
+});
+
+describe('stack ordering', () => {
+  beforeEach(() => {
+    resetInstanceIdCounter();
+  });
+
+  it('pop() resolves last pushed ability first', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+    const player = state.players[0];
+
+    const actionState = getActionState(state);
+    actionState.abilityStack.push({ type: 'gainDucats', count: 1 });
+    actionState.abilityStack.push({ type: 'gainDucats', count: 2 });
+
+    processQueue(state);
+
+    // Both auto-resolve: ducats should be 3 (2 resolved first, then 1)
+    expect(player.ducats).toBe(3);
+  });
+});
+
+describe('skipWorkshop', () => {
+  beforeEach(() => {
+    resetInstanceIdCounter();
+  });
+
+  it('clears pending choice and processes stack', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+
+    const actionState = getActionState(state);
+    actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 2 };
+
+    skipWorkshop(state);
+
+    expect(actionState.pendingChoice).toBeNull();
+  });
+});
+
+describe('workshop fizzle', () => {
+  beforeEach(() => {
+    resetInstanceIdCounter();
+  });
+
+  it('fizzles when player has no drawn cards', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+    const player = state.players[0];
+    player.drawnCards = [];
+
+    const actionState = getActionState(state);
+    actionState.abilityStack.push({ type: 'workshop', count: 2 });
+
+    processQueue(state);
+
+    expect(actionState.pendingChoice).toBeNull();
+    expect(actionState.abilityStack).toHaveLength(0);
+  });
+});
+
+describe('action card destroyed from drafted', () => {
+  beforeEach(() => {
+    resetInstanceIdCounter();
+  });
+
+  it('fires destroy ability, not workshopAbilities', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+    const player = state.players[0];
+
+    const alum = ACTION_CARDS.find(c => c.name === 'Alum')!;
+    const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
+    const instances = createCardInstances([alum]);
+    player.draftedCards = [...instances];
+    player.drawnCards = createCardInstances([basicRed]);
+
+    destroyDraftedCard(state, instances[0].instanceId);
+
+    // Alum's ability is destroyCards:1, should set pending choice to destroy
+    const actionState = getActionState(state);
+    expect(actionState.pendingChoice).toEqual({ type: 'chooseCardsToDestroy', count: 1 });
+    // ducats should NOT increase (workshopAbilities not triggered)
+    expect(player.ducats).toBe(0);
+  });
+});
+
+describe('gainDucats auto-resolution', () => {
+  beforeEach(() => {
+    resetInstanceIdCounter();
+  });
+
+  it('increments ducats without pending choice', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+    const player = state.players[0];
+
+    const actionState = getActionState(state);
+    actionState.abilityStack.push({ type: 'gainDucats', count: 3 });
+
+    processQueue(state);
+
+    expect(player.ducats).toBe(3);
+    expect(actionState.pendingChoice).toBeNull();
+  });
+});
+
+describe('multi-select non-action workshop', () => {
+  beforeEach(() => {
+    resetInstanceIdCounter();
+  });
+
+  it('processes multiple non-action cards at once', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+    const player = state.players[0];
+
+    const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
+    const ceramics = MATERIAL_CARDS.find(c => c.materialType === 'Ceramics')!;
+    const instances = createCardInstances([basicRed, ceramics]);
+    player.drawnCards = [...instances];
+
+    const actionState = getActionState(state);
+    actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 3 };
+
+    resolveWorkshopChoice(state, instances.map(c => c.instanceId));
+
+    expect(player.colorWheel['Red']).toBe(1);
+    expect(player.materials.Ceramics).toBe(1);
+    expect(player.drawnCards).toHaveLength(0);
+    expect(player.discard).toHaveLength(2);
   });
 });

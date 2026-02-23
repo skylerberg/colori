@@ -24,6 +24,7 @@ function makePlayerWithGarments(name: string, stars: number[]): PlayerState {
     colorWheel: createEmptyWheel(),
     materials: { Textiles: 0, Ceramics: 0, Paintings: 0 },
     completedGarments,
+    ducats: 0,
   };
 }
 
