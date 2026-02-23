@@ -27,6 +27,17 @@ export function initializeDraft(state: GameState): void {
     hands.push(hand);
   }
 
+  // If any hand is empty, skip draft and go directly to action phase
+  if (hands.some(h => h.length === 0)) {
+    for (const hand of hands) {
+      for (const card of hand) {
+        state.destroyedPile.push(card);
+      }
+    }
+    initializeActionPhase(state);
+    return;
+  }
+
   const draftState: DraftState = {
     pickNumber: 0,
     currentPlayerIndex: (state.round - 1) % numPlayers,
@@ -96,7 +107,7 @@ export function advanceDraft(state: GameState): void {
 
   draftState.pickNumber++;
 
-  if (draftState.pickNumber >= 4) {
+  if (draftState.pickNumber >= 4 || draftState.hands.some(h => h.length === 0)) {
     // Drafting is complete — destroy remaining undrafted cards (no abilities triggered)
     for (const hand of draftState.hands) {
       for (const card of hand) {

@@ -82,6 +82,15 @@ describe('createInitialGameState', () => {
     }
   });
 
+  it('each player starts with 1 Red, 1 Yellow, and 1 Blue on their color wheel', () => {
+    const state = createInitialGameState(['Alice', 'Bob']);
+    for (const player of state.players) {
+      expect(player.colorWheel['Red']).toBe(1);
+      expect(player.colorWheel['Yellow']).toBe(1);
+      expect(player.colorWheel['Blue']).toBe(1);
+    }
+  });
+
   it('destroyed pile starts empty', () => {
     const state = createInitialGameState(['Alice', 'Bob']);
     expect(state.destroyedPile).toHaveLength(0);

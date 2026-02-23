@@ -41,13 +41,17 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
       glassCard,
     ];
     const deck = shuffle(createCardInstances(personalCards));
+    const colorWheel = createEmptyWheel();
+    colorWheel['Red'] = 1;
+    colorWheel['Yellow'] = 1;
+    colorWheel['Blue'] = 1;
     return {
       name,
       deck,
       discard: [],
       drawnCards: [],
       draftedCards: [],
-      colorWheel: createEmptyWheel(),
+      colorWheel,
       materials: createEmptyMaterials(),
       completedGarments: [],
     };
