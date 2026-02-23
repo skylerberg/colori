@@ -3,7 +3,7 @@ import type {
   GameState, PlayerState, CardInstance, Color, BuyerCard,
   DraftState, ActionState, Ability, PendingChoice, GamePhase,
 } from '../data/types';
-import { getCardPips, SECONDARIES, TERTIARIES } from '../data/cards';
+import { getCardPips, PRIMARIES, SECONDARIES, TERTIARIES } from '../data/cards';
 import { ALL_COLORS, canMix } from '../data/colors';
 import { canPayCost } from '../engine/colorWheel';
 import { playerPick, confirmPass } from '../engine/draftPhase';
@@ -11,8 +11,8 @@ import { executeDrawPhase } from '../engine/drawPhase';
 import {
   destroyDraftedCard, endPlayerTurn, resolveWorkshopChoice,
   resolveMixColors, skipMix, skipWorkshop, resolveDestroyCards,
-  resolveSelectBuyer, resolveGainSecondary, resolveChooseTertiaryToLose,
-  resolveChooseTertiaryToGain,
+  resolveSelectBuyer, resolveGainSecondary, resolveGainPrimary,
+  resolveChooseTertiaryToLose, resolveChooseTertiaryToGain,
 } from '../engine/actionPhase';
 import { calculateScore } from '../engine/scoring';
 import { shuffle } from '../engine/deckUtils';
@@ -30,6 +30,7 @@ export type ColoriChoice =
   | { type: 'skipMix' }
   | { type: 'selectBuyer'; buyerInstanceId: number }
   | { type: 'gainSecondary'; color: Color }
+  | { type: 'gainPrimary'; color: Color }
   | { type: 'chooseTertiaryToLose'; color: Color }
   | { type: 'chooseTertiaryToGain'; color: Color };
 
@@ -201,6 +202,9 @@ function enumerateChoices(state: GameState): ColoriChoice[] {
       case 'chooseSecondaryColor': {
         return SECONDARIES.map(c => ({ type: 'gainSecondary' as const, color: c }));
       }
+      case 'choosePrimaryColor': {
+        return PRIMARIES.map(c => ({ type: 'gainPrimary' as const, color: c }));
+      }
       case 'chooseTertiaryToLose': {
         return TERTIARIES
           .filter(c => player.colorWheel[c] > 0)
@@ -241,6 +245,8 @@ function choiceToKey(choice: ColoriChoice): string {
       return `selectBuyer:${choice.buyerInstanceId}`;
     case 'gainSecondary':
       return `gainSecondary:${choice.color}`;
+    case 'gainPrimary':
+      return `gainPrimary:${choice.color}`;
     case 'chooseTertiaryToLose':
       return `loseTertiary:${choice.color}`;
     case 'chooseTertiaryToGain':
@@ -290,6 +296,9 @@ function applyChoiceToState(state: GameState, choice: ColoriChoice): void {
       break;
     case 'gainSecondary':
       resolveGainSecondary(state, choice.color);
+      break;
+    case 'gainPrimary':
+      resolveGainPrimary(state, choice.color);
       break;
     case 'chooseTertiaryToLose':
       resolveChooseTertiaryToLose(state, choice.color);
@@ -366,6 +375,12 @@ function checkChoiceAvailable(state: GameState, choice: ColoriChoice): boolean {
       const pending = state.phase.actionState.pendingChoice;
       if (!pending || pending.type !== 'chooseSecondaryColor') return false;
       return (SECONDARIES as Color[]).includes(choice.color);
+    }
+    case 'gainPrimary': {
+      if (state.phase.type !== 'action') return false;
+      const pending = state.phase.actionState.pendingChoice;
+      if (!pending || pending.type !== 'choosePrimaryColor') return false;
+      return (PRIMARIES as Color[]).includes(choice.color);
     }
     case 'chooseTertiaryToLose': {
       if (state.phase.type !== 'action') return false;
@@ -601,6 +616,9 @@ function getRolloutChoice(state: GameState): ColoriChoice {
       }
       case 'chooseSecondaryColor': {
         return { type: 'gainSecondary', color: SECONDARIES[Math.floor(Math.random() * SECONDARIES.length)] };
+      }
+      case 'choosePrimaryColor': {
+        return { type: 'gainPrimary', color: PRIMARIES[Math.floor(Math.random() * PRIMARIES.length)] };
       }
       case 'chooseTertiaryToLose': {
         const owned = TERTIARIES.filter(c => player.colorWheel[c] > 0);

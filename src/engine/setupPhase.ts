@@ -1,13 +1,13 @@
 import type { GameState, PlayerState, CardInstance, BuyerCard } from '../data/types';
-import { BASIC_DYE_CARDS, MATERIAL_CARDS, DYE_CARDS, ACTION_CARDS, BUYER_CARDS } from '../data/cards';
+import { BASIC_DYE_CARDS, MATERIAL_CARDS, DYE_CARDS, ACTION_CARDS, BUYER_CARDS, CHALK_CARD } from '../data/cards';
 import { createCardInstances, shuffle } from './deckUtils';
 import { createEmptyWheel, createEmptyMaterials } from './colorWheel';
 
 /**
  * Create the initial game state for a new game.
  *
- * Each player starts with a personal deck of 6 cards:
- *   1 Basic Red, 1 Basic Yellow, 1 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles.
+ * Each player starts with a personal deck of 7 cards:
+ *   1 Basic Red, 1 Basic Yellow, 1 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles, 1 Chalk.
  *
  * Draft deck contains:
  *   - 4 copies of each of the 15 dye cards (60 total)
@@ -37,6 +37,7 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
       ceramicsCard,
       paintingsCard,
       textilesCard,
+      CHALK_CARD,
     ];
     const deck = shuffle(createCardInstances(personalCards));
     const colorWheel = createEmptyWheel();

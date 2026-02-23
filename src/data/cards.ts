@@ -181,9 +181,16 @@ export const ACTION_CARDS: ActionCard[] = [
   },
 ];
 
-const PRIMARIES: Color[] = ['Red', 'Yellow', 'Blue'];
+export const PRIMARIES: Color[] = ['Red', 'Yellow', 'Blue'];
 export const SECONDARIES: Color[] = ['Orange', 'Green', 'Purple'];
 export const TERTIARIES: Color[] = ['Vermilion', 'Amber', 'Chartreuse', 'Teal', 'Indigo', 'Magenta'];
+
+export const CHALK_CARD: ActionCard = {
+  kind: 'action',
+  name: 'Chalk',
+  ability: { type: 'destroyCards', count: 1 },
+  workshopAbilities: [{ type: 'gainPrimary' }],
+};
 
 function generateAllBuyers(): BuyerCard[] {
   const buyers: BuyerCard[] = [];

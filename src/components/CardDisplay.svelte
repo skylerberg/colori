@@ -28,6 +28,7 @@
       case 'sell': return 'Sell';
       case 'gainDucats': return `Gain ${a.count} Ducat(s)`;
       case 'gainSecondary': return 'Any Secondary';
+      case 'gainPrimary': return 'Any Primary';
       case 'changeTertiary': return 'Change Tertiary';
     }
   }

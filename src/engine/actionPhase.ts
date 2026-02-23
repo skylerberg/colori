@@ -1,5 +1,5 @@
 import type { GameState, ActionState, Ability, Color, CardInstance } from '../data/types';
-import { getCardPips, SECONDARIES, TERTIARIES } from '../data/cards';
+import { getCardPips, PRIMARIES, SECONDARIES, TERTIARIES } from '../data/cards';
 import { drawFromDeck } from './deckUtils';
 import { storeColor, removeColor, performMix, canPayCost, payCost } from './colorWheel';
 import { calculateScore } from './scoring';
@@ -113,6 +113,10 @@ export function processQueue(state: GameState): void {
     }
     case 'gainSecondary': {
       actionState.pendingChoice = { type: 'chooseSecondaryColor' };
+      break;
+    }
+    case 'gainPrimary': {
+      actionState.pendingChoice = { type: 'choosePrimaryColor' };
       break;
     }
     case 'changeTertiary': {
@@ -344,6 +348,22 @@ export function resolveGainSecondary(state: GameState, color: Color): void {
 
   if (!(SECONDARIES as Color[]).includes(color)) {
     throw new Error(`${color} is not a secondary color`);
+  }
+
+  storeColor(player.colorWheel, color);
+  actionState.pendingChoice = null;
+  processQueue(state);
+}
+
+/**
+ * Resolve gain primary: store the chosen primary color on the player's wheel.
+ */
+export function resolveGainPrimary(state: GameState, color: Color): void {
+  const actionState = getActionState(state);
+  const player = state.players[actionState.currentPlayerIndex];
+
+  if (!(PRIMARIES as Color[]).includes(color)) {
+    throw new Error(`${color} is not a primary color`);
   }
 
   storeColor(player.colorWheel, color);

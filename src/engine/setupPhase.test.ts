@@ -14,14 +14,14 @@ describe('createInitialGameState', () => {
     expect(state.players[1].name).toBe('Bob');
   });
 
-  it('gives each player a deck of 6 cards', () => {
+  it('gives each player a deck of 7 cards', () => {
     const state = createInitialGameState(['Alice', 'Bob', 'Charlie']);
     for (const player of state.players) {
-      expect(player.deck).toHaveLength(6);
+      expect(player.deck).toHaveLength(7);
     }
   });
 
-  it('each player starts with 1 Basic Red, 1 Basic Yellow, 1 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles', () => {
+  it('each player starts with 1 Basic Red, 1 Basic Yellow, 1 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles, 1 Chalk', () => {
     const state = createInitialGameState(['Alice']);
     const player = state.players[0];
     const cardNames = player.deck.map(c => 'name' in c.card ? c.card.name : '');
@@ -29,6 +29,7 @@ describe('createInitialGameState', () => {
     expect(cardNames.filter(n => n === 'Basic Red')).toHaveLength(1);
     expect(cardNames.filter(n => n === 'Basic Yellow')).toHaveLength(1);
     expect(cardNames.filter(n => n === 'Basic Blue')).toHaveLength(1);
+    expect(cardNames.filter(n => n === 'Chalk')).toHaveLength(1);
 
     const materialTypes = player.deck
       .filter(c => c.card.kind === 'material')

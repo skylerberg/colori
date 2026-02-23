@@ -3,7 +3,7 @@
   import type { ColoriChoice } from '../ai/coloriGame';
   import { canSell } from '../engine/actionPhase';
   import { canMix, colorToHex, textColorForBackground } from '../data/colors';
-  import { SECONDARIES, TERTIARIES } from '../data/cards';
+  import { PRIMARIES, SECONDARIES, TERTIARIES } from '../data/cards';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import BuyerDisplay from './BuyerDisplay.svelte';
 
@@ -92,6 +92,22 @@
         >
           Confirm Buyer
         </button>
+      </div>
+
+    {:else if pendingChoice.type === 'choosePrimaryColor'}
+      <div class="prompt-section">
+        <h3>Choose a primary color to gain</h3>
+        <div class="color-buttons">
+          {#each PRIMARIES as color}
+            <button
+              class="color-btn"
+              style="background-color: {colorToHex(color)}; color: {textColorForBackground(colorToHex(color))}"
+              onclick={() => onAction({ type: 'gainPrimary', color })}
+            >
+              {color}
+            </button>
+          {/each}
+        </div>
       </div>
 
     {:else if pendingChoice.type === 'chooseSecondaryColor'}

@@ -35,7 +35,7 @@ Each player has their own color wheel that tracks how many of each color they ha
 - Paintings | Destroy: Sell
 - Textiles | Destroy: Draw Cards ×2
 
-**Action Cards** (5 unique, 3 copies each, 15 total in draft deck):
+**Action Cards** (5 unique in draft deck, 3 copies each, 15 total; plus Chalk as a starter card):
 Each action card has Destroy Cards ×1 as its destroy ability, plus workshop abilities that trigger when the card is chosen during Workshop resolution. See the card reference below.
 
 **Buyer Cards** (51 total, single deck):
@@ -49,7 +49,7 @@ Each buyer requires a specific material type and a set of colors as its cost. Al
 
 ## Setup
 
-1. Each player receives a starting personal deck of 6 cards: 1 Basic Red, 1 Basic Yellow, 1 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles. Shuffle it.
+1. Each player receives a starting personal deck of 7 cards: 1 Basic Red, 1 Basic Yellow, 1 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles, 1 Chalk. Shuffle it.
 2. Each player starts with 1 Red, 1 Yellow, and 1 Blue already stored on their color wheel.
 3. Place all dye cards (4 copies each), material cards (5 copies each), and action cards (3 copies each) into the draft deck. Shuffle it.
 4. Shuffle the buyer deck and reveal 6 buyers face-up in the buyer display.
@@ -157,6 +157,10 @@ Gain N ducats. Ducats count toward your final score.
 
 Choose one of the three secondary colors (Orange, Green, or Purple) and add it to your color wheel. This ability never fizzles.
 
+### Any Primary
+
+Choose one of the three primary colors (Red, Yellow, or Blue) and add it to your color wheel. This ability never fizzles.
+
 ### Change Tertiary
 
 Swap one tertiary color on your wheel for a different tertiary. First choose a tertiary color you have stored (Vermilion, Amber, Chartreuse, Teal, Indigo, or Magenta) to remove, then choose a different tertiary color to gain. If you have no tertiary colors stored, the ability fizzles.
@@ -221,17 +225,18 @@ Each player's score = buyer stars + ducats. The player with the highest score wi
 | Paintings | Sell |
 | Textiles | Draw Cards ×2 |
 
-### Action Cards (5 unique, 3 copies each in draft deck)
+### Action Cards (5 unique in draft deck, 3 copies each; plus Chalk as a starter)
 
 All action cards have **Destroy Cards ×1** as their destroy ability. Their workshop abilities (triggered when chosen during Workshop resolution) are:
 
-| Name | Workshop Abilities |
-|------|-------------------|
-| Alum | Gain Ducats ×1 |
-| Cream of Tartar | Draw Cards ×3 |
-| Gum Arabic | Any Secondary |
-| Potash | Workshop ×3 |
-| Vinegar | Change Tertiary |
+| Name | Workshop Abilities | Notes |
+|------|-------------------|-------|
+| Chalk | Any Primary | Starter card (1 per player, not in draft deck) |
+| Alum | Gain Ducats ×1 | Draft deck |
+| Cream of Tartar | Draw Cards ×3 | Draft deck |
+| Gum Arabic | Any Secondary | Draft deck |
+| Potash | Workshop ×3 | Draft deck |
+| Vinegar | Change Tertiary | Draft deck |
 
 ### Buyer Cards (51 total, single deck)
 

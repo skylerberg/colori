@@ -13,6 +13,7 @@ export type Ability =
   | { type: 'sell' }
   | { type: 'gainDucats'; count: number }
   | { type: 'gainSecondary' }
+  | { type: 'gainPrimary' }
   | { type: 'changeTertiary' };
 
 export interface DyeCard {
@@ -83,6 +84,7 @@ export type PendingChoice =
   | { type: 'chooseMix'; remaining: number }
   | { type: 'chooseBuyer' }
   | { type: 'chooseSecondaryColor' }
+  | { type: 'choosePrimaryColor' }
   | { type: 'chooseTertiaryToLose' }
   | { type: 'chooseTertiaryToGain'; lostColor: Color };
 

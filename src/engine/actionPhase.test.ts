@@ -12,6 +12,7 @@ import {
   resolveDestroyCards,
   resolveSelectBuyer,
   resolveGainSecondary,
+  resolveGainPrimary,
   resolveChooseTertiaryToLose,
   resolveChooseTertiaryToGain,
   canSell,
@@ -711,6 +712,36 @@ describe('resolveGainSecondary', () => {
     actionState.pendingChoice = { type: 'chooseSecondaryColor' };
 
     expect(() => resolveGainSecondary(state, 'Red')).toThrow();
+  });
+});
+
+describe('resolveGainPrimary', () => {
+  beforeEach(() => {
+    resetInstanceIdCounter();
+  });
+
+  it('stores a primary color on the wheel', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+    const player = state.players[0];
+
+    const actionState = getActionState(state);
+    actionState.pendingChoice = { type: 'choosePrimaryColor' };
+
+    resolveGainPrimary(state, 'Red');
+
+    expect(player.colorWheel['Red']).toBe(1);
+    expect(actionState.pendingChoice).toBeNull();
+  });
+
+  it('throws for non-primary color', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+
+    const actionState = getActionState(state);
+    actionState.pendingChoice = { type: 'choosePrimaryColor' };
+
+    expect(() => resolveGainPrimary(state, 'Orange')).toThrow();
   });
 });
 
