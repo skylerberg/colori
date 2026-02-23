@@ -157,33 +157,33 @@ export const ACTION_CARDS: ActionCard[] = [
   },
   {
     kind: 'action',
-    name: 'Lye',
+    name: 'Cream of Tartar',
     ability: { type: 'destroyCards', count: 1 },
-    workshopAbilities: [{ type: 'destroyCards', count: 1 }],
+    workshopAbilities: [{ type: 'drawCards', count: 3 }],
   },
   {
     kind: 'action',
     name: 'Gum Arabic',
     ability: { type: 'destroyCards', count: 1 },
-    workshopAbilities: [{ type: 'makeGarment' }],
+    workshopAbilities: [{ type: 'gainSecondary' }],
   },
   {
     kind: 'action',
-    name: 'Ox Gall',
+    name: 'Potash',
     ability: { type: 'destroyCards', count: 1 },
-    workshopAbilities: [{ type: 'drawCards', count: 2 }, { type: 'workshop', count: 1 }],
+    workshopAbilities: [{ type: 'workshop', count: 3 }],
   },
   {
     kind: 'action',
-    name: 'Cream of Tartar',
+    name: 'Vinegar',
     ability: { type: 'destroyCards', count: 1 },
-    workshopAbilities: [{ type: 'mixColors', count: 2 }],
+    workshopAbilities: [{ type: 'changeTertiary' }],
   },
 ];
 
 const PRIMARIES: Color[] = ['Red', 'Yellow', 'Blue'];
-const SECONDARIES: Color[] = ['Orange', 'Green', 'Purple'];
-const TERTIARIES: Color[] = ['Vermilion', 'Amber', 'Chartreuse', 'Teal', 'Indigo', 'Magenta'];
+export const SECONDARIES: Color[] = ['Orange', 'Green', 'Purple'];
+export const TERTIARIES: Color[] = ['Vermilion', 'Amber', 'Chartreuse', 'Teal', 'Indigo', 'Magenta'];
 
 function generateAllGarments(): GarmentCard[] {
   const garments: GarmentCard[] = [];

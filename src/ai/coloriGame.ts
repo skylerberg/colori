@@ -3,7 +3,7 @@ import type {
   GameState, PlayerState, CardInstance, Color, GarmentCard,
   DraftState, ActionState, Ability, PendingChoice, GamePhase,
 } from '../data/types';
-import { getCardPips } from '../data/cards';
+import { getCardPips, SECONDARIES, TERTIARIES } from '../data/cards';
 import { ALL_COLORS, canMix } from '../data/colors';
 import { canPayCost } from '../engine/colorWheel';
 import { playerPick, confirmPass } from '../engine/draftPhase';
@@ -11,7 +11,8 @@ import { executeDrawPhase } from '../engine/drawPhase';
 import {
   destroyDraftedCard, endPlayerTurn, resolveWorkshopChoice,
   resolveMixColors, skipMix, skipWorkshop, resolveDestroyCards,
-  resolveSelectGarment,
+  resolveSelectGarment, resolveGainSecondary, resolveChooseTertiaryToLose,
+  resolveChooseTertiaryToGain,
 } from '../engine/actionPhase';
 import { calculateScore } from '../engine/scoring';
 import { shuffle } from '../engine/deckUtils';
@@ -27,7 +28,10 @@ export type ColoriChoice =
   | { type: 'destroyDrawnCards'; cardInstanceIds: number[] }
   | { type: 'mix'; colorA: Color; colorB: Color }
   | { type: 'skipMix' }
-  | { type: 'selectGarment'; garmentInstanceId: number };
+  | { type: 'selectGarment'; garmentInstanceId: number }
+  | { type: 'gainSecondary'; color: Color }
+  | { type: 'chooseTertiaryToLose'; color: Color }
+  | { type: 'chooseTertiaryToGain'; color: Color };
 
 // ── Deep clone ──
 
@@ -194,6 +198,19 @@ function enumerateChoices(state: GameState): ColoriChoice[] {
           .filter(g => canAffordGarment(player, g.card))
           .map(g => ({ type: 'selectGarment' as const, garmentInstanceId: g.instanceId }));
       }
+      case 'chooseSecondaryColor': {
+        return SECONDARIES.map(c => ({ type: 'gainSecondary' as const, color: c }));
+      }
+      case 'chooseTertiaryToLose': {
+        return TERTIARIES
+          .filter(c => player.colorWheel[c] > 0)
+          .map(c => ({ type: 'chooseTertiaryToLose' as const, color: c }));
+      }
+      case 'chooseTertiaryToGain': {
+        return TERTIARIES
+          .filter(c => c !== pending.lostColor)
+          .map(c => ({ type: 'chooseTertiaryToGain' as const, color: c }));
+      }
     }
   }
 
@@ -222,6 +239,12 @@ function choiceToKey(choice: ColoriChoice): string {
       return 'skipMix';
     case 'selectGarment':
       return `selectGarment:${choice.garmentInstanceId}`;
+    case 'gainSecondary':
+      return `gainSecondary:${choice.color}`;
+    case 'chooseTertiaryToLose':
+      return `loseTertiary:${choice.color}`;
+    case 'chooseTertiaryToGain':
+      return `gainTertiary:${choice.color}`;
   }
 }
 
@@ -264,6 +287,15 @@ function applyChoiceToState(state: GameState, choice: ColoriChoice): void {
       break;
     case 'selectGarment':
       resolveSelectGarment(state, choice.garmentInstanceId);
+      break;
+    case 'gainSecondary':
+      resolveGainSecondary(state, choice.color);
+      break;
+    case 'chooseTertiaryToLose':
+      resolveChooseTertiaryToLose(state, choice.color);
+      break;
+    case 'chooseTertiaryToGain':
+      resolveChooseTertiaryToGain(state, choice.color);
       break;
   }
 }
@@ -328,6 +360,25 @@ function checkChoiceAvailable(state: GameState, choice: ColoriChoice): boolean {
       const garmentInst = state.garmentDisplay.find(g => g.instanceId === choice.garmentInstanceId);
       if (!garmentInst) return false;
       return canAffordGarment(player, garmentInst.card);
+    }
+    case 'gainSecondary': {
+      if (state.phase.type !== 'action') return false;
+      const pending = state.phase.actionState.pendingChoice;
+      if (!pending || pending.type !== 'chooseSecondaryColor') return false;
+      return (SECONDARIES as Color[]).includes(choice.color);
+    }
+    case 'chooseTertiaryToLose': {
+      if (state.phase.type !== 'action') return false;
+      const pending = state.phase.actionState.pendingChoice;
+      if (!pending || pending.type !== 'chooseTertiaryToLose') return false;
+      const player = state.players[state.phase.actionState.currentPlayerIndex];
+      return (TERTIARIES as Color[]).includes(choice.color) && player.colorWheel[choice.color] > 0;
+    }
+    case 'chooseTertiaryToGain': {
+      if (state.phase.type !== 'action') return false;
+      const pending = state.phase.actionState.pendingChoice;
+      if (!pending || pending.type !== 'chooseTertiaryToGain') return false;
+      return (TERTIARIES as Color[]).includes(choice.color) && choice.color !== pending.lostColor;
     }
   }
 }
@@ -547,6 +598,17 @@ function getRolloutChoice(state: GameState): ColoriChoice {
         const affordable = state.garmentDisplay.filter(g => canAffordGarment(player, g.card));
         if (affordable.length === 0) throw new Error('chooseGarment pending but no affordable garments (should be unreachable)');
         return { type: 'selectGarment', garmentInstanceId: affordable[Math.floor(Math.random() * affordable.length)].instanceId };
+      }
+      case 'chooseSecondaryColor': {
+        return { type: 'gainSecondary', color: SECONDARIES[Math.floor(Math.random() * SECONDARIES.length)] };
+      }
+      case 'chooseTertiaryToLose': {
+        const owned = TERTIARIES.filter(c => player.colorWheel[c] > 0);
+        return { type: 'chooseTertiaryToLose', color: owned[Math.floor(Math.random() * owned.length)] };
+      }
+      case 'chooseTertiaryToGain': {
+        const options = TERTIARIES.filter(c => c !== pending.lostColor);
+        return { type: 'chooseTertiaryToGain', color: options[Math.floor(Math.random() * options.length)] };
       }
     }
   }

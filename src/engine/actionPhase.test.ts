@@ -11,6 +11,9 @@ import {
   skipWorkshop,
   resolveDestroyCards,
   resolveSelectGarment,
+  resolveGainSecondary,
+  resolveChooseTertiaryToLose,
+  resolveChooseTertiaryToGain,
   canMakeGarment,
   endPlayerTurn,
   endRound,
@@ -457,25 +460,7 @@ describe('workshop action cards', () => {
     expect(actionState.pendingChoice).toBeNull();
   });
 
-  it('workshop Lye triggers destroyCards:1', () => {
-    const state = makeTestGameState();
-    initializeActionPhase(state);
-    const player = state.players[0];
-
-    const lye = ACTION_CARDS.find(c => c.name === 'Lye')!;
-    const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
-    const instances = createCardInstances([lye, basicRed]);
-    player.drawnCards = [...instances];
-
-    const actionState = getActionState(state);
-    actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 1 };
-
-    resolveWorkshopChoice(state, [instances[0].instanceId]);
-
-    expect(actionState.pendingChoice).toEqual({ type: 'chooseCardsToDestroy', count: 1 });
-  });
-
-  it('workshop Gum Arabic triggers makeGarment', () => {
+  it('workshop Gum Arabic triggers chooseSecondaryColor', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
     const player = state.players[0];
@@ -487,20 +472,101 @@ describe('workshop action cards', () => {
     const actionState = getActionState(state);
     actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 1 };
 
-    // No garments affordable, so makeGarment fizzles
     resolveWorkshopChoice(state, [instances[0].instanceId]);
 
     expect(player.discard).toHaveLength(1);
-    expect(actionState.pendingChoice).toBeNull();
+    expect(actionState.pendingChoice).toEqual({ type: 'chooseSecondaryColor' });
   });
 
-  it('workshop Cream of Tartar triggers mixColors:2', () => {
+  it('workshop Cream of Tartar draws 3 cards', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
     const player = state.players[0];
 
     const cot = ACTION_CARDS.find(c => c.name === 'Cream of Tartar')!;
+    const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
     const instances = createCardInstances([cot]);
+    player.drawnCards = [...instances];
+    player.deck = createCardInstances([basicRed, basicRed, basicRed]);
+
+    const actionState = getActionState(state);
+    actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 1 };
+
+    resolveWorkshopChoice(state, [instances[0].instanceId]);
+
+    expect(player.drawnCards).toHaveLength(3);
+    expect(actionState.pendingChoice).toBeNull();
+  });
+
+  it('workshop Potash triggers chooseCardsForWorkshop with count 3', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+    const player = state.players[0];
+
+    const potash = ACTION_CARDS.find(c => c.name === 'Potash')!;
+    const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
+    const instances = createCardInstances([potash]);
+    player.drawnCards = [...instances];
+    player.deck = createCardInstances([basicRed]);
+
+    const actionState = getActionState(state);
+    actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 1 };
+
+    resolveWorkshopChoice(state, [instances[0].instanceId]);
+
+    // Potash's workshopAbilities are [workshop:3], but drawnCards is empty after discarding Potash
+    // Need drawn cards for workshop not to fizzle. Let's add some first.
+    // Actually Potash was consumed, deck has 1 basicRed remaining, drawnCards is empty
+    // workshop:3 fizzles because no drawnCards
+    expect(actionState.pendingChoice).toBeNull();
+  });
+
+  it('workshop Potash grants workshop:3 when drawn cards available', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+    const player = state.players[0];
+
+    const potash = ACTION_CARDS.find(c => c.name === 'Potash')!;
+    const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
+    const instances = createCardInstances([potash]);
+    const drawnExtras = createCardInstances([basicRed, basicRed]);
+    player.drawnCards = [...instances, ...drawnExtras];
+
+    const actionState = getActionState(state);
+    actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 1 };
+
+    resolveWorkshopChoice(state, [instances[0].instanceId]);
+
+    // Potash consumed (1 pick), workshopAbilities push workshop:3
+    // drawnCards still has 2 basicRed cards, so workshop:3 sets pending choice
+    expect(actionState.pendingChoice).toEqual({ type: 'chooseCardsForWorkshop', count: 3 });
+  });
+
+  it('workshop Vinegar triggers chooseTertiaryToLose when player has tertiaries', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+    const player = state.players[0];
+
+    const vinegar = ACTION_CARDS.find(c => c.name === 'Vinegar')!;
+    const instances = createCardInstances([vinegar]);
+    player.drawnCards = [...instances];
+    storeColor(player.colorWheel, 'Vermilion');
+
+    const actionState = getActionState(state);
+    actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 1 };
+
+    resolveWorkshopChoice(state, [instances[0].instanceId]);
+
+    expect(actionState.pendingChoice).toEqual({ type: 'chooseTertiaryToLose' });
+  });
+
+  it('workshop Vinegar fizzles when player has no tertiaries', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+    const player = state.players[0];
+
+    const vinegar = ACTION_CARDS.find(c => c.name === 'Vinegar')!;
+    const instances = createCardInstances([vinegar]);
     player.drawnCards = [...instances];
 
     const actionState = getActionState(state);
@@ -508,35 +574,7 @@ describe('workshop action cards', () => {
 
     resolveWorkshopChoice(state, [instances[0].instanceId]);
 
-    expect(actionState.pendingChoice).toEqual({ type: 'chooseMix', remaining: 2 });
-  });
-
-  it('workshop Ox Gall draws 2 cards then grants workshop:1', () => {
-    const state = makeTestGameState();
-    initializeActionPhase(state);
-    const player = state.players[0];
-
-    const oxGall = ACTION_CARDS.find(c => c.name === 'Ox Gall')!;
-    const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
-    const instances = createCardInstances([oxGall]);
-    player.drawnCards = [...instances];
-    // Put cards in deck to draw
-    player.deck = createCardInstances([basicRed, basicRed, basicRed]);
-
-    const actionState = getActionState(state);
-    actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 3 };
-
-    resolveWorkshopChoice(state, [instances[0].instanceId]);
-
-    // Ox Gall's workshopAbilities are [drawCards:2, workshop:1]
-    // Stack after push: [..., workshop:2 (remaining), workshop:1, drawCards:2]
-    // Pop resolves drawCards:2 first (auto), then workshop:1, then workshop:2
-    // drawCards:2 draws 2 cards, workshop:1 sets pending choice
-    expect(player.drawnCards).toHaveLength(2); // 2 drawn from deck
-    expect(actionState.pendingChoice).toEqual({ type: 'chooseCardsForWorkshop', count: 1 });
-    // After resolving workshop:1, the remaining workshop:2 is still on the stack
-    expect(actionState.abilityStack).toHaveLength(1);
-    expect(actionState.abilityStack[0]).toEqual({ type: 'workshop', count: 2 });
+    expect(actionState.pendingChoice).toBeNull();
   });
 });
 
@@ -643,6 +681,91 @@ describe('gainDucats auto-resolution', () => {
 
     expect(player.ducats).toBe(3);
     expect(actionState.pendingChoice).toBeNull();
+  });
+});
+
+describe('resolveGainSecondary', () => {
+  beforeEach(() => {
+    resetInstanceIdCounter();
+  });
+
+  it('stores a secondary color on the wheel', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+    const player = state.players[0];
+
+    const actionState = getActionState(state);
+    actionState.pendingChoice = { type: 'chooseSecondaryColor' };
+
+    resolveGainSecondary(state, 'Orange');
+
+    expect(player.colorWheel['Orange']).toBe(1);
+    expect(actionState.pendingChoice).toBeNull();
+  });
+
+  it('throws for non-secondary color', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+
+    const actionState = getActionState(state);
+    actionState.pendingChoice = { type: 'chooseSecondaryColor' };
+
+    expect(() => resolveGainSecondary(state, 'Red')).toThrow();
+  });
+});
+
+describe('changeTertiary flow', () => {
+  beforeEach(() => {
+    resetInstanceIdCounter();
+  });
+
+  it('full flow: lose Vermilion, gain Teal', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+    const player = state.players[0];
+    storeColor(player.colorWheel, 'Vermilion');
+
+    const actionState = getActionState(state);
+    actionState.abilityStack.push({ type: 'changeTertiary' });
+    processQueue(state);
+
+    expect(actionState.pendingChoice).toEqual({ type: 'chooseTertiaryToLose' });
+
+    resolveChooseTertiaryToLose(state, 'Vermilion');
+
+    expect(player.colorWheel['Vermilion']).toBe(0);
+    expect(actionState.pendingChoice).toEqual({ type: 'chooseTertiaryToGain', lostColor: 'Vermilion' });
+
+    resolveChooseTertiaryToGain(state, 'Teal');
+
+    expect(player.colorWheel['Teal']).toBe(1);
+    expect(actionState.pendingChoice).toBeNull();
+  });
+
+  it('cannot regain the same tertiary that was lost', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+    const player = state.players[0];
+    storeColor(player.colorWheel, 'Vermilion');
+
+    const actionState = getActionState(state);
+    actionState.pendingChoice = { type: 'chooseTertiaryToLose' };
+
+    resolveChooseTertiaryToLose(state, 'Vermilion');
+
+    expect(() => resolveChooseTertiaryToGain(state, 'Vermilion')).toThrow();
+  });
+
+  it('fizzles when player has no tertiaries', () => {
+    const state = makeTestGameState();
+    initializeActionPhase(state);
+
+    const actionState = getActionState(state);
+    actionState.abilityStack.push({ type: 'changeTertiary' });
+    processQueue(state);
+
+    expect(actionState.pendingChoice).toBeNull();
+    expect(actionState.abilityStack).toHaveLength(0);
   });
 });
 

@@ -27,6 +27,8 @@
       case 'destroyCards': return `Destroy x${a.count}`;
       case 'makeGarment': return 'Make Garment';
       case 'gainDucats': return `Gain ${a.count} Ducat(s)`;
+      case 'gainSecondary': return 'Any Secondary';
+      case 'changeTertiary': return 'Change Tertiary';
     }
   }
 

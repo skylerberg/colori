@@ -153,6 +153,14 @@ To make a garment:
 
 Gain N ducats. Ducats count toward your final score.
 
+### Any Secondary
+
+Choose one of the three secondary colors (Orange, Green, or Purple) and add it to your color wheel. This ability never fizzles.
+
+### Change Tertiary
+
+Swap one tertiary color on your wheel for a different tertiary. First choose a tertiary color you have stored (Vermilion, Amber, Chartreuse, Teal, Indigo, or Magenta) to remove, then choose a different tertiary color to gain. If you have no tertiary colors stored, the ability fizzles.
+
 ## End of Game
 
 The game ends when either:
@@ -220,10 +228,10 @@ All action cards have **Destroy Cards ×1** as their destroy ability. Their work
 | Name | Workshop Abilities |
 |------|-------------------|
 | Alum | Gain Ducats ×1 |
-| Lye | Destroy Cards ×1 |
-| Gum Arabic | Make Garment |
-| Ox Gall | Draw Cards ×2, then Workshop ×1 |
-| Cream of Tartar | Mix Colors ×2 |
+| Cream of Tartar | Draw Cards ×3 |
+| Gum Arabic | Any Secondary |
+| Potash | Workshop ×3 |
+| Vinegar | Change Tertiary |
 
 ### Garment Cards (51 total, single deck)
 

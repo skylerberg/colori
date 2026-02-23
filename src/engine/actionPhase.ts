@@ -1,7 +1,7 @@
 import type { GameState, ActionState, Ability, Color, CardInstance } from '../data/types';
-import { getCardPips } from '../data/cards';
+import { getCardPips, SECONDARIES, TERTIARIES } from '../data/cards';
 import { drawFromDeck } from './deckUtils';
-import { storeColor, performMix, canPayCost, payCost } from './colorWheel';
+import { storeColor, removeColor, performMix, canPayCost, payCost } from './colorWheel';
 import { calculateScore } from './scoring';
 
 /** Helper to extract ActionState from GameState with type narrowing. */
@@ -107,6 +107,20 @@ export function processQueue(state: GameState): void {
         actionState.pendingChoice = { type: 'chooseGarment' };
       } else {
         // Fizzle: continue processing queue
+        processQueue(state);
+      }
+      break;
+    }
+    case 'gainSecondary': {
+      actionState.pendingChoice = { type: 'chooseSecondaryColor' };
+      break;
+    }
+    case 'changeTertiary': {
+      const hasTertiary = TERTIARIES.some(c => player.colorWheel[c] > 0);
+      if (hasTertiary) {
+        actionState.pendingChoice = { type: 'chooseTertiaryToLose' };
+      } else {
+        // Fizzle: no tertiaries to change
         processQueue(state);
       }
       break;
@@ -317,6 +331,65 @@ export function resolveSelectGarment(state: GameState, garmentInstanceId: number
     state.garmentDisplay.push(state.garmentDeck.pop()!);
   }
 
+  actionState.pendingChoice = null;
+  processQueue(state);
+}
+
+/**
+ * Resolve gain secondary: store the chosen secondary color on the player's wheel.
+ */
+export function resolveGainSecondary(state: GameState, color: Color): void {
+  const actionState = getActionState(state);
+  const player = state.players[actionState.currentPlayerIndex];
+
+  if (!(SECONDARIES as Color[]).includes(color)) {
+    throw new Error(`${color} is not a secondary color`);
+  }
+
+  storeColor(player.colorWheel, color);
+  actionState.pendingChoice = null;
+  processQueue(state);
+}
+
+/**
+ * Resolve choosing a tertiary to lose: remove it from the wheel,
+ * then set pending choice to gain a different tertiary.
+ */
+export function resolveChooseTertiaryToLose(state: GameState, color: Color): void {
+  const actionState = getActionState(state);
+  const player = state.players[actionState.currentPlayerIndex];
+
+  if (!(TERTIARIES as Color[]).includes(color)) {
+    throw new Error(`${color} is not a tertiary color`);
+  }
+  if (player.colorWheel[color] <= 0) {
+    throw new Error(`Player does not have ${color} on their wheel`);
+  }
+
+  removeColor(player.colorWheel, color);
+  actionState.pendingChoice = { type: 'chooseTertiaryToGain', lostColor: color };
+}
+
+/**
+ * Resolve choosing a tertiary to gain: store it on the wheel.
+ * Must be different from the lost color.
+ */
+export function resolveChooseTertiaryToGain(state: GameState, color: Color): void {
+  const actionState = getActionState(state);
+  const player = state.players[actionState.currentPlayerIndex];
+  const pending = actionState.pendingChoice;
+
+  if (!pending || pending.type !== 'chooseTertiaryToGain') {
+    throw new Error('No pending chooseTertiaryToGain choice');
+  }
+  if (!(TERTIARIES as Color[]).includes(color)) {
+    throw new Error(`${color} is not a tertiary color`);
+  }
+  if (color === pending.lostColor) {
+    throw new Error(`Cannot gain the same tertiary that was lost`);
+  }
+
+  storeColor(player.colorWheel, color);
   actionState.pendingChoice = null;
   processQueue(state);
 }

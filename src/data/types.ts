@@ -11,7 +11,9 @@ export type Ability =
   | { type: 'mixColors'; count: number }
   | { type: 'destroyCards'; count: number }
   | { type: 'makeGarment' }
-  | { type: 'gainDucats'; count: number };
+  | { type: 'gainDucats'; count: number }
+  | { type: 'gainSecondary' }
+  | { type: 'changeTertiary' };
 
 export interface DyeCard {
   kind: 'dye';
@@ -79,7 +81,10 @@ export type PendingChoice =
   | { type: 'chooseCardsForWorkshop'; count: number }
   | { type: 'chooseCardsToDestroy'; count: number }
   | { type: 'chooseMix'; remaining: number }
-  | { type: 'chooseGarment' };
+  | { type: 'chooseGarment' }
+  | { type: 'chooseSecondaryColor' }
+  | { type: 'chooseTertiaryToLose' }
+  | { type: 'chooseTertiaryToGain'; lostColor: Color };
 
 export interface ActionState {
   currentPlayerIndex: number;

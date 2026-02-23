@@ -2,7 +2,8 @@
   import type { GameState, Color } from '../data/types';
   import type { ColoriChoice } from '../ai/coloriGame';
   import { canMakeGarment } from '../engine/actionPhase';
-  import { canMix } from '../data/colors';
+  import { canMix, colorToHex, textColorForBackground } from '../data/colors';
+  import { SECONDARIES, TERTIARIES } from '../data/cards';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import GarmentDisplay from './GarmentDisplay.svelte';
 
@@ -92,6 +93,54 @@
           Confirm Garment
         </button>
       </div>
+
+    {:else if pendingChoice.type === 'chooseSecondaryColor'}
+      <div class="prompt-section">
+        <h3>Choose a secondary color to gain</h3>
+        <div class="color-buttons">
+          {#each SECONDARIES as color}
+            <button
+              class="color-btn"
+              style="background-color: {colorToHex(color)}; color: {textColorForBackground(colorToHex(color))}"
+              onclick={() => onAction({ type: 'gainSecondary', color })}
+            >
+              {color}
+            </button>
+          {/each}
+        </div>
+      </div>
+
+    {:else if pendingChoice.type === 'chooseTertiaryToLose'}
+      <div class="prompt-section">
+        <h3>Choose a tertiary color to lose</h3>
+        <div class="color-buttons">
+          {#each TERTIARIES.filter(c => currentPlayer.colorWheel[c] > 0) as color}
+            <button
+              class="color-btn"
+              style="background-color: {colorToHex(color)}; color: {textColorForBackground(colorToHex(color))}"
+              onclick={() => onAction({ type: 'chooseTertiaryToLose', color })}
+            >
+              {color}
+            </button>
+          {/each}
+        </div>
+      </div>
+
+    {:else if pendingChoice.type === 'chooseTertiaryToGain'}
+      <div class="prompt-section">
+        <h3>Choose a tertiary color to gain</h3>
+        <div class="color-buttons">
+          {#each TERTIARIES.filter(c => c !== pendingChoice.lostColor) as color}
+            <button
+              class="color-btn"
+              style="background-color: {colorToHex(color)}; color: {textColorForBackground(colorToHex(color))}"
+              onclick={() => onAction({ type: 'chooseTertiaryToGain', color })}
+            >
+              {color}
+            </button>
+          {/each}
+        </div>
+      </div>
     {/if}
   </div>
 {/if}
@@ -155,5 +204,22 @@
     background: #ddd;
   }
 
+  .color-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
 
+  .color-btn {
+    padding: 10px 18px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    border: 2px solid rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .color-btn:hover {
+    opacity: 0.85;
+  }
 </style>
