@@ -17,6 +17,7 @@
   import GameLog from './GameLog.svelte';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import GarmentDisplay from './GarmentDisplay.svelte';
+  import CardList from './CardList.svelte';
   import { mixResult } from '../data/colors';
 
   let { gameState, gameStartTime, onGameUpdated, initialGameLog, onLeaveGame }: {
@@ -124,9 +125,8 @@
   let activePlayerIndex = $derived(getActivePlayerIndex(gameState));
   let currentPlayer = $derived(activePlayerIndex >= 0 ? gameState.players[activePlayerIndex] : null);
   let showSidebar = $derived(
-    !aiThinking && !showDrawPhase && currentPlayer !== null &&
-    (gameState.phase.type === 'draft' || gameState.phase.type === 'action') &&
-    !isCurrentPlayerAI(gameState)
+    !showDrawPhase && currentPlayer !== null &&
+    (gameState.phase.type === 'draft' || gameState.phase.type === 'action')
   );
 
   function getActivePlayerIndex(gs: GameState): number {
@@ -346,6 +346,18 @@
             <div class="spinner"></div>
             <p>AI is thinking...</p>
           </div>
+          {#if currentPlayer}
+            <div class="readonly-cards">
+              <div class="section-box">
+                <h3>Drawn Cards</h3>
+                <CardList cards={currentPlayer.drawnCards} />
+              </div>
+              <div class="section-box">
+                <h3>Drafted Cards</h3>
+                <CardList cards={currentPlayer.draftedCards} />
+              </div>
+            </div>
+          {/if}
         {/if}
 
         {#if showDrawPhase && gameState.phase.type === 'draft'}
@@ -503,6 +515,27 @@
     font-size: 1.1rem;
     font-weight: 600;
     color: #e67e22;
+  }
+
+  .readonly-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .section-box {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: #fff;
+    text-align: left;
+  }
+
+  .section-box h3 {
+    font-size: 0.85rem;
+    color: #4a3728;
+    margin-bottom: 6px;
   }
 
   .spinner {

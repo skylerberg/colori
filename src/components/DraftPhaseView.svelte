@@ -6,22 +6,28 @@
   import OpponentBoardPanel from './OpponentBoardPanel.svelte';
   import PassScreen from './PassScreen.svelte';
 
-  let { gameState, onAction, onGameUpdated }: {
+  let { gameState, onAction, onGameUpdated, playerIndex, selectable }: {
     gameState: GameState;
     onAction: (choice: ColoriChoice) => void;
     onGameUpdated?: () => void;
+    playerIndex?: number;
+    selectable?: boolean;
   } = $props();
 
   let draftState = $derived(
     gameState.phase.type === 'draft' ? gameState.phase.draftState : null
   );
 
+  let viewingPlayerIndex = $derived(
+    playerIndex !== undefined ? playerIndex : (draftState?.currentPlayerIndex ?? 0)
+  );
+
   let currentPlayer = $derived(
-    draftState ? gameState.players[draftState.currentPlayerIndex] : null
+    draftState ? gameState.players[viewingPlayerIndex] : null
   );
 
   let currentHand = $derived(
-    draftState ? draftState.hands[draftState.currentPlayerIndex] : []
+    draftState ? draftState.hands[viewingPlayerIndex] : []
   );
 
   let directionLabel = $derived(
@@ -39,7 +45,7 @@
 </script>
 
 {#if draftState}
-  {#if draftState.waitingForPass}
+  {#if draftState.waitingForPass && playerIndex === undefined}
     <PassScreen
       playerName={gameState.players[draftState.currentPlayerIndex].name}
       onReady={handlePassReady}
@@ -55,10 +61,10 @@
       </div>
 
       <div class="current-player-section">
-        <h3>{currentPlayer?.name}'s Turn - Pick a card</h3>
+        <h3>{playerIndex !== undefined ? 'Pick a card' : `${currentPlayer?.name}'s Turn - Pick a card`}</h3>
         <CardList
           cards={currentHand}
-          selectable={true}
+          selectable={selectable !== false}
           onCardClick={handlePick}
         />
       </div>
@@ -77,7 +83,7 @@
         <h3>Other Players</h3>
         <div class="opponents-list">
           {#each gameState.players as player, i}
-            {#if i !== draftState.currentPlayerIndex}
+            {#if i !== viewingPlayerIndex}
               <OpponentBoardPanel {player} />
             {/if}
           {/each}

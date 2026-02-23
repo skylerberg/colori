@@ -4,7 +4,7 @@ import type { NetworkManager } from './networkManager';
 import type { LobbyPlayer, GuestMessage } from './types';
 import { createInitialGameState } from '../engine/setupPhase';
 import { executeDrawPhase } from '../engine/drawPhase';
-import { playerPick, confirmPass } from '../engine/draftPhase';
+import { playerPick, confirmPass, simultaneousPick, advanceDraft } from '../engine/draftPhase';
 import {
   destroyDraftedCard, endPlayerTurn, resolveWorkshopChoice,
   resolveMixColors, skipMix, skipWorkshop, resolveDestroyCards,
@@ -22,6 +22,7 @@ export class HostController {
   private playerCount: number = 2;
   private gameLog: string[] = [];
   private disconnectTimers: Map<number, ReturnType<typeof setTimeout>> = new Map();
+  private pendingDraftPicks: Set<number> = new Set();
 
   onLobbyUpdated: ((players: LobbyPlayer[]) => void) | null = null;
   onGameStateUpdated: ((state: GameState) => void) | null = null;
@@ -41,6 +42,11 @@ export class HostController {
 
     this.network.onGuestMessage = (msg, peerId) => this.handleGuestMessage(msg, peerId);
     this.network.onPeerLeave = (peerId) => this.handlePeerDisconnect(peerId);
+  }
+
+  setHostName(name: string) {
+    this.lobbyPlayers[0].name = name;
+    this.broadcastLobbyUpdate();
   }
 
   setPlayerCount(count: number) {
@@ -197,6 +203,7 @@ export class HostController {
   }
 
   startGame() {
+    this.pendingDraftPicks.clear();
     const playerNames: string[] = new Array(this.playerCount);
     const aiPlayers: boolean[] = new Array(this.playerCount).fill(true);
 
@@ -244,6 +251,34 @@ export class HostController {
   applyAction(choice: ColoriChoice, playerIndex: number) {
     if (!this.gameState) return;
 
+    // During draft phase, use simultaneous picking
+    if (this.gameState.phase.type === 'draft' && choice.type === 'draftPick') {
+      if (this.pendingDraftPicks.has(playerIndex)) {
+        const peerId = this.playerIndexToPeer.get(playerIndex);
+        if (peerId) {
+          this.network.sendToGuest({ type: 'error', message: 'Already picked this round' }, peerId);
+        }
+        return;
+      }
+
+      simultaneousPick(this.gameState, playerIndex, choice.cardInstanceId);
+      this.pendingDraftPicks.add(playerIndex);
+      this.broadcastGameState([]);
+      this.onGameStateUpdated?.(this.gameState);
+
+      // Check if all players have picked
+      if (this.pendingDraftPicks.size === this.gameState.players.length) {
+        advanceDraft(this.gameState);
+        this.pendingDraftPicks.clear();
+        this.executeDrawIfNeeded();
+        this.broadcastGameState([]);
+        this.onGameStateUpdated?.(this.gameState);
+        this.onLogUpdated?.(this.gameLog);
+      }
+      return;
+    }
+
+    // For non-draft actions, check it's the player's turn
     const activeIndex = this.getActivePlayerIndex();
     if (activeIndex !== playerIndex) {
       const peerId = this.playerIndexToPeer.get(playerIndex);
@@ -258,6 +293,8 @@ export class HostController {
 
     switch (choice.type) {
       case 'draftPick':
+        // This shouldn't be reached since draft picks are handled above,
+        // but keep for safety
         playerPick(this.gameState, choice.cardInstanceId);
         if (this.gameState.phase.type === 'draft' && this.gameState.phase.draftState.waitingForPass) {
           confirmPass(this.gameState);

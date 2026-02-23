@@ -1,11 +1,13 @@
 <script lang="ts">
   import type { LobbyPlayer } from '../network/types';
 
-  let { role, roomCode, lobbyPlayers, playerCount, onSetPlayerCount, onStartGame, onJoin, onBack }: {
+  let { role, roomCode, lobbyPlayers, playerCount, hostName = '', onSetHostName, onSetPlayerCount, onStartGame, onJoin, onBack }: {
     role: 'host' | 'guest';
     roomCode: string;
     lobbyPlayers: LobbyPlayer[];
     playerCount: number;
+    hostName?: string;
+    onSetHostName?: (name: string) => void;
     onSetPlayerCount?: (count: number) => void;
     onStartGame?: () => void;
     onJoin?: (name: string, code: string) => void;
@@ -33,6 +35,17 @@
 
   {#if role === 'host'}
     <h2>Host Online Game</h2>
+
+    <div class="input-group">
+      <label for="host-name">Your Name:</label>
+      <input
+        id="host-name"
+        type="text"
+        value={hostName}
+        oninput={(e) => onSetHostName?.(e.currentTarget.value)}
+        placeholder="Host"
+      />
+    </div>
 
     <div class="room-code-section">
       <span class="room-code-label">Room Code:</span>

@@ -35,6 +35,7 @@
   let roomCode = $state('');
   let lobbyPlayers: LobbyPlayer[] = $state([]);
   let lobbyPlayerCount = $state(2);
+  let hostName = $state('');
 
   // -- Local game handlers --
 
@@ -103,7 +104,7 @@
     networkManager = new NetworkManager();
     roomCode = networkManager.createRoom();
 
-    hostController = new HostController(networkManager, 'Host');
+    hostController = new HostController(networkManager, hostName || 'Host');
     hostController.onLobbyUpdated = (players) => {
       lobbyPlayers = [...players];
     };
@@ -144,6 +145,11 @@
     networkManager!.join(code);
     roomCode = code;
     guestController!.join(name);
+  }
+
+  function handleSetHostName(name: string) {
+    hostName = name;
+    hostController?.setHostName(name || 'Host');
   }
 
   function handleSetPlayerCount(count: number) {
@@ -195,6 +201,8 @@
       {roomCode}
       {lobbyPlayers}
       playerCount={lobbyPlayerCount}
+      {hostName}
+      onSetHostName={handleSetHostName}
       onSetPlayerCount={handleSetPlayerCount}
       onStartGame={handleStartOnlineGame}
       onJoin={handleGuestJoin}

@@ -14,6 +14,8 @@
   import GameLog from './GameLog.svelte';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import GarmentDisplay from './GarmentDisplay.svelte';
+  import CardList from './CardList.svelte';
+  import OpponentBoardPanel from './OpponentBoardPanel.svelte';
 
   let { role, hostController, guestController, onGameOver, gameStartTime, onLeaveGame }: {
     role: 'host' | 'guest';
@@ -95,7 +97,7 @@
   );
 
   let showSidebar = $derived(
-    !aiThinking && !showDrawPhase && gameState !== null && isMyTurn &&
+    !showDrawPhase && gameState !== null &&
     (gameState.phase.type === 'draft' || gameState.phase.type === 'action')
   );
 
@@ -164,8 +166,25 @@
     showDrawPhase = false;
   }
 
+  // Simultaneous draft state
+  let hasPicked = $state(false);
+  let lastPickNumber: number | null = $state(null);
+
+  $effect(() => {
+    if (gameState?.phase.type === 'draft') {
+      const currentPickNumber = gameState.phase.draftState.pickNumber;
+      if (lastPickNumber !== null && currentPickNumber !== lastPickNumber) {
+        hasPicked = false;
+      }
+      lastPickNumber = currentPickNumber;
+    }
+  });
+
   // Handle action from phase views
   function handleAction(choice: ColoriChoice) {
+    if (choice.type === 'draftPick') {
+      hasPicked = true;
+    }
     if (role === 'host') {
       hostController?.applyHostAction(choice);
     } else {
@@ -180,23 +199,50 @@
     if (gameState.phase.type === 'gameOver') return;
     if (gameState.phase.type === 'draw') return;
 
+    // Simultaneous AI drafting: compute picks for all AI players at once
+    if (gameState.phase.type === 'draft') {
+      const aiPlayerIndices = gameState.aiPlayers
+        .map((isAI, idx) => isAI ? idx : -1)
+        .filter(idx => idx >= 0)
+        .filter(idx => !hostController!['pendingDraftPicks'].has(idx));
+
+      if (aiPlayerIndices.length === 0) return;
+
+      // Record seen hands for all AI players
+      const ds = gameState.phase.draftState;
+      for (const playerIdx of aiPlayerIndices) {
+        const hand = ds.hands[playerIdx];
+        if (!seenHands.has(playerIdx)) {
+          seenHands.set(playerIdx, []);
+        }
+        const playerSeenHands = seenHands.get(playerIdx)!;
+        if (playerSeenHands.length <= ds.pickNumber) {
+          playerSeenHands.push([...hand]);
+        }
+      }
+
+      aiThinking = true;
+      Promise.all(
+        aiPlayerIndices.map(playerIdx => {
+          const playerSeenHands = seenHands.get(playerIdx);
+          return aiController!.getAIChoice(gameState!, playerIdx, 100000, playerSeenHands).then(choice => ({
+            playerIdx,
+            choice,
+          }));
+        })
+      ).then(results => {
+        aiThinking = false;
+        for (const { playerIdx, choice } of results) {
+          hostController?.applyAction(choice, playerIdx);
+        }
+      });
+      return;
+    }
+
+    // For non-draft phases, use sequential AI turns
     if (!isCurrentPlayerAI(gameState)) return;
 
     const playerIdx = getActivePlayerIndex(gameState);
-
-    // Record seen hand for draft knowledge tracking
-    if (gameState.phase.type === 'draft') {
-      const ds = gameState.phase.draftState;
-      const hand = ds.hands[playerIdx];
-      if (!seenHands.has(playerIdx)) {
-        seenHands.set(playerIdx, []);
-      }
-      const playerSeenHands = seenHands.get(playerIdx)!;
-      if (playerSeenHands.length <= ds.pickNumber) {
-        playerSeenHands.push([...hand]);
-      }
-    }
-
     aiThinking = true;
     const playerSeenHands = seenHands.get(playerIdx);
 
@@ -260,17 +306,44 @@
             </div>
           {/if}
 
-          {#if !isMyTurn && !aiThinking && !showDrawPhase && gameState.phase.type !== 'gameOver' && gameState.phase.type !== 'draw'}
-            <div class="waiting-overlay">
+          {#if !isMyTurn && !aiThinking && !showDrawPhase && gameState.phase.type === 'action'}
+            <div class="waiting-banner">
               <div class="spinner"></div>
               <p>Waiting for {gameState.players[activePlayerIndex]?.name ?? 'other player'}...</p>
             </div>
+            {#if myPlayer}
+              <div class="readonly-cards">
+                <div class="section">
+                  <h3>Your Drawn Cards</h3>
+                  <CardList cards={myPlayer.drawnCards} />
+                </div>
+                <div class="section">
+                  <h3>Your Drafted Cards</h3>
+                  <CardList cards={myPlayer.draftedCards} />
+                </div>
+              </div>
+              <div class="opponents-section">
+                <h3>Other Players</h3>
+                <div class="opponents-list">
+                  {#each gameState.players as player, i}
+                    {#if i !== myPlayerIndex}
+                      <OpponentBoardPanel {player} />
+                    {/if}
+                  {/each}
+                </div>
+              </div>
+            {/if}
           {/if}
 
           {#if showDrawPhase && gameState.phase.type === 'draft'}
             <DrawPhaseView {gameState} onContinue={handleDrawContinue} />
-          {:else if gameState.phase.type === 'draft' && isMyTurn && !aiThinking}
-            <DraftPhaseView {gameState} onAction={handleAction} />
+          {:else if gameState.phase.type === 'draft' && !aiThinking}
+            <DraftPhaseView {gameState} onAction={handleAction} playerIndex={myPlayerIndex} selectable={!hasPicked} />
+            {#if hasPicked}
+              <div class="waiting-banner">
+                <p>Waiting for other players to pick...</p>
+              </div>
+            {/if}
           {:else if gameState.phase.type === 'action' && isMyTurn && !aiThinking}
             <ActionPhaseView {gameState} onAction={handleAction} onUndo={() => {}} undoAvailable={false} />
           {/if}
@@ -410,7 +483,7 @@
     margin-top: 4px;
   }
 
-  .ai-thinking, .waiting-overlay {
+  .ai-thinking {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -425,10 +498,56 @@
     color: #e67e22;
   }
 
-  .waiting-overlay p {
-    font-size: 1.1rem;
-    font-weight: 600;
+  .waiting-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    justify-content: center;
+    padding: 12px;
     color: #2a6bcf;
+    font-weight: 600;
+  }
+
+  .waiting-banner p {
+    font-size: 1rem;
+    margin: 0;
+  }
+
+  .readonly-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .section {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: #fff;
+    text-align: left;
+  }
+
+  .section h3 {
+    font-size: 0.85rem;
+    color: #4a3728;
+    margin-bottom: 6px;
+  }
+
+  .opponents-section {
+    border-top: 2px solid #e0e0e0;
+    padding-top: 1rem;
+  }
+
+  .opponents-section h3 {
+    font-size: 0.85rem;
+    color: #888;
+    margin-bottom: 8px;
+  }
+
+  .opponents-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
 
   .spinner {

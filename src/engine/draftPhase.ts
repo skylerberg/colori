@@ -80,6 +80,25 @@ export function playerPick(state: GameState, cardInstanceId: number): void {
 }
 
 /**
+ * A player picks a card during simultaneous drafting (online games).
+ * Does NOT advance currentPlayerIndex, waitingForPass, or pickNumber.
+ * The caller (HostController) is responsible for tracking when all players
+ * have picked and calling advanceDraft.
+ */
+export function simultaneousPick(state: GameState, playerIndex: number, cardInstanceId: number): void {
+  const draftState = getDraftState(state);
+  const hand = draftState.hands[playerIndex];
+
+  const cardIndex = hand.findIndex(c => c.instanceId === cardInstanceId);
+  if (cardIndex === -1) {
+    throw new Error(`Card ${cardInstanceId} not found in player ${playerIndex}'s draft hand`);
+  }
+
+  const [card] = hand.splice(cardIndex, 1);
+  state.players[playerIndex].draftedCards.push(card);
+}
+
+/**
  * Rotate hands in the draft direction. Increment pickNumber.
  * If pickNumber >= 4, transition to action phase.
  * Otherwise, set currentPlayerIndex = 0 and waitingForPass = true.
