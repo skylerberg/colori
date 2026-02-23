@@ -56,15 +56,15 @@ describe('createInitialGameState', () => {
     expect(state.draftDeck).toHaveLength(90);
   });
 
-  it('creates garment deck with correct size', () => {
-    // 51 total garments minus 6 in display = 45
+  it('creates buyer deck with correct size', () => {
+    // 51 total buyers minus 6 in display = 45
     const state = createInitialGameState(['Alice', 'Bob']);
-    expect(state.garmentDeck).toHaveLength(45);
+    expect(state.buyerDeck).toHaveLength(45);
   });
 
-  it('garment display has 6 cards', () => {
+  it('buyer display has 6 cards', () => {
     const state = createInitialGameState(['Alice', 'Bob']);
-    expect(state.garmentDisplay).toHaveLength(6);
+    expect(state.buyerDisplay).toHaveLength(6);
   });
 
   it('starts at round 1 with draw phase', () => {
@@ -79,7 +79,7 @@ describe('createInitialGameState', () => {
       expect(player.discard).toHaveLength(0);
       expect(player.drawnCards).toHaveLength(0);
       expect(player.draftedCards).toHaveLength(0);
-      expect(player.completedGarments).toHaveLength(0);
+      expect(player.completedBuyers).toHaveLength(0);
     }
   });
 

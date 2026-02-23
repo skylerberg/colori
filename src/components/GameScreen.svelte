@@ -5,7 +5,7 @@
   import {
     destroyDraftedCard, endPlayerTurn, resolveWorkshopChoice,
     resolveMixColors, skipMix, skipWorkshop, resolveDestroyCards,
-    resolveSelectGarment,
+    resolveSelectBuyer,
   } from '../engine/actionPhase';
   import { AIController } from '../ai/aiController';
   import type { ColoriChoice } from '../ai/coloriGame';
@@ -16,7 +16,7 @@
   import ActionPhaseView from './ActionPhaseView.svelte';
   import GameLog from './GameLog.svelte';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
-  import GarmentDisplay from './GarmentDisplay.svelte';
+  import BuyerDisplay from './BuyerDisplay.svelte';
   import CardList from './CardList.svelte';
   import { mixResult } from '../data/colors';
 
@@ -203,10 +203,10 @@
         addLog(`${name} skipped workshop`);
         skipWorkshop(gameState);
         break;
-      case 'selectGarment': {
-        const garment = gameState.garmentDisplay.find(g => g.instanceId === choice.garmentInstanceId);
-        addLog(`${name} completed a ${garment?.card.stars ?? '?'}-star garment`);
-        resolveSelectGarment(gameState, choice.garmentInstanceId);
+      case 'selectBuyer': {
+        const buyer = gameState.buyerDisplay.find(g => g.instanceId === choice.buyerInstanceId);
+        addLog(`${name} sold to a ${buyer?.card.stars ?? '?'}-star buyer`);
+        resolveSelectBuyer(gameState, choice.buyerInstanceId);
         break;
       }
     }
@@ -377,7 +377,7 @@
     {#if showSidebar && currentPlayer}
       <aside class="sidebar">
         <div class="sidebar-section">
-          <GarmentDisplay garments={gameState.garmentDisplay} />
+          <BuyerDisplay buyers={gameState.buyerDisplay} />
         </div>
       </aside>
     {/if}

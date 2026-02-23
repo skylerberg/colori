@@ -14,7 +14,7 @@ export function sanitizeGameState(
     draftedCards: [...p.draftedCards],
     colorWheel: { ...p.colorWheel },
     materials: { ...p.materials },
-    completedGarments: [...p.completedGarments],
+    completedBuyers: [...p.completedBuyers],
     ducats: p.ducats,
   }));
 
@@ -53,8 +53,8 @@ export function sanitizeGameState(
     players,
     draftDeckCount: fullState.draftDeck.length,
     destroyedPile: [...fullState.destroyedPile],
-    garmentDeckCount: fullState.garmentDeck.length,
-    garmentDisplay: [...fullState.garmentDisplay],
+    buyerDeckCount: fullState.buyerDeck.length,
+    buyerDisplay: [...fullState.buyerDisplay],
     phase,
     round: fullState.round,
     aiPlayers: [...fullState.aiPlayers],

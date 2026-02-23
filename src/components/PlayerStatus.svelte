@@ -7,8 +7,8 @@
     isAI?: boolean;
   } = $props();
 
-  let score = $derived(player.completedGarments.reduce((sum, g) => sum + g.card.stars, 0));
-  let garmentCount = $derived(player.completedGarments.length);
+  let score = $derived(player.completedBuyers.reduce((sum, g) => sum + g.card.stars, 0));
+  let buyerCount = $derived(player.completedBuyers.length);
   let totalMaterials = $derived(Object.values(player.materials).reduce((sum, n) => sum + n, 0));
   let ducats = $derived(player.ducats);
 </script>
@@ -17,7 +17,7 @@
   <div class="player-name">{player.name}{#if isAI} <span class="ai-badge">AI</span>{/if}</div>
   <div class="stats">
     <span class="stat" title="Score (stars)">{'*'} {score}</span>
-    <span class="stat" title="Completed garments">Garments: {garmentCount}</span>
+    <span class="stat" title="Completed buyers">Buyers: {buyerCount}</span>
     <span class="stat" title="Stored materials">Materials: {totalMaterials}</span>
     {#if ducats > 0}<span class="stat" title="Ducats">Ducats: {ducats}</span>{/if}
     <span class="stat" title="Deck size">Deck: {player.deck.length}</span>

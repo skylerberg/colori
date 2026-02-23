@@ -25,7 +25,7 @@
       case 'drawCards': return `Draw x${a.count}`;
       case 'mixColors': return `Mix x${a.count}`;
       case 'destroyCards': return `Destroy x${a.count}`;
-      case 'makeGarment': return 'Make Garment';
+      case 'sell': return 'Sell';
       case 'gainDucats': return `Gain ${a.count} Ducat(s)`;
       case 'gainSecondary': return 'Any Secondary';
       case 'changeTertiary': return 'Change Tertiary';
@@ -33,7 +33,7 @@
   }
 
   function formatAbility(c: AnyCard): string {
-    if (c.kind === 'garment') return '';
+    if (c.kind === 'buyer') return '';
     return formatSingleAbility(c.ability);
   }
 
@@ -42,7 +42,7 @@
       case 'dye': return 'Dye';
       case 'basicDye': return 'Basic Dye';
       case 'material': return 'Material';
-      case 'garment': return 'Garment';
+      case 'buyer': return 'Buyer';
       case 'action': return 'Reagent';
     }
   }
@@ -55,14 +55,14 @@
   class:dye={card.kind === 'dye'}
   class:basic-dye={card.kind === 'basicDye'}
   class:material={card.kind === 'material'}
-  class:garment={card.kind === 'garment'}
+  class:buyer={card.kind === 'buyer'}
   class:action={card.kind === 'action'}
   onclick={onclick}
   disabled={!onclick}
 >
   <div class="card-header">
     <span class="card-kind">{cardKindLabel(card)}</span>
-    {#if card.kind === 'garment'}
+    {#if card.kind === 'buyer'}
       <span class="stars">{'*'.repeat(card.stars)}</span>
     {/if}
   </div>
@@ -84,8 +84,8 @@
     <div class="material-type">{card.materialType}</div>
   {/if}
 
-  {#if card.kind === 'garment'}
-    <div class="garment-info">
+  {#if card.kind === 'buyer'}
+    <div class="buyer-info">
       <div class="required-material">{card.requiredMaterial}</div>
       <div class="color-cost">
         {#each card.colorCost as color}
@@ -158,7 +158,7 @@
     border-left: 4px solid #2ecc71;
   }
 
-  .card.garment {
+  .card.buyer {
     border-left: 4px solid #9b59b6;
   }
 
@@ -221,7 +221,7 @@
     padding: 2px 0;
   }
 
-  .garment-info {
+  .buyer-info {
     display: flex;
     flex-direction: column;
     gap: 3px;

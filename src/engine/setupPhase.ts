@@ -1,5 +1,5 @@
-import type { GameState, PlayerState, CardInstance, GarmentCard } from '../data/types';
-import { BASIC_DYE_CARDS, MATERIAL_CARDS, DYE_CARDS, ACTION_CARDS, GARMENT_CARDS } from '../data/cards';
+import type { GameState, PlayerState, CardInstance, BuyerCard } from '../data/types';
+import { BASIC_DYE_CARDS, MATERIAL_CARDS, DYE_CARDS, ACTION_CARDS, BUYER_CARDS } from '../data/cards';
 import { createCardInstances, shuffle } from './deckUtils';
 import { createEmptyWheel, createEmptyMaterials } from './colorWheel';
 
@@ -13,8 +13,8 @@ import { createEmptyWheel, createEmptyMaterials } from './colorWheel';
  *   - 4 copies of each of the 15 dye cards (60 total)
  *   - 5 copies of each of the 3 material types (15 total)
  *
- * Garment deck: all 51 garments shuffled into a single deck.
- * Garment display: 6 cards dealt from the garment deck.
+ * Buyer deck: all 51 buyers shuffled into a single deck.
+ * Buyer display: 6 cards dealt from the buyer deck.
  * Game starts at round 1, phase = 'draw'.
  */
 export function createInitialGameState(playerNames: string[], aiPlayers?: boolean[]): GameState {
@@ -51,7 +51,7 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
       draftedCards: [],
       colorWheel,
       materials: createEmptyMaterials(),
-      completedGarments: [],
+      completedBuyers: [],
       ducats: 0,
     };
   });
@@ -82,21 +82,21 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
 
   const draftDeck = shuffle(createCardInstances(draftCards));
 
-  // Build garment deck: all garments shuffled into a single deck
-  const garmentDeck = shuffle(createCardInstances(GARMENT_CARDS));
+  // Build buyer deck: all buyers shuffled into a single deck
+  const buyerDeck = shuffle(createCardInstances(BUYER_CARDS));
 
-  // Deal 6 garments to the display
-  const garmentDisplay: CardInstance<GarmentCard>[] = [];
-  for (let i = 0; i < 6 && garmentDeck.length > 0; i++) {
-    garmentDisplay.push(garmentDeck.pop()!);
+  // Deal 6 buyers to the display
+  const buyerDisplay: CardInstance<BuyerCard>[] = [];
+  for (let i = 0; i < 6 && buyerDeck.length > 0; i++) {
+    buyerDisplay.push(buyerDeck.pop()!);
   }
 
   return {
     players,
     draftDeck,
     destroyedPile: [],
-    garmentDeck,
-    garmentDisplay,
+    buyerDeck,
+    buyerDisplay,
     phase: { type: 'draw' },
     round: 1,
     aiPlayers: aiPlayers ?? playerNames.map(() => false),

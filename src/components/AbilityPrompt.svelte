@@ -1,11 +1,11 @@
 <script lang="ts">
   import type { GameState, Color } from '../data/types';
   import type { ColoriChoice } from '../ai/coloriGame';
-  import { canMakeGarment } from '../engine/actionPhase';
+  import { canSell } from '../engine/actionPhase';
   import { canMix, colorToHex, textColorForBackground } from '../data/colors';
   import { SECONDARIES, TERTIARIES } from '../data/cards';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
-  import GarmentDisplay from './GarmentDisplay.svelte';
+  import BuyerDisplay from './BuyerDisplay.svelte';
 
   let { gameState, onAction }: {
     gameState: GameState;
@@ -23,12 +23,12 @@
   );
 
   let selectedMixColors: Color[] = $state([]);
-  let selectedGarmentId: number | undefined = $state(undefined);
+  let selectedBuyerId: number | undefined = $state(undefined);
 
   $effect(() => {
     const _pc = pendingChoice;
     selectedMixColors = [];
-    selectedGarmentId = undefined;
+    selectedBuyerId = undefined;
   });
 
   function handleMixColorClick(color: Color) {
@@ -51,13 +51,13 @@
     onAction({ type: 'skipMix' });
   }
 
-  function toggleGarmentSelect(garmentInstanceId: number) {
-    selectedGarmentId = selectedGarmentId === garmentInstanceId ? undefined : garmentInstanceId;
+  function toggleBuyerSelect(buyerInstanceId: number) {
+    selectedBuyerId = selectedBuyerId === buyerInstanceId ? undefined : buyerInstanceId;
   }
 
-  function confirmGarment() {
-    if (selectedGarmentId === undefined) return;
-    onAction({ type: 'selectGarment', garmentInstanceId: selectedGarmentId });
+  function confirmBuyer() {
+    if (selectedBuyerId === undefined) return;
+    onAction({ type: 'selectBuyer', buyerInstanceId: selectedBuyerId });
   }
 </script>
 
@@ -76,21 +76,21 @@
         <button class="skip-btn" onclick={handleSkipMix}>Skip Remaining Mixes</button>
       </div>
 
-    {:else if pendingChoice.type === 'chooseGarment'}
+    {:else if pendingChoice.type === 'chooseBuyer'}
       <div class="prompt-section">
-        <h3>Choose a Garment to make</h3>
-        <GarmentDisplay
-          garments={gameState.garmentDisplay.filter(g => canMakeGarment(gameState, g.instanceId))}
+        <h3>Choose a Buyer</h3>
+        <BuyerDisplay
+          buyers={gameState.buyerDisplay.filter(g => canSell(gameState, g.instanceId))}
           selectable={true}
-          selectedId={selectedGarmentId}
-          onSelect={toggleGarmentSelect}
+          selectedId={selectedBuyerId}
+          onSelect={toggleBuyerSelect}
         />
         <button
           class="confirm-btn"
-          disabled={selectedGarmentId === undefined}
-          onclick={confirmGarment}
+          disabled={selectedBuyerId === undefined}
+          onclick={confirmBuyer}
         >
-          Confirm Garment
+          Confirm Buyer
         </button>
       </div>
 

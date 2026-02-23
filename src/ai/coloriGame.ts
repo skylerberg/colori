@@ -1,6 +1,6 @@
 import type { Game, GameStatus } from './ismcts';
 import type {
-  GameState, PlayerState, CardInstance, Color, GarmentCard,
+  GameState, PlayerState, CardInstance, Color, BuyerCard,
   DraftState, ActionState, Ability, PendingChoice, GamePhase,
 } from '../data/types';
 import { getCardPips, SECONDARIES, TERTIARIES } from '../data/cards';
@@ -11,7 +11,7 @@ import { executeDrawPhase } from '../engine/drawPhase';
 import {
   destroyDraftedCard, endPlayerTurn, resolveWorkshopChoice,
   resolveMixColors, skipMix, skipWorkshop, resolveDestroyCards,
-  resolveSelectGarment, resolveGainSecondary, resolveChooseTertiaryToLose,
+  resolveSelectBuyer, resolveGainSecondary, resolveChooseTertiaryToLose,
   resolveChooseTertiaryToGain,
 } from '../engine/actionPhase';
 import { calculateScore } from '../engine/scoring';
@@ -28,7 +28,7 @@ export type ColoriChoice =
   | { type: 'destroyDrawnCards'; cardInstanceIds: number[] }
   | { type: 'mix'; colorA: Color; colorB: Color }
   | { type: 'skipMix' }
-  | { type: 'selectGarment'; garmentInstanceId: number }
+  | { type: 'selectBuyer'; buyerInstanceId: number }
   | { type: 'gainSecondary'; color: Color }
   | { type: 'chooseTertiaryToLose'; color: Color }
   | { type: 'chooseTertiaryToGain'; color: Color };
@@ -45,7 +45,7 @@ function clonePlayerState(p: PlayerState): PlayerState {
     colorWheel: { ...p.colorWheel },
     ducats: p.ducats,
     materials: { ...p.materials },
-    completedGarments: [...p.completedGarments],
+    completedBuyers: [...p.completedBuyers],
   };
 }
 
@@ -87,8 +87,8 @@ export function cloneGameState(state: GameState): GameState {
     players: state.players.map(clonePlayerState),
     draftDeck: [...state.draftDeck],
     destroyedPile: [...state.destroyedPile],
-    garmentDeck: [...state.garmentDeck],
-    garmentDisplay: [...state.garmentDisplay],
+    buyerDeck: [...state.buyerDeck],
+    buyerDisplay: [...state.buyerDisplay],
     phase: clonePhase(state.phase),
     round: state.round,
     aiPlayers: [...state.aiPlayers],
@@ -112,14 +112,14 @@ function getSubsets(items: number[], maxSize: number): number[][] {
   return result;
 }
 
-// ── Garment affordability helpers ──
+// ── Buyer affordability helpers ──
 
-function canAffordGarment(
+function canAffordBuyer(
   player: PlayerState,
-  garment: GarmentCard,
+  buyer: BuyerCard,
 ): boolean {
-  if (player.materials[garment.requiredMaterial] <= 0) return false;
-  return canPayCost(player.colorWheel, garment.colorCost);
+  if (player.materials[buyer.requiredMaterial] <= 0) return false;
+  return canPayCost(player.colorWheel, buyer.colorCost);
 }
 
 // ── Choice enumeration ──
@@ -193,10 +193,10 @@ function enumerateChoices(state: GameState): ColoriChoice[] {
         }
         return choices;
       }
-      case 'chooseGarment': {
-        return state.garmentDisplay
-          .filter(g => canAffordGarment(player, g.card))
-          .map(g => ({ type: 'selectGarment' as const, garmentInstanceId: g.instanceId }));
+      case 'chooseBuyer': {
+        return state.buyerDisplay
+          .filter(g => canAffordBuyer(player, g.card))
+          .map(g => ({ type: 'selectBuyer' as const, buyerInstanceId: g.instanceId }));
       }
       case 'chooseSecondaryColor': {
         return SECONDARIES.map(c => ({ type: 'gainSecondary' as const, color: c }));
@@ -237,8 +237,8 @@ function choiceToKey(choice: ColoriChoice): string {
       return `mix:${choice.colorA}:${choice.colorB}`;
     case 'skipMix':
       return 'skipMix';
-    case 'selectGarment':
-      return `selectGarment:${choice.garmentInstanceId}`;
+    case 'selectBuyer':
+      return `selectBuyer:${choice.buyerInstanceId}`;
     case 'gainSecondary':
       return `gainSecondary:${choice.color}`;
     case 'chooseTertiaryToLose':
@@ -285,8 +285,8 @@ function applyChoiceToState(state: GameState, choice: ColoriChoice): void {
     case 'skipMix':
       skipMix(state);
       break;
-    case 'selectGarment':
-      resolveSelectGarment(state, choice.garmentInstanceId);
+    case 'selectBuyer':
+      resolveSelectBuyer(state, choice.buyerInstanceId);
       break;
     case 'gainSecondary':
       resolveGainSecondary(state, choice.color);
@@ -352,14 +352,14 @@ function checkChoiceAvailable(state: GameState, choice: ColoriChoice): boolean {
       const pending = state.phase.actionState.pendingChoice;
       return !!pending && pending.type === 'chooseMix';
     }
-    case 'selectGarment': {
+    case 'selectBuyer': {
       if (state.phase.type !== 'action') return false;
       const pending = state.phase.actionState.pendingChoice;
-      if (!pending || pending.type !== 'chooseGarment') return false;
+      if (!pending || pending.type !== 'chooseBuyer') return false;
       const player = state.players[state.phase.actionState.currentPlayerIndex];
-      const garmentInst = state.garmentDisplay.find(g => g.instanceId === choice.garmentInstanceId);
-      if (!garmentInst) return false;
-      return canAffordGarment(player, garmentInst.card);
+      const buyerInst = state.buyerDisplay.find(g => g.instanceId === choice.buyerInstanceId);
+      if (!buyerInst) return false;
+      return canAffordBuyer(player, buyerInst.card);
     }
     case 'gainSecondary': {
       if (state.phase.type !== 'action') return false;
@@ -430,7 +430,7 @@ function determinize(
   if (clone.phase.type !== 'draft') {
     // Outside draft: only shuffle hidden decks
     clone.draftDeck = shuffle(clone.draftDeck);
-    clone.garmentDeck = shuffle(clone.garmentDeck);
+    clone.buyerDeck = shuffle(clone.buyerDeck);
     for (const p of clone.players) {
       p.deck = shuffle(p.deck);
     }
@@ -509,7 +509,7 @@ function determinize(
 
   // Shuffle hidden decks
   clone.draftDeck = shuffle(clone.draftDeck);
-  clone.garmentDeck = shuffle(clone.garmentDeck);
+  clone.buyerDeck = shuffle(clone.buyerDeck);
   for (const p of clone.players) {
     p.deck = shuffle(p.deck);
   }
@@ -594,10 +594,10 @@ function getRolloutChoice(state: GameState): ColoriChoice {
         const [colorA, colorB] = pairs[Math.floor(Math.random() * pairs.length)];
         return { type: 'mix', colorA, colorB };
       }
-      case 'chooseGarment': {
-        const affordable = state.garmentDisplay.filter(g => canAffordGarment(player, g.card));
-        if (affordable.length === 0) throw new Error('chooseGarment pending but no affordable garments (should be unreachable)');
-        return { type: 'selectGarment', garmentInstanceId: affordable[Math.floor(Math.random() * affordable.length)].instanceId };
+      case 'chooseBuyer': {
+        const affordable = state.buyerDisplay.filter(g => canAffordBuyer(player, g.card));
+        if (affordable.length === 0) throw new Error('chooseBuyer pending but no affordable buyers (should be unreachable)');
+        return { type: 'selectBuyer', buyerInstanceId: affordable[Math.floor(Math.random() * affordable.length)].instanceId };
       }
       case 'chooseSecondaryColor': {
         return { type: 'gainSecondary', color: SECONDARIES[Math.floor(Math.random() * SECONDARIES.length)] };

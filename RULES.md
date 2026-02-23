@@ -2,7 +2,7 @@
 
 ## Overview
 
-Colori is a deck-building game for 2–5 players about dyeing materials and crafting garments. Players draft dye, material, and action cards, destroy them to store colors on a color wheel, mix colors, and craft garments worth stars. The game lasts up to 10 rounds, or until any player reaches 15 points. The player with the most points (garment stars + ducats) wins.
+Colori is a deck-building game for 2–5 players about dyeing materials and selling to buyers. Players draft dye, material, and action cards, destroy them to store colors on a color wheel, mix colors, and sell to buyers worth stars. The game lasts up to 10 rounds, or until any player reaches 15 points. The player with the most points (buyer stars + ducats) wins.
 
 ## Components
 
@@ -21,30 +21,30 @@ Each player has their own color wheel that tracks how many of each color they ha
 ### Cards
 
 **Basic Dye Cards** (3 types, 1 per player in starting decks only):
-- Basic Red — 1 Red pip | Destroy: Make Garment
-- Basic Yellow — 1 Yellow pip | Destroy: Make Garment
-- Basic Blue — 1 Blue pip | Destroy: Make Garment
+- Basic Red — 1 Red pip | Destroy: Sell
+- Basic Yellow — 1 Yellow pip | Destroy: Sell
+- Basic Blue — 1 Blue pip | Destroy: Sell
 
 **Dye Cards** (15 unique, 4 copies each, 60 total in draft deck):
-- 3 Primary dyes — 3 pips of one primary color | Destroy: Make Garment
+- 3 Primary dyes — 3 pips of one primary color | Destroy: Sell
 - 6 Secondary dyes — 2 pips of two adjacent primary/secondary colors | Destroy: Workshop ×3
 - 6 Tertiary dyes — 1 pip of a tertiary color | Destroy: Mix Colors ×2
 
 **Material Cards** (3 types, 5 copies each, 15 total in draft deck):
 - Ceramics | Destroy: Workshop ×2
-- Paintings | Destroy: Make Garment
+- Paintings | Destroy: Sell
 - Textiles | Destroy: Draw Cards ×2
 
 **Action Cards** (5 unique, 3 copies each, 15 total in draft deck):
 Each action card has Destroy Cards ×1 as its destroy ability, plus workshop abilities that trigger when the card is chosen during Workshop resolution. See the card reference below.
 
-**Garment Cards** (51 total, single deck):
-Each garment requires a specific material type and a set of colors as its cost. All 51 garments are shuffled into a single deck. Each garment is worth 2–4 stars.
+**Buyer Cards** (51 total, single deck):
+Each buyer requires a specific material type and a set of colors as its cost. All 51 buyers are shuffled into a single deck. Each buyer is worth 2–4 stars.
 
 ### Decks
 
 - **Draft Deck**: Contains 60 dye cards + 15 material cards + 15 action cards (90 total). When the draft deck runs out, shuffle all destroyed cards back in.
-- **Garment Deck**: Contains all garment cards. 6 garments are displayed face-up at all times.
+- **Buyer Deck**: Contains all buyer cards. 6 buyers are displayed face-up at all times.
 - **Personal Deck**: Each player has their own deck that they draw from and build over the course of the game.
 
 ## Setup
@@ -52,7 +52,7 @@ Each garment requires a specific material type and a set of colors as its cost. 
 1. Each player receives a starting personal deck of 6 cards: 1 Basic Red, 1 Basic Yellow, 1 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles. Shuffle it.
 2. Each player starts with 1 Red, 1 Yellow, and 1 Blue already stored on their color wheel.
 3. Place all dye cards (4 copies each), material cards (5 copies each), and action cards (3 copies each) into the draft deck. Shuffle it.
-4. Shuffle the garment deck and reveal 6 garments face-up in the garment display.
+4. Shuffle the buyer deck and reveal 6 buyers face-up in the buyer display.
 
 ## Player Area
 
@@ -64,7 +64,7 @@ Each player has:
 - **Color Wheel** (tracks stored colors)
 - **Stored Materials** (tracks Textiles, Ceramics, and Paintings counts)
 - **Ducats** (count toward final score)
-- **Completed Garments** (scored garments, kept in a separate area)
+- **Completed Buyers** (scored buyers, kept in a separate area)
 
 ## Round Structure
 
@@ -138,16 +138,16 @@ Complete mixing pairs (two inputs → one output):
 
 Choose N cards from your **drawn cards** area and destroy them. Each destroyed card's ability triggers and is pushed onto the ability stack (chain reactions are possible).
 
-### Make Garment
+### Sell
 
-You **must** make a garment if you are able to. If you cannot afford any garment in the display, the ability fizzles (nothing happens).
+You **must** sell to a buyer if you are able to. If you cannot afford any buyer in the display, the ability fizzles (nothing happens).
 
-To make a garment:
-1. Choose a garment from the 6 face-up garments in the display.
+To sell to a buyer:
+1. Choose a buyer from the 6 face-up buyers in the display.
 2. Spend 1 stored material of the required type.
 3. Pay the color cost by removing the required colors from your color wheel.
-4. The garment goes to your **completed garments** area.
-5. Immediately refill the garment display from the garment deck.
+4. The buyer goes to your **completed buyers** area.
+5. Immediately refill the buyer display from the buyer deck.
 
 ### Gain Ducats ×N
 
@@ -167,7 +167,7 @@ The game ends when either:
 - Any player reaches **15 or more points** after a complete round, OR
 - **Round 10** is completed.
 
-Each player's score = garment stars + ducats. The player with the highest score wins.
+Each player's score = buyer stars + ducats. The player with the highest score wins.
 
 ---
 
@@ -177,9 +177,9 @@ Each player's score = garment stars + ducats. The player with the highest score 
 
 | Name | Color | Destroy Ability |
 |------|-------|-----------------|
-| Basic Red | 1 Red | Make Garment |
-| Basic Yellow | 1 Yellow | Make Garment |
-| Basic Blue | 1 Blue | Make Garment |
+| Basic Red | 1 Red | Sell |
+| Basic Yellow | 1 Yellow | Sell |
+| Basic Blue | 1 Blue | Sell |
 
 ### Dye Cards (15 unique, 4 copies each in draft deck)
 
@@ -187,9 +187,9 @@ Each player's score = garment stars + ducats. The player with the highest score 
 
 | Name | Colors | Destroy Ability |
 |------|--------|-----------------|
-| Kermes | 3 Red | Make Garment |
-| Weld | 3 Yellow | Make Garment |
-| Woad | 3 Blue | Make Garment |
+| Kermes | 3 Red | Sell |
+| Weld | 3 Yellow | Sell |
+| Woad | 3 Blue | Sell |
 
 **Secondary Dyes** (2 pips of adjacent colors):
 
@@ -218,7 +218,7 @@ Each player's score = garment stars + ducats. The player with the highest score 
 | Name | Destroy Ability |
 |------|-----------------|
 | Ceramics | Workshop ×2 |
-| Paintings | Make Garment |
+| Paintings | Sell |
 | Textiles | Draw Cards ×2 |
 
 ### Action Cards (5 unique, 3 copies each in draft deck)
@@ -233,9 +233,9 @@ All action cards have **Destroy Cards ×1** as their destroy ability. Their work
 | Potash | Workshop ×3 |
 | Vinegar | Change Tertiary |
 
-### Garment Cards (51 total, single deck)
+### Buyer Cards (51 total, single deck)
 
-Garments do not have names. Each garment requires a specific material type and a set of colors as its cost.
+Buyers do not have names. Each buyer requires a specific material type and a set of colors as its cost.
 
 | Material | Stars | Requirement | Count |
 |----------|-------|-------------|-------|
@@ -243,4 +243,4 @@ Garments do not have names. Each garment requires a specific material type and a
 | Ceramics | 3 | One tertiary + one primary | 18 |
 | Paintings | 4 | One tertiary + one secondary | 18 |
 
-All 51 garments are shuffled into a single deck. 6 garments are displayed face-up at all times.
+All 51 buyers are shuffled into a single deck. 6 buyers are displayed face-up at all times.

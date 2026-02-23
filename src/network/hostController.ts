@@ -8,7 +8,7 @@ import { playerPick, confirmPass, simultaneousPick, advanceDraft } from '../engi
 import {
   destroyDraftedCard, endPlayerTurn, resolveWorkshopChoice,
   resolveMixColors, skipMix, skipWorkshop, resolveDestroyCards,
-  resolveSelectGarment,
+  resolveSelectBuyer,
 } from '../engine/actionPhase';
 import { mixResult } from '../data/colors';
 import { sanitizeGameState } from './sanitize';
@@ -344,10 +344,10 @@ export class HostController {
         newLogEntries.push(`${name} skipped remaining mixes`);
         skipMix(this.gameState);
         break;
-      case 'selectGarment': {
-        const garment = this.gameState.garmentDisplay.find(g => g.instanceId === choice.garmentInstanceId);
-        newLogEntries.push(`${name} completed a ${garment?.card.stars ?? '?'}-star garment`);
-        resolveSelectGarment(this.gameState, choice.garmentInstanceId);
+      case 'selectBuyer': {
+        const buyer = this.gameState.buyerDisplay.find(g => g.instanceId === choice.buyerInstanceId);
+        newLogEntries.push(`${name} sold to a ${buyer?.card.stars ?? '?'}-star buyer`);
+        resolveSelectBuyer(this.gameState, choice.buyerInstanceId);
         break;
       }
     }

@@ -13,7 +13,7 @@
   import ActionPhaseView from './ActionPhaseView.svelte';
   import GameLog from './GameLog.svelte';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
-  import GarmentDisplay from './GarmentDisplay.svelte';
+  import BuyerDisplay from './BuyerDisplay.svelte';
   import CardList from './CardList.svelte';
   import OpponentBoardPanel from './OpponentBoardPanel.svelte';
 
@@ -357,7 +357,7 @@
       {#if showSidebar && myPlayer}
         <aside class="sidebar">
           <div class="sidebar-section">
-            <GarmentDisplay garments={gameState.garmentDisplay} />
+            <BuyerDisplay buyers={gameState.buyerDisplay} />
           </div>
         </aside>
       {/if}

@@ -1,7 +1,7 @@
 import type { PlayerState } from '../data/types';
 
 export function calculateScore(player: PlayerState): number {
-  return player.completedGarments.reduce((sum, g) => sum + g.card.stars, 0) + player.ducats;
+  return player.completedBuyers.reduce((sum, g) => sum + g.card.stars, 0) + player.ducats;
 }
 
 export function calculateScores(players: PlayerState[]): { name: string; score: number }[] {

@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import type { PlayerState, GarmentCard, CardInstance } from '../data/types';
+import type { PlayerState, BuyerCard, CardInstance } from '../data/types';
 import { createEmptyWheel } from './colorWheel';
 import { calculateScore, calculateScores, determineWinner } from './scoring';
 
-function makePlayerWithGarments(name: string, stars: number[]): PlayerState {
-  const completedGarments: CardInstance<GarmentCard>[] = stars.map((s, i) => ({
+function makePlayerWithBuyers(name: string, stars: number[]): PlayerState {
+  const completedBuyers: CardInstance<BuyerCard>[] = stars.map((s, i) => ({
     instanceId: i + 1,
     card: {
-      kind: 'garment' as const,
-      name: `Garment ${i}`,
+      kind: 'buyer' as const,
+      name: `Buyer ${i}`,
       stars: s,
       requiredMaterial: 'Ceramics' as const,
       colorCost: [],
@@ -23,24 +23,24 @@ function makePlayerWithGarments(name: string, stars: number[]): PlayerState {
     draftedCards: [],
     colorWheel: createEmptyWheel(),
     materials: { Textiles: 0, Ceramics: 0, Paintings: 0 },
-    completedGarments,
+    completedBuyers,
     ducats: 0,
   };
 }
 
 describe('calculateScore', () => {
-  it('sums the stars of completed garments', () => {
-    const player = makePlayerWithGarments('Alice', [1, 2, 3]);
+  it('sums the stars of completed buyers', () => {
+    const player = makePlayerWithBuyers('Alice', [1, 2, 3]);
     expect(calculateScore(player)).toBe(6);
   });
 
-  it('returns 0 when no garments are completed', () => {
-    const player = makePlayerWithGarments('Alice', []);
+  it('returns 0 when no buyers are completed', () => {
+    const player = makePlayerWithBuyers('Alice', []);
     expect(calculateScore(player)).toBe(0);
   });
 
-  it('handles single garment', () => {
-    const player = makePlayerWithGarments('Alice', [5]);
+  it('handles single buyer', () => {
+    const player = makePlayerWithBuyers('Alice', [5]);
     expect(calculateScore(player)).toBe(5);
   });
 });
@@ -48,8 +48,8 @@ describe('calculateScore', () => {
 describe('calculateScores', () => {
   it('returns name and score for each player', () => {
     const players = [
-      makePlayerWithGarments('Alice', [1, 2]),
-      makePlayerWithGarments('Bob', [3, 4]),
+      makePlayerWithBuyers('Alice', [1, 2]),
+      makePlayerWithBuyers('Bob', [3, 4]),
     ];
 
     const scores = calculateScores(players);
@@ -63,9 +63,9 @@ describe('calculateScores', () => {
 describe('determineWinner', () => {
   it('returns the player with the highest score', () => {
     const players = [
-      makePlayerWithGarments('Alice', [1, 2]),
-      makePlayerWithGarments('Bob', [3, 4, 5]),
-      makePlayerWithGarments('Charlie', [2]),
+      makePlayerWithBuyers('Alice', [1, 2]),
+      makePlayerWithBuyers('Bob', [3, 4, 5]),
+      makePlayerWithBuyers('Charlie', [2]),
     ];
 
     expect(determineWinner(players)).toBe('Bob');
@@ -73,8 +73,8 @@ describe('determineWinner', () => {
 
   it('returns first player when tied at highest score', () => {
     const players = [
-      makePlayerWithGarments('Alice', [3, 2]),
-      makePlayerWithGarments('Bob', [5]),
+      makePlayerWithBuyers('Alice', [3, 2]),
+      makePlayerWithBuyers('Bob', [5]),
     ];
 
     // Both have score 5, sort is stable so Alice comes first after sort

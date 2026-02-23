@@ -1,4 +1,4 @@
-import type { CardInstance, GarmentCard, Color, MaterialType, PendingChoice, Ability } from '../data/types';
+import type { CardInstance, BuyerCard, Color, MaterialType, PendingChoice, Ability } from '../data/types';
 import type { ColoriChoice } from '../ai/coloriGame';
 
 export interface SanitizedPlayerState {
@@ -9,7 +9,7 @@ export interface SanitizedPlayerState {
   draftedCards: CardInstance[];
   colorWheel: Record<Color, number>;
   materials: Record<MaterialType, number>;
-  completedGarments: CardInstance<GarmentCard>[];
+  completedBuyers: CardInstance<BuyerCard>[];
   ducats: number;
 }
 
@@ -37,8 +37,8 @@ export interface SanitizedGameState {
   players: SanitizedPlayerState[];
   draftDeckCount: number;
   destroyedPile: CardInstance[];
-  garmentDeckCount: number;
-  garmentDisplay: CardInstance<GarmentCard>[];
+  buyerDeckCount: number;
+  buyerDisplay: CardInstance<BuyerCard>[];
   phase: SanitizedGamePhase;
   round: number;
   aiPlayers: boolean[];

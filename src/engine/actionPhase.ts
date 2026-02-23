@@ -12,11 +12,11 @@ function getActionState(state: GameState): ActionState {
   return (state.phase as { type: 'action'; actionState: ActionState }).actionState;
 }
 
-/** Helper to extract ability from a non-garment card. */
+/** Helper to extract ability from a non-buyer card. */
 function getCardAbility(card: CardInstance): Ability {
   const c = card.card;
-  if (c.kind === 'garment') {
-    throw new Error('Garment cards do not have abilities');
+  if (c.kind === 'buyer') {
+    throw new Error('Buyer cards do not have abilities');
   }
   return c.ability;
 }
@@ -101,10 +101,10 @@ export function processQueue(state: GameState): void {
       actionState.pendingChoice = { type: 'chooseCardsToDestroy', count: ability.count };
       break;
     }
-    case 'makeGarment': {
-      // Check if any garment can be made
-      if (canMakeAnyGarment(state)) {
-        actionState.pendingChoice = { type: 'chooseGarment' };
+    case 'sell': {
+      // Check if any sale can be made
+      if (canSellToAnyBuyer(state)) {
+        actionState.pendingChoice = { type: 'chooseBuyer' };
       } else {
         // Fizzle: continue processing queue
         processQueue(state);
@@ -129,26 +129,26 @@ export function processQueue(state: GameState): void {
 }
 
 /**
- * Check if the current player can afford a specific garment from the display.
+ * Check if the current player can afford a specific buyer from the display.
  * Player needs stored material of the required type and can pay the color cost
  * from the color wheel.
  */
-export function canMakeGarment(state: GameState, garmentInstanceId: number): boolean {
+export function canSell(state: GameState, buyerInstanceId: number): boolean {
   const actionState = getActionState(state);
   const player = state.players[actionState.currentPlayerIndex];
-  const garmentInstance = state.garmentDisplay.find(g => g.instanceId === garmentInstanceId);
-  if (!garmentInstance) return false;
-  const garment = garmentInstance.card;
-  if (player.materials[garment.requiredMaterial] <= 0) return false;
-  return canPayCost(player.colorWheel, garment.colorCost);
+  const buyerInstance = state.buyerDisplay.find(g => g.instanceId === buyerInstanceId);
+  if (!buyerInstance) return false;
+  const buyer = buyerInstance.card;
+  if (player.materials[buyer.requiredMaterial] <= 0) return false;
+  return canPayCost(player.colorWheel, buyer.colorCost);
 }
 
 /**
- * Check if the current player can make any garment from the display.
+ * Check if the current player can sell to any buyer from the display.
  */
-function canMakeAnyGarment(state: GameState): boolean {
-  for (const garmentInstance of state.garmentDisplay) {
-    if (canMakeGarment(state, garmentInstance.instanceId)) return true;
+function canSellToAnyBuyer(state: GameState): boolean {
+  for (const buyerInstance of state.buyerDisplay) {
+    if (canSell(state, buyerInstance.instanceId)) return true;
   }
   return false;
 }
@@ -291,44 +291,44 @@ export function resolveDestroyCards(state: GameState, selectedCardIds: number[])
 }
 
 /**
- * Select and pay for a garment in one step.
- * - Validates the player can afford the garment.
+ * Select and pay for a buyer in one step.
+ * - Validates the player can afford the buyer.
  * - Decrements the required material from player's stored materials.
- * - Pays the garment's colorCost from the wheel.
- * - Moves garment from garmentDisplay to player's completedGarments.
- * - Refills garment display from garment deck (if available).
+ * - Pays the buyer's colorCost from the wheel.
+ * - Moves buyer from buyerDisplay to player's completedBuyers.
+ * - Refills buyer display from buyer deck (if available).
  * - Clears pendingChoice. Process queue.
  */
-export function resolveSelectGarment(state: GameState, garmentInstanceId: number): void {
+export function resolveSelectBuyer(state: GameState, buyerInstanceId: number): void {
   const actionState = getActionState(state);
   const player = state.players[actionState.currentPlayerIndex];
 
-  // Find the garment in the display
-  const garmentIndex = state.garmentDisplay.findIndex(c => c.instanceId === garmentInstanceId);
-  if (garmentIndex === -1) {
-    throw new Error(`Garment ${garmentInstanceId} not found in garment display`);
+  // Find the buyer in the display
+  const buyerIndex = state.buyerDisplay.findIndex(c => c.instanceId === buyerInstanceId);
+  if (buyerIndex === -1) {
+    throw new Error(`Buyer ${buyerInstanceId} not found in buyer display`);
   }
-  const garment = state.garmentDisplay[garmentIndex];
+  const buyer = state.buyerDisplay[buyerIndex];
 
   // Decrement stored material
-  if (player.materials[garment.card.requiredMaterial] <= 0) {
-    throw new Error(`No stored ${garment.card.requiredMaterial} material`);
+  if (player.materials[buyer.card.requiredMaterial] <= 0) {
+    throw new Error(`No stored ${buyer.card.requiredMaterial} material`);
   }
-  player.materials[garment.card.requiredMaterial]--;
+  player.materials[buyer.card.requiredMaterial]--;
 
   // Pay the color cost from the wheel
-  const success = payCost(player.colorWheel, garment.card.colorCost);
+  const success = payCost(player.colorWheel, buyer.card.colorCost);
   if (!success) {
-    throw new Error('Cannot pay garment color cost from color wheel');
+    throw new Error('Cannot pay buyer color cost from color wheel');
   }
 
-  // Move garment from display to completed garments
-  state.garmentDisplay.splice(garmentIndex, 1);
-  player.completedGarments.push(garment);
+  // Move buyer from display to completed buyers
+  state.buyerDisplay.splice(buyerIndex, 1);
+  player.completedBuyers.push(buyer);
 
-  // Refill garment display
-  if (state.garmentDeck.length > 0) {
-    state.garmentDisplay.push(state.garmentDeck.pop()!);
+  // Refill buyer display
+  if (state.buyerDeck.length > 0) {
+    state.buyerDisplay.push(state.buyerDeck.pop()!);
   }
 
   actionState.pendingChoice = null;

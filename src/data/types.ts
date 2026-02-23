@@ -10,7 +10,7 @@ export type Ability =
   | { type: 'drawCards'; count: number }
   | { type: 'mixColors'; count: number }
   | { type: 'destroyCards'; count: number }
-  | { type: 'makeGarment' }
+  | { type: 'sell' }
   | { type: 'gainDucats'; count: number }
   | { type: 'gainSecondary' }
   | { type: 'changeTertiary' };
@@ -26,7 +26,7 @@ export interface BasicDyeCard {
   kind: 'basicDye';
   name: string;
   color: Color;
-  ability: Ability;  // always { type: 'makeGarment' }
+  ability: Ability;  // always { type: 'sell' }
 }
 
 export interface MaterialCard {
@@ -43,14 +43,14 @@ export interface ActionCard {
   workshopAbilities: Ability[];
 }
 
-export interface GarmentCard {
-  kind: 'garment';
+export interface BuyerCard {
+  kind: 'buyer';
   stars: number;
   requiredMaterial: MaterialType;
   colorCost: Color[];
 }
 
-export type AnyCard = DyeCard | BasicDyeCard | MaterialCard | ActionCard | GarmentCard;
+export type AnyCard = DyeCard | BasicDyeCard | MaterialCard | ActionCard | BuyerCard;
 
 export interface CardInstance<T extends AnyCard = AnyCard> {
   instanceId: number;
@@ -65,7 +65,7 @@ export interface PlayerState {
   draftedCards: CardInstance[];
   colorWheel: Record<Color, number>;
   materials: Record<MaterialType, number>;
-  completedGarments: CardInstance<GarmentCard>[];
+  completedBuyers: CardInstance<BuyerCard>[];
   ducats: number;
 }
 
@@ -81,7 +81,7 @@ export type PendingChoice =
   | { type: 'chooseCardsForWorkshop'; count: number }
   | { type: 'chooseCardsToDestroy'; count: number }
   | { type: 'chooseMix'; remaining: number }
-  | { type: 'chooseGarment' }
+  | { type: 'chooseBuyer' }
   | { type: 'chooseSecondaryColor' }
   | { type: 'chooseTertiaryToLose' }
   | { type: 'chooseTertiaryToGain'; lostColor: Color };
@@ -102,8 +102,8 @@ export interface GameState {
   players: PlayerState[];
   draftDeck: CardInstance[];
   destroyedPile: CardInstance[];
-  garmentDeck: CardInstance<GarmentCard>[];
-  garmentDisplay: CardInstance<GarmentCard>[];
+  buyerDeck: CardInstance<BuyerCard>[];
+  buyerDisplay: CardInstance<BuyerCard>[];
   phase: GamePhase;
   round: number;
   aiPlayers: boolean[];

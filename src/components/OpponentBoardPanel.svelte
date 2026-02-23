@@ -9,8 +9,8 @@
 
   let expanded = $state(false);
 
-  let score = $derived(player.completedGarments.reduce((sum, g) => sum + g.card.stars, 0));
-  let garmentCount = $derived(player.completedGarments.length);
+  let score = $derived(player.completedBuyers.reduce((sum, g) => sum + g.card.stars, 0));
+  let buyerCount = $derived(player.completedBuyers.length);
   let totalMaterials = $derived(Object.values(player.materials).reduce((sum, n) => sum + n, 0));
 
   function toggle() {
@@ -23,7 +23,7 @@
     <span class="player-name">{player.name}</span>
     <span class="header-stats">
       <span>* {score}</span>
-      <span>Garments: {garmentCount}</span>
+      <span>Buyers: {buyerCount}</span>
       <span>Materials: {totalMaterials}</span>
       {#if player.ducats > 0}<span>Ducats: {player.ducats}</span>{/if}
     </span>
@@ -61,10 +61,10 @@
         <CardList cards={player.draftedCards} />
       </div>
 
-      {#if player.completedGarments.length > 0}
+      {#if player.completedBuyers.length > 0}
         <div class="card-section">
-          <h4>Completed Garments</h4>
-          <CardList cards={player.completedGarments} />
+          <h4>Completed Buyers</h4>
+          <CardList cards={player.completedBuyers} />
         </div>
       {/if}
     </div>

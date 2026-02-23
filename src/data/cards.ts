@@ -1,4 +1,4 @@
-import type { AnyCard, Color, DyeCard, BasicDyeCard, MaterialCard, ActionCard, GarmentCard } from './types';
+import type { AnyCard, Color, DyeCard, BasicDyeCard, MaterialCard, ActionCard, BuyerCard } from './types';
 
 export function getCardPips(card: AnyCard): Color[] {
   switch (card.kind) {
@@ -6,29 +6,29 @@ export function getCardPips(card: AnyCard): Color[] {
     case 'basicDye': return [card.color];
     case 'material': return [];
     case 'action': return [];
-    case 'garment': return [];
+    case 'buyer': return [];
   }
 }
 
 export const DYE_CARDS: DyeCard[] = [
-  // Primary (3) — makeGarment
+  // Primary (3) — sell
   {
     kind: 'dye',
     name: 'Kermes',
     colors: ['Red', 'Red', 'Red'],
-    ability: { type: 'makeGarment' },
+    ability: { type: 'sell' },
   },
   {
     kind: 'dye',
     name: 'Weld',
     colors: ['Yellow', 'Yellow', 'Yellow'],
-    ability: { type: 'makeGarment' },
+    ability: { type: 'sell' },
   },
   {
     kind: 'dye',
     name: 'Woad',
     colors: ['Blue', 'Blue', 'Blue'],
-    ability: { type: 'makeGarment' },
+    ability: { type: 'sell' },
   },
   // Secondary (6) — workshop x3
   {
@@ -117,7 +117,7 @@ export const MATERIAL_CARDS: MaterialCard[] = [
     kind: 'material',
     name: 'Paintings',
     materialType: 'Paintings',
-    ability: { type: 'makeGarment' },
+    ability: { type: 'sell' },
   },
   {
     kind: 'material',
@@ -132,19 +132,19 @@ export const BASIC_DYE_CARDS: BasicDyeCard[] = [
     kind: 'basicDye',
     name: 'Basic Red',
     color: 'Red',
-    ability: { type: 'makeGarment' },
+    ability: { type: 'sell' },
   },
   {
     kind: 'basicDye',
     name: 'Basic Yellow',
     color: 'Yellow',
-    ability: { type: 'makeGarment' },
+    ability: { type: 'sell' },
   },
   {
     kind: 'basicDye',
     name: 'Basic Blue',
     color: 'Blue',
-    ability: { type: 'makeGarment' },
+    ability: { type: 'sell' },
   },
 ];
 
@@ -185,24 +185,24 @@ const PRIMARIES: Color[] = ['Red', 'Yellow', 'Blue'];
 export const SECONDARIES: Color[] = ['Orange', 'Green', 'Purple'];
 export const TERTIARIES: Color[] = ['Vermilion', 'Amber', 'Chartreuse', 'Teal', 'Indigo', 'Magenta'];
 
-function generateAllGarments(): GarmentCard[] {
-  const garments: GarmentCard[] = [];
+function generateAllBuyers(): BuyerCard[] {
+  const buyers: BuyerCard[] = [];
   // Textiles (2pt): one tertiary
   for (const t of TERTIARIES)
-    garments.push({ kind: 'garment', stars: 2, requiredMaterial: 'Textiles', colorCost: [t] });
+    buyers.push({ kind: 'buyer', stars: 2, requiredMaterial: 'Textiles', colorCost: [t] });
   // Textiles (2pt): one secondary + one primary
   for (const s of SECONDARIES)
     for (const p of PRIMARIES)
-      garments.push({ kind: 'garment', stars: 2, requiredMaterial: 'Textiles', colorCost: [s, p] });
+      buyers.push({ kind: 'buyer', stars: 2, requiredMaterial: 'Textiles', colorCost: [s, p] });
   // Ceramics (3pt): one tertiary + one primary
   for (const t of TERTIARIES)
     for (const p of PRIMARIES)
-      garments.push({ kind: 'garment', stars: 3, requiredMaterial: 'Ceramics', colorCost: [t, p] });
+      buyers.push({ kind: 'buyer', stars: 3, requiredMaterial: 'Ceramics', colorCost: [t, p] });
   // Paintings (4pt): one tertiary + one secondary
   for (const t of TERTIARIES)
     for (const s of SECONDARIES)
-      garments.push({ kind: 'garment', stars: 4, requiredMaterial: 'Paintings', colorCost: [t, s] });
-  return garments;
+      buyers.push({ kind: 'buyer', stars: 4, requiredMaterial: 'Paintings', colorCost: [t, s] });
+  return buyers;
 }
 
-export const GARMENT_CARDS: GarmentCard[] = generateAllGarments();
+export const BUYER_CARDS: BuyerCard[] = generateAllBuyers();

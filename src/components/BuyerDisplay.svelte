@@ -1,33 +1,33 @@
 <script lang="ts">
-  import type { CardInstance, GarmentCard } from '../data/types';
+  import type { CardInstance, BuyerCard } from '../data/types';
   import CardDisplay from './CardDisplay.svelte';
 
-  let { garments, selectable = false, selectedId, onSelect }: {
-    garments: CardInstance<GarmentCard>[];
+  let { buyers, selectable = false, selectedId, onSelect }: {
+    buyers: CardInstance<BuyerCard>[];
     selectable?: boolean;
     selectedId?: number;
     onSelect?: (instanceId: number) => void;
   } = $props();
 </script>
 
-<div class="garment-display">
-  <h3 class="section-title">Garment Display</h3>
-  <div class="garment-grid">
-    {#each garments as gi (gi.instanceId)}
+<div class="buyer-display">
+  <h3 class="section-title">Buyer Display</h3>
+  <div class="buyer-grid">
+    {#each buyers as gi (gi.instanceId)}
       <CardDisplay
         card={gi.card}
         selected={selectedId === gi.instanceId}
         onclick={selectable && onSelect ? () => onSelect!(gi.instanceId) : undefined}
       />
     {/each}
-    {#if garments.length === 0}
-      <div class="empty">No garments available</div>
+    {#if buyers.length === 0}
+      <div class="empty">No buyers available</div>
     {/if}
   </div>
 </div>
 
 <style>
-  .garment-display {
+  .buyer-display {
     padding: 8px 0;
   }
 
@@ -38,14 +38,14 @@
     text-align: left;
   }
 
-  .garment-grid {
+  .buyer-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
     padding: 4px;
   }
 
-  .garment-grid :global(.card) {
+  .buyer-grid :global(.card) {
     width: auto;
   }
 

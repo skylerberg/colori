@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import type { GameState, ActionState, PlayerState, CardInstance, AnyCard, GarmentCard } from '../data/types';
-import { BASIC_DYE_CARDS, MATERIAL_CARDS, DYE_CARDS, ACTION_CARDS, GARMENT_CARDS } from '../data/cards';
+import type { GameState, ActionState, PlayerState, CardInstance, AnyCard, BuyerCard } from '../data/types';
+import { BASIC_DYE_CARDS, MATERIAL_CARDS, DYE_CARDS, ACTION_CARDS, BUYER_CARDS } from '../data/cards';
 import { resetInstanceIdCounter, createCardInstances } from './deckUtils';
 import { createEmptyWheel, storeColor } from './colorWheel';
 import {
@@ -10,11 +10,11 @@ import {
   resolveWorkshopChoice,
   skipWorkshop,
   resolveDestroyCards,
-  resolveSelectGarment,
+  resolveSelectBuyer,
   resolveGainSecondary,
   resolveChooseTertiaryToLose,
   resolveChooseTertiaryToGain,
-  canMakeGarment,
+  canSell,
   endPlayerTurn,
   endRound,
 } from './actionPhase';
@@ -32,7 +32,7 @@ function makeTestPlayer(name: string): PlayerState {
     draftedCards: [],
     colorWheel: createEmptyWheel(),
     materials: { Textiles: 0, Ceramics: 0, Paintings: 0 },
-    completedGarments: [],
+    completedBuyers: [],
     ducats: 0,
   };
 }
@@ -45,8 +45,8 @@ function makeTestGameState(numPlayers: number = 2): GameState {
     players,
     draftDeck: [],
     destroyedPile: [],
-    garmentDeck: [],
-    garmentDisplay: [],
+    buyerDeck: [],
+    buyerDisplay: [],
     phase: { type: 'draw' },
     round: 1,
     aiPlayers: Array.from({ length: numPlayers }, () => false),
@@ -304,9 +304,9 @@ describe('endRound', () => {
     state.round = 3;
     initializeActionPhase(state);
 
-    // Give player 0 enough completed garments to reach 16 points (4 x 4-star)
-    const garment4star = GARMENT_CARDS.find(c => c.stars === 4)!;
-    state.players[0].completedGarments = createCardInstances([garment4star, garment4star, garment4star, garment4star]) as CardInstance<GarmentCard>[];
+    // Give player 0 enough completed buyers to reach 16 points (4 x 4-star)
+    const buyer4star = BUYER_CARDS.find(c => c.stars === 4)!;
+    state.players[0].completedBuyers = createCardInstances([buyer4star, buyer4star, buyer4star, buyer4star]) as CardInstance<BuyerCard>[];
 
     endRound(state);
 
@@ -337,101 +337,101 @@ describe('endRound', () => {
   });
 });
 
-describe('resolveSelectGarment', () => {
+describe('resolveSelectBuyer', () => {
   beforeEach(() => {
     resetInstanceIdCounter();
   });
 
-  it('pays cost, moves garment to completed, and refills display', () => {
+  it('pays cost, moves buyer to completed, and refills display', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
 
-    // Find a Textiles garment (stars: 2) with a known colorCost
-    const garment = GARMENT_CARDS.find(c => c.requiredMaterial === 'Textiles' && c.stars === 2)!;
-    const garmentInstances = createCardInstances([garment]) as CardInstance<GarmentCard>[];
-    state.garmentDisplay = garmentInstances;
+    // Find a Textiles buyer (stars: 2) with a known colorCost
+    const buyer = BUYER_CARDS.find(c => c.requiredMaterial === 'Textiles' && c.stars === 2)!;
+    const buyerInstances = createCardInstances([buyer]) as CardInstance<BuyerCard>[];
+    state.buyerDisplay = buyerInstances;
 
-    // Put a spare garment in the deck for refill
-    const spareGarment = GARMENT_CARDS.find(c => c !== garment)!;
-    state.garmentDeck = createCardInstances([spareGarment]) as CardInstance<GarmentCard>[];
+    // Put a spare buyer in the deck for refill
+    const spareBuyer = BUYER_CARDS.find(c => c !== buyer)!;
+    state.buyerDeck = createCardInstances([spareBuyer]) as CardInstance<BuyerCard>[];
 
     // Give player the required resources
     const player = state.players[0];
     player.materials.Textiles = 1;
-    for (const color of garment.colorCost) {
+    for (const color of buyer.colorCost) {
       storeColor(player.colorWheel, color);
     }
 
     const actionState = getActionState(state);
-    actionState.pendingChoice = { type: 'chooseGarment' };
+    actionState.pendingChoice = { type: 'chooseBuyer' };
 
-    resolveSelectGarment(state, garmentInstances[0].instanceId);
+    resolveSelectBuyer(state, buyerInstances[0].instanceId);
 
     expect(player.materials.Textiles).toBe(0);
-    for (const color of garment.colorCost) {
+    for (const color of buyer.colorCost) {
       expect(player.colorWheel[color]).toBe(0);
     }
-    expect(player.completedGarments).toHaveLength(1);
-    expect(player.completedGarments[0].card.stars).toBe(2);
-    expect(state.garmentDisplay).toHaveLength(1);
-    expect(state.garmentDisplay[0].card).toBe(spareGarment);
-    expect(state.garmentDeck).toHaveLength(0);
+    expect(player.completedBuyers).toHaveLength(1);
+    expect(player.completedBuyers[0].card.stars).toBe(2);
+    expect(state.buyerDisplay).toHaveLength(1);
+    expect(state.buyerDisplay[0].card).toBe(spareBuyer);
+    expect(state.buyerDeck).toHaveLength(0);
     expect(actionState.pendingChoice).toBeNull();
   });
 });
 
-describe('canMakeGarment', () => {
+describe('canSell', () => {
   beforeEach(() => {
     resetInstanceIdCounter();
   });
 
-  it('returns true when player can afford the garment', () => {
+  it('returns true when player can afford the buyer', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
 
-    const garment = GARMENT_CARDS.find(c => c.requiredMaterial === 'Textiles' && c.stars === 2)!;
-    const garmentInstances = createCardInstances([garment]) as CardInstance<GarmentCard>[];
-    state.garmentDisplay = garmentInstances;
+    const buyer = BUYER_CARDS.find(c => c.requiredMaterial === 'Textiles' && c.stars === 2)!;
+    const buyerInstances = createCardInstances([buyer]) as CardInstance<BuyerCard>[];
+    state.buyerDisplay = buyerInstances;
 
     const player = state.players[0];
     player.materials.Textiles = 1;
-    for (const color of garment.colorCost) {
+    for (const color of buyer.colorCost) {
       storeColor(player.colorWheel, color);
     }
 
-    expect(canMakeGarment(state, garmentInstances[0].instanceId)).toBe(true);
+    expect(canSell(state, buyerInstances[0].instanceId)).toBe(true);
   });
 
   it('returns false when player lacks material', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
 
-    const garment = GARMENT_CARDS.find(c => c.requiredMaterial === 'Textiles' && c.stars === 2)!;
-    const garmentInstances = createCardInstances([garment]) as CardInstance<GarmentCard>[];
-    state.garmentDisplay = garmentInstances;
+    const buyer = BUYER_CARDS.find(c => c.requiredMaterial === 'Textiles' && c.stars === 2)!;
+    const buyerInstances = createCardInstances([buyer]) as CardInstance<BuyerCard>[];
+    state.buyerDisplay = buyerInstances;
 
     // Has colors but no Textiles material
     const player = state.players[0];
-    for (const color of garment.colorCost) {
+    for (const color of buyer.colorCost) {
       storeColor(player.colorWheel, color);
     }
 
-    expect(canMakeGarment(state, garmentInstances[0].instanceId)).toBe(false);
+    expect(canSell(state, buyerInstances[0].instanceId)).toBe(false);
   });
 
   it('returns false when player lacks colors', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
 
-    const garment = GARMENT_CARDS.find(c => c.requiredMaterial === 'Textiles' && c.stars === 2)!;
-    const garmentInstances = createCardInstances([garment]) as CardInstance<GarmentCard>[];
-    state.garmentDisplay = garmentInstances;
+    const buyer = BUYER_CARDS.find(c => c.requiredMaterial === 'Textiles' && c.stars === 2)!;
+    const buyerInstances = createCardInstances([buyer]) as CardInstance<BuyerCard>[];
+    state.buyerDisplay = buyerInstances;
 
     // Has material but not enough colors
     const player = state.players[0];
     player.materials.Textiles = 1;
 
-    expect(canMakeGarment(state, garmentInstances[0].instanceId)).toBe(false);
+    expect(canSell(state, buyerInstances[0].instanceId)).toBe(false);
   });
 });
 
