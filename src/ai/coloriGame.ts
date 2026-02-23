@@ -279,32 +279,51 @@ function checkChoiceAvailable(state: GameState, choice: ColoriChoice): boolean {
     }
     case 'destroyDraftedCard': {
       if (state.phase.type !== 'action') return false;
+      if (state.phase.actionState.pendingChoice !== null) return false;
       const player = state.players[state.phase.actionState.currentPlayerIndex];
       return player.draftedCards.some(c => c.instanceId === choice.cardInstanceId);
     }
-    case 'endTurn':
-    case 'skipMix':
-    case 'skipWorkshop':
-      return true;
+    case 'endTurn': {
+      if (state.phase.type !== 'action') return false;
+      return state.phase.actionState.pendingChoice === null;
+    }
     case 'workshop': {
       if (state.phase.type !== 'action') return false;
+      const pending = state.phase.actionState.pendingChoice;
+      if (!pending || pending.type !== 'chooseCardsForWorkshop') return false;
       const player = state.players[state.phase.actionState.currentPlayerIndex];
       return choice.cardInstanceIds.every(id => player.drawnCards.some(c => c.instanceId === id));
     }
+    case 'skipWorkshop': {
+      if (state.phase.type !== 'action') return false;
+      const pending = state.phase.actionState.pendingChoice;
+      return !!pending && pending.type === 'chooseCardsForWorkshop';
+    }
     case 'destroyDrawnCards': {
       if (state.phase.type !== 'action') return false;
+      const pending = state.phase.actionState.pendingChoice;
+      if (!pending || pending.type !== 'chooseCardsToDestroy') return false;
       const player = state.players[state.phase.actionState.currentPlayerIndex];
       return choice.cardInstanceIds.every(id => player.drawnCards.some(c => c.instanceId === id));
     }
     case 'mix': {
       if (state.phase.type !== 'action') return false;
+      const pending = state.phase.actionState.pendingChoice;
+      if (!pending || pending.type !== 'chooseMix') return false;
       const player = state.players[state.phase.actionState.currentPlayerIndex];
       return player.colorWheel[choice.colorA] > 0 &&
              player.colorWheel[choice.colorB] > 0 &&
              canMix(choice.colorA, choice.colorB);
     }
+    case 'skipMix': {
+      if (state.phase.type !== 'action') return false;
+      const pending = state.phase.actionState.pendingChoice;
+      return !!pending && pending.type === 'chooseMix';
+    }
     case 'selectGarment': {
       if (state.phase.type !== 'action') return false;
+      const pending = state.phase.actionState.pendingChoice;
+      if (!pending || pending.type !== 'chooseGarment') return false;
       const player = state.players[state.phase.actionState.currentPlayerIndex];
       const garmentInst = state.garmentDisplay.find(g => g.instanceId === choice.garmentInstanceId);
       if (!garmentInst) return false;
