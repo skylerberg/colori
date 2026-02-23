@@ -315,8 +315,17 @@ function checkChoiceAvailable(state: GameState, choice: ColoriChoice): boolean {
 
 // ── Status ──
 
-function getGameStatus(state: GameState): GameStatus {
+function getGameStatus(state: GameState, maxRound?: number): GameStatus {
   const phase = state.phase;
+
+  if (maxRound !== undefined && state.round > maxRound) {
+    const scores = state.players.map(p => calculateScore(p));
+    const total = scores.reduce((a, b) => a + b, 0);
+    return {
+      type: 'terminated',
+      scores: scores.map(s => s / Math.max(1, total)),
+    };
+  }
 
   if (phase.type === 'draft' && !phase.draftState.waitingForPass) {
     return { type: 'awaitingAction', playerId: phase.draftState.currentPlayerIndex };
@@ -532,9 +541,12 @@ export class ColoriGame implements Game<ColoriChoice> {
   state: GameState;
   seenHands?: SeenHands;
 
-  constructor(state: GameState, seenHands?: SeenHands) {
+  maxRound?: number;
+
+  constructor(state: GameState, seenHands?: SeenHands, maxRound?: number) {
     this.state = state;
     this.seenHands = seenHands;
+    this.maxRound = maxRound;
   }
 
   getAllChoices(): ColoriChoice[] {
@@ -546,12 +558,12 @@ export class ColoriGame implements Game<ColoriChoice> {
   }
 
   status(): GameStatus {
-    return getGameStatus(this.state);
+    return getGameStatus(this.state, this.maxRound);
   }
 
   getDeterminization(perspectivePlayer: number): Game<ColoriChoice> {
     const detState = determinize(this.state, perspectivePlayer, this.seenHands);
-    return new ColoriGame(detState, this.seenHands);
+    return new ColoriGame(detState, this.seenHands, this.maxRound);
   }
 
   choiceIsAvailable(choice: ColoriChoice): boolean {

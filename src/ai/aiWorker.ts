@@ -12,7 +12,8 @@ export interface AIWorkerRequest {
 
 self.onmessage = (event: MessageEvent<AIWorkerRequest>) => {
   const { gameState, playerIndex, iterations, seenHands } = event.data;
-  const game = new ColoriGame(gameState, seenHands);
+  const maxRound = Math.max(8, gameState.round + 2);
+  const game = new ColoriGame(gameState, seenHands, maxRound);
   const choice = ismcts(game, iterations);
   self.postMessage(choice);
 };
