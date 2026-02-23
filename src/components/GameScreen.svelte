@@ -307,7 +307,7 @@
 <div class="game-screen">
   <div class="top-bar">
     <div class="top-bar-row">
-      <div class="round-indicator">Round {gameState.round} of 8 &mdash; {formatTime(elapsedSeconds)}</div>
+      <div class="round-indicator">Round {gameState.round} &mdash; {formatTime(elapsedSeconds)}</div>
       <button class="leave-btn" onclick={handleLeaveGame}>Leave Game</button>
     </div>
     <div class="player-bar">

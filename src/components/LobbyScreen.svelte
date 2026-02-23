@@ -48,6 +48,7 @@
           <button
             class="count-btn"
             class:active={playerCount === count}
+            disabled={count < lobbyPlayers.length}
             onclick={() => onSetPlayerCount?.(count)}
           >
             {count}

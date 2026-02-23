@@ -5,6 +5,8 @@ import type { ColoriChoice } from '../ai/coloriGame';
 export class GuestController {
   private network: NetworkManager;
   private gameLog: string[] = [];
+  private pendingJoinName: string | null = null;
+  private pendingRejoinName: string | null = null;
 
   onLobbyUpdated: ((players: LobbyPlayer[], playerCount: number) => void) | null = null;
   onGameStarted: ((state: SanitizedGameState) => void) | null = null;
@@ -19,6 +21,16 @@ export class GuestController {
     this.network = network;
 
     this.network.onHostMessage = (msg) => this.handleHostMessage(msg);
+    this.network.onPeerJoin = () => {
+      if (this.pendingJoinName) {
+        this.network.sendToHost({ type: 'joinRequest', name: this.pendingJoinName });
+        this.pendingJoinName = null;
+      }
+      if (this.pendingRejoinName) {
+        this.network.sendToHost({ type: 'rejoinRequest', name: this.pendingRejoinName });
+        this.pendingRejoinName = null;
+      }
+    };
     this.network.onPeerLeave = () => {
       if (this.network.peers.size === 0) {
         this.onHostDisconnected?.();
@@ -27,11 +39,19 @@ export class GuestController {
   }
 
   join(name: string) {
-    this.network.sendToHost({ type: 'joinRequest', name });
+    if (this.network.peers.size > 0) {
+      this.network.sendToHost({ type: 'joinRequest', name });
+    } else {
+      this.pendingJoinName = name;
+    }
   }
 
   rejoin(name: string) {
-    this.network.sendToHost({ type: 'rejoinRequest', name });
+    if (this.network.peers.size > 0) {
+      this.network.sendToHost({ type: 'rejoinRequest', name });
+    } else {
+      this.pendingRejoinName = name;
+    }
   }
 
   sendAction(choice: ColoriChoice) {

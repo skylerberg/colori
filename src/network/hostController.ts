@@ -44,6 +44,8 @@ export class HostController {
   }
 
   setPlayerCount(count: number) {
+    const connectedHumans = this.lobbyPlayers.filter(p => p.connected).length;
+    if (count < connectedHumans) return;
     this.playerCount = count;
     this.broadcastLobbyUpdate();
   }
@@ -80,6 +82,11 @@ export class HostController {
 
   private handleJoinRequest(peerId: string, name: string) {
     if (this.gameState) {
+      const disconnectedPlayer = this.lobbyPlayers.find(p => !p.connected && p.name === name);
+      if (disconnectedPlayer) {
+        this.handleRejoinRequest(peerId, name);
+        return;
+      }
       this.network.sendToGuest({ type: 'error', message: 'Game already in progress' }, peerId);
       return;
     }

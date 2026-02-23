@@ -160,6 +160,7 @@
   }
 
   function handleOnlineGameOver(finalState: GameState) {
+    cleanupNetwork();
     gameState = finalState;
     screen = { type: 'score' };
   }
