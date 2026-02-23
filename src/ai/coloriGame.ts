@@ -545,7 +545,7 @@ function getRolloutChoice(state: GameState): ColoriChoice {
       }
       case 'chooseGarment': {
         const affordable = state.garmentDisplay.filter(g => canAffordGarment(player, g.card));
-        if (affordable.length === 0) return { type: 'selectGarment', garmentInstanceId: state.garmentDisplay[0]?.instanceId ?? 0 };
+        if (affordable.length === 0) throw new Error('chooseGarment pending but no affordable garments (should be unreachable)');
         return { type: 'selectGarment', garmentInstanceId: affordable[Math.floor(Math.random() * affordable.length)].instanceId };
       }
     }
