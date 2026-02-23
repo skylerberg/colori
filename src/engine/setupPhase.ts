@@ -6,14 +6,14 @@ import { createEmptyWheel, createEmptyMaterials } from './colorWheel';
 /**
  * Create the initial game state for a new game.
  *
- * Each player starts with a personal deck of 10 cards:
- *   2 Basic Red, 2 Basic Yellow, 2 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles, 1 Glass.
+ * Each player starts with a personal deck of 6 cards:
+ *   1 Basic Red, 1 Basic Yellow, 1 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles.
  *
  * Draft deck contains:
  *   - 4 copies of each of the 15 dye cards (60 total)
- *   - 4 copies of each of the 4 material types (16 total)
+ *   - 5 copies of each of the 3 material types (15 total)
  *
- * Garment deck: all 60 garments shuffled into a single deck.
+ * Garment deck: all 51 garments shuffled into a single deck.
  * Garment display: 6 cards dealt from the garment deck.
  * Game starts at round 1, phase = 'draw'.
  */
@@ -27,18 +27,16 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
   const ceramicsCard = MATERIAL_CARDS.find(c => c.materialType === 'Ceramics')!;
   const paintingsCard = MATERIAL_CARDS.find(c => c.materialType === 'Paintings')!;
   const textilesCard = MATERIAL_CARDS.find(c => c.materialType === 'Textiles')!;
-  const glassCard = MATERIAL_CARDS.find(c => c.materialType === 'Glass')!;
 
   // Create players
   const players: PlayerState[] = playerNames.map(name => {
     const personalCards = [
-      basicRed, basicRed,
-      basicYellow, basicYellow,
-      basicBlue, basicBlue,
+      basicRed,
+      basicYellow,
+      basicBlue,
       ceramicsCard,
       paintingsCard,
       textilesCard,
-      glassCard,
     ];
     const deck = shuffle(createCardInstances(personalCards));
     const colorWheel = createEmptyWheel();
@@ -67,9 +65,9 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
     }
   }
 
-  // 4 copies of each of 4 material types
+  // 5 copies of each of 3 material types
   for (const material of MATERIAL_CARDS) {
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
       draftCards.push(material);
     }
   }

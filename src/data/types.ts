@@ -1,9 +1,9 @@
 export type Color = 'Red' | 'Vermilion' | 'Orange' | 'Amber' | 'Yellow' |
   'Chartreuse' | 'Green' | 'Teal' | 'Blue' | 'Indigo' | 'Purple' | 'Magenta';
 
-export type MaterialType = 'Glass' | 'Textiles' | 'Ceramics' | 'Paintings';
+export type MaterialType = 'Textiles' | 'Ceramics' | 'Paintings';
 
-export const ALL_MATERIAL_TYPES: MaterialType[] = ['Glass', 'Textiles', 'Ceramics', 'Paintings'];
+export const ALL_MATERIAL_TYPES: MaterialType[] = ['Textiles', 'Ceramics', 'Paintings'];
 
 export type Ability =
   | { type: 'makeMaterials'; count: number }

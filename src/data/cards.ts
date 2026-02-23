@@ -110,25 +110,19 @@ export const MATERIAL_CARDS: MaterialCard[] = [
     kind: 'material',
     name: 'Ceramics',
     materialType: 'Ceramics',
-    ability: { type: 'destroyCards', count: 1 },
+    ability: { type: 'makeMaterials', count: 2 },
   },
   {
     kind: 'material',
     name: 'Paintings',
     materialType: 'Paintings',
-    ability: { type: 'destroyCards', count: 1 },
+    ability: { type: 'makeGarment' },
   },
   {
     kind: 'material',
     name: 'Textiles',
     materialType: 'Textiles',
-    ability: { type: 'destroyCards', count: 1 },
-  },
-  {
-    kind: 'material',
-    name: 'Glass',
-    materialType: 'Glass',
-    ability: { type: 'destroyCards', count: 1 },
+    ability: { type: 'drawCards', count: 2 },
   },
 ];
 
@@ -159,13 +153,6 @@ const TERTIARIES: Color[] = ['Vermilion', 'Amber', 'Chartreuse', 'Teal', 'Indigo
 
 function generateAllGarments(): GarmentCard[] {
   const garments: GarmentCard[] = [];
-  // Glass (1pt): two primaries with repeats
-  for (let i = 0; i < PRIMARIES.length; i++)
-    for (let j = i; j < PRIMARIES.length; j++)
-      garments.push({ kind: 'garment', stars: 1, requiredMaterial: 'Glass', colorCost: [PRIMARIES[i], PRIMARIES[j]] });
-  // Glass (1pt): one secondary
-  for (const s of SECONDARIES)
-    garments.push({ kind: 'garment', stars: 1, requiredMaterial: 'Glass', colorCost: [s] });
   // Textiles (2pt): one tertiary
   for (const t of TERTIARIES)
     garments.push({ kind: 'garment', stars: 2, requiredMaterial: 'Textiles', colorCost: [t] });
