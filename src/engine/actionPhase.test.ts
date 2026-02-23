@@ -299,15 +299,26 @@ describe('endRound', () => {
     expect(state.phase.type).toBe('gameOver');
   });
 
-  it('does not end game when no player has 15+ points even at high round numbers', () => {
+  it('does not end game when no player has 15+ points and round is under 10', () => {
     const state = makeTestGameState();
-    state.round = 20;
+    state.round = 5;
     initializeActionPhase(state);
 
     endRound(state);
 
-    expect(state.round).toBe(21);
+    expect(state.round).toBe(6);
     expect(state.phase.type).toBe('draw');
+  });
+
+  it('transitions to gameOver after round 10 even without 15 points', () => {
+    const state = makeTestGameState();
+    state.round = 10;
+    initializeActionPhase(state);
+
+    endRound(state);
+
+    expect(state.round).toBe(11);
+    expect(state.phase.type).toBe('gameOver');
   });
 });
 

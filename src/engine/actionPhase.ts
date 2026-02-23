@@ -293,13 +293,13 @@ export function endPlayerTurn(state: GameState): void {
 }
 
 /**
- * End the current round. Increment round. If any player has 15+ points,
- * set phase to 'gameOver'. Otherwise, set phase to 'draw'.
+ * End the current round. Increment round. If any player has 15+ points
+ * or round exceeds 10, set phase to 'gameOver'. Otherwise, set phase to 'draw'.
  */
 export function endRound(state: GameState): void {
   state.round++;
   const anyPlayerReached15 = state.players.some(p => calculateScore(p) >= 15);
-  if (anyPlayerReached15) {
+  if (anyPlayerReached15 || state.round > 10) {
     state.phase = { type: 'gameOver' };
   } else {
     state.phase = { type: 'draw' };
