@@ -2,7 +2,7 @@
 
 ## Overview
 
-Colori is a deck-building game for 2–5 players about dyeing materials and crafting garments. Over 8 rounds, players draft dye and material cards, destroy them to store colors on a color wheel, mix colors, and craft garments worth stars. The player with the most stars at the end wins.
+Colori is a deck-building game for 2–5 players about dyeing materials and crafting garments. Players draft dye, material, and action cards, destroy them to store colors on a color wheel, mix colors, and craft garments worth stars. The game lasts up to 10 rounds, or until any player reaches 15 points. The player with the most points (garment stars + ducats) wins.
 
 ## Components
 
@@ -12,8 +12,6 @@ The color wheel has 12 colors arranged in a circle:
 
 **Red** → Vermilion → **Orange** → Amber → **Yellow** → Chartreuse → **Green** → Teal → **Blue** → Indigo → **Purple** → Magenta → (back to Red)
 
-Bold colors are **primary** (Red, Orange is secondary... actually the primaries are Red, Yellow, Blue). The pattern is:
-
 - **Primary colors**: Red, Yellow, Blue
 - **Secondary colors**: Orange (between Red and Yellow), Green (between Yellow and Blue), Purple (between Blue and Red)
 - **Tertiary colors**: Vermilion (between Red and Orange), Amber (between Orange and Yellow), Chartreuse (between Yellow and Green), Teal (between Green and Blue), Indigo (between Blue and Purple), Magenta (between Purple and Red)
@@ -22,32 +20,39 @@ Each player has their own color wheel that tracks how many of each color they ha
 
 ### Cards
 
-**Basic Dye Cards** (20 of each color, 60 total):
-- Basic Red — 1 Red pip | Destroy: Store Colors ×1
-- Basic Yellow — 1 Yellow pip | Destroy: Store Colors ×1
-- Basic Blue — 1 Blue pip | Destroy: Store Colors ×1
+**Basic Dye Cards** (3 types, 1 per player in starting decks only):
+- Basic Red — 1 Red pip | Destroy: Make Garment
+- Basic Yellow — 1 Yellow pip | Destroy: Make Garment
+- Basic Blue — 1 Blue pip | Destroy: Make Garment
 
-**Dye Cards** (2 copies of each, 78 total): 39 unique dyes, each with color pips and a destroy ability. See the card reference below.
+**Dye Cards** (15 unique, 4 copies each, 60 total in draft deck):
+- 3 Primary dyes — 3 pips of one primary color | Destroy: Make Garment
+- 6 Secondary dyes — 2 pips of two adjacent primary/secondary colors | Destroy: Workshop ×3
+- 6 Tertiary dyes — 1 pip of a tertiary color | Destroy: Mix Colors ×2
 
-**Material Cards** (6 copies of each, 24 total):
-- Ceramics | Destroy: Draw Cards ×1
-- Paintings | Destroy: Draw Cards ×2
-- Textiles | Destroy: Store Colors ×1
-- Glass | Destroy: Mix Colors ×1
+**Material Cards** (3 types, 5 copies each, 15 total in draft deck):
+- Ceramics | Destroy: Workshop ×2
+- Paintings | Destroy: Make Garment
+- Textiles | Destroy: Draw Cards ×2
 
-**Garment Cards** (60 total, single deck): Each garment requires a specific material type and a set of colors as its cost. All 60 garments are shuffled into a single deck. Each garment is worth 1–4 stars.
+**Action Cards** (5 unique, 3 copies each, 15 total in draft deck):
+Each action card has Destroy Cards ×1 as its destroy ability, plus workshop abilities that trigger when the card is chosen during Workshop resolution. See the card reference below.
+
+**Garment Cards** (51 total, single deck):
+Each garment requires a specific material type and a set of colors as its cost. All 51 garments are shuffled into a single deck. Each garment is worth 2–4 stars.
 
 ### Decks
 
-- **Draft Deck**: Contains all dye cards, material cards, and basic dyes not in players' starting decks. When the draft deck runs out, shuffle all destroyed cards back in.
+- **Draft Deck**: Contains 60 dye cards + 15 material cards + 15 action cards (90 total). When the draft deck runs out, shuffle all destroyed cards back in.
 - **Garment Deck**: Contains all garment cards. 6 garments are displayed face-up at all times.
 - **Personal Deck**: Each player has their own deck that they draw from and build over the course of the game.
 
 ## Setup
 
-1. Each player receives a starting personal deck of 8 cards: 2 Basic Red, 2 Basic Yellow, 2 Basic Blue, 1 Ceramics, 1 Paintings. Shuffle it.
-2. Place remaining basic dyes, all dye cards, and all material cards into the draft deck. Shuffle it.
-3. Shuffle the garment deck and reveal 6 garments face-up in the garment display.
+1. Each player receives a starting personal deck of 6 cards: 1 Basic Red, 1 Basic Yellow, 1 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles. Shuffle it.
+2. Each player starts with 1 Red, 1 Yellow, and 1 Blue already stored on their color wheel.
+3. Place all dye cards (4 copies each), material cards (5 copies each), and action cards (3 copies each) into the draft deck. Shuffle it.
+4. Shuffle the garment deck and reveal 6 garments face-up in the garment display.
 
 ## Player Area
 
@@ -57,11 +62,13 @@ Each player has:
 - **Drawn Cards** (face up, visible to all players)
 - **Drafted Cards** (face up after drafting)
 - **Color Wheel** (tracks stored colors)
-- **Completed Garments** (scored garments)
+- **Stored Materials** (tracks Textiles, Ceramics, and Paintings counts)
+- **Ducats** (count toward final score)
+- **Completed Garments** (scored garments, kept in a separate area)
 
 ## Round Structure
 
-The game is played over **8 rounds**. Each round has three phases:
+The game is played over up to **10 rounds**. Each round has three phases. The starting player rotates each round: player `(round - 1) % numPlayers` goes first.
 
 ### 1. Draw Phase
 
@@ -74,30 +81,34 @@ Drawn cards are face-up and visible to all players.
 1. Deal 5 cards from the draft deck to each player as a draft hand (these are private — other players cannot see them).
 2. Each player simultaneously picks 1 card from their hand and places it face-down.
 3. Players pass their remaining cards to the next player. The direction alternates each round (left on odd rounds, right on even rounds).
-4. Repeat steps 2–3 until all 5 cards have been picked.
-5. All drafted cards are placed face-up in each player's drafted cards area.
+4. Repeat steps 2–3 until 4 cards have been picked.
+5. The 5th remaining card in each hand is destroyed (no ability triggers).
+6. All drafted cards are placed face-up in each player's drafted cards area.
 
 **Local multiplayer note**: Since all players share one device, a "Pass device to [player name]" screen is shown between picks to keep draft hands private.
 
 ### 3. Action Phase
 
-Each player takes one turn, in player order. On your turn, you may destroy any number of your **drafted** cards, one at a time. Each destroyed card triggers its destroy ability (see Abilities below). You must fully resolve each ability before destroying another card. When you are done destroying cards (or choose to stop), your turn ends.
+Each player takes one turn, starting with the starting player for the round. On your turn, you may destroy any number of your **drafted** cards, one at a time. Each destroyed card triggers its destroy ability (see Abilities below). You must fully resolve each ability before destroying another card. When you are done destroying cards (or choose to stop), your turn ends.
 
 At the end of each player's turn:
 - Any un-destroyed drafted cards go to the player's discard pile.
 - Any remaining drawn cards go to the player's discard pile.
 
-All player information (drawn cards, drafted cards, color wheel) is public during the action phase.
+All player information (drawn cards, drafted cards, color wheel, stored materials, ducats) is public during the action phase.
 
 ## Abilities
 
-When a card is destroyed, its destroy ability triggers. Abilities are resolved using a queue — if an ability triggers further abilities, they are added to the back of the queue and resolved in order.
+When a card is destroyed, its destroy ability triggers. Abilities are resolved using a **stack (LIFO)** — if an ability triggers further abilities, they are pushed onto the stack and the most recently pushed ability resolves next.
 
-### Store Colors ×N
+### Workshop ×N
 
-Choose N cards from your **drawn cards** area. For each chosen card, store ALL of its color pips on your color wheel. The chosen cards are discarded.
+Choose up to N cards from your **drawn cards** area. You may skip Workshop entirely (choosing 0 cards).
 
-The destroyed card's own pips are **not** stored — only the chosen drawn cards' pips are stored.
+For each chosen card:
+- **Material card**: Store 1 material of that type in your stored materials. The card is discarded.
+- **Dye or basic dye card**: Store ALL of its color pips on your color wheel. The card is discarded.
+- **Action card**: Consumes 1 pick. The action card's workshop abilities are pushed onto the ability stack, and any remaining Workshop picks carry over (pushed below the workshop abilities on the stack). The card is discarded.
 
 ### Draw Cards ×N
 
@@ -105,22 +116,10 @@ Draw N cards from your personal deck into your drawn cards area. If your deck ru
 
 ### Mix Colors ×N
 
-Perform N mix operations on your color wheel. For each mix:
-1. Choose two colors on your wheel that are exactly **2 positions apart** (e.g., Red and Orange, Yellow and Green, Blue and Purple).
+Perform up to N mix operations on your color wheel. You may stop early. For each mix:
+1. Choose two colors on your wheel that are exactly **2 positions apart** (e.g., Red and Orange, Yellow and Green).
 2. Remove one of each from your wheel.
 3. Add one of the color **between** them to your wheel.
-
-**Mixing examples**:
-- Red + Yellow → Orange
-- Red + Orange → Vermilion
-- Yellow + Orange → Amber
-- Yellow + Green → Chartreuse
-- Yellow + Blue → Green
-- Blue + Green → Teal
-- Blue + Purple → Indigo
-- Red + Blue → Purple
-- Red + Purple → Magenta (wrapping around the wheel)
-- Purple + Magenta → Red... no: Magenta is between Purple and Red, so Purple + Red → Magenta
 
 Complete mixing pairs (two inputs → one output):
 | Input 1 | Input 2 | Output |
@@ -137,7 +136,7 @@ Complete mixing pairs (two inputs → one output):
 
 ### Destroy Cards ×N
 
-Choose N cards from your **drawn cards** area and destroy them. Each destroyed card's ability triggers and is added to the ability queue (chain reactions are possible).
+Choose N cards from your **drawn cards** area and destroy them. Each destroyed card's ability triggers and is pushed onto the ability stack (chain reactions are possible).
 
 ### Make Garment
 
@@ -145,89 +144,95 @@ You **must** make a garment if you are able to. If you cannot afford any garment
 
 To make a garment:
 1. Choose a garment from the 6 face-up garments in the display.
-2. Discard a material card of the required type from your **drawn cards**.
+2. Spend 1 stored material of the required type.
 3. Pay the color cost by removing the required colors from your color wheel.
-4. The garment goes into your **discard pile** (it will cycle through your deck but has no useful effect — it clogs your deck).
+4. The garment goes to your **completed garments** area.
 5. Immediately refill the garment display from the garment deck.
+
+### Gain Ducats ×N
+
+Gain N ducats. Ducats count toward your final score.
 
 ## End of Game
 
-After 8 rounds, the game ends. Each player totals the stars on all garments they have completed. The player with the most stars wins.
+The game ends when either:
+- Any player reaches **15 or more points** after a complete round, OR
+- **Round 10** is completed.
+
+Each player's score = garment stars + ducats. The player with the highest score wins.
 
 ---
 
 ## Card Reference
 
-### Dye Cards (39 unique, 2 copies each)
-
-| # | Name | Colors | Destroy Ability |
-|---|------|--------|-----------------|
-| 1 | Kermes | 3 Red | Make Garment |
-| 2 | Cochineal | 2 Red, 1 Magenta | Draw Cards ×2 |
-| 3 | Madder | 2 Red, 1 Vermilion | Store Colors ×2 |
-| 4 | Brazilwood | 2 Red | Draw Cards ×1 |
-| 5 | Lac | 2 Red, 1 Magenta | Mix Colors ×1 |
-| 6 | Safflower | 1 Red, 1 Magenta | Draw Cards ×1 |
-| 7 | Alkanet | 1 Red, 1 Purple | Mix Colors ×1 |
-| 8 | Dragon's Blood | 2 Red, 1 Vermilion | Destroy Cards ×1 |
-| 9 | Venetian Red Earth | 1 Red, 1 Vermilion, 1 Amber | Store Colors ×1 |
-| 10 | Vermilion (Mineral) | 1 Red, 2 Vermilion | Destroy Cards ×2 |
-| 11 | Woad | 2 Blue | Store Colors ×2 |
-| 12 | Indigo | 2 Blue, 1 Indigo | Make Garment |
-| 13 | Smalt | 2 Blue, 1 Indigo | Destroy Cards ×1 |
-| 14 | Azurite | 2 Blue, 1 Teal | Store Colors ×1 |
-| 15 | Logwood | 1 Blue, 1 Indigo, 1 Purple | Mix Colors ×2 |
-| 16 | Weld | 3 Yellow | Make Garment |
-| 17 | Saffron | 2 Yellow, 1 Amber | Draw Cards ×3 |
-| 18 | Turmeric | 1 Yellow, 1 Amber, 1 Orange | Mix Colors ×1 |
-| 19 | Dyer's Broom | 2 Yellow | Draw Cards ×1 |
-| 20 | Spanish Broom | 2 Yellow | Store Colors ×1 |
-| 21 | Old Fustic | 2 Yellow, 1 Amber | Store Colors ×2 |
-| 22 | Venetian Sumac | 1 Yellow, 1 Amber, 1 Orange | Mix Colors ×1 |
-| 23 | Persian Berries | 1 Yellow, 1 Chartreuse | Draw Cards ×1 |
-| 24 | Tyrian Purple | 2 Purple, 1 Magenta | Make Garment |
-| 25 | Orchil | 1 Purple, 1 Magenta, 1 Red | Mix Colors ×2 |
-| 26 | Turnsole | 2 Purple | Store Colors ×1 |
-| 27 | Elderberry | 1 Purple, 1 Indigo | Draw Cards ×2 |
-| 28 | Verdigris | 2 Green, 1 Teal | Destroy Cards ×1 |
-| 29 | Lincoln Green | 1 Green, 1 Teal, 1 Blue | Mix Colors ×3 |
-| 30 | Saxon Green | 2 Green, 1 Chartreuse | Store Colors ×3 |
-| 31 | Gall Nuts | 1 Yellow, 1 Amber | Destroy Cards ×1 |
-| 32 | Walnut Hulls | 1 Vermilion, 1 Amber, 1 Orange | Draw Cards ×1 |
-| 33 | Oak Bark | 1 Yellow, 1 Amber | Store Colors ×1 |
-| 34 | Cutch | 1 Red, 1 Amber, 1 Orange | Mix Colors ×1 |
-| 35 | Chestnut | 1 Amber, 1 Orange | Draw Cards ×1 |
-| 36 | Alder Bark | 1 Red, 1 Amber | Store Colors ×1 |
-| 37 | Iron Black | 1 Blue, 1 Purple, 1 Indigo | Destroy Cards ×2 |
-| 38 | Annatto | 1 Orange, 1 Amber, 1 Yellow | Mix Colors ×1 |
-| 39 | Henna | 1 Orange, 1 Vermilion | Store Colors ×1 |
-
-### Material Cards (4 types, 6 copies each)
-
-| Name | Destroy Ability |
-|------|-----------------|
-| Ceramics | Draw Cards ×1 |
-| Paintings | Draw Cards ×2 |
-| Textiles | Store Colors ×1 |
-| Glass | Mix Colors ×1 |
-
-### Basic Dye Cards (3 types, 20 copies each)
+### Basic Dye Cards (3 types, 1 per player in starting decks)
 
 | Name | Color | Destroy Ability |
 |------|-------|-----------------|
-| Basic Red | 1 Red | Store Colors ×1 |
-| Basic Yellow | 1 Yellow | Store Colors ×1 |
-| Basic Blue | 1 Blue | Store Colors ×1 |
+| Basic Red | 1 Red | Make Garment |
+| Basic Yellow | 1 Yellow | Make Garment |
+| Basic Blue | 1 Blue | Make Garment |
 
-### Garment Cards (60 total, single deck)
+### Dye Cards (15 unique, 4 copies each in draft deck)
+
+**Primary Dyes** (3 pips of one color):
+
+| Name | Colors | Destroy Ability |
+|------|--------|-----------------|
+| Kermes | 3 Red | Make Garment |
+| Weld | 3 Yellow | Make Garment |
+| Woad | 3 Blue | Make Garment |
+
+**Secondary Dyes** (2 pips of adjacent colors):
+
+| Name | Colors | Destroy Ability |
+|------|--------|-----------------|
+| Madder | 1 Orange, 1 Red | Workshop ×3 |
+| Turmeric | 1 Orange, 1 Yellow | Workshop ×3 |
+| Dyer's Greenweed | 1 Green, 1 Yellow | Workshop ×3 |
+| Verdigris | 1 Green, 1 Blue | Workshop ×3 |
+| Orchil | 1 Purple, 1 Red | Workshop ×3 |
+| Logwood | 1 Purple, 1 Blue | Workshop ×3 |
+
+**Tertiary Dyes** (1 pip of a tertiary color):
+
+| Name | Colors | Destroy Ability |
+|------|--------|-----------------|
+| Vermilion | 1 Vermilion | Mix Colors ×2 |
+| Saffron | 1 Amber | Mix Colors ×2 |
+| Persian Berries | 1 Chartreuse | Mix Colors ×2 |
+| Azurite | 1 Teal | Mix Colors ×2 |
+| Indigo | 1 Indigo | Mix Colors ×2 |
+| Cochineal | 1 Magenta | Mix Colors ×2 |
+
+### Material Cards (3 types, 5 copies each in draft deck)
+
+| Name | Destroy Ability |
+|------|-----------------|
+| Ceramics | Workshop ×2 |
+| Paintings | Make Garment |
+| Textiles | Draw Cards ×2 |
+
+### Action Cards (5 unique, 3 copies each in draft deck)
+
+All action cards have **Destroy Cards ×1** as their destroy ability. Their workshop abilities (triggered when chosen during Workshop resolution) are:
+
+| Name | Workshop Abilities |
+|------|-------------------|
+| Alum | Gain Ducats ×1 |
+| Lye | Destroy Cards ×1 |
+| Gum Arabic | Make Garment |
+| Ox Gall | Draw Cards ×2, then Workshop ×1 |
+| Cream of Tartar | Mix Colors ×2 |
+
+### Garment Cards (51 total, single deck)
 
 Garments do not have names. Each garment requires a specific material type and a set of colors as its cost.
 
 | Material | Stars | Requirement | Count |
 |----------|-------|-------------|-------|
-| Glass | 1 | Two primaries (repeats OK) OR one secondary | 9 |
 | Textiles | 2 | One tertiary OR one secondary + one primary | 15 |
 | Ceramics | 3 | One tertiary + one primary | 18 |
 | Paintings | 4 | One tertiary + one secondary | 18 |
 
-All 60 garments are shuffled into a single deck. 6 garments are displayed face-up at all times.
+All 51 garments are shuffled into a single deck. 6 garments are displayed face-up at all times.
