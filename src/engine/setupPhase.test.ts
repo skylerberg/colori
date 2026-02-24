@@ -84,12 +84,12 @@ describe('createInitialGameState', () => {
     }
   });
 
-  it('each player starts with 1 of each material type', () => {
+  it('each player starts with 0 of each material type', () => {
     const state = createInitialGameState(['Alice', 'Bob']);
     for (const player of state.players) {
-      expect(player.materials.Ceramics).toBe(1);
-      expect(player.materials.Paintings).toBe(1);
-      expect(player.materials.Textiles).toBe(1);
+      expect(player.materials.Ceramics).toBe(0);
+      expect(player.materials.Paintings).toBe(0);
+      expect(player.materials.Textiles).toBe(0);
     }
   });
 

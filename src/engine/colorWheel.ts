@@ -8,7 +8,7 @@ export function createEmptyWheel(): Record<Color, number> {
 }
 
 export function createStartingMaterials(): Record<MaterialType, number> {
-  return { Textiles: 1, Ceramics: 1, Paintings: 1 };
+  return { Textiles: 0, Ceramics: 0, Paintings: 0 };
 }
 
 export function storeColor(wheel: Record<Color, number>, color: Color): void {

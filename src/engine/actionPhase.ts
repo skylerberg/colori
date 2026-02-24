@@ -143,7 +143,7 @@ export function canSell(state: GameState, buyerInstanceId: number): boolean {
   const buyerInstance = state.buyerDisplay.find(g => g.instanceId === buyerInstanceId);
   if (!buyerInstance) return false;
   const buyer = buyerInstance.card;
-  if (player.materials[buyer.requiredMaterial] < 2) return false;
+  if (player.materials[buyer.requiredMaterial] < 1) return false;
   return canPayCost(player.colorWheel, buyer.colorCost);
 }
 
@@ -319,11 +319,11 @@ export function resolveSelectBuyer(state: GameState, buyerInstanceId: number): v
   }
   const buyer = state.buyerDisplay[buyerIndex];
 
-  // Decrement stored material (buyers cost 2)
-  if (player.materials[buyer.card.requiredMaterial] < 2) {
+  // Decrement stored material (buyers cost 1)
+  if (player.materials[buyer.card.requiredMaterial] < 1) {
     throw new Error(`Not enough stored ${buyer.card.requiredMaterial} material`);
   }
-  player.materials[buyer.card.requiredMaterial] -= 2;
+  player.materials[buyer.card.requiredMaterial] -= 1;
 
   // Pay the color cost from the wheel
   const success = payCost(player.colorWheel, buyer.card.colorCost);

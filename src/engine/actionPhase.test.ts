@@ -356,9 +356,9 @@ describe('resolveSelectBuyer', () => {
     const spareBuyer = BUYER_CARDS.find(c => c !== buyer)!;
     state.buyerDeck = createCardInstances([spareBuyer]) as CardInstance<BuyerCard>[];
 
-    // Give player the required resources (buyers cost 2 materials)
+    // Give player the required resources (buyers cost 1 material)
     const player = state.players[0];
-    player.materials.Textiles = 2;
+    player.materials.Textiles = 1;
     for (const color of buyer.colorCost) {
       storeColor(player.colorWheel, color);
     }
@@ -395,7 +395,7 @@ describe('canSell', () => {
     state.buyerDisplay = buyerInstances;
 
     const player = state.players[0];
-    player.materials.Textiles = 2;
+    player.materials.Textiles = 1;
     for (const color of buyer.colorCost) {
       storeColor(player.colorWheel, color);
     }
@@ -411,9 +411,9 @@ describe('canSell', () => {
     const buyerInstances = createCardInstances([buyer]) as CardInstance<BuyerCard>[];
     state.buyerDisplay = buyerInstances;
 
-    // Has colors but not enough Textiles material (need 2)
+    // Has colors but not enough Textiles material (need 1)
     const player = state.players[0];
-    player.materials.Textiles = 1;
+    player.materials.Textiles = 0;
     for (const color of buyer.colorCost) {
       storeColor(player.colorWheel, color);
     }
@@ -431,7 +431,7 @@ describe('canSell', () => {
 
     // Has material but not enough colors
     const player = state.players[0];
-    player.materials.Textiles = 2;
+    player.materials.Textiles = 1;
 
     expect(canSell(state, buyerInstances[0].instanceId)).toBe(false);
   });
