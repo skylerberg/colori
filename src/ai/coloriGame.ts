@@ -6,14 +6,9 @@ import type {
 import { getCardPips, PRIMARIES, SECONDARIES, TERTIARIES } from '../data/cards';
 import { ALL_COLORS, canMix } from '../data/colors';
 import { canPayCost } from '../engine/colorWheel';
-import { playerPick, confirmPass } from '../engine/draftPhase';
+import { confirmPass } from '../engine/draftPhase';
 import { executeDrawPhase } from '../engine/drawPhase';
-import {
-  destroyDraftedCard, endPlayerTurn, resolveWorkshopChoice,
-  resolveMixColors, skipMix, skipWorkshop, resolveDestroyCards,
-  resolveSelectBuyer, resolveGainSecondary, resolveGainPrimary,
-  resolveChooseTertiaryToLose, resolveChooseTertiaryToGain,
-} from '../engine/actionPhase';
+import { applyChoice } from '../engine/applyChoice';
 import { calculateScore } from '../engine/scoring';
 import { shuffle } from '../engine/deckUtils';
 
@@ -257,55 +252,14 @@ function choiceToKey(choice: ColoriChoice): string {
 // ── Apply choice ──
 
 function applyChoiceToState(state: GameState, choice: ColoriChoice): void {
-  switch (choice.type) {
-    case 'draftPick':
-      playerPick(state, choice.cardInstanceId);
-      // Auto-confirm pass (UI-only concern)
-      if (state.phase.type === 'draft' && state.phase.draftState.waitingForPass) {
-        confirmPass(state);
-      }
-      break;
-    case 'destroyDraftedCard':
-      destroyDraftedCard(state, choice.cardInstanceId);
-      break;
-    case 'endTurn':
-      endPlayerTurn(state);
-      // Auto-execute draw phase if transitioning
-      if (state.phase.type === 'draw') {
-        executeDrawPhase(state);
-      }
-      break;
-    case 'workshop':
-      resolveWorkshopChoice(state, choice.cardInstanceIds);
-      break;
-    case 'skipWorkshop':
-      skipWorkshop(state);
-      break;
-    case 'destroyDrawnCards':
-      resolveDestroyCards(state, choice.cardInstanceIds);
-      break;
-    /* empty selections are valid — the engine handles [] gracefully */
-    case 'mix':
-      resolveMixColors(state, choice.colorA, choice.colorB);
-      break;
-    case 'skipMix':
-      skipMix(state);
-      break;
-    case 'selectBuyer':
-      resolveSelectBuyer(state, choice.buyerInstanceId);
-      break;
-    case 'gainSecondary':
-      resolveGainSecondary(state, choice.color);
-      break;
-    case 'gainPrimary':
-      resolveGainPrimary(state, choice.color);
-      break;
-    case 'chooseTertiaryToLose':
-      resolveChooseTertiaryToLose(state, choice.color);
-      break;
-    case 'chooseTertiaryToGain':
-      resolveChooseTertiaryToGain(state, choice.color);
-      break;
+  applyChoice(state, choice);
+
+  // AI-specific post-processing
+  if (choice.type === 'draftPick' && state.phase.type === 'draft' && state.phase.draftState.waitingForPass) {
+    confirmPass(state);
+  }
+  if (choice.type === 'endTurn' && state.phase.type === 'draw') {
+    executeDrawPhase(state);
   }
 }
 

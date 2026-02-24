@@ -4,13 +4,8 @@ import type { NetworkManager } from './networkManager';
 import type { LobbyPlayer, GuestMessage } from './types';
 import { createInitialGameState } from '../engine/setupPhase';
 import { executeDrawPhase } from '../engine/drawPhase';
-import { playerPick, confirmPass, simultaneousPick, advanceDraft } from '../engine/draftPhase';
-import {
-  destroyDraftedCard, endPlayerTurn, resolveWorkshopChoice,
-  resolveMixColors, skipMix, skipWorkshop, resolveDestroyCards,
-  resolveSelectBuyer,
-} from '../engine/actionPhase';
-import { mixResult } from '../data/colors';
+import { confirmPass, simultaneousPick, advanceDraft } from '../engine/draftPhase';
+import { applyChoice, getChoiceLogMessage } from '../engine/applyChoice';
 import { sanitizeGameState } from './sanitize';
 
 export class HostController {
@@ -288,68 +283,13 @@ export class HostController {
       return;
     }
 
-    const newLogEntries: string[] = [];
-    const name = this.gameState.players[playerIndex].name;
+    const logMsg = getChoiceLogMessage(this.gameState, choice, playerIndex);
+    const newLogEntries: string[] = logMsg ? [logMsg] : [];
 
-    switch (choice.type) {
-      case 'draftPick':
-        // This shouldn't be reached since draft picks are handled above,
-        // but keep for safety
-        playerPick(this.gameState, choice.cardInstanceId);
-        if (this.gameState.phase.type === 'draft' && this.gameState.phase.draftState.waitingForPass) {
-          confirmPass(this.gameState);
-        }
-        break;
-      case 'destroyDraftedCard': {
-        const card = this.gameState.players[playerIndex].draftedCards.find(
-          c => c.instanceId === choice.cardInstanceId
-        );
-        newLogEntries.push(`${name} destroyed ${card && 'name' in card.card ? card.card.name : 'a card'} from drafted cards`);
-        destroyDraftedCard(this.gameState, choice.cardInstanceId);
-        break;
-      }
-      case 'endTurn':
-        newLogEntries.push(`${name} ended their turn`);
-        endPlayerTurn(this.gameState);
-        break;
-      case 'workshop': {
-        const cardNames = choice.cardInstanceIds.map(id => {
-          const c = this.gameState!.players[playerIndex].drawnCards.find(c => c.instanceId === id);
-          return c && 'name' in c.card ? c.card.name : 'a card';
-        });
-        newLogEntries.push(`${name} workshopped ${cardNames.join(', ')}`);
-        resolveWorkshopChoice(this.gameState, choice.cardInstanceIds);
-        break;
-      }
-      case 'skipWorkshop':
-        newLogEntries.push(`${name} skipped workshop`);
-        skipWorkshop(this.gameState);
-        break;
-      case 'destroyDrawnCards': {
-        const cardNames = choice.cardInstanceIds.map(id => {
-          const c = this.gameState!.players[playerIndex].drawnCards.find(c => c.instanceId === id);
-          return c && 'name' in c.card ? c.card.name : 'a card';
-        });
-        newLogEntries.push(`${name} destroyed ${cardNames.join(', ')} from drawn cards`);
-        resolveDestroyCards(this.gameState, choice.cardInstanceIds);
-        break;
-      }
-      case 'mix': {
-        const result = mixResult(choice.colorA, choice.colorB);
-        newLogEntries.push(`${name} mixed ${choice.colorA} + ${choice.colorB} to make ${result}`);
-        resolveMixColors(this.gameState, choice.colorA, choice.colorB);
-        break;
-      }
-      case 'skipMix':
-        newLogEntries.push(`${name} skipped remaining mixes`);
-        skipMix(this.gameState);
-        break;
-      case 'selectBuyer': {
-        const buyer = this.gameState.buyerDisplay.find(g => g.instanceId === choice.buyerInstanceId);
-        newLogEntries.push(`${name} sold to a ${buyer?.card.stars ?? '?'}-star buyer`);
-        resolveSelectBuyer(this.gameState, choice.buyerInstanceId);
-        break;
-      }
+    applyChoice(this.gameState, choice);
+
+    if (choice.type === 'draftPick' && this.gameState.phase.type === 'draft' && this.gameState.phase.draftState.waitingForPass) {
+      confirmPass(this.gameState);
     }
 
     this.gameLog.push(...newLogEntries);

@@ -1,12 +1,8 @@
 <script lang="ts">
   import type { GameState, CardInstance } from '../data/types';
   import { executeDrawPhase } from '../engine/drawPhase';
-  import { playerPick, confirmPass } from '../engine/draftPhase';
-  import {
-    destroyDraftedCard, endPlayerTurn, resolveWorkshopChoice,
-    resolveMixColors, skipMix, skipWorkshop, resolveDestroyCards,
-    resolveSelectBuyer,
-  } from '../engine/actionPhase';
+  import { confirmPass } from '../engine/draftPhase';
+  import { applyChoice, getChoiceLogMessage } from '../engine/applyChoice';
   import { AIController } from '../ai/aiController';
   import type { ColoriChoice } from '../ai/coloriGame';
   import { cloneGameState } from '../ai/coloriGame';
@@ -18,7 +14,6 @@
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import BuyerDisplay from './BuyerDisplay.svelte';
   import CardList from './CardList.svelte';
-  import { mixResult } from '../data/colors';
 
   let { gameState, gameStartTime, onGameUpdated, initialGameLog, onLeaveGame }: {
     gameState: GameState;
@@ -154,61 +149,12 @@
       pushUndoSnapshot();
     }
 
-    switch (choice.type) {
-      case 'draftPick':
-        playerPick(gameState, choice.cardInstanceId);
-        if (gameState.phase.type === 'draft' && gameState.phase.draftState.waitingForPass) {
-          confirmPass(gameState);
-        }
-        break;
-      case 'destroyDraftedCard': {
-        const card = gameState.players[playerIdx].draftedCards.find(c => c.instanceId === choice.cardInstanceId);
-        addLog(`${name} destroyed ${card && 'name' in card.card ? card.card.name : 'a card'} from drafted cards`);
-        destroyDraftedCard(gameState, choice.cardInstanceId);
-        break;
-      }
-      case 'endTurn':
-        addLog(`${name} ended their turn`);
-        endPlayerTurn(gameState);
-        break;
-      case 'workshop': {
-        const cardNames = choice.cardInstanceIds.map(id => {
-          const c = gameState.players[playerIdx].drawnCards.find(c => c.instanceId === id);
-          return c && 'name' in c.card ? c.card.name : 'a card';
-        });
-        addLog(`${name} workshopped ${cardNames.join(', ')}`);
-        resolveWorkshopChoice(gameState, choice.cardInstanceIds);
-        break;
-      }
-      case 'destroyDrawnCards': {
-        const cardNames = choice.cardInstanceIds.map(id => {
-          const c = gameState.players[playerIdx].drawnCards.find(c => c.instanceId === id);
-          return c && 'name' in c.card ? c.card.name : 'a card';
-        });
-        addLog(`${name} destroyed ${cardNames.join(', ')} from drawn cards`);
-        resolveDestroyCards(gameState, choice.cardInstanceIds);
-        break;
-      }
-      case 'mix': {
-        const result = mixResult(choice.colorA, choice.colorB);
-        addLog(`${name} mixed ${choice.colorA} + ${choice.colorB} to make ${result}`);
-        resolveMixColors(gameState, choice.colorA, choice.colorB);
-        break;
-      }
-      case 'skipMix':
-        addLog(`${name} skipped remaining mixes`);
-        skipMix(gameState);
-        break;
-      case 'skipWorkshop':
-        addLog(`${name} skipped workshop`);
-        skipWorkshop(gameState);
-        break;
-      case 'selectBuyer': {
-        const buyer = gameState.buyerDisplay.find(g => g.instanceId === choice.buyerInstanceId);
-        addLog(`${name} sold to a ${buyer?.card.stars ?? '?'}-star buyer`);
-        resolveSelectBuyer(gameState, choice.buyerInstanceId);
-        break;
-      }
+    const logMsg = getChoiceLogMessage(gameState, choice, playerIdx);
+    if (logMsg) addLog(logMsg);
+    applyChoice(gameState, choice);
+
+    if (choice.type === 'draftPick' && gameState.phase.type === 'draft' && gameState.phase.draftState.waitingForPass) {
+      confirmPass(gameState);
     }
     onGameUpdated(gameState, gameLog);
   }
