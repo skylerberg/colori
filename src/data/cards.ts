@@ -123,7 +123,7 @@ export const MATERIAL_CARDS: MaterialCard[] = [
     kind: 'material',
     name: 'Textiles',
     materialTypes: ['Textiles'],
-    ability: { type: 'drawCards', count: 2 },
+    ability: { type: 'workshop', count: 2 },
   },
 ];
 
@@ -295,7 +295,7 @@ export const TERTIARIES: Color[] = ['Vermilion', 'Amber', 'Chartreuse', 'Teal', 
 export const CHALK_CARD: ActionCard = {
   kind: 'action',
   name: 'Chalk',
-  ability: { type: 'destroyCards', count: 1 },
+  ability: { type: 'sell' },
   workshopAbilities: [{ type: 'gainPrimary' }],
 };
 
