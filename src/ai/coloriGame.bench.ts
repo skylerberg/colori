@@ -1,16 +1,11 @@
-import { describe, bench, beforeEach } from 'vitest';
+import { describe, bench } from 'vitest';
 import { ColoriGame, cloneGameState } from './coloriGame';
 import { ismcts } from './ismcts';
 import { setupDraftGame, setupActionGame } from './benchHelper';
 
 describe('Draft Phase', () => {
-  let state: ReturnType<typeof setupDraftGame>;
-  let game: ColoriGame;
-
-  beforeEach(() => {
-    state = setupDraftGame(3);
-    game = new ColoriGame(state);
-  });
+  const state = setupDraftGame(3);
+  const game = new ColoriGame(state);
 
   bench('cloneGameState', () => {
     cloneGameState(state);
@@ -41,13 +36,8 @@ describe('Draft Phase', () => {
 });
 
 describe('Action Phase', () => {
-  let state: ReturnType<typeof setupActionGame>;
-  let game: ColoriGame;
-
-  beforeEach(() => {
-    state = setupActionGame(3);
-    game = new ColoriGame(state);
-  });
+  const state = setupActionGame(3);
+  const game = new ColoriGame(state);
 
   bench('cloneGameState', () => {
     cloneGameState(state);
