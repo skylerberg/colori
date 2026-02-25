@@ -6,6 +6,7 @@ use colori_core::setup::create_initial_game_state;
 use colori_core::types::*;
 
 use rand::rngs::SmallRng;
+use rand::Rng;
 use rand::SeedableRng;
 use serde::Serialize;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -99,7 +100,7 @@ struct FinalScore {
 struct FinalPlayerStats {
     name: String,
     deck_size: usize,
-    completed_buyers: Vec<CardInstance>,
+    completed_buyers: Vec<BuyerInstance>,
     ducats: u32,
     color_wheel: ColorWheel,
     materials: Materials,
@@ -239,6 +240,14 @@ fn run_game(
 
 // ── Main ──
 
+fn generate_batch_id() -> String {
+    const CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
+    let mut rng = SmallRng::from_entropy();
+    (0..6)
+        .map(|_| CHARSET[rng.gen_range(0..CHARSET.len())] as char)
+        .collect()
+}
+
 fn main() {
     let args = parse_args();
 
@@ -249,45 +258,40 @@ fn main() {
 
     std::fs::create_dir_all(&args.output).expect("Failed to create output directory");
 
+    let batch_id = generate_batch_id();
     let completed = AtomicUsize::new(0);
     let total_games = args.games;
     let num_players = args.players;
     let iterations = args.iterations;
     let num_threads = args.threads;
     let output_dir = &args.output;
+    let batch_id = batch_id.as_str();
 
     std::thread::scope(|s| {
         let games_per_thread = total_games / num_threads;
         let remainder = total_games % num_threads;
         let mut handles = Vec::new();
-        let mut game_offset = 0;
 
         for t in 0..num_threads {
             let count = games_per_thread + if t < remainder { 1 } else { 0 };
-            let offset = game_offset;
-            game_offset += count;
             let completed = &completed;
 
             handles.push(s.spawn(move || {
                 let mut rng = SmallRng::from_entropy();
-                let mut results = Vec::with_capacity(count);
-                for i in 0..count {
-                    let log = run_game(offset + i, num_players, iterations, &mut rng);
-                    results.push((offset + i, log));
+                for _i in 0..count {
+                    let log = run_game(0, num_players, iterations, &mut rng);
+                    let epoch_millis = now_epoch_millis();
+                    let path = format!("{}/game-{}-{}.json", output_dir, epoch_millis, batch_id);
+                    let json = serde_json::to_string_pretty(&log).unwrap();
+                    std::fs::write(&path, json).unwrap();
                     let done = completed.fetch_add(1, Ordering::Relaxed) + 1;
                     eprintln!("Game {}/{} complete", done, total_games);
                 }
-                results
             }));
         }
 
         for handle in handles {
-            let results = handle.join().unwrap();
-            for (idx, log) in results {
-                let path = format!("{}/game-{:04}.json", output_dir, idx);
-                let json = serde_json::to_string_pretty(&log).unwrap();
-                std::fs::write(&path, json).unwrap();
-            }
+            handle.join().unwrap();
         }
     });
 
