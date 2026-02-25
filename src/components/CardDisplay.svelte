@@ -98,7 +98,7 @@
 
   {#if card.kind === 'buyer'}
     <div class="buyer-info">
-      <div class="required-material">2x {card.requiredMaterial}</div>
+      <div class="required-material">{card.requiredMaterial}</div>
       <div class="color-cost">
         {#each card.colorCost as color}
           <span class="pip" style="background-color: {colorToHex(color)}; color: {textColorForBackground(colorToHex(color))}" title={color}>{color[0]}</span>
