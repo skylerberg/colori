@@ -37,11 +37,10 @@ pub fn reset_instance_id_counter() {
     NEXT_INSTANCE_ID.store(1, Ordering::Relaxed);
 }
 
-pub fn create_initial_game_state<R: Rng>(player_names: &[String], ai_players: &[bool], rng: &mut R) -> GameState {
+pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool], rng: &mut R) -> GameState {
     // Build each player's starting state
-    let players: FixedVec<PlayerState, MAX_PLAYERS> = player_names
-        .iter()
-        .map(|name| {
+    let players: FixedVec<PlayerState, MAX_PLAYERS> = (0..num_players)
+        .map(|_| {
             // 7 starting cards: 3 basic dyes + 3 starter materials + chalk
             let mut personal_cards: Vec<Card> = Vec::with_capacity(7);
             personal_cards.extend_from_slice(&basic_dye_cards());
@@ -60,7 +59,6 @@ pub fn create_initial_game_state<R: Rng>(player_names: &[String], ai_players: &[
             let materials = Materials::new();
 
             PlayerState {
-                name: name.clone(),
                 deck,
                 discard: Vec::new(),
                 workshop_cards: Vec::new(),

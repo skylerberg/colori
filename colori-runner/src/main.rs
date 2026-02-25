@@ -162,7 +162,7 @@ fn run_game(
         .collect();
 
     let ai_players = vec![true; num_players];
-    let mut state = create_initial_game_state(&names, &ai_players, rng);
+    let mut state = create_initial_game_state(num_players, &ai_players, rng);
     let initial_state = state.clone();
 
     let game_started_at = now_iso();
@@ -217,8 +217,9 @@ fn run_game(
         state
             .players
             .iter()
-            .map(|p| FinalScore {
-                name: p.name.clone(),
+            .enumerate()
+            .map(|(i, p)| FinalScore {
+                name: names[i].clone(),
                 score: calculate_score(p),
             })
             .collect(),
@@ -229,8 +230,9 @@ fn run_game(
         state
             .players
             .iter()
-            .map(|p| FinalPlayerStats {
-                name: p.name.clone(),
+            .enumerate()
+            .map(|(i, p)| FinalPlayerStats {
+                name: names[i].clone(),
                 deck_size: p.deck.len() + p.discard.len() + p.workshop_cards.len(),
                 completed_buyers: p.completed_buyers.clone(),
                 ducats: p.ducats,

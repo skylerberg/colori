@@ -196,7 +196,7 @@ export class HostController {
     if (!this.gameState) return;
     this.gameState.aiPlayers[playerIndex] = true;
     this.disconnectTimers.delete(playerIndex);
-    this.addLog(`${this.gameState.players[playerIndex].name} replaced by AI`);
+    this.addLog(`${this.gameState.playerNames[playerIndex]} replaced by AI`);
     this.onGameStateUpdated?.(this.gameState);
   }
 

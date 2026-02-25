@@ -7,7 +7,6 @@ export function sanitizeGameState(
   newLogEntries: string[] = [],
 ): SanitizedGameState {
   const players: SanitizedPlayerState[] = fullState.players.map(p => ({
-    name: p.name,
     deckCount: p.deck.length,
     discardCount: p.discard.length,
     workshopCards: [...p.workshopCards],
@@ -50,6 +49,7 @@ export function sanitizeGameState(
   }
 
   return {
+    playerNames: fullState.playerNames,
     players,
     draftDeckCount: fullState.draftDeck.length,
     destroyedPile: [...fullState.destroyedPile],

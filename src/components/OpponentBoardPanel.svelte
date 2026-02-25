@@ -4,8 +4,9 @@
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import CardList from './CardList.svelte';
 
-  let { player }: {
+  let { player, playerName }: {
     player: PlayerState;
+    playerName: string;
   } = $props();
 
   let expanded = $state(false);
@@ -21,7 +22,7 @@
 
 <div class="opponent-panel">
   <button class="panel-header" onclick={toggle}>
-    <span class="player-name">{player.name}</span>
+    <span class="player-name">{playerName}</span>
     <span class="header-stats">
       <span>* {score}</span>
       <span>Buyers: {buyerCount}</span>

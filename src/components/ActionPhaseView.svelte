@@ -83,7 +83,7 @@
 {#if actionState && currentPlayer}
   <div class="action-phase">
     <div class="action-header">
-      <h2>Action Phase - {currentPlayer.name}'s Turn</h2>
+      <h2>Action Phase - {gameState.playerNames[actionState.currentPlayerIndex]}'s Turn</h2>
       <div class="queue-status">
         {#if hasAbilitiesQueued}
           <span class="queue-info">Abilities queued: {actionState.abilityStack.length}</span>
@@ -147,7 +147,7 @@
       <div class="opponents-list">
         {#each gameState.players as player, i}
           {#if i !== actionState.currentPlayerIndex}
-            <OpponentBoardPanel {player} />
+            <OpponentBoardPanel {player} playerName={gameState.playerNames[i]} />
           {/if}
         {/each}
       </div>

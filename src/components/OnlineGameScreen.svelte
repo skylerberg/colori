@@ -252,7 +252,7 @@
       </div>
       <div class="player-bar">
         {#each gameState.players as player, i}
-          <PlayerStatus {player} active={i === activePlayerIndex} isAI={gameState.aiPlayers[i]} thinking={aiThinking && i === activePlayerIndex} />
+          <PlayerStatus {player} playerName={gameState.playerNames[i]} active={i === activePlayerIndex} isAI={gameState.aiPlayers[i]} thinking={aiThinking && i === activePlayerIndex} />
         {/each}
       </div>
     </div>
@@ -284,7 +284,7 @@
           {#if !isMyTurn && !aiThinking && gameState.phase.type === 'action'}
             <div class="waiting-banner">
               <div class="spinner"></div>
-              <p>Waiting for {gameState.players[activePlayerIndex]?.name ?? 'other player'}...</p>
+              <p>Waiting for {gameState.playerNames[activePlayerIndex] ?? 'other player'}...</p>
             </div>
             {#if myPlayer}
               <div class="readonly-cards">
@@ -302,7 +302,7 @@
                 <div class="opponents-list">
                   {#each gameState.players as player, i}
                     {#if i !== myPlayerIndex}
-                      <OpponentBoardPanel {player} />
+                      <OpponentBoardPanel {player} playerName={gameState.playerNames[i]} />
                     {/if}
                   {/each}
                 </div>

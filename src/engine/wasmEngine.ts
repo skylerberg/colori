@@ -22,10 +22,12 @@ export async function initEngine(): Promise<void> {
 export function createInitialGameState(playerNames: string[], aiPlayers?: boolean[]): GameState {
   const ai = aiPlayers ?? playerNames.map(() => false);
   const resultJson = wasm_create_initial_game_state(
-    JSON.stringify(playerNames),
+    playerNames.length,
     JSON.stringify(ai),
   );
-  return JSON.parse(resultJson);
+  const state: GameState = JSON.parse(resultJson);
+  state.playerNames = playerNames;
+  return state;
 }
 
 export function executeDrawPhase(state: GameState): void {
@@ -58,9 +60,10 @@ export function advanceDraft(state: GameState): void {
   Object.assign(state, newState);
 }
 
-export function calculateScores(players: PlayerState[]): { name: string; score: number }[] {
+export function calculateScores(players: PlayerState[], playerNames: string[]): { name: string; score: number }[] {
   const resultJson = wasm_calculate_scores(JSON.stringify(players));
-  return JSON.parse(resultJson);
+  const scores: number[] = JSON.parse(resultJson);
+  return scores.map((score, i) => ({ name: playerNames[i], score }));
 }
 
 export function cloneGameState(state: GameState): GameState {
@@ -76,7 +79,7 @@ export function getChoiceLogMessage(
   choice: ColoriChoice,
   playerIndex: number,
 ): string | null {
-  const name = state.players[playerIndex].name;
+  const name = state.playerNames[playerIndex];
   const player = state.players[playerIndex];
 
   switch (choice.type) {
@@ -141,8 +144,8 @@ export function getChoiceLogMessage(
   }
 }
 
-export function determineWinner(players: PlayerState[]): string {
-  const scores = calculateScores(players);
+export function determineWinner(players: PlayerState[], playerNames: string[]): string {
+  const scores = calculateScores(players, playerNames);
   scores.sort((a, b) => b.score - a.score);
   return scores[0].name;
 }

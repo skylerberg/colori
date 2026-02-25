@@ -27,8 +27,8 @@
   );
 
   let rounds = $derived(gameState.round - 1);
-  let scores = $derived(calculateScores(gameState.players));
-  let winner = $derived(determineWinner(gameState.players));
+  let scores = $derived(calculateScores(gameState.players, gameState.playerNames));
+  let winner = $derived(determineWinner(gameState.players, gameState.playerNames));
   let sortedScores = $derived([...scores].sort((a, b) => b.score - a.score));
 
   let expandedPlayers = $state(new Set<string>());
@@ -43,7 +43,8 @@
   }
 
   function getPlayer(name: string) {
-    return gameState.players.find(p => p.name === name)!;
+    const idx = gameState.playerNames.indexOf(name);
+    return gameState.players[idx];
   }
 </script>
 

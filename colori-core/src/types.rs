@@ -559,7 +559,6 @@ impl<'de> Deserialize<'de> for Materials {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerState {
-    pub name: String,
     pub deck: Vec<CardInstance>,
     pub discard: Vec<CardInstance>,
     pub workshop_cards: Vec<CardInstance>,

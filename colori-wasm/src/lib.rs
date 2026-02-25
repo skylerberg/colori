@@ -7,7 +7,6 @@ use colori_core::setup::{create_initial_game_state, reset_instance_id_counter};
 use colori_core::types::{CardInstance, ColoriChoice, GameState, PlayerState};
 use rand::rngs::SmallRng;
 use rand::SeedableRng;
-use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -43,14 +42,12 @@ pub fn run_ismcts(
 }
 
 #[wasm_bindgen]
-pub fn wasm_create_initial_game_state(player_names_json: &str, ai_players_json: &str) -> String {
+pub fn wasm_create_initial_game_state(num_players: u32, ai_players_json: &str) -> String {
     reset_instance_id_counter();
-    let player_names: Vec<String> =
-        serde_json::from_str(player_names_json).expect("Failed to parse player names JSON");
     let ai_players: Vec<bool> =
         serde_json::from_str(ai_players_json).expect("Failed to parse ai players JSON");
     let mut rng = SmallRng::from_os_rng();
-    let state = create_initial_game_state(&player_names, &ai_players, &mut rng);
+    let state = create_initial_game_state(num_players as usize, &ai_players, &mut rng);
     serde_json::to_string(&state).expect("Failed to serialize game state")
 }
 
@@ -102,22 +99,13 @@ pub fn wasm_advance_draft(state_json: &str) -> String {
     serde_json::to_string(&state).expect("Failed to serialize game state")
 }
 
-#[derive(Serialize)]
-struct ScoreEntry {
-    name: String,
-    score: u32,
-}
-
 #[wasm_bindgen]
 pub fn wasm_calculate_scores(players_json: &str) -> String {
     let players: Vec<PlayerState> =
         serde_json::from_str(players_json).expect("Failed to parse players JSON");
-    let scores: Vec<ScoreEntry> = players
+    let scores: Vec<u32> = players
         .iter()
-        .map(|p| ScoreEntry {
-            name: p.name.clone(),
-            score: calculate_score(p),
-        })
+        .map(|p| calculate_score(p))
         .collect();
     serde_json::to_string(&scores).expect("Failed to serialize scores")
 }

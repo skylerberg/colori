@@ -44,7 +44,7 @@ export class GameLogAccumulator {
       version: 1,
       gameStartedAt: new Date().toISOString(),
       gameEndedAt: null,
-      playerNames: initialState.players.map(p => p.name),
+      playerNames: [...initialState.playerNames],
       aiPlayers: [...initialState.aiPlayers],
       initialState: structuredClone(initialState),
       finalScores: null,
@@ -75,9 +75,9 @@ export class GameLogAccumulator {
 
   finalize(state: GameState) {
     this.log.gameEndedAt = new Date().toISOString();
-    this.log.finalScores = calculateScores(state.players);
-    this.log.finalPlayerStats = state.players.map(p => ({
-      name: p.name,
+    this.log.finalScores = calculateScores(state.players, state.playerNames);
+    this.log.finalPlayerStats = state.players.map((p, i) => ({
+      name: state.playerNames[i],
       deckSize: p.deck.length + p.discard.length + p.workshopCards.length + p.draftedCards.length,
       completedBuyers: p.completedBuyers,
       ducats: p.ducats,

@@ -3,7 +3,6 @@ import type { SanitizedGameState } from './types';
 
 export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
   const players: PlayerState[] = sanitized.players.map(sp => ({
-    name: sp.name,
     deck: new Array(sp.deckCount) as CardInstance[],
     discard: new Array(sp.discardCount) as CardInstance[],
     workshopCards: sp.workshopCards,
@@ -32,6 +31,7 @@ export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
   }
 
   return {
+    playerNames: sanitized.playerNames,
     players,
     draftDeck: new Array(sanitized.draftDeckCount) as CardInstance[],
     destroyedPile: sanitized.destroyedPile,

@@ -47,7 +47,7 @@
 {#if draftState}
   {#if draftState.waitingForPass && playerIndex === undefined}
     <PassScreen
-      playerName={gameState.players[draftState.currentPlayerIndex].name}
+      playerName={gameState.playerNames[draftState.currentPlayerIndex]}
       onReady={handlePassReady}
     />
   {:else}
@@ -61,7 +61,7 @@
       </div>
 
       <div class="current-player-section">
-        <h3>{playerIndex !== undefined ? 'Pick a card' : `${currentPlayer?.name}'s Turn - Pick a card`}</h3>
+        <h3>{playerIndex !== undefined ? 'Pick a card' : `${gameState.playerNames[viewingPlayerIndex]}'s Turn - Pick a card`}</h3>
         <CardList
           cards={currentHand}
           selectable={selectable !== false}
@@ -84,7 +84,7 @@
         <div class="opponents-list">
           {#each gameState.players as player, i}
             {#if i !== viewingPlayerIndex}
-              <OpponentBoardPanel {player} />
+              <OpponentBoardPanel {player} playerName={gameState.playerNames[i]} />
             {/if}
           {/each}
         </div>

@@ -2,7 +2,6 @@ import type { CardInstance, BuyerInstance, Color, MaterialType, PendingChoice, A
 import type { ColoriChoice } from '../data/types';
 
 export interface SanitizedPlayerState {
-  name: string;
   deckCount: number;
   discardCount: number;
   workshopCards: CardInstance[];
@@ -34,6 +33,7 @@ export type SanitizedGamePhase =
   | { type: 'gameOver' };
 
 export interface SanitizedGameState {
+  playerNames: string[];
   players: SanitizedPlayerState[];
   draftDeckCount: number;
   destroyedPile: CardInstance[];

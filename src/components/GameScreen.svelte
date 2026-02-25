@@ -137,7 +137,7 @@
   // Unified action handler for both human UI and AI choices
   function handleAction(choice: ColoriChoice) {
     const playerIdx = getActivePlayerIndex(gameState);
-    const name = playerIdx >= 0 ? gameState.players[playerIdx].name : 'Unknown';
+    const name = playerIdx >= 0 ? gameState.playerNames[playerIdx] : 'Unknown';
 
     // Push undo snapshot for action phase choices (except endTurn)
     if (gameState.phase.type === 'action' && choice.type !== 'endTurn') {
@@ -268,7 +268,7 @@
     </div>
     <div class="player-bar">
       {#each gameState.players as player, i}
-        <PlayerStatus {player} active={i === activePlayerIndex} selected={i === selectedPlayerIndex} isAI={gameState.aiPlayers[i]} thinking={aiThinking && i === activePlayerIndex} onclick={() => selectPlayer(i)} />
+        <PlayerStatus {player} playerName={gameState.playerNames[i]} active={i === activePlayerIndex} selected={i === selectedPlayerIndex} isAI={gameState.aiPlayers[i]} thinking={aiThinking && i === activePlayerIndex} onclick={() => selectPlayer(i)} />
       {/each}
     </div>
   </div>

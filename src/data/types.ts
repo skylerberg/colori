@@ -97,7 +97,6 @@ export interface BuyerInstance {
 }
 
 export interface PlayerState {
-  name: string;
   deck: CardInstance[];
   discard: CardInstance[];
   workshopCards: CardInstance[];
@@ -138,6 +137,7 @@ export type GamePhase =
   | { type: 'gameOver' };
 
 export interface GameState {
+  playerNames: string[];
   players: PlayerState[];
   draftDeck: CardInstance[];
   destroyedPile: CardInstance[];

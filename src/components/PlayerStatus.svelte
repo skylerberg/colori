@@ -2,8 +2,9 @@
   import type { PlayerState } from '../data/types';
   import { getBuyerData } from '../data/cards';
 
-  let { player, active = false, selected = false, isAI = false, thinking = false, onclick }: {
+  let { player, playerName, active = false, selected = false, isAI = false, thinking = false, onclick }: {
     player: PlayerState;
+    playerName: string;
     active?: boolean;
     selected?: boolean;
     isAI?: boolean;
@@ -20,7 +21,7 @@
 <button class="player-status" class:active class:selected {onclick} type="button">
   <div class="player-name">
     {#if active}<span class="turn-dot"></span>{/if}
-    {player.name}{#if isAI} <span class="ai-badge">AI</span>{/if}{#if thinking}<span class="thinking-spinner"></span>{/if}
+    {playerName}{#if isAI} <span class="ai-badge">AI</span>{/if}{#if thinking}<span class="thinking-spinner"></span>{/if}
   </div>
   <div class="stats">
     <span class="stat" title="Score (stars)">{'*'} {score}</span>
