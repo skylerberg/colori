@@ -118,11 +118,19 @@
   }
 
   let activePlayerIndex = $derived(getActivePlayerIndex(gameState));
-  let currentPlayer = $derived(activePlayerIndex >= 0 ? gameState.players[activePlayerIndex] : null);
+  let selectedPlayerIndex = $state(0);
+  let selectedPlayer = $derived(gameState.players[selectedPlayerIndex]);
+  let isViewingActiveHuman = $derived(
+    selectedPlayerIndex === activePlayerIndex && activePlayerIndex >= 0 && !gameState.aiPlayers[selectedPlayerIndex]
+  );
   let showSidebar = $derived(
-    !showDrawPhase && currentPlayer !== null &&
+    !showDrawPhase && selectedPlayer !== undefined &&
     (gameState.phase.type === 'draft' || gameState.phase.type === 'action')
   );
+
+  function selectPlayer(index: number) {
+    selectedPlayerIndex = index;
+  }
 
   function getActivePlayerIndex(gs: GameState): number {
     if (gs.phase.type === 'draft') {
@@ -258,28 +266,28 @@
     </div>
     <div class="player-bar">
       {#each gameState.players as player, i}
-        <PlayerStatus {player} active={i === activePlayerIndex} isAI={gameState.aiPlayers[i]} />
+        <PlayerStatus {player} active={i === activePlayerIndex} selected={i === selectedPlayerIndex} isAI={gameState.aiPlayers[i]} onclick={() => selectPlayer(i)} />
       {/each}
     </div>
   </div>
 
   <div class="game-body">
-    {#if showSidebar && currentPlayer}
+    {#if showSidebar && selectedPlayer}
       <aside class="left-sidebar">
         <div class="sidebar-section">
           <h3>Color Wheel</h3>
-          <ColorWheelDisplay wheel={currentPlayer.colorWheel} size={160} />
+          <ColorWheelDisplay wheel={selectedPlayer.colorWheel} size={160} />
         </div>
 
         <div class="sidebar-section">
           <h3>Stored Materials</h3>
           <div class="material-counts">
-            {#each Object.entries(currentPlayer.materials) as [material, count]}
+            {#each Object.entries(selectedPlayer.materials) as [material, count]}
               <span class="material-count">{material}: {count}</span>
             {/each}
           </div>
-          {#if currentPlayer.ducats > 0}
-            <div class="ducats-count">Ducats: {currentPlayer.ducats}</div>
+          {#if selectedPlayer.ducats > 0}
+            <div class="ducats-count">Ducats: {selectedPlayer.ducats}</div>
           {/if}
         </div>
       </aside>
@@ -292,26 +300,37 @@
             <div class="spinner"></div>
             <p>AI is thinking...</p>
           </div>
-          {#if currentPlayer}
-            <div class="readonly-cards">
-              <div class="section-box">
-                <h3>Drawn Cards</h3>
-                <CardList cards={currentPlayer.drawnCards} />
-              </div>
-              <div class="section-box">
-                <h3>Drafted Cards</h3>
-                <CardList cards={currentPlayer.draftedCards} />
-              </div>
-            </div>
-          {/if}
         {/if}
 
         {#if showDrawPhase && gameState.phase.type === 'draft'}
           <DrawPhaseView {gameState} onContinue={handleDrawContinue} />
-        {:else if gameState.phase.type === 'draft' && !isCurrentPlayerAI(gameState)}
-          <DraftPhaseView {gameState} onAction={handleAction} onGameUpdated={() => onGameUpdated(gameState, gameLog)} />
-        {:else if gameState.phase.type === 'action' && !isCurrentPlayerAI(gameState)}
-          <ActionPhaseView {gameState} onAction={handleAction} onUndo={performUndo} undoAvailable={undoStack.length > 0} />
+        {:else if gameState.phase.type === 'draft'}
+          {#if isViewingActiveHuman && !aiThinking}
+            <DraftPhaseView {gameState} onAction={handleAction} onGameUpdated={() => onGameUpdated(gameState, gameLog)} />
+          {:else if !aiThinking}
+            <DraftPhaseView {gameState} onAction={handleAction} playerIndex={selectedPlayerIndex} selectable={false} />
+          {/if}
+        {:else if gameState.phase.type === 'action'}
+          {#if isViewingActiveHuman && !aiThinking}
+            <ActionPhaseView {gameState} onAction={handleAction} onUndo={performUndo} undoAvailable={undoStack.length > 0} />
+          {:else}
+            <div class="readonly-cards">
+              <div class="section-box">
+                <h3>Drawn Cards</h3>
+                <CardList cards={selectedPlayer.drawnCards} />
+              </div>
+              <div class="section-box">
+                <h3>Drafted Cards</h3>
+                <CardList cards={selectedPlayer.draftedCards} />
+              </div>
+              {#if selectedPlayer.completedBuyers.length > 0}
+                <div class="section-box">
+                  <h3>Completed Buyers</h3>
+                  <CardList cards={selectedPlayer.completedBuyers.map(b => b.card)} />
+                </div>
+              {/if}
+            </div>
+          {/if}
         {/if}
       </div>
 
@@ -320,7 +339,7 @@
       {/if}
     </div>
 
-    {#if showSidebar && currentPlayer}
+    {#if showSidebar && selectedPlayer}
       <aside class="sidebar">
         <div class="sidebar-section">
           <BuyerDisplay buyers={gameState.buyerDisplay} />
