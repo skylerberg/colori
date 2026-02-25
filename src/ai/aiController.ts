@@ -2,18 +2,28 @@ import type { GameState, CardInstance } from '../data/types';
 import type { ColoriChoice } from './coloriGame';
 import AIWorkerModule from './aiWorker?worker';
 
+export interface PrecomputeRequest {
+  gameState: GameState;
+  playerIndex: number;
+  pickNumber: number;
+  iterations: number;
+  seenHands?: CardInstance[][];
+}
+
+interface PrecomputeEntry {
+  worker: Worker;
+  result: ColoriChoice | null;
+  resolve: ((choice: ColoriChoice) => void) | null;
+}
+
 export class AIController {
   private worker: Worker;
-  private precomputeWorker: Worker;
 
-  private precomputeId = 0;
-  private precomputedResult: { playerIndex: number; pickNumber: number; choice: ColoriChoice } | null = null;
-  private pendingPrecomputeContext: { playerIndex: number; pickNumber: number } | null = null;
-  private precomputeResolve: ((choice: ColoriChoice) => void) | null = null;
+  private precomputeMap = new Map<string, PrecomputeEntry>();
+  private generationId = 0;
 
   constructor() {
     this.worker = new AIWorkerModule();
-    this.precomputeWorker = new AIWorkerModule();
   }
 
   getAIChoice(
@@ -31,70 +41,66 @@ export class AIController {
     });
   }
 
-  precomputeDraftPick(
-    gameState: GameState,
-    playerIndex: number,
-    pickNumber: number,
-    iterations: number,
-    seenHands?: CardInstance[][],
-  ): void {
-    const currentId = ++this.precomputeId;
-    this.precomputedResult = null;
-    this.pendingPrecomputeContext = { playerIndex, pickNumber };
-    this.precomputeResolve = null;
+  precomputeDraftPicks(requests: PrecomputeRequest[]): void {
+    this.cancelPrecomputation();
+    const gen = this.generationId;
 
-    this.precomputeWorker.onmessage = (event: MessageEvent<ColoriChoice>) => {
-      if (currentId !== this.precomputeId) return;
-      const result = { playerIndex, pickNumber, choice: event.data };
-      this.precomputedResult = result;
-      if (this.precomputeResolve) {
-        this.precomputeResolve(result.choice);
-        this.precomputeResolve = null;
-      }
-    };
+    for (const req of requests) {
+      const key = `${req.playerIndex}:${req.pickNumber}`;
+      const worker = new AIWorkerModule();
+      const entry: PrecomputeEntry = { worker, result: null, resolve: null };
 
-    const plain = JSON.parse(JSON.stringify({ gameState, playerIndex, iterations, seenHands }));
-    this.precomputeWorker.postMessage(plain);
+      worker.onmessage = (event: MessageEvent<ColoriChoice>) => {
+        if (gen !== this.generationId) return;
+        entry.result = event.data;
+        if (entry.resolve) {
+          entry.resolve(event.data);
+          entry.resolve = null;
+        }
+      };
+
+      const plain = JSON.parse(JSON.stringify({
+        gameState: req.gameState,
+        playerIndex: req.playerIndex,
+        iterations: req.iterations,
+        seenHands: req.seenHands,
+      }));
+      worker.postMessage(plain);
+      this.precomputeMap.set(key, entry);
+    }
   }
 
   waitForPrecomputedChoice(playerIndex: number, pickNumber: number): Promise<ColoriChoice> | null {
-    // Check cached result
-    if (
-      this.precomputedResult &&
-      this.precomputedResult.playerIndex === playerIndex &&
-      this.precomputedResult.pickNumber === pickNumber
-    ) {
-      const choice = this.precomputedResult.choice;
-      this.precomputedResult = null;
-      this.pendingPrecomputeContext = null;
+    const key = `${playerIndex}:${pickNumber}`;
+    const entry = this.precomputeMap.get(key);
+    if (!entry) return null;
+
+    if (entry.result !== null) {
+      const choice = entry.result;
+      entry.worker.terminate();
+      this.precomputeMap.delete(key);
       return Promise.resolve(choice);
     }
 
-    // Check in-progress computation
-    if (
-      this.pendingPrecomputeContext &&
-      this.pendingPrecomputeContext.playerIndex === playerIndex &&
-      this.pendingPrecomputeContext.pickNumber === pickNumber &&
-      !this.precomputedResult
-    ) {
-      return new Promise((resolve) => {
-        this.precomputeResolve = resolve;
-      });
-    }
-
-    // No matching precomputation
-    return null;
+    return new Promise((resolve) => {
+      entry.resolve = (choice: ColoriChoice) => {
+        entry.worker.terminate();
+        this.precomputeMap.delete(key);
+        resolve(choice);
+      };
+    });
   }
 
   cancelPrecomputation(): void {
-    this.precomputeId++;
-    this.precomputedResult = null;
-    this.pendingPrecomputeContext = null;
-    this.precomputeResolve = null;
+    this.generationId++;
+    for (const entry of this.precomputeMap.values()) {
+      entry.worker.terminate();
+    }
+    this.precomputeMap.clear();
   }
 
   terminate(): void {
     this.worker.terminate();
-    this.precomputeWorker.terminate();
+    this.cancelPrecomputation();
   }
 }

@@ -3,7 +3,7 @@
   import { executeDrawPhase } from '../engine/drawPhase';
   import { confirmPass } from '../engine/draftPhase';
   import { applyChoice, getChoiceLogMessage } from '../engine/applyChoice';
-  import { AIController } from '../ai/aiController';
+  import { AIController, type PrecomputeRequest } from '../ai/aiController';
   import type { ColoriChoice } from '../ai/coloriGame';
   import { cloneGameState } from '../ai/coloriGame';
   import type { GameLogAccumulator } from '../gameLog';
@@ -170,7 +170,7 @@
     onGameUpdated(gameState, gameLog);
   }
 
-  // Precompute next AI player's draft pick while human is deciding
+  // Precompute all AI players' draft picks while human is deciding
   $effect(() => {
     if (gameState.phase.type !== 'draft') {
       aiController.cancelPrecomputation();
@@ -184,26 +184,41 @@
     if (gameState.aiPlayers[currentIdx]) return; // current player is AI, not human
 
     const numPlayers = gameState.players.length;
-    const nextIdx = (currentIdx + 1) % numPlayers;
     const startingPlayer = (gameState.round - 1) % numPlayers;
-    if (nextIdx === startingPlayer) return; // human is last picker this round, hands will rotate
-    if (!gameState.aiPlayers[nextIdx]) return; // next player is not AI
+    const requests: PrecomputeRequest[] = [];
 
-    const clone = cloneGameState(gameState);
-    const cloneDs = (clone.phase as { type: 'draft'; draftState: typeof ds }).draftState;
-    cloneDs.currentPlayerIndex = nextIdx;
-    cloneDs.waitingForPass = false;
+    // Loop through players in turn order after the human, up to startingPlayer (end-of-round boundary)
+    let idx = (currentIdx + 1) % numPlayers;
+    while (idx !== startingPlayer) {
+      if (gameState.aiPlayers[idx]) {
+        const clone = cloneGameState(gameState);
+        const cloneDs = (clone.phase as { type: 'draft'; draftState: typeof ds }).draftState;
+        cloneDs.currentPlayerIndex = idx;
+        cloneDs.waitingForPass = false;
 
-    // Build seenHands snapshot for the AI player
-    const aiSeenHands = seenHands.has(nextIdx)
-      ? [...seenHands.get(nextIdx)!.map(h => [...h])]
-      : [];
-    const nextHand = ds.hands[nextIdx];
-    if (aiSeenHands.length <= ds.pickNumber) {
-      aiSeenHands.push([...nextHand]);
+        // Build seenHands snapshot for the AI player
+        const aiSeenHands = seenHands.has(idx)
+          ? [...seenHands.get(idx)!.map(h => [...h])]
+          : [];
+        const hand = ds.hands[idx];
+        if (aiSeenHands.length <= ds.pickNumber) {
+          aiSeenHands.push([...hand]);
+        }
+
+        requests.push({
+          gameState: clone,
+          playerIndex: idx,
+          pickNumber: ds.pickNumber,
+          iterations: 100000,
+          seenHands: aiSeenHands,
+        });
+      }
+      idx = (idx + 1) % numPlayers;
     }
 
-    aiController.precomputeDraftPick(clone, nextIdx, ds.pickNumber, 100000, aiSeenHands);
+    if (requests.length > 0) {
+      aiController.precomputeDraftPicks(requests);
+    }
   });
 
   // Trigger AI turn when the active player is AI
