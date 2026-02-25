@@ -5,7 +5,6 @@
   import type { ColoriChoice } from '../data/types';
   import type { GameLogAccumulator } from '../gameLog';
   import PlayerStatus from './PlayerStatus.svelte';
-  import DrawPhaseView from './DrawPhaseView.svelte';
   import DraftPhaseView from './DraftPhaseView.svelte';
   import ActionPhaseView from './ActionPhaseView.svelte';
   import GameLog from './GameLog.svelte';
@@ -50,7 +49,6 @@
   });
 
   let drawExecutedForRound: number | null = $state(null);
-  let showDrawPhase = $state(false);
   let aiThinking = $state(false);
   let gameLog: string[] = $state(initialGameLog);
 
@@ -102,19 +100,9 @@
       executeDrawPhase(gameState);
       // Reset seenHands for the new draft round
       seenHands = new Map();
-      // Check if any human players exist to show draw phase
-      const hasHuman = gameState.aiPlayers.some(ai => !ai);
-      if (hasHuman) {
-        showDrawPhase = true;
-      }
       onGameUpdated(gameState, gameLog);
     }
   });
-
-  function handleDrawContinue() {
-    showDrawPhase = false;
-    onGameUpdated(gameState, gameLog);
-  }
 
   let activePlayerIndex = $derived(getActivePlayerIndex(gameState));
   let selectedPlayerIndex = $state(0);
@@ -123,7 +111,7 @@
     selectedPlayerIndex === activePlayerIndex && activePlayerIndex >= 0 && !gameState.aiPlayers[selectedPlayerIndex]
   );
   let showSidebar = $derived(
-    !showDrawPhase && selectedPlayer !== undefined &&
+    selectedPlayer !== undefined &&
     (gameState.phase.type === 'draft' || gameState.phase.type === 'action')
   );
 
@@ -221,7 +209,6 @@
   // Trigger AI turn when the active player is AI
   $effect(() => {
     if (aiThinking) return;
-    if (showDrawPhase) return;
     if (gameState.phase.type === 'gameOver') return;
     if (gameState.phase.type === 'draw') return;
 
@@ -310,9 +297,7 @@
 
     <div class="main-column">
       <div class="phase-content">
-        {#if showDrawPhase && gameState.phase.type === 'draft'}
-          <DrawPhaseView {gameState} onContinue={handleDrawContinue} />
-        {:else if gameState.phase.type === 'draft'}
+        {#if gameState.phase.type === 'draft'}
           {#if isViewingActiveHuman}
             <DraftPhaseView {gameState} onAction={handleAction} onGameUpdated={() => onGameUpdated(gameState, gameLog)} />
           {:else}

@@ -9,7 +9,6 @@
   import { AIController } from '../ai/aiController';
   import { cloneGameState } from '../engine/wasmEngine';
   import PlayerStatus from './PlayerStatus.svelte';
-  import DrawPhaseView from './DrawPhaseView.svelte';
   import DraftPhaseView from './DraftPhaseView.svelte';
   import ActionPhaseView from './ActionPhaseView.svelte';
   import GameLog from './GameLog.svelte';
@@ -43,8 +42,6 @@
 
   // Shared state
   let aiThinking = $state(false);
-  let showDrawPhase = $state(false);
-  let drawExecutedForRound: number | null = $state(null);
 
   // Timer
   let elapsedSeconds = $state(0);
@@ -98,7 +95,7 @@
   );
 
   let showSidebar = $derived(
-    !showDrawPhase && gameState !== null &&
+    gameState !== null &&
     (gameState.phase.type === 'draft' || gameState.phase.type === 'action')
   );
 
@@ -152,22 +149,6 @@
     };
   }
 
-  // Handle draw phase for host (auto-show then continue)
-  $effect(() => {
-    if (role !== 'host' || !gameState) return;
-    if (gameState.phase.type === 'draft' && drawExecutedForRound !== gameState.round) {
-      drawExecutedForRound = gameState.round;
-      // Show draw phase briefly if there are human players on host side
-      if (!gameState.aiPlayers[0]) {
-        showDrawPhase = true;
-      }
-    }
-  });
-
-  function handleDrawContinue() {
-    showDrawPhase = false;
-  }
-
   // Simultaneous draft state
   let hasPicked = $state(false);
   let lastPickNumber: number | null = $state(null);
@@ -197,7 +178,6 @@
   // AI turn handling (host only)
   $effect(() => {
     if (role !== 'host' || !gameState || aiThinking) return;
-    if (showDrawPhase) return;
     if (gameState.phase.type === 'gameOver') return;
     if (gameState.phase.type === 'draw') return;
 
@@ -301,7 +281,7 @@
 
       <div class="main-column">
         <div class="phase-content">
-          {#if !isMyTurn && !aiThinking && !showDrawPhase && gameState.phase.type === 'action'}
+          {#if !isMyTurn && !aiThinking && gameState.phase.type === 'action'}
             <div class="waiting-banner">
               <div class="spinner"></div>
               <p>Waiting for {gameState.players[activePlayerIndex]?.name ?? 'other player'}...</p>
@@ -330,9 +310,7 @@
             {/if}
           {/if}
 
-          {#if showDrawPhase && gameState.phase.type === 'draft'}
-            <DrawPhaseView {gameState} onContinue={handleDrawContinue} />
-          {:else if gameState.phase.type === 'draft'}
+          {#if gameState.phase.type === 'draft'}
             <DraftPhaseView {gameState} onAction={handleAction} playerIndex={myPlayerIndex} selectable={!hasPicked} />
             {#if hasPicked}
               <div class="waiting-banner">
