@@ -359,10 +359,10 @@ function getGameStatus(state: GameState, maxRound?: number): GameStatus {
 
   if (maxRound !== undefined && state.round > maxRound) {
     const scores = state.players.map(p => calculateScore(p));
-    const total = scores.reduce((a, b) => a + b, 0);
+    const maxScore = Math.max(...scores);
     return {
       type: 'terminated',
-      scores: scores.map(s => s / Math.max(1, total)),
+      scores: scores.map(s => s === maxScore ? 1 : 0),
     };
   }
 
@@ -374,10 +374,10 @@ function getGameStatus(state: GameState, maxRound?: number): GameStatus {
   }
   if (phase.type === 'gameOver') {
     const scores = state.players.map(p => calculateScore(p));
-    const total = scores.reduce((a, b) => a + b, 0);
+    const maxScore = Math.max(...scores);
     return {
       type: 'terminated',
-      scores: scores.map(s => s / Math.max(1, total)),
+      scores: scores.map(s => s === maxScore ? 1 : 0),
     };
   }
 

@@ -63,7 +63,7 @@ function upperConfidenceBound(cumulativeReward: number, games: number, totalGame
   return winRate + c * Math.sqrt(Math.log(totalGameCount) / games);
 }
 
-const C = 0.4;
+const C = Math.SQRT2;
 const MAX_ROLLOUT_STEPS = 1000;
 
 export function ismcts<Choice>(game: Game<Choice>, iterations: number): Choice {
