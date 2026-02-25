@@ -10,6 +10,7 @@
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
     "test": "vitest run",
     "bench": "vitest bench",
+    "benchmark": "vitest bench",
     "build:wasm": "cd colori-ai-wasm && wasm-pack build --target web --out-dir ../src/ai/wasm-pkg"
   },
   "devDependencies": {
