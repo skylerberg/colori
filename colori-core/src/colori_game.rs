@@ -17,24 +17,19 @@ use smallvec::SmallVec;
 
 // ── Subset enumeration ──
 
-fn get_subsets(items: &[u32], max_size: usize) -> Vec<SmallVec<[u32; 5]>> {
-    let mut result = Vec::new();
-    let mut current = SmallVec::<[u32; 5]>::new();
-    fn recurse(start: usize, current: &mut SmallVec<[u32; 5]>, items: &[u32], max_size: usize, result: &mut Vec<SmallVec<[u32; 5]>>) {
-        if !current.is_empty() {
-            result.push(current.clone());
+fn enumerate_subsets_into(
+    mask: UnorderedCards,
+    max_size: usize,
+    choices: &mut Vec<ColoriChoice>,
+    f: impl Fn(UnorderedCards) -> ColoriChoice,
+) {
+    let mut sub = mask.0;
+    while sub > 0 {
+        if (sub.count_ones() as usize) <= max_size {
+            choices.push(f(UnorderedCards(sub)));
         }
-        if current.len() >= max_size {
-            return;
-        }
-        for i in start..items.len() {
-            current.push(items[i]);
-            recurse(i + 1, current, items, max_size, result);
-            current.pop();
-        }
+        sub = (sub - 1) & mask.0;
     }
-    recurse(0, &mut current, items, max_size, &mut result);
-    result
 }
 
 // ── Buyer affordability ──
@@ -144,36 +139,25 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>
                 }
                 Some(PendingChoice::ChooseCardsForWorkshop { count }) => {
                     choices.push(ColoriChoice::SkipWorkshop);
-
-                    // Collect IDs from bitset (already sorted since bitset iterates low to high)
-                    let eligible: Vec<u32> = player
-                        .workshop_cards
-                        .iter()
-                        .map(|id| id as u32)
-                        .collect();
-
-                    let subsets = get_subsets(&eligible, *count as usize);
-                    for ids in subsets {
-                        choices.push(ColoriChoice::Workshop {
-                            card_instance_ids: ids,
-                        });
-                    }
+                    enumerate_subsets_into(
+                        player.workshop_cards,
+                        *count as usize,
+                        choices,
+                        |ids| ColoriChoice::Workshop { card_instance_ids: ids },
+                    );
                 }
                 Some(PendingChoice::ChooseCardsToDestroy { count }) => {
-                    // Bitset iteration is already sorted
-                    let card_ids: Vec<u32> =
-                        player.workshop_cards.iter().map(|id| id as u32).collect();
-                    let subsets = get_subsets(&card_ids, *count as usize);
-                    if subsets.is_empty() {
+                    if player.workshop_cards.is_empty() {
                         choices.push(ColoriChoice::DestroyDrawnCards {
-                            card_instance_ids: SmallVec::new(),
+                            card_instance_ids: UnorderedCards::new(),
                         });
                     } else {
-                        for ids in subsets {
-                            choices.push(ColoriChoice::DestroyDrawnCards {
-                                card_instance_ids: ids,
-                            });
-                        }
+                        enumerate_subsets_into(
+                            player.workshop_cards,
+                            *count as usize,
+                            choices,
+                            |ids| ColoriChoice::DestroyDrawnCards { card_instance_ids: ids },
+                        );
                     }
                 }
                 Some(PendingChoice::ChooseMix { remaining }) => {
@@ -281,9 +265,8 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                 match &action_state.pending_choice {
                     Some(PendingChoice::ChooseCardsForWorkshop { .. }) => {
                         let player = &state.players[action_state.current_player_index];
-                        card_instance_ids.iter().all(|id| {
-                            player.workshop_cards.contains(*id as u8)
-                        })
+                        !card_instance_ids.is_empty()
+                            && card_instance_ids.difference(player.workshop_cards).is_empty()
                     }
                     _ => false,
                 }
@@ -306,9 +289,7 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                 match &action_state.pending_choice {
                     Some(PendingChoice::ChooseCardsToDestroy { .. }) => {
                         let player = &state.players[action_state.current_player_index];
-                        card_instance_ids.iter().all(|id| {
-                            player.workshop_cards.contains(*id as u8)
-                        })
+                        card_instance_ids.difference(player.workshop_cards).is_empty()
                     }
                     _ => false,
                 }
@@ -616,8 +597,8 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
         DestroyAndSell { card_id: u32, buyer_id: u32 },
         EndTurn,
         SkipWorkshop,
-        Workshop { ids: [u32; 16], count: usize },
-        DestroyDrawn { ids: [u32; 16], count: usize },
+        Workshop(UnorderedCards),
+        DestroyDrawn(UnorderedCards),
         MixAll { mixes: [(Color, Color); 2], mix_count: usize },
         SelectBuyer(u32),
         GainSecondary(Color),
@@ -709,34 +690,26 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                         let max_pick = (*count as usize).min(total as usize);
                         let pick = rng.random_range(1..=max_pick);
                         let mut copy = player.workshop_cards;
-                        let mut ids = [0u32; 16];
-                        for k in 0..pick {
-                            ids[k] = copy.draw(rng).unwrap() as u32;
+                        let mut selected = UnorderedCards::new();
+                        for _ in 0..pick {
+                            selected.insert(copy.draw(rng).unwrap());
                         }
-                        ids[..pick].sort_unstable();
-                        Op::Workshop { ids, count: pick }
+                        Op::Workshop(selected)
                     }
                 }
                 Some(PendingChoice::ChooseCardsToDestroy { count }) => {
                     let ws_len = player.workshop_cards.len();
                     let destroy_count = (*count as usize).min(ws_len as usize);
                     if destroy_count == 0 {
-                        Op::DestroyDrawn {
-                            ids: [0u32; 16],
-                            count: 0,
-                        }
+                        Op::DestroyDrawn(UnorderedCards::new())
                     } else {
                         let destroy_pick = rng.random_range(1..=destroy_count);
                         let mut copy = player.workshop_cards;
-                        let mut ids = [0u32; 16];
-                        for k in 0..destroy_pick {
-                            ids[k] = copy.draw(rng).unwrap() as u32;
+                        let mut selected = UnorderedCards::new();
+                        for _ in 0..destroy_pick {
+                            selected.insert(copy.draw(rng).unwrap());
                         }
-                        ids[..destroy_pick].sort_unstable();
-                        Op::DestroyDrawn {
-                            ids,
-                            count: destroy_pick,
-                        }
+                        Op::DestroyDrawn(selected)
                     }
                 }
                 Some(PendingChoice::ChooseMix { remaining }) => {
@@ -824,8 +797,8 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
             }
         }
         Op::SkipWorkshop => skip_workshop(state, rng),
-        Op::Workshop { ids, count } => resolve_workshop_choice(state, &ids[..count], rng),
-        Op::DestroyDrawn { ids, count } => resolve_destroy_cards(state, &ids[..count], rng),
+        Op::Workshop(selected) => resolve_workshop_choice(state, selected, rng),
+        Op::DestroyDrawn(selected) => resolve_destroy_cards(state, selected, rng),
         Op::MixAll { mixes, mix_count } => {
             for i in 0..mix_count {
                 let (a, b) = mixes[i];

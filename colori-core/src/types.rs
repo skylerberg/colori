@@ -690,6 +690,22 @@ fn default_buyer_lookup() -> [BuyerCard; 128] {
     [BuyerCard::Textiles2Vermilion; 128]
 }
 
+// ── Serde helpers for UnorderedCards as Vec<u32> ──
+
+fn serialize_ids<S: serde::Serializer>(cards: &UnorderedCards, s: S) -> Result<S::Ok, S::Error> {
+    let ids: Vec<u32> = cards.iter().map(|id| id as u32).collect();
+    ids.serialize(s)
+}
+
+fn deserialize_ids<'de, D: serde::Deserializer<'de>>(d: D) -> Result<UnorderedCards, D::Error> {
+    let ids = Vec::<u32>::deserialize(d)?;
+    let mut cards = UnorderedCards::new();
+    for id in ids {
+        cards.insert(id as u8);
+    }
+    Ok(cards)
+}
+
 // ── ColoriChoice ──
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -709,15 +725,23 @@ pub enum ColoriChoice {
     EndTurn,
     #[serde(rename = "workshop")]
     Workshop {
-        #[serde(rename = "cardInstanceIds")]
-        card_instance_ids: SmallVec<[u32; 5]>,
+        #[serde(
+            rename = "cardInstanceIds",
+            serialize_with = "serialize_ids",
+            deserialize_with = "deserialize_ids"
+        )]
+        card_instance_ids: UnorderedCards,
     },
     #[serde(rename = "skipWorkshop")]
     SkipWorkshop,
     #[serde(rename = "destroyDrawnCards")]
     DestroyDrawnCards {
-        #[serde(rename = "cardInstanceIds")]
-        card_instance_ids: SmallVec<[u32; 5]>,
+        #[serde(
+            rename = "cardInstanceIds",
+            serialize_with = "serialize_ids",
+            deserialize_with = "deserialize_ids"
+        )]
+        card_instance_ids: UnorderedCards,
     },
     #[serde(rename = "selectBuyer")]
     SelectBuyer {

@@ -117,7 +117,7 @@ fn can_sell_to_any_buyer(state: &GameState) -> bool {
 
 pub fn resolve_workshop_choice<R: Rng>(
     state: &mut GameState,
-    selected_card_ids: &[u32],
+    selected_cards: UnorderedCards,
     rng: &mut R,
 ) {
     let as_ = get_action_state(state);
@@ -126,15 +126,14 @@ pub fn resolve_workshop_choice<R: Rng>(
         _ => panic!("No pending workshop choice"),
     };
     let player_index = as_.current_player_index;
-    let remaining = count - selected_card_ids.len() as u32;
+    let remaining = count - selected_cards.len();
 
     // Partition selected cards into action and non-action using card_lookup
     let mut action_ids = [0u8; 16];
     let mut action_count = 0usize;
     let mut non_action_ids = [0u8; 16];
     let mut non_action_count = 0usize;
-    for &raw_id in selected_card_ids {
-        let id = raw_id as u8;
+    for id in selected_cards.iter() {
         let card = state.card_lookup[id as usize];
         if card.is_action() {
             action_ids[action_count] = id;
@@ -275,13 +274,12 @@ pub fn skip_mix<R: Rng>(state: &mut GameState, rng: &mut R) {
 
 pub fn resolve_destroy_cards<R: Rng>(
     state: &mut GameState,
-    selected_card_ids: &[u32],
+    selected_cards: UnorderedCards,
     rng: &mut R,
 ) {
     let player_index = get_action_state(state).current_player_index;
 
-    for &card_id in selected_card_ids {
-        let id = card_id as u8;
+    for id in selected_cards.iter() {
         assert!(
             state.players[player_index].workshop_cards.contains(id),
             "Card not found in workshopCards"

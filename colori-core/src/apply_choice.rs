@@ -15,13 +15,13 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &ColoriChoice, rng: &
             end_player_turn(state, rng);
         }
         ColoriChoice::Workshop { card_instance_ids } => {
-            resolve_workshop_choice(state, card_instance_ids, rng);
+            resolve_workshop_choice(state, *card_instance_ids, rng);
         }
         ColoriChoice::SkipWorkshop => {
             skip_workshop(state, rng);
         }
         ColoriChoice::DestroyDrawnCards { card_instance_ids } => {
-            resolve_destroy_cards(state, card_instance_ids, rng);
+            resolve_destroy_cards(state, *card_instance_ids, rng);
         }
         ColoriChoice::SelectBuyer {
             buyer_instance_id,
