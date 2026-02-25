@@ -9,7 +9,7 @@
 
   let expanded = $state(false);
 
-  let score = $derived(player.completedBuyers.reduce((sum, g) => sum + g.card.stars, 0));
+  let score = $derived(player.completedBuyers.reduce((sum, g) => sum + g.card.stars, 0) + player.ducats);
   let buyerCount = $derived(player.completedBuyers.length);
   let totalMaterials = $derived(Object.values(player.materials).reduce((sum, n) => sum + n, 0));
 
