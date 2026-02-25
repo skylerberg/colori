@@ -20,7 +20,7 @@ pub fn run_ismcts(
         serde_json::from_str(seen_hands_json).ok()
     };
 
-    let max_round = std::cmp::max(8, game_state.round + 2);
+    let max_round = std::cmp::max(6, game_state.round + 2);
 
     let mut rng = SmallRng::from_entropy();
 
