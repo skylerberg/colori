@@ -140,68 +140,109 @@ pub fn resolve_workshop_choice<R: Rng>(
         _ => panic!("No pending workshop choice"),
     };
     let player_index = as_.current_player_index;
+    let remaining = count - selected_card_ids.len() as u32;
 
-    // Check if selection contains an action card
-    let action_card_id = selected_card_ids.iter().find(|&&id| {
-        state.players[player_index]
+    // Partition selected cards into action and non-action
+    let mut action_cards = Vec::new();
+    let mut non_action_ids = Vec::new();
+    for &id in selected_card_ids {
+        let card = state.players[player_index]
             .workshop_cards
             .iter()
-            .any(|c| c.instance_id == id && c.card.is_action())
-    });
-
-    if let Some(&action_id) = action_card_id {
-        // Action card selected: consume 1 pick
-        let card_index = state.players[player_index]
-            .workshop_cards
-            .iter()
-            .position(|c| c.instance_id == action_id)
-            .unwrap();
-        let card = state.players[player_index].workshop_cards.remove(card_index);
-
-        let remaining = count - 1;
-        get_action_state_mut(state).pending_choice = None;
-
-        // Push remaining workshop picks onto stack first (bottom)
-        if remaining > 0 {
-            get_action_state_mut(state)
-                .ability_stack
-                .push(Ability::Workshop { count: remaining });
+            .find(|c| c.instance_id == id)
+            .expect("Card not found in workshopCards");
+        if card.card.is_action() {
+            action_cards.push(id);
+        } else {
+            non_action_ids.push(id);
         }
-
-        // Push workshopAbilities in reverse order
-        for ability in card.card.workshop_abilities().iter().rev() {
-            get_action_state_mut(state)
-                .ability_stack
-                .push(*ability);
-        }
-
-        // Move card to discard
-        state.players[player_index].discard.push(card);
-        process_queue(state, rng);
-    } else {
-        // Non-action cards: process all at once
-        let player = &mut state.players[player_index];
-        for &card_id in selected_card_ids {
-            let card_index = player
-                .workshop_cards
-                .iter()
-                .position(|c| c.instance_id == card_id)
-                .expect("Card not found in workshopCards");
-
-            let card = player.workshop_cards.remove(card_index);
-
-            for mt in card.card.material_types() {
-                player.materials.increment(*mt);
-            }
-            for pip in card.card.pips() {
-                store_color(&mut player.color_wheel, *pip);
-            }
-            player.discard.push(card);
-        }
-
-        get_action_state_mut(state).pending_choice = None;
-        process_queue(state, rng);
     }
+
+    // Process non-action cards immediately: extract materials/colors, move to discard
+    let player = &mut state.players[player_index];
+    for &card_id in &non_action_ids {
+        let card_index = player
+            .workshop_cards
+            .iter()
+            .position(|c| c.instance_id == card_id)
+            .unwrap();
+        let card = player.workshop_cards.remove(card_index);
+        for mt in card.card.material_types() {
+            player.materials.increment(*mt);
+        }
+        for pip in card.card.pips() {
+            store_color(&mut player.color_wheel, *pip);
+        }
+        player.discard.push(card);
+    }
+
+    // Remove action cards from workshop, move to discard, collect abilities
+    let mut regular_abilities = Vec::new();
+    let mut cot_abilities = Vec::new();
+    let mut vinegar_abilities = Vec::new();
+    let mut potash_base_count: Option<u32> = None;
+    let mut has_cot = false;
+
+    for &card_id in &action_cards {
+        let card_index = player
+            .workshop_cards
+            .iter()
+            .position(|c| c.instance_id == card_id)
+            .unwrap();
+        let card = player.workshop_cards.remove(card_index);
+
+        for &ability in card.card.workshop_abilities() {
+            match ability {
+                Ability::ChangeTertiary => vinegar_abilities.push(ability),
+                Ability::Workshop { count: c } => {
+                    potash_base_count = Some(potash_base_count.unwrap_or(0) + c);
+                }
+                Ability::DrawCards { .. } => {
+                    has_cot = true;
+                    cot_abilities.push(ability);
+                }
+                _ => regular_abilities.push(ability),
+            }
+        }
+
+        player.discard.push(card);
+    }
+
+    // Clear pending choice and push abilities onto LIFO stack in reverse resolution order
+    get_action_state_mut(state).pending_choice = None;
+    let stack = &mut get_action_state_mut(state).ability_stack;
+
+    // Push Potash (bottom of stack — resolves last)
+    if let Some(base) = potash_base_count {
+        let potash_count = if has_cot {
+            base // CoT gets the remaining picks separately
+        } else {
+            base + remaining // No CoT: add remaining to Potash
+        };
+        stack.push(Ability::Workshop { count: potash_count });
+    }
+
+    // Push Vinegar (resolves second-to-last)
+    for ability in &vinegar_abilities {
+        stack.push(*ability);
+    }
+
+    // Push Workshop{remaining} if CoT was used and there are remaining picks
+    if has_cot && remaining > 0 {
+        stack.push(Ability::Workshop { count: remaining });
+    }
+
+    // Push CoT's DrawCards (resolves before remaining picks)
+    for ability in &cot_abilities {
+        stack.push(*ability);
+    }
+
+    // Push regular abilities (resolve first — top of stack)
+    for ability in &regular_abilities {
+        stack.push(*ability);
+    }
+
+    process_queue(state, rng);
 }
 
 pub fn skip_workshop<R: Rng>(state: &mut GameState, rng: &mut R) {

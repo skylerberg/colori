@@ -70,34 +70,16 @@ pub fn enumerate_choices(state: &GameState) -> Vec<ColoriChoice> {
                 Some(PendingChoice::ChooseCardsForWorkshop { count }) => {
                     let mut choices: Vec<ColoriChoice> = vec![ColoriChoice::SkipWorkshop];
 
-                    // Non-action card subsets
-                    let eligible_non_action: Vec<u32> = player
+                    let eligible: Vec<u32> = player
                         .workshop_cards
                         .iter()
-                        .filter(|c| !c.card.is_action())
                         .map(|c| c.instance_id)
                         .collect();
 
-                    let subsets = get_subsets(&eligible_non_action, *count as usize);
+                    let subsets = get_subsets(&eligible, *count as usize);
                     for ids in subsets {
                         choices.push(ColoriChoice::Workshop {
                             card_instance_ids: ids,
-                        });
-                    }
-
-                    // Each action card as a separate choice
-                    for card in &player.workshop_cards {
-                        if card.card.is_action() {
-                            choices.push(ColoriChoice::Workshop {
-                                card_instance_ids: vec![card.instance_id],
-                            });
-                        }
-                    }
-
-                    // If no choices besides skip, add empty
-                    if choices.len() == 1 {
-                        choices.push(ColoriChoice::Workshop {
-                            card_instance_ids: vec![],
                         });
                     }
 
@@ -545,17 +527,9 @@ pub fn get_rollout_choice<R: Rng>(state: &GameState, rng: &mut R) -> ColoriChoic
                 }
                 Some(PendingChoice::ChooseCardsForWorkshop { count }) => {
                     let cards = &player.workshop_cards;
-                    let mut action_count = 0;
-                    let mut eligible_count = 0;
-                    for card in cards {
-                        if card.card.is_action() {
-                            action_count += 1;
-                        } else {
-                            eligible_count += 1;
-                        }
-                    }
+                    let total = cards.len();
 
-                    if eligible_count == 0 && action_count == 0 {
+                    if total == 0 {
                         return ColoriChoice::SkipWorkshop;
                     }
 
@@ -563,56 +537,18 @@ pub fn get_rollout_choice<R: Rng>(state: &GameState, rng: &mut R) -> ColoriChoic
                         return ColoriChoice::SkipWorkshop;
                     }
 
-                    // 50% chance to pick action card
-                    if action_count > 0 && rng.gen::<f64>() < 0.5 {
-                        let mut action_idx = rng.gen_range(0..action_count);
-                        for card in cards {
-                            if card.card.is_action() {
-                                if action_idx == 0 {
-                                    return ColoriChoice::Workshop {
-                                        card_instance_ids: vec![card.instance_id],
-                                    };
-                                }
-                                action_idx -= 1;
-                            }
-                        }
-                    }
-
-                    if eligible_count == 0 {
-                        if action_count > 0 {
-                            let mut action_idx = rng.gen_range(0..action_count);
-                            for card in cards {
-                                if card.card.is_action() {
-                                    if action_idx == 0 {
-                                        return ColoriChoice::Workshop {
-                                            card_instance_ids: vec![card.instance_id],
-                                        };
-                                    }
-                                    action_idx -= 1;
-                                }
-                            }
-                        }
-                        return ColoriChoice::SkipWorkshop;
-                    }
-
-                    // Fisher-Yates partial shuffle on eligible card indices
-                    let max_pick = (*count as usize).min(eligible_count);
+                    // Fisher-Yates partial shuffle on all cards
+                    let max_pick = (*count as usize).min(total);
                     let pick = rng.gen_range(1..=max_pick);
-                    let mut eligible_indices: Vec<usize> = Vec::with_capacity(eligible_count);
-                    for (k, card) in cards.iter().enumerate() {
-                        if !card.card.is_action() {
-                            eligible_indices.push(k);
-                        }
-                    }
+                    let mut indices: Vec<usize> = (0..total).collect();
 
-                    // Partial Fisher-Yates
                     for k in 0..pick {
-                        let j = k + rng.gen_range(0..(eligible_count - k));
-                        eligible_indices.swap(k, j);
+                        let j = k + rng.gen_range(0..(total - k));
+                        indices.swap(k, j);
                     }
 
                     let ids: Vec<u32> = (0..pick)
-                        .map(|k| cards[eligible_indices[k]].instance_id)
+                        .map(|k| cards[indices[k]].instance_id)
                         .collect();
                     ColoriChoice::Workshop {
                         card_instance_ids: ids,

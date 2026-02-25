@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { GameState } from '../data/types';
   import type { ColoriChoice } from '../data/types';
-  import { getCardData } from '../data/cards';
   import CardList from './CardList.svelte';
   import AbilityPrompt from './AbilityPrompt.svelte';
   import OpponentBoardPanel from './OpponentBoardPanel.svelte';
@@ -41,29 +40,11 @@
 
   function toggleWorkshopCard(instanceId: number) {
     if (!pendingChoice || pendingChoice.type !== 'chooseCardsForWorkshop') return;
-    const card = currentPlayer?.workshopCards.find(c => c.instanceId === instanceId);
-    if (!card) return;
-    const isAction = getCardData(card.card).kind === 'action';
-
-    if (isAction) {
-      // Action cards: toggle, deselect all non-action
-      if (selectedWorkshopIds.includes(instanceId)) {
-        selectedWorkshopIds = [];
-      } else {
-        selectedWorkshopIds = [instanceId];
-      }
-    } else {
-      // Non-action cards: deselect any action cards
-      const currentNonAction = selectedWorkshopIds.filter(id => {
-        const c = currentPlayer?.workshopCards.find(c => c.instanceId === id);
-        return c && getCardData(c.card).kind !== 'action';
-      });
-      const idx = currentNonAction.indexOf(instanceId);
-      if (idx >= 0) {
-        selectedWorkshopIds = currentNonAction.filter(id => id !== instanceId);
-      } else if (currentNonAction.length < pendingChoice.count) {
-        selectedWorkshopIds = [...currentNonAction, instanceId];
-      }
+    const idx = selectedWorkshopIds.indexOf(instanceId);
+    if (idx >= 0) {
+      selectedWorkshopIds = selectedWorkshopIds.filter(id => id !== instanceId);
+    } else if (selectedWorkshopIds.length < pendingChoice.count) {
+      selectedWorkshopIds = [...selectedWorkshopIds, instanceId];
     }
   }
 
