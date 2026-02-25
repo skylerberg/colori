@@ -61,7 +61,7 @@ Each buyer requires 2 of a specific material type and a set of colors as its cos
 Each player has:
 - **Personal Deck** (face down)
 - **Discard Pile**
-- **Drawn Cards** (face up, visible to all players)
+- **Workshop** (face up, visible to all players)
 - **Drafted Cards** (face up after drafting)
 - **Color Wheel** (tracks stored colors)
 - **Stored Materials** (tracks Textiles, Ceramics, and Paintings counts)
@@ -74,9 +74,9 @@ The game is played over up to **10 rounds**. Each round has three phases. The st
 
 ### 1. Draw Phase
 
-Each player draws 5 cards from their personal deck into their drawn cards area. If the personal deck runs out, shuffle the discard pile to form a new deck, then continue drawing.
+Each player draws 5 cards from their personal deck into their workshop. If the personal deck runs out, shuffle the discard pile to form a new deck, then continue drawing.
 
-Drawn cards are face-up and visible to all players.
+Workshop cards are face-up and visible to all players.
 
 ### 2. Draft Phase
 
@@ -95,9 +95,9 @@ Each player takes one turn, starting with the starting player for the round. On 
 
 At the end of each player's turn:
 - Any un-destroyed drafted cards go to the player's discard pile.
-- Any remaining drawn cards go to the player's discard pile.
+- Any remaining workshop cards go to the player's discard pile.
 
-All player information (drawn cards, drafted cards, color wheel, stored materials, ducats) is public during the action phase.
+All player information (workshop, drafted cards, color wheel, stored materials, ducats) is public during the action phase.
 
 ## Abilities
 
@@ -105,7 +105,7 @@ When a card is destroyed, its destroy ability triggers. Abilities are resolved u
 
 ### Workshop ×N
 
-Choose up to N cards from your **drawn cards** area. You may skip Workshop entirely (choosing 0 cards).
+Choose up to N cards from your **workshop**. You may skip Workshop entirely (choosing 0 cards).
 
 For each chosen card:
 - **Material card**: Store all materials listed on the card (e.g., 2x Ceramics, or 1 Ceramics + 1 Paintings). If the card has a color pip, also store that color on your color wheel. The card is discarded.
@@ -114,7 +114,7 @@ For each chosen card:
 
 ### Draw Cards ×N
 
-Draw N cards from your personal deck into your drawn cards area. If your deck runs out, shuffle your discard pile to form a new deck.
+Draw N cards from your personal deck into your workshop. If your deck runs out, shuffle your discard pile to form a new deck.
 
 ### Mix Colors ×N
 
@@ -138,7 +138,7 @@ Complete mixing pairs (two inputs → one output):
 
 ### Destroy Cards ×N
 
-Choose N cards from your **drawn cards** area and destroy them. Each destroyed card's ability triggers and is pushed onto the ability stack (chain reactions are possible).
+Choose N cards from your **workshop** and destroy them. Each destroyed card's ability triggers and is pushed onto the ability stack (chain reactions are possible).
 
 ### Sell
 

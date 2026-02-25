@@ -63,7 +63,7 @@ export interface PlayerState {
   name: string;
   deck: CardInstance[];
   discard: CardInstance[];
-  drawnCards: CardInstance[];
+  workshopCards: CardInstance[];
   draftedCards: CardInstance[];
   colorWheel: Record<Color, number>;
   materials: Record<MaterialType, number>;

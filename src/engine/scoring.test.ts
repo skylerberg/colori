@@ -19,7 +19,7 @@ function makePlayerWithBuyers(name: string, stars: number[]): PlayerState {
     name,
     deck: [],
     discard: [],
-    drawnCards: [],
+    workshopCards: [],
     draftedCards: [],
     colorWheel: createEmptyWheel(),
     materials: { Textiles: 0, Ceramics: 0, Paintings: 0 },

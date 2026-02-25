@@ -6,7 +6,7 @@ export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
     name: sp.name,
     deck: new Array(sp.deckCount) as CardInstance[],
     discard: new Array(sp.discardCount) as CardInstance[],
-    drawnCards: sp.drawnCards,
+    workshopCards: sp.workshopCards,
     draftedCards: sp.draftedCards,
     colorWheel: sp.colorWheel,
     materials: sp.materials,

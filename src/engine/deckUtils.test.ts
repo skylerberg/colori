@@ -18,7 +18,7 @@ function makePlayer(deckSize: number, discardSize: number = 0): PlayerState {
     name: 'Test Player',
     deck: createCardInstances(deckCards),
     discard: createCardInstances(discardCards),
-    drawnCards: [],
+    workshopCards: [],
     draftedCards: [],
     colorWheel: createEmptyWheel(),
     materials: { Textiles: 0, Ceramics: 0, Paintings: 0 },

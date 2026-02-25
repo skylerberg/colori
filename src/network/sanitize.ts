@@ -10,7 +10,7 @@ export function sanitizeGameState(
     name: p.name,
     deckCount: p.deck.length,
     discardCount: p.discard.length,
-    drawnCards: [...p.drawnCards],
+    workshopCards: [...p.workshopCards],
     draftedCards: [...p.draftedCards],
     colorWheel: { ...p.colorWheel },
     materials: { ...p.materials },

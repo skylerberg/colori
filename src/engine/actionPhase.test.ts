@@ -29,7 +29,7 @@ function makeTestPlayer(name: string): PlayerState {
     name,
     deck: [],
     discard: [],
-    drawnCards: [],
+    workshopCards: [],
     draftedCards: [],
     colorWheel: createEmptyWheel(),
     materials: { Textiles: 0, Ceramics: 0, Paintings: 0 },
@@ -102,7 +102,7 @@ describe('destroyDraftedCard', () => {
     const instances = createCardInstances([madder]);
     state.players[0].draftedCards = instances;
     // Give player drawn cards so workshop doesn't fizzle
-    state.players[0].drawnCards = createCardInstances([basicRed]);
+    state.players[0].workshopCards = createCardInstances([basicRed]);
 
     destroyDraftedCard(state, instances[0].instanceId);
 
@@ -138,7 +138,7 @@ describe('processQueue - drawCards', () => {
 
     processQueue(state);
 
-    expect(state.players[0].drawnCards).toHaveLength(2);
+    expect(state.players[0].workshopCards).toHaveLength(2);
     expect(state.players[0].deck).toHaveLength(1);
     expect(actionState.pendingChoice).toBeNull();
   });
@@ -155,7 +155,7 @@ describe('processQueue - workshop', () => {
 
     // Give player drawn cards so workshop doesn't fizzle
     const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
-    state.players[0].drawnCards = createCardInstances([basicRed]);
+    state.players[0].workshopCards = createCardInstances([basicRed]);
 
     const actionState = getActionState(state);
     actionState.abilityStack.push({ type: 'workshop', count: 2 });
@@ -177,7 +177,7 @@ describe('resolveWorkshopChoice', () => {
 
     const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
     const instances = createCardInstances([basicRed]);
-    state.players[0].drawnCards = instances;
+    state.players[0].workshopCards = instances;
 
     const actionState = getActionState(state);
     actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 1 };
@@ -185,7 +185,7 @@ describe('resolveWorkshopChoice', () => {
     resolveWorkshopChoice(state, [instances[0].instanceId]);
 
     expect(state.players[0].colorWheel['Red']).toBe(1);
-    expect(state.players[0].drawnCards).toHaveLength(0);
+    expect(state.players[0].workshopCards).toHaveLength(0);
     expect(state.players[0].discard).toHaveLength(1);
     expect(actionState.pendingChoice).toBeNull();
   });
@@ -196,7 +196,7 @@ describe('resolveWorkshopChoice', () => {
 
     const ceramicsCard = MATERIAL_CARDS.find(c => c.name === 'Ceramics')!;
     const instances = createCardInstances([ceramicsCard]);
-    state.players[0].drawnCards = instances;
+    state.players[0].workshopCards = instances;
 
     const actionState = getActionState(state);
     actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 1 };
@@ -204,7 +204,7 @@ describe('resolveWorkshopChoice', () => {
     resolveWorkshopChoice(state, [instances[0].instanceId]);
 
     expect(state.players[0].materials.Ceramics).toBe(1);
-    expect(state.players[0].drawnCards).toHaveLength(0);
+    expect(state.players[0].workshopCards).toHaveLength(0);
     expect(state.players[0].discard).toHaveLength(1);
     expect(actionState.pendingChoice).toBeNull();
   });
@@ -225,7 +225,7 @@ describe('resolveDestroyCards', () => {
     const instances = createCardInstances([madder]);
     // Give player extra drawn cards so workshop doesn't fizzle after destroying Madder
     const extraCards = createCardInstances([basicRed]);
-    state.players[0].drawnCards = [...instances, ...extraCards];
+    state.players[0].workshopCards = [...instances, ...extraCards];
 
     const actionState = getActionState(state);
     actionState.pendingChoice = { type: 'chooseCardsToDestroy', count: 1 };
@@ -244,18 +244,18 @@ describe('endPlayerTurn', () => {
     resetInstanceIdCounter();
   });
 
-  it('moves remaining drawnCards and draftedCards to discard', () => {
+  it('moves remaining workshopCards and draftedCards to discard', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
 
     const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
-    state.players[0].drawnCards = createCardInstances([basicRed, basicRed]);
+    state.players[0].workshopCards = createCardInstances([basicRed, basicRed]);
     state.players[0].draftedCards = createCardInstances([basicRed]);
 
     endPlayerTurn(state);
 
     expect(state.players[0].discard).toHaveLength(3);
-    expect(state.players[0].drawnCards).toHaveLength(0);
+    expect(state.players[0].workshopCards).toHaveLength(0);
     expect(state.players[0].draftedCards).toHaveLength(0);
   });
 
@@ -449,7 +449,7 @@ describe('workshop action cards', () => {
 
     const alum = ACTION_CARDS.find(c => c.name === 'Alum')!;
     const instances = createCardInstances([alum]);
-    player.drawnCards = [...instances];
+    player.workshopCards = [...instances];
 
     const actionState = getActionState(state);
     actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 1 };
@@ -457,7 +457,7 @@ describe('workshop action cards', () => {
     resolveWorkshopChoice(state, [instances[0].instanceId]);
 
     expect(player.ducats).toBe(1);
-    expect(player.drawnCards).toHaveLength(0);
+    expect(player.workshopCards).toHaveLength(0);
     expect(player.discard).toHaveLength(1);
     expect(actionState.pendingChoice).toBeNull();
   });
@@ -469,7 +469,7 @@ describe('workshop action cards', () => {
 
     const gumArabic = ACTION_CARDS.find(c => c.name === 'Gum Arabic')!;
     const instances = createCardInstances([gumArabic]);
-    player.drawnCards = [...instances];
+    player.workshopCards = [...instances];
 
     const actionState = getActionState(state);
     actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 1 };
@@ -488,7 +488,7 @@ describe('workshop action cards', () => {
     const cot = ACTION_CARDS.find(c => c.name === 'Cream of Tartar')!;
     const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
     const instances = createCardInstances([cot]);
-    player.drawnCards = [...instances];
+    player.workshopCards = [...instances];
     player.deck = createCardInstances([basicRed, basicRed, basicRed]);
 
     const actionState = getActionState(state);
@@ -496,7 +496,7 @@ describe('workshop action cards', () => {
 
     resolveWorkshopChoice(state, [instances[0].instanceId]);
 
-    expect(player.drawnCards).toHaveLength(3);
+    expect(player.workshopCards).toHaveLength(3);
     expect(actionState.pendingChoice).toBeNull();
   });
 
@@ -508,7 +508,7 @@ describe('workshop action cards', () => {
     const potash = ACTION_CARDS.find(c => c.name === 'Potash')!;
     const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
     const instances = createCardInstances([potash]);
-    player.drawnCards = [...instances];
+    player.workshopCards = [...instances];
     player.deck = createCardInstances([basicRed]);
 
     const actionState = getActionState(state);
@@ -516,10 +516,10 @@ describe('workshop action cards', () => {
 
     resolveWorkshopChoice(state, [instances[0].instanceId]);
 
-    // Potash's workshopAbilities are [workshop:3], but drawnCards is empty after discarding Potash
+    // Potash's workshopAbilities are [workshop:3], but workshopCards is empty after discarding Potash
     // Need drawn cards for workshop not to fizzle. Let's add some first.
-    // Actually Potash was consumed, deck has 1 basicRed remaining, drawnCards is empty
-    // workshop:3 fizzles because no drawnCards
+    // Actually Potash was consumed, deck has 1 basicRed remaining, workshopCards is empty
+    // workshop:3 fizzles because no workshopCards
     expect(actionState.pendingChoice).toBeNull();
   });
 
@@ -532,7 +532,7 @@ describe('workshop action cards', () => {
     const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
     const instances = createCardInstances([potash]);
     const drawnExtras = createCardInstances([basicRed, basicRed]);
-    player.drawnCards = [...instances, ...drawnExtras];
+    player.workshopCards = [...instances, ...drawnExtras];
 
     const actionState = getActionState(state);
     actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 1 };
@@ -540,7 +540,7 @@ describe('workshop action cards', () => {
     resolveWorkshopChoice(state, [instances[0].instanceId]);
 
     // Potash consumed (1 pick), workshopAbilities push workshop:3
-    // drawnCards still has 2 basicRed cards, so workshop:3 sets pending choice
+    // workshopCards still has 2 basicRed cards, so workshop:3 sets pending choice
     expect(actionState.pendingChoice).toEqual({ type: 'chooseCardsForWorkshop', count: 3 });
   });
 
@@ -551,7 +551,7 @@ describe('workshop action cards', () => {
 
     const vinegar = ACTION_CARDS.find(c => c.name === 'Vinegar')!;
     const instances = createCardInstances([vinegar]);
-    player.drawnCards = [...instances];
+    player.workshopCards = [...instances];
     storeColor(player.colorWheel, 'Vermilion');
 
     const actionState = getActionState(state);
@@ -569,7 +569,7 @@ describe('workshop action cards', () => {
 
     const vinegar = ACTION_CARDS.find(c => c.name === 'Vinegar')!;
     const instances = createCardInstances([vinegar]);
-    player.drawnCards = [...instances];
+    player.workshopCards = [...instances];
 
     const actionState = getActionState(state);
     actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 1 };
@@ -628,7 +628,7 @@ describe('workshop fizzle', () => {
     const state = makeTestGameState();
     initializeActionPhase(state);
     const player = state.players[0];
-    player.drawnCards = [];
+    player.workshopCards = [];
 
     const actionState = getActionState(state);
     actionState.abilityStack.push({ type: 'workshop', count: 2 });
@@ -654,7 +654,7 @@ describe('action card destroyed from drafted', () => {
     const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
     const instances = createCardInstances([alum]);
     player.draftedCards = [...instances];
-    player.drawnCards = createCardInstances([basicRed]);
+    player.workshopCards = createCardInstances([basicRed]);
 
     destroyDraftedCard(state, instances[0].instanceId);
 
@@ -814,7 +814,7 @@ describe('multi-select non-action workshop', () => {
     const basicRed = BASIC_DYE_CARDS.find(c => c.name === 'Basic Red')!;
     const ceramics = MATERIAL_CARDS.find(c => c.name === 'Ceramics')!;
     const instances = createCardInstances([basicRed, ceramics]);
-    player.drawnCards = [...instances];
+    player.workshopCards = [...instances];
 
     const actionState = getActionState(state);
     actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 3 };
@@ -823,7 +823,7 @@ describe('multi-select non-action workshop', () => {
 
     expect(player.colorWheel['Red']).toBe(1);
     expect(player.materials.Ceramics).toBe(1);
-    expect(player.drawnCards).toHaveLength(0);
+    expect(player.workshopCards).toHaveLength(0);
     expect(player.discard).toHaveLength(2);
   });
 });
@@ -845,7 +845,7 @@ describe('draft material card workshop types', () => {
       ability: { type: 'workshop', count: 2 },
     };
     const instances = createCardInstances([fineCeramics]);
-    player.drawnCards = [...instances];
+    player.workshopCards = [...instances];
 
     const actionState = getActionState(state);
     actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 1 };
@@ -853,7 +853,7 @@ describe('draft material card workshop types', () => {
     resolveWorkshopChoice(state, [instances[0].instanceId]);
 
     expect(player.materials.Ceramics).toBe(2);
-    expect(player.drawnCards).toHaveLength(0);
+    expect(player.workshopCards).toHaveLength(0);
     expect(player.discard).toHaveLength(1);
   });
 
@@ -869,7 +869,7 @@ describe('draft material card workshop types', () => {
       ability: { type: 'destroyCards', count: 1 },
     };
     const instances = createCardInstances([clayCanvas]);
-    player.drawnCards = [...instances];
+    player.workshopCards = [...instances];
 
     const actionState = getActionState(state);
     actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 1 };
@@ -878,7 +878,7 @@ describe('draft material card workshop types', () => {
 
     expect(player.materials.Ceramics).toBe(1);
     expect(player.materials.Paintings).toBe(1);
-    expect(player.drawnCards).toHaveLength(0);
+    expect(player.workshopCards).toHaveLength(0);
     expect(player.discard).toHaveLength(1);
   });
 
@@ -895,7 +895,7 @@ describe('draft material card workshop types', () => {
       ability: { type: 'workshop', count: 2 },
     };
     const instances = createCardInstances([terraCotta]);
-    player.drawnCards = [...instances];
+    player.workshopCards = [...instances];
 
     const actionState = getActionState(state);
     actionState.pendingChoice = { type: 'chooseCardsForWorkshop', count: 1 };
@@ -904,7 +904,7 @@ describe('draft material card workshop types', () => {
 
     expect(player.materials.Ceramics).toBe(1);
     expect(player.colorWheel['Red']).toBe(1);
-    expect(player.drawnCards).toHaveLength(0);
+    expect(player.workshopCards).toHaveLength(0);
     expect(player.discard).toHaveLength(1);
   });
 });

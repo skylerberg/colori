@@ -314,8 +314,8 @@
             {#if myPlayer}
               <div class="readonly-cards">
                 <div class="section">
-                  <h3>Your Drawn Cards</h3>
-                  <CardList cards={myPlayer.drawnCards} />
+                  <h3>Your Workshop</h3>
+                  <CardList cards={myPlayer.workshopCards} />
                 </div>
                 <div class="section">
                   <h3>Your Drafted Cards</h3>

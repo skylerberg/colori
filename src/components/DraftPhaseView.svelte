@@ -75,8 +75,8 @@
       </div>
 
       <div class="section">
-        <h3>Drawn Cards</h3>
-        <CardList cards={currentPlayer?.drawnCards ?? []} />
+        <h3>Workshop</h3>
+        <CardList cards={currentPlayer?.workshopCards ?? []} />
       </div>
 
       <div class="opponents-section">

@@ -52,8 +52,8 @@
       </div>
 
       <div class="card-section">
-        <h4>Drawn Cards</h4>
-        <CardList cards={player.drawnCards} />
+        <h4>Workshop</h4>
+        <CardList cards={player.workshopCards} />
       </div>
 
       <div class="card-section">

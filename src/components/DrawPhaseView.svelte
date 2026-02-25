@@ -15,8 +15,8 @@
   <div class="players-drawn">
     {#each gameState.players as player, i}
       <div class="player-draw">
-        <h3>{player.name}'s Drawn Cards</h3>
-        <CardList cards={player.drawnCards} />
+        <h3>{player.name}'s Workshop</h3>
+        <CardList cards={player.workshopCards} />
       </div>
     {/each}
   </div>

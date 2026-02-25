@@ -316,8 +316,8 @@
           {:else}
             <div class="readonly-cards">
               <div class="section-box">
-                <h3>Drawn Cards</h3>
-                <CardList cards={selectedPlayer.drawnCards} />
+                <h3>Workshop</h3>
+                <CardList cards={selectedPlayer.workshopCards} />
               </div>
               <div class="section-box">
                 <h3>Drafted Cards</h3>

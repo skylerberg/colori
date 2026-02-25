@@ -5,7 +5,7 @@ export interface SanitizedPlayerState {
   name: string;
   deckCount: number;
   discardCount: number;
-  drawnCards: CardInstance[];
+  workshopCards: CardInstance[];
   draftedCards: CardInstance[];
   colorWheel: Record<Color, number>;
   materials: Record<MaterialType, number>;

@@ -50,7 +50,7 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
       name,
       deck,
       discard: [],
-      drawnCards: [],
+      workshopCards: [],
       draftedCards: [],
       colorWheel,
       materials: createStartingMaterials(),

@@ -74,11 +74,11 @@ describe('createInitialGameState', () => {
     expect(state.phase).toEqual({ type: 'draw' });
   });
 
-  it('all players start with empty discard, drawnCards, draftedCards', () => {
+  it('all players start with empty discard, workshopCards, draftedCards', () => {
     const state = createInitialGameState(['Alice', 'Bob']);
     for (const player of state.players) {
       expect(player.discard).toHaveLength(0);
-      expect(player.drawnCards).toHaveLength(0);
+      expect(player.workshopCards).toHaveLength(0);
       expect(player.draftedCards).toHaveLength(0);
       expect(player.completedBuyers).toHaveLength(0);
     }

@@ -73,15 +73,15 @@ export function processQueue(state: GameState): void {
 
   switch (ability.type) {
     case 'drawCards': {
-      // Auto-resolve: draw N from personal deck into drawnCards
+      // Auto-resolve: draw N from personal deck into workshopCards
       const drawn = drawFromDeck(player, ability.count);
-      player.drawnCards.push(...drawn);
+      player.workshopCards.push(...drawn);
       processQueue(state);
       break;
     }
     case 'workshop': {
-      if (player.drawnCards.length === 0) {
-        // Fizzle: no drawn cards
+      if (player.workshopCards.length === 0) {
+        // Fizzle: no workshop cards
         processQueue(state);
         break;
       }
@@ -173,8 +173,8 @@ export function resolveWorkshopChoice(state: GameState, selectedCardIds: number[
 
   // Check if selection contains an action card
   const selectedCards = selectedCardIds.map(id => {
-    const card = player.drawnCards.find(c => c.instanceId === id);
-    if (!card) throw new Error(`Card ${id} not found in player's drawnCards`);
+    const card = player.workshopCards.find(c => c.instanceId === id);
+    if (!card) throw new Error(`Card ${id} not found in player's workshopCards`);
     return card;
   });
 
@@ -182,8 +182,8 @@ export function resolveWorkshopChoice(state: GameState, selectedCardIds: number[
 
   if (actionCard) {
     // Action card selected: consume 1 pick
-    const cardIndex = player.drawnCards.findIndex(c => c.instanceId === actionCard.instanceId);
-    player.drawnCards.splice(cardIndex, 1);
+    const cardIndex = player.workshopCards.findIndex(c => c.instanceId === actionCard.instanceId);
+    player.workshopCards.splice(cardIndex, 1);
 
     const remaining = choice.count - 1;
     actionState.pendingChoice = null;
@@ -206,8 +206,8 @@ export function resolveWorkshopChoice(state: GameState, selectedCardIds: number[
   } else {
     // Non-action cards: process all at once
     for (const card of selectedCards) {
-      const cardIndex = player.drawnCards.findIndex(c => c.instanceId === card.instanceId);
-      player.drawnCards.splice(cardIndex, 1);
+      const cardIndex = player.workshopCards.findIndex(c => c.instanceId === card.instanceId);
+      player.workshopCards.splice(cardIndex, 1);
 
       if (card.card.kind === 'material') {
         for (const mt of card.card.materialTypes) {
@@ -276,8 +276,8 @@ export function skipMix(state: GameState): void {
 }
 
 /**
- * Resolve destroy cards: for each selected card (from drawnCards), remove from
- * drawnCards, move to destroyedPile, push its ability to back of abilityStack.
+ * Resolve destroy cards: for each selected card (from workshopCards), remove from
+ * workshopCards, move to destroyedPile, push its ability to back of abilityStack.
  * Clear pendingChoice. Process queue.
  */
 export function resolveDestroyCards(state: GameState, selectedCardIds: number[]): void {
@@ -285,12 +285,12 @@ export function resolveDestroyCards(state: GameState, selectedCardIds: number[])
   const player = state.players[actionState.currentPlayerIndex];
 
   for (const cardId of selectedCardIds) {
-    const cardIndex = player.drawnCards.findIndex(c => c.instanceId === cardId);
+    const cardIndex = player.workshopCards.findIndex(c => c.instanceId === cardId);
     if (cardIndex === -1) {
-      throw new Error(`Card ${cardId} not found in player's drawnCards`);
+      throw new Error(`Card ${cardId} not found in player's workshopCards`);
     }
 
-    const [card] = player.drawnCards.splice(cardIndex, 1);
+    const [card] = player.workshopCards.splice(cardIndex, 1);
     state.destroyedPile.push(card);
     actionState.abilityStack.push(getCardAbility(card));
   }
@@ -420,7 +420,7 @@ export function resolveChooseTertiaryToGain(state: GameState, color: Color): voi
 }
 
 /**
- * End the current player's turn. Move all remaining drawnCards + draftedCards
+ * End the current player's turn. Move all remaining workshopCards + draftedCards
  * to player's discard. Advance currentPlayerIndex. If all players have gone,
  * call endRound. Otherwise, reset abilityStack and pendingChoice for next player.
  */
@@ -429,8 +429,8 @@ export function endPlayerTurn(state: GameState): void {
   const player = state.players[actionState.currentPlayerIndex];
 
   // Move remaining cards to discard
-  player.discard.push(...player.drawnCards);
-  player.drawnCards = [];
+  player.discard.push(...player.workshopCards);
+  player.workshopCards = [];
   player.discard.push(...player.draftedCards);
   player.draftedCards = [];
 

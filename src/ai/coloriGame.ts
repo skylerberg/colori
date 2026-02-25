@@ -36,7 +36,7 @@ function clonePlayerState(p: PlayerState): PlayerState {
     name: p.name,
     deck: [...p.deck],
     discard: [...p.discard],
-    drawnCards: [...p.drawnCards],
+    workshopCards: [...p.workshopCards],
     draftedCards: [...p.draftedCards],
     colorWheel: { ...p.colorWheel },
     ducats: p.ducats,
@@ -148,14 +148,14 @@ function enumerateChoices(state: GameState): ColoriChoice[] {
       case 'chooseCardsForWorkshop': {
         const choices: ColoriChoice[] = [{ type: 'skipWorkshop' }];
         // Non-action card subsets
-        const eligibleNonAction = player.drawnCards
+        const eligibleNonAction = player.workshopCards
           .filter(c => c.card.kind === 'dye' || c.card.kind === 'basicDye' || c.card.kind === 'material')
           .map(c => c.instanceId);
         const nonActionSubsets = getSubsets(eligibleNonAction, pending.count)
           .map(ids => ({ type: 'workshop' as const, cardInstanceIds: ids }));
         choices.push(...nonActionSubsets);
         // Each action card as a separate choice
-        for (const card of player.drawnCards) {
+        for (const card of player.workshopCards) {
           if (card.card.kind === 'action') {
             choices.push({ type: 'workshop', cardInstanceIds: [card.instanceId] });
           }
@@ -167,10 +167,10 @@ function enumerateChoices(state: GameState): ColoriChoice[] {
         return choices;
       }
       case 'chooseCardsToDestroy': {
-        const cardIds = player.drawnCards.map(c => c.instanceId);
+        const cardIds = player.workshopCards.map(c => c.instanceId);
         const destroySubsets = getSubsets(cardIds, pending.count)
           .map(ids => ({ type: 'destroyDrawnCards' as const, cardInstanceIds: ids }));
-        // If no drawn cards, must still resolve with empty selection
+        // If no workshop cards, must still resolve with empty selection
         if (destroySubsets.length === 0) {
           return [{ type: 'destroyDrawnCards' as const, cardInstanceIds: [] }];
         }
@@ -287,7 +287,7 @@ function checkChoiceAvailable(state: GameState, choice: ColoriChoice): boolean {
       const pending = state.phase.actionState.pendingChoice;
       if (!pending || pending.type !== 'chooseCardsForWorkshop') return false;
       const player = state.players[state.phase.actionState.currentPlayerIndex];
-      return choice.cardInstanceIds.every(id => player.drawnCards.some(c => c.instanceId === id));
+      return choice.cardInstanceIds.every(id => player.workshopCards.some(c => c.instanceId === id));
     }
     case 'skipWorkshop': {
       if (state.phase.type !== 'action') return false;
@@ -299,7 +299,7 @@ function checkChoiceAvailable(state: GameState, choice: ColoriChoice): boolean {
       const pending = state.phase.actionState.pendingChoice;
       if (!pending || pending.type !== 'chooseCardsToDestroy') return false;
       const player = state.players[state.phase.actionState.currentPlayerIndex];
-      return choice.cardInstanceIds.every(id => player.drawnCards.some(c => c.instanceId === id));
+      return choice.cardInstanceIds.every(id => player.workshopCards.some(c => c.instanceId === id));
     }
     case 'mix': {
       if (state.phase.type !== 'action') return false;
@@ -513,8 +513,8 @@ function getRolloutChoice(state: GameState): ColoriChoice {
     switch (pending.type) {
       case 'chooseCardsForWorkshop': {
         // Randomly decide: skip, pick non-action cards, or pick an action card
-        const actionCards = player.drawnCards.filter(c => c.card.kind === 'action');
-        const eligibleCards = player.drawnCards.filter(c => c.card.kind === 'dye' || c.card.kind === 'basicDye' || c.card.kind === 'material');
+        const actionCards = player.workshopCards.filter(c => c.card.kind === 'action');
+        const eligibleCards = player.workshopCards.filter(c => c.card.kind === 'dye' || c.card.kind === 'basicDye' || c.card.kind === 'material');
 
         if (eligibleCards.length === 0 && actionCards.length === 0) return { type: 'skipWorkshop' };
 
@@ -541,10 +541,10 @@ function getRolloutChoice(state: GameState): ColoriChoice {
         return { type: 'workshop', cardInstanceIds: shuffled.slice(0, pick).map(c => c.instanceId) };
       }
       case 'chooseCardsToDestroy': {
-        const count = Math.min(pending.count, player.drawnCards.length);
+        const count = Math.min(pending.count, player.workshopCards.length);
         if (count === 0) return { type: 'destroyDrawnCards', cardInstanceIds: [] };
         const pick = Math.floor(Math.random() * count) + 1;
-        const shuffled = [...player.drawnCards].sort(() => Math.random() - 0.5);
+        const shuffled = [...player.workshopCards].sort(() => Math.random() - 0.5);
         return { type: 'destroyDrawnCards', cardInstanceIds: shuffled.slice(0, pick).map(c => c.instanceId) };
       }
       case 'chooseMix': {

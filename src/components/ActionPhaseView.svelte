@@ -40,7 +40,7 @@
 
   function toggleWorkshopCard(instanceId: number) {
     if (!pendingChoice || pendingChoice.type !== 'chooseCardsForWorkshop') return;
-    const card = currentPlayer?.drawnCards.find(c => c.instanceId === instanceId);
+    const card = currentPlayer?.workshopCards.find(c => c.instanceId === instanceId);
     if (!card) return;
     const isAction = card.card.kind === 'action';
 
@@ -54,7 +54,7 @@
     } else {
       // Non-action cards: deselect any action cards
       const currentNonAction = selectedWorkshopIds.filter(id => {
-        const c = currentPlayer?.drawnCards.find(c => c.instanceId === id);
+        const c = currentPlayer?.workshopCards.find(c => c.instanceId === id);
         return c && c.card.kind !== 'action';
       });
       const idx = currentNonAction.indexOf(instanceId);
@@ -128,9 +128,9 @@
 
       <div class="section" class:active-choice={drawnCardChoice}>
         {#if pendingChoice?.type === 'chooseCardsForWorkshop'}
-          <h3>Drawn Cards — Workshop: Select cards ({pendingChoice.count} available)</h3>
+          <h3>Workshop — Select cards ({pendingChoice.count} available)</h3>
           <CardList
-            cards={currentPlayer.drawnCards}
+            cards={currentPlayer.workshopCards}
             selectable={true}
             selectedIds={selectedWorkshopIds}
             onCardClick={toggleWorkshopCard}
@@ -142,9 +142,9 @@
             Skip Workshop
           </button>
         {:else if pendingChoice?.type === 'chooseCardsToDestroy'}
-          <h3>Drawn Cards — Select up to {pendingChoice.count} card(s) to destroy</h3>
+          <h3>Workshop — Select up to {pendingChoice.count} card(s) to destroy</h3>
           <CardList
-            cards={currentPlayer.drawnCards}
+            cards={currentPlayer.workshopCards}
             selectable={true}
             selectedIds={selectedDestroyIds}
             onCardClick={toggleDestroyCard}
@@ -153,8 +153,8 @@
             Confirm Destroy ({selectedDestroyIds.length} selected)
           </button>
         {:else}
-          <h3>Drawn Cards</h3>
-          <CardList cards={currentPlayer.drawnCards} />
+          <h3>Workshop</h3>
+          <CardList cards={currentPlayer.workshopCards} />
         {/if}
       </div>
 

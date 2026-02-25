@@ -36,7 +36,7 @@ export function getChoiceLogMessage(
       return `${name} ended their turn`;
     case 'workshop': {
       const cardNames = choice.cardInstanceIds.map(id => {
-        const c = player.drawnCards.find(c => c.instanceId === id);
+        const c = player.workshopCards.find(c => c.instanceId === id);
         return c && 'name' in c.card ? c.card.name : 'a card';
       });
       return `${name} workshopped ${cardNames.join(', ')}`;
@@ -45,10 +45,10 @@ export function getChoiceLogMessage(
       return `${name} skipped workshop`;
     case 'destroyDrawnCards': {
       const cardNames = choice.cardInstanceIds.map(id => {
-        const c = player.drawnCards.find(c => c.instanceId === id);
+        const c = player.workshopCards.find(c => c.instanceId === id);
         return c && 'name' in c.card ? c.card.name : 'a card';
       });
-      return `${name} destroyed ${cardNames.join(', ')} from drawn cards`;
+      return `${name} destroyed ${cardNames.join(', ')} from workshop`;
     }
     case 'mix': {
       const result = mixResult(choice.colorA, choice.colorB);
