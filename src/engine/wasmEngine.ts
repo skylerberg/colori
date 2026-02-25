@@ -1,5 +1,6 @@
 import type { GameState, ColoriChoice, PlayerState, Color } from '../data/types';
 import { mixResult } from '../data/colors';
+import { getCardData, getBuyerData, getAnyCardData } from '../data/cards';
 import init, {
   wasm_create_initial_game_state,
   wasm_execute_draw_phase,
@@ -83,14 +84,15 @@ export function getChoiceLogMessage(
       return null;
     case 'destroyDraftedCard': {
       const card = player.draftedCards.find(c => c.instanceId === choice.cardInstanceId);
-      return `${name} destroyed ${card && 'name' in card.card ? card.card.name : 'a card'} from drafted cards`;
+      const cardName = card ? (getAnyCardData(card.card) as { name?: string })?.name ?? 'a card' : 'a card';
+      return `${name} destroyed ${cardName} from drafted cards`;
     }
     case 'endTurn':
       return `${name} ended their turn`;
     case 'workshop': {
       const cardNames = choice.cardInstanceIds.map(id => {
         const c = player.workshopCards.find(c => c.instanceId === id);
-        return c && 'name' in c.card ? c.card.name : 'a card';
+        return c ? (getAnyCardData(c.card) as { name?: string })?.name ?? 'a card' : 'a card';
       });
       return `${name} workshopped ${cardNames.join(', ')}`;
     }
@@ -99,7 +101,7 @@ export function getChoiceLogMessage(
     case 'destroyDrawnCards': {
       const cardNames = choice.cardInstanceIds.map(id => {
         const c = player.workshopCards.find(c => c.instanceId === id);
-        return c && 'name' in c.card ? c.card.name : 'a card';
+        return c ? (getAnyCardData(c.card) as { name?: string })?.name ?? 'a card' : 'a card';
       });
       return `${name} destroyed ${cardNames.join(', ')} from workshop`;
     }
@@ -111,7 +113,7 @@ export function getChoiceLogMessage(
       return `${name} skipped remaining mixes`;
     case 'selectBuyer': {
       const buyer = state.buyerDisplay.find(g => g.instanceId === choice.buyerInstanceId);
-      return `${name} sold to a ${buyer?.card.stars ?? '?'}-star buyer`;
+      return `${name} sold to a ${buyer ? getBuyerData(buyer.card).stars : '?'}-star buyer`;
     }
     case 'gainSecondary':
       return `${name} gained ${choice.color}`;
@@ -147,7 +149,7 @@ export function canSell(state: GameState, buyerInstanceId: number): boolean {
   const player = state.players[state.phase.actionState.currentPlayerIndex];
   const buyerInstance = state.buyerDisplay.find(g => g.instanceId === buyerInstanceId);
   if (!buyerInstance) return false;
-  const buyer = buyerInstance.card;
+  const buyer = getBuyerData(buyerInstance.card);
   if (player.materials[buyer.requiredMaterial] < 1) return false;
   return canPayCost(player.colorWheel, buyer.colorCost);
 }

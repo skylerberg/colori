@@ -1,9 +1,8 @@
 <script lang="ts">
-  import type { CardInstance } from '../data/types';
   import CardDisplay from './CardDisplay.svelte';
 
   let { cards, selectable = false, selectedIds = [], onCardClick }: {
-    cards: CardInstance[];
+    cards: { instanceId: number; card: string }[];
     selectable?: boolean;
     selectedIds?: number[];
     onCardClick?: (instanceId: number) => void;

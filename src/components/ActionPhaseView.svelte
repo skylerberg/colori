@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { GameState } from '../data/types';
   import type { ColoriChoice } from '../data/types';
+  import { getCardData } from '../data/cards';
   import CardList from './CardList.svelte';
   import AbilityPrompt from './AbilityPrompt.svelte';
   import OpponentBoardPanel from './OpponentBoardPanel.svelte';
@@ -42,7 +43,7 @@
     if (!pendingChoice || pendingChoice.type !== 'chooseCardsForWorkshop') return;
     const card = currentPlayer?.workshopCards.find(c => c.instanceId === instanceId);
     if (!card) return;
-    const isAction = card.card.kind === 'action';
+    const isAction = getCardData(card.card).kind === 'action';
 
     if (isAction) {
       // Action cards: toggle, deselect all non-action
@@ -55,7 +56,7 @@
       // Non-action cards: deselect any action cards
       const currentNonAction = selectedWorkshopIds.filter(id => {
         const c = currentPlayer?.workshopCards.find(c => c.instanceId === id);
-        return c && c.card.kind !== 'action';
+        return c && getCardData(c.card).kind !== 'action';
       });
       const idx = currentNonAction.indexOf(instanceId);
       if (idx >= 0) {

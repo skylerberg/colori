@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { PlayerState } from '../data/types';
+  import { getBuyerData } from '../data/cards';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import CardList from './CardList.svelte';
 
@@ -9,7 +10,7 @@
 
   let expanded = $state(false);
 
-  let score = $derived(player.completedBuyers.reduce((sum, g) => sum + g.card.stars, 0) + player.ducats);
+  let score = $derived(player.completedBuyers.reduce((sum, g) => sum + getBuyerData(g.card).stars, 0) + player.ducats);
   let buyerCount = $derived(player.completedBuyers.length);
   let totalMaterials = $derived(Object.values(player.materials).reduce((sum, n) => sum + n, 0));
 

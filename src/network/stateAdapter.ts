@@ -1,4 +1,4 @@
-import type { GameState, PlayerState, GamePhase, CardInstance, BuyerCard } from '../data/types';
+import type { GameState, PlayerState, GamePhase, CardInstance, BuyerInstance } from '../data/types';
 import type { SanitizedGameState } from './types';
 
 export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
@@ -35,7 +35,7 @@ export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
     players,
     draftDeck: new Array(sanitized.draftDeckCount) as CardInstance[],
     destroyedPile: sanitized.destroyedPile,
-    buyerDeck: new Array(sanitized.buyerDeckCount) as CardInstance<BuyerCard>[],
+    buyerDeck: new Array(sanitized.buyerDeckCount) as BuyerInstance[],
     buyerDisplay: sanitized.buyerDisplay,
     phase,
     round: sanitized.round,

@@ -1,18 +1,21 @@
 import type { StructuredGameLog, FinalPlayerStats } from '../gameLog';
-import type { CardInstance, AnyCard, Color, MaterialType } from '../data/types';
+import type { AnyCardData } from '../data/types';
+import { getAnyCardData } from '../data/cards';
 
-function getCardName(card: AnyCard): string {
-  if (card.kind === 'buyer') {
-    const matLabel = card.requiredMaterial;
-    const colorLabels = card.colorCost.join(', ');
-    return `${card.stars}-star ${matLabel} [${colorLabels}]`;
+function getCardName(card: string): string {
+  const data = getAnyCardData(card);
+  if (!data) return card;
+  if (data.kind === 'buyer') {
+    const matLabel = data.requiredMaterial;
+    const colorLabels = data.colorCost.join(', ');
+    return `${data.stars}-star ${matLabel} [${colorLabels}]`;
   }
-  return card.name;
+  return data.name;
 }
 
-function buildInstanceMap(log: StructuredGameLog): Map<number, CardInstance> {
-  const map = new Map<number, CardInstance>();
-  const addCards = (cards: CardInstance[]) => {
+function buildInstanceMap(log: StructuredGameLog): Map<number, { instanceId: number; card: string }> {
+  const map = new Map<number, { instanceId: number; card: string }>();
+  const addCards = (cards: { instanceId: number; card: string }[]) => {
     for (const c of cards) map.set(c.instanceId, c);
   };
   const state = log.initialState;
@@ -118,12 +121,14 @@ export function computeBuyerAcquisitions(logs: StructuredGameLog[]): {
     for (const entry of log.entries) {
       if (entry.choice.type === 'selectBuyer') {
         const inst = instanceMap.get(entry.choice.buyerInstanceId);
-        if (inst && inst.card.kind === 'buyer') {
-          const buyer = inst.card;
-          const name = getCardName(buyer);
-          byBuyer.set(name, (byBuyer.get(name) ?? 0) + 1);
-          byStars.set(buyer.stars, (byStars.get(buyer.stars) ?? 0) + 1);
-          byMaterial.set(buyer.requiredMaterial, (byMaterial.get(buyer.requiredMaterial) ?? 0) + 1);
+        if (inst) {
+          const data = getAnyCardData(inst.card);
+          if (data && data.kind === 'buyer') {
+            const name = getCardName(inst.card);
+            byBuyer.set(name, (byBuyer.get(name) ?? 0) + 1);
+            byStars.set(data.stars, (byStars.get(data.stars) ?? 0) + 1);
+            byMaterial.set(data.requiredMaterial, (byMaterial.get(data.requiredMaterial) ?? 0) + 1);
+          }
         }
       }
     }

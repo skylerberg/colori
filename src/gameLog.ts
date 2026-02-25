@@ -1,4 +1,4 @@
-import type { GameState, CardInstance, BuyerCard, Color, MaterialType } from './data/types';
+import type { GameState, BuyerInstance, Color, MaterialType } from './data/types';
 import type { ColoriChoice } from './data/types';
 import { calculateScores } from './engine/wasmEngine';
 
@@ -26,7 +26,7 @@ export interface StructuredGameLog {
 export interface FinalPlayerStats {
   name: string;
   deckSize: number;
-  completedBuyers: CardInstance<BuyerCard>[];
+  completedBuyers: BuyerInstance[];
   ducats: number;
   colorWheel: Record<Color, number>;
   materials: Record<MaterialType, number>;
@@ -76,7 +76,7 @@ export class GameLogAccumulator {
     this.log.finalPlayerStats = state.players.map(p => ({
       name: p.name,
       deckSize: p.deck.length + p.discard.length + p.workshopCards.length + p.draftedCards.length,
-      completedBuyers: p.completedBuyers as CardInstance<BuyerCard>[],
+      completedBuyers: p.completedBuyers,
       ducats: p.ducats,
       colorWheel: { ...p.colorWheel },
       materials: { ...p.materials },

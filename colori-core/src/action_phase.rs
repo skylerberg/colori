@@ -3,7 +3,7 @@ use crate::colors::TERTIARIES;
 use crate::deck_utils::draw_from_deck;
 use crate::scoring::calculate_score;
 use crate::types::{
-    Ability, ActionState, AnyCard, Color, GamePhase, GameState, PendingChoice,
+    Ability, ActionState, Color, GamePhase, GameState, PendingChoice,
 };
 use rand::Rng;
 
@@ -27,7 +27,7 @@ pub fn destroy_drafted_card<R: Rng>(state: &mut GameState, card_instance_id: u32
         .expect("Card not found in player's draftedCards");
 
     let card = player.drafted_cards.remove(card_index);
-    let ability = card.card.get_ability().clone();
+    let ability = card.card.ability();
     state.destroyed_pile.push(card);
 
     get_action_state_mut(state).ability_stack.push(ability);
@@ -103,17 +103,10 @@ fn can_sell_to_any_buyer(state: &GameState) -> bool {
     let as_ = get_action_state(state);
     let player = &state.players[as_.current_player_index];
     for buyer_instance in &state.buyer_display {
-        if let AnyCard::Buyer {
-            required_material,
-            ref color_cost,
-            ..
-        } = buyer_instance.card
+        if player.materials.get(buyer_instance.buyer.required_material()) >= 1
+            && can_pay_cost(&player.color_wheel, buyer_instance.buyer.color_cost())
         {
-            if player.materials.get(required_material) >= 1
-                && can_pay_cost(&player.color_wheel, color_cost)
-            {
-                return true;
-            }
+            return true;
         }
     }
     false
@@ -129,17 +122,8 @@ pub fn can_sell(state: &GameState, buyer_instance_id: u32) -> bool {
         .find(|g| g.instance_id == buyer_instance_id);
     match buyer_instance {
         Some(bi) => {
-            if let AnyCard::Buyer {
-                required_material,
-                ref color_cost,
-                ..
-            } = bi.card
-            {
-                player.materials.get(required_material) >= 1
-                    && can_pay_cost(&player.color_wheel, color_cost)
-            } else {
-                false
-            }
+            player.materials.get(bi.buyer.required_material()) >= 1
+                && can_pay_cost(&player.color_wheel, bi.buyer.color_cost())
         }
         None => false,
     }
@@ -162,7 +146,7 @@ pub fn resolve_workshop_choice<R: Rng>(
         state.players[player_index]
             .workshop_cards
             .iter()
-            .any(|c| c.instance_id == id && matches!(c.card, AnyCard::Action { .. }))
+            .any(|c| c.instance_id == id && c.card.is_action())
     });
 
     if let Some(&action_id) = action_card_id {
@@ -185,15 +169,10 @@ pub fn resolve_workshop_choice<R: Rng>(
         }
 
         // Push workshopAbilities in reverse order
-        if let AnyCard::Action {
-            workshop_abilities, ..
-        } = &card.card
-        {
-            for ability in workshop_abilities.iter().rev() {
-                get_action_state_mut(state)
-                    .ability_stack
-                    .push(ability.clone());
-            }
+        for ability in card.card.workshop_abilities().iter().rev() {
+            get_action_state_mut(state)
+                .ability_stack
+                .push(*ability);
         }
 
         // Move card to discard
@@ -211,25 +190,11 @@ pub fn resolve_workshop_choice<R: Rng>(
 
             let card = player.workshop_cards.remove(card_index);
 
-            match &card.card {
-                AnyCard::Material {
-                    material_types,
-                    color_pip,
-                    ..
-                } => {
-                    for mt in material_types {
-                        player.materials.increment(*mt);
-                    }
-                    if let Some(pip) = color_pip {
-                        store_color(&mut player.color_wheel, *pip);
-                    }
-                }
-                other => {
-                    let pips = other.get_pips();
-                    for pip in pips {
-                        store_color(&mut player.color_wheel, pip);
-                    }
-                }
+            for mt in card.card.material_types() {
+                player.materials.increment(*mt);
+            }
+            for pip in card.card.pips() {
+                store_color(&mut player.color_wheel, *pip);
             }
             player.discard.push(card);
         }
@@ -298,7 +263,7 @@ pub fn resolve_destroy_cards<R: Rng>(
         let card = state.players[player_index]
             .workshop_cards
             .remove(card_index);
-        let ability = card.card.get_ability().clone();
+        let ability = card.card.ability();
         state.destroyed_pile.push(card);
         get_action_state_mut(state).ability_stack.push(ability);
     }
@@ -322,24 +287,15 @@ pub fn resolve_select_buyer<R: Rng>(
 
     let buyer = state.buyer_display.remove(buyer_index);
 
-    if let AnyCard::Buyer {
-        required_material,
-        ref color_cost,
-        ..
-    } = buyer.card
-    {
-        let player = &mut state.players[player_index];
-        if !player.materials.decrement(required_material) {
-            panic!("Not enough stored material");
-        }
-        let success = pay_cost(&mut player.color_wheel, color_cost);
-        if !success {
-            panic!("Cannot pay buyer color cost");
-        }
-        player.completed_buyers.push(buyer);
-    } else {
-        panic!("Expected buyer card");
+    let player = &mut state.players[player_index];
+    if !player.materials.decrement(buyer.buyer.required_material()) {
+        panic!("Not enough stored material");
     }
+    let success = pay_cost(&mut player.color_wheel, buyer.buyer.color_cost());
+    if !success {
+        panic!("Cannot pay buyer color cost");
+    }
+    player.completed_buyers.push(buyer);
 
     // Refill buyer display
     if let Some(new_buyer) = state.buyer_deck.pop() {

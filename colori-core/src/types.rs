@@ -56,7 +56,7 @@ pub const ALL_MATERIAL_TYPES: [MaterialType; 3] = [
     MaterialType::Paintings,
 ];
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum Ability {
     #[serde(rename = "workshop")]
@@ -79,92 +79,363 @@ pub enum Ability {
     ChangeTertiary,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "kind")]
-pub enum AnyCard {
-    #[serde(rename = "dye")]
-    Dye {
-        name: String,
-        colors: Vec<Color>,
-        ability: Ability,
-    },
-    #[serde(rename = "basicDye")]
-    BasicDye {
-        name: String,
-        color: Color,
-        ability: Ability,
-    },
-    #[serde(rename = "material")]
-    Material {
-        name: String,
-        #[serde(rename = "materialTypes")]
-        material_types: Vec<MaterialType>,
-        #[serde(rename = "colorPip", skip_serializing_if = "Option::is_none", default)]
-        color_pip: Option<Color>,
-        ability: Ability,
-    },
-    #[serde(rename = "action")]
-    Action {
-        name: String,
-        ability: Ability,
-        #[serde(rename = "workshopAbilities")]
-        workshop_abilities: Vec<Ability>,
-    },
-    #[serde(rename = "buyer")]
-    Buyer {
-        stars: u32,
-        #[serde(rename = "requiredMaterial")]
-        required_material: MaterialType,
-        #[serde(rename = "colorCost")]
-        color_cost: Vec<Color>,
-    },
+// ── CardKind ──
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CardKind {
+    Dye,
+    BasicDye,
+    Material,
+    Action,
 }
 
-impl AnyCard {
-    pub fn get_pips(&self) -> Vec<Color> {
-        match self {
-            AnyCard::Dye { colors, .. } => colors.clone(),
-            AnyCard::BasicDye { color, .. } => vec![*color],
-            AnyCard::Material { color_pip, .. } => {
-                color_pip.map(|c| vec![c]).unwrap_or_default()
-            }
-            AnyCard::Action { .. } => vec![],
-            AnyCard::Buyer { .. } => vec![],
-        }
+// ── Card enum (42 variants) ──
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Card {
+    // Basic dyes (3)
+    BasicRed,
+    BasicYellow,
+    BasicBlue,
+    // Primary dyes (3)
+    Kermes,
+    Weld,
+    Woad,
+    // Secondary dyes (6)
+    Madder,
+    Turmeric,
+    DyersGreenweed,
+    Verdigris,
+    Orchil,
+    Logwood,
+    // Tertiary dyes (6)
+    VermilionDye,
+    Saffron,
+    PersianBerries,
+    Azurite,
+    IndigoDye,
+    Cochineal,
+    // Starter materials (3)
+    StarterCeramics,
+    StarterPaintings,
+    StarterTextiles,
+    // Double materials (3)
+    FineCeramics,
+    FinePaintings,
+    FineTextiles,
+    // Material+pip Ceramics (3)
+    TerraCotta,
+    OchreWare,
+    CobaltWare,
+    // Material+pip Paintings (3)
+    CinnabarCanvas,
+    OrpimentCanvas,
+    UltramarineCanvas,
+    // Material+pip Textiles (3)
+    AlizarinFabric,
+    FusticFabric,
+    PastelFabric,
+    // Dual materials (3)
+    ClayCanvas,
+    ClayFabric,
+    CanvasFabric,
+    // Actions (6)
+    Alum,
+    CreamOfTartar,
+    GumArabic,
+    Potash,
+    Vinegar,
+    Chalk,
+}
+
+struct CardProperties {
+    name: &'static str,
+    kind: CardKind,
+    ability: Ability,
+    pips: &'static [Color],
+    material_types: &'static [MaterialType],
+    workshop_abilities: &'static [Ability],
+}
+
+const CARD_DATA: [CardProperties; 42] = [
+    // BasicRed
+    CardProperties { name: "Basic Red", kind: CardKind::BasicDye, ability: Ability::Sell, pips: &[Color::Red], material_types: &[], workshop_abilities: &[] },
+    // BasicYellow
+    CardProperties { name: "Basic Yellow", kind: CardKind::BasicDye, ability: Ability::Sell, pips: &[Color::Yellow], material_types: &[], workshop_abilities: &[] },
+    // BasicBlue
+    CardProperties { name: "Basic Blue", kind: CardKind::BasicDye, ability: Ability::Sell, pips: &[Color::Blue], material_types: &[], workshop_abilities: &[] },
+    // Kermes
+    CardProperties { name: "Kermes", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Red, Color::Red, Color::Red], material_types: &[], workshop_abilities: &[] },
+    // Weld
+    CardProperties { name: "Weld", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Yellow, Color::Yellow, Color::Yellow], material_types: &[], workshop_abilities: &[] },
+    // Woad
+    CardProperties { name: "Woad", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Blue, Color::Blue, Color::Blue], material_types: &[], workshop_abilities: &[] },
+    // Madder
+    CardProperties { name: "Madder", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, pips: &[Color::Orange, Color::Red], material_types: &[], workshop_abilities: &[] },
+    // Turmeric
+    CardProperties { name: "Turmeric", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, pips: &[Color::Orange, Color::Yellow], material_types: &[], workshop_abilities: &[] },
+    // DyersGreenweed
+    CardProperties { name: "Dyer's Greenweed", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, pips: &[Color::Green, Color::Yellow], material_types: &[], workshop_abilities: &[] },
+    // Verdigris
+    CardProperties { name: "Verdigris", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, pips: &[Color::Green, Color::Blue], material_types: &[], workshop_abilities: &[] },
+    // Orchil
+    CardProperties { name: "Orchil", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, pips: &[Color::Purple, Color::Red], material_types: &[], workshop_abilities: &[] },
+    // Logwood
+    CardProperties { name: "Logwood", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, pips: &[Color::Purple, Color::Blue], material_types: &[], workshop_abilities: &[] },
+    // VermilionDye
+    CardProperties { name: "Vermilion", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Vermilion], material_types: &[], workshop_abilities: &[] },
+    // Saffron
+    CardProperties { name: "Saffron", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Amber], material_types: &[], workshop_abilities: &[] },
+    // PersianBerries
+    CardProperties { name: "Persian Berries", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Chartreuse], material_types: &[], workshop_abilities: &[] },
+    // Azurite
+    CardProperties { name: "Azurite", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Teal], material_types: &[], workshop_abilities: &[] },
+    // IndigoDye
+    CardProperties { name: "Indigo", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Indigo], material_types: &[], workshop_abilities: &[] },
+    // Cochineal
+    CardProperties { name: "Cochineal", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Magenta], material_types: &[], workshop_abilities: &[] },
+    // StarterCeramics
+    CardProperties { name: "Ceramics", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, pips: &[], material_types: &[MaterialType::Ceramics], workshop_abilities: &[] },
+    // StarterPaintings
+    CardProperties { name: "Paintings", kind: CardKind::Material, ability: Ability::Sell, pips: &[], material_types: &[MaterialType::Paintings], workshop_abilities: &[] },
+    // StarterTextiles
+    CardProperties { name: "Textiles", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, pips: &[], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
+    // FineCeramics
+    CardProperties { name: "Fine Ceramics", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, pips: &[], material_types: &[MaterialType::Ceramics, MaterialType::Ceramics], workshop_abilities: &[] },
+    // FinePaintings
+    CardProperties { name: "Fine Paintings", kind: CardKind::Material, ability: Ability::Sell, pips: &[], material_types: &[MaterialType::Paintings, MaterialType::Paintings], workshop_abilities: &[] },
+    // FineTextiles
+    CardProperties { name: "Fine Textiles", kind: CardKind::Material, ability: Ability::DrawCards { count: 2 }, pips: &[], material_types: &[MaterialType::Textiles, MaterialType::Textiles], workshop_abilities: &[] },
+    // TerraCotta
+    CardProperties { name: "Terra Cotta", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, pips: &[Color::Red], material_types: &[MaterialType::Ceramics], workshop_abilities: &[] },
+    // OchreWare
+    CardProperties { name: "Ochre Ware", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, pips: &[Color::Yellow], material_types: &[MaterialType::Ceramics], workshop_abilities: &[] },
+    // CobaltWare
+    CardProperties { name: "Cobalt Ware", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, pips: &[Color::Blue], material_types: &[MaterialType::Ceramics], workshop_abilities: &[] },
+    // CinnabarCanvas
+    CardProperties { name: "Cinnabar & Canvas", kind: CardKind::Material, ability: Ability::Sell, pips: &[Color::Red], material_types: &[MaterialType::Paintings], workshop_abilities: &[] },
+    // OrpimentCanvas
+    CardProperties { name: "Orpiment & Canvas", kind: CardKind::Material, ability: Ability::Sell, pips: &[Color::Yellow], material_types: &[MaterialType::Paintings], workshop_abilities: &[] },
+    // UltramarineCanvas
+    CardProperties { name: "Ultramarine & Canvas", kind: CardKind::Material, ability: Ability::Sell, pips: &[Color::Blue], material_types: &[MaterialType::Paintings], workshop_abilities: &[] },
+    // AlizarinFabric
+    CardProperties { name: "Alizarin & Fabric", kind: CardKind::Material, ability: Ability::DrawCards { count: 2 }, pips: &[Color::Red], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
+    // FusticFabric
+    CardProperties { name: "Fustic & Fabric", kind: CardKind::Material, ability: Ability::DrawCards { count: 2 }, pips: &[Color::Yellow], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
+    // PastelFabric
+    CardProperties { name: "Pastel & Fabric", kind: CardKind::Material, ability: Ability::DrawCards { count: 2 }, pips: &[Color::Blue], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
+    // ClayCanvas
+    CardProperties { name: "Clay & Canvas", kind: CardKind::Material, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[MaterialType::Ceramics, MaterialType::Paintings], workshop_abilities: &[] },
+    // ClayFabric
+    CardProperties { name: "Clay & Fabric", kind: CardKind::Material, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[MaterialType::Ceramics, MaterialType::Textiles], workshop_abilities: &[] },
+    // CanvasFabric
+    CardProperties { name: "Canvas & Fabric", kind: CardKind::Material, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[MaterialType::Paintings, MaterialType::Textiles], workshop_abilities: &[] },
+    // Alum
+    CardProperties { name: "Alum", kind: CardKind::Action, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::GainDucats { count: 1 }] },
+    // CreamOfTartar
+    CardProperties { name: "Cream of Tartar", kind: CardKind::Action, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::DrawCards { count: 3 }] },
+    // GumArabic
+    CardProperties { name: "Gum Arabic", kind: CardKind::Action, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::GainSecondary] },
+    // Potash
+    CardProperties { name: "Potash", kind: CardKind::Action, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::Workshop { count: 3 }] },
+    // Vinegar
+    CardProperties { name: "Vinegar", kind: CardKind::Action, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::ChangeTertiary] },
+    // Chalk
+    CardProperties { name: "Chalk", kind: CardKind::Action, ability: Ability::Sell, pips: &[], material_types: &[], workshop_abilities: &[Ability::GainPrimary] },
+];
+
+impl Card {
+    fn props(&self) -> &'static CardProperties {
+        &CARD_DATA[*self as usize]
     }
 
-    pub fn get_ability(&self) -> &Ability {
-        match self {
-            AnyCard::Dye { ability, .. } => ability,
-            AnyCard::BasicDye { ability, .. } => ability,
-            AnyCard::Material { ability, .. } => ability,
-            AnyCard::Action { ability, .. } => ability,
-            AnyCard::Buyer { .. } => panic!("Buyer cards do not have abilities"),
-        }
+    pub fn name(&self) -> &'static str {
+        self.props().name
     }
 
-    #[allow(dead_code)]
-    pub fn kind_str(&self) -> &str {
-        match self {
-            AnyCard::Dye { .. } => "dye",
-            AnyCard::BasicDye { .. } => "basicDye",
-            AnyCard::Material { .. } => "material",
-            AnyCard::Action { .. } => "action",
-            AnyCard::Buyer { .. } => "buyer",
-        }
+    pub fn kind(&self) -> CardKind {
+        self.props().kind
     }
 
-    #[allow(dead_code)]
-    pub fn is_buyer(&self) -> bool {
-        matches!(self, AnyCard::Buyer { .. })
+    pub fn ability(&self) -> Ability {
+        self.props().ability
+    }
+
+    pub fn pips(&self) -> &'static [Color] {
+        self.props().pips
+    }
+
+    pub fn material_types(&self) -> &'static [MaterialType] {
+        self.props().material_types
+    }
+
+    pub fn workshop_abilities(&self) -> &'static [Ability] {
+        self.props().workshop_abilities
+    }
+
+    pub fn is_action(&self) -> bool {
+        self.kind() == CardKind::Action
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+// ── BuyerCard enum (51 variants) ──
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum BuyerCard {
+    // Textiles 2-star, single tertiary (6)
+    Textiles2Vermilion,
+    Textiles2Amber,
+    Textiles2Chartreuse,
+    Textiles2Teal,
+    Textiles2Indigo,
+    Textiles2Magenta,
+    // Textiles 2-star, secondary+primary (9)
+    Textiles2OrangeRed,
+    Textiles2OrangeYellow,
+    Textiles2OrangeBlue,
+    Textiles2GreenRed,
+    Textiles2GreenYellow,
+    Textiles2GreenBlue,
+    Textiles2PurpleRed,
+    Textiles2PurpleYellow,
+    Textiles2PurpleBlue,
+    // Ceramics 3-star, tertiary+primary (18)
+    Ceramics3VermilionRed,
+    Ceramics3VermilionYellow,
+    Ceramics3VermilionBlue,
+    Ceramics3AmberRed,
+    Ceramics3AmberYellow,
+    Ceramics3AmberBlue,
+    Ceramics3ChartreuseRed,
+    Ceramics3ChartreuseYellow,
+    Ceramics3ChartreuseBlue,
+    Ceramics3TealRed,
+    Ceramics3TealYellow,
+    Ceramics3TealBlue,
+    Ceramics3IndigoRed,
+    Ceramics3IndigoYellow,
+    Ceramics3IndigoBlue,
+    Ceramics3MagentaRed,
+    Ceramics3MagentaYellow,
+    Ceramics3MagentaBlue,
+    // Paintings 4-star, tertiary+secondary (18)
+    Paintings4VermilionOrange,
+    Paintings4VermilionGreen,
+    Paintings4VermilionPurple,
+    Paintings4AmberOrange,
+    Paintings4AmberGreen,
+    Paintings4AmberPurple,
+    Paintings4ChartreuseOrange,
+    Paintings4ChartreuseGreen,
+    Paintings4ChartreusePurple,
+    Paintings4TealOrange,
+    Paintings4TealGreen,
+    Paintings4TealPurple,
+    Paintings4IndigoOrange,
+    Paintings4IndigoGreen,
+    Paintings4IndigoPurple,
+    Paintings4MagentaOrange,
+    Paintings4MagentaGreen,
+    Paintings4MagentaPurple,
+}
+
+struct BuyerProperties {
+    stars: u32,
+    required_material: MaterialType,
+    color_cost: &'static [Color],
+}
+
+const BUYER_DATA: [BuyerProperties; 51] = [
+    // Textiles 2-star, single tertiary (6)
+    BuyerProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Vermilion] },
+    BuyerProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Amber] },
+    BuyerProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Chartreuse] },
+    BuyerProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Teal] },
+    BuyerProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Indigo] },
+    BuyerProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Magenta] },
+    // Textiles 2-star, secondary+primary (9)
+    BuyerProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Orange, Color::Red] },
+    BuyerProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Orange, Color::Yellow] },
+    BuyerProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Orange, Color::Blue] },
+    BuyerProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Green, Color::Red] },
+    BuyerProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Green, Color::Yellow] },
+    BuyerProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Green, Color::Blue] },
+    BuyerProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Purple, Color::Red] },
+    BuyerProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Purple, Color::Yellow] },
+    BuyerProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Purple, Color::Blue] },
+    // Ceramics 3-star, tertiary+primary (18)
+    BuyerProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Vermilion, Color::Red] },
+    BuyerProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Vermilion, Color::Yellow] },
+    BuyerProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Vermilion, Color::Blue] },
+    BuyerProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Amber, Color::Red] },
+    BuyerProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Amber, Color::Yellow] },
+    BuyerProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Amber, Color::Blue] },
+    BuyerProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Chartreuse, Color::Red] },
+    BuyerProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Chartreuse, Color::Yellow] },
+    BuyerProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Chartreuse, Color::Blue] },
+    BuyerProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Teal, Color::Red] },
+    BuyerProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Teal, Color::Yellow] },
+    BuyerProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Teal, Color::Blue] },
+    BuyerProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Indigo, Color::Red] },
+    BuyerProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Indigo, Color::Yellow] },
+    BuyerProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Indigo, Color::Blue] },
+    BuyerProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Magenta, Color::Red] },
+    BuyerProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Magenta, Color::Yellow] },
+    BuyerProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Magenta, Color::Blue] },
+    // Paintings 4-star, tertiary+secondary (18)
+    BuyerProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Vermilion, Color::Orange] },
+    BuyerProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Vermilion, Color::Green] },
+    BuyerProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Vermilion, Color::Purple] },
+    BuyerProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Amber, Color::Orange] },
+    BuyerProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Amber, Color::Green] },
+    BuyerProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Amber, Color::Purple] },
+    BuyerProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Chartreuse, Color::Orange] },
+    BuyerProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Chartreuse, Color::Green] },
+    BuyerProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Chartreuse, Color::Purple] },
+    BuyerProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Teal, Color::Orange] },
+    BuyerProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Teal, Color::Green] },
+    BuyerProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Teal, Color::Purple] },
+    BuyerProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Indigo, Color::Orange] },
+    BuyerProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Indigo, Color::Green] },
+    BuyerProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Indigo, Color::Purple] },
+    BuyerProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Magenta, Color::Orange] },
+    BuyerProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Magenta, Color::Green] },
+    BuyerProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Magenta, Color::Purple] },
+];
+
+impl BuyerCard {
+    fn props(&self) -> &'static BuyerProperties {
+        &BUYER_DATA[*self as usize]
+    }
+
+    pub fn stars(&self) -> u32 {
+        self.props().stars
+    }
+
+    pub fn required_material(&self) -> MaterialType {
+        self.props().required_material
+    }
+
+    pub fn color_cost(&self) -> &'static [Color] {
+        self.props().color_cost
+    }
+}
+
+// ── CardInstance / BuyerInstance ──
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CardInstance {
     pub instance_id: u32,
-    pub card: AnyCard,
+    pub card: Card,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BuyerInstance {
+    pub instance_id: u32,
+    #[serde(rename = "card")]
+    pub buyer: BuyerCard,
 }
 
 /// Color wheel represented as counts for each of 12 colors.
@@ -289,7 +560,7 @@ pub struct PlayerState {
     pub drafted_cards: Vec<CardInstance>,
     pub color_wheel: ColorWheel,
     pub materials: Materials,
-    pub completed_buyers: Vec<CardInstance>,
+    pub completed_buyers: Vec<BuyerInstance>,
     pub ducats: u32,
 }
 
@@ -360,8 +631,8 @@ pub struct GameState {
     pub players: Vec<PlayerState>,
     pub draft_deck: Vec<CardInstance>,
     pub destroyed_pile: Vec<CardInstance>,
-    pub buyer_deck: Vec<CardInstance>,
-    pub buyer_display: Vec<CardInstance>,
+    pub buyer_deck: Vec<BuyerInstance>,
+    pub buyer_display: Vec<BuyerInstance>,
     pub phase: GamePhase,
     pub round: u32,
     pub ai_players: Vec<bool>,
@@ -369,7 +640,7 @@ pub struct GameState {
 
 // ── ColoriChoice ──
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum ColoriChoice {
     #[serde(rename = "draftPick")]

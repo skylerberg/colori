@@ -1,18 +1,19 @@
 <script lang="ts">
-  import type { AnyCard, Ability } from '../data/types';
+  import type { AnyCardData, Ability } from '../data/types';
   import { colorToHex, blendColors, textColorForBackground } from '../data/colors';
-  import { getCardPips } from '../data/cards';
+  import { getAnyCardData, getCardPips } from '../data/cards';
 
   let { card, selected = false, onclick }: {
-    card: AnyCard;
+    card: string;
     selected?: boolean;
     onclick?: () => void;
   } = $props();
 
-  let abilityText = $derived(formatAbility(card));
+  let data = $derived(getAnyCardData(card));
+  let abilityText = $derived(data ? formatAbility(data) : '');
   let workshopText = $derived(
-    card.kind === 'action'
-      ? card.workshopAbilities.map(formatSingleAbility).join(', ')
+    data && data.kind === 'action'
+      ? data.workshopAbilities.map(formatSingleAbility).join(', ')
       : ''
   );
   let pips = $derived(getCardPips(card));
@@ -33,12 +34,12 @@
     }
   }
 
-  function formatAbility(c: AnyCard): string {
+  function formatAbility(c: AnyCardData): string {
     if (c.kind === 'buyer') return '';
     return formatSingleAbility(c.ability);
   }
 
-  function cardKindLabel(c: AnyCard): string {
+  function cardKindLabel(c: AnyCardData): string {
     switch (c.kind) {
       case 'dye': return 'Dye';
       case 'basicDye': return 'Basic Dye';
@@ -49,30 +50,31 @@
   }
 </script>
 
+{#if data}
 <button
   class="card"
   class:selected
   class:clickable={!!onclick}
-  class:dye={card.kind === 'dye'}
-  class:basic-dye={card.kind === 'basicDye'}
-  class:material={card.kind === 'material'}
-  class:buyer={card.kind === 'buyer'}
-  class:action={card.kind === 'action'}
+  class:dye={data.kind === 'dye'}
+  class:basic-dye={data.kind === 'basicDye'}
+  class:material={data.kind === 'material'}
+  class:buyer={data.kind === 'buyer'}
+  class:action={data.kind === 'action'}
   onclick={onclick}
   disabled={!onclick}
 >
   <div class="card-header">
-    <span class="card-kind">{cardKindLabel(card)}</span>
-    {#if card.kind === 'buyer'}
-      <span class="stars">{'*'.repeat(card.stars)}</span>
+    <span class="card-kind">{cardKindLabel(data)}</span>
+    {#if data.kind === 'buyer'}
+      <span class="stars">{'*'.repeat(data.stars)}</span>
     {/if}
   </div>
 
-  {#if 'name' in card}
-    <div class="card-name">{card.name}</div>
+  {#if 'name' in data}
+    <div class="card-name">{data.name}</div>
   {/if}
 
-  {#if card.kind === 'dye' || card.kind === 'basicDye'}
+  {#if data.kind === 'dye' || data.kind === 'basicDye'}
     <div class="pips">
       {#each pips as pip}
         <span class="pip" style="background-color: {colorToHex(pip)}; color: {textColorForBackground(colorToHex(pip))}" title={pip}>{pip[0]}</span>
@@ -81,26 +83,26 @@
     <div class="color-swatch" style="background-color: {blendedHex}"></div>
   {/if}
 
-  {#if card.kind === 'material'}
+  {#if data.kind === 'material'}
     <div class="material-type">
-      {#if card.materialTypes[0] === card.materialTypes[1]}
-        2x {card.materialTypes[0]}
+      {#if data.materialTypes[0] === data.materialTypes[1]}
+        2x {data.materialTypes[0]}
       {:else}
-        {card.materialTypes.join(' + ')}
+        {data.materialTypes.join(' + ')}
       {/if}
     </div>
-    {#if card.colorPip}
+    {#if data.colorPip}
       <div class="pips">
-        <span class="pip" style="background-color: {colorToHex(card.colorPip)}; color: {textColorForBackground(colorToHex(card.colorPip))}" title={card.colorPip}>{card.colorPip[0]}</span>
+        <span class="pip" style="background-color: {colorToHex(data.colorPip)}; color: {textColorForBackground(colorToHex(data.colorPip))}" title={data.colorPip}>{data.colorPip[0]}</span>
       </div>
     {/if}
   {/if}
 
-  {#if card.kind === 'buyer'}
+  {#if data.kind === 'buyer'}
     <div class="buyer-info">
-      <div class="required-material">{card.requiredMaterial}</div>
+      <div class="required-material">{data.requiredMaterial}</div>
       <div class="color-cost">
-        {#each card.colorCost as color}
+        {#each data.colorCost as color}
           <span class="pip" style="background-color: {colorToHex(color)}; color: {textColorForBackground(colorToHex(color))}" title={color}>{color[0]}</span>
         {/each}
       </div>
@@ -115,6 +117,7 @@
     <div class="ability">{abilityText}</div>
   {/if}
 </button>
+{/if}
 
 <style>
   .card {

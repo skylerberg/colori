@@ -8,8 +8,8 @@ struct MctsNode {
     cumulative_reward: f64,
     player_id: usize,
     choice: Option<ColoriChoice>,
-    children: HashMap<String, MctsNode>,
-    choice_availability_count: HashMap<String, u32>,
+    children: HashMap<ColoriChoice, MctsNode>,
+    choice_availability_count: HashMap<ColoriChoice, u32>,
 }
 
 impl MctsNode {
@@ -43,18 +43,16 @@ impl MctsNode {
 
         let mut added_new_node = false;
 
-        for choice in &choices {
-            let key = choice_to_key(choice);
-
-            if let Some(count) = self.choice_availability_count.get_mut(&key) {
+        for choice in choices {
+            if let Some(count) = self.choice_availability_count.get_mut(&choice) {
                 *count += 1;
             } else {
-                self.choice_availability_count.insert(key.clone(), 0);
+                self.choice_availability_count.insert(choice.clone(), 0);
             }
 
-            if self.is_root() || (!added_new_node && !self.children.contains_key(&key)) {
+            if self.is_root() || (!added_new_node && !self.children.contains_key(&choice)) {
                 self.children
-                    .insert(key, MctsNode::new(active_player, Some(choice.clone())));
+                    .insert(choice.clone(), MctsNode::new(active_player, Some(choice)));
                 added_new_node = true;
             }
         }
@@ -157,8 +155,8 @@ fn iteration<R: Rng>(
     scores
 }
 
-fn select(node: &MctsNode, state: &GameState) -> Option<String> {
-    let mut best_key: Option<String> = None;
+fn select(node: &MctsNode, state: &GameState) -> Option<ColoriChoice> {
+    let mut best_key: Option<ColoriChoice> = None;
     let mut best_value = f64::NEG_INFINITY;
 
     for (key, child) in &node.children {

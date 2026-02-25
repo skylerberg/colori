@@ -6,14 +6,27 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 static NEXT_INSTANCE_ID: AtomicU32 = AtomicU32::new(1);
 
-fn create_card_instances(cards: &[AnyCard]) -> Vec<CardInstance> {
+fn create_card_instances(cards: &[Card]) -> Vec<CardInstance> {
     cards
         .iter()
-        .map(|card| {
+        .map(|&card| {
             let id = NEXT_INSTANCE_ID.fetch_add(1, Ordering::Relaxed);
             CardInstance {
                 instance_id: id,
-                card: card.clone(),
+                card,
+            }
+        })
+        .collect()
+}
+
+fn create_buyer_instances(buyers: &[BuyerCard]) -> Vec<BuyerInstance> {
+    buyers
+        .iter()
+        .map(|&buyer| {
+            let id = NEXT_INSTANCE_ID.fetch_add(1, Ordering::Relaxed);
+            BuyerInstance {
+                instance_id: id,
+                buyer,
             }
         })
         .collect()
@@ -29,9 +42,9 @@ pub fn create_initial_game_state<R: Rng>(player_names: &[String], ai_players: &[
         .iter()
         .map(|name| {
             // 7 starting cards: 3 basic dyes + 3 starter materials + chalk
-            let mut personal_cards: Vec<AnyCard> = Vec::with_capacity(7);
-            personal_cards.extend(basic_dye_cards());
-            personal_cards.extend(starter_material_cards());
+            let mut personal_cards: Vec<Card> = Vec::with_capacity(7);
+            personal_cards.extend_from_slice(&basic_dye_cards());
+            personal_cards.extend_from_slice(&starter_material_cards());
             personal_cards.push(chalk_card());
 
             let mut deck = create_card_instances(&personal_cards);
@@ -60,24 +73,22 @@ pub fn create_initial_game_state<R: Rng>(player_names: &[String], ai_players: &[
         .collect();
 
     // Build draft deck: 4x each of 15 dye cards + 1x each of 15 draft materials + 3x each of 5 action cards = 90 cards
-    let mut draft_cards: Vec<AnyCard> = Vec::with_capacity(90);
+    let mut draft_cards: Vec<Card> = Vec::with_capacity(90);
 
     // 4 copies of each of 15 dye cards (60 total)
     for dye in dye_cards() {
         for _ in 0..4 {
-            draft_cards.push(dye.clone());
+            draft_cards.push(dye);
         }
     }
 
     // 1 copy of each of 15 draft material cards (15 total)
-    for material in draft_material_cards() {
-        draft_cards.push(material);
-    }
+    draft_cards.extend_from_slice(&draft_material_cards());
 
     // 3 copies of each of 5 action cards (15 total)
     for action in action_cards() {
         for _ in 0..3 {
-            draft_cards.push(action.clone());
+            draft_cards.push(action);
         }
     }
 
@@ -85,12 +96,11 @@ pub fn create_initial_game_state<R: Rng>(player_names: &[String], ai_players: &[
     shuffle_in_place(&mut draft_deck, rng);
 
     // Build buyer deck: all 51 buyers shuffled
-    let all_buyers = generate_all_buyers();
-    let mut buyer_deck = create_card_instances(&all_buyers);
+    let mut buyer_deck = create_buyer_instances(&generate_all_buyers());
     shuffle_in_place(&mut buyer_deck, rng);
 
     // Deal 6 buyers from buyer_deck to buyer_display (pop from end)
-    let mut buyer_display: Vec<CardInstance> = Vec::with_capacity(6);
+    let mut buyer_display: Vec<BuyerInstance> = Vec::with_capacity(6);
     for _ in 0..6 {
         if let Some(buyer) = buyer_deck.pop() {
             buyer_display.push(buyer);

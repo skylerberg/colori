@@ -1,16 +1,6 @@
-import type { AnyCard, Color, DyeCard, BasicDyeCard, MaterialCard, ActionCard, BuyerCard } from './types';
+import type { Card, BuyerCard, Color, AnyCardData, DyeCardData, BasicDyeCardData, MaterialCardData, ActionCardData, BuyerCardData } from './types';
 
-export function getCardPips(card: AnyCard): Color[] {
-  switch (card.kind) {
-    case 'dye': return card.colors;
-    case 'basicDye': return [card.color];
-    case 'material': return card.colorPip ? [card.colorPip] : [];
-    case 'action': return [];
-    case 'buyer': return [];
-  }
-}
-
-export const DYE_CARDS: DyeCard[] = [
+export const DYE_CARDS: DyeCardData[] = [
   // Primary (3) — sell
   {
     kind: 'dye',
@@ -106,7 +96,7 @@ export const DYE_CARDS: DyeCard[] = [
   },
 ];
 
-export const MATERIAL_CARDS: MaterialCard[] = [
+export const MATERIAL_CARDS: MaterialCardData[] = [
   {
     kind: 'material',
     name: 'Ceramics',
@@ -127,7 +117,7 @@ export const MATERIAL_CARDS: MaterialCard[] = [
   },
 ];
 
-export const DRAFT_MATERIAL_CARDS: MaterialCard[] = [
+export const DRAFT_MATERIAL_CARDS: MaterialCardData[] = [
   // Double material cards
   {
     kind: 'material',
@@ -234,7 +224,7 @@ export const DRAFT_MATERIAL_CARDS: MaterialCard[] = [
   },
 ];
 
-export const BASIC_DYE_CARDS: BasicDyeCard[] = [
+export const BASIC_DYE_CARDS: BasicDyeCardData[] = [
   {
     kind: 'basicDye',
     name: 'Basic Red',
@@ -255,7 +245,7 @@ export const BASIC_DYE_CARDS: BasicDyeCard[] = [
   },
 ];
 
-export const ACTION_CARDS: ActionCard[] = [
+export const ACTION_CARDS: ActionCardData[] = [
   {
     kind: 'action',
     name: 'Alum',
@@ -292,15 +282,15 @@ export const PRIMARIES: Color[] = ['Red', 'Yellow', 'Blue'];
 export const SECONDARIES: Color[] = ['Orange', 'Green', 'Purple'];
 export const TERTIARIES: Color[] = ['Vermilion', 'Amber', 'Chartreuse', 'Teal', 'Indigo', 'Magenta'];
 
-export const CHALK_CARD: ActionCard = {
+export const CHALK_CARD: ActionCardData = {
   kind: 'action',
   name: 'Chalk',
   ability: { type: 'sell' },
   workshopAbilities: [{ type: 'gainPrimary' }],
 };
 
-function generateAllBuyers(): BuyerCard[] {
-  const buyers: BuyerCard[] = [];
+function generateAllBuyers(): BuyerCardData[] {
+  const buyers: BuyerCardData[] = [];
   // Textiles (2pt): one tertiary
   for (const t of TERTIARIES)
     buyers.push({ kind: 'buyer', stars: 2, requiredMaterial: 'Textiles', colorCost: [t] });
@@ -319,4 +309,126 @@ function generateAllBuyers(): BuyerCard[] {
   return buyers;
 }
 
-export const BUYER_CARDS: BuyerCard[] = generateAllBuyers();
+export const BUYER_CARDS: BuyerCardData[] = generateAllBuyers();
+
+// Build lookup map from Card variant name -> card data
+const CARD_LOOKUP: Record<string, AnyCardData> = {};
+
+// Basic dyes
+CARD_LOOKUP['BasicRed'] = { kind: 'basicDye', name: 'Basic Red', color: 'Red', ability: { type: 'sell' } };
+CARD_LOOKUP['BasicYellow'] = { kind: 'basicDye', name: 'Basic Yellow', color: 'Yellow', ability: { type: 'sell' } };
+CARD_LOOKUP['BasicBlue'] = { kind: 'basicDye', name: 'Basic Blue', color: 'Blue', ability: { type: 'sell' } };
+
+// Register all dye cards by matching name to variant
+for (const dye of DYE_CARDS) {
+  let variantName: string;
+  switch (dye.name) {
+    case 'Kermes': variantName = 'Kermes'; break;
+    case 'Weld': variantName = 'Weld'; break;
+    case 'Woad': variantName = 'Woad'; break;
+    case 'Madder': variantName = 'Madder'; break;
+    case 'Turmeric': variantName = 'Turmeric'; break;
+    case "Dyer's Greenweed": variantName = 'DyersGreenweed'; break;
+    case 'Verdigris': variantName = 'Verdigris'; break;
+    case 'Orchil': variantName = 'Orchil'; break;
+    case 'Logwood': variantName = 'Logwood'; break;
+    case 'Vermilion': variantName = 'VermilionDye'; break;
+    case 'Saffron': variantName = 'Saffron'; break;
+    case 'Persian Berries': variantName = 'PersianBerries'; break;
+    case 'Azurite': variantName = 'Azurite'; break;
+    case 'Indigo': variantName = 'IndigoDye'; break;
+    case 'Cochineal': variantName = 'Cochineal'; break;
+    default: variantName = dye.name; break;
+  }
+  CARD_LOOKUP[variantName] = dye;
+}
+
+// Starter materials
+CARD_LOOKUP['StarterCeramics'] = MATERIAL_CARDS[0];  // Ceramics
+CARD_LOOKUP['StarterPaintings'] = MATERIAL_CARDS[1];  // Paintings
+CARD_LOOKUP['StarterTextiles'] = MATERIAL_CARDS[2];  // Textiles
+
+// Draft materials - map by name to variant
+const DRAFT_MATERIAL_NAME_MAP: Record<string, string> = {
+  'Fine Ceramics': 'FineCeramics',
+  'Fine Paintings': 'FinePaintings',
+  'Fine Textiles': 'FineTextiles',
+  'Terra Cotta': 'TerraCotta',
+  'Ochre Ware': 'OchreWare',
+  'Cobalt Ware': 'CobaltWare',
+  'Cinnabar & Canvas': 'CinnabarCanvas',
+  'Orpiment & Canvas': 'OrpimentCanvas',
+  'Ultramarine & Canvas': 'UltramarineCanvas',
+  'Alizarin & Fabric': 'AlizarinFabric',
+  'Fustic & Fabric': 'FusticFabric',
+  'Pastel & Fabric': 'PastelFabric',
+  'Clay & Canvas': 'ClayCanvas',
+  'Clay & Fabric': 'ClayFabric',
+  'Canvas & Fabric': 'CanvasFabric',
+};
+for (const mat of DRAFT_MATERIAL_CARDS) {
+  CARD_LOOKUP[DRAFT_MATERIAL_NAME_MAP[mat.name]] = mat;
+}
+
+// Action cards
+const ACTION_NAME_MAP: Record<string, string> = {
+  'Alum': 'Alum',
+  'Cream of Tartar': 'CreamOfTartar',
+  'Gum Arabic': 'GumArabic',
+  'Potash': 'Potash',
+  'Vinegar': 'Vinegar',
+};
+for (const act of ACTION_CARDS) {
+  CARD_LOOKUP[ACTION_NAME_MAP[act.name]] = act;
+}
+CARD_LOOKUP['Chalk'] = CHALK_CARD;
+
+// Build buyer lookup
+const BUYER_LOOKUP: Record<string, BuyerCardData> = {};
+const buyerVariantNames = [
+  'Textiles2Vermilion', 'Textiles2Amber', 'Textiles2Chartreuse',
+  'Textiles2Teal', 'Textiles2Indigo', 'Textiles2Magenta',
+  'Textiles2OrangeRed', 'Textiles2OrangeYellow', 'Textiles2OrangeBlue',
+  'Textiles2GreenRed', 'Textiles2GreenYellow', 'Textiles2GreenBlue',
+  'Textiles2PurpleRed', 'Textiles2PurpleYellow', 'Textiles2PurpleBlue',
+  'Ceramics3VermilionRed', 'Ceramics3VermilionYellow', 'Ceramics3VermilionBlue',
+  'Ceramics3AmberRed', 'Ceramics3AmberYellow', 'Ceramics3AmberBlue',
+  'Ceramics3ChartreuseRed', 'Ceramics3ChartreuseYellow', 'Ceramics3ChartreuseBlue',
+  'Ceramics3TealRed', 'Ceramics3TealYellow', 'Ceramics3TealBlue',
+  'Ceramics3IndigoRed', 'Ceramics3IndigoYellow', 'Ceramics3IndigoBlue',
+  'Ceramics3MagentaRed', 'Ceramics3MagentaYellow', 'Ceramics3MagentaBlue',
+  'Paintings4VermilionOrange', 'Paintings4VermilionGreen', 'Paintings4VermilionPurple',
+  'Paintings4AmberOrange', 'Paintings4AmberGreen', 'Paintings4AmberPurple',
+  'Paintings4ChartreuseOrange', 'Paintings4ChartreuseGreen', 'Paintings4ChartreusePurple',
+  'Paintings4TealOrange', 'Paintings4TealGreen', 'Paintings4TealPurple',
+  'Paintings4IndigoOrange', 'Paintings4IndigoGreen', 'Paintings4IndigoPurple',
+  'Paintings4MagentaOrange', 'Paintings4MagentaGreen', 'Paintings4MagentaPurple',
+];
+for (let i = 0; i < BUYER_CARDS.length; i++) {
+  BUYER_LOOKUP[buyerVariantNames[i]] = BUYER_CARDS[i];
+}
+
+export function getCardData(card: Card): AnyCardData {
+  return CARD_LOOKUP[card];
+}
+
+export function getBuyerData(buyer: BuyerCard): BuyerCardData {
+  return BUYER_LOOKUP[buyer];
+}
+
+// Unified lookup for any card string (Card or BuyerCard)
+export function getAnyCardData(card: string): AnyCardData {
+  return CARD_LOOKUP[card] ?? BUYER_LOOKUP[card];
+}
+
+export function getCardPips(card: string): Color[] {
+  const data = getAnyCardData(card);
+  if (!data) return [];
+  switch (data.kind) {
+    case 'dye': return data.colors;
+    case 'basicDye': return [data.color];
+    case 'material': return data.colorPip ? [data.colorPip] : [];
+    case 'action': return [];
+    case 'buyer': return [];
+  }
+}

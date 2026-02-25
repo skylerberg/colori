@@ -7,35 +7,6 @@ use crate::scoring::calculate_score;
 use crate::types::*;
 use rand::Rng;
 
-// ── Deep clone ──
-
-fn clone_player_state(p: &PlayerState) -> PlayerState {
-    PlayerState {
-        name: p.name.clone(),
-        deck: p.deck.clone(),
-        discard: p.discard.clone(),
-        workshop_cards: p.workshop_cards.clone(),
-        drafted_cards: p.drafted_cards.clone(),
-        color_wheel: p.color_wheel.clone(),
-        ducats: p.ducats,
-        materials: p.materials.clone(),
-        completed_buyers: p.completed_buyers.clone(),
-    }
-}
-
-pub fn clone_game_state(state: &GameState) -> GameState {
-    GameState {
-        players: state.players.iter().map(clone_player_state).collect(),
-        draft_deck: state.draft_deck.clone(),
-        destroyed_pile: state.destroyed_pile.clone(),
-        buyer_deck: state.buyer_deck.clone(),
-        buyer_display: state.buyer_display.clone(),
-        phase: state.phase.clone(),
-        round: state.round,
-        ai_players: state.ai_players.clone(),
-    }
-}
-
 // ── Subset enumeration ──
 
 fn get_subsets(items: &[u32], max_size: usize) -> Vec<Vec<u32>> {
@@ -60,18 +31,9 @@ fn get_subsets(items: &[u32], max_size: usize) -> Vec<Vec<u32>> {
 
 // ── Buyer affordability ──
 
-fn can_afford_buyer(player: &PlayerState, buyer: &AnyCard) -> bool {
-    if let AnyCard::Buyer {
-        required_material,
-        ref color_cost,
-        ..
-    } = buyer
-    {
-        player.materials.get(*required_material) >= 1
-            && can_pay_cost(&player.color_wheel, color_cost)
-    } else {
-        false
-    }
+fn can_afford_buyer(player: &PlayerState, buyer: &BuyerCard) -> bool {
+    player.materials.get(buyer.required_material()) >= 1
+        && can_pay_cost(&player.color_wheel, buyer.color_cost())
 }
 
 // ── Choice enumeration ──
@@ -112,7 +74,7 @@ pub fn enumerate_choices(state: &GameState) -> Vec<ColoriChoice> {
                     let eligible_non_action: Vec<u32> = player
                         .workshop_cards
                         .iter()
-                        .filter(|c| matches!(c.card, AnyCard::Dye { .. } | AnyCard::BasicDye { .. } | AnyCard::Material { .. }))
+                        .filter(|c| !c.card.is_action())
                         .map(|c| c.instance_id)
                         .collect();
 
@@ -125,7 +87,7 @@ pub fn enumerate_choices(state: &GameState) -> Vec<ColoriChoice> {
 
                     // Each action card as a separate choice
                     for card in &player.workshop_cards {
-                        if matches!(card.card, AnyCard::Action { .. }) {
+                        if card.card.is_action() {
                             choices.push(ColoriChoice::Workshop {
                                 card_instance_ids: vec![card.instance_id],
                             });
@@ -179,7 +141,7 @@ pub fn enumerate_choices(state: &GameState) -> Vec<ColoriChoice> {
                 Some(PendingChoice::ChooseBuyer) => state
                     .buyer_display
                     .iter()
-                    .filter(|g| can_afford_buyer(player, &g.card))
+                    .filter(|g| can_afford_buyer(player, &g.buyer))
                     .map(|g| ColoriChoice::SelectBuyer {
                         buyer_instance_id: g.instance_id,
                     })
@@ -208,44 +170,6 @@ pub fn enumerate_choices(state: &GameState) -> Vec<ColoriChoice> {
             }
         }
         _ => vec![],
-    }
-}
-
-// ── Choice key ──
-
-pub fn choice_to_key(choice: &ColoriChoice) -> String {
-    match choice {
-        ColoriChoice::DraftPick { card_instance_id } => {
-            format!("draftPick:{}", card_instance_id)
-        }
-        ColoriChoice::DestroyDraftedCard { card_instance_id } => {
-            format!("destroyDrafted:{}", card_instance_id)
-        }
-        ColoriChoice::EndTurn => "endTurn".to_string(),
-        ColoriChoice::Workshop { card_instance_ids } => {
-            let mut sorted = card_instance_ids.clone();
-            sorted.sort();
-            let ids: Vec<String> = sorted.iter().map(|id| id.to_string()).collect();
-            format!("workshop:{}", ids.join(","))
-        }
-        ColoriChoice::SkipWorkshop => "skipWorkshop".to_string(),
-        ColoriChoice::DestroyDrawnCards { card_instance_ids } => {
-            let mut sorted = card_instance_ids.clone();
-            sorted.sort();
-            let ids: Vec<String> = sorted.iter().map(|id| id.to_string()).collect();
-            format!("destroyDrawn:{}", ids.join(","))
-        }
-        ColoriChoice::Mix { color_a, color_b } => {
-            format!("mix:{:?}:{:?}", color_a, color_b)
-        }
-        ColoriChoice::SkipMix => "skipMix".to_string(),
-        ColoriChoice::SelectBuyer {
-            buyer_instance_id,
-        } => format!("selectBuyer:{}", buyer_instance_id),
-        ColoriChoice::GainSecondary { color } => format!("gainSecondary:{:?}", color),
-        ColoriChoice::GainPrimary { color } => format!("gainPrimary:{:?}", color),
-        ColoriChoice::ChooseTertiaryToLose { color } => format!("loseTertiary:{:?}", color),
-        ColoriChoice::ChooseTertiaryToGain { color } => format!("gainTertiary:{:?}", color),
     }
 }
 
@@ -378,7 +302,7 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                             .buyer_display
                             .iter()
                             .find(|g| g.instance_id == *buyer_instance_id)
-                            .map(|g| can_afford_buyer(player, &g.card))
+                            .map(|g| can_afford_buyer(player, &g.buyer))
                             .unwrap_or(false)
                     }
                     _ => false,
@@ -488,7 +412,7 @@ pub fn determinize<R: Rng>(
     seen_hands: &Option<Vec<Vec<CardInstance>>>,
     rng: &mut R,
 ) -> GameState {
-    let mut clone = clone_game_state(state);
+    let mut clone = state.clone();
 
     if let GamePhase::Draft { ref mut draft_state } = clone.phase {
         let num_players = clone.players.len();
@@ -624,12 +548,10 @@ pub fn get_rollout_choice<R: Rng>(state: &GameState, rng: &mut R) -> ColoriChoic
                     let mut action_count = 0;
                     let mut eligible_count = 0;
                     for card in cards {
-                        match &card.card {
-                            AnyCard::Action { .. } => action_count += 1,
-                            AnyCard::Dye { .. }
-                            | AnyCard::BasicDye { .. }
-                            | AnyCard::Material { .. } => eligible_count += 1,
-                            _ => {}
+                        if card.card.is_action() {
+                            action_count += 1;
+                        } else {
+                            eligible_count += 1;
                         }
                     }
 
@@ -645,7 +567,7 @@ pub fn get_rollout_choice<R: Rng>(state: &GameState, rng: &mut R) -> ColoriChoic
                     if action_count > 0 && rng.gen::<f64>() < 0.5 {
                         let mut action_idx = rng.gen_range(0..action_count);
                         for card in cards {
-                            if matches!(card.card, AnyCard::Action { .. }) {
+                            if card.card.is_action() {
                                 if action_idx == 0 {
                                     return ColoriChoice::Workshop {
                                         card_instance_ids: vec![card.instance_id],
@@ -660,7 +582,7 @@ pub fn get_rollout_choice<R: Rng>(state: &GameState, rng: &mut R) -> ColoriChoic
                         if action_count > 0 {
                             let mut action_idx = rng.gen_range(0..action_count);
                             for card in cards {
-                                if matches!(card.card, AnyCard::Action { .. }) {
+                                if card.card.is_action() {
                                     if action_idx == 0 {
                                         return ColoriChoice::Workshop {
                                             card_instance_ids: vec![card.instance_id],
@@ -678,11 +600,8 @@ pub fn get_rollout_choice<R: Rng>(state: &GameState, rng: &mut R) -> ColoriChoic
                     let pick = rng.gen_range(1..=max_pick);
                     let mut eligible_indices: Vec<usize> = Vec::with_capacity(eligible_count);
                     for (k, card) in cards.iter().enumerate() {
-                        match &card.card {
-                            AnyCard::Dye { .. }
-                            | AnyCard::BasicDye { .. }
-                            | AnyCard::Material { .. } => eligible_indices.push(k),
-                            _ => {}
+                        if !card.card.is_action() {
+                            eligible_indices.push(k);
                         }
                     }
 
@@ -725,6 +644,7 @@ pub fn get_rollout_choice<R: Rng>(state: &GameState, rng: &mut R) -> ColoriChoic
                     if rng.gen::<f64>() < 0.5 {
                         return ColoriChoice::SkipMix;
                     }
+                    let mut pairs: [(Color, Color); 9] = [(Color::Red, Color::Red); 9];
                     let mut pair_count = 0usize;
                     for i in 0..ALL_COLORS.len() {
                         for j in (i + 1)..ALL_COLORS.len() {
@@ -732,6 +652,7 @@ pub fn get_rollout_choice<R: Rng>(state: &GameState, rng: &mut R) -> ColoriChoic
                                 && player.color_wheel.get(ALL_COLORS[j]) > 0
                                 && can_mix(ALL_COLORS[i], ALL_COLORS[j])
                             {
+                                pairs[pair_count] = (ALL_COLORS[i], ALL_COLORS[j]);
                                 pair_count += 1;
                             }
                         }
@@ -739,30 +660,14 @@ pub fn get_rollout_choice<R: Rng>(state: &GameState, rng: &mut R) -> ColoriChoic
                     if pair_count == 0 {
                         return ColoriChoice::SkipMix;
                     }
-                    let mut target = rng.gen_range(0..pair_count);
-                    for i in 0..ALL_COLORS.len() {
-                        for j in (i + 1)..ALL_COLORS.len() {
-                            if player.color_wheel.get(ALL_COLORS[i]) > 0
-                                && player.color_wheel.get(ALL_COLORS[j]) > 0
-                                && can_mix(ALL_COLORS[i], ALL_COLORS[j])
-                            {
-                                if target == 0 {
-                                    return ColoriChoice::Mix {
-                                        color_a: ALL_COLORS[i],
-                                        color_b: ALL_COLORS[j],
-                                    };
-                                }
-                                target -= 1;
-                            }
-                        }
-                    }
-                    ColoriChoice::SkipMix // unreachable
+                    let target = rng.gen_range(0..pair_count);
+                    ColoriChoice::Mix { color_a: pairs[target].0, color_b: pairs[target].1 }
                 }
                 Some(PendingChoice::ChooseBuyer) => {
                     let affordable: Vec<u32> = state
                         .buyer_display
                         .iter()
-                        .filter(|g| can_afford_buyer(player, &g.card))
+                        .filter(|g| can_afford_buyer(player, &g.buyer))
                         .map(|g| g.instance_id)
                         .collect();
                     let idx = rng.gen_range(0..affordable.len());
