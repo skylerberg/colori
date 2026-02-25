@@ -32,10 +32,11 @@ export function performMix(wheel: Record<Color, number>, a: Color, b: Color): bo
 }
 
 export function canPayCost(wheel: Record<Color, number>, cost: Color[]): boolean {
-  const temp = { ...wheel };
+  const used: Partial<Record<Color, number>> = {};
   for (const c of cost) {
-    if (temp[c] <= 0) return false;
-    temp[c]--;
+    const needed = (used[c] ?? 0) + 1;
+    if (wheel[c] < needed) return false;
+    used[c] = needed;
   }
   return true;
 }

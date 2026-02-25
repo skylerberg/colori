@@ -7,8 +7,11 @@ export const WHEEL_ORDER: Color[] = [
 
 export const ALL_COLORS = WHEEL_ORDER;
 
+const COLOR_INDEX: Record<Color, number> = {} as Record<Color, number>;
+for (let i = 0; i < WHEEL_ORDER.length; i++) COLOR_INDEX[WHEEL_ORDER[i]] = i;
+
 export function colorIndex(color: Color): number {
-  return WHEEL_ORDER.indexOf(color);
+  return COLOR_INDEX[color];
 }
 
 const PRIMARY_INDICES = new Set([0, 4, 8]);    // Red, Yellow, Blue

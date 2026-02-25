@@ -19,6 +19,13 @@ export function shuffle<T>(array: T[]): T[] {
   return result;
 }
 
+export function shuffleInPlace<T>(array: T[]): void {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = array[i]; array[i] = array[j]; array[j] = tmp;
+  }
+}
+
 export function createCardInstances<T extends AnyCard>(cards: T[]): CardInstance<T>[] {
   return cards.map(card => ({ instanceId: getNextInstanceId(), card }));
 }
@@ -33,7 +40,8 @@ export function drawFromDeck(player: PlayerState, count: number): CardInstance[]
   for (let i = 0; i < count; i++) {
     if (player.deck.length === 0) {
       if (player.discard.length === 0) break;
-      player.deck = shuffle(player.discard);
+      shuffleInPlace(player.discard);
+      player.deck = player.discard;
       player.discard = [];
     }
     drawn.push(player.deck.pop()!);

@@ -512,56 +512,102 @@ function getRolloutChoice(state: GameState): ColoriChoice {
 
     switch (pending.type) {
       case 'chooseCardsForWorkshop': {
-        // Randomly decide: skip, pick non-action cards, or pick an action card
-        const actionCards = player.workshopCards.filter(c => c.card.kind === 'action');
-        const eligibleCards = player.workshopCards.filter(c => c.card.kind === 'dye' || c.card.kind === 'basicDye' || c.card.kind === 'material');
+        // Classify cards in a single pass — no temporary filtered arrays
+        let actionCount = 0;
+        let eligibleCount = 0;
+        const cards = player.workshopCards;
+        for (let k = 0; k < cards.length; k++) {
+          const kind = cards[k].card.kind;
+          if (kind === 'action') actionCount++;
+          else if (kind === 'dye' || kind === 'basicDye' || kind === 'material') eligibleCount++;
+        }
 
-        if (eligibleCards.length === 0 && actionCards.length === 0) return { type: 'skipWorkshop' };
+        if (eligibleCount === 0 && actionCount === 0) return { type: 'skipWorkshop' };
 
         // 20% chance to skip
         if (Math.random() < 0.2) return { type: 'skipWorkshop' };
 
         // 50% chance to pick action card if available
-        if (actionCards.length > 0 && Math.random() < 0.5) {
-          const card = actionCards[Math.floor(Math.random() * actionCards.length)];
-          return { type: 'workshop', cardInstanceIds: [card.instanceId] };
+        if (actionCount > 0 && Math.random() < 0.5) {
+          let actionIdx = Math.floor(Math.random() * actionCount);
+          for (let k = 0; k < cards.length; k++) {
+            if (cards[k].card.kind === 'action') {
+              if (actionIdx === 0) return { type: 'workshop', cardInstanceIds: [cards[k].instanceId] };
+              actionIdx--;
+            }
+          }
         }
 
-        if (eligibleCards.length === 0) {
-          if (actionCards.length > 0) {
-            const card = actionCards[Math.floor(Math.random() * actionCards.length)];
-            return { type: 'workshop', cardInstanceIds: [card.instanceId] };
+        if (eligibleCount === 0) {
+          if (actionCount > 0) {
+            let actionIdx = Math.floor(Math.random() * actionCount);
+            for (let k = 0; k < cards.length; k++) {
+              if (cards[k].card.kind === 'action') {
+                if (actionIdx === 0) return { type: 'workshop', cardInstanceIds: [cards[k].instanceId] };
+                actionIdx--;
+              }
+            }
           }
           return { type: 'skipWorkshop' };
         }
 
-        const count = Math.min(pending.count, eligibleCards.length);
+        // Fisher-Yates partial shuffle on eligible card indices
+        const count = Math.min(pending.count, eligibleCount);
         const pick = Math.floor(Math.random() * count) + 1;
-        const shuffled = [...eligibleCards].sort(() => Math.random() - 0.5);
-        return { type: 'workshop', cardInstanceIds: shuffled.slice(0, pick).map(c => c.instanceId) };
+        const eligibleIndices: number[] = new Array(eligibleCount);
+        let ei = 0;
+        for (let k = 0; k < cards.length; k++) {
+          const kind = cards[k].card.kind;
+          if (kind === 'dye' || kind === 'basicDye' || kind === 'material') eligibleIndices[ei++] = k;
+        }
+        // Partial Fisher-Yates: only shuffle the first `pick` elements
+        for (let k = 0; k < pick; k++) {
+          const j = k + Math.floor(Math.random() * (eligibleCount - k));
+          const tmp = eligibleIndices[k]; eligibleIndices[k] = eligibleIndices[j]; eligibleIndices[j] = tmp;
+        }
+        const ids: number[] = new Array(pick);
+        for (let k = 0; k < pick; k++) ids[k] = cards[eligibleIndices[k]].instanceId;
+        return { type: 'workshop', cardInstanceIds: ids };
       }
       case 'chooseCardsToDestroy': {
-        const count = Math.min(pending.count, player.workshopCards.length);
-        if (count === 0) return { type: 'destroyDrawnCards', cardInstanceIds: [] };
-        const pick = Math.floor(Math.random() * count) + 1;
-        const shuffled = [...player.workshopCards].sort(() => Math.random() - 0.5);
-        return { type: 'destroyDrawnCards', cardInstanceIds: shuffled.slice(0, pick).map(c => c.instanceId) };
+        const wsCards = player.workshopCards;
+        const wsLen = wsCards.length;
+        const destroyCount = Math.min(pending.count, wsLen);
+        if (destroyCount === 0) return { type: 'destroyDrawnCards', cardInstanceIds: [] };
+        const destroyPick = Math.floor(Math.random() * destroyCount) + 1;
+        // Partial Fisher-Yates on index array
+        const wsIndices: number[] = new Array(wsLen);
+        for (let k = 0; k < wsLen; k++) wsIndices[k] = k;
+        for (let k = 0; k < destroyPick; k++) {
+          const j = k + Math.floor(Math.random() * (wsLen - k));
+          const tmp = wsIndices[k]; wsIndices[k] = wsIndices[j]; wsIndices[j] = tmp;
+        }
+        const destroyIds: number[] = new Array(destroyPick);
+        for (let k = 0; k < destroyPick; k++) destroyIds[k] = wsCards[wsIndices[k]].instanceId;
+        return { type: 'destroyDrawnCards', cardInstanceIds: destroyIds };
       }
       case 'chooseMix': {
         if (Math.random() < 0.5) return { type: 'skipMix' };
-        const pairs: [Color, Color][] = [];
+        // Count valid pairs first, then pick by index — zero allocation
+        let pairCount = 0;
         for (let i = 0; i < ALL_COLORS.length; i++) {
           for (let j = i + 1; j < ALL_COLORS.length; j++) {
-            const a = ALL_COLORS[i];
-            const b = ALL_COLORS[j];
-            if (player.colorWheel[a] > 0 && player.colorWheel[b] > 0 && canMix(a, b)) {
-              pairs.push([a, b]);
+            if (player.colorWheel[ALL_COLORS[i]] > 0 && player.colorWheel[ALL_COLORS[j]] > 0 && canMix(ALL_COLORS[i], ALL_COLORS[j])) {
+              pairCount++;
             }
           }
         }
-        if (pairs.length === 0) return { type: 'skipMix' };
-        const [colorA, colorB] = pairs[Math.floor(Math.random() * pairs.length)];
-        return { type: 'mix', colorA, colorB };
+        if (pairCount === 0) return { type: 'skipMix' };
+        let target = Math.floor(Math.random() * pairCount);
+        for (let i = 0; i < ALL_COLORS.length; i++) {
+          for (let j = i + 1; j < ALL_COLORS.length; j++) {
+            if (player.colorWheel[ALL_COLORS[i]] > 0 && player.colorWheel[ALL_COLORS[j]] > 0 && canMix(ALL_COLORS[i], ALL_COLORS[j])) {
+              if (target === 0) return { type: 'mix', colorA: ALL_COLORS[i], colorB: ALL_COLORS[j] };
+              target--;
+            }
+          }
+        }
+        return { type: 'skipMix' }; // unreachable
       }
       case 'chooseBuyer': {
         const affordable = state.buyerDisplay.filter(g => canAffordBuyer(player, g.card));
