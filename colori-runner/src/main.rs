@@ -4,6 +4,7 @@ use colori_core::ismcts::ismcts;
 use colori_core::scoring::calculate_score;
 use colori_core::setup::create_initial_game_state;
 use colori_core::types::*;
+use colori_core::unordered_cards::{set_buyer_registry, set_card_registry};
 
 use rand::rngs::SmallRng;
 use rand::Rng;
@@ -233,7 +234,7 @@ fn run_game(
             .enumerate()
             .map(|(i, p)| FinalPlayerStats {
                 name: names[i].clone(),
-                deck_size: p.deck.len() + p.discard.len() + p.workshop_cards.len(),
+                deck_size: (p.deck.len() + p.discard.len() + p.workshop_cards.len()) as usize,
                 completed_buyers: p.completed_buyers.clone(),
                 ducats: p.ducats,
                 color_wheel: p.color_wheel.clone(),
@@ -303,6 +304,8 @@ fn main() {
                 let mut rng = SmallRng::from_os_rng();
                 for _i in 0..count {
                     let log = run_game(0, num_players, iterations, note.clone(), &mut rng);
+                    set_card_registry(&log.initial_state.card_lookup);
+                    set_buyer_registry(&log.initial_state.buyer_lookup);
                     let epoch_millis = now_epoch_millis();
                     let path = format!("{}/game-{}-{}.json", output_dir, epoch_millis, batch_id);
                     let json = serde_json::to_string_pretty(&log).unwrap();

@@ -12,3 +12,4 @@ pub mod ismcts;
 pub mod scoring;
 pub mod setup;
 pub mod types;
+pub mod unordered_cards;

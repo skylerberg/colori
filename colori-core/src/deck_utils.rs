@@ -1,4 +1,4 @@
-use crate::types::CardInstance;
+use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
 
 pub fn shuffle_in_place<T, R: Rng>(array: &mut Vec<T>, rng: &mut R) {
@@ -12,16 +12,10 @@ pub fn shuffle_in_place<T, R: Rng>(array: &mut Vec<T>, rng: &mut R) {
     }
 }
 
-pub fn shuffle<T: Clone, R: Rng>(array: &[T], rng: &mut R) -> Vec<T> {
-    let mut result = array.to_vec();
-    shuffle_in_place(&mut result, rng);
-    result
-}
-
 pub fn draw_from_deck<R: Rng>(
-    deck: &mut Vec<CardInstance>,
-    discard: &mut Vec<CardInstance>,
-    dest: &mut Vec<CardInstance>,
+    deck: &mut UnorderedCards,
+    discard: &mut UnorderedCards,
+    dest: &mut UnorderedCards,
     count: usize,
     rng: &mut R,
 ) {
@@ -30,11 +24,11 @@ pub fn draw_from_deck<R: Rng>(
             if discard.is_empty() {
                 break;
             }
-            shuffle_in_place(discard, rng);
-            std::mem::swap(deck, discard);
+            *deck = *discard;
+            *discard = UnorderedCards::new();
         }
-        if let Some(card) = deck.pop() {
-            dest.push(card);
+        if let Some(id) = deck.draw(rng) {
+            dest.insert(id);
         }
     }
 }

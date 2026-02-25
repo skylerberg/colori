@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
 use crate::fixed_vec::FixedVec;
+use crate::unordered_cards::{UnorderedBuyers, UnorderedCards};
 
 pub const MAX_PLAYERS: usize = 4;
 pub const MAX_BUYER_DISPLAY: usize = 6;
@@ -559,10 +560,10 @@ impl<'de> Deserialize<'de> for Materials {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerState {
-    pub deck: Vec<CardInstance>,
-    pub discard: Vec<CardInstance>,
-    pub workshop_cards: Vec<CardInstance>,
-    pub drafted_cards: Vec<CardInstance>,
+    pub deck: UnorderedCards,
+    pub discard: UnorderedCards,
+    pub workshop_cards: UnorderedCards,
+    pub drafted_cards: UnorderedCards,
     pub color_wheel: ColorWheel,
     pub materials: Materials,
     pub completed_buyers: Vec<BuyerInstance>,
@@ -576,9 +577,46 @@ pub struct PlayerState {
 pub struct DraftState {
     pub pick_number: u32,
     pub current_player_index: usize,
-    pub hands: Vec<Vec<CardInstance>>,
+    #[serde(
+        serialize_with = "serialize_hands",
+        deserialize_with = "deserialize_hands"
+    )]
+    pub hands: [UnorderedCards; MAX_PLAYERS],
+    pub num_hands: usize,
     pub direction: i32,
     pub waiting_for_pass: bool,
+}
+
+fn serialize_hands<S: serde::Serializer>(
+    hands: &[UnorderedCards; MAX_PLAYERS],
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    use serde::ser::SerializeSeq;
+    // We can't know num_hands here, so serialize all non-empty + trailing empties
+    // Actually, we serialize as Vec using the UnorderedCards serde which already works
+    // But we need num_hands... let's just serialize all MAX_PLAYERS entries
+    // The deserializer will read them back.
+    // Actually the original was Vec<Vec<CardInstance>> with variable length.
+    // For backward compat, serialize only the active hands.
+    // We'll use a helper: serialize as a Vec of UnorderedCards.
+    let mut seq = serializer.serialize_seq(Some(MAX_PLAYERS))?;
+    for hand in hands.iter() {
+        seq.serialize_element(hand)?;
+    }
+    seq.end()
+}
+
+fn deserialize_hands<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<[UnorderedCards; MAX_PLAYERS], D::Error> {
+    let v = Vec::<UnorderedCards>::deserialize(deserializer)?;
+    let mut hands = [UnorderedCards::new(); MAX_PLAYERS];
+    for (i, h) in v.into_iter().enumerate() {
+        if i < MAX_PLAYERS {
+            hands[i] = h;
+        }
+    }
+    Ok(hands)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -631,13 +669,25 @@ pub enum GamePhase {
 #[serde(rename_all = "camelCase")]
 pub struct GameState {
     pub players: FixedVec<PlayerState, MAX_PLAYERS>,
-    pub draft_deck: Vec<CardInstance>,
-    pub destroyed_pile: Vec<CardInstance>,
-    pub buyer_deck: Vec<BuyerInstance>,
+    pub draft_deck: UnorderedCards,
+    pub destroyed_pile: UnorderedCards,
+    pub buyer_deck: UnorderedBuyers,
     pub buyer_display: FixedVec<BuyerInstance, MAX_BUYER_DISPLAY>,
     pub phase: GamePhase,
     pub round: u32,
     pub ai_players: FixedVec<bool, MAX_PLAYERS>,
+    #[serde(skip, default = "default_card_lookup")]
+    pub card_lookup: [Card; 128],
+    #[serde(skip, default = "default_buyer_lookup")]
+    pub buyer_lookup: [BuyerCard; 128],
+}
+
+fn default_card_lookup() -> [Card; 128] {
+    [Card::BasicRed; 128]
+}
+
+fn default_buyer_lookup() -> [BuyerCard; 128] {
+    [BuyerCard::Textiles2Vermilion; 128]
 }
 
 // ── ColoriChoice ──

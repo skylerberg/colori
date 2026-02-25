@@ -3,8 +3,9 @@ use crate::colors::TERTIARIES;
 use crate::deck_utils::draw_from_deck;
 use crate::scoring::calculate_score;
 use crate::types::{
-    Ability, ActionState, Color, GamePhase, GameState, PendingChoice,
+    Ability, ActionState, BuyerInstance, Color, GamePhase, GameState, PendingChoice,
 };
+use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
 
 pub fn initialize_action_phase(state: &mut GameState) {
@@ -17,18 +18,19 @@ pub fn initialize_action_phase(state: &mut GameState) {
 }
 
 pub fn destroy_drafted_card<R: Rng>(state: &mut GameState, card_instance_id: u32, rng: &mut R) {
+    let id = card_instance_id as u8;
     let player_index = get_action_state(state).current_player_index;
     let player = &mut state.players[player_index];
 
-    let card_index = player
-        .drafted_cards
-        .iter()
-        .position(|c| c.instance_id == card_instance_id)
-        .expect("Card not found in player's draftedCards");
+    assert!(
+        player.drafted_cards.contains(id),
+        "Card not found in player's draftedCards"
+    );
+    player.drafted_cards.remove(id);
 
-    let card = player.drafted_cards.swap_remove(card_index);
-    let ability = card.card.ability();
-    state.destroyed_pile.push(card);
+    let card = state.card_lookup[id as usize];
+    let ability = card.ability();
+    state.destroyed_pile.insert(id);
 
     get_action_state_mut(state).ability_stack.push(ability);
     process_queue(state, rng);
@@ -113,23 +115,6 @@ fn can_sell_to_any_buyer(state: &GameState) -> bool {
     false
 }
 
-#[allow(dead_code)]
-pub fn can_sell(state: &GameState, buyer_instance_id: u32) -> bool {
-    let as_ = get_action_state(state);
-    let player = &state.players[as_.current_player_index];
-    let buyer_instance = state
-        .buyer_display
-        .iter()
-        .find(|g| g.instance_id == buyer_instance_id);
-    match buyer_instance {
-        Some(bi) => {
-            player.materials.get(bi.buyer.required_material()) >= 1
-                && can_pay_cost(&player.color_wheel, bi.buyer.color_cost())
-        }
-        None => false,
-    }
-}
-
 pub fn resolve_workshop_choice<R: Rng>(
     state: &mut GameState,
     selected_card_ids: &[u32],
@@ -143,43 +128,36 @@ pub fn resolve_workshop_choice<R: Rng>(
     let player_index = as_.current_player_index;
     let remaining = count - selected_card_ids.len() as u32;
 
-    // Partition selected cards into action and non-action
-    let mut action_cards = [0u32; 16];
-    let mut action_cards_count = 0usize;
-    let mut non_action_ids = [0u32; 16];
-    let mut non_action_ids_count = 0usize;
-    for &id in selected_card_ids {
-        let card = state.players[player_index]
-            .workshop_cards
-            .iter()
-            .find(|c| c.instance_id == id)
-            .expect("Card not found in workshopCards");
-        if card.card.is_action() {
-            action_cards[action_cards_count] = id;
-            action_cards_count += 1;
+    // Partition selected cards into action and non-action using card_lookup
+    let mut action_ids = [0u8; 16];
+    let mut action_count = 0usize;
+    let mut non_action_ids = [0u8; 16];
+    let mut non_action_count = 0usize;
+    for &raw_id in selected_card_ids {
+        let id = raw_id as u8;
+        let card = state.card_lookup[id as usize];
+        if card.is_action() {
+            action_ids[action_count] = id;
+            action_count += 1;
         } else {
-            non_action_ids[non_action_ids_count] = id;
-            non_action_ids_count += 1;
+            non_action_ids[non_action_count] = id;
+            non_action_count += 1;
         }
     }
 
-    // Process non-action cards immediately: extract materials/colors, move to discard
+    // Process non-action cards: extract materials/colors, move to discard
     let player = &mut state.players[player_index];
-    for i in 0..non_action_ids_count {
-        let card_id = non_action_ids[i];
-        let card_index = player
-            .workshop_cards
-            .iter()
-            .position(|c| c.instance_id == card_id)
-            .unwrap();
-        let card = player.workshop_cards.swap_remove(card_index);
-        for mt in card.card.material_types() {
+    for i in 0..non_action_count {
+        let id = non_action_ids[i];
+        let card = state.card_lookup[id as usize];
+        player.workshop_cards.remove(id);
+        for mt in card.material_types() {
             player.materials.increment(*mt);
         }
-        for pip in card.card.pips() {
+        for pip in card.pips() {
             store_color(&mut player.color_wheel, *pip);
         }
-        player.discard.push(card);
+        player.discard.insert(id);
     }
 
     // Remove action cards from workshop, move to discard, collect abilities
@@ -192,16 +170,12 @@ pub fn resolve_workshop_choice<R: Rng>(
     let mut potash_base_count: Option<u32> = None;
     let mut has_cot = false;
 
-    for i in 0..action_cards_count {
-        let card_id = action_cards[i];
-        let card_index = player
-            .workshop_cards
-            .iter()
-            .position(|c| c.instance_id == card_id)
-            .unwrap();
-        let card = player.workshop_cards.swap_remove(card_index);
+    for i in 0..action_count {
+        let id = action_ids[i];
+        let card = state.card_lookup[id as usize];
+        player.workshop_cards.remove(id);
 
-        for &ability in card.card.workshop_abilities() {
+        for &ability in card.workshop_abilities() {
             match ability {
                 Ability::ChangeTertiary => {
                     vinegar_abilities[vinegar_abilities_count] = ability;
@@ -222,39 +196,34 @@ pub fn resolve_workshop_choice<R: Rng>(
             }
         }
 
-        player.discard.push(card);
+        player.discard.insert(id);
     }
 
     // Clear pending choice and push abilities onto LIFO stack in reverse resolution order
     get_action_state_mut(state).pending_choice = None;
     let stack = &mut get_action_state_mut(state).ability_stack;
 
-    // Push Potash (bottom of stack — resolves last)
     if let Some(base) = potash_base_count {
         let potash_count = if has_cot {
-            base // CoT gets the remaining picks separately
+            base
         } else {
-            base + remaining // No CoT: add remaining to Potash
+            base + remaining
         };
         stack.push(Ability::Workshop { count: potash_count });
     }
 
-    // Push Vinegar (resolves second-to-last)
     for i in 0..vinegar_abilities_count {
         stack.push(vinegar_abilities[i]);
     }
 
-    // Push Workshop{remaining} if CoT was used and there are remaining picks
     if has_cot && remaining > 0 {
         stack.push(Ability::Workshop { count: remaining });
     }
 
-    // Push CoT's DrawCards (resolves before remaining picks)
     for i in 0..cot_abilities_count {
         stack.push(cot_abilities[i]);
     }
 
-    // Push regular abilities (resolve first — top of stack)
     for i in 0..regular_abilities_count {
         stack.push(regular_abilities[i]);
     }
@@ -312,17 +281,16 @@ pub fn resolve_destroy_cards<R: Rng>(
     let player_index = get_action_state(state).current_player_index;
 
     for &card_id in selected_card_ids {
-        let card_index = state.players[player_index]
-            .workshop_cards
-            .iter()
-            .position(|c| c.instance_id == card_id)
-            .expect("Card not found in workshopCards");
+        let id = card_id as u8;
+        assert!(
+            state.players[player_index].workshop_cards.contains(id),
+            "Card not found in workshopCards"
+        );
+        state.players[player_index].workshop_cards.remove(id);
 
-        let card = state.players[player_index]
-            .workshop_cards
-            .swap_remove(card_index);
-        let ability = card.card.ability();
-        state.destroyed_pile.push(card);
+        let card = state.card_lookup[id as usize];
+        let ability = card.ability();
+        state.destroyed_pile.insert(id);
         get_action_state_mut(state).ability_stack.push(ability);
     }
 
@@ -356,9 +324,12 @@ pub fn resolve_select_buyer<R: Rng>(
     player.cached_score += buyer.buyer.stars();
     player.completed_buyers.push(buyer);
 
-    // Refill buyer display
-    if let Some(new_buyer) = state.buyer_deck.pop() {
-        state.buyer_display.push(new_buyer);
+    // Refill buyer display from buyer_deck
+    if let Some(id) = state.buyer_deck.draw(rng) {
+        state.buyer_display.push(BuyerInstance {
+            instance_id: id as u32,
+            buyer: state.buyer_lookup[id as usize],
+        });
     }
 
     get_action_state_mut(state).pending_choice = None;
@@ -400,10 +371,9 @@ pub fn end_player_turn<R: Rng>(state: &mut GameState, rng: &mut R) {
     let player = &mut state.players[player_index];
 
     // Move remaining cards to discard
-    let mut workshop = std::mem::take(&mut player.workshop_cards);
-    let mut drafted = std::mem::take(&mut player.drafted_cards);
-    player.discard.append(&mut workshop);
-    player.discard.append(&mut drafted);
+    player.discard = player.discard.union(player.workshop_cards).union(player.drafted_cards);
+    player.workshop_cards = UnorderedCards::new();
+    player.drafted_cards = UnorderedCards::new();
 
     let num_players = state.players.len();
     let starting_player = ((state.round - 1) as usize) % num_players;

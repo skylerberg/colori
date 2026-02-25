@@ -11,6 +11,7 @@ use crate::draft_phase::{confirm_pass, player_pick};
 use crate::draw_phase::execute_draw_phase;
 use crate::scoring::calculate_score;
 use crate::types::*;
+use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
 use smallvec::SmallVec;
 
@@ -58,12 +59,10 @@ fn enumerate_mix_sequences<F>(
 
     for &(a, b) in &VALID_MIX_PAIRS {
         if wheel.get(a) > 0 && wheel.get(b) > 0 {
-            // Single mix
             let mut mixes1 = SmallVec::new();
             mixes1.push((a, b));
             choices.push(make_choice(mixes1));
 
-            // If remaining > 1, enumerate second mix on modified wheel
             if remaining > 1 {
                 let mut wheel2 = wheel.clone();
                 perform_mix(&mut wheel2, a, b);
@@ -89,10 +88,10 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>
             if draft_state.waiting_for_pass {
                 return;
             }
-            let hand = &draft_state.hands[draft_state.current_player_index];
-            for c in hand.iter() {
+            let hand = draft_state.hands[draft_state.current_player_index];
+            for id in hand.iter() {
                 choices.push(ColoriChoice::DraftPick {
-                    card_instance_id: c.instance_id,
+                    card_instance_id: id as u32,
                 });
             }
         }
@@ -102,15 +101,17 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>
 
             match pending {
                 None => {
-                    for c in player.drafted_cards.iter() {
-                        match c.card.ability() {
+                    for id in player.drafted_cards.iter() {
+                        let card = state.card_lookup[id as usize];
+                        let card_instance_id = id as u32;
+                        match card.ability() {
                             Ability::MixColors { count } => {
                                 enumerate_mix_sequences(
                                     &player.color_wheel,
                                     count,
                                     choices,
                                     |mixes| ColoriChoice::DestroyAndMixAll {
-                                        card_instance_id: c.instance_id,
+                                        card_instance_id,
                                         mixes,
                                     },
                                 );
@@ -121,20 +122,20 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>
                                     if can_afford_buyer(player, &g.buyer) {
                                         has_buyer = true;
                                         choices.push(ColoriChoice::DestroyAndSell {
-                                            card_instance_id: c.instance_id,
+                                            card_instance_id,
                                             buyer_instance_id: g.instance_id,
                                         });
                                     }
                                 }
                                 if !has_buyer {
                                     choices.push(ColoriChoice::DestroyDraftedCard {
-                                        card_instance_id: c.instance_id,
+                                        card_instance_id,
                                     });
                                 }
                             }
                             _ => {
                                 choices.push(ColoriChoice::DestroyDraftedCard {
-                                    card_instance_id: c.instance_id,
+                                    card_instance_id,
                                 });
                             }
                         }
@@ -144,12 +145,12 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>
                 Some(PendingChoice::ChooseCardsForWorkshop { count }) => {
                     choices.push(ColoriChoice::SkipWorkshop);
 
-                    let mut eligible: Vec<u32> = player
+                    // Collect IDs from bitset (already sorted since bitset iterates low to high)
+                    let eligible: Vec<u32> = player
                         .workshop_cards
                         .iter()
-                        .map(|c| c.instance_id)
+                        .map(|id| id as u32)
                         .collect();
-                    eligible.sort_unstable();
 
                     let subsets = get_subsets(&eligible, *count as usize);
                     for ids in subsets {
@@ -159,9 +160,9 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>
                     }
                 }
                 Some(PendingChoice::ChooseCardsToDestroy { count }) => {
-                    let mut card_ids: Vec<u32> =
-                        player.workshop_cards.iter().map(|c| c.instance_id).collect();
-                    card_ids.sort_unstable();
+                    // Bitset iteration is already sorted
+                    let card_ids: Vec<u32> =
+                        player.workshop_cards.iter().map(|id| id as u32).collect();
                     let subsets = get_subsets(&card_ids, *count as usize);
                     if subsets.is_empty() {
                         choices.push(ColoriChoice::DestroyDrawnCards {
@@ -230,7 +231,6 @@ pub fn enumerate_choices(state: &GameState) -> Vec<ColoriChoice> {
 pub fn apply_choice_to_state<R: Rng>(state: &mut GameState, choice: &ColoriChoice, rng: &mut R) {
     apply_choice(state, choice, rng);
 
-    // AI-specific post-processing
     if matches!(choice, ColoriChoice::DraftPick { .. }) {
         if let GamePhase::Draft { ref mut draft_state } = state.phase {
             if draft_state.waiting_for_pass {
@@ -252,8 +252,7 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
         ColoriChoice::DraftPick { card_instance_id } => {
             if let GamePhase::Draft { ref draft_state } = state.phase {
                 draft_state.hands[draft_state.current_player_index]
-                    .iter()
-                    .any(|c| c.instance_id == *card_instance_id)
+                    .contains(*card_instance_id as u8)
             } else {
                 false
             }
@@ -265,8 +264,7 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                 }
                 state.players[action_state.current_player_index]
                     .drafted_cards
-                    .iter()
-                    .any(|c| c.instance_id == *card_instance_id)
+                    .contains(*card_instance_id as u8)
             } else {
                 false
             }
@@ -284,7 +282,7 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                     Some(PendingChoice::ChooseCardsForWorkshop { .. }) => {
                         let player = &state.players[action_state.current_player_index];
                         card_instance_ids.iter().all(|id| {
-                            player.workshop_cards.iter().any(|c| c.instance_id == *id)
+                            player.workshop_cards.contains(*id as u8)
                         })
                     }
                     _ => false,
@@ -309,7 +307,7 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                     Some(PendingChoice::ChooseCardsToDestroy { .. }) => {
                         let player = &state.players[action_state.current_player_index];
                         card_instance_ids.iter().all(|id| {
-                            player.workshop_cards.iter().any(|c| c.instance_id == *id)
+                            player.workshop_cards.contains(*id as u8)
                         })
                     }
                     _ => false,
@@ -402,11 +400,7 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                     return false;
                 }
                 let player = &state.players[action_state.current_player_index];
-                let has_card = player
-                    .drafted_cards
-                    .iter()
-                    .any(|c| c.instance_id == *card_instance_id);
-                if !has_card {
+                if !player.drafted_cards.contains(*card_instance_id as u8) {
                     return false;
                 }
                 if mixes.is_empty() {
@@ -429,11 +423,7 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                     return false;
                 }
                 let player = &state.players[action_state.current_player_index];
-                let has_card = player
-                    .drafted_cards
-                    .iter()
-                    .any(|c| c.instance_id == *card_instance_id);
-                if !has_card {
+                if !player.drafted_cards.contains(*card_instance_id as u8) {
                     return false;
                 }
                 state
@@ -501,7 +491,6 @@ pub fn determinize_in_place<R: Rng>(
     source: &GameState,
     perspective_player: usize,
     seen_hands: &Option<Vec<Vec<CardInstance>>>,
-    pool: &mut Vec<CardInstance>,
     rng: &mut R,
 ) {
     det.clone_from(source);
@@ -520,33 +509,31 @@ pub fn determinize_in_place<R: Rng>(
         known_hands[perspective_player] = true;
 
         if let Some(ref sh) = seen_hands {
+            // Track which drafted cards we've accounted for per player
+            let mut persp_accounted = UnorderedCards::new();
+            let mut receiver_accounted = [UnorderedCards::new(); MAX_PLAYERS];
+
             for round in 0..sh.len() {
                 let hand = &sh[round];
                 if hand.is_empty() {
                     continue;
                 }
 
-                let mut current_cards = [0u32; 20];
-                let mut current_cards_count = 0usize;
+                // Convert seen_hands[round] to bitset
+                let mut current_hand = UnorderedCards::new();
                 for c in hand.iter() {
-                    current_cards[current_cards_count] = c.instance_id;
-                    current_cards_count += 1;
+                    current_hand.insert(c.instance_id as u8);
                 }
                 let mut receiver = perspective_player;
 
-                // Remove what perspective player picked at this round
-                if round < source.players[perspective_player].drafted_cards.len() {
-                    let persp_pick =
-                        source.players[perspective_player].drafted_cards[round].instance_id;
-                    let mut i = 0;
-                    while i < current_cards_count {
-                        if current_cards[i] == persp_pick {
-                            current_cards[i] = current_cards[current_cards_count - 1];
-                            current_cards_count -= 1;
-                            break;
-                        }
-                        i += 1;
-                    }
+                // Remove perspective player's pick at this round
+                let persp_drafted = source.players[perspective_player].drafted_cards;
+                let pick_mask = current_hand.intersection(persp_drafted).difference(persp_accounted);
+                if let Some(persp_pick) = pick_mask.iter().next() {
+                    persp_accounted.insert(persp_pick);
+                    current_hand.remove(persp_pick);
+                } else {
+                    continue;
                 }
 
                 // Chain through subsequent players
@@ -567,25 +554,14 @@ pub fn determinize_in_place<R: Rng>(
                         break;
                     }
 
-                    if pick_round < source.players[receiver].drafted_cards.len() {
-                        let receiver_pick =
-                            source.players[receiver].drafted_cards[pick_round].instance_id;
-                        let mut found = false;
-                        let mut i = 0;
-                        while i < current_cards_count {
-                            if current_cards[i] == receiver_pick {
-                                found = true;
-                                current_cards[i] = current_cards[current_cards_count - 1];
-                                current_cards_count -= 1;
-                                break;
-                            }
-                            i += 1;
-                        }
-                        if found {
-                            known_hands[receiver] = true;
-                        } else {
-                            break;
-                        }
+                    let recv_drafted = source.players[receiver].drafted_cards;
+                    let recv_pick_mask = current_hand
+                        .intersection(recv_drafted)
+                        .difference(receiver_accounted[receiver]);
+                    if let Some(recv_pick) = recv_pick_mask.iter().next() {
+                        receiver_accounted[receiver].insert(recv_pick);
+                        current_hand.remove(recv_pick);
+                        known_hands[receiver] = true;
                     } else {
                         break;
                     }
@@ -593,58 +569,46 @@ pub fn determinize_in_place<R: Rng>(
             }
         }
 
-        // Record hand sizes before draining unknown hands
-        let mut hand_sizes = [0usize; 4];
+        // Record hand sizes before pooling unknown hands
+        let mut hand_sizes = [0u32; 4];
         for i in 0..num_players {
             hand_sizes[i] = draft_state.hands[i].len();
         }
 
-        // Pool cards from unknown hands, shuffle, redistribute
+        // Pool cards from unknown hands, redistribute via random draw
+        let mut pool = UnorderedCards::new();
         let mut unknown_players = [0usize; 4];
         let mut unknown_count = 0usize;
-        pool.clear();
         for i in 0..num_players {
             if !known_hands[i] {
                 unknown_players[unknown_count] = i;
                 unknown_count += 1;
-                pool.extend(draft_state.hands[i].drain(..));
+                pool = pool.union(draft_state.hands[i]);
+                draft_state.hands[i] = UnorderedCards::new();
             }
         }
 
         if unknown_count > 0 {
-            crate::deck_utils::shuffle_in_place(pool, rng);
-            let mut idx = 0;
             for k in 0..unknown_count {
                 let pi = unknown_players[k];
                 let size = hand_sizes[pi];
-                draft_state.hands[pi].extend_from_slice(&pool[idx..idx + size]);
-                idx += size;
+                for _ in 0..size {
+                    if let Some(id) = pool.draw(rng) {
+                        draft_state.hands[pi].insert(id);
+                    }
+                }
             }
         }
 
-        // Shuffle hidden decks
-        crate::deck_utils::shuffle_in_place(&mut det.draft_deck, rng);
-        crate::deck_utils::shuffle_in_place(&mut det.buyer_deck, rng);
-        for p in &mut det.players {
-            crate::deck_utils::shuffle_in_place(&mut p.deck, rng);
-        }
-    } else {
-        // Outside draft: shuffle hidden decks (skip draft_deck — unused during action phase)
-        crate::deck_utils::shuffle_in_place(&mut det.buyer_deck, rng);
-        for p in &mut det.players {
-            crate::deck_utils::shuffle_in_place(&mut p.deck, rng);
-        }
+        // No shuffle calls needed - bitset draw is already uniform random
     }
+    // No shuffle calls needed for player decks, buyer_deck, or draft_deck
+    // because draw() from bitsets is inherently random
 }
 
 // ── Fused rollout step ──
 
-/// Fused rollout step that picks a random action and applies it directly,
-/// avoiding intermediate ColoriChoice enum construction and SmallVec allocations.
 pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
-    // Inner enum captures the rollout decision using stack arrays instead of SmallVec.
-    // The immutable borrow of `state` ends when this enum value is produced,
-    // allowing the subsequent mutable calls.
     enum Op {
         DraftPick(u32),
         DestroyDrafted(u32),
@@ -661,9 +625,6 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
         SwapTertiary(Color, Color),
     }
 
-    // Helper to generate a random mix sequence on a cloned wheel, returning stack array.
-    // Uses a single RNG call per iteration: picks from pair_count+1 options where
-    // the extra slot means "skip". Skip probability naturally scales as 1/(N+1).
     fn random_mix_seq_inline<R2: Rng>(
         wheel: &ColorWheel,
         remaining: u32,
@@ -687,7 +648,6 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
             if pair_count == 0 {
                 break;
             }
-            // Pick from pair_count+1 options; last option means "skip"
             let target = rng.random_range(0..pair_count + 1);
             if target == pair_count {
                 break;
@@ -702,23 +662,22 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
 
     let op = match &state.phase {
         GamePhase::Draft { draft_state } => {
-            let hand = &draft_state.hands[draft_state.current_player_index];
-            let idx = rng.random_range(0..hand.len());
-            Op::DraftPick(hand[idx].instance_id)
+            let hand = draft_state.hands[draft_state.current_player_index];
+            let id = hand.pick_random(rng).unwrap();
+            Op::DraftPick(id as u32)
         }
         GamePhase::Action { action_state } => {
             let player = &state.players[action_state.current_player_index];
             match &action_state.pending_choice {
                 None => {
                     if !player.drafted_cards.is_empty() && rng.random::<f64>() < 0.8 {
-                        let idx = rng.random_range(0..player.drafted_cards.len());
-                        let card = &player.drafted_cards[idx];
-                        let card_id = card.instance_id;
-                        match card.card.ability() {
+                        let card_id = player.drafted_cards.pick_random(rng).unwrap();
+                        let card = state.card_lookup[card_id as usize];
+                        match card.ability() {
                             Ability::MixColors { count } => {
                                 let (mixes, mix_count) =
                                     random_mix_seq_inline(&player.color_wheel, count, rng);
-                                Op::DestroyAndMix { card_id, mixes, mix_count }
+                                Op::DestroyAndMix { card_id: card_id as u32, mixes, mix_count }
                             }
                             Ability::Sell => {
                                 let mut affordable = [0u32; 6];
@@ -731,45 +690,36 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                                 }
                                 if aff_count > 0 {
                                     let buyer_idx = rng.random_range(0..aff_count);
-                                    Op::DestroyAndSell { card_id, buyer_id: affordable[buyer_idx] }
+                                    Op::DestroyAndSell { card_id: card_id as u32, buyer_id: affordable[buyer_idx] }
                                 } else {
-                                    Op::DestroyDrafted(card_id)
+                                    Op::DestroyDrafted(card_id as u32)
                                 }
                             }
-                            _ => Op::DestroyDrafted(card_id),
+                            _ => Op::DestroyDrafted(card_id as u32),
                         }
                     } else {
                         Op::EndTurn
                     }
                 }
                 Some(PendingChoice::ChooseCardsForWorkshop { count }) => {
-                    let cards = &player.workshop_cards;
-                    let total = cards.len();
+                    let total = player.workshop_cards.len();
                     if total == 0 || rng.random::<f64>() < 0.2 {
                         Op::SkipWorkshop
                     } else {
-                        let max_pick = (*count as usize).min(total);
+                        let max_pick = (*count as usize).min(total as usize);
                         let pick = rng.random_range(1..=max_pick);
-                        let mut indices = [0usize; 16];
-                        for k in 0..total {
-                            indices[k] = k;
-                        }
-                        for k in 0..pick {
-                            let j = k + rng.random_range(0..(total - k));
-                            indices.swap(k, j);
-                        }
+                        let mut copy = player.workshop_cards;
                         let mut ids = [0u32; 16];
                         for k in 0..pick {
-                            ids[k] = cards[indices[k]].instance_id;
+                            ids[k] = copy.draw(rng).unwrap() as u32;
                         }
                         ids[..pick].sort_unstable();
                         Op::Workshop { ids, count: pick }
                     }
                 }
                 Some(PendingChoice::ChooseCardsToDestroy { count }) => {
-                    let ws_cards = &player.workshop_cards;
-                    let ws_len = ws_cards.len();
-                    let destroy_count = (*count as usize).min(ws_len);
+                    let ws_len = player.workshop_cards.len();
+                    let destroy_count = (*count as usize).min(ws_len as usize);
                     if destroy_count == 0 {
                         Op::DestroyDrawn {
                             ids: [0u32; 16],
@@ -777,17 +727,10 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                         }
                     } else {
                         let destroy_pick = rng.random_range(1..=destroy_count);
-                        let mut ws_indices = [0usize; 16];
-                        for k in 0..ws_len {
-                            ws_indices[k] = k;
-                        }
-                        for k in 0..destroy_pick {
-                            let j = k + rng.random_range(0..(ws_len - k));
-                            ws_indices.swap(k, j);
-                        }
+                        let mut copy = player.workshop_cards;
                         let mut ids = [0u32; 16];
                         for k in 0..destroy_pick {
-                            ids[k] = ws_cards[ws_indices[k]].instance_id;
+                            ids[k] = copy.draw(rng).unwrap() as u32;
                         }
                         ids[..destroy_pick].sort_unstable();
                         Op::DestroyDrawn {

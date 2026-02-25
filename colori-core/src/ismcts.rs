@@ -90,10 +90,9 @@ pub fn ismcts<R: Rng>(
 
     let mut root = MctsNode::new(player_id, None);
     let mut det_state = state.clone();
-    let mut pool = Vec::new();
 
     for _ in 0..iterations {
-        determinize_in_place(&mut det_state, state, player_id, seen_hands, &mut pool, rng);
+        determinize_in_place(&mut det_state, state, player_id, seen_hands, rng);
         iteration(&mut root, &mut det_state, max_round, &mut choices_buf, rng);
     }
 

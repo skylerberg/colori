@@ -1,70 +1,60 @@
 use crate::cards::*;
-use crate::deck_utils::shuffle_in_place;
 use crate::fixed_vec::FixedVec;
 use crate::types::*;
+use crate::unordered_cards::{set_buyer_registry, set_card_registry, UnorderedBuyers, UnorderedCards};
 use rand::Rng;
 use std::sync::atomic::{AtomicU32, Ordering};
 
-static NEXT_INSTANCE_ID: AtomicU32 = AtomicU32::new(1);
+static NEXT_CARD_ID: AtomicU32 = AtomicU32::new(0);
+static NEXT_BUYER_ID: AtomicU32 = AtomicU32::new(0);
 
-fn create_card_instances(cards: &[Card]) -> Vec<CardInstance> {
-    cards
-        .iter()
-        .map(|&card| {
-            let id = NEXT_INSTANCE_ID.fetch_add(1, Ordering::Relaxed);
-            CardInstance {
-                instance_id: id,
-                card,
-            }
-        })
-        .collect()
+fn next_card_id() -> u8 {
+    NEXT_CARD_ID.fetch_add(1, Ordering::Relaxed) as u8
 }
 
-fn create_buyer_instances(buyers: &[BuyerCard]) -> Vec<BuyerInstance> {
-    buyers
-        .iter()
-        .map(|&buyer| {
-            let id = NEXT_INSTANCE_ID.fetch_add(1, Ordering::Relaxed);
-            BuyerInstance {
-                instance_id: id,
-                buyer,
-            }
-        })
-        .collect()
+fn next_buyer_id() -> u8 {
+    NEXT_BUYER_ID.fetch_add(1, Ordering::Relaxed) as u8
 }
 
-pub fn reset_instance_id_counter() {
-    NEXT_INSTANCE_ID.store(1, Ordering::Relaxed);
+fn reset_id_counters() {
+    NEXT_CARD_ID.store(0, Ordering::Relaxed);
+    NEXT_BUYER_ID.store(0, Ordering::Relaxed);
 }
 
 pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool], rng: &mut R) -> GameState {
+    reset_id_counters();
+
+    let mut card_lookup = [Card::BasicRed; 128];
+    let mut buyer_lookup = [BuyerCard::Textiles2Vermilion; 128];
+
     // Build each player's starting state
     let players: FixedVec<PlayerState, MAX_PLAYERS> = (0..num_players)
         .map(|_| {
-            // 7 starting cards: 3 basic dyes + 3 starter materials + chalk
-            let mut personal_cards: Vec<Card> = Vec::with_capacity(7);
-            personal_cards.extend_from_slice(&basic_dye_cards());
-            personal_cards.extend_from_slice(&starter_material_cards());
-            personal_cards.push(chalk_card());
+            let personal_cards = [
+                Card::BasicRed, Card::BasicYellow, Card::BasicBlue,
+                Card::StarterCeramics, Card::StarterPaintings, Card::StarterTextiles,
+                Card::Chalk,
+            ];
 
-            let mut deck = create_card_instances(&personal_cards);
-            shuffle_in_place(&mut deck, rng);
+            let mut deck = UnorderedCards::new();
+            for &card in &personal_cards {
+                let id = next_card_id();
+                card_lookup[id as usize] = card;
+                deck.insert(id);
+            }
 
-            // Starting color wheel: Red=1, Yellow=1, Blue=1
             let mut color_wheel = ColorWheel::new();
             color_wheel.set(Color::Red, 1);
             color_wheel.set(Color::Yellow, 1);
             color_wheel.set(Color::Blue, 1);
 
-            let materials = Materials::new();
-
             PlayerState {
                 deck,
-                discard: Vec::new(),
-                workshop_cards: Vec::new(),
-                drafted_cards: Vec::new(),
+                discard: UnorderedCards::new(),
+                workshop_cards: UnorderedCards::new(),
+                drafted_cards: UnorderedCards::new(),
                 color_wheel,
-                materials,
+                materials: Materials::new(),
                 completed_buyers: Vec::new(),
                 ducats: 0,
                 cached_score: 0,
@@ -72,49 +62,63 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
         })
         .collect();
 
-    // Build draft deck: 4x each of 15 dye cards + 1x each of 15 draft materials + 3x each of 5 action cards = 90 cards
-    let mut draft_cards: Vec<Card> = Vec::with_capacity(90);
+    // Build draft deck
+    let mut draft_deck = UnorderedCards::new();
 
-    // 4 copies of each of 15 dye cards (60 total)
     for dye in dye_cards() {
         for _ in 0..4 {
-            draft_cards.push(dye);
+            let id = next_card_id();
+            card_lookup[id as usize] = dye;
+            draft_deck.insert(id);
         }
     }
 
-    // 1 copy of each of 15 draft material cards (15 total)
-    draft_cards.extend_from_slice(&draft_material_cards());
+    for &mat in &draft_material_cards() {
+        let id = next_card_id();
+        card_lookup[id as usize] = mat;
+        draft_deck.insert(id);
+    }
 
-    // 3 copies of each of 5 action cards (15 total)
     for action in action_cards() {
         for _ in 0..3 {
-            draft_cards.push(action);
+            let id = next_card_id();
+            card_lookup[id as usize] = action;
+            draft_deck.insert(id);
         }
     }
 
-    let mut draft_deck = create_card_instances(&draft_cards);
-    shuffle_in_place(&mut draft_deck, rng);
+    // Build buyer deck
+    let mut buyer_deck = UnorderedBuyers::new();
+    for &buyer in &generate_all_buyers() {
+        let id = next_buyer_id();
+        buyer_lookup[id as usize] = buyer;
+        buyer_deck.insert(id);
+    }
 
-    // Build buyer deck: all 51 buyers shuffled
-    let mut buyer_deck = create_buyer_instances(&generate_all_buyers());
-    shuffle_in_place(&mut buyer_deck, rng);
-
-    // Deal 6 buyers from buyer_deck to buyer_display (pop from end)
+    // Deal 6 buyers from buyer_deck to buyer_display
     let mut buyer_display: FixedVec<BuyerInstance, MAX_BUYER_DISPLAY> = FixedVec::new();
     for _ in 0..6 {
-        if let Some(buyer) = buyer_deck.pop() {
-            buyer_display.push(buyer);
+        if let Some(id) = buyer_deck.draw(rng) {
+            buyer_display.push(BuyerInstance {
+                instance_id: id as u32,
+                buyer: buyer_lookup[id as usize],
+            });
         }
     }
+
+    set_card_registry(&card_lookup);
+    set_buyer_registry(&buyer_lookup);
 
     GameState {
         players,
         draft_deck,
-        destroyed_pile: Vec::new(),
+        destroyed_pile: UnorderedCards::new(),
         buyer_deck,
         buyer_display,
         phase: GamePhase::Draw,
         round: 1,
         ai_players: FixedVec::from_slice(ai_players),
+        card_lookup,
+        buyer_lookup,
     }
 }
