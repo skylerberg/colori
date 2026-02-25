@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { GameState, Color } from '../data/types';
-  import type { ColoriChoice } from '../ai/coloriGame';
+  import type { ColoriChoice } from '../data/types';
   import { canSell } from '../engine/actionPhase';
   import { canMix, colorToHex, textColorForBackground } from '../data/colors';
   import { PRIMARIES, SECONDARIES, TERTIARIES } from '../data/cards';

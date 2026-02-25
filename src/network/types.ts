@@ -1,5 +1,5 @@
 import type { CardInstance, BuyerCard, Color, MaterialType, PendingChoice, Ability } from '../data/types';
-import type { ColoriChoice } from '../ai/coloriGame';
+import type { ColoriChoice } from '../data/types';
 
 export interface SanitizedPlayerState {
   name: string;

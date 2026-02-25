@@ -111,3 +111,18 @@ export interface GameState {
   round: number;
   aiPlayers: boolean[];
 }
+
+export type ColoriChoice =
+  | { type: 'draftPick'; cardInstanceId: number }
+  | { type: 'destroyDraftedCard'; cardInstanceId: number }
+  | { type: 'endTurn' }
+  | { type: 'workshop'; cardInstanceIds: number[] }
+  | { type: 'skipWorkshop' }
+  | { type: 'destroyDrawnCards'; cardInstanceIds: number[] }
+  | { type: 'mix'; colorA: Color; colorB: Color }
+  | { type: 'skipMix' }
+  | { type: 'selectBuyer'; buyerInstanceId: number }
+  | { type: 'gainSecondary'; color: Color }
+  | { type: 'gainPrimary'; color: Color }
+  | { type: 'chooseTertiaryToLose'; color: Color }
+  | { type: 'chooseTertiaryToGain'; color: Color };

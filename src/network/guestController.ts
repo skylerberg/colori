@@ -1,6 +1,6 @@
 import type { NetworkManager } from './networkManager';
 import type { SanitizedGameState, LobbyPlayer, HostMessage } from './types';
-import type { ColoriChoice } from '../ai/coloriGame';
+import type { ColoriChoice } from '../data/types';
 
 export class GuestController {
   private network: NetworkManager;

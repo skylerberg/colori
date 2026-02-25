@@ -4,8 +4,8 @@
   import { confirmPass } from '../engine/draftPhase';
   import { applyChoice, getChoiceLogMessage } from '../engine/applyChoice';
   import { AIController, type PrecomputeRequest } from '../ai/aiController';
-  import type { ColoriChoice } from '../ai/coloriGame';
-  import { cloneGameState } from '../ai/coloriGame';
+  import type { ColoriChoice } from '../data/types';
+  import { cloneGameState } from '../engine/applyChoice';
   import type { GameLogAccumulator } from '../gameLog';
   import PlayerStatus from './PlayerStatus.svelte';
   import DrawPhaseView from './DrawPhaseView.svelte';

@@ -1,0 +1,50 @@
+use crate::action_phase::*;
+use crate::draft_phase::player_pick;
+use crate::types::{ColoriChoice, GameState};
+use rand::Rng;
+
+pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &ColoriChoice, rng: &mut R) {
+    match choice {
+        ColoriChoice::DraftPick { card_instance_id } => {
+            player_pick(state, *card_instance_id);
+        }
+        ColoriChoice::DestroyDraftedCard { card_instance_id } => {
+            destroy_drafted_card(state, *card_instance_id, rng);
+        }
+        ColoriChoice::EndTurn => {
+            end_player_turn(state, rng);
+        }
+        ColoriChoice::Workshop { card_instance_ids } => {
+            resolve_workshop_choice(state, card_instance_ids, rng);
+        }
+        ColoriChoice::SkipWorkshop => {
+            skip_workshop(state, rng);
+        }
+        ColoriChoice::DestroyDrawnCards { card_instance_ids } => {
+            resolve_destroy_cards(state, card_instance_ids, rng);
+        }
+        ColoriChoice::Mix { color_a, color_b } => {
+            resolve_mix_colors(state, *color_a, *color_b, rng);
+        }
+        ColoriChoice::SkipMix => {
+            skip_mix(state, rng);
+        }
+        ColoriChoice::SelectBuyer {
+            buyer_instance_id,
+        } => {
+            resolve_select_buyer(state, *buyer_instance_id, rng);
+        }
+        ColoriChoice::GainSecondary { color } => {
+            resolve_gain_secondary(state, *color, rng);
+        }
+        ColoriChoice::GainPrimary { color } => {
+            resolve_gain_primary(state, *color, rng);
+        }
+        ColoriChoice::ChooseTertiaryToLose { color } => {
+            resolve_choose_tertiary_to_lose(state, *color);
+        }
+        ColoriChoice::ChooseTertiaryToGain { color } => {
+            resolve_choose_tertiary_to_gain(state, *color, rng);
+        }
+    }
+}

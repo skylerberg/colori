@@ -10,7 +10,7 @@
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
     "test": "vitest run",
     "bench": "vitest bench",
-    "profile": "node --import tsx --cpu-prof src/ai/profile.ts"
+    "build:wasm": "cd colori-ai-wasm && wasm-pack build --target web --out-dir ../src/ai/wasm-pkg"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
@@ -21,6 +21,7 @@
     "tsx": "^4.21.0",
     "typescript": "~5.6.2",
     "vite": "^6.1.0",
+    "vite-plugin-wasm": "^3.5.0",
     "vitest": "^4.0.18"
   },
   "dependencies": {

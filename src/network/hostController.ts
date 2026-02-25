@@ -1,5 +1,5 @@
 import type { GameState } from '../data/types';
-import type { ColoriChoice } from '../ai/coloriGame';
+import type { ColoriChoice } from '../data/types';
 import type { NetworkManager } from './networkManager';
 import type { LobbyPlayer, GuestMessage } from './types';
 import { createInitialGameState } from '../engine/setupPhase';

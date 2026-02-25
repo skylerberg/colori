@@ -1,5 +1,4 @@
-import type { GameState, Color } from '../data/types';
-import type { ColoriChoice } from '../ai/coloriGame';
+import type { GameState, Color, ColoriChoice, PlayerState, GamePhase } from '../data/types';
 import { mixResult } from '../data/colors';
 import { playerPick } from './draftPhase';
 import {
@@ -71,6 +70,68 @@ export function getChoiceLogMessage(
     default:
       return assertNever(choice);
   }
+}
+
+// ── Deep clone ──
+
+function clonePlayerState(p: PlayerState): PlayerState {
+  return {
+    name: p.name,
+    deck: [...p.deck],
+    discard: [...p.discard],
+    workshopCards: [...p.workshopCards],
+    draftedCards: [...p.draftedCards],
+    colorWheel: { ...p.colorWheel },
+    ducats: p.ducats,
+    materials: { ...p.materials },
+    completedBuyers: [...p.completedBuyers],
+  };
+}
+
+function clonePhase(phase: GamePhase): GamePhase {
+  switch (phase.type) {
+    case 'draw':
+      return { type: 'draw' };
+    case 'draft': {
+      const ds = phase.draftState;
+      return {
+        type: 'draft',
+        draftState: {
+          pickNumber: ds.pickNumber,
+          currentPlayerIndex: ds.currentPlayerIndex,
+          hands: ds.hands.map(h => [...h]),
+          direction: ds.direction,
+          waitingForPass: ds.waitingForPass,
+        },
+      };
+    }
+    case 'action': {
+      const as_ = phase.actionState;
+      return {
+        type: 'action',
+        actionState: {
+          currentPlayerIndex: as_.currentPlayerIndex,
+          abilityStack: as_.abilityStack.map(a => ({ ...a })),
+          pendingChoice: as_.pendingChoice ? { ...as_.pendingChoice } : null,
+        },
+      };
+    }
+    case 'gameOver':
+      return { type: 'gameOver' };
+  }
+}
+
+export function cloneGameState(state: GameState): GameState {
+  return {
+    players: state.players.map(clonePlayerState),
+    draftDeck: [...state.draftDeck],
+    destroyedPile: [...state.destroyedPile],
+    buyerDeck: [...state.buyerDeck],
+    buyerDisplay: [...state.buyerDisplay],
+    phase: clonePhase(state.phase),
+    round: state.round,
+    aiPlayers: [...state.aiPlayers],
+  };
 }
 
 /**

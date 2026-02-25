@@ -1,6 +1,4 @@
-import { ColoriGame } from './coloriGame';
-import type { SeenHands } from './coloriGame';
-import { ismcts } from './ismcts';
+import init, { run_ismcts } from './wasm-pkg/colori_ai_wasm.js';
 import type { GameState, CardInstance } from '../data/types';
 
 export interface AIWorkerRequest {
@@ -10,10 +8,21 @@ export interface AIWorkerRequest {
   seenHands?: CardInstance[][];
 }
 
-self.onmessage = (event: MessageEvent<AIWorkerRequest>) => {
+let wasmReady: Promise<unknown> | null = null;
+
+function ensureInit(): Promise<unknown> {
+  if (!wasmReady) {
+    wasmReady = init();
+  }
+  return wasmReady;
+}
+
+self.onmessage = async (event: MessageEvent<AIWorkerRequest>) => {
+  await ensureInit();
   const { gameState, playerIndex, iterations, seenHands } = event.data;
-  const maxRound = Math.max(8, gameState.round + 2);
-  const game = new ColoriGame(gameState, seenHands, maxRound);
-  const choice = ismcts(game, iterations);
+  const gameStateJson = JSON.stringify(gameState);
+  const seenHandsJson = seenHands ? JSON.stringify(seenHands) : '';
+  const resultJson = run_ismcts(gameStateJson, playerIndex, iterations, seenHandsJson);
+  const choice = JSON.parse(resultJson);
   self.postMessage(choice);
 };

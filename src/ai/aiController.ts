@@ -1,5 +1,4 @@
-import type { GameState, CardInstance } from '../data/types';
-import type { ColoriChoice } from './coloriGame';
+import type { GameState, CardInstance, ColoriChoice } from '../data/types';
 import AIWorkerModule from './aiWorker?worker';
 
 export interface PrecomputeRequest {

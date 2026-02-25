@@ -1,13 +1,13 @@
 <script lang="ts">
   import type { GameState, CardInstance } from '../data/types';
-  import type { ColoriChoice } from '../ai/coloriGame';
+  import type { ColoriChoice } from '../data/types';
   import type { SanitizedGameState } from '../network/types';
   import type { HostController } from '../network/hostController';
   import type { GuestController } from '../network/guestController';
   import type { StructuredGameLog } from '../gameLog';
   import { sanitizedToGameState } from '../network/stateAdapter';
   import { AIController } from '../ai/aiController';
-  import { cloneGameState } from '../ai/coloriGame';
+  import { cloneGameState } from '../engine/applyChoice';
   import PlayerStatus from './PlayerStatus.svelte';
   import DrawPhaseView from './DrawPhaseView.svelte';
   import DraftPhaseView from './DraftPhaseView.svelte';
