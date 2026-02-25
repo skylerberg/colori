@@ -326,7 +326,7 @@
               {#if selectedPlayer.completedBuyers.length > 0}
                 <div class="section-box">
                   <h3>Completed Buyers</h3>
-                  <CardList cards={selectedPlayer.completedBuyers.map(b => b.card)} />
+                  <CardList cards={selectedPlayer.completedBuyers} />
                 </div>
               {/if}
             </div>
