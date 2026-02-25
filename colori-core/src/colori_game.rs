@@ -573,11 +573,7 @@ pub fn determinize_in_place<R: Rng>(
             for k in 0..unknown_count {
                 let pi = unknown_players[k];
                 let size = hand_sizes[pi];
-                for _ in 0..size {
-                    if let Some(id) = pool.draw(rng) {
-                        draft_state.hands[pi].insert(id);
-                    }
-                }
+                draft_state.hands[pi] = pool.draw_multiple(size, &mut *rng);
             }
         }
 
@@ -690,10 +686,7 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                         let max_pick = (*count as usize).min(total as usize);
                         let pick = rng.random_range(1..=max_pick);
                         let mut copy = player.workshop_cards;
-                        let mut selected = UnorderedCards::new();
-                        for _ in 0..pick {
-                            selected.insert(copy.draw(rng).unwrap());
-                        }
+                        let selected = copy.draw_multiple(pick as u32, rng);
                         Op::Workshop(selected)
                     }
                 }
@@ -705,10 +698,7 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                     } else {
                         let destroy_pick = rng.random_range(1..=destroy_count);
                         let mut copy = player.workshop_cards;
-                        let mut selected = UnorderedCards::new();
-                        for _ in 0..destroy_pick {
-                            selected.insert(copy.draw(rng).unwrap());
-                        }
+                        let selected = copy.draw_multiple(destroy_pick as u32, rng);
                         Op::DestroyDrawn(selected)
                     }
                 }

@@ -19,7 +19,8 @@ pub fn draw_from_deck<R: Rng>(
     count: usize,
     rng: &mut R,
 ) {
-    for _ in 0..count {
+    let mut remaining = count as u32;
+    while remaining > 0 {
         if deck.is_empty() {
             if discard.is_empty() {
                 break;
@@ -27,8 +28,9 @@ pub fn draw_from_deck<R: Rng>(
             *deck = *discard;
             *discard = UnorderedCards::new();
         }
-        if let Some(id) = deck.draw(rng) {
-            dest.insert(id);
-        }
+        let available = deck.len().min(remaining);
+        let drawn = deck.draw_multiple(available, rng);
+        *dest = dest.union(drawn);
+        remaining -= available;
     }
 }

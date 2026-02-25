@@ -30,6 +30,21 @@ pub fn get_buyer_registry() -> [BuyerCard; 128] {
     BUYER_REGISTRY.with(|r| *r.borrow())
 }
 
+const BINOM: [[u64; 10]; 129] = {
+    let mut table = [[0u64; 10]; 129];
+    let mut n = 0usize;
+    while n <= 128 {
+        table[n][0] = 1;
+        let mut k = 1usize;
+        while k <= 9 && k <= n {
+            table[n][k] = table[n - 1][k - 1] + table[n - 1][k];
+            k += 1;
+        }
+        n += 1;
+    }
+    table
+};
+
 macro_rules! impl_bitset {
     ($name:ident) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -109,6 +124,40 @@ macro_rules! impl_bitset {
                 let pos = val.trailing_zeros() as u8;
                 self.0 &= !(1u128 << pos);
                 Some(pos)
+            }
+
+            #[inline]
+            pub fn draw_multiple<R: Rng>(&mut self, count: u32, rng: &mut R) -> Self {
+                let n = self.0.count_ones();
+                if count == 0 {
+                    return $name(0);
+                }
+                if count >= n {
+                    let all = self.0;
+                    self.0 = 0;
+                    return $name(all);
+                }
+                let c = count as usize;
+                let total = BINOM[n as usize][c];
+                let mut k = rng.random_range(0..total);
+                let mut remaining = n as usize;
+                let mut to_pick = c;
+                let mut selected = 0u128;
+                let mut bits = self.0;
+                while to_pick > 0 {
+                    let pos = bits.trailing_zeros();
+                    bits &= bits - 1; // clear lowest set bit
+                    remaining -= 1;
+                    let threshold = BINOM[remaining][to_pick - 1];
+                    if k < threshold {
+                        selected |= 1u128 << pos;
+                        to_pick -= 1;
+                    } else {
+                        k -= threshold;
+                    }
+                }
+                self.0 &= !selected;
+                $name(selected)
             }
 
             #[inline]

@@ -97,13 +97,12 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
 
     // Deal 6 buyers from buyer_deck to buyer_display
     let mut buyer_display: FixedVec<BuyerInstance, MAX_BUYER_DISPLAY> = FixedVec::new();
-    for _ in 0..6 {
-        if let Some(id) = buyer_deck.draw(rng) {
-            buyer_display.push(BuyerInstance {
-                instance_id: id as u32,
-                buyer: buyer_lookup[id as usize],
-            });
-        }
+    let drawn_buyers = buyer_deck.draw_multiple(6, rng);
+    for id in drawn_buyers.iter() {
+        buyer_display.push(BuyerInstance {
+            instance_id: id as u32,
+            buyer: buyer_lookup[id as usize],
+        });
     }
 
     set_card_registry(&card_lookup);

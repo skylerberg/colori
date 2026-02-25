@@ -8,7 +8,8 @@ pub fn initialize_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
     let mut hands = [UnorderedCards::new(); MAX_PLAYERS];
 
     for i in 0..num_players {
-        for _ in 0..5 {
+        let mut remaining = 5u32;
+        while remaining > 0 {
             if state.draft_deck.is_empty() {
                 if !state.destroyed_pile.is_empty() {
                     state.draft_deck = state.destroyed_pile;
@@ -17,9 +18,10 @@ pub fn initialize_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
                     break;
                 }
             }
-            if let Some(id) = state.draft_deck.draw(rng) {
-                hands[i].insert(id);
-            }
+            let available = state.draft_deck.len().min(remaining);
+            let drawn = state.draft_deck.draw_multiple(available, rng);
+            hands[i] = hands[i].union(drawn);
+            remaining -= available;
         }
     }
 
