@@ -1,15 +1,16 @@
 use crate::colori_game::*;
 use crate::types::*;
 use rand::Rng;
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
+use smallvec::SmallVec;
 
 struct MctsNode {
     games: u32,
     cumulative_reward: f64,
     player_id: usize,
     choice: Option<ColoriChoice>,
-    children: HashMap<ColoriChoice, MctsNode>,
-    choice_availability_count: HashMap<ColoriChoice, u32>,
+    children: FxHashMap<ColoriChoice, MctsNode>,
+    choice_availability_count: FxHashMap<ColoriChoice, u32>,
 }
 
 impl MctsNode {
@@ -19,8 +20,8 @@ impl MctsNode {
             cumulative_reward: 0.0,
             player_id,
             choice,
-            children: HashMap::new(),
-            choice_availability_count: HashMap::new(),
+            children: FxHashMap::default(),
+            choice_availability_count: FxHashMap::default(),
         }
     }
 
@@ -32,7 +33,7 @@ impl MctsNode {
         // Shuffle choices
         let len = choices.len();
         for i in (1..len).rev() {
-            let j = rng.gen_range(0..=i);
+            let j = rng.random_range(0..=i);
             choices.swap(i, j);
         }
 
@@ -87,15 +88,16 @@ pub fn ismcts<R: Rng>(
     }
 
     let mut root = MctsNode::new(player_id, None);
+    let mut det_state = state.clone();
 
     for _ in 0..iterations {
-        let mut det_state = determinize(state, player_id, seen_hands, rng);
+        determinize_in_place(&mut det_state, state, player_id, seen_hands, rng);
         iteration(&mut root, &mut det_state, max_round, rng);
     }
 
     if root.children.is_empty() {
         let choices = enumerate_choices(state);
-        let idx = rng.gen_range(0..choices.len());
+        let idx = rng.random_range(0..choices.len());
         return choices[idx].clone();
     }
 
@@ -114,7 +116,7 @@ fn iteration<R: Rng>(
     state: &mut GameState,
     max_round: Option<u32>,
     rng: &mut R,
-) -> Vec<f64> {
+) -> SmallVec<[f64; 4]> {
     let status = get_game_status(state, max_round);
     if let GameStatus::Terminated { scores } = status {
         record_outcome(node, &scores);
@@ -130,7 +132,7 @@ fn iteration<R: Rng>(
     // Select
     let best_key = select(node, state);
     if best_key.is_none() {
-        let empty_scores: Vec<f64> = vec![];
+        let empty_scores = SmallVec::new();
         record_outcome(node, &empty_scores);
         return empty_scores;
     }
@@ -184,7 +186,7 @@ fn select(node: &MctsNode, state: &GameState) -> Option<ColoriChoice> {
     best_key
 }
 
-fn rollout<R: Rng>(state: &mut GameState, max_round: Option<u32>, rng: &mut R) -> Vec<f64> {
+fn rollout<R: Rng>(state: &mut GameState, max_round: Option<u32>, rng: &mut R) -> SmallVec<[f64; 4]> {
     for _ in 0..MAX_ROLLOUT_STEPS {
         let status = get_game_status(state, max_round);
         if let GameStatus::Terminated { scores } = status {
@@ -199,7 +201,7 @@ fn rollout<R: Rng>(state: &mut GameState, max_round: Option<u32>, rng: &mut R) -
         return scores;
     }
 
-    vec![]
+    SmallVec::new()
 }
 
 fn record_outcome(node: &mut MctsNode, scores: &[f64]) {

@@ -7,7 +7,7 @@ pub fn shuffle_in_place<T, R: Rng>(array: &mut Vec<T>, rng: &mut R) {
         return;
     }
     for i in (1..len).rev() {
-        let j = rng.gen_range(0..=i);
+        let j = rng.random_range(0..=i);
         array.swap(i, j);
     }
 }

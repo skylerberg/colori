@@ -28,7 +28,7 @@ pub fn run_ismcts(
 
     let max_round = std::cmp::max(8, game_state.round + 2);
 
-    let mut rng = SmallRng::from_entropy();
+    let mut rng = SmallRng::from_os_rng();
 
     let choice: ColoriChoice = ismcts(
         &game_state,
@@ -49,7 +49,7 @@ pub fn wasm_create_initial_game_state(player_names_json: &str, ai_players_json: 
         serde_json::from_str(player_names_json).expect("Failed to parse player names JSON");
     let ai_players: Vec<bool> =
         serde_json::from_str(ai_players_json).expect("Failed to parse ai players JSON");
-    let mut rng = SmallRng::from_entropy();
+    let mut rng = SmallRng::from_os_rng();
     let state = create_initial_game_state(&player_names, &ai_players, &mut rng);
     serde_json::to_string(&state).expect("Failed to serialize game state")
 }
@@ -58,7 +58,7 @@ pub fn wasm_create_initial_game_state(player_names_json: &str, ai_players_json: 
 pub fn wasm_execute_draw_phase(state_json: &str) -> String {
     let mut state: GameState =
         serde_json::from_str(state_json).expect("Failed to parse game state JSON");
-    let mut rng = SmallRng::from_entropy();
+    let mut rng = SmallRng::from_os_rng();
     execute_draw_phase(&mut state, &mut rng);
     serde_json::to_string(&state).expect("Failed to serialize game state")
 }
@@ -69,7 +69,7 @@ pub fn wasm_apply_choice(state_json: &str, choice_json: &str) -> String {
         serde_json::from_str(state_json).expect("Failed to parse game state JSON");
     let choice: ColoriChoice =
         serde_json::from_str(choice_json).expect("Failed to parse choice JSON");
-    let mut rng = SmallRng::from_entropy();
+    let mut rng = SmallRng::from_os_rng();
     apply_choice(&mut state, &choice, &mut rng);
     serde_json::to_string(&state).expect("Failed to serialize game state")
 }

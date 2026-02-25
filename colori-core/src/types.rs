@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Color {
@@ -658,14 +659,14 @@ pub enum ColoriChoice {
     #[serde(rename = "workshop")]
     Workshop {
         #[serde(rename = "cardInstanceIds")]
-        card_instance_ids: Vec<u32>,
+        card_instance_ids: SmallVec<[u32; 5]>,
     },
     #[serde(rename = "skipWorkshop")]
     SkipWorkshop,
     #[serde(rename = "destroyDrawnCards")]
     DestroyDrawnCards {
         #[serde(rename = "cardInstanceIds")]
-        card_instance_ids: Vec<u32>,
+        card_instance_ids: SmallVec<[u32; 5]>,
     },
     #[serde(rename = "mix")]
     Mix {

@@ -242,9 +242,9 @@ fn run_game(
 
 fn generate_batch_id() -> String {
     const CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
-    let mut rng = SmallRng::from_entropy();
+    let mut rng = SmallRng::from_os_rng();
     (0..6)
-        .map(|_| CHARSET[rng.gen_range(0..CHARSET.len())] as char)
+        .map(|_| CHARSET[rng.random_range(0..CHARSET.len())] as char)
         .collect()
 }
 
@@ -277,7 +277,7 @@ fn main() {
             let completed = &completed;
 
             handles.push(s.spawn(move || {
-                let mut rng = SmallRng::from_entropy();
+                let mut rng = SmallRng::from_os_rng();
                 for _i in 0..count {
                     let log = run_game(0, num_players, iterations, &mut rng);
                     let epoch_millis = now_epoch_millis();
