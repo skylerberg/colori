@@ -6,7 +6,7 @@ use crate::action_phase::{
 };
 use crate::apply_choice::apply_choice;
 use crate::color_wheel::{can_pay_cost, perform_mix};
-use crate::colors::{can_mix, PRIMARIES, SECONDARIES, TERTIARIES};
+use crate::colors::{can_mix, PRIMARIES, SECONDARIES, TERTIARIES, VALID_MIX_PAIRS};
 use crate::draft_phase::{confirm_pass, player_pick};
 use crate::draw_phase::execute_draw_phase;
 use crate::scoring::calculate_score;
@@ -56,31 +56,23 @@ fn enumerate_mix_sequences<F>(
     // Always include skip-all (empty mixes)
     choices.push(make_choice(SmallVec::new()));
 
-    for i in 0..ALL_COLORS.len() {
-        for j in (i + 1)..ALL_COLORS.len() {
-            let a = ALL_COLORS[i];
-            let b = ALL_COLORS[j];
-            if wheel.get(a) > 0 && wheel.get(b) > 0 && can_mix(a, b) {
-                // Single mix
-                let mut mixes1 = SmallVec::new();
-                mixes1.push((a, b));
-                choices.push(make_choice(mixes1));
+    for &(a, b) in &VALID_MIX_PAIRS {
+        if wheel.get(a) > 0 && wheel.get(b) > 0 {
+            // Single mix
+            let mut mixes1 = SmallVec::new();
+            mixes1.push((a, b));
+            choices.push(make_choice(mixes1));
 
-                // If remaining > 1, enumerate second mix on modified wheel
-                if remaining > 1 {
-                    let mut wheel2 = wheel.clone();
-                    perform_mix(&mut wheel2, a, b);
-                    for i2 in 0..ALL_COLORS.len() {
-                        for j2 in (i2 + 1)..ALL_COLORS.len() {
-                            let c = ALL_COLORS[i2];
-                            let d = ALL_COLORS[j2];
-                            if wheel2.get(c) > 0 && wheel2.get(d) > 0 && can_mix(c, d) {
-                                let mut mixes2 = SmallVec::new();
-                                mixes2.push((a, b));
-                                mixes2.push((c, d));
-                                choices.push(make_choice(mixes2));
-                            }
-                        }
+            // If remaining > 1, enumerate second mix on modified wheel
+            if remaining > 1 {
+                let mut wheel2 = wheel.clone();
+                perform_mix(&mut wheel2, a, b);
+                for &(c, d) in &VALID_MIX_PAIRS {
+                    if wheel2.get(c) > 0 && wheel2.get(d) > 0 {
+                        let mut mixes2 = SmallVec::new();
+                        mixes2.push((a, b));
+                        mixes2.push((c, d));
+                        choices.push(make_choice(mixes2));
                     }
                 }
             }
@@ -700,232 +692,10 @@ pub fn determinize_in_place<R: Rng>(
     }
 }
 
-// ── Rollout helpers ──
-
-fn random_mix_sequence<R: Rng>(
-    wheel: &ColorWheel,
-    remaining: u32,
-    rng: &mut R,
-) -> SmallVec<[(Color, Color); 2]> {
-    let mut mixes = SmallVec::new();
-    let mut sim_wheel = wheel.clone();
-    for _ in 0..remaining {
-        if rng.random::<f64>() < 0.5 {
-            break;
-        }
-        let mut pairs: [(Color, Color); 9] = [(Color::Red, Color::Red); 9];
-        let mut pair_count = 0usize;
-        for i in 0..ALL_COLORS.len() {
-            for j in (i + 1)..ALL_COLORS.len() {
-                if sim_wheel.get(ALL_COLORS[i]) > 0
-                    && sim_wheel.get(ALL_COLORS[j]) > 0
-                    && can_mix(ALL_COLORS[i], ALL_COLORS[j])
-                {
-                    pairs[pair_count] = (ALL_COLORS[i], ALL_COLORS[j]);
-                    pair_count += 1;
-                }
-            }
-        }
-        if pair_count == 0 {
-            break;
-        }
-        let target = rng.random_range(0..pair_count);
-        let (a, b) = pairs[target];
-        mixes.push((a, b));
-        perform_mix(&mut sim_wheel, a, b);
-    }
-    mixes
-}
-
-// ── Rollout policy ──
-
-pub fn get_rollout_choice<R: Rng>(state: &GameState, rng: &mut R) -> ColoriChoice {
-    match &state.phase {
-        GamePhase::Draft { draft_state } => {
-            let hand = &draft_state.hands[draft_state.current_player_index];
-            let idx = rng.random_range(0..hand.len());
-            ColoriChoice::DraftPick {
-                card_instance_id: hand[idx].instance_id,
-            }
-        }
-        GamePhase::Action { action_state } => {
-            let player = &state.players[action_state.current_player_index];
-            let pending = &action_state.pending_choice;
-
-            match pending {
-                None => {
-                    if !player.drafted_cards.is_empty() && rng.random::<f64>() < 0.8 {
-                        let idx = rng.random_range(0..player.drafted_cards.len());
-                        let card = &player.drafted_cards[idx];
-                        let card_id = card.instance_id;
-                        match card.card.ability() {
-                            Ability::MixColors { count } => {
-                                let mixes = random_mix_sequence(&player.color_wheel, count, rng);
-                                ColoriChoice::DestroyAndMixAll {
-                                    card_instance_id: card_id,
-                                    mixes,
-                                }
-                            }
-                            Ability::Sell => {
-                                let mut affordable = [0u32; 6];
-                                let mut aff_count = 0usize;
-                                for g in &state.buyer_display {
-                                    if can_afford_buyer(player, &g.buyer) {
-                                        affordable[aff_count] = g.instance_id;
-                                        aff_count += 1;
-                                    }
-                                }
-                                if aff_count > 0 {
-                                    let buyer_idx = rng.random_range(0..aff_count);
-                                    ColoriChoice::DestroyAndSell {
-                                        card_instance_id: card_id,
-                                        buyer_instance_id: affordable[buyer_idx],
-                                    }
-                                } else {
-                                    ColoriChoice::DestroyDraftedCard {
-                                        card_instance_id: card_id,
-                                    }
-                                }
-                            }
-                            _ => ColoriChoice::DestroyDraftedCard {
-                                card_instance_id: card_id,
-                            },
-                        }
-                    } else {
-                        ColoriChoice::EndTurn
-                    }
-                }
-                Some(PendingChoice::ChooseCardsForWorkshop { count }) => {
-                    let cards = &player.workshop_cards;
-                    let total = cards.len();
-
-                    if total == 0 {
-                        return ColoriChoice::SkipWorkshop;
-                    }
-
-                    if rng.random::<f64>() < 0.2 {
-                        return ColoriChoice::SkipWorkshop;
-                    }
-
-                    // Fisher-Yates partial shuffle on all cards
-                    let max_pick = (*count as usize).min(total);
-                    let pick = rng.random_range(1..=max_pick);
-                    let mut indices = [0usize; 16];
-                    for k in 0..total {
-                        indices[k] = k;
-                    }
-
-                    for k in 0..pick {
-                        let j = k + rng.random_range(0..(total - k));
-                        indices.swap(k, j);
-                    }
-
-                    let mut ids = SmallVec::<[u32; 5]>::new();
-                    for k in 0..pick {
-                        ids.push(cards[indices[k]].instance_id);
-                    }
-                    ids.sort_unstable();
-                    ColoriChoice::Workshop {
-                        card_instance_ids: ids,
-                    }
-                }
-                Some(PendingChoice::ChooseCardsToDestroy { count }) => {
-                    let ws_cards = &player.workshop_cards;
-                    let ws_len = ws_cards.len();
-                    let destroy_count = (*count as usize).min(ws_len);
-                    if destroy_count == 0 {
-                        return ColoriChoice::DestroyDrawnCards {
-                            card_instance_ids: SmallVec::new(),
-                        };
-                    }
-                    let destroy_pick = rng.random_range(1..=destroy_count);
-                    let mut ws_indices = [0usize; 16];
-                    for k in 0..ws_len {
-                        ws_indices[k] = k;
-                    }
-                    for k in 0..destroy_pick {
-                        let j = k + rng.random_range(0..(ws_len - k));
-                        ws_indices.swap(k, j);
-                    }
-                    let mut ids = SmallVec::<[u32; 5]>::new();
-                    for k in 0..destroy_pick {
-                        ids.push(ws_cards[ws_indices[k]].instance_id);
-                    }
-                    ids.sort_unstable();
-                    ColoriChoice::DestroyDrawnCards {
-                        card_instance_ids: ids,
-                    }
-                }
-                Some(PendingChoice::ChooseMix { remaining }) => {
-                    ColoriChoice::MixAll {
-                        mixes: random_mix_sequence(&player.color_wheel, *remaining, rng),
-                    }
-                }
-                Some(PendingChoice::ChooseBuyer) => {
-                    let mut affordable = [0u32; 6];
-                    let mut count = 0usize;
-                    for g in &state.buyer_display {
-                        if can_afford_buyer(player, &g.buyer) {
-                            affordable[count] = g.instance_id;
-                            count += 1;
-                        }
-                    }
-                    let idx = rng.random_range(0..count);
-                    ColoriChoice::SelectBuyer {
-                        buyer_instance_id: affordable[idx],
-                    }
-                }
-                Some(PendingChoice::ChooseSecondaryColor) => {
-                    let idx = rng.random_range(0..SECONDARIES.len());
-                    ColoriChoice::GainSecondary {
-                        color: SECONDARIES[idx],
-                    }
-                }
-                Some(PendingChoice::ChoosePrimaryColor) => {
-                    let idx = rng.random_range(0..PRIMARIES.len());
-                    ColoriChoice::GainPrimary {
-                        color: PRIMARIES[idx],
-                    }
-                }
-                Some(PendingChoice::ChooseTertiaryToLose) => {
-                    let mut owned = [Color::Red; 6];
-                    let mut count = 0usize;
-                    for &c in &TERTIARIES {
-                        if player.color_wheel.get(c) > 0 {
-                            owned[count] = c;
-                            count += 1;
-                        }
-                    }
-                    let lose_idx = rng.random_range(0..count);
-                    let lose = owned[lose_idx];
-                    let mut options = [Color::Red; 6];
-                    let mut opt_count = 0usize;
-                    for &c in &TERTIARIES {
-                        if c != lose {
-                            options[opt_count] = c;
-                            opt_count += 1;
-                        }
-                    }
-                    let gain_idx = rng.random_range(0..opt_count);
-                    ColoriChoice::SwapTertiary {
-                        lose,
-                        gain: options[gain_idx],
-                    }
-                }
-                Some(PendingChoice::ChooseTertiaryToGain { .. }) => {
-                    // Should not be reached by AI — SwapTertiary skips intermediate state
-                    panic!("ChooseTertiaryToGain should not be reached in AI rollout")
-                }
-            }
-        }
-        _ => panic!("Cannot get rollout choice for current state"),
-    }
-}
-
 // ── Fused rollout step ──
 
-/// Fused version of get_rollout_choice + apply_choice_to_state that avoids
-/// constructing an intermediate ColoriChoice enum (and its SmallVec allocations).
+/// Fused rollout step that picks a random action and applies it directly,
+/// avoiding intermediate ColoriChoice enum construction and SmallVec allocations.
 pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
     // Inner enum captures the rollout decision using stack arrays instead of SmallVec.
     // The immutable borrow of `state` ends when this enum value is produced,
@@ -946,7 +716,9 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
         SwapTertiary(Color, Color),
     }
 
-    // Helper to generate a random mix sequence on a cloned wheel, returning stack array
+    // Helper to generate a random mix sequence on a cloned wheel, returning stack array.
+    // Uses a single RNG call per iteration: picks from pair_count+1 options where
+    // the extra slot means "skip". Skip probability naturally scales as 1/(N+1).
     fn random_mix_seq_inline<R2: Rng>(
         wheel: &ColorWheel,
         remaining: u32,
@@ -956,26 +728,25 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
         let mut count = 0usize;
         let mut sim_wheel = wheel.clone();
         for _ in 0..remaining {
-            if count >= 2 || rng.random::<f64>() < 0.5 {
+            if count >= 2 {
                 break;
             }
             let mut pairs: [(Color, Color); 9] = [(Color::Red, Color::Red); 9];
             let mut pair_count = 0usize;
-            for i in 0..ALL_COLORS.len() {
-                for j in (i + 1)..ALL_COLORS.len() {
-                    if sim_wheel.get(ALL_COLORS[i]) > 0
-                        && sim_wheel.get(ALL_COLORS[j]) > 0
-                        && can_mix(ALL_COLORS[i], ALL_COLORS[j])
-                    {
-                        pairs[pair_count] = (ALL_COLORS[i], ALL_COLORS[j]);
-                        pair_count += 1;
-                    }
+            for &(a, b) in &VALID_MIX_PAIRS {
+                if sim_wheel.get(a) > 0 && sim_wheel.get(b) > 0 {
+                    pairs[pair_count] = (a, b);
+                    pair_count += 1;
                 }
             }
             if pair_count == 0 {
                 break;
             }
-            let target = rng.random_range(0..pair_count);
+            // Pick from pair_count+1 options; last option means "skip"
+            let target = rng.random_range(0..pair_count + 1);
+            if target == pair_count {
+                break;
+            }
             let (a, b) = pairs[target];
             mixes[count] = (a, b);
             count += 1;

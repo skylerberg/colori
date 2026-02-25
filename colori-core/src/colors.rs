@@ -47,6 +47,22 @@ pub const TERTIARIES: [Color; 6] = [
     Color::Magenta,
 ];
 
+/// The 9 color pairs that can legally be mixed:
+/// 3 primary+primary and 6 primary+adjacent_secondary.
+pub const VALID_MIX_PAIRS: [(Color, Color); 9] = [
+    // Primary + Primary
+    (Color::Red, Color::Yellow),
+    (Color::Red, Color::Blue),
+    (Color::Yellow, Color::Blue),
+    // Primary + Adjacent Secondary
+    (Color::Red, Color::Orange),
+    (Color::Yellow, Color::Orange),
+    (Color::Yellow, Color::Green),
+    (Color::Blue, Color::Green),
+    (Color::Blue, Color::Purple),
+    (Color::Red, Color::Purple),
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -88,5 +104,29 @@ mod tests {
     fn test_cannot_mix_non_adjacent() {
         assert!(!can_mix(Color::Red, Color::Green));
         assert!(!can_mix(Color::Yellow, Color::Purple));
+    }
+
+    #[test]
+    fn test_valid_mix_pairs_is_exhaustive() {
+        use crate::types::ALL_COLORS;
+
+        // Every pair in VALID_MIX_PAIRS must pass can_mix
+        for &(a, b) in &VALID_MIX_PAIRS {
+            assert!(can_mix(a, b), "{:?} and {:?} should be mixable", a, b);
+        }
+
+        // Every mixable pair must appear in VALID_MIX_PAIRS
+        for i in 0..ALL_COLORS.len() {
+            for j in (i + 1)..ALL_COLORS.len() {
+                let a = ALL_COLORS[i];
+                let b = ALL_COLORS[j];
+                if can_mix(a, b) {
+                    let found = VALID_MIX_PAIRS.iter().any(|&(x, y)| {
+                        (x == a && y == b) || (x == b && y == a)
+                    });
+                    assert!(found, "Mixable pair ({:?}, {:?}) missing from VALID_MIX_PAIRS", a, b);
+                }
+            }
+        }
     }
 }
