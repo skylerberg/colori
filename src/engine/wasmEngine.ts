@@ -105,12 +105,6 @@ export function getChoiceLogMessage(
       });
       return `${name} destroyed ${cardNames.join(', ')} from workshop`;
     }
-    case 'mix': {
-      const result = mixResult(choice.colorA, choice.colorB);
-      return `${name} mixed ${choice.colorA} + ${choice.colorB} to make ${result}`;
-    }
-    case 'skipMix':
-      return `${name} skipped remaining mixes`;
     case 'selectBuyer': {
       const buyer = state.buyerDisplay.find(g => g.instanceId === choice.buyerInstanceId);
       return `${name} sold to a ${buyer ? getBuyerData(buyer.card).stars : '?'}-star buyer`;
@@ -118,10 +112,6 @@ export function getChoiceLogMessage(
     case 'gainSecondary':
       return `${name} gained ${choice.color}`;
     case 'gainPrimary':
-      return `${name} gained ${choice.color}`;
-    case 'chooseTertiaryToLose':
-      return `${name} lost ${choice.color}`;
-    case 'chooseTertiaryToGain':
       return `${name} gained ${choice.color}`;
     case 'mixAll': {
       if (choice.mixes.length === 0) return `${name} skipped remaining mixes`;

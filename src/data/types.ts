@@ -123,8 +123,7 @@ export type PendingChoice =
   | { type: 'chooseBuyer' }
   | { type: 'chooseSecondaryColor' }
   | { type: 'choosePrimaryColor' }
-  | { type: 'chooseTertiaryToLose' }
-  | { type: 'chooseTertiaryToGain'; lostColor: Color };
+  | { type: 'chooseTertiaryToLose' };
 
 export interface ActionState {
   currentPlayerIndex: number;
@@ -156,13 +155,9 @@ export type ColoriChoice =
   | { type: 'workshop'; cardInstanceIds: number[] }
   | { type: 'skipWorkshop' }
   | { type: 'destroyDrawnCards'; cardInstanceIds: number[] }
-  | { type: 'mix'; colorA: Color; colorB: Color }
-  | { type: 'skipMix' }
   | { type: 'selectBuyer'; buyerInstanceId: number }
   | { type: 'gainSecondary'; color: Color }
   | { type: 'gainPrimary'; color: Color }
-  | { type: 'chooseTertiaryToLose'; color: Color }
-  | { type: 'chooseTertiaryToGain'; color: Color }
   | { type: 'mixAll'; mixes: [Color, Color][] }
   | { type: 'swapTertiary'; loseColor: Color; gainColor: Color }
   | { type: 'destroyAndMixAll'; cardInstanceId: number; mixes: [Color, Color][] }

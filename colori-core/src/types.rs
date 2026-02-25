@@ -594,11 +594,6 @@ pub enum PendingChoice {
     ChoosePrimaryColor,
     #[serde(rename = "chooseTertiaryToLose")]
     ChooseTertiaryToLose,
-    #[serde(rename = "chooseTertiaryToGain")]
-    ChooseTertiaryToGain {
-        #[serde(rename = "lostColor")]
-        lost_color: Color,
-    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -670,15 +665,6 @@ pub enum ColoriChoice {
         #[serde(rename = "cardInstanceIds")]
         card_instance_ids: SmallVec<[u32; 5]>,
     },
-    #[serde(rename = "mix")]
-    Mix {
-        #[serde(rename = "colorA")]
-        color_a: Color,
-        #[serde(rename = "colorB")]
-        color_b: Color,
-    },
-    #[serde(rename = "skipMix")]
-    SkipMix,
     #[serde(rename = "selectBuyer")]
     SelectBuyer {
         #[serde(rename = "buyerInstanceId")]
@@ -688,10 +674,6 @@ pub enum ColoriChoice {
     GainSecondary { color: Color },
     #[serde(rename = "gainPrimary")]
     GainPrimary { color: Color },
-    #[serde(rename = "chooseTertiaryToLose")]
-    ChooseTertiaryToLose { color: Color },
-    #[serde(rename = "chooseTertiaryToGain")]
-    ChooseTertiaryToGain { color: Color },
     #[serde(rename = "mixAll")]
     MixAll {
         mixes: SmallVec<[(Color, Color); 2]>,

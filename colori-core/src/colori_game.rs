@@ -213,11 +213,6 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>
                         }
                     }
                 }
-                Some(PendingChoice::ChooseTertiaryToGain { .. }) => {
-                    // This state is never reached by the AI since SwapTertiary
-                    // skips the intermediate ChooseTertiaryToLose state.
-                    // Keep empty for safety.
-                }
             }
         }
         _ => {}
@@ -323,31 +318,6 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                 false
             }
         }
-        ColoriChoice::Mix { color_a, color_b } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                match &action_state.pending_choice {
-                    Some(PendingChoice::ChooseMix { .. }) => {
-                        let player = &state.players[action_state.current_player_index];
-                        player.color_wheel.get(*color_a) > 0
-                            && player.color_wheel.get(*color_b) > 0
-                            && can_mix(*color_a, *color_b)
-                    }
-                    _ => false,
-                }
-            } else {
-                false
-            }
-        }
-        ColoriChoice::SkipMix => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                matches!(
-                    action_state.pending_choice,
-                    Some(PendingChoice::ChooseMix { .. })
-                )
-            } else {
-                false
-            }
-        }
         ColoriChoice::SelectBuyer {
             buyer_instance_id,
         } => {
@@ -384,31 +354,6 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                     action_state.pending_choice,
                     Some(PendingChoice::ChoosePrimaryColor)
                 ) && PRIMARIES.contains(color)
-            } else {
-                false
-            }
-        }
-        ColoriChoice::ChooseTertiaryToLose { color } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                match &action_state.pending_choice {
-                    Some(PendingChoice::ChooseTertiaryToLose) => {
-                        let player = &state.players[action_state.current_player_index];
-                        TERTIARIES.contains(color) && player.color_wheel.get(*color) > 0
-                    }
-                    _ => false,
-                }
-            } else {
-                false
-            }
-        }
-        ColoriChoice::ChooseTertiaryToGain { color } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                match &action_state.pending_choice {
-                    Some(PendingChoice::ChooseTertiaryToGain { lost_color }) => {
-                        TERTIARIES.contains(color) && *color != *lost_color
-                    }
-                    _ => false,
-                }
             } else {
                 false
             }
@@ -897,9 +842,6 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                     }
                     let gain_idx = rng.random_range(0..opt_count);
                     Op::SwapTertiary(lose, options[gain_idx])
-                }
-                Some(PendingChoice::ChooseTertiaryToGain { .. }) => {
-                    panic!("ChooseTertiaryToGain should not be reached in AI rollout")
                 }
             }
         }

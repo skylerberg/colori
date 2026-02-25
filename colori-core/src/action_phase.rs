@@ -382,9 +382,6 @@ pub fn resolve_gain_primary<R: Rng>(state: &mut GameState, color: Color, rng: &m
 pub fn resolve_choose_tertiary_to_lose(state: &mut GameState, color: Color) {
     let player_index = get_action_state(state).current_player_index;
     remove_color(&mut state.players[player_index].color_wheel, color);
-    get_action_state_mut(state).pending_choice = Some(PendingChoice::ChooseTertiaryToGain {
-        lost_color: color,
-    });
 }
 
 pub fn resolve_choose_tertiary_to_gain<R: Rng>(

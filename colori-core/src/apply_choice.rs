@@ -23,12 +23,6 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &ColoriChoice, rng: &
         ColoriChoice::DestroyDrawnCards { card_instance_ids } => {
             resolve_destroy_cards(state, card_instance_ids, rng);
         }
-        ColoriChoice::Mix { color_a, color_b } => {
-            resolve_mix_colors(state, *color_a, *color_b, rng);
-        }
-        ColoriChoice::SkipMix => {
-            skip_mix(state, rng);
-        }
         ColoriChoice::SelectBuyer {
             buyer_instance_id,
         } => {
@@ -39,12 +33,6 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &ColoriChoice, rng: &
         }
         ColoriChoice::GainPrimary { color } => {
             resolve_gain_primary(state, *color, rng);
-        }
-        ColoriChoice::ChooseTertiaryToLose { color } => {
-            resolve_choose_tertiary_to_lose(state, *color);
-        }
-        ColoriChoice::ChooseTertiaryToGain { color } => {
-            resolve_choose_tertiary_to_gain(state, *color, rng);
         }
         ColoriChoice::MixAll { mixes } => {
             for &(a, b) in mixes.iter() {

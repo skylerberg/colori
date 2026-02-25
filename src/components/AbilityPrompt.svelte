@@ -2,7 +2,7 @@
   import type { GameState, Color } from '../data/types';
   import type { ColoriChoice } from '../data/types';
   import { canSell } from '../engine/wasmEngine';
-  import { canMix, colorToHex, textColorForBackground } from '../data/colors';
+  import { canMix, mixResult, colorToHex, textColorForBackground, ALL_COLORS } from '../data/colors';
   import { PRIMARIES, SECONDARIES, TERTIARIES } from '../data/cards';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import BuyerDisplay from './BuyerDisplay.svelte';
@@ -22,14 +22,28 @@
     actionState ? gameState.players[actionState.currentPlayerIndex] : null
   );
 
+  // Mix UI state
+  let plannedMixes: [Color, Color][] = $state([]);
   let selectedMixColors: Color[] = $state([]);
-  let selectedBuyerId: number | undefined = $state(undefined);
 
+  let simulatedWheel: Record<Color, number> = $state(
+    Object.fromEntries(ALL_COLORS.map(c => [c, 0])) as Record<Color, number>
+  );
+
+  // Sync simulatedWheel when pendingChoice or currentPlayer changes
   $effect(() => {
-    const _pc = pendingChoice;
-    selectedMixColors = [];
-    selectedBuyerId = undefined;
+    if (pendingChoice?.type === 'chooseMix' && currentPlayer) {
+      simulatedWheel = { ...currentPlayer.colorWheel };
+      plannedMixes = [];
+      selectedMixColors = [];
+    }
   });
+
+  let mixRemaining = $derived(
+    pendingChoice?.type === 'chooseMix'
+      ? pendingChoice.remaining - plannedMixes.length
+      : 0
+  );
 
   function handleMixColorClick(color: Color) {
     if (selectedMixColors.length === 0) {
@@ -38,9 +52,21 @@
       const first = selectedMixColors[0];
       if (first === color) {
         selectedMixColors = [];
-      } else if (canMix(first, color) && currentPlayer && currentPlayer.colorWheel[first] > 0 && currentPlayer.colorWheel[color] > 0) {
-        onAction({ type: 'mix', colorA: first, colorB: color });
+      } else if (canMix(first, color) && simulatedWheel[first] > 0 && simulatedWheel[color] > 0) {
+        // Apply mix locally
+        const result = mixResult(first, color);
+        const newWheel = { ...simulatedWheel };
+        newWheel[first]--;
+        newWheel[color]--;
+        newWheel[result]++;
+        simulatedWheel = newWheel;
+        plannedMixes = [...plannedMixes, [first, color]];
         selectedMixColors = [];
+
+        // Auto-submit if all mixes used
+        if (pendingChoice?.type === 'chooseMix' && plannedMixes.length === pendingChoice.remaining) {
+          onAction({ type: 'mixAll', mixes: plannedMixes });
+        }
       } else {
         selectedMixColors = [color];
       }
@@ -48,8 +74,41 @@
   }
 
   function handleSkipMix() {
-    onAction({ type: 'skipMix' });
+    onAction({ type: 'mixAll', mixes: plannedMixes });
   }
+
+  function handleUndoMix() {
+    if (plannedMixes.length === 0 || !currentPlayer) return;
+    // Rebuild simulated wheel from scratch
+    const newWheel = { ...currentPlayer.colorWheel };
+    const newMixes = plannedMixes.slice(0, -1);
+    for (const [a, b] of newMixes) {
+      const result = mixResult(a, b);
+      newWheel[a]--;
+      newWheel[b]--;
+      newWheel[result]++;
+    }
+    simulatedWheel = newWheel;
+    plannedMixes = newMixes;
+    selectedMixColors = [];
+  }
+
+  // Tertiary swap UI state
+  let selectedLoseColor: Color | null = $state(null);
+
+  // Reset tertiary state when pendingChoice changes
+  $effect(() => {
+    if (pendingChoice?.type === 'chooseTertiaryToLose') {
+      selectedLoseColor = null;
+    }
+  });
+
+  let selectedBuyerId: number | undefined = $state(undefined);
+
+  $effect(() => {
+    const _pc = pendingChoice;
+    selectedBuyerId = undefined;
+  });
 
   function toggleBuyerSelect(buyerInstanceId: number) {
     selectedBuyerId = selectedBuyerId === buyerInstanceId ? undefined : buyerInstanceId;
@@ -65,15 +124,22 @@
   <div class="ability-prompt">
     {#if pendingChoice.type === 'chooseMix'}
       <div class="prompt-section">
-        <h3>Mix Colors: Select two adjacent colors to mix ({pendingChoice.remaining} remaining)</h3>
+        <h3>Mix Colors: Select two adjacent colors to mix ({mixRemaining} remaining)</h3>
         <p class="hint">Mix two primary colors, or a primary and an adjacent secondary. They must each have at least 1 stored.</p>
         <ColorWheelDisplay
-          wheel={currentPlayer.colorWheel}
+          wheel={simulatedWheel}
           interactive={true}
           onColorClick={handleMixColorClick}
           selectedColors={selectedMixColors}
         />
-        <button class="skip-btn" onclick={handleSkipMix}>Skip Remaining Mixes</button>
+        <div class="mix-actions">
+          <button class="skip-btn" onclick={handleSkipMix}>
+            {plannedMixes.length > 0 ? 'Submit Mixes' : 'Skip Remaining Mixes'}
+          </button>
+          {#if plannedMixes.length > 0}
+            <button class="skip-btn" onclick={handleUndoMix}>Undo Last Mix</button>
+          {/if}
+        </div>
       </div>
 
     {:else if pendingChoice.type === 'chooseBuyer'}
@@ -128,34 +194,35 @@
 
     {:else if pendingChoice.type === 'chooseTertiaryToLose'}
       <div class="prompt-section">
-        <h3>Choose a tertiary color to lose</h3>
-        <div class="color-buttons">
-          {#each TERTIARIES.filter(c => currentPlayer.colorWheel[c] > 0) as color}
-            <button
-              class="color-btn"
-              style="background-color: {colorToHex(color)}; color: {textColorForBackground(colorToHex(color))}"
-              onclick={() => onAction({ type: 'chooseTertiaryToLose', color })}
-            >
-              {color}
-            </button>
-          {/each}
-        </div>
-      </div>
-
-    {:else if pendingChoice.type === 'chooseTertiaryToGain'}
-      <div class="prompt-section">
-        <h3>Choose a tertiary color to gain</h3>
-        <div class="color-buttons">
-          {#each TERTIARIES.filter(c => c !== pendingChoice.lostColor) as color}
-            <button
-              class="color-btn"
-              style="background-color: {colorToHex(color)}; color: {textColorForBackground(colorToHex(color))}"
-              onclick={() => onAction({ type: 'chooseTertiaryToGain', color })}
-            >
-              {color}
-            </button>
-          {/each}
-        </div>
+        <h3>Swap Tertiary</h3>
+        {#if selectedLoseColor === null}
+          <p class="hint">Choose a tertiary color to lose</p>
+          <div class="color-buttons">
+            {#each TERTIARIES.filter(c => currentPlayer.colorWheel[c] > 0) as color}
+              <button
+                class="color-btn"
+                style="background-color: {colorToHex(color)}; color: {textColorForBackground(colorToHex(color))}"
+                onclick={() => selectedLoseColor = color}
+              >
+                {color}
+              </button>
+            {/each}
+          </div>
+        {:else}
+          <p class="hint">Losing {selectedLoseColor} — choose a tertiary color to gain</p>
+          <div class="color-buttons">
+            {#each TERTIARIES.filter(c => c !== selectedLoseColor) as color}
+              <button
+                class="color-btn"
+                style="background-color: {colorToHex(color)}; color: {textColorForBackground(colorToHex(color))}"
+                onclick={() => onAction({ type: 'swapTertiary', loseColor: selectedLoseColor!, gainColor: color })}
+              >
+                {color}
+              </button>
+            {/each}
+          </div>
+          <button class="skip-btn" onclick={() => selectedLoseColor = null}>Back</button>
+        {/if}
       </div>
     {/if}
   </div>
@@ -218,6 +285,11 @@
 
   .skip-btn:hover {
     background: #ddd;
+  }
+
+  .mix-actions {
+    display: flex;
+    gap: 8px;
   }
 
   .color-buttons {
