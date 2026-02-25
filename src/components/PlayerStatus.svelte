@@ -1,11 +1,12 @@
 <script lang="ts">
   import type { PlayerState } from '../data/types';
 
-  let { player, active = false, selected = false, isAI = false, onclick }: {
+  let { player, active = false, selected = false, isAI = false, thinking = false, onclick }: {
     player: PlayerState;
     active?: boolean;
     selected?: boolean;
     isAI?: boolean;
+    thinking?: boolean;
     onclick?: () => void;
   } = $props();
 
@@ -18,7 +19,7 @@
 <button class="player-status" class:active class:selected {onclick} type="button">
   <div class="player-name">
     {#if active}<span class="turn-dot"></span>{/if}
-    {player.name}{#if isAI} <span class="ai-badge">AI</span>{/if}
+    {player.name}{#if isAI} <span class="ai-badge">AI</span>{/if}{#if thinking}<span class="thinking-spinner"></span>{/if}
   </div>
   <div class="stats">
     <span class="stat" title="Score (stars)">{'*'} {score}</span>
@@ -98,5 +99,20 @@
     padding: 1px 5px;
     border-radius: 4px;
     vertical-align: middle;
+  }
+
+  .thinking-spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid #e0d5c5;
+    border-top-color: #e67e22;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
   }
 </style>

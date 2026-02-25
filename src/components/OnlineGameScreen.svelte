@@ -272,7 +272,7 @@
       </div>
       <div class="player-bar">
         {#each gameState.players as player, i}
-          <PlayerStatus {player} active={i === activePlayerIndex} isAI={gameState.aiPlayers[i]} />
+          <PlayerStatus {player} active={i === activePlayerIndex} isAI={gameState.aiPlayers[i]} thinking={aiThinking && i === activePlayerIndex} />
         {/each}
       </div>
     </div>
@@ -301,13 +301,6 @@
 
       <div class="main-column">
         <div class="phase-content">
-          {#if aiThinking}
-            <div class="ai-thinking">
-              <div class="spinner"></div>
-              <p>AI is thinking...</p>
-            </div>
-          {/if}
-
           {#if !isMyTurn && !aiThinking && !showDrawPhase && gameState.phase.type === 'action'}
             <div class="waiting-banner">
               <div class="spinner"></div>
@@ -339,14 +332,14 @@
 
           {#if showDrawPhase && gameState.phase.type === 'draft'}
             <DrawPhaseView {gameState} onContinue={handleDrawContinue} />
-          {:else if gameState.phase.type === 'draft' && !aiThinking}
+          {:else if gameState.phase.type === 'draft'}
             <DraftPhaseView {gameState} onAction={handleAction} playerIndex={myPlayerIndex} selectable={!hasPicked} />
             {#if hasPicked}
               <div class="waiting-banner">
                 <p>Waiting for other players to pick...</p>
               </div>
             {/if}
-          {:else if gameState.phase.type === 'action' && isMyTurn && !aiThinking}
+          {:else if gameState.phase.type === 'action' && isMyTurn}
             <ActionPhaseView {gameState} onAction={handleAction} onUndo={() => {}} undoAvailable={false} />
           {/if}
         </div>
@@ -483,21 +476,6 @@
     color: #d4a017;
     font-weight: 600;
     margin-top: 4px;
-  }
-
-  .ai-thinking {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-    padding: 3rem 1rem;
-    color: #666;
-  }
-
-  .ai-thinking p {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #e67e22;
   }
 
   .waiting-banner {

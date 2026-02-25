@@ -269,7 +269,7 @@
     </div>
     <div class="player-bar">
       {#each gameState.players as player, i}
-        <PlayerStatus {player} active={i === activePlayerIndex} selected={i === selectedPlayerIndex} isAI={gameState.aiPlayers[i]} onclick={() => selectPlayer(i)} />
+        <PlayerStatus {player} active={i === activePlayerIndex} selected={i === selectedPlayerIndex} isAI={gameState.aiPlayers[i]} thinking={aiThinking && i === activePlayerIndex} onclick={() => selectPlayer(i)} />
       {/each}
     </div>
   </div>
@@ -298,23 +298,16 @@
 
     <div class="main-column">
       <div class="phase-content">
-        {#if aiThinking}
-          <div class="ai-thinking">
-            <div class="spinner"></div>
-            <p>AI is thinking...</p>
-          </div>
-        {/if}
-
         {#if showDrawPhase && gameState.phase.type === 'draft'}
           <DrawPhaseView {gameState} onContinue={handleDrawContinue} />
         {:else if gameState.phase.type === 'draft'}
-          {#if isViewingActiveHuman && !aiThinking}
+          {#if isViewingActiveHuman}
             <DraftPhaseView {gameState} onAction={handleAction} onGameUpdated={() => onGameUpdated(gameState, gameLog)} />
           {:else}
             <DraftPhaseView {gameState} onAction={handleAction} playerIndex={selectedPlayerIndex} selectable={false} />
           {/if}
         {:else if gameState.phase.type === 'action'}
-          {#if isViewingActiveHuman && !aiThinking}
+          {#if isViewingActiveHuman}
             <ActionPhaseView {gameState} onAction={handleAction} onUndo={performUndo} undoAvailable={undoStack.length > 0} />
           {:else}
             <div class="readonly-cards">
@@ -470,21 +463,6 @@
     margin-top: 4px;
   }
 
-  .ai-thinking {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-    padding: 3rem 1rem;
-    color: #666;
-  }
-
-  .ai-thinking p {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #e67e22;
-  }
-
   .readonly-cards {
     display: flex;
     flex-direction: column;
@@ -506,16 +484,4 @@
     margin-bottom: 6px;
   }
 
-  .spinner {
-    width: 40px;
-    height: 40px;
-    border: 4px solid #e0d5c5;
-    border-top-color: #e67e22;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
 </style>
