@@ -319,7 +319,16 @@
           {#if isViewingActiveHuman}
             <DraftPhaseView {gameState} onAction={handleAction} onGameUpdated={() => onGameUpdated(gameState, gameLog)} />
           {:else}
-            <DraftPhaseView {gameState} onAction={handleAction} playerIndex={selectedPlayerIndex} selectable={false} />
+            <div class="readonly-cards">
+              <div class="section-box">
+                <h3>Drafted Cards</h3>
+                <CardList cards={selectedPlayer.draftedCards} />
+              </div>
+              <div class="section-box">
+                <h3>Workshop</h3>
+                <CardList cards={selectedPlayer.workshopCards} />
+              </div>
+            </div>
           {/if}
         {:else if gameState.phase.type === 'action'}
           {#if isViewingActiveHuman}
