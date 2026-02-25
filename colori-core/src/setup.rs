@@ -19,7 +19,11 @@ fn create_card_instances(cards: &[AnyCard]) -> Vec<CardInstance> {
         .collect()
 }
 
-pub fn create_initial_game_state<R: Rng>(player_names: &[String], rng: &mut R) -> GameState {
+pub fn reset_instance_id_counter() {
+    NEXT_INSTANCE_ID.store(1, Ordering::Relaxed);
+}
+
+pub fn create_initial_game_state<R: Rng>(player_names: &[String], ai_players: &[bool], rng: &mut R) -> GameState {
     // Build each player's starting state
     let players: Vec<PlayerState> = player_names
         .iter()
@@ -97,8 +101,6 @@ pub fn create_initial_game_state<R: Rng>(player_names: &[String], rng: &mut R) -
         }
     }
 
-    let num_players = player_names.len();
-
     GameState {
         players,
         draft_deck,
@@ -107,6 +109,6 @@ pub fn create_initial_game_state<R: Rng>(player_names: &[String], rng: &mut R) -
         buyer_display,
         phase: GamePhase::Draw,
         round: 1,
-        ai_players: vec![true; num_players],
+        ai_players: ai_players.to_vec(),
     }
 }

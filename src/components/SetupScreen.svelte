@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { GameState } from '../data/types';
-  import { createInitialGameState } from '../engine/setupPhase';
+  import { createInitialGameState } from '../engine/wasmEngine';
 
   let { onGameStarted }: {
     onGameStarted: (state: GameState) => void;

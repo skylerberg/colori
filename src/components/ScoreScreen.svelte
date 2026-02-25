@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { GameState } from '../data/types';
-  import { calculateScores, determineWinner } from '../engine/scoring';
+  import { calculateScores, determineWinner } from '../engine/wasmEngine';
   import { downloadGameLog, type StructuredGameLog } from '../gameLog';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import CardList from './CardList.svelte';

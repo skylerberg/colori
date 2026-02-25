@@ -1,6 +1,7 @@
 node_modules/
 dist/
 *.cpuprofile
-colori-ai-wasm/target/
+colori-wasm/target/
+src/wasm-pkg/
 target/
 game-logs/

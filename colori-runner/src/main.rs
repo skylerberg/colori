@@ -145,9 +145,9 @@ fn run_game(
         .map(|i| format!("Player {}", i))
         .collect();
 
-    let mut state = create_initial_game_state(&names, rng);
+    let ai_players = vec![true; num_players];
+    let mut state = create_initial_game_state(&names, &ai_players, rng);
     let initial_state = state.clone();
-    let ai_players = state.ai_players.clone();
 
     let game_started_at = now_iso();
 

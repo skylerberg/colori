@@ -1,6 +1,6 @@
 import type { GameState, CardInstance, BuyerCard, Color, MaterialType } from './data/types';
 import type { ColoriChoice } from './data/types';
-import { calculateScores } from './engine/scoring';
+import { calculateScores } from './engine/wasmEngine';
 
 export interface StructuredLogEntry {
   seq: number;

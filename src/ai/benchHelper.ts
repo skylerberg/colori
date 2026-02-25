@@ -1,12 +1,7 @@
 import type { GameState } from '../data/types';
-import { resetInstanceIdCounter } from '../engine/deckUtils';
-import { createInitialGameState } from '../engine/setupPhase';
-import { executeDrawPhase } from '../engine/drawPhase';
-import { applyChoice } from '../engine/applyChoice';
-import { confirmPass } from '../engine/draftPhase';
+import { createInitialGameState, executeDrawPhase, applyChoice, confirmPass } from '../engine/wasmEngine';
 
 export function setupDraftGame(numPlayers: number): GameState {
-  resetInstanceIdCounter();
   const names = Array.from({ length: numPlayers }, (_, i) => `Player ${i + 1}`);
   const state = createInitialGameState(names, names.map(() => true));
   executeDrawPhase(state);

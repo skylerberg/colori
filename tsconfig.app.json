@@ -12,5 +12,5 @@
     "allowArbitraryExtensions": true
   },
   "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte"],
-  "exclude": ["src/ai/wasm-pkg/**"]
+  "exclude": ["src/wasm-pkg/**"]
 }

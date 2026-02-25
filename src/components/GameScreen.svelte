@@ -1,11 +1,8 @@
 <script lang="ts">
   import type { GameState, CardInstance } from '../data/types';
-  import { executeDrawPhase } from '../engine/drawPhase';
-  import { confirmPass } from '../engine/draftPhase';
-  import { applyChoice, getChoiceLogMessage } from '../engine/applyChoice';
+  import { executeDrawPhase, confirmPass, applyChoice, getChoiceLogMessage, cloneGameState } from '../engine/wasmEngine';
   import { AIController, type PrecomputeRequest } from '../ai/aiController';
   import type { ColoriChoice } from '../data/types';
-  import { cloneGameState } from '../engine/applyChoice';
   import type { GameLogAccumulator } from '../gameLog';
   import PlayerStatus from './PlayerStatus.svelte';
   import DrawPhaseView from './DrawPhaseView.svelte';

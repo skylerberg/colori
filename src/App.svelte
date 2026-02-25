@@ -13,6 +13,10 @@
   import { GuestController } from './network/guestController';
   import { sanitizedToGameState } from './network/stateAdapter';
   import { GameLogAccumulator, type StructuredGameLog } from './gameLog';
+  import { initEngine } from './engine/wasmEngine';
+
+  let engineReady = $state(false);
+  initEngine().then(() => { engineReady = true; });
 
   type AppScreen =
     | { type: 'mainMenu' }
@@ -201,7 +205,9 @@
 
 <main>
   <h1>Colori</h1>
-  {#if screen.type === 'mainMenu'}
+  {#if !engineReady}
+    <p>Loading...</p>
+  {:else if screen.type === 'mainMenu'}
     <MainMenu
       onLocalGame={goToLocalSetup}
       onHostOnline={hostOnlineGame}

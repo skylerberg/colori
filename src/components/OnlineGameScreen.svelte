@@ -7,7 +7,7 @@
   import type { StructuredGameLog } from '../gameLog';
   import { sanitizedToGameState } from '../network/stateAdapter';
   import { AIController } from '../ai/aiController';
-  import { cloneGameState } from '../engine/applyChoice';
+  import { cloneGameState } from '../engine/wasmEngine';
   import PlayerStatus from './PlayerStatus.svelte';
   import DrawPhaseView from './DrawPhaseView.svelte';
   import DraftPhaseView from './DraftPhaseView.svelte';

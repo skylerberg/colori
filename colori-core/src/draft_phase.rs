@@ -126,6 +126,23 @@ pub fn advance_draft(state: &mut GameState) {
     }
 }
 
+pub fn simultaneous_pick(state: &mut GameState, player_index: usize, card_instance_id: u32) {
+    let mut phase = std::mem::replace(&mut state.phase, GamePhase::Draw);
+    match &mut phase {
+        GamePhase::Draft { draft_state } => {
+            let hand = &mut draft_state.hands[player_index];
+            let card_index = hand
+                .iter()
+                .position(|c| c.instance_id == card_instance_id)
+                .expect("Card not found in player's draft hand");
+            let card = hand.remove(card_index);
+            state.players[player_index].drafted_cards.push(card);
+        }
+        _ => panic!("Expected draft phase"),
+    }
+    state.phase = phase;
+}
+
 pub fn confirm_pass(state: &mut GameState) {
     if let GamePhase::Draft { ref mut draft_state } = state.phase {
         draft_state.waiting_for_pass = false;

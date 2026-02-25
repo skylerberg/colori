@@ -1,4 +1,4 @@
-import init, { run_ismcts } from './wasm-pkg/colori_ai_wasm.js';
+import init, { run_ismcts } from '../wasm-pkg/colori_wasm.js';
 import type { GameState, CardInstance } from '../data/types';
 
 export interface AIWorkerRequest {

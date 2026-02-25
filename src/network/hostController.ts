@@ -2,10 +2,7 @@ import type { GameState } from '../data/types';
 import type { ColoriChoice } from '../data/types';
 import type { NetworkManager } from './networkManager';
 import type { LobbyPlayer, GuestMessage } from './types';
-import { createInitialGameState } from '../engine/setupPhase';
-import { executeDrawPhase } from '../engine/drawPhase';
-import { confirmPass, simultaneousPick, advanceDraft } from '../engine/draftPhase';
-import { applyChoice, getChoiceLogMessage } from '../engine/applyChoice';
+import { createInitialGameState, executeDrawPhase, confirmPass, simultaneousPick, advanceDraft, applyChoice, getChoiceLogMessage } from '../engine/wasmEngine';
 import { sanitizeGameState } from './sanitize';
 import { GameLogAccumulator, type StructuredGameLog } from '../gameLog';
 

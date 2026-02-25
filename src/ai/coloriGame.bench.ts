@@ -1,11 +1,11 @@
 import { describe, bench } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { initSync, run_ismcts } from './wasm-pkg/colori_ai_wasm';
+import { initSync, run_ismcts } from '../wasm-pkg/colori_wasm';
 import { setupDraftGame, setupActionGame } from './benchHelper';
 
 // Initialize WASM synchronously for Node.js (vitest) environment
-const wasmPath = resolve(__dirname, 'wasm-pkg/colori_ai_wasm_bg.wasm');
+const wasmPath = resolve(__dirname, '../wasm-pkg/colori_wasm_bg.wasm');
 const wasmBytes = readFileSync(wasmPath);
 initSync({ module: new WebAssembly.Module(wasmBytes) });
 

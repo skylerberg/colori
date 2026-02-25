@@ -11,7 +11,7 @@
     "test": "vitest run",
     "bench": "vitest bench",
     "benchmark": "vitest bench",
-    "build:wasm": "cd colori-ai-wasm && wasm-pack build --target web --out-dir ../src/ai/wasm-pkg",
+    "build:wasm": "cd colori-wasm && wasm-pack build --target web --out-dir ../src/wasm-pkg",
     "run-games": "cargo run --release --manifest-path colori-runner/Cargo.toml --",
     "profile": "samply record cargo run --release --manifest-path colori-runner/Cargo.toml -- --games 1 --iterations 10000 --players 3 --threads 1"
   },

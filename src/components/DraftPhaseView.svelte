@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { GameState } from '../data/types';
   import type { ColoriChoice } from '../data/types';
-  import { confirmPass } from '../engine/draftPhase';
+  import { confirmPass } from '../engine/wasmEngine';
   import CardList from './CardList.svelte';
   import OpponentBoardPanel from './OpponentBoardPanel.svelte';
   import PassScreen from './PassScreen.svelte';
