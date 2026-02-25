@@ -82,6 +82,12 @@ pub fn ismcts<R: Rng>(
     max_round: Option<u32>,
     rng: &mut R,
 ) -> ColoriChoice {
+    // If there's only one legal choice, return it immediately without searching
+    let choices = enumerate_choices(state);
+    if choices.len() == 1 {
+        return choices.into_iter().next().unwrap();
+    }
+
     let mut root = MctsNode::new(player_id, None);
 
     for _ in 0..iterations {
