@@ -563,6 +563,8 @@ pub struct PlayerState {
     pub materials: Materials,
     pub completed_buyers: Vec<BuyerInstance>,
     pub ducats: u32,
+    #[serde(skip)]
+    pub cached_score: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

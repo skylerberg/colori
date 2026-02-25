@@ -1,7 +1,13 @@
+use crate::action_phase::{
+    destroy_drafted_card, end_player_turn, resolve_choose_tertiary_to_gain,
+    resolve_choose_tertiary_to_lose, resolve_destroy_cards, resolve_gain_primary,
+    resolve_gain_secondary, resolve_mix_colors, resolve_select_buyer, resolve_workshop_choice,
+    skip_mix, skip_workshop,
+};
 use crate::apply_choice::apply_choice;
 use crate::color_wheel::can_pay_cost;
 use crate::colors::{can_mix, PRIMARIES, SECONDARIES, TERTIARIES};
-use crate::draft_phase::confirm_pass;
+use crate::draft_phase::{confirm_pass, player_pick};
 use crate::draw_phase::execute_draw_phase;
 use crate::scoring::calculate_score;
 use crate::types::*;
@@ -39,18 +45,19 @@ fn can_afford_buyer(player: &PlayerState, buyer: &BuyerCard) -> bool {
 
 // ── Choice enumeration ──
 
-pub fn enumerate_choices(state: &GameState) -> Vec<ColoriChoice> {
+pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>) {
+    choices.clear();
     match &state.phase {
         GamePhase::Draft { draft_state } => {
             if draft_state.waiting_for_pass {
-                return vec![];
+                return;
             }
             let hand = &draft_state.hands[draft_state.current_player_index];
-            hand.iter()
-                .map(|c| ColoriChoice::DraftPick {
+            for c in hand.iter() {
+                choices.push(ColoriChoice::DraftPick {
                     card_instance_id: c.instance_id,
-                })
-                .collect()
+                });
+            }
         }
         GamePhase::Action { action_state } => {
             let player = &state.players[action_state.current_player_index];
@@ -58,18 +65,15 @@ pub fn enumerate_choices(state: &GameState) -> Vec<ColoriChoice> {
 
             match pending {
                 None => {
-                    let mut choices: Vec<ColoriChoice> = player
-                        .drafted_cards
-                        .iter()
-                        .map(|c| ColoriChoice::DestroyDraftedCard {
+                    for c in player.drafted_cards.iter() {
+                        choices.push(ColoriChoice::DestroyDraftedCard {
                             card_instance_id: c.instance_id,
-                        })
-                        .collect();
+                        });
+                    }
                     choices.push(ColoriChoice::EndTurn);
-                    choices
                 }
                 Some(PendingChoice::ChooseCardsForWorkshop { count }) => {
-                    let mut choices: Vec<ColoriChoice> = vec![ColoriChoice::SkipWorkshop];
+                    choices.push(ColoriChoice::SkipWorkshop);
 
                     let mut eligible: Vec<u32> = player
                         .workshop_cards
@@ -84,8 +88,6 @@ pub fn enumerate_choices(state: &GameState) -> Vec<ColoriChoice> {
                             card_instance_ids: ids,
                         });
                     }
-
-                    choices
                 }
                 Some(PendingChoice::ChooseCardsToDestroy { count }) => {
                     let mut card_ids: Vec<u32> =
@@ -93,19 +95,19 @@ pub fn enumerate_choices(state: &GameState) -> Vec<ColoriChoice> {
                     card_ids.sort_unstable();
                     let subsets = get_subsets(&card_ids, *count as usize);
                     if subsets.is_empty() {
-                        return vec![ColoriChoice::DestroyDrawnCards {
+                        choices.push(ColoriChoice::DestroyDrawnCards {
                             card_instance_ids: SmallVec::new(),
-                        }];
+                        });
+                    } else {
+                        for ids in subsets {
+                            choices.push(ColoriChoice::DestroyDrawnCards {
+                                card_instance_ids: ids,
+                            });
+                        }
                     }
-                    subsets
-                        .into_iter()
-                        .map(|ids| ColoriChoice::DestroyDrawnCards {
-                            card_instance_ids: ids,
-                        })
-                        .collect()
                 }
                 Some(PendingChoice::ChooseMix { .. }) => {
-                    let mut choices: Vec<ColoriChoice> = vec![ColoriChoice::SkipMix];
+                    choices.push(ColoriChoice::SkipMix);
                     for i in 0..ALL_COLORS.len() {
                         for j in (i + 1)..ALL_COLORS.len() {
                             let a = ALL_COLORS[i];
@@ -121,41 +123,51 @@ pub fn enumerate_choices(state: &GameState) -> Vec<ColoriChoice> {
                             }
                         }
                     }
-                    choices
                 }
-                Some(PendingChoice::ChooseBuyer) => state
-                    .buyer_display
-                    .iter()
-                    .filter(|g| can_afford_buyer(player, &g.buyer))
-                    .map(|g| ColoriChoice::SelectBuyer {
-                        buyer_instance_id: g.instance_id,
-                    })
-                    .collect(),
-                Some(PendingChoice::ChooseSecondaryColor) => SECONDARIES
-                    .iter()
-                    .map(|&c| ColoriChoice::GainSecondary { color: c })
-                    .collect(),
-                Some(PendingChoice::ChoosePrimaryColor) => PRIMARIES
-                    .iter()
-                    .map(|&c| ColoriChoice::GainPrimary { color: c })
-                    .collect(),
-                Some(PendingChoice::ChooseTertiaryToLose) => TERTIARIES
-                    .iter()
-                    .filter(|&&c| player.color_wheel.get(c) > 0)
-                    .map(|&c| ColoriChoice::ChooseTertiaryToLose { color: c })
-                    .collect(),
+                Some(PendingChoice::ChooseBuyer) => {
+                    for g in state.buyer_display.iter() {
+                        if can_afford_buyer(player, &g.buyer) {
+                            choices.push(ColoriChoice::SelectBuyer {
+                                buyer_instance_id: g.instance_id,
+                            });
+                        }
+                    }
+                }
+                Some(PendingChoice::ChooseSecondaryColor) => {
+                    for &c in SECONDARIES.iter() {
+                        choices.push(ColoriChoice::GainSecondary { color: c });
+                    }
+                }
+                Some(PendingChoice::ChoosePrimaryColor) => {
+                    for &c in PRIMARIES.iter() {
+                        choices.push(ColoriChoice::GainPrimary { color: c });
+                    }
+                }
+                Some(PendingChoice::ChooseTertiaryToLose) => {
+                    for &c in TERTIARIES.iter() {
+                        if player.color_wheel.get(c) > 0 {
+                            choices.push(ColoriChoice::ChooseTertiaryToLose { color: c });
+                        }
+                    }
+                }
                 Some(PendingChoice::ChooseTertiaryToGain { lost_color }) => {
                     let lost = *lost_color;
-                    TERTIARIES
-                        .iter()
-                        .filter(|&&c| c != lost)
-                        .map(|&c| ColoriChoice::ChooseTertiaryToGain { color: c })
-                        .collect()
+                    for &c in TERTIARIES.iter() {
+                        if c != lost {
+                            choices.push(ColoriChoice::ChooseTertiaryToGain { color: c });
+                        }
+                    }
                 }
             }
         }
-        _ => vec![],
+        _ => {}
     }
+}
+
+pub fn enumerate_choices(state: &GameState) -> Vec<ColoriChoice> {
+    let mut choices = Vec::new();
+    enumerate_choices_into(state, &mut choices);
+    choices
 }
 
 // ── Apply choice with AI post-processing ──
@@ -355,7 +367,7 @@ pub enum GameStatus {
 pub fn get_game_status(state: &GameState, max_round: Option<u32>) -> GameStatus {
     if let Some(mr) = max_round {
         if state.round > mr {
-            let scores: SmallVec<[f64; 4]> = state.players.iter().map(|p| calculate_score(p) as f64).collect();
+            let scores: SmallVec<[f64; 4]> = state.players.iter().map(|p| p.cached_score as f64).collect();
             let max_score = scores.iter().cloned().fold(0.0f64, f64::max);
             return GameStatus::Terminated {
                 scores: scores
@@ -376,7 +388,7 @@ pub fn get_game_status(state: &GameState, max_round: Option<u32>) -> GameStatus 
             player_id: action_state.current_player_index,
         },
         GamePhase::GameOver => {
-            let scores: SmallVec<[f64; 4]> = state.players.iter().map(|p| calculate_score(p) as f64).collect();
+            let scores: SmallVec<[f64; 4]> = state.players.iter().map(|p| p.cached_score as f64).collect();
             let max_score = scores.iter().cloned().fold(0.0f64, f64::max);
             GameStatus::Terminated {
                 scores: scores
@@ -400,6 +412,11 @@ pub fn determinize_in_place<R: Rng>(
     rng: &mut R,
 ) {
     det.clone_from(source);
+
+    // Initialize cached scores for ISMCTS usage
+    for p in &mut det.players {
+        p.cached_score = calculate_score(p);
+    }
 
     if let GamePhase::Draft { ref mut draft_state } = det.phase {
         let num_players = det.players.len();
@@ -519,8 +536,7 @@ pub fn determinize_in_place<R: Rng>(
             crate::deck_utils::shuffle_in_place(&mut p.deck, rng);
         }
     } else {
-        // Outside draft: only shuffle hidden decks
-        crate::deck_utils::shuffle_in_place(&mut det.draft_deck, rng);
+        // Outside draft: shuffle hidden decks (skip draft_deck — unused during action phase)
         crate::deck_utils::shuffle_in_place(&mut det.buyer_deck, rng);
         for p in &mut det.players {
             crate::deck_utils::shuffle_in_place(&mut p.deck, rng);
@@ -693,5 +709,204 @@ pub fn get_rollout_choice<R: Rng>(state: &GameState, rng: &mut R) -> ColoriChoic
             }
         }
         _ => panic!("Cannot get rollout choice for current state"),
+    }
+}
+
+// ── Fused rollout step ──
+
+/// Fused version of get_rollout_choice + apply_choice_to_state that avoids
+/// constructing an intermediate ColoriChoice enum (and its SmallVec allocations).
+pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
+    // Inner enum captures the rollout decision using stack arrays instead of SmallVec.
+    // The immutable borrow of `state` ends when this enum value is produced,
+    // allowing the subsequent mutable calls.
+    enum Op {
+        DraftPick(u32),
+        DestroyDrafted(u32),
+        EndTurn,
+        SkipWorkshop,
+        Workshop { ids: [u32; 16], count: usize },
+        DestroyDrawn { ids: [u32; 16], count: usize },
+        Mix(Color, Color),
+        SkipMix,
+        SelectBuyer(u32),
+        GainSecondary(Color),
+        GainPrimary(Color),
+        TertiaryLose(Color),
+        TertiaryGain(Color),
+    }
+
+    let op = match &state.phase {
+        GamePhase::Draft { draft_state } => {
+            let hand = &draft_state.hands[draft_state.current_player_index];
+            let idx = rng.random_range(0..hand.len());
+            Op::DraftPick(hand[idx].instance_id)
+        }
+        GamePhase::Action { action_state } => {
+            let player = &state.players[action_state.current_player_index];
+            match &action_state.pending_choice {
+                None => {
+                    if !player.drafted_cards.is_empty() && rng.random::<f64>() < 0.8 {
+                        let idx = rng.random_range(0..player.drafted_cards.len());
+                        Op::DestroyDrafted(player.drafted_cards[idx].instance_id)
+                    } else {
+                        Op::EndTurn
+                    }
+                }
+                Some(PendingChoice::ChooseCardsForWorkshop { count }) => {
+                    let cards = &player.workshop_cards;
+                    let total = cards.len();
+                    if total == 0 || rng.random::<f64>() < 0.2 {
+                        Op::SkipWorkshop
+                    } else {
+                        let max_pick = (*count as usize).min(total);
+                        let pick = rng.random_range(1..=max_pick);
+                        let mut indices = [0usize; 16];
+                        for k in 0..total {
+                            indices[k] = k;
+                        }
+                        for k in 0..pick {
+                            let j = k + rng.random_range(0..(total - k));
+                            indices.swap(k, j);
+                        }
+                        let mut ids = [0u32; 16];
+                        for k in 0..pick {
+                            ids[k] = cards[indices[k]].instance_id;
+                        }
+                        ids[..pick].sort_unstable();
+                        Op::Workshop { ids, count: pick }
+                    }
+                }
+                Some(PendingChoice::ChooseCardsToDestroy { count }) => {
+                    let ws_cards = &player.workshop_cards;
+                    let ws_len = ws_cards.len();
+                    let destroy_count = (*count as usize).min(ws_len);
+                    if destroy_count == 0 {
+                        Op::DestroyDrawn {
+                            ids: [0u32; 16],
+                            count: 0,
+                        }
+                    } else {
+                        let destroy_pick = rng.random_range(1..=destroy_count);
+                        let mut ws_indices = [0usize; 16];
+                        for k in 0..ws_len {
+                            ws_indices[k] = k;
+                        }
+                        for k in 0..destroy_pick {
+                            let j = k + rng.random_range(0..(ws_len - k));
+                            ws_indices.swap(k, j);
+                        }
+                        let mut ids = [0u32; 16];
+                        for k in 0..destroy_pick {
+                            ids[k] = ws_cards[ws_indices[k]].instance_id;
+                        }
+                        ids[..destroy_pick].sort_unstable();
+                        Op::DestroyDrawn {
+                            ids,
+                            count: destroy_pick,
+                        }
+                    }
+                }
+                Some(PendingChoice::ChooseMix { .. }) => {
+                    if rng.random::<f64>() < 0.5 {
+                        Op::SkipMix
+                    } else {
+                        let mut pairs: [(Color, Color); 9] = [(Color::Red, Color::Red); 9];
+                        let mut pair_count = 0usize;
+                        for i in 0..ALL_COLORS.len() {
+                            for j in (i + 1)..ALL_COLORS.len() {
+                                if player.color_wheel.get(ALL_COLORS[i]) > 0
+                                    && player.color_wheel.get(ALL_COLORS[j]) > 0
+                                    && can_mix(ALL_COLORS[i], ALL_COLORS[j])
+                                {
+                                    pairs[pair_count] = (ALL_COLORS[i], ALL_COLORS[j]);
+                                    pair_count += 1;
+                                }
+                            }
+                        }
+                        if pair_count == 0 {
+                            Op::SkipMix
+                        } else {
+                            let target = rng.random_range(0..pair_count);
+                            Op::Mix(pairs[target].0, pairs[target].1)
+                        }
+                    }
+                }
+                Some(PendingChoice::ChooseBuyer) => {
+                    let mut affordable = [0u32; 6];
+                    let mut aff_count = 0usize;
+                    for g in &state.buyer_display {
+                        if can_afford_buyer(player, &g.buyer) {
+                            affordable[aff_count] = g.instance_id;
+                            aff_count += 1;
+                        }
+                    }
+                    let idx = rng.random_range(0..aff_count);
+                    Op::SelectBuyer(affordable[idx])
+                }
+                Some(PendingChoice::ChooseSecondaryColor) => {
+                    let idx = rng.random_range(0..SECONDARIES.len());
+                    Op::GainSecondary(SECONDARIES[idx])
+                }
+                Some(PendingChoice::ChoosePrimaryColor) => {
+                    let idx = rng.random_range(0..PRIMARIES.len());
+                    Op::GainPrimary(PRIMARIES[idx])
+                }
+                Some(PendingChoice::ChooseTertiaryToLose) => {
+                    let mut owned = [Color::Red; 6];
+                    let mut own_count = 0usize;
+                    for &c in &TERTIARIES {
+                        if player.color_wheel.get(c) > 0 {
+                            owned[own_count] = c;
+                            own_count += 1;
+                        }
+                    }
+                    let idx = rng.random_range(0..own_count);
+                    Op::TertiaryLose(owned[idx])
+                }
+                Some(PendingChoice::ChooseTertiaryToGain { lost_color }) => {
+                    let lost = *lost_color;
+                    let mut options = [Color::Red; 6];
+                    let mut opt_count = 0usize;
+                    for &c in &TERTIARIES {
+                        if c != lost {
+                            options[opt_count] = c;
+                            opt_count += 1;
+                        }
+                    }
+                    let idx = rng.random_range(0..opt_count);
+                    Op::TertiaryGain(options[idx])
+                }
+            }
+        }
+        _ => panic!("Cannot apply rollout step for current state"),
+    };
+
+    match op {
+        Op::DraftPick(id) => {
+            player_pick(state, id);
+            if let GamePhase::Draft { ref draft_state } = state.phase {
+                if draft_state.waiting_for_pass {
+                    confirm_pass(state);
+                }
+            }
+        }
+        Op::DestroyDrafted(id) => destroy_drafted_card(state, id, rng),
+        Op::EndTurn => {
+            end_player_turn(state, rng);
+            if matches!(state.phase, GamePhase::Draw) {
+                execute_draw_phase(state, rng);
+            }
+        }
+        Op::SkipWorkshop => skip_workshop(state, rng),
+        Op::Workshop { ids, count } => resolve_workshop_choice(state, &ids[..count], rng),
+        Op::DestroyDrawn { ids, count } => resolve_destroy_cards(state, &ids[..count], rng),
+        Op::Mix(a, b) => resolve_mix_colors(state, a, b, rng),
+        Op::SkipMix => skip_mix(state, rng),
+        Op::SelectBuyer(id) => resolve_select_buyer(state, id, rng),
+        Op::GainSecondary(c) => resolve_gain_secondary(state, c, rng),
+        Op::GainPrimary(c) => resolve_gain_primary(state, c, rng),
+        Op::TertiaryLose(c) => resolve_choose_tertiary_to_lose(state, c),
+        Op::TertiaryGain(c) => resolve_choose_tertiary_to_gain(state, c, rng),
     }
 }

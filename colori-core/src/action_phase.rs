@@ -62,6 +62,7 @@ pub fn process_queue<R: Rng>(state: &mut GameState, rng: &mut R) {
         }
         Ability::GainDucats { count } => {
             state.players[player_index].ducats += count;
+            state.players[player_index].cached_score += count;
             process_queue(state, rng);
         }
         Ability::MixColors { count } => {
@@ -352,6 +353,7 @@ pub fn resolve_select_buyer<R: Rng>(
     if !success {
         panic!("Cannot pay buyer color cost");
     }
+    player.cached_score += buyer.buyer.stars();
     player.completed_buyers.push(buyer);
 
     // Refill buyer display

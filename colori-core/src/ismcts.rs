@@ -29,8 +29,8 @@ impl MctsNode {
         self.choice.is_none()
     }
 
-    fn expand<R: Rng>(&mut self, state: &GameState, mut choices: Vec<ColoriChoice>, rng: &mut R) {
-        // Shuffle choices
+    fn expand<R: Rng>(&mut self, state: &GameState, choices: &mut Vec<ColoriChoice>, rng: &mut R) {
+        // Shuffle choices in place
         let len = choices.len();
         for i in (1..len).rev() {
             let j = rng.random_range(0..=i);
@@ -44,16 +44,16 @@ impl MctsNode {
 
         let mut added_new_node = false;
 
-        for choice in choices {
-            if let Some(count) = self.choice_availability_count.get_mut(&choice) {
+        for choice in choices.iter() {
+            if let Some(count) = self.choice_availability_count.get_mut(choice) {
                 *count += 1;
             } else {
                 self.choice_availability_count.insert(choice.clone(), 0);
             }
 
-            if self.is_root() || (!added_new_node && !self.children.contains_key(&choice)) {
+            if self.is_root() || (!added_new_node && !self.children.contains_key(choice)) {
                 self.children
-                    .insert(choice.clone(), MctsNode::new(active_player, Some(choice)));
+                    .insert(choice.clone(), MctsNode::new(active_player, Some(choice.clone())));
                 added_new_node = true;
             }
         }
@@ -82,9 +82,10 @@ pub fn ismcts<R: Rng>(
     rng: &mut R,
 ) -> ColoriChoice {
     // If there's only one legal choice, return it immediately without searching
-    let choices = enumerate_choices(state);
-    if choices.len() == 1 {
-        return choices.into_iter().next().unwrap();
+    let mut choices_buf: Vec<ColoriChoice> = Vec::new();
+    enumerate_choices_into(state, &mut choices_buf);
+    if choices_buf.len() == 1 {
+        return choices_buf.swap_remove(0);
     }
 
     let mut root = MctsNode::new(player_id, None);
@@ -93,13 +94,13 @@ pub fn ismcts<R: Rng>(
 
     for _ in 0..iterations {
         determinize_in_place(&mut det_state, state, player_id, seen_hands, &mut pool, rng);
-        iteration(&mut root, &mut det_state, max_round, rng);
+        iteration(&mut root, &mut det_state, max_round, &mut choices_buf, rng);
     }
 
     if root.children.is_empty() {
-        let choices = enumerate_choices(state);
-        let idx = rng.random_range(0..choices.len());
-        return choices[idx].clone();
+        enumerate_choices_into(state, &mut choices_buf);
+        let idx = rng.random_range(0..choices_buf.len());
+        return choices_buf[idx].clone();
     }
 
     let mut best_child: Option<&MctsNode> = None;
@@ -116,6 +117,7 @@ fn iteration<R: Rng>(
     node: &mut MctsNode,
     state: &mut GameState,
     max_round: Option<u32>,
+    choices_buf: &mut Vec<ColoriChoice>,
     rng: &mut R,
 ) -> SmallVec<[f64; 4]> {
     let status = get_game_status(state, max_round);
@@ -126,8 +128,8 @@ fn iteration<R: Rng>(
 
     // Expand
     if !(node.is_root() && !node.children.is_empty()) {
-        let choices = enumerate_choices(state);
-        node.expand(state, choices, rng);
+        enumerate_choices_into(state, choices_buf);
+        node.expand(state, choices_buf, rng);
     }
 
     // Select
@@ -151,7 +153,7 @@ fn iteration<R: Rng>(
         scores
     } else {
         let child = node.children.get_mut(&best_key).unwrap();
-        iteration(child, state, max_round, rng)
+        iteration(child, state, max_round, choices_buf, rng)
     };
 
     record_outcome(node, &scores);
@@ -193,8 +195,7 @@ fn rollout<R: Rng>(state: &mut GameState, max_round: Option<u32>, rng: &mut R) -
         if let GameStatus::Terminated { scores } = status {
             return scores;
         }
-        let choice = get_rollout_choice(state, rng);
-        apply_choice_to_state(state, &choice, rng);
+        apply_rollout_step(state, rng);
     }
 
     let status = get_game_status(state, max_round);

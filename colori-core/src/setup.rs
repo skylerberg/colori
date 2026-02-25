@@ -68,6 +68,7 @@ pub fn create_initial_game_state<R: Rng>(player_names: &[String], ai_players: &[
                 materials,
                 completed_buyers: Vec::new(),
                 ducats: 0,
+                cached_score: 0,
             }
         })
         .collect();
