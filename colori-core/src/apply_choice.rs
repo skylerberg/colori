@@ -14,16 +14,14 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &ColoriChoice, rng: &
         ColoriChoice::EndTurn => {
             end_player_turn(state, rng);
         }
-        ColoriChoice::Workshop { card_mask } => {
-            let ids = crate::types::mask_to_ids(*card_mask);
-            resolve_workshop_choice(state, &ids, rng);
+        ColoriChoice::Workshop { card_instance_ids } => {
+            resolve_workshop_choice(state, card_instance_ids, rng);
         }
         ColoriChoice::SkipWorkshop => {
             skip_workshop(state, rng);
         }
-        ColoriChoice::DestroyDrawnCards { card_mask } => {
-            let ids = crate::types::mask_to_ids(*card_mask);
-            resolve_destroy_cards(state, &ids, rng);
+        ColoriChoice::DestroyDrawnCards { card_instance_ids } => {
+            resolve_destroy_cards(state, card_instance_ids, rng);
         }
         ColoriChoice::Mix { color_a, color_b } => {
             resolve_mix_colors(state, *color_a, *color_b, rng);

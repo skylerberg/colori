@@ -3,7 +3,7 @@ use colori_core::draft_phase::{advance_draft, confirm_pass, simultaneous_pick};
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::ismcts::ismcts;
 use colori_core::scoring::calculate_score;
-use colori_core::setup::create_initial_game_state;
+use colori_core::setup::{create_initial_game_state, reset_instance_id_counter};
 use colori_core::types::{CardInstance, ColoriChoice, GameState, PlayerState};
 use rand::rngs::SmallRng;
 use rand::SeedableRng;
@@ -44,18 +44,13 @@ pub fn run_ismcts(
 
 #[wasm_bindgen]
 pub fn wasm_create_initial_game_state(player_names_json: &str, ai_players_json: &str) -> String {
+    reset_instance_id_counter();
     let player_names: Vec<String> =
         serde_json::from_str(player_names_json).expect("Failed to parse player names JSON");
-    let ai_bools: Vec<bool> =
+    let ai_players: Vec<bool> =
         serde_json::from_str(ai_players_json).expect("Failed to parse ai players JSON");
-    let mut ai_mask = 0u8;
-    for (i, &b) in ai_bools.iter().enumerate() {
-        if b {
-            ai_mask |= 1u8 << i;
-        }
-    }
     let mut rng = SmallRng::from_os_rng();
-    let state = create_initial_game_state(&player_names, ai_mask, &mut rng);
+    let state = create_initial_game_state(&player_names, &ai_players, &mut rng);
     serde_json::to_string(&state).expect("Failed to serialize game state")
 }
 

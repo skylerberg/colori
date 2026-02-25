@@ -1,11 +1,11 @@
 use crate::types::{Color, NUM_COLORS};
 
 fn is_primary(idx: usize) -> bool {
-    PRIMARIES_MASK & (1 << idx) != 0
+    idx == 0 || idx == 4 || idx == 8
 }
 
 fn is_secondary(idx: usize) -> bool {
-    SECONDARIES_MASK & (1 << idx) != 0
+    idx == 2 || idx == 6 || idx == 10
 }
 
 pub fn can_mix(a: Color, b: Color) -> bool {
@@ -46,10 +46,6 @@ pub const TERTIARIES: [Color; 6] = [
     Color::Indigo,
     Color::Magenta,
 ];
-
-pub const PRIMARIES_MASK: u16 = (1 << 0) | (1 << 4) | (1 << 8);
-pub const SECONDARIES_MASK: u16 = (1 << 2) | (1 << 6) | (1 << 10);
-pub const TERTIARIES_MASK: u16 = (1 << 1) | (1 << 3) | (1 << 5) | (1 << 7) | (1 << 9) | (1 << 11);
 
 #[cfg(test)]
 mod tests {

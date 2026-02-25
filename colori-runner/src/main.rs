@@ -161,9 +161,8 @@ fn run_game(
         .map(|i| format!("Player {}", i))
         .collect();
 
-    let ai_players_vec: Vec<bool> = vec![true; num_players];
-    let ai_players_mask: u8 = (1u8 << num_players) - 1;
-    let mut state = create_initial_game_state(&names, ai_players_mask, rng);
+    let ai_players = vec![true; num_players];
+    let mut state = create_initial_game_state(&names, &ai_players, rng);
     let initial_state = state.clone();
 
     let game_started_at = now_iso();
@@ -248,7 +247,7 @@ fn run_game(
         game_started_at,
         game_ended_at,
         player_names: names,
-        ai_players: ai_players_vec,
+        ai_players,
         initial_state,
         final_scores,
         final_player_stats,

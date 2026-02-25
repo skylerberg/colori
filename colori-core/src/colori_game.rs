@@ -1,12 +1,34 @@
 use crate::apply_choice::apply_choice;
 use crate::color_wheel::can_pay_cost;
-use crate::colors::{can_mix, PRIMARIES, PRIMARIES_MASK, SECONDARIES, SECONDARIES_MASK, TERTIARIES, TERTIARIES_MASK};
+use crate::colors::{can_mix, PRIMARIES, SECONDARIES, TERTIARIES};
 use crate::draft_phase::confirm_pass;
 use crate::draw_phase::execute_draw_phase;
 use crate::scoring::calculate_score;
 use crate::types::*;
 use rand::Rng;
 use smallvec::SmallVec;
+
+// ── Subset enumeration ──
+
+fn get_subsets(items: &[u32], max_size: usize) -> Vec<SmallVec<[u32; 5]>> {
+    let mut result = Vec::new();
+    let mut current = SmallVec::<[u32; 5]>::new();
+    fn recurse(start: usize, current: &mut SmallVec<[u32; 5]>, items: &[u32], max_size: usize, result: &mut Vec<SmallVec<[u32; 5]>>) {
+        if !current.is_empty() {
+            result.push(current.clone());
+        }
+        if current.len() >= max_size {
+            return;
+        }
+        for i in start..items.len() {
+            current.push(items[i]);
+            recurse(i + 1, current, items, max_size, result);
+            current.pop();
+        }
+    }
+    recurse(0, &mut current, items, max_size, &mut result);
+    result
+}
 
 // ── Buyer affordability ──
 
@@ -49,38 +71,38 @@ pub fn enumerate_choices(state: &GameState) -> Vec<ColoriChoice> {
                 Some(PendingChoice::ChooseCardsForWorkshop { count }) => {
                     let mut choices: Vec<ColoriChoice> = vec![ColoriChoice::SkipWorkshop];
 
-                    let mut workshop_mask = 0u128;
-                    for c in &player.workshop_cards {
-                        workshop_mask |= 1u128 << (c.instance_id - 1);
-                    }
+                    let mut eligible: Vec<u32> = player
+                        .workshop_cards
+                        .iter()
+                        .map(|c| c.instance_id)
+                        .collect();
+                    eligible.sort_unstable();
 
-                    let mut sub = workshop_mask;
-                    while sub != 0 {
-                        if (sub.count_ones() as u32) <= *count {
-                            choices.push(ColoriChoice::Workshop { card_mask: sub });
-                        }
-                        sub = (sub - 1) & workshop_mask;
+                    let subsets = get_subsets(&eligible, *count as usize);
+                    for ids in subsets {
+                        choices.push(ColoriChoice::Workshop {
+                            card_instance_ids: ids,
+                        });
                     }
 
                     choices
                 }
                 Some(PendingChoice::ChooseCardsToDestroy { count }) => {
-                    let mut workshop_mask = 0u128;
-                    for c in &player.workshop_cards {
-                        workshop_mask |= 1u128 << (c.instance_id - 1);
+                    let mut card_ids: Vec<u32> =
+                        player.workshop_cards.iter().map(|c| c.instance_id).collect();
+                    card_ids.sort_unstable();
+                    let subsets = get_subsets(&card_ids, *count as usize);
+                    if subsets.is_empty() {
+                        return vec![ColoriChoice::DestroyDrawnCards {
+                            card_instance_ids: SmallVec::new(),
+                        }];
                     }
-                    if workshop_mask == 0 {
-                        return vec![ColoriChoice::DestroyDrawnCards { card_mask: 0 }];
-                    }
-                    let mut choices = Vec::new();
-                    let mut sub = workshop_mask;
-                    while sub != 0 {
-                        if (sub.count_ones() as u32) <= *count {
-                            choices.push(ColoriChoice::DestroyDrawnCards { card_mask: sub });
-                        }
-                        sub = (sub - 1) & workshop_mask;
-                    }
-                    choices
+                    subsets
+                        .into_iter()
+                        .map(|ids| ColoriChoice::DestroyDrawnCards {
+                            card_instance_ids: ids,
+                        })
+                        .collect()
                 }
                 Some(PendingChoice::ChooseMix { .. }) => {
                     let mut choices: Vec<ColoriChoice> = vec![ColoriChoice::SkipMix];
@@ -189,16 +211,14 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                 false
             }
         }
-        ColoriChoice::Workshop { card_mask } => {
+        ColoriChoice::Workshop { card_instance_ids } => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 match &action_state.pending_choice {
                     Some(PendingChoice::ChooseCardsForWorkshop { .. }) => {
                         let player = &state.players[action_state.current_player_index];
-                        let mut workshop_mask = 0u128;
-                        for c in &player.workshop_cards {
-                            workshop_mask |= 1u128 << (c.instance_id - 1);
-                        }
-                        card_mask & workshop_mask == *card_mask && *card_mask != 0
+                        card_instance_ids.iter().all(|id| {
+                            player.workshop_cards.iter().any(|c| c.instance_id == *id)
+                        })
                     }
                     _ => false,
                 }
@@ -216,16 +236,14 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                 false
             }
         }
-        ColoriChoice::DestroyDrawnCards { card_mask } => {
+        ColoriChoice::DestroyDrawnCards { card_instance_ids } => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 match &action_state.pending_choice {
                     Some(PendingChoice::ChooseCardsToDestroy { .. }) => {
                         let player = &state.players[action_state.current_player_index];
-                        let mut workshop_mask = 0u128;
-                        for c in &player.workshop_cards {
-                            workshop_mask |= 1u128 << (c.instance_id - 1);
-                        }
-                        card_mask & workshop_mask == *card_mask
+                        card_instance_ids.iter().all(|id| {
+                            player.workshop_cards.iter().any(|c| c.instance_id == *id)
+                        })
                     }
                     _ => false,
                 }
@@ -283,7 +301,7 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                 matches!(
                     action_state.pending_choice,
                     Some(PendingChoice::ChooseSecondaryColor)
-                ) && SECONDARIES_MASK & (1 << color.index()) != 0
+                ) && SECONDARIES.contains(color)
             } else {
                 false
             }
@@ -293,7 +311,7 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                 matches!(
                     action_state.pending_choice,
                     Some(PendingChoice::ChoosePrimaryColor)
-                ) && PRIMARIES_MASK & (1 << color.index()) != 0
+                ) && PRIMARIES.contains(color)
             } else {
                 false
             }
@@ -303,7 +321,7 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                 match &action_state.pending_choice {
                     Some(PendingChoice::ChooseTertiaryToLose) => {
                         let player = &state.players[action_state.current_player_index];
-                        TERTIARIES_MASK & (1 << color.index()) != 0 && player.color_wheel.get(*color) > 0
+                        TERTIARIES.contains(color) && player.color_wheel.get(*color) > 0
                     }
                     _ => false,
                 }
@@ -315,7 +333,7 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
             if let GamePhase::Action { ref action_state } = state.phase {
                 match &action_state.pending_choice {
                     Some(PendingChoice::ChooseTertiaryToGain { lost_color }) => {
-                        TERTIARIES_MASK & (1 << color.index()) != 0 && *color != *lost_color
+                        TERTIARIES.contains(color) && *color != *lost_color
                     }
                     _ => false,
                 }
@@ -525,6 +543,7 @@ pub fn get_rollout_choice<R: Rng>(state: &GameState, rng: &mut R) -> ColoriChoic
                         return ColoriChoice::SkipWorkshop;
                     }
 
+                    // Fisher-Yates partial shuffle on all cards
                     let max_pick = (*count as usize).min(total);
                     let pick = rng.random_range(1..=max_pick);
                     let mut indices = [0usize; 16];
@@ -537,18 +556,23 @@ pub fn get_rollout_choice<R: Rng>(state: &GameState, rng: &mut R) -> ColoriChoic
                         indices.swap(k, j);
                     }
 
-                    let mut mask = 0u128;
+                    let mut ids = SmallVec::<[u32; 5]>::new();
                     for k in 0..pick {
-                        mask |= 1u128 << (cards[indices[k]].instance_id - 1);
+                        ids.push(cards[indices[k]].instance_id);
                     }
-                    ColoriChoice::Workshop { card_mask: mask }
+                    ids.sort_unstable();
+                    ColoriChoice::Workshop {
+                        card_instance_ids: ids,
+                    }
                 }
                 Some(PendingChoice::ChooseCardsToDestroy { count }) => {
                     let ws_cards = &player.workshop_cards;
                     let ws_len = ws_cards.len();
                     let destroy_count = (*count as usize).min(ws_len);
                     if destroy_count == 0 {
-                        return ColoriChoice::DestroyDrawnCards { card_mask: 0 };
+                        return ColoriChoice::DestroyDrawnCards {
+                            card_instance_ids: SmallVec::new(),
+                        };
                     }
                     let destroy_pick = rng.random_range(1..=destroy_count);
                     let mut ws_indices = [0usize; 16];
@@ -559,11 +583,14 @@ pub fn get_rollout_choice<R: Rng>(state: &GameState, rng: &mut R) -> ColoriChoic
                         let j = k + rng.random_range(0..(ws_len - k));
                         ws_indices.swap(k, j);
                     }
-                    let mut mask = 0u128;
+                    let mut ids = SmallVec::<[u32; 5]>::new();
                     for k in 0..destroy_pick {
-                        mask |= 1u128 << (ws_cards[ws_indices[k]].instance_id - 1);
+                        ids.push(ws_cards[ws_indices[k]].instance_id);
                     }
-                    ColoriChoice::DestroyDrawnCards { card_mask: mask }
+                    ids.sort_unstable();
+                    ColoriChoice::DestroyDrawnCards {
+                        card_instance_ids: ids,
+                    }
                 }
                 Some(PendingChoice::ChooseMix { .. }) => {
                     if rng.random::<f64>() < 0.5 {
