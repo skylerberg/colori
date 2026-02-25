@@ -1,19 +1,7 @@
-mod action_phase;
-mod apply_choice;
-mod cards;
-mod color_wheel;
-mod colori_game;
-mod colors;
-mod deck_utils;
-mod draft_phase;
-mod draw_phase;
-mod ismcts;
-mod scoring;
-mod types;
-
+use colori_core::ismcts::ismcts;
+use colori_core::types::{CardInstance, ColoriChoice, GameState};
 use rand::rngs::SmallRng;
 use rand::SeedableRng;
-use types::{CardInstance, ColoriChoice, GameState};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -36,7 +24,7 @@ pub fn run_ismcts(
 
     let mut rng = SmallRng::from_entropy();
 
-    let choice: ColoriChoice = ismcts::ismcts(
+    let choice: ColoriChoice = ismcts(
         &game_state,
         player_index as usize,
         iterations,

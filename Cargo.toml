@@ -1,0 +1,3 @@
+[workspace]
+members = ["colori-core", "colori-ai-wasm", "colori-runner"]
+resolver = "2"

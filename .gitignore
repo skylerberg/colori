@@ -2,3 +2,5 @@ node_modules/
 dist/
 *.cpuprofile
 colori-ai-wasm/target/
+target/
+game-logs/

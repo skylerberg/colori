@@ -1,4 +1,4 @@
-import type { GameState } from './data/types';
+import type { GameState, CardInstance, BuyerCard, Color, MaterialType } from './data/types';
 import type { ColoriChoice } from './data/types';
 import { calculateScores } from './engine/scoring';
 
@@ -19,7 +19,17 @@ export interface StructuredGameLog {
   aiPlayers: boolean[];
   initialState: GameState;
   finalScores: { name: string; score: number }[] | null;
+  finalPlayerStats: FinalPlayerStats[] | null;
   entries: StructuredLogEntry[];
+}
+
+export interface FinalPlayerStats {
+  name: string;
+  deckSize: number;
+  completedBuyers: CardInstance<BuyerCard>[];
+  ducats: number;
+  colorWheel: Record<Color, number>;
+  materials: Record<MaterialType, number>;
 }
 
 export class GameLogAccumulator {
@@ -35,6 +45,7 @@ export class GameLogAccumulator {
       aiPlayers: [...initialState.aiPlayers],
       initialState: structuredClone(initialState),
       finalScores: null,
+      finalPlayerStats: null,
       entries: [],
     };
   }
@@ -62,6 +73,14 @@ export class GameLogAccumulator {
   finalize(state: GameState) {
     this.log.gameEndedAt = new Date().toISOString();
     this.log.finalScores = calculateScores(state.players);
+    this.log.finalPlayerStats = state.players.map(p => ({
+      name: p.name,
+      deckSize: p.deck.length + p.discard.length + p.workshopCards.length + p.draftedCards.length,
+      completedBuyers: p.completedBuyers as CardInstance<BuyerCard>[],
+      ducats: p.ducats,
+      colorWheel: { ...p.colorWheel },
+      materials: { ...p.materials },
+    }));
   }
 
   getLog(): StructuredGameLog {
