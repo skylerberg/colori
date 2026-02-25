@@ -2,9 +2,30 @@
   import type { StructuredGameLog } from '../gameLog';
   import AnalysisDashboard from './AnalysisDashboard.svelte';
 
-  let logs: StructuredGameLog[] = $state([]);
+  interface TaggedGameLog {
+    log: StructuredGameLog;
+    batchId: string;
+  }
+
+  let taggedLogs: TaggedGameLog[] = $state([]);
   let loading = $state(false);
   let error: string | null = $state(null);
+  let selectedBatch: string = $state("all");
+
+  let availableBatches = $derived(
+    [...new Set(taggedLogs.map(t => t.batchId))].sort()
+  );
+
+  let filteredLogs = $derived(
+    selectedBatch === "all"
+      ? taggedLogs.map(t => t.log)
+      : taggedLogs.filter(t => t.batchId === selectedBatch).map(t => t.log)
+  );
+
+  function extractBatchId(filename: string): string {
+    const match = filename.match(/^game-\d+-([a-z0-9]{6})\.json$/);
+    return match ? match[1] : "Unknown";
+  }
 
   async function handleFolderSelect(event: Event) {
     const input = event.target as HTMLInputElement;
@@ -13,7 +34,8 @@
 
     loading = true;
     error = null;
-    const parsed: StructuredGameLog[] = [];
+    selectedBatch = "all";
+    const parsed: TaggedGameLog[] = [];
 
     for (const file of files) {
       if (!file.name.endsWith('.json')) continue;
@@ -21,7 +43,8 @@
         const text = await file.text();
         const log = JSON.parse(text) as StructuredGameLog;
         if (log.version === 1) {
-          parsed.push(log);
+          const batchId = extractBatchId(file.name);
+          parsed.push({ log, batchId });
         }
       } catch (e) {
         // skip invalid files
@@ -32,7 +55,7 @@
       error = 'No valid game logs found in the selected folder.';
     }
 
-    logs = parsed;
+    taggedLogs = parsed;
     loading = false;
   }
 </script>
@@ -50,9 +73,28 @@
     <p>Loading...</p>
   {:else if error}
     <p class="error">{error}</p>
-  {:else if logs.length > 0}
-    <p>{logs.length} games loaded</p>
-    <AnalysisDashboard {logs} />
+  {:else if taggedLogs.length > 0}
+    {#if selectedBatch === "all"}
+      <p>{taggedLogs.length} games loaded</p>
+    {:else}
+      <p>{filteredLogs.length} of {taggedLogs.length} games shown</p>
+    {/if}
+
+    {#if availableBatches.length > 1}
+      <div class="batch-filter">
+        <label>
+          Batch:
+          <select bind:value={selectedBatch}>
+            <option value="all">All batches</option>
+            {#each availableBatches as batch}
+              <option value={batch}>{batch} ({taggedLogs.filter(t => t.batchId === batch).length} games)</option>
+            {/each}
+          </select>
+        </label>
+      </div>
+    {/if}
+
+    <AnalysisDashboard logs={filteredLogs} />
   {/if}
 </main>
 
@@ -65,6 +107,9 @@
   }
   .folder-picker {
     margin: 1rem 0;
+  }
+  .batch-filter {
+    margin: 0.5rem 0 1rem;
   }
   .error {
     color: red;
