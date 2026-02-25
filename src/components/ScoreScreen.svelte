@@ -1,11 +1,13 @@
 <script lang="ts">
   import type { GameState } from '../data/types';
   import { calculateScores, determineWinner } from '../engine/scoring';
+  import { downloadGameLog, type StructuredGameLog } from '../gameLog';
 
-  let { gameState, gameStartTime, onPlayAgain }: {
+  let { gameState, gameStartTime, onPlayAgain, structuredLog }: {
     gameState: GameState;
     gameStartTime: number | null;
     onPlayAgain: () => void;
+    structuredLog?: StructuredGameLog | null;
   } = $props();
 
   function formatTime(seconds: number): string {
@@ -48,7 +50,12 @@
     {/each}
   </div>
 
-  <button class="play-again-btn" onclick={onPlayAgain}>Play Again</button>
+  <div class="button-row">
+    {#if structuredLog}
+      <button class="download-btn" onclick={() => downloadGameLog(structuredLog!)}>Download Game Log</button>
+    {/if}
+    <button class="play-again-btn" onclick={onPlayAgain}>Play Again</button>
+  </div>
 </div>
 
 <style>
@@ -125,6 +132,13 @@
     font-weight: 600;
   }
 
+  .button-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-top: 1rem;
+  }
+
   .play-again-btn {
     padding: 12px 32px;
     font-size: 1.1rem;
@@ -133,10 +147,24 @@
     color: #fff;
     border: none;
     border-radius: 8px;
-    margin-top: 1rem;
   }
 
   .play-again-btn:hover {
     background: #1e56a8;
+  }
+
+  .download-btn {
+    padding: 12px 24px;
+    font-size: 1rem;
+    font-weight: 600;
+    background: #666;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .download-btn:hover {
+    background: #555;
   }
 </style>

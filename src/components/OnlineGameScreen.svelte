@@ -4,6 +4,7 @@
   import type { SanitizedGameState } from '../network/types';
   import type { HostController } from '../network/hostController';
   import type { GuestController } from '../network/guestController';
+  import type { StructuredGameLog } from '../gameLog';
   import { sanitizedToGameState } from '../network/stateAdapter';
   import { AIController } from '../ai/aiController';
   import { cloneGameState } from '../ai/coloriGame';
@@ -21,7 +22,7 @@
     role: 'host' | 'guest';
     hostController?: HostController;
     guestController?: GuestController;
-    onGameOver: (gameState: GameState) => void;
+    onGameOver: (gameState: GameState, structuredLog?: StructuredGameLog) => void;
     gameStartTime: number;
     onLeaveGame: () => void;
   } = $props();
@@ -129,7 +130,8 @@
       hostGameLog = [...log];
     };
     hostController.onGameOver = (state) => {
-      onGameOver(state);
+      const structuredLog = hostController!.getStructuredLog() ?? undefined;
+      onGameOver(state, structuredLog);
     };
 
     // Initialize with current state

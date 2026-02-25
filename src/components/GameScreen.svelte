@@ -6,6 +6,7 @@
   import { AIController } from '../ai/aiController';
   import type { ColoriChoice } from '../ai/coloriGame';
   import { cloneGameState } from '../ai/coloriGame';
+  import type { GameLogAccumulator } from '../gameLog';
   import PlayerStatus from './PlayerStatus.svelte';
   import DrawPhaseView from './DrawPhaseView.svelte';
   import DraftPhaseView from './DraftPhaseView.svelte';
@@ -15,12 +16,13 @@
   import BuyerDisplay from './BuyerDisplay.svelte';
   import CardList from './CardList.svelte';
 
-  let { gameState, gameStartTime, onGameUpdated, initialGameLog, onLeaveGame }: {
+  let { gameState, gameStartTime, onGameUpdated, initialGameLog, onLeaveGame, gameLogAccumulator }: {
     gameState: GameState;
     gameStartTime: number | null;
     onGameUpdated: (state: GameState, log: string[]) => void;
     initialGameLog: string[];
     onLeaveGame: () => void;
+    gameLogAccumulator: GameLogAccumulator | null;
   } = $props();
 
   function handleLeaveGame() {
@@ -157,6 +159,7 @@
       pushUndoSnapshot();
     }
 
+    gameLogAccumulator?.recordChoice(gameState, choice, playerIdx);
     const logMsg = getChoiceLogMessage(gameState, choice, playerIdx);
     if (logMsg) addLog(logMsg);
     applyChoice(gameState, choice);

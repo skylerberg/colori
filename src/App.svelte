@@ -12,6 +12,7 @@
   import { HostController } from './network/hostController';
   import { GuestController } from './network/guestController';
   import { sanitizedToGameState } from './network/stateAdapter';
+  import { GameLogAccumulator, type StructuredGameLog } from './gameLog';
 
   type AppScreen =
     | { type: 'mainMenu' }
@@ -28,6 +29,10 @@
   let savedGameLog: string[] = $state(saved?.gameLog ?? []);
   let hasSavedGame = $state(saved !== null && saved.gameState.phase.type !== 'gameOver');
 
+  // Structured logging state
+  let gameLogAccumulator: GameLogAccumulator | null = $state(null);
+  let finalGameLog: StructuredGameLog | null = $state(null);
+
   // Online state
   let networkManager: NetworkManager | null = $state(null);
   let hostController: HostController | null = $state(null);
@@ -43,6 +48,8 @@
     gameState = state;
     gameStartTime = Date.now();
     savedGameLog = [];
+    gameLogAccumulator = new GameLogAccumulator(state);
+    finalGameLog = null;
     saveGame(state, gameStartTime!, []);
     screen = { type: 'localGame' };
   }
@@ -52,6 +59,10 @@
     if (state.phase.type === 'gameOver') {
       clearSavedGame();
       hasSavedGame = false;
+      if (gameLogAccumulator) {
+        gameLogAccumulator.finalize(state);
+        finalGameLog = gameLogAccumulator.getLog();
+      }
       screen = { type: 'score' };
     } else {
       saveGame(state, gameStartTime!, log);
@@ -62,6 +73,8 @@
     gameState = null;
     gameStartTime = null;
     savedGameLog = [];
+    gameLogAccumulator = null;
+    finalGameLog = null;
     clearSavedGame();
     hasSavedGame = false;
     screen = { type: 'mainMenu' };
@@ -72,6 +85,8 @@
     gameState = null;
     gameStartTime = null;
     savedGameLog = [];
+    gameLogAccumulator = null;
+    finalGameLog = null;
     hasSavedGame = false;
     screen = { type: 'mainMenu' };
   }
@@ -165,9 +180,10 @@
     screen = { type: 'onlineGame', role: 'host' };
   }
 
-  function handleOnlineGameOver(finalState: GameState) {
+  function handleOnlineGameOver(finalState: GameState, structuredLog?: StructuredGameLog) {
     cleanupNetwork();
     gameState = finalState;
+    finalGameLog = structuredLog ?? null;
     screen = { type: 'score' };
   }
 
@@ -209,7 +225,7 @@
       onBack={goToMainMenu}
     />
   {:else if screen.type === 'localGame' && gameState !== null}
-    <GameScreen {gameState} {gameStartTime} onGameUpdated={handleGameUpdated} initialGameLog={savedGameLog} onLeaveGame={handleLeaveGame} />
+    <GameScreen {gameState} {gameStartTime} onGameUpdated={handleGameUpdated} initialGameLog={savedGameLog} onLeaveGame={handleLeaveGame} {gameLogAccumulator} />
   {:else if screen.type === 'onlineGame' && gameState !== null}
     <OnlineGameScreen
       role={screen.role}
@@ -220,7 +236,7 @@
       onLeaveGame={handleLeaveOnlineGame}
     />
   {:else if screen.type === 'score' && gameState !== null}
-    <ScoreScreen {gameState} {gameStartTime} onPlayAgain={handlePlayAgain} />
+    <ScoreScreen {gameState} {gameStartTime} onPlayAgain={handlePlayAgain} structuredLog={finalGameLog} />
   {/if}
 </main>
 

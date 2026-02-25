@@ -7,6 +7,7 @@ import { executeDrawPhase } from '../engine/drawPhase';
 import { confirmPass, simultaneousPick, advanceDraft } from '../engine/draftPhase';
 import { applyChoice, getChoiceLogMessage } from '../engine/applyChoice';
 import { sanitizeGameState } from './sanitize';
+import { GameLogAccumulator, type StructuredGameLog } from '../gameLog';
 
 export class HostController {
   private network: NetworkManager;
@@ -18,6 +19,7 @@ export class HostController {
   private gameLog: string[] = [];
   private disconnectTimers: Map<number, ReturnType<typeof setTimeout>> = new Map();
   private pendingDraftPicks: Set<number> = new Set();
+  private structuredLog: GameLogAccumulator | null = null;
 
   onLobbyUpdated: ((players: LobbyPlayer[]) => void) | null = null;
   onGameStateUpdated: ((state: GameState) => void) | null = null;
@@ -65,6 +67,10 @@ export class HostController {
 
   getGameLog(): string[] {
     return this.gameLog;
+  }
+
+  getStructuredLog(): StructuredGameLog | null {
+    return this.structuredLog?.getLog() ?? null;
   }
 
   private handleGuestMessage(msg: GuestMessage, peerId: string) {
@@ -216,6 +222,7 @@ export class HostController {
     }
 
     this.gameState = createInitialGameState(playerNames, aiPlayers);
+    this.structuredLog = new GameLogAccumulator(this.gameState);
     this.gameLog = [];
     this.addLog('Game started');
 
@@ -256,6 +263,7 @@ export class HostController {
         return;
       }
 
+      this.structuredLog?.recordChoice(this.gameState, choice, playerIndex);
       simultaneousPick(this.gameState, playerIndex, choice.cardInstanceId);
       this.pendingDraftPicks.add(playerIndex);
       this.broadcastGameState([]);
@@ -283,6 +291,7 @@ export class HostController {
       return;
     }
 
+    this.structuredLog?.recordChoice(this.gameState, choice, playerIndex);
     const logMsg = getChoiceLogMessage(this.gameState, choice, playerIndex);
     const newLogEntries: string[] = logMsg ? [logMsg] : [];
 
@@ -340,6 +349,7 @@ export class HostController {
     }
 
     if (isGameOver) {
+      this.structuredLog?.finalize(this.gameState);
       this.onGameOver?.(this.gameState);
     }
   }
