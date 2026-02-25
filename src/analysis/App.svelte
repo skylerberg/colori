@@ -12,30 +12,42 @@
   let error: string | null = $state(null);
   let selectedBatch: string = $state("all");
 
-  let availableBatches = $derived(
-    [...new Set(taggedLogs.map(t => t.batchId))].sort()
-  );
-
   interface BatchInfo {
     count: number;
     iterations?: number;
     note?: string;
+    earliestTimestamp: string;
   }
 
   let batchInfo = $derived(() => {
     const map = new Map<string, BatchInfo>();
     for (const t of taggedLogs) {
-      if (!map.has(t.batchId)) {
+      const existing = map.get(t.batchId);
+      if (!existing) {
         map.set(t.batchId, {
-          count: 0,
+          count: 1,
           iterations: t.log.iterations,
           note: t.log.note,
+          earliestTimestamp: t.log.gameStartedAt,
         });
+      } else {
+        existing.count++;
+        if (t.log.gameStartedAt < existing.earliestTimestamp) {
+          existing.earliestTimestamp = t.log.gameStartedAt;
+        }
       }
-      map.get(t.batchId)!.count++;
     }
     return map;
   });
+
+  let availableBatches = $derived(
+    [...new Set(taggedLogs.map(t => t.batchId))].sort((a, b) => {
+      const infoMap = batchInfo();
+      const tsA = infoMap.get(a)?.earliestTimestamp ?? '';
+      const tsB = infoMap.get(b)?.earliestTimestamp ?? '';
+      return tsB < tsA ? -1 : tsB > tsA ? 1 : 0;
+    })
+  );
 
   function batchLabel(batchId: string): string {
     const info = batchInfo().get(batchId);
