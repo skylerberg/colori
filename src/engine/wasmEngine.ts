@@ -58,9 +58,7 @@ export function advanceDraft(state: GameState): void {
 }
 
 export function calculateScores(players: PlayerState[]): { name: string; score: number }[] {
-  // Wrap in a minimal GameState shape for the WASM function
-  const stateJson = JSON.stringify({ players });
-  const resultJson = wasm_calculate_scores(stateJson);
+  const resultJson = wasm_calculate_scores(JSON.stringify(players));
   return JSON.parse(resultJson);
 }
 

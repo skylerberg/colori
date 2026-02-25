@@ -4,7 +4,7 @@ use colori_core::draw_phase::execute_draw_phase;
 use colori_core::ismcts::ismcts;
 use colori_core::scoring::calculate_score;
 use colori_core::setup::{create_initial_game_state, reset_instance_id_counter};
-use colori_core::types::{CardInstance, ColoriChoice, GameState};
+use colori_core::types::{CardInstance, ColoriChoice, GameState, PlayerState};
 use rand::rngs::SmallRng;
 use rand::SeedableRng;
 use serde::Serialize;
@@ -109,11 +109,10 @@ struct ScoreEntry {
 }
 
 #[wasm_bindgen]
-pub fn wasm_calculate_scores(state_json: &str) -> String {
-    let state: GameState =
-        serde_json::from_str(state_json).expect("Failed to parse game state JSON");
-    let scores: Vec<ScoreEntry> = state
-        .players
+pub fn wasm_calculate_scores(players_json: &str) -> String {
+    let players: Vec<PlayerState> =
+        serde_json::from_str(players_json).expect("Failed to parse players JSON");
+    let scores: Vec<ScoreEntry> = players
         .iter()
         .map(|p| ScoreEntry {
             name: p.name.clone(),
