@@ -310,7 +310,7 @@
         {:else if gameState.phase.type === 'draft'}
           {#if isViewingActiveHuman && !aiThinking}
             <DraftPhaseView {gameState} onAction={handleAction} onGameUpdated={() => onGameUpdated(gameState, gameLog)} />
-          {:else if !aiThinking}
+          {:else}
             <DraftPhaseView {gameState} onAction={handleAction} playerIndex={selectedPlayerIndex} selectable={false} />
           {/if}
         {:else if gameState.phase.type === 'action'}
