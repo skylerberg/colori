@@ -162,4 +162,8 @@ export type ColoriChoice =
   | { type: 'gainSecondary'; color: Color }
   | { type: 'gainPrimary'; color: Color }
   | { type: 'chooseTertiaryToLose'; color: Color }
-  | { type: 'chooseTertiaryToGain'; color: Color };
+  | { type: 'chooseTertiaryToGain'; color: Color }
+  | { type: 'mixAll'; mixes: [Color, Color][] }
+  | { type: 'swapTertiary'; loseColor: Color; gainColor: Color }
+  | { type: 'destroyAndMixAll'; cardInstanceId: number; mixes: [Color, Color][] }
+  | { type: 'destroyAndSell'; cardInstanceId: number; buyerInstanceId: number };

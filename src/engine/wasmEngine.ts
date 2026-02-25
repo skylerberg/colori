@@ -123,6 +123,29 @@ export function getChoiceLogMessage(
       return `${name} lost ${choice.color}`;
     case 'chooseTertiaryToGain':
       return `${name} gained ${choice.color}`;
+    case 'mixAll': {
+      if (choice.mixes.length === 0) return `${name} skipped remaining mixes`;
+      const parts = choice.mixes.map(([a, b]) => `mixed ${a} + ${b} to make ${mixResult(a, b)}`);
+      return `${name} ${parts.join(', ')}`;
+    }
+    case 'swapTertiary':
+      return `${name} swapped ${choice.loseColor} for ${choice.gainColor}`;
+    case 'destroyAndMixAll': {
+      const card = player.draftedCards.find(c => c.instanceId === choice.cardInstanceId);
+      const cardName = card ? (getAnyCardData(card.card) as { name?: string })?.name ?? 'a card' : 'a card';
+      let msg = `${name} destroyed ${cardName} from drafted cards`;
+      if (choice.mixes.length > 0) {
+        const parts = choice.mixes.map(([a, b]) => `mixed ${a} + ${b} to make ${mixResult(a, b)}`);
+        msg += `, ${parts.join(', ')}`;
+      }
+      return msg;
+    }
+    case 'destroyAndSell': {
+      const card = player.draftedCards.find(c => c.instanceId === choice.cardInstanceId);
+      const cardName = card ? (getAnyCardData(card.card) as { name?: string })?.name ?? 'a card' : 'a card';
+      const buyer = state.buyerDisplay.find(g => g.instanceId === choice.buyerInstanceId);
+      return `${name} destroyed ${cardName} from drafted cards, sold to a ${buyer ? getBuyerData(buyer.card).stars : '?'}-star buyer`;
+    }
     default:
       return assertNever(choice);
   }

@@ -49,7 +49,7 @@ export function computeDestroyedFromDraft(logs: StructuredGameLog[]): Map<string
   for (const log of logs) {
     const instanceMap = buildInstanceMap(log);
     for (const entry of log.entries) {
-      if (entry.choice.type === 'destroyDraftedCard') {
+      if (entry.choice.type === 'destroyDraftedCard' || entry.choice.type === 'destroyAndMixAll' || entry.choice.type === 'destroyAndSell') {
         const inst = instanceMap.get(entry.choice.cardInstanceId);
         if (inst) {
           const name = getCardName(inst.card);
@@ -93,7 +93,7 @@ export function computeCardsAddedToDeck(logs: StructuredGameLog[]): Map<string, 
         if (inst) {
           drafted.set(entry.choice.cardInstanceId, getCardName(inst.card));
         }
-      } else if (entry.choice.type === 'destroyDraftedCard') {
+      } else if (entry.choice.type === 'destroyDraftedCard' || entry.choice.type === 'destroyAndMixAll' || entry.choice.type === 'destroyAndSell') {
         destroyed.add(entry.choice.cardInstanceId);
       }
     }
@@ -119,7 +119,7 @@ export function computeBuyerAcquisitions(logs: StructuredGameLog[]): {
   for (const log of logs) {
     const instanceMap = buildInstanceMap(log);
     for (const entry of log.entries) {
-      if (entry.choice.type === 'selectBuyer') {
+      if (entry.choice.type === 'selectBuyer' || entry.choice.type === 'destroyAndSell') {
         const inst = instanceMap.get(entry.choice.buyerInstanceId);
         if (inst) {
           const data = getAnyCardData(inst.card);

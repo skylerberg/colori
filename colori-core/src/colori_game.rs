@@ -5,7 +5,7 @@ use crate::action_phase::{
     skip_mix, skip_workshop,
 };
 use crate::apply_choice::apply_choice;
-use crate::color_wheel::can_pay_cost;
+use crate::color_wheel::{can_pay_cost, perform_mix};
 use crate::colors::{can_mix, PRIMARIES, SECONDARIES, TERTIARIES};
 use crate::draft_phase::{confirm_pass, player_pick};
 use crate::draw_phase::execute_draw_phase;
@@ -43,6 +43,51 @@ fn can_afford_buyer(player: &PlayerState, buyer: &BuyerCard) -> bool {
         && can_pay_cost(&player.color_wheel, buyer.color_cost())
 }
 
+// ── Mix sequence enumeration ──
+
+fn enumerate_mix_sequences<F>(
+    wheel: &ColorWheel,
+    remaining: u32,
+    choices: &mut Vec<ColoriChoice>,
+    make_choice: F,
+) where
+    F: Fn(SmallVec<[(Color, Color); 2]>) -> ColoriChoice,
+{
+    // Always include skip-all (empty mixes)
+    choices.push(make_choice(SmallVec::new()));
+
+    for i in 0..ALL_COLORS.len() {
+        for j in (i + 1)..ALL_COLORS.len() {
+            let a = ALL_COLORS[i];
+            let b = ALL_COLORS[j];
+            if wheel.get(a) > 0 && wheel.get(b) > 0 && can_mix(a, b) {
+                // Single mix
+                let mut mixes1 = SmallVec::new();
+                mixes1.push((a, b));
+                choices.push(make_choice(mixes1));
+
+                // If remaining > 1, enumerate second mix on modified wheel
+                if remaining > 1 {
+                    let mut wheel2 = wheel.clone();
+                    perform_mix(&mut wheel2, a, b);
+                    for i2 in 0..ALL_COLORS.len() {
+                        for j2 in (i2 + 1)..ALL_COLORS.len() {
+                            let c = ALL_COLORS[i2];
+                            let d = ALL_COLORS[j2];
+                            if wheel2.get(c) > 0 && wheel2.get(d) > 0 && can_mix(c, d) {
+                                let mut mixes2 = SmallVec::new();
+                                mixes2.push((a, b));
+                                mixes2.push((c, d));
+                                choices.push(make_choice(mixes2));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 // ── Choice enumeration ──
 
 pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>) {
@@ -66,9 +111,41 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>
             match pending {
                 None => {
                     for c in player.drafted_cards.iter() {
-                        choices.push(ColoriChoice::DestroyDraftedCard {
-                            card_instance_id: c.instance_id,
-                        });
+                        match c.card.ability() {
+                            Ability::MixColors { count } => {
+                                enumerate_mix_sequences(
+                                    &player.color_wheel,
+                                    count,
+                                    choices,
+                                    |mixes| ColoriChoice::DestroyAndMixAll {
+                                        card_instance_id: c.instance_id,
+                                        mixes,
+                                    },
+                                );
+                            }
+                            Ability::Sell => {
+                                let mut has_buyer = false;
+                                for g in state.buyer_display.iter() {
+                                    if can_afford_buyer(player, &g.buyer) {
+                                        has_buyer = true;
+                                        choices.push(ColoriChoice::DestroyAndSell {
+                                            card_instance_id: c.instance_id,
+                                            buyer_instance_id: g.instance_id,
+                                        });
+                                    }
+                                }
+                                if !has_buyer {
+                                    choices.push(ColoriChoice::DestroyDraftedCard {
+                                        card_instance_id: c.instance_id,
+                                    });
+                                }
+                            }
+                            _ => {
+                                choices.push(ColoriChoice::DestroyDraftedCard {
+                                    card_instance_id: c.instance_id,
+                                });
+                            }
+                        }
                     }
                     choices.push(ColoriChoice::EndTurn);
                 }
@@ -106,23 +183,13 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>
                         }
                     }
                 }
-                Some(PendingChoice::ChooseMix { .. }) => {
-                    choices.push(ColoriChoice::SkipMix);
-                    for i in 0..ALL_COLORS.len() {
-                        for j in (i + 1)..ALL_COLORS.len() {
-                            let a = ALL_COLORS[i];
-                            let b = ALL_COLORS[j];
-                            if player.color_wheel.get(a) > 0
-                                && player.color_wheel.get(b) > 0
-                                && can_mix(a, b)
-                            {
-                                choices.push(ColoriChoice::Mix {
-                                    color_a: a,
-                                    color_b: b,
-                                });
-                            }
-                        }
-                    }
+                Some(PendingChoice::ChooseMix { remaining }) => {
+                    enumerate_mix_sequences(
+                        &player.color_wheel,
+                        *remaining,
+                        choices,
+                        |mixes| ColoriChoice::MixAll { mixes },
+                    );
                 }
                 Some(PendingChoice::ChooseBuyer) => {
                     for g in state.buyer_display.iter() {
@@ -144,19 +211,20 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>
                     }
                 }
                 Some(PendingChoice::ChooseTertiaryToLose) => {
-                    for &c in TERTIARIES.iter() {
-                        if player.color_wheel.get(c) > 0 {
-                            choices.push(ColoriChoice::ChooseTertiaryToLose { color: c });
+                    for &lose in TERTIARIES.iter() {
+                        if player.color_wheel.get(lose) > 0 {
+                            for &gain in TERTIARIES.iter() {
+                                if gain != lose {
+                                    choices.push(ColoriChoice::SwapTertiary { lose, gain });
+                                }
+                            }
                         }
                     }
                 }
-                Some(PendingChoice::ChooseTertiaryToGain { lost_color }) => {
-                    let lost = *lost_color;
-                    for &c in TERTIARIES.iter() {
-                        if c != lost {
-                            choices.push(ColoriChoice::ChooseTertiaryToGain { color: c });
-                        }
-                    }
+                Some(PendingChoice::ChooseTertiaryToGain { .. }) => {
+                    // This state is never reached by the AI since SwapTertiary
+                    // skips the intermediate ChooseTertiaryToLose state.
+                    // Keep empty for safety.
                 }
             }
         }
@@ -353,6 +421,94 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                 false
             }
         }
+        ColoriChoice::MixAll { mixes } => {
+            if let GamePhase::Action { ref action_state } = state.phase {
+                match &action_state.pending_choice {
+                    Some(PendingChoice::ChooseMix { .. }) => {
+                        if mixes.is_empty() {
+                            return true;
+                        }
+                        let player = &state.players[action_state.current_player_index];
+                        let (a, b) = mixes[0];
+                        player.color_wheel.get(a) > 0
+                            && player.color_wheel.get(b) > 0
+                            && can_mix(a, b)
+                    }
+                    _ => false,
+                }
+            } else {
+                false
+            }
+        }
+        ColoriChoice::SwapTertiary { lose, gain } => {
+            if let GamePhase::Action { ref action_state } = state.phase {
+                match &action_state.pending_choice {
+                    Some(PendingChoice::ChooseTertiaryToLose) => {
+                        let player = &state.players[action_state.current_player_index];
+                        TERTIARIES.contains(lose)
+                            && player.color_wheel.get(*lose) > 0
+                            && TERTIARIES.contains(gain)
+                            && *lose != *gain
+                    }
+                    _ => false,
+                }
+            } else {
+                false
+            }
+        }
+        ColoriChoice::DestroyAndMixAll {
+            card_instance_id,
+            mixes,
+        } => {
+            if let GamePhase::Action { ref action_state } = state.phase {
+                if action_state.pending_choice.is_some() {
+                    return false;
+                }
+                let player = &state.players[action_state.current_player_index];
+                let has_card = player
+                    .drafted_cards
+                    .iter()
+                    .any(|c| c.instance_id == *card_instance_id);
+                if !has_card {
+                    return false;
+                }
+                if mixes.is_empty() {
+                    return true;
+                }
+                let (a, b) = mixes[0];
+                player.color_wheel.get(a) > 0
+                    && player.color_wheel.get(b) > 0
+                    && can_mix(a, b)
+            } else {
+                false
+            }
+        }
+        ColoriChoice::DestroyAndSell {
+            card_instance_id,
+            buyer_instance_id,
+        } => {
+            if let GamePhase::Action { ref action_state } = state.phase {
+                if action_state.pending_choice.is_some() {
+                    return false;
+                }
+                let player = &state.players[action_state.current_player_index];
+                let has_card = player
+                    .drafted_cards
+                    .iter()
+                    .any(|c| c.instance_id == *card_instance_id);
+                if !has_card {
+                    return false;
+                }
+                state
+                    .buyer_display
+                    .iter()
+                    .find(|g| g.instance_id == *buyer_instance_id)
+                    .map(|g| can_afford_buyer(player, &g.buyer))
+                    .unwrap_or(false)
+            } else {
+                false
+            }
+        }
     }
 }
 
@@ -544,6 +700,43 @@ pub fn determinize_in_place<R: Rng>(
     }
 }
 
+// ── Rollout helpers ──
+
+fn random_mix_sequence<R: Rng>(
+    wheel: &ColorWheel,
+    remaining: u32,
+    rng: &mut R,
+) -> SmallVec<[(Color, Color); 2]> {
+    let mut mixes = SmallVec::new();
+    let mut sim_wheel = wheel.clone();
+    for _ in 0..remaining {
+        if rng.random::<f64>() < 0.5 {
+            break;
+        }
+        let mut pairs: [(Color, Color); 9] = [(Color::Red, Color::Red); 9];
+        let mut pair_count = 0usize;
+        for i in 0..ALL_COLORS.len() {
+            for j in (i + 1)..ALL_COLORS.len() {
+                if sim_wheel.get(ALL_COLORS[i]) > 0
+                    && sim_wheel.get(ALL_COLORS[j]) > 0
+                    && can_mix(ALL_COLORS[i], ALL_COLORS[j])
+                {
+                    pairs[pair_count] = (ALL_COLORS[i], ALL_COLORS[j]);
+                    pair_count += 1;
+                }
+            }
+        }
+        if pair_count == 0 {
+            break;
+        }
+        let target = rng.random_range(0..pair_count);
+        let (a, b) = pairs[target];
+        mixes.push((a, b));
+        perform_mix(&mut sim_wheel, a, b);
+    }
+    mixes
+}
+
 // ── Rollout policy ──
 
 pub fn get_rollout_choice<R: Rng>(state: &GameState, rng: &mut R) -> ColoriChoice {
@@ -563,8 +756,40 @@ pub fn get_rollout_choice<R: Rng>(state: &GameState, rng: &mut R) -> ColoriChoic
                 None => {
                     if !player.drafted_cards.is_empty() && rng.random::<f64>() < 0.8 {
                         let idx = rng.random_range(0..player.drafted_cards.len());
-                        ColoriChoice::DestroyDraftedCard {
-                            card_instance_id: player.drafted_cards[idx].instance_id,
+                        let card = &player.drafted_cards[idx];
+                        let card_id = card.instance_id;
+                        match card.card.ability() {
+                            Ability::MixColors { count } => {
+                                let mixes = random_mix_sequence(&player.color_wheel, count, rng);
+                                ColoriChoice::DestroyAndMixAll {
+                                    card_instance_id: card_id,
+                                    mixes,
+                                }
+                            }
+                            Ability::Sell => {
+                                let mut affordable = [0u32; 6];
+                                let mut aff_count = 0usize;
+                                for g in &state.buyer_display {
+                                    if can_afford_buyer(player, &g.buyer) {
+                                        affordable[aff_count] = g.instance_id;
+                                        aff_count += 1;
+                                    }
+                                }
+                                if aff_count > 0 {
+                                    let buyer_idx = rng.random_range(0..aff_count);
+                                    ColoriChoice::DestroyAndSell {
+                                        card_instance_id: card_id,
+                                        buyer_instance_id: affordable[buyer_idx],
+                                    }
+                                } else {
+                                    ColoriChoice::DestroyDraftedCard {
+                                        card_instance_id: card_id,
+                                    }
+                                }
+                            }
+                            _ => ColoriChoice::DestroyDraftedCard {
+                                card_instance_id: card_id,
+                            },
                         }
                     } else {
                         ColoriChoice::EndTurn
@@ -631,28 +856,10 @@ pub fn get_rollout_choice<R: Rng>(state: &GameState, rng: &mut R) -> ColoriChoic
                         card_instance_ids: ids,
                     }
                 }
-                Some(PendingChoice::ChooseMix { .. }) => {
-                    if rng.random::<f64>() < 0.5 {
-                        return ColoriChoice::SkipMix;
+                Some(PendingChoice::ChooseMix { remaining }) => {
+                    ColoriChoice::MixAll {
+                        mixes: random_mix_sequence(&player.color_wheel, *remaining, rng),
                     }
-                    let mut pairs: [(Color, Color); 9] = [(Color::Red, Color::Red); 9];
-                    let mut pair_count = 0usize;
-                    for i in 0..ALL_COLORS.len() {
-                        for j in (i + 1)..ALL_COLORS.len() {
-                            if player.color_wheel.get(ALL_COLORS[i]) > 0
-                                && player.color_wheel.get(ALL_COLORS[j]) > 0
-                                && can_mix(ALL_COLORS[i], ALL_COLORS[j])
-                            {
-                                pairs[pair_count] = (ALL_COLORS[i], ALL_COLORS[j]);
-                                pair_count += 1;
-                            }
-                        }
-                    }
-                    if pair_count == 0 {
-                        return ColoriChoice::SkipMix;
-                    }
-                    let target = rng.random_range(0..pair_count);
-                    ColoriChoice::Mix { color_a: pairs[target].0, color_b: pairs[target].1 }
                 }
                 Some(PendingChoice::ChooseBuyer) => {
                     let mut affordable = [0u32; 6];
@@ -689,22 +896,25 @@ pub fn get_rollout_choice<R: Rng>(state: &GameState, rng: &mut R) -> ColoriChoic
                             count += 1;
                         }
                     }
-                    let idx = rng.random_range(0..count);
-                    ColoriChoice::ChooseTertiaryToLose { color: owned[idx] }
-                }
-                Some(PendingChoice::ChooseTertiaryToGain { lost_color }) => {
+                    let lose_idx = rng.random_range(0..count);
+                    let lose = owned[lose_idx];
                     let mut options = [Color::Red; 6];
-                    let mut count = 0usize;
+                    let mut opt_count = 0usize;
                     for &c in &TERTIARIES {
-                        if c != *lost_color {
-                            options[count] = c;
-                            count += 1;
+                        if c != lose {
+                            options[opt_count] = c;
+                            opt_count += 1;
                         }
                     }
-                    let idx = rng.random_range(0..count);
-                    ColoriChoice::ChooseTertiaryToGain {
-                        color: options[idx],
+                    let gain_idx = rng.random_range(0..opt_count);
+                    ColoriChoice::SwapTertiary {
+                        lose,
+                        gain: options[gain_idx],
                     }
+                }
+                Some(PendingChoice::ChooseTertiaryToGain { .. }) => {
+                    // Should not be reached by AI — SwapTertiary skips intermediate state
+                    panic!("ChooseTertiaryToGain should not be reached in AI rollout")
                 }
             }
         }
@@ -723,17 +933,55 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
     enum Op {
         DraftPick(u32),
         DestroyDrafted(u32),
+        DestroyAndMix { card_id: u32, mixes: [(Color, Color); 2], mix_count: usize },
+        DestroyAndSell { card_id: u32, buyer_id: u32 },
         EndTurn,
         SkipWorkshop,
         Workshop { ids: [u32; 16], count: usize },
         DestroyDrawn { ids: [u32; 16], count: usize },
-        Mix(Color, Color),
-        SkipMix,
+        MixAll { mixes: [(Color, Color); 2], mix_count: usize },
         SelectBuyer(u32),
         GainSecondary(Color),
         GainPrimary(Color),
-        TertiaryLose(Color),
-        TertiaryGain(Color),
+        SwapTertiary(Color, Color),
+    }
+
+    // Helper to generate a random mix sequence on a cloned wheel, returning stack array
+    fn random_mix_seq_inline<R2: Rng>(
+        wheel: &ColorWheel,
+        remaining: u32,
+        rng: &mut R2,
+    ) -> ([(Color, Color); 2], usize) {
+        let mut mixes = [(Color::Red, Color::Red); 2];
+        let mut count = 0usize;
+        let mut sim_wheel = wheel.clone();
+        for _ in 0..remaining {
+            if count >= 2 || rng.random::<f64>() < 0.5 {
+                break;
+            }
+            let mut pairs: [(Color, Color); 9] = [(Color::Red, Color::Red); 9];
+            let mut pair_count = 0usize;
+            for i in 0..ALL_COLORS.len() {
+                for j in (i + 1)..ALL_COLORS.len() {
+                    if sim_wheel.get(ALL_COLORS[i]) > 0
+                        && sim_wheel.get(ALL_COLORS[j]) > 0
+                        && can_mix(ALL_COLORS[i], ALL_COLORS[j])
+                    {
+                        pairs[pair_count] = (ALL_COLORS[i], ALL_COLORS[j]);
+                        pair_count += 1;
+                    }
+                }
+            }
+            if pair_count == 0 {
+                break;
+            }
+            let target = rng.random_range(0..pair_count);
+            let (a, b) = pairs[target];
+            mixes[count] = (a, b);
+            count += 1;
+            perform_mix(&mut sim_wheel, a, b);
+        }
+        (mixes, count)
     }
 
     let op = match &state.phase {
@@ -748,7 +996,32 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                 None => {
                     if !player.drafted_cards.is_empty() && rng.random::<f64>() < 0.8 {
                         let idx = rng.random_range(0..player.drafted_cards.len());
-                        Op::DestroyDrafted(player.drafted_cards[idx].instance_id)
+                        let card = &player.drafted_cards[idx];
+                        let card_id = card.instance_id;
+                        match card.card.ability() {
+                            Ability::MixColors { count } => {
+                                let (mixes, mix_count) =
+                                    random_mix_seq_inline(&player.color_wheel, count, rng);
+                                Op::DestroyAndMix { card_id, mixes, mix_count }
+                            }
+                            Ability::Sell => {
+                                let mut affordable = [0u32; 6];
+                                let mut aff_count = 0usize;
+                                for g in &state.buyer_display {
+                                    if can_afford_buyer(player, &g.buyer) {
+                                        affordable[aff_count] = g.instance_id;
+                                        aff_count += 1;
+                                    }
+                                }
+                                if aff_count > 0 {
+                                    let buyer_idx = rng.random_range(0..aff_count);
+                                    Op::DestroyAndSell { card_id, buyer_id: affordable[buyer_idx] }
+                                } else {
+                                    Op::DestroyDrafted(card_id)
+                                }
+                            }
+                            _ => Op::DestroyDrafted(card_id),
+                        }
                     } else {
                         Op::EndTurn
                     }
@@ -807,30 +1080,10 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                         }
                     }
                 }
-                Some(PendingChoice::ChooseMix { .. }) => {
-                    if rng.random::<f64>() < 0.5 {
-                        Op::SkipMix
-                    } else {
-                        let mut pairs: [(Color, Color); 9] = [(Color::Red, Color::Red); 9];
-                        let mut pair_count = 0usize;
-                        for i in 0..ALL_COLORS.len() {
-                            for j in (i + 1)..ALL_COLORS.len() {
-                                if player.color_wheel.get(ALL_COLORS[i]) > 0
-                                    && player.color_wheel.get(ALL_COLORS[j]) > 0
-                                    && can_mix(ALL_COLORS[i], ALL_COLORS[j])
-                                {
-                                    pairs[pair_count] = (ALL_COLORS[i], ALL_COLORS[j]);
-                                    pair_count += 1;
-                                }
-                            }
-                        }
-                        if pair_count == 0 {
-                            Op::SkipMix
-                        } else {
-                            let target = rng.random_range(0..pair_count);
-                            Op::Mix(pairs[target].0, pairs[target].1)
-                        }
-                    }
+                Some(PendingChoice::ChooseMix { remaining }) => {
+                    let (mixes, mix_count) =
+                        random_mix_seq_inline(&player.color_wheel, *remaining, rng);
+                    Op::MixAll { mixes, mix_count }
                 }
                 Some(PendingChoice::ChooseBuyer) => {
                     let mut affordable = [0u32; 6];
@@ -861,21 +1114,21 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                             own_count += 1;
                         }
                     }
-                    let idx = rng.random_range(0..own_count);
-                    Op::TertiaryLose(owned[idx])
-                }
-                Some(PendingChoice::ChooseTertiaryToGain { lost_color }) => {
-                    let lost = *lost_color;
+                    let lose_idx = rng.random_range(0..own_count);
+                    let lose = owned[lose_idx];
                     let mut options = [Color::Red; 6];
                     let mut opt_count = 0usize;
                     for &c in &TERTIARIES {
-                        if c != lost {
+                        if c != lose {
                             options[opt_count] = c;
                             opt_count += 1;
                         }
                     }
-                    let idx = rng.random_range(0..opt_count);
-                    Op::TertiaryGain(options[idx])
+                    let gain_idx = rng.random_range(0..opt_count);
+                    Op::SwapTertiary(lose, options[gain_idx])
+                }
+                Some(PendingChoice::ChooseTertiaryToGain { .. }) => {
+                    panic!("ChooseTertiaryToGain should not be reached in AI rollout")
                 }
             }
         }
@@ -892,6 +1145,22 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
             }
         }
         Op::DestroyDrafted(id) => destroy_drafted_card(state, id, rng),
+        Op::DestroyAndMix { card_id, mixes, mix_count } => {
+            destroy_drafted_card(state, card_id, rng);
+            for i in 0..mix_count {
+                let (a, b) = mixes[i];
+                resolve_mix_colors(state, a, b, rng);
+            }
+            if let GamePhase::Action { ref action_state } = state.phase {
+                if matches!(action_state.pending_choice, Some(PendingChoice::ChooseMix { .. })) {
+                    skip_mix(state, rng);
+                }
+            }
+        }
+        Op::DestroyAndSell { card_id, buyer_id } => {
+            destroy_drafted_card(state, card_id, rng);
+            resolve_select_buyer(state, buyer_id, rng);
+        }
         Op::EndTurn => {
             end_player_turn(state, rng);
             if matches!(state.phase, GamePhase::Draw) {
@@ -901,12 +1170,23 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
         Op::SkipWorkshop => skip_workshop(state, rng),
         Op::Workshop { ids, count } => resolve_workshop_choice(state, &ids[..count], rng),
         Op::DestroyDrawn { ids, count } => resolve_destroy_cards(state, &ids[..count], rng),
-        Op::Mix(a, b) => resolve_mix_colors(state, a, b, rng),
-        Op::SkipMix => skip_mix(state, rng),
+        Op::MixAll { mixes, mix_count } => {
+            for i in 0..mix_count {
+                let (a, b) = mixes[i];
+                resolve_mix_colors(state, a, b, rng);
+            }
+            if let GamePhase::Action { ref action_state } = state.phase {
+                if matches!(action_state.pending_choice, Some(PendingChoice::ChooseMix { .. })) {
+                    skip_mix(state, rng);
+                }
+            }
+        }
         Op::SelectBuyer(id) => resolve_select_buyer(state, id, rng),
         Op::GainSecondary(c) => resolve_gain_secondary(state, c, rng),
         Op::GainPrimary(c) => resolve_gain_primary(state, c, rng),
-        Op::TertiaryLose(c) => resolve_choose_tertiary_to_lose(state, c),
-        Op::TertiaryGain(c) => resolve_choose_tertiary_to_gain(state, c, rng),
+        Op::SwapTertiary(lose, gain) => {
+            resolve_choose_tertiary_to_lose(state, lose);
+            resolve_choose_tertiary_to_gain(state, gain, rng);
+        }
     }
 }

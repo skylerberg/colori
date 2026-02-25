@@ -692,4 +692,28 @@ pub enum ColoriChoice {
     ChooseTertiaryToLose { color: Color },
     #[serde(rename = "chooseTertiaryToGain")]
     ChooseTertiaryToGain { color: Color },
+    #[serde(rename = "mixAll")]
+    MixAll {
+        mixes: SmallVec<[(Color, Color); 2]>,
+    },
+    #[serde(rename = "swapTertiary")]
+    SwapTertiary {
+        #[serde(rename = "loseColor")]
+        lose: Color,
+        #[serde(rename = "gainColor")]
+        gain: Color,
+    },
+    #[serde(rename = "destroyAndMixAll")]
+    DestroyAndMixAll {
+        #[serde(rename = "cardInstanceId")]
+        card_instance_id: u32,
+        mixes: SmallVec<[(Color, Color); 2]>,
+    },
+    #[serde(rename = "destroyAndSell")]
+    DestroyAndSell {
+        #[serde(rename = "cardInstanceId")]
+        card_instance_id: u32,
+        #[serde(rename = "buyerInstanceId")]
+        buyer_instance_id: u32,
+    },
 }
