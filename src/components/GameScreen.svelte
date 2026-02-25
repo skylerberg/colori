@@ -327,12 +327,12 @@
           {:else}
             <div class="readonly-cards">
               <div class="section-box">
-                <h3>Workshop</h3>
-                <CardList cards={selectedPlayer.workshopCards} />
-              </div>
-              <div class="section-box">
                 <h3>Drafted Cards</h3>
                 <CardList cards={selectedPlayer.draftedCards} />
+              </div>
+              <div class="section-box">
+                <h3>Workshop</h3>
+                <CardList cards={selectedPlayer.workshopCards} />
               </div>
               {#if selectedPlayer.completedBuyers.length > 0}
                 <div class="section-box">

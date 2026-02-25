@@ -52,13 +52,13 @@
       </div>
 
       <div class="card-section">
-        <h4>Workshop</h4>
-        <CardList cards={player.workshopCards} />
+        <h4>Drafted Cards</h4>
+        <CardList cards={player.draftedCards} />
       </div>
 
       <div class="card-section">
-        <h4>Drafted Cards</h4>
-        <CardList cards={player.draftedCards} />
+        <h4>Workshop</h4>
+        <CardList cards={player.workshopCards} />
       </div>
 
       {#if player.completedBuyers.length > 0}
