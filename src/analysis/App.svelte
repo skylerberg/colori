@@ -16,6 +16,41 @@
     [...new Set(taggedLogs.map(t => t.batchId))].sort()
   );
 
+  interface BatchInfo {
+    count: number;
+    iterations?: number;
+    note?: string;
+  }
+
+  let batchInfo = $derived(() => {
+    const map = new Map<string, BatchInfo>();
+    for (const t of taggedLogs) {
+      if (!map.has(t.batchId)) {
+        map.set(t.batchId, {
+          count: 0,
+          iterations: t.log.iterations,
+          note: t.log.note,
+        });
+      }
+      map.get(t.batchId)!.count++;
+    }
+    return map;
+  });
+
+  function batchLabel(batchId: string): string {
+    const info = batchInfo().get(batchId);
+    if (!info) return batchId;
+    let label = batchId;
+    if (info.iterations != null) label += ` (iters: ${info.iterations})`;
+    if (info.note) label += ` - ${info.note}`;
+    label += ` (${info.count} games)`;
+    return label;
+  }
+
+  let selectedBatchInfo = $derived(
+    selectedBatch !== "all" ? batchInfo().get(selectedBatch) ?? null : null
+  );
+
   let filteredLogs = $derived(
     selectedBatch === "all"
       ? taggedLogs.map(t => t.log)
@@ -78,6 +113,16 @@
       <p>{taggedLogs.length} games loaded</p>
     {:else}
       <p>{filteredLogs.length} of {taggedLogs.length} games shown</p>
+      {#if selectedBatchInfo}
+        <div class="batch-meta">
+          {#if selectedBatchInfo.iterations != null}
+            <span class="meta-tag">Iterations: {selectedBatchInfo.iterations}</span>
+          {/if}
+          {#if selectedBatchInfo.note}
+            <span class="meta-tag">Note: {selectedBatchInfo.note}</span>
+          {/if}
+        </div>
+      {/if}
     {/if}
 
     {#if availableBatches.length > 1}
@@ -87,7 +132,7 @@
           <select bind:value={selectedBatch}>
             <option value="all">All batches</option>
             {#each availableBatches as batch}
-              <option value={batch}>{batch} ({taggedLogs.filter(t => t.batchId === batch).length} games)</option>
+              <option value={batch}>{batchLabel(batch)}</option>
             {/each}
           </select>
         </label>
@@ -110,6 +155,17 @@
   }
   .batch-filter {
     margin: 0.5rem 0 1rem;
+  }
+  .batch-meta {
+    display: flex;
+    gap: 1rem;
+    margin: 0.5rem 0;
+  }
+  .meta-tag {
+    background: #e8f0fe;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
   }
   .error {
     color: red;

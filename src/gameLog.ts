@@ -21,6 +21,9 @@ export interface StructuredGameLog {
   finalScores: { name: string; score: number }[] | null;
   finalPlayerStats: FinalPlayerStats[] | null;
   entries: StructuredLogEntry[];
+  durationMs?: number;
+  iterations?: number;
+  note?: string;
 }
 
 export interface FinalPlayerStats {

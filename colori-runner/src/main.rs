@@ -10,7 +10,7 @@ use rand::Rng;
 use rand::SeedableRng;
 use serde::Serialize;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 // ── CLI args ──
 
@@ -20,6 +20,7 @@ struct Args {
     players: usize,
     threads: usize,
     output: String,
+    note: Option<String>,
 }
 
 fn parse_args() -> Args {
@@ -31,6 +32,7 @@ fn parse_args() -> Args {
         .map(|n| n.get())
         .unwrap_or(1);
     let mut output = "game-logs".to_string();
+    let mut note: Option<String> = None;
 
     let mut i = 1;
     while i < args.len() {
@@ -55,6 +57,10 @@ fn parse_args() -> Args {
                 i += 1;
                 output = args[i].clone();
             }
+            "--note" => {
+                i += 1;
+                note = Some(args[i].clone());
+            }
             other => {
                 eprintln!("Unknown argument: {}", other);
                 std::process::exit(1);
@@ -69,6 +75,7 @@ fn parse_args() -> Args {
         players,
         threads,
         output,
+        note,
     }
 }
 
@@ -86,6 +93,12 @@ struct StructuredGameLog {
     final_scores: Option<Vec<FinalScore>>,
     final_player_stats: Option<Vec<FinalPlayerStats>>,
     entries: Vec<StructuredLogEntry>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    duration_ms: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    iterations: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    note: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -140,8 +153,10 @@ fn run_game(
     _game_index: usize,
     num_players: usize,
     iterations: u32,
+    note: Option<String>,
     rng: &mut SmallRng,
 ) -> StructuredGameLog {
+    let start = Instant::now();
     let names: Vec<String> = (1..=num_players)
         .map(|i| format!("Player {}", i))
         .collect();
@@ -225,6 +240,8 @@ fn run_game(
             .collect(),
     );
 
+    let duration_ms = Some(start.elapsed().as_millis() as u64);
+
     StructuredGameLog {
         version: 1,
         game_started_at,
@@ -235,6 +252,9 @@ fn run_game(
         final_scores,
         final_player_stats,
         entries,
+        duration_ms,
+        iterations: Some(iterations),
+        note,
     }
 }
 
@@ -266,6 +286,7 @@ fn main() {
     let num_threads = args.threads;
     let output_dir = &args.output;
     let batch_id = batch_id.as_str();
+    let note = &args.note;
 
     std::thread::scope(|s| {
         let games_per_thread = total_games / num_threads;
@@ -279,7 +300,7 @@ fn main() {
             handles.push(s.spawn(move || {
                 let mut rng = SmallRng::from_os_rng();
                 for _i in 0..count {
-                    let log = run_game(0, num_players, iterations, &mut rng);
+                    let log = run_game(0, num_players, iterations, note.clone(), &mut rng);
                     let epoch_millis = now_epoch_millis();
                     let path = format!("{}/game-{}-{}.json", output_dir, epoch_millis, batch_id);
                     let json = serde_json::to_string_pretty(&log).unwrap();

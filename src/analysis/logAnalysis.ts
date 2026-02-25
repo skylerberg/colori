@@ -261,6 +261,37 @@ export function computeAverageGameLength(logs: StructuredGameLog[]): {
   };
 }
 
+export function computeDurationStats(logs: StructuredGameLog[]): {
+  avgMs: number;
+  medianMs: number;
+  minMs: number;
+  maxMs: number;
+} | null {
+  const durations: number[] = [];
+  for (const log of logs) {
+    if (log.durationMs != null) {
+      durations.push(log.durationMs);
+    }
+  }
+
+  if (durations.length === 0) return null;
+
+  durations.sort((a, b) => a - b);
+  const sum = durations.reduce((a, b) => a + b, 0);
+  const avgMs = sum / durations.length;
+  const mid = Math.floor(durations.length / 2);
+  const medianMs = durations.length % 2 === 0
+    ? (durations[mid - 1] + durations[mid]) / 2
+    : durations[mid];
+
+  return {
+    avgMs,
+    medianMs,
+    minMs: durations[0],
+    maxMs: durations[durations.length - 1],
+  };
+}
+
 export function computeColorWheelStats(logs: StructuredGameLog[]): Map<string, number> {
   const totals = new Map<string, number>();
   let playerCount = 0;

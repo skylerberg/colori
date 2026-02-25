@@ -12,6 +12,7 @@
     computeDraftFrequency,
     computeAverageGameLength,
     computeColorWheelStats,
+    computeDurationStats,
   } from './logAnalysis';
 
   let { logs }: { logs: StructuredGameLog[] } = $props();
@@ -27,6 +28,7 @@
   let draftFreq = $derived(computeDraftFrequency(logs));
   let gameLength = $derived(computeAverageGameLength(logs));
   let colorStats = $derived(computeColorWheelStats(logs));
+  let durationStats = $derived(computeDurationStats(logs));
 
   function sortedByValue(map: Map<string, number>): [string, number][] {
     return [...map.entries()].sort((a, b) => b[1] - a[1]);
@@ -71,6 +73,16 @@
       <div class="value">{deckStats.min} - {deckStats.max}</div>
       <div class="label">Deck Size Range</div>
     </div>
+    {#if durationStats}
+      <div class="stat-card">
+        <div class="value">{(durationStats.avgMs / 1000).toFixed(1)}s</div>
+        <div class="label">Avg Duration</div>
+      </div>
+      <div class="stat-card">
+        <div class="value">{(durationStats.medianMs / 1000).toFixed(1)}s</div>
+        <div class="label">Median Duration</div>
+      </div>
+    {/if}
   </div>
 </details>
 
