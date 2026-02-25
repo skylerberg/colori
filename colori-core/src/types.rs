@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use smallvec::SmallVec;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Color {
@@ -626,6 +625,28 @@ pub enum GamePhase {
     GameOver,
 }
 
+fn serialize_ai_players<S: serde::Serializer>(mask: &u8, serializer: S) -> Result<S::Ok, S::Error> {
+    use serde::ser::SerializeSeq;
+    // Find highest set bit to determine array length
+    let len = if *mask == 0 { 0 } else { 8 - mask.leading_zeros() as usize };
+    let mut seq = serializer.serialize_seq(Some(len))?;
+    for i in 0..len {
+        seq.serialize_element(&(mask & (1 << i) != 0))?;
+    }
+    seq.end()
+}
+
+fn deserialize_ai_players<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<u8, D::Error> {
+    let bools: Vec<bool> = Vec::deserialize(deserializer)?;
+    let mut mask = 0u8;
+    for (i, &b) in bools.iter().enumerate() {
+        if b {
+            mask |= 1u8 << i;
+        }
+    }
+    Ok(mask)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GameState {
@@ -636,7 +657,41 @@ pub struct GameState {
     pub buyer_display: Vec<BuyerInstance>,
     pub phase: GamePhase,
     pub round: u32,
-    pub ai_players: Vec<bool>,
+    #[serde(serialize_with = "serialize_ai_players", deserialize_with = "deserialize_ai_players")]
+    pub ai_players: u8,
+}
+
+fn serialize_card_mask<S: serde::Serializer>(mask: &u128, serializer: S) -> Result<S::Ok, S::Error> {
+    use serde::ser::SerializeSeq;
+    let count = mask.count_ones() as usize;
+    let mut seq = serializer.serialize_seq(Some(count))?;
+    let mut remaining = *mask;
+    while remaining != 0 {
+        let bit = remaining.trailing_zeros();
+        seq.serialize_element(&(bit + 1))?;
+        remaining &= remaining - 1;
+    }
+    seq.end()
+}
+
+fn deserialize_card_mask<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<u128, D::Error> {
+    let ids: Vec<u32> = Vec::deserialize(deserializer)?;
+    let mut mask = 0u128;
+    for id in ids {
+        mask |= 1u128 << (id - 1);
+    }
+    Ok(mask)
+}
+
+pub fn mask_to_ids(mask: u128) -> smallvec::SmallVec<[u32; 5]> {
+    let mut ids = smallvec::SmallVec::new();
+    let mut remaining = mask;
+    while remaining != 0 {
+        let bit = remaining.trailing_zeros();
+        ids.push(bit + 1);
+        remaining &= remaining - 1;
+    }
+    ids
 }
 
 // ── ColoriChoice ──
@@ -658,15 +713,15 @@ pub enum ColoriChoice {
     EndTurn,
     #[serde(rename = "workshop")]
     Workshop {
-        #[serde(rename = "cardInstanceIds")]
-        card_instance_ids: SmallVec<[u32; 5]>,
+        #[serde(rename = "cardInstanceIds", serialize_with = "serialize_card_mask", deserialize_with = "deserialize_card_mask")]
+        card_mask: u128,
     },
     #[serde(rename = "skipWorkshop")]
     SkipWorkshop,
     #[serde(rename = "destroyDrawnCards")]
     DestroyDrawnCards {
-        #[serde(rename = "cardInstanceIds")]
-        card_instance_ids: SmallVec<[u32; 5]>,
+        #[serde(rename = "cardInstanceIds", serialize_with = "serialize_card_mask", deserialize_with = "deserialize_card_mask")]
+        card_mask: u128,
     },
     #[serde(rename = "mix")]
     Mix {
