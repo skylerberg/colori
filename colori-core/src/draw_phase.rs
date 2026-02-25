@@ -6,8 +6,8 @@ use rand::Rng;
 pub fn execute_draw_phase<R: Rng>(state: &mut GameState, rng: &mut R) {
     let num_players = state.players.len();
     for i in 0..num_players {
-        let drawn = draw_from_deck(&mut state.players[i], 5, rng);
-        state.players[i].workshop_cards.extend(drawn);
+        let player = &mut state.players[i];
+        draw_from_deck(&mut player.deck, &mut player.discard, &mut player.workshop_cards, 5, rng);
     }
     initialize_draft(state, rng);
 }

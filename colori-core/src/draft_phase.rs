@@ -61,7 +61,7 @@ pub fn player_pick(state: &mut GameState, card_instance_id: u32) {
                 .iter()
                 .position(|c| c.instance_id == card_instance_id)
                 .expect("Card not found in player's draft hand");
-            let card = hand.remove(card_index);
+            let card = hand.swap_remove(card_index);
             state.players[pi].drafted_cards.push(card);
             draft_state.current_player_index = (pi + 1) % num_players;
             pi
@@ -96,11 +96,9 @@ pub fn advance_draft(state: &mut GameState) {
         };
 
         if ds.direction == 1 {
-            let last = ds.hands.remove(num_players - 1);
-            ds.hands.insert(0, last);
+            ds.hands.rotate_right(1);
         } else {
-            let first = ds.hands.remove(0);
-            ds.hands.push(first);
+            ds.hands.rotate_left(1);
         }
 
         ds.pick_number += 1;
@@ -135,7 +133,7 @@ pub fn simultaneous_pick(state: &mut GameState, player_index: usize, card_instan
                 .iter()
                 .position(|c| c.instance_id == card_instance_id)
                 .expect("Card not found in player's draft hand");
-            let card = hand.remove(card_index);
+            let card = hand.swap_remove(card_index);
             state.players[player_index].drafted_cards.push(card);
         }
         _ => panic!("Expected draft phase"),

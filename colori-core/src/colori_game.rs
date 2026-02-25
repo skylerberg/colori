@@ -396,6 +396,7 @@ pub fn determinize_in_place<R: Rng>(
     source: &GameState,
     perspective_player: usize,
     seen_hands: &Option<Vec<Vec<CardInstance>>>,
+    pool: &mut Vec<CardInstance>,
     rng: &mut R,
 ) {
     det.clone_from(source);
@@ -415,15 +416,27 @@ pub fn determinize_in_place<R: Rng>(
                     continue;
                 }
 
-                let mut current_cards: Vec<u32> =
-                    hand.iter().map(|c| c.instance_id).collect();
+                let mut current_cards = [0u32; 20];
+                let mut current_cards_count = 0usize;
+                for c in hand.iter() {
+                    current_cards[current_cards_count] = c.instance_id;
+                    current_cards_count += 1;
+                }
                 let mut receiver = perspective_player;
 
                 // Remove what perspective player picked at this round
                 if round < source.players[perspective_player].drafted_cards.len() {
                     let persp_pick =
                         source.players[perspective_player].drafted_cards[round].instance_id;
-                    current_cards.retain(|&id| id != persp_pick);
+                    let mut i = 0;
+                    while i < current_cards_count {
+                        if current_cards[i] == persp_pick {
+                            current_cards[i] = current_cards[current_cards_count - 1];
+                            current_cards_count -= 1;
+                            break;
+                        }
+                        i += 1;
+                    }
                 }
 
                 // Chain through subsequent players
@@ -447,9 +460,19 @@ pub fn determinize_in_place<R: Rng>(
                     if pick_round < source.players[receiver].drafted_cards.len() {
                         let receiver_pick =
                             source.players[receiver].drafted_cards[pick_round].instance_id;
-                        if current_cards.contains(&receiver_pick) {
+                        let mut found = false;
+                        let mut i = 0;
+                        while i < current_cards_count {
+                            if current_cards[i] == receiver_pick {
+                                found = true;
+                                current_cards[i] = current_cards[current_cards_count - 1];
+                                current_cards_count -= 1;
+                                break;
+                            }
+                            i += 1;
+                        }
+                        if found {
                             known_hands[receiver] = true;
-                            current_cards.retain(|&id| id != receiver_pick);
                         } else {
                             break;
                         }
@@ -469,7 +492,7 @@ pub fn determinize_in_place<R: Rng>(
         // Pool cards from unknown hands, shuffle, redistribute
         let mut unknown_players = [0usize; 4];
         let mut unknown_count = 0usize;
-        let mut pool: Vec<CardInstance> = Vec::new();
+        pool.clear();
         for i in 0..num_players {
             if !known_hands[i] {
                 unknown_players[unknown_count] = i;
@@ -479,7 +502,7 @@ pub fn determinize_in_place<R: Rng>(
         }
 
         if unknown_count > 0 {
-            crate::deck_utils::shuffle_in_place(&mut pool, rng);
+            crate::deck_utils::shuffle_in_place(pool, rng);
             let mut idx = 0;
             for k in 0..unknown_count {
                 let pi = unknown_players[k];

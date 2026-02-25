@@ -1,4 +1,4 @@
-use crate::types::{CardInstance, PlayerState};
+use crate::types::CardInstance;
 use rand::Rng;
 
 pub fn shuffle_in_place<T, R: Rng>(array: &mut Vec<T>, rng: &mut R) {
@@ -19,22 +19,22 @@ pub fn shuffle<T: Clone, R: Rng>(array: &[T], rng: &mut R) -> Vec<T> {
 }
 
 pub fn draw_from_deck<R: Rng>(
-    player: &mut PlayerState,
+    deck: &mut Vec<CardInstance>,
+    discard: &mut Vec<CardInstance>,
+    dest: &mut Vec<CardInstance>,
     count: usize,
     rng: &mut R,
-) -> Vec<CardInstance> {
-    let mut drawn = Vec::with_capacity(count);
+) {
     for _ in 0..count {
-        if player.deck.is_empty() {
-            if player.discard.is_empty() {
+        if deck.is_empty() {
+            if discard.is_empty() {
                 break;
             }
-            shuffle_in_place(&mut player.discard, rng);
-            std::mem::swap(&mut player.deck, &mut player.discard);
+            shuffle_in_place(discard, rng);
+            std::mem::swap(deck, discard);
         }
-        if let Some(card) = player.deck.pop() {
-            drawn.push(card);
+        if let Some(card) = deck.pop() {
+            dest.push(card);
         }
     }
-    drawn
 }

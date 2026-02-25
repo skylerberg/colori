@@ -26,7 +26,7 @@ pub fn destroy_drafted_card<R: Rng>(state: &mut GameState, card_instance_id: u32
         .position(|c| c.instance_id == card_instance_id)
         .expect("Card not found in player's draftedCards");
 
-    let card = player.drafted_cards.remove(card_index);
+    let card = player.drafted_cards.swap_remove(card_index);
     let ability = card.card.ability();
     state.destroyed_pile.push(card);
 
@@ -48,8 +48,8 @@ pub fn process_queue<R: Rng>(state: &mut GameState, rng: &mut R) {
 
     match ability {
         Ability::DrawCards { count } => {
-            let drawn = draw_from_deck(&mut state.players[player_index], count as usize, rng);
-            state.players[player_index].workshop_cards.extend(drawn);
+            let player = &mut state.players[player_index];
+            draw_from_deck(&mut player.deck, &mut player.discard, &mut player.workshop_cards, count as usize, rng);
             process_queue(state, rng);
         }
         Ability::Workshop { count } => {
@@ -143,8 +143,10 @@ pub fn resolve_workshop_choice<R: Rng>(
     let remaining = count - selected_card_ids.len() as u32;
 
     // Partition selected cards into action and non-action
-    let mut action_cards = Vec::new();
-    let mut non_action_ids = Vec::new();
+    let mut action_cards = [0u32; 16];
+    let mut action_cards_count = 0usize;
+    let mut non_action_ids = [0u32; 16];
+    let mut non_action_ids_count = 0usize;
     for &id in selected_card_ids {
         let card = state.players[player_index]
             .workshop_cards
@@ -152,21 +154,24 @@ pub fn resolve_workshop_choice<R: Rng>(
             .find(|c| c.instance_id == id)
             .expect("Card not found in workshopCards");
         if card.card.is_action() {
-            action_cards.push(id);
+            action_cards[action_cards_count] = id;
+            action_cards_count += 1;
         } else {
-            non_action_ids.push(id);
+            non_action_ids[non_action_ids_count] = id;
+            non_action_ids_count += 1;
         }
     }
 
     // Process non-action cards immediately: extract materials/colors, move to discard
     let player = &mut state.players[player_index];
-    for &card_id in &non_action_ids {
+    for i in 0..non_action_ids_count {
+        let card_id = non_action_ids[i];
         let card_index = player
             .workshop_cards
             .iter()
             .position(|c| c.instance_id == card_id)
             .unwrap();
-        let card = player.workshop_cards.remove(card_index);
+        let card = player.workshop_cards.swap_remove(card_index);
         for mt in card.card.material_types() {
             player.materials.increment(*mt);
         }
@@ -177,31 +182,42 @@ pub fn resolve_workshop_choice<R: Rng>(
     }
 
     // Remove action cards from workshop, move to discard, collect abilities
-    let mut regular_abilities = Vec::new();
-    let mut cot_abilities = Vec::new();
-    let mut vinegar_abilities = Vec::new();
+    let mut regular_abilities = [Ability::Sell; 8];
+    let mut regular_abilities_count = 0usize;
+    let mut cot_abilities = [Ability::Sell; 8];
+    let mut cot_abilities_count = 0usize;
+    let mut vinegar_abilities = [Ability::Sell; 8];
+    let mut vinegar_abilities_count = 0usize;
     let mut potash_base_count: Option<u32> = None;
     let mut has_cot = false;
 
-    for &card_id in &action_cards {
+    for i in 0..action_cards_count {
+        let card_id = action_cards[i];
         let card_index = player
             .workshop_cards
             .iter()
             .position(|c| c.instance_id == card_id)
             .unwrap();
-        let card = player.workshop_cards.remove(card_index);
+        let card = player.workshop_cards.swap_remove(card_index);
 
         for &ability in card.card.workshop_abilities() {
             match ability {
-                Ability::ChangeTertiary => vinegar_abilities.push(ability),
+                Ability::ChangeTertiary => {
+                    vinegar_abilities[vinegar_abilities_count] = ability;
+                    vinegar_abilities_count += 1;
+                }
                 Ability::Workshop { count: c } => {
                     potash_base_count = Some(potash_base_count.unwrap_or(0) + c);
                 }
                 Ability::DrawCards { .. } => {
                     has_cot = true;
-                    cot_abilities.push(ability);
+                    cot_abilities[cot_abilities_count] = ability;
+                    cot_abilities_count += 1;
                 }
-                _ => regular_abilities.push(ability),
+                _ => {
+                    regular_abilities[regular_abilities_count] = ability;
+                    regular_abilities_count += 1;
+                }
             }
         }
 
@@ -223,8 +239,8 @@ pub fn resolve_workshop_choice<R: Rng>(
     }
 
     // Push Vinegar (resolves second-to-last)
-    for ability in &vinegar_abilities {
-        stack.push(*ability);
+    for i in 0..vinegar_abilities_count {
+        stack.push(vinegar_abilities[i]);
     }
 
     // Push Workshop{remaining} if CoT was used and there are remaining picks
@@ -233,13 +249,13 @@ pub fn resolve_workshop_choice<R: Rng>(
     }
 
     // Push CoT's DrawCards (resolves before remaining picks)
-    for ability in &cot_abilities {
-        stack.push(*ability);
+    for i in 0..cot_abilities_count {
+        stack.push(cot_abilities[i]);
     }
 
     // Push regular abilities (resolve first — top of stack)
-    for ability in &regular_abilities {
-        stack.push(*ability);
+    for i in 0..regular_abilities_count {
+        stack.push(regular_abilities[i]);
     }
 
     process_queue(state, rng);
@@ -303,7 +319,7 @@ pub fn resolve_destroy_cards<R: Rng>(
 
         let card = state.players[player_index]
             .workshop_cards
-            .remove(card_index);
+            .swap_remove(card_index);
         let ability = card.card.ability();
         state.destroyed_pile.push(card);
         get_action_state_mut(state).ability_stack.push(ability);
@@ -326,7 +342,7 @@ pub fn resolve_select_buyer<R: Rng>(
         .position(|c| c.instance_id == buyer_instance_id)
         .expect("Buyer not found in buyer display");
 
-    let buyer = state.buyer_display.remove(buyer_index);
+    let buyer = state.buyer_display.swap_remove(buyer_index);
 
     let player = &mut state.players[player_index];
     if !player.materials.decrement(buyer.buyer.required_material()) {
