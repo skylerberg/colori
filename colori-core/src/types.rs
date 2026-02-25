@@ -1,6 +1,11 @@
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
+use crate::fixed_vec::FixedVec;
+
+pub const MAX_PLAYERS: usize = 4;
+pub const MAX_BUYER_DISPLAY: usize = 6;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Color {
     Red,
@@ -626,14 +631,14 @@ pub enum GamePhase {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GameState {
-    pub players: Vec<PlayerState>,
+    pub players: FixedVec<PlayerState, MAX_PLAYERS>,
     pub draft_deck: Vec<CardInstance>,
     pub destroyed_pile: Vec<CardInstance>,
     pub buyer_deck: Vec<BuyerInstance>,
-    pub buyer_display: Vec<BuyerInstance>,
+    pub buyer_display: FixedVec<BuyerInstance, MAX_BUYER_DISPLAY>,
     pub phase: GamePhase,
     pub round: u32,
-    pub ai_players: Vec<bool>,
+    pub ai_players: FixedVec<bool, MAX_PLAYERS>,
 }
 
 // ── ColoriChoice ──

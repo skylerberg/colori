@@ -1,5 +1,6 @@
 use crate::cards::*;
 use crate::deck_utils::shuffle_in_place;
+use crate::fixed_vec::FixedVec;
 use crate::types::*;
 use rand::Rng;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -38,7 +39,7 @@ pub fn reset_instance_id_counter() {
 
 pub fn create_initial_game_state<R: Rng>(player_names: &[String], ai_players: &[bool], rng: &mut R) -> GameState {
     // Build each player's starting state
-    let players: Vec<PlayerState> = player_names
+    let players: FixedVec<PlayerState, MAX_PLAYERS> = player_names
         .iter()
         .map(|name| {
             // 7 starting cards: 3 basic dyes + 3 starter materials + chalk
@@ -101,7 +102,7 @@ pub fn create_initial_game_state<R: Rng>(player_names: &[String], ai_players: &[
     shuffle_in_place(&mut buyer_deck, rng);
 
     // Deal 6 buyers from buyer_deck to buyer_display (pop from end)
-    let mut buyer_display: Vec<BuyerInstance> = Vec::with_capacity(6);
+    let mut buyer_display: FixedVec<BuyerInstance, MAX_BUYER_DISPLAY> = FixedVec::new();
     for _ in 0..6 {
         if let Some(buyer) = buyer_deck.pop() {
             buyer_display.push(buyer);
@@ -116,6 +117,6 @@ pub fn create_initial_game_state<R: Rng>(player_names: &[String], ai_players: &[
         buyer_display,
         phase: GamePhase::Draw,
         round: 1,
-        ai_players: ai_players.to_vec(),
+        ai_players: FixedVec::from_slice(ai_players),
     }
 }
