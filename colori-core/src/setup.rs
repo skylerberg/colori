@@ -43,11 +43,7 @@ pub fn create_initial_game_state<R: Rng>(player_names: &[String], ai_players: &[
             color_wheel.set(Color::Yellow, 1);
             color_wheel.set(Color::Blue, 1);
 
-            // Starting materials: 1 of each type
-            let mut materials = Materials::new();
-            materials.increment(MaterialType::Textiles);
-            materials.increment(MaterialType::Ceramics);
-            materials.increment(MaterialType::Paintings);
+            let materials = Materials::new();
 
             PlayerState {
                 name: name.clone(),
