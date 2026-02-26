@@ -359,6 +359,48 @@ export function computeCategoryStats(rawCounts: Map<string, number>, categories:
   });
 }
 
+export function formatIterationsLabel(iters: number): string {
+  if (iters >= 1000 && iters % 1000 === 0) {
+    return `${iters / 1000}k iterations`;
+  }
+  return `${iters} iterations`;
+}
+
+export function computeWinRateByVariant(logs: StructuredGameLog[]): Map<string, { wins: number; games: number }> | null {
+  const hasVariants = logs.some(log => log.playerVariants);
+  if (!hasVariants) return null;
+
+  const stats = new Map<string, { wins: number; games: number }>();
+
+  for (const log of logs) {
+    if (!log.playerVariants || !log.finalScores) continue;
+
+    // Find highest score
+    let maxScore = -Infinity;
+    for (const fs of log.finalScores) {
+      if (fs.score > maxScore) maxScore = fs.score;
+    }
+
+    // Group players by variant and tally wins/games
+    for (let i = 0; i < log.playerVariants.length; i++) {
+      const label = formatIterationsLabel(log.playerVariants[i].iterations);
+      if (!stats.has(label)) {
+        stats.set(label, { wins: 0, games: 0 });
+      }
+      const entry = stats.get(label)!;
+      entry.games++;
+
+      const playerName = log.playerNames[i];
+      const scoreEntry = log.finalScores.find(fs => fs.name === playerName);
+      if (scoreEntry && scoreEntry.score === maxScore) {
+        entry.wins++;
+      }
+    }
+  }
+
+  return stats.size > 0 ? stats : null;
+}
+
 export function computeDestroyRate(destroyedCounts: Map<string, number>, draftedCounts: Map<string, number>): Map<string, number> {
   const rates = new Map<string, number>();
   for (const [name, destroyed] of destroyedCounts) {

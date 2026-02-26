@@ -7,6 +7,7 @@ use colori_core::types::*;
 use colori_core::unordered_cards::{set_buyer_registry, set_card_registry};
 
 use rand::rngs::SmallRng;
+use rand::seq::SliceRandom;
 use rand::Rng;
 use rand::SeedableRng;
 use serde::Serialize;
@@ -22,6 +23,7 @@ struct Args {
     threads: usize,
     output: String,
     note: Option<String>,
+    variants: Option<Vec<u32>>,
 }
 
 fn parse_args() -> Args {
@@ -34,6 +36,7 @@ fn parse_args() -> Args {
         .unwrap_or(1);
     let mut output = "game-logs".to_string();
     let mut note: Option<String> = None;
+    let mut variants: Option<Vec<u32>> = None;
 
     let mut i = 1;
     while i < args.len() {
@@ -62,6 +65,15 @@ fn parse_args() -> Args {
                 i += 1;
                 note = Some(args[i].clone());
             }
+            "--variants" => {
+                i += 1;
+                variants = Some(
+                    args[i]
+                        .split(',')
+                        .map(|s| s.trim().parse().expect("Invalid --variants value"))
+                        .collect(),
+                );
+            }
             other => {
                 eprintln!("Unknown argument: {}", other);
                 std::process::exit(1);
@@ -77,10 +89,17 @@ fn parse_args() -> Args {
         threads,
         output,
         note,
+        variants,
     }
 }
 
 // ── Serialization types ──
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct PlayerVariant {
+    iterations: u32,
+}
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -98,6 +117,8 @@ struct StructuredGameLog {
     duration_ms: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     iterations: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    player_variants: Option<Vec<PlayerVariant>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     note: Option<String>,
 }
@@ -148,18 +169,38 @@ fn now_iso() -> String {
     format!("{}", secs)
 }
 
+fn format_iterations(iters: u32) -> String {
+    if iters >= 1000 && iters % 1000 == 0 {
+        format!("{}k", iters / 1000)
+    } else {
+        format!("{}", iters)
+    }
+}
+
 // ── Game loop ──
 
 fn run_game(
     _game_index: usize,
-    num_players: usize,
-    iterations: u32,
+    player_iterations: &[u32],
     note: Option<String>,
     rng: &mut SmallRng,
 ) -> StructuredGameLog {
     let start = Instant::now();
+    let num_players = player_iterations.len();
+
+    // Shuffle variant assignment to eliminate position bias
+    let mut shuffled_iterations = player_iterations.to_vec();
+    shuffled_iterations.shuffle(rng);
+
+    let has_variants = !shuffled_iterations.windows(2).all(|w| w[0] == w[1]);
     let names: Vec<String> = (1..=num_players)
-        .map(|i| format!("Player {}", i))
+        .map(|i| {
+            if has_variants {
+                format!("Player {} ({})", i, format_iterations(shuffled_iterations[i - 1]))
+            } else {
+                format!("Player {}", i)
+            }
+        })
         .collect();
 
     let ai_players = vec![true; num_players];
@@ -188,6 +229,9 @@ fn run_game(
             GamePhase::Action { action_state } => {
                 (action_state.current_player_index, "action")
             }
+            GamePhase::Cleanup { cleanup_state } => {
+                (cleanup_state.current_player_index, "cleanup")
+            }
             GamePhase::Draw => {
                 // Draw phase is handled internally by apply_choice_to_state on EndTurn
                 break;
@@ -196,7 +240,7 @@ fn run_game(
         };
 
         let max_round = std::cmp::max(8, state.round + 2);
-        let choice = ismcts(&state, player_index, iterations, &None, Some(max_round), rng);
+        let choice = ismcts(&state, player_index, shuffled_iterations[player_index], &None, Some(max_round), rng);
 
         seq += 1;
         entries.push(StructuredLogEntry {
@@ -245,6 +289,20 @@ fn run_game(
 
     let duration_ms = Some(start.elapsed().as_millis() as u64);
 
+    let (log_iterations, log_player_variants) = if has_variants {
+        (
+            None,
+            Some(
+                shuffled_iterations
+                    .iter()
+                    .map(|&iters| PlayerVariant { iterations: iters })
+                    .collect(),
+            ),
+        )
+    } else {
+        (Some(shuffled_iterations[0]), None)
+    };
+
     StructuredGameLog {
         version: 1,
         game_started_at,
@@ -256,7 +314,8 @@ fn run_game(
         final_player_stats,
         entries,
         duration_ms,
-        iterations: Some(iterations),
+        iterations: log_iterations,
+        player_variants: log_player_variants,
         note,
     }
 }
@@ -274,22 +333,37 @@ fn generate_batch_id() -> String {
 fn main() {
     let args = parse_args();
 
-    eprintln!(
-        "Running {} games with {} players, {} ISMCTS iterations, {} threads",
-        args.games, args.players, args.iterations, args.threads
-    );
+    let player_iterations: Vec<u32> = match &args.variants {
+        Some(v) => v.clone(),
+        None => vec![args.iterations; args.players],
+    };
+    let num_players = player_iterations.len();
+
+    if args.variants.is_some() {
+        let labels: Vec<String> = player_iterations.iter().map(|&i| i.to_string()).collect();
+        eprintln!(
+            "Running {} games with variants: {}, {} threads",
+            args.games,
+            labels.join(", "),
+            args.threads
+        );
+    } else {
+        eprintln!(
+            "Running {} games with {} players, {} ISMCTS iterations, {} threads",
+            args.games, num_players, args.iterations, args.threads
+        );
+    }
 
     std::fs::create_dir_all(&args.output).expect("Failed to create output directory");
 
     let batch_id = generate_batch_id();
     let completed = AtomicUsize::new(0);
     let total_games = args.games;
-    let num_players = args.players;
-    let iterations = args.iterations;
     let num_threads = args.threads;
     let output_dir = &args.output;
     let batch_id = batch_id.as_str();
     let note = &args.note;
+    let player_iterations = player_iterations.as_slice();
 
     std::thread::scope(|s| {
         let games_per_thread = total_games / num_threads;
@@ -303,7 +377,7 @@ fn main() {
             handles.push(s.spawn(move || {
                 let mut rng = SmallRng::from_os_rng();
                 for _i in 0..count {
-                    let log = run_game(0, num_players, iterations, note.clone(), &mut rng);
+                    let log = run_game(0, player_iterations, note.clone(), &mut rng);
                     set_card_registry(&log.initial_state.card_lookup);
                     set_buyer_registry(&log.initial_state.buyer_lookup);
                     let epoch_millis = now_epoch_millis();

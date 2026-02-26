@@ -11,6 +11,10 @@ export interface StructuredLogEntry {
   choice: ColoriChoice;
 }
 
+export interface PlayerVariant {
+  iterations: number;
+}
+
 export interface StructuredGameLog {
   version: 1;
   gameStartedAt: string;
@@ -23,6 +27,7 @@ export interface StructuredGameLog {
   entries: StructuredLogEntry[];
   durationMs?: number;
   iterations?: number;
+  playerVariants?: PlayerVariant[];
   note?: string;
 }
 

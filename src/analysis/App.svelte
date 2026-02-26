@@ -15,6 +15,7 @@
   interface BatchInfo {
     count: number;
     iterations?: number;
+    variants?: string;
     note?: string;
     earliestTimestamp: string;
   }
@@ -24,9 +25,13 @@
     for (const t of taggedLogs) {
       const existing = map.get(t.batchId);
       if (!existing) {
+        const variants = t.log.playerVariants
+          ? t.log.playerVariants.map(v => v.iterations).join(' vs ')
+          : undefined;
         map.set(t.batchId, {
           count: 1,
           iterations: t.log.iterations,
+          variants,
           note: t.log.note,
           earliestTimestamp: t.log.gameStartedAt,
         });
@@ -53,7 +58,8 @@
     const info = batchInfo().get(batchId);
     if (!info) return batchId;
     let label = batchId;
-    if (info.iterations != null) label += ` (iters: ${info.iterations})`;
+    if (info.variants) label += ` (variants: ${info.variants})`;
+    else if (info.iterations != null) label += ` (iters: ${info.iterations})`;
     if (info.note) label += ` - ${info.note}`;
     label += ` (${info.count} games)`;
     return label;
@@ -127,7 +133,9 @@
       <p>{filteredLogs.length} of {taggedLogs.length} games shown</p>
       {#if selectedBatchInfo}
         <div class="batch-meta">
-          {#if selectedBatchInfo.iterations != null}
+          {#if selectedBatchInfo.variants}
+            <span class="meta-tag">Variants: {selectedBatchInfo.variants}</span>
+          {:else if selectedBatchInfo.iterations != null}
             <span class="meta-tag">Iterations: {selectedBatchInfo.iterations}</span>
           {/if}
           {#if selectedBatchInfo.note}

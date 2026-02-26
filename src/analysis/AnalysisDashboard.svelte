@@ -16,6 +16,7 @@
     normalizeByDraftCopies,
     computeCategoryStats,
     computeDestroyRate,
+    computeWinRateByVariant,
   } from './logAnalysis';
   import { DRAFT_CARD_CATEGORIES, getStarterCardCategories } from '../data/cards';
 
@@ -33,6 +34,7 @@
   let gameLength = $derived(computeAverageGameLength(logs));
   let colorStats = $derived(computeColorWheelStats(logs));
   let durationStats = $derived(computeDurationStats(logs));
+  let variantWinRate = $derived(computeWinRateByVariant(logs));
 
   let numPlayers = $derived(logs.length > 0 ? logs[0].playerNames.length : 2);
   let allCategories = $derived([...DRAFT_CARD_CATEGORIES, ...getStarterCardCategories(numPlayers)]);
@@ -165,6 +167,33 @@
     </table>
   {/if}
 </details>
+
+<!-- Win Rate by Variant -->
+{#if variantWinRate}
+<details open>
+  <summary>Win Rate by Variant</summary>
+  {@const sorted = [...variantWinRate.entries()].sort((a, b) => {
+    const rateA = a[1].games > 0 ? a[1].wins / a[1].games : 0;
+    const rateB = b[1].games > 0 ? b[1].wins / b[1].games : 0;
+    return rateB - rateA;
+  })}
+  <table>
+    <thead>
+      <tr><th>Variant</th><th>Wins</th><th>Games</th><th>Win %</th></tr>
+    </thead>
+    <tbody>
+      {#each sorted as [variant, stats]}
+        <tr>
+          <td>{variant}</td>
+          <td>{stats.wins}</td>
+          <td>{stats.games}</td>
+          <td>{stats.games > 0 ? ((stats.wins / stats.games) * 100).toFixed(1) : '0.0'}%</td>
+        </tr>
+      {/each}
+    </tbody>
+  </table>
+</details>
+{/if}
 
 <!-- 4. Action Distribution -->
 <details>
