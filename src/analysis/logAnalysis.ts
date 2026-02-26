@@ -401,6 +401,23 @@ export function computeWinRateByVariant(logs: StructuredGameLog[]): Map<string, 
   return stats.size > 0 ? stats : null;
 }
 
+export function wilsonConfidenceInterval(
+  wins: number,
+  games: number,
+): { lower: number; upper: number } | null {
+  if (games === 0) return null;
+  const z = 1.96;
+  const p = wins / games;
+  const z2 = z * z;
+  const denom = 1 + z2 / games;
+  const center = (p + z2 / (2 * games)) / denom;
+  const margin = z * Math.sqrt(p * (1 - p) / games + z2 / (4 * games * games)) / denom;
+  return {
+    lower: Math.max(0, center - margin) * 100,
+    upper: Math.min(1, center + margin) * 100,
+  };
+}
+
 export function computeDestroyRate(destroyedCounts: Map<string, number>, draftedCounts: Map<string, number>): Map<string, number> {
   const rates = new Map<string, number>();
   for (const [name, destroyed] of destroyedCounts) {

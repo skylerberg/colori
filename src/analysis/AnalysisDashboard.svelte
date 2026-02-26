@@ -17,6 +17,7 @@
     computeCategoryStats,
     computeDestroyRate,
     computeWinRateByVariant,
+    wilsonConfidenceInterval,
   } from './logAnalysis';
   import { DRAFT_CARD_CATEGORIES, getStarterCardCategories } from '../data/cards';
 
@@ -152,15 +153,17 @@
     {@const sorted = [...winRate.entries()].sort((a, b) => a[0] - b[0])}
     <table>
       <thead>
-        <tr><th>Position</th><th>Wins</th><th>Games</th><th>Win %</th></tr>
+        <tr><th>Position</th><th>Wins</th><th>Games</th><th>Win %</th><th>95% CI</th></tr>
       </thead>
       <tbody>
         {#each sorted as [position, stats]}
+          {@const ci = wilsonConfidenceInterval(stats.wins, stats.games)}
           <tr>
             <td>Player {position + 1}</td>
             <td>{stats.wins}</td>
             <td>{stats.games}</td>
             <td>{stats.games > 0 ? ((stats.wins / stats.games) * 100).toFixed(1) : '0.0'}%</td>
+            <td>{ci ? `[${ci.lower.toFixed(1)}%, ${ci.upper.toFixed(1)}%]` : '–'}</td>
           </tr>
         {/each}
       </tbody>
@@ -179,15 +182,17 @@
     <summary>Win Rate by Variant</summary>
     <table>
       <thead>
-        <tr><th>Variant</th><th>Wins</th><th>Games</th><th>Win %</th></tr>
+        <tr><th>Variant</th><th>Wins</th><th>Games</th><th>Win %</th><th>95% CI</th></tr>
       </thead>
       <tbody>
         {#each sorted as [variant, stats]}
+          {@const ci = wilsonConfidenceInterval(stats.wins, stats.games)}
           <tr>
             <td>{variant}</td>
             <td>{stats.wins}</td>
             <td>{stats.games}</td>
             <td>{stats.games > 0 ? ((stats.wins / stats.games) * 100).toFixed(1) : '0.0'}%</td>
+            <td>{ci ? `[${ci.lower.toFixed(1)}%, ${ci.upper.toFixed(1)}%]` : '–'}</td>
           </tr>
         {/each}
       </tbody>
