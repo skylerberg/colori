@@ -1,5 +1,6 @@
 """Main training loop for Colori AlphaZero."""
 
+import glob
 import os
 import sys
 import time
@@ -85,12 +86,26 @@ def run_training():
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
     replay_buffer = ReplayBuffer()
 
-    # Export initial random model
-    initial_path = INITIAL_MODEL
-    export_onnx(model, initial_path)
-    current_model_path = initial_path
+    # Check for existing checkpoints to resume from
+    checkpoint_files = sorted(glob.glob(os.path.join(MODEL_DIR, "checkpoint_iter*.pt")))
 
-    for iteration in range(NUM_ITERATIONS):
+    if checkpoint_files:
+        latest_checkpoint_path = checkpoint_files[-1]
+        print(f"Found checkpoint: {latest_checkpoint_path}")
+        checkpoint = torch.load(latest_checkpoint_path, weights_only=True)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        start_iteration = checkpoint['iteration']
+        current_model_path = os.path.join(MODEL_DIR, f"model_iter{start_iteration:04d}.onnx")
+        export_onnx(model, current_model_path)
+        print(f"Resuming from iteration {start_iteration}")
+    else:
+        start_iteration = 0
+        initial_path = INITIAL_MODEL
+        export_onnx(model, initial_path)
+        current_model_path = initial_path
+
+    for iteration in range(start_iteration, NUM_ITERATIONS):
         iter_start = time.time()
         print(f"\n{'='*60}")
         print(f"Iteration {iteration + 1}/{NUM_ITERATIONS}")
