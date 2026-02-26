@@ -619,18 +619,10 @@ fn rollout_draw_and_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
         return;
     }
 
-    // Step 4: Distribute 4 random cards per player to drafted_cards (single batch draw)
-    let total = 4 * num_players as u32;
-    let all_drawn = pool.draw_multiple(total, rng);
-    let mut player_idx = 0;
-    let mut count = 0u32;
-    for id in all_drawn.iter() {
-        state.players[player_idx].drafted_cards.insert(id);
-        count += 1;
-        if count == 4 {
-            player_idx += 1;
-            count = 0;
-        }
+    // Step 4: Distribute 4 random cards per player to drafted_cards
+    for i in 0..num_players {
+        let drawn = pool.draw_multiple(4, rng);
+        state.players[i].drafted_cards = drawn;
     }
 
     // Step 5: Remaining cards go to destroyed_pile
