@@ -96,10 +96,6 @@
       <div class="label">Avg Rounds</div>
     </div>
     <div class="stat-card">
-      <div class="value">{gameLength.avgChoices.toFixed(1)}</div>
-      <div class="label">Avg Choices</div>
-    </div>
-    <div class="stat-card">
       <div class="value">{deckStats.mean.toFixed(1)}</div>
       <div class="label">Avg Deck Size</div>
     </div>
@@ -371,7 +367,7 @@
     })}
     <table>
       <thead>
-        <tr><th>Category</th><th>Wins</th><th>Games</th><th>Win %</th><th>95% CI</th></tr>
+        <tr><th>Category</th><th>Wins</th><th>Times Taken</th><th>Win %</th><th>95% CI</th></tr>
       </thead>
       <tbody>
         {#each catSorted as cat}
@@ -395,7 +391,7 @@
     })}
     <table>
       <thead>
-        <tr><th>Card</th><th>Wins</th><th>Games</th><th>Win %</th><th>95% CI</th></tr>
+        <tr><th>Card</th><th>Wins</th><th>Times Taken</th><th>Win %</th><th>95% CI</th></tr>
       </thead>
       <tbody>
         {#each cardSorted as [card, stats]}
