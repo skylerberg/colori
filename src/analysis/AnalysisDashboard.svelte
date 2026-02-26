@@ -388,6 +388,25 @@
   {#if cardWinRate.size === 0}
     <p>No data available.</p>
   {:else}
+    <h3>All</h3>
+    {@const allWins = [...cardWinRate.values()].reduce((sum, s) => sum + s.wins, 0)}
+    {@const allGames = [...cardWinRate.values()].reduce((sum, s) => sum + s.games, 0)}
+    {@const allCi = wilsonConfidenceInterval(allWins, allGames)}
+    <table>
+      <thead>
+        <tr><th>Label</th><th>Wins</th><th>Times Taken</th><th>Win %</th><th>95% CI</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>All Cards</td>
+          <td>{Number.isInteger(allWins) ? allWins : allWins.toFixed(1)}</td>
+          <td>{allGames}</td>
+          <td>{allGames > 0 ? ((allWins / allGames) * 100).toFixed(1) : '0.0'}%</td>
+          <td>{allCi ? `[${allCi.lower.toFixed(1)}%, ${allCi.upper.toFixed(1)}%]` : '–'}</td>
+        </tr>
+      </tbody>
+    </table>
+
     <h3>By Category</h3>
     {@const catSorted = [...cardWinRateCategories].sort((a, b) => {
       const rateA = a.games > 0 ? a.wins / a.games : 0;
