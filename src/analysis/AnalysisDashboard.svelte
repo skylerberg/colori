@@ -170,29 +170,29 @@
 
 <!-- Win Rate by Variant -->
 {#if variantWinRate}
-<details open>
-  <summary>Win Rate by Variant</summary>
   {@const sorted = [...variantWinRate.entries()].sort((a, b) => {
     const rateA = a[1].games > 0 ? a[1].wins / a[1].games : 0;
     const rateB = b[1].games > 0 ? b[1].wins / b[1].games : 0;
     return rateB - rateA;
   })}
-  <table>
-    <thead>
-      <tr><th>Variant</th><th>Wins</th><th>Games</th><th>Win %</th></tr>
-    </thead>
-    <tbody>
-      {#each sorted as [variant, stats]}
-        <tr>
-          <td>{variant}</td>
-          <td>{stats.wins}</td>
-          <td>{stats.games}</td>
-          <td>{stats.games > 0 ? ((stats.wins / stats.games) * 100).toFixed(1) : '0.0'}%</td>
-        </tr>
-      {/each}
-    </tbody>
-  </table>
-</details>
+  <details open>
+    <summary>Win Rate by Variant</summary>
+    <table>
+      <thead>
+        <tr><th>Variant</th><th>Wins</th><th>Games</th><th>Win %</th></tr>
+      </thead>
+      <tbody>
+        {#each sorted as [variant, stats]}
+          <tr>
+            <td>{variant}</td>
+            <td>{stats.wins}</td>
+            <td>{stats.games}</td>
+            <td>{stats.games > 0 ? ((stats.wins / stats.games) * 100).toFixed(1) : '0.0'}%</td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  </details>
 {/if}
 
 <!-- 4. Action Distribution -->
