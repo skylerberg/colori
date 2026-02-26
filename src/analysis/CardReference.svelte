@@ -58,6 +58,12 @@
       count: BUYER_CARDS.filter(b => b.stars === 2 && b.colorCost.length === 2).length,
     },
     {
+      stars: 2,
+      material: 'Textiles',
+      description: '3x same primary',
+      count: BUYER_CARDS.filter(b => b.stars === 2 && b.colorCost.length === 3).length,
+    },
+    {
       stars: 3,
       material: 'Ceramics',
       description: '1 tertiary + 1 primary',

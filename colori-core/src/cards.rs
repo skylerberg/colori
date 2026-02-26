@@ -36,7 +36,7 @@ pub fn action_cards() -> [Card; 5] {
     [Card::Alum, Card::CreamOfTartar, Card::GumArabic, Card::Potash, Card::Vinegar]
 }
 
-pub fn generate_all_buyers() -> [BuyerCard; 51] {
+pub fn generate_all_buyers() -> [BuyerCard; 54] {
     [
         // Textiles 2-star, single tertiary (6)
         BuyerCard::Textiles2Vermilion, BuyerCard::Textiles2Amber, BuyerCard::Textiles2Chartreuse,
@@ -45,6 +45,8 @@ pub fn generate_all_buyers() -> [BuyerCard; 51] {
         BuyerCard::Textiles2OrangeRed, BuyerCard::Textiles2OrangeYellow, BuyerCard::Textiles2OrangeBlue,
         BuyerCard::Textiles2GreenRed, BuyerCard::Textiles2GreenYellow, BuyerCard::Textiles2GreenBlue,
         BuyerCard::Textiles2PurpleRed, BuyerCard::Textiles2PurpleYellow, BuyerCard::Textiles2PurpleBlue,
+        // Textiles 2-star, triple primary (3)
+        BuyerCard::Textiles2RedRedRed, BuyerCard::Textiles2YellowYellowYellow, BuyerCard::Textiles2BlueBlueBlue,
         // Ceramics 3-star, tertiary+primary (18)
         BuyerCard::Ceramics3VermilionRed, BuyerCard::Ceramics3VermilionYellow, BuyerCard::Ceramics3VermilionBlue,
         BuyerCard::Ceramics3AmberRed, BuyerCard::Ceramics3AmberYellow, BuyerCard::Ceramics3AmberBlue,

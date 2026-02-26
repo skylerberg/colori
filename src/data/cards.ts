@@ -298,6 +298,9 @@ function generateAllBuyers(): BuyerCardData[] {
   for (const s of SECONDARIES)
     for (const p of PRIMARIES)
       buyers.push({ kind: 'buyer', stars: 2, requiredMaterial: 'Textiles', colorCost: [s, p] });
+  // Textiles (2pt): triple primary
+  for (const p of PRIMARIES)
+    buyers.push({ kind: 'buyer', stars: 2, requiredMaterial: 'Textiles', colorCost: [p, p, p] });
   // Ceramics (3pt): one tertiary + one primary
   for (const t of TERTIARIES)
     for (const p of PRIMARIES)
@@ -391,6 +394,7 @@ const buyerVariantNames = [
   'Textiles2OrangeRed', 'Textiles2OrangeYellow', 'Textiles2OrangeBlue',
   'Textiles2GreenRed', 'Textiles2GreenYellow', 'Textiles2GreenBlue',
   'Textiles2PurpleRed', 'Textiles2PurpleYellow', 'Textiles2PurpleBlue',
+  'Textiles2RedRedRed', 'Textiles2YellowYellowYellow', 'Textiles2BlueBlueBlue',
   'Ceramics3VermilionRed', 'Ceramics3VermilionYellow', 'Ceramics3VermilionBlue',
   'Ceramics3AmberRed', 'Ceramics3AmberYellow', 'Ceramics3AmberBlue',
   'Ceramics3ChartreuseRed', 'Ceramics3ChartreuseYellow', 'Ceramics3ChartreuseBlue',

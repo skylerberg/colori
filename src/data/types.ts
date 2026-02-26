@@ -34,6 +34,7 @@ export type BuyerCard = 'Textiles2Vermilion' | 'Textiles2Amber' | 'Textiles2Char
   | 'Textiles2OrangeRed' | 'Textiles2OrangeYellow' | 'Textiles2OrangeBlue'
   | 'Textiles2GreenRed' | 'Textiles2GreenYellow' | 'Textiles2GreenBlue'
   | 'Textiles2PurpleRed' | 'Textiles2PurpleYellow' | 'Textiles2PurpleBlue'
+  | 'Textiles2RedRedRed' | 'Textiles2YellowYellowYellow' | 'Textiles2BlueBlueBlue'
   | 'Ceramics3VermilionRed' | 'Ceramics3VermilionYellow' | 'Ceramics3VermilionBlue'
   | 'Ceramics3AmberRed' | 'Ceramics3AmberYellow' | 'Ceramics3AmberBlue'
   | 'Ceramics3ChartreuseRed' | 'Ceramics3ChartreuseYellow' | 'Ceramics3ChartreuseBlue'

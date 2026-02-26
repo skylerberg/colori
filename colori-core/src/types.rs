@@ -297,7 +297,7 @@ impl Card {
     }
 }
 
-// ── BuyerCard enum (51 variants) ──
+// ── BuyerCard enum (54 variants) ──
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum BuyerCard {
@@ -318,6 +318,10 @@ pub enum BuyerCard {
     Textiles2PurpleRed,
     Textiles2PurpleYellow,
     Textiles2PurpleBlue,
+    // Textiles 2-star, triple primary (3)
+    Textiles2RedRedRed,
+    Textiles2YellowYellowYellow,
+    Textiles2BlueBlueBlue,
     // Ceramics 3-star, tertiary+primary (18)
     Ceramics3VermilionRed,
     Ceramics3VermilionYellow,
@@ -364,7 +368,7 @@ struct BuyerProperties {
     color_cost: &'static [Color],
 }
 
-const BUYER_DATA: [BuyerProperties; 51] = [
+const BUYER_DATA: [BuyerProperties; 54] = [
     // Textiles 2-star, single tertiary (6)
     BuyerProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Vermilion] },
     BuyerProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Amber] },
@@ -382,6 +386,10 @@ const BUYER_DATA: [BuyerProperties; 51] = [
     BuyerProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Purple, Color::Red] },
     BuyerProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Purple, Color::Yellow] },
     BuyerProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Purple, Color::Blue] },
+    // Textiles 2-star, triple primary (3)
+    BuyerProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Red, Color::Red, Color::Red] },
+    BuyerProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Yellow, Color::Yellow, Color::Yellow] },
+    BuyerProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Blue, Color::Blue, Color::Blue] },
     // Ceramics 3-star, tertiary+primary (18)
     BuyerProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Vermilion, Color::Red] },
     BuyerProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Vermilion, Color::Yellow] },
