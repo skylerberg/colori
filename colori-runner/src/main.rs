@@ -1,6 +1,6 @@
 use colori_core::colori_game::apply_choice_to_state;
 use colori_core::draw_phase::execute_draw_phase;
-use colori_core::ismcts::ismcts;
+use colori_core::ismcts::{ismcts, MctsConfig};
 use colori_core::scoring::calculate_score;
 use colori_core::setup::create_initial_game_state;
 use colori_core::types::*;
@@ -10,7 +10,7 @@ use rand::rngs::SmallRng;
 use rand::seq::SliceRandom;
 use rand::Rng;
 use rand::SeedableRng;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
@@ -23,7 +23,21 @@ struct Args {
     threads: usize,
     output: String,
     note: Option<String>,
-    variants: Option<Vec<u32>>,
+    variants: Option<Vec<NamedVariant>>,
+}
+
+#[derive(Clone)]
+struct NamedVariant {
+    name: Option<String>,
+    config: MctsConfig,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct VariantFileEntry {
+    name: Option<String>,
+    #[serde(flatten)]
+    config: MctsConfig,
 }
 
 fn parse_args() -> Args {
@@ -36,7 +50,7 @@ fn parse_args() -> Args {
         .unwrap_or(1);
     let mut output = "game-logs".to_string();
     let mut note: Option<String> = None;
-    let mut variants: Option<Vec<u32>> = None;
+    let mut variants: Option<Vec<NamedVariant>> = None;
 
     let mut i = 1;
     while i < args.len() {
@@ -70,7 +84,26 @@ fn parse_args() -> Args {
                 variants = Some(
                     args[i]
                         .split(',')
-                        .map(|s| s.trim().parse().expect("Invalid --variants value"))
+                        .map(|s| {
+                            let iters: u32 = s.trim().parse().expect("Invalid --variants value");
+                            NamedVariant {
+                                name: None,
+                                config: MctsConfig { iterations: iters, ..MctsConfig::default() },
+                            }
+                        })
+                        .collect(),
+                );
+            }
+            "--variants-file" => {
+                i += 1;
+                let contents = std::fs::read_to_string(&args[i])
+                    .expect("Failed to read variants file");
+                let entries: Vec<VariantFileEntry> = serde_json::from_str(&contents)
+                    .expect("Failed to parse variants file");
+                variants = Some(
+                    entries
+                        .into_iter()
+                        .map(|e| NamedVariant { name: e.name, config: e.config })
                         .collect(),
                 );
             }
@@ -98,7 +131,13 @@ fn parse_args() -> Args {
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct PlayerVariant {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
     iterations: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    exploration_constant: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_rollout_steps: Option<u32>,
 }
 
 #[derive(Serialize)]
@@ -177,26 +216,78 @@ fn format_iterations(iters: u32) -> String {
     }
 }
 
+fn format_variant_label(variant: &NamedVariant, differing: &DifferingFields) -> String {
+    if let Some(name) = &variant.name {
+        return name.clone();
+    }
+    let mut parts = Vec::new();
+    if differing.iterations {
+        parts.push(format_iterations(variant.config.iterations));
+    }
+    if differing.exploration_constant {
+        parts.push(format!("c={:.2}", variant.config.exploration_constant));
+    }
+    if differing.max_rollout_steps {
+        parts.push(format!("rollout={}", variant.config.max_rollout_steps));
+    }
+    if parts.is_empty() {
+        // All same config, just show iterations
+        parts.push(format_iterations(variant.config.iterations));
+    }
+    parts.join(", ")
+}
+
+struct DifferingFields {
+    iterations: bool,
+    exploration_constant: bool,
+    max_rollout_steps: bool,
+}
+
+fn compute_differing_fields(variants: &[NamedVariant]) -> DifferingFields {
+    if variants.len() <= 1 {
+        return DifferingFields { iterations: false, exploration_constant: false, max_rollout_steps: false };
+    }
+    let first = &variants[0].config;
+    DifferingFields {
+        iterations: variants.iter().any(|v| v.config.iterations != first.iterations),
+        exploration_constant: variants.iter().any(|v| v.config.exploration_constant != first.exploration_constant),
+        max_rollout_steps: variants.iter().any(|v| v.config.max_rollout_steps != first.max_rollout_steps),
+    }
+}
+
+fn has_any_difference(variants: &[NamedVariant]) -> bool {
+    if variants.len() <= 1 {
+        return false;
+    }
+    // If any variant has a name, treat as having variants
+    if variants.iter().any(|v| v.name.is_some()) {
+        return true;
+    }
+    let diff = compute_differing_fields(variants);
+    diff.iterations || diff.exploration_constant || diff.max_rollout_steps
+}
+
 // ── Game loop ──
 
 fn run_game(
     _game_index: usize,
-    player_iterations: &[u32],
+    player_variants: &[NamedVariant],
     note: Option<String>,
     rng: &mut SmallRng,
 ) -> StructuredGameLog {
     let start = Instant::now();
-    let num_players = player_iterations.len();
+    let num_players = player_variants.len();
 
     // Shuffle variant assignment to eliminate position bias
-    let mut shuffled_iterations = player_iterations.to_vec();
-    shuffled_iterations.shuffle(rng);
+    let mut shuffled_variants = player_variants.to_vec();
+    shuffled_variants.shuffle(rng);
 
-    let has_variants = !shuffled_iterations.windows(2).all(|w| w[0] == w[1]);
+    let has_variants = has_any_difference(&shuffled_variants);
+    let differing = compute_differing_fields(&shuffled_variants);
     let names: Vec<String> = (1..=num_players)
         .map(|i| {
             if has_variants {
-                format!("Player {} ({})", i, format_iterations(shuffled_iterations[i - 1]))
+                format!("Player {} ({})", i, format_variant_label(&shuffled_variants[i - 1], &differing))
             } else {
                 format!("Player {}", i)
             }
@@ -240,7 +331,7 @@ fn run_game(
         };
 
         let max_round = std::cmp::max(8, state.round + 2);
-        let choice = ismcts(&state, player_index, shuffled_iterations[player_index], &None, Some(max_round), rng);
+        let choice = ismcts(&state, player_index, &shuffled_variants[player_index].config, &None, Some(max_round), rng);
 
         seq += 1;
         entries.push(StructuredLogEntry {
@@ -289,18 +380,35 @@ fn run_game(
 
     let duration_ms = Some(start.elapsed().as_millis() as u64);
 
+    let defaults = MctsConfig::default();
     let (log_iterations, log_player_variants) = if has_variants {
         (
             None,
             Some(
-                shuffled_iterations
+                shuffled_variants
                     .iter()
-                    .map(|&iters| PlayerVariant { iterations: iters })
+                    .map(|v| {
+                        let c = &v.config;
+                        PlayerVariant {
+                            name: v.name.clone(),
+                            iterations: c.iterations,
+                            exploration_constant: if c.exploration_constant != defaults.exploration_constant {
+                                Some(c.exploration_constant)
+                            } else {
+                                None
+                            },
+                            max_rollout_steps: if c.max_rollout_steps != defaults.max_rollout_steps {
+                                Some(c.max_rollout_steps)
+                            } else {
+                                None
+                            },
+                        }
+                    })
                     .collect(),
             ),
         )
     } else {
-        (Some(shuffled_iterations[0]), None)
+        (Some(shuffled_variants[0].config.iterations), None)
     };
 
     StructuredGameLog {
@@ -333,14 +441,21 @@ fn generate_batch_id() -> String {
 fn main() {
     let args = parse_args();
 
-    let player_iterations: Vec<u32> = match &args.variants {
+    let player_variants: Vec<NamedVariant> = match &args.variants {
         Some(v) => v.clone(),
-        None => vec![args.iterations; args.players],
+        None => vec![
+            NamedVariant {
+                name: None,
+                config: MctsConfig { iterations: args.iterations, ..MctsConfig::default() },
+            };
+            args.players
+        ],
     };
-    let num_players = player_iterations.len();
+    let num_players = player_variants.len();
 
     if args.variants.is_some() {
-        let labels: Vec<String> = player_iterations.iter().map(|&i| i.to_string()).collect();
+        let differing = compute_differing_fields(&player_variants);
+        let labels: Vec<String> = player_variants.iter().map(|v| format_variant_label(v, &differing)).collect();
         eprintln!(
             "Running {} games with variants: {}, {} threads",
             args.games,
@@ -363,7 +478,7 @@ fn main() {
     let output_dir = &args.output;
     let batch_id = batch_id.as_str();
     let note = &args.note;
-    let player_iterations = player_iterations.as_slice();
+    let player_variants = player_variants.as_slice();
 
     std::thread::scope(|s| {
         let games_per_thread = total_games / num_threads;
@@ -377,7 +492,7 @@ fn main() {
             handles.push(s.spawn(move || {
                 let mut rng = SmallRng::from_os_rng();
                 for _i in 0..count {
-                    let log = run_game(0, player_iterations, note.clone(), &mut rng);
+                    let log = run_game(0, player_variants, note.clone(), &mut rng);
                     set_card_registry(&log.initial_state.card_lookup);
                     set_buyer_registry(&log.initial_state.buyer_lookup);
                     let epoch_millis = now_epoch_millis();

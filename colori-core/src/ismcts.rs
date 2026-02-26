@@ -2,7 +2,54 @@ use crate::colori_game::*;
 use crate::scoring::calculate_score;
 use crate::types::*;
 use rand::Rng;
+use serde::Deserialize;
 use smallvec::SmallVec;
+
+#[derive(Clone, Debug)]
+pub struct MctsConfig {
+    pub iterations: u32,
+    pub exploration_constant: f64,
+    pub max_rollout_steps: u32,
+}
+
+impl Default for MctsConfig {
+    fn default() -> Self {
+        MctsConfig {
+            iterations: 100,
+            exploration_constant: std::f64::consts::SQRT_2,
+            max_rollout_steps: 1000,
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for MctsConfig {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct MctsConfigHelper {
+            #[serde(default = "default_iterations")]
+            iterations: u32,
+            #[serde(default = "default_exploration_constant")]
+            exploration_constant: f64,
+            #[serde(default = "default_max_rollout_steps")]
+            max_rollout_steps: u32,
+        }
+
+        fn default_iterations() -> u32 { 100 }
+        fn default_exploration_constant() -> f64 { std::f64::consts::SQRT_2 }
+        fn default_max_rollout_steps() -> u32 { 1000 }
+
+        let helper = MctsConfigHelper::deserialize(deserializer)?;
+        Ok(MctsConfig {
+            iterations: helper.iterations,
+            exploration_constant: helper.exploration_constant,
+            max_rollout_steps: helper.max_rollout_steps,
+        })
+    }
+}
 
 struct MctsNode {
     games: u32,
@@ -72,13 +119,10 @@ fn upper_confidence_bound_with_ln(
     win_rate + c * (ln_total / games as f64).sqrt()
 }
 
-const C: f64 = std::f64::consts::SQRT_2;
-const MAX_ROLLOUT_STEPS: u32 = 1000;
-
 pub fn ismcts<R: Rng>(
     state: &GameState,
     player_id: usize,
-    iterations: u32,
+    config: &MctsConfig,
     seen_hands: &Option<Vec<Vec<CardInstance>>>,
     max_round: Option<u32>,
     rng: &mut R,
@@ -98,9 +142,9 @@ pub fn ismcts<R: Rng>(
         cached_scores[i] = calculate_score(p);
     }
 
-    for _ in 0..iterations {
+    for _ in 0..config.iterations {
         determinize_in_place(&mut det_state, state, player_id, seen_hands, &cached_scores, rng);
-        iteration(&mut root, &mut det_state, max_round, &mut choices_buf, rng);
+        iteration(&mut root, &mut det_state, max_round, config, &mut choices_buf, rng);
     }
 
     if root.children.is_empty() {
@@ -123,6 +167,7 @@ fn iteration<R: Rng>(
     node: &mut MctsNode,
     state: &mut GameState,
     max_round: Option<u32>,
+    config: &MctsConfig,
     choices_buf: &mut Vec<ColoriChoice>,
     rng: &mut R,
 ) -> SmallVec<[f64; 4]> {
@@ -141,7 +186,7 @@ fn iteration<R: Rng>(
     }
 
     // Select
-    let best_idx = match select(node, state) {
+    let best_idx = match select(node, state, config.exploration_constant) {
         Some(idx) => idx,
         None => {
             let empty_scores = SmallVec::new();
@@ -157,19 +202,19 @@ fn iteration<R: Rng>(
     let should_rollout = node.children[best_idx].games == 0;
 
     let scores = if should_rollout {
-        let scores = rollout(state, max_round, rng);
+        let scores = rollout(state, max_round, config.max_rollout_steps, rng);
         record_outcome(&mut node.children[best_idx], &scores);
         scores
     } else {
         let child = &mut node.children[best_idx];
-        iteration(child, state, max_round, choices_buf, rng)
+        iteration(child, state, max_round, config, choices_buf, rng)
     };
 
     record_outcome(node, &scores);
     scores
 }
 
-fn select(node: &MctsNode, state: &GameState) -> Option<usize> {
+fn select(node: &MctsNode, state: &GameState, c: f64) -> Option<usize> {
     let mut best_idx: Option<usize> = None;
     let mut best_value = f64::NEG_INFINITY;
 
@@ -183,10 +228,10 @@ fn select(node: &MctsNode, state: &GameState) -> Option<usize> {
         let value = if child.games == 0 {
             f64::INFINITY
         } else if node.is_root() {
-            upper_confidence_bound_with_ln(child.cumulative_reward, child.games, root_ln, C)
+            upper_confidence_bound_with_ln(child.cumulative_reward, child.games, root_ln, c)
         } else {
             let total_game_count = child.availability_count.max(1);
-            upper_confidence_bound(child.cumulative_reward, child.games, total_game_count, C)
+            upper_confidence_bound(child.cumulative_reward, child.games, total_game_count, c)
         };
 
         if value > best_value {
@@ -212,8 +257,8 @@ fn compute_terminal_scores(state: &GameState) -> SmallVec<[f64; 4]> {
     scores.iter().map(|&s| if s == max_score { 1.0 / num_winners } else { 0.0 }).collect()
 }
 
-fn rollout<R: Rng>(state: &mut GameState, max_round: Option<u32>, rng: &mut R) -> SmallVec<[f64; 4]> {
-    for _ in 0..MAX_ROLLOUT_STEPS {
+fn rollout<R: Rng>(state: &mut GameState, max_round: Option<u32>, max_rollout_steps: u32, rng: &mut R) -> SmallVec<[f64; 4]> {
+    for _ in 0..max_rollout_steps {
         if is_terminal(state, max_round) {
             return compute_terminal_scores(state);
         }

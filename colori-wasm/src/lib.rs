@@ -1,7 +1,7 @@
 use colori_core::apply_choice::apply_choice;
 use colori_core::draft_phase::{advance_draft, confirm_pass, simultaneous_pick};
 use colori_core::draw_phase::execute_draw_phase;
-use colori_core::ismcts::ismcts;
+use colori_core::ismcts::{ismcts, MctsConfig};
 use colori_core::scoring::calculate_score;
 use colori_core::setup::create_initial_game_state;
 use colori_core::types::{CardInstance, ColoriChoice, GameState, PlayerState};
@@ -46,10 +46,11 @@ pub fn run_ismcts(
 
     let mut rng = SmallRng::from_os_rng();
 
+    let config = MctsConfig { iterations, ..MctsConfig::default() };
     let choice: ColoriChoice = ismcts(
         &game_state,
         player_index as usize,
-        iterations,
+        &config,
         &seen_hands,
         Some(max_round),
         &mut rng,

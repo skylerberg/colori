@@ -12,7 +12,10 @@ export interface StructuredLogEntry {
 }
 
 export interface PlayerVariant {
+  name?: string;
   iterations: number;
+  explorationConstant?: number;
+  maxRolloutSteps?: number;
 }
 
 export interface StructuredGameLog {

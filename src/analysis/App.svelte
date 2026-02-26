@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { StructuredGameLog } from '../gameLog';
+  import { formatVariantLabel } from './logAnalysis';
   import AnalysisDashboard from './AnalysisDashboard.svelte';
   import CardReference from './CardReference.svelte';
 
@@ -29,7 +30,7 @@
       const existing = map.get(t.batchId);
       if (!existing) {
         const variants = t.log.playerVariants
-          ? t.log.playerVariants.map(v => v.iterations).join(' vs ')
+          ? t.log.playerVariants.map(v => formatVariantLabel(v, t.log.playerVariants)).join(' vs ')
           : undefined;
         map.set(t.batchId, {
           count: 1,

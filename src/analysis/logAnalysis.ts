@@ -1,4 +1,4 @@
-import type { StructuredGameLog, FinalPlayerStats } from '../gameLog';
+import type { StructuredGameLog, FinalPlayerStats, PlayerVariant } from '../gameLog';
 import type { AnyCardData } from '../data/types';
 import type { CardCategory } from '../data/cards';
 import { getAnyCardData, getDraftCopies } from '../data/cards';
@@ -449,11 +449,41 @@ export function computeCategoryStats(rawCounts: Map<string, number>, categories:
   });
 }
 
-export function formatIterationsLabel(iters: number): string {
+function formatIterationsShort(iters: number): string {
   if (iters >= 1000 && iters % 1000 === 0) {
-    return `${iters / 1000}k iterations`;
+    return `${iters / 1000}k`;
   }
-  return `${iters} iterations`;
+  return `${iters}`;
+}
+
+export function formatVariantLabel(variant: PlayerVariant, allVariants?: PlayerVariant[]): string {
+  if (variant.name) return variant.name;
+
+  // Determine which fields differ across variants
+  const differingFields = {
+    iterations: false,
+    explorationConstant: false,
+    maxRolloutSteps: false,
+  };
+  if (allVariants && allVariants.length > 1) {
+    const first = allVariants[0];
+    differingFields.iterations = allVariants.some(v => v.iterations !== first.iterations);
+    differingFields.explorationConstant = allVariants.some(v => (v.explorationConstant ?? null) !== (first.explorationConstant ?? null));
+    differingFields.maxRolloutSteps = allVariants.some(v => (v.maxRolloutSteps ?? null) !== (first.maxRolloutSteps ?? null));
+  }
+
+  const parts: string[] = [];
+  if (differingFields.iterations || (!differingFields.explorationConstant && !differingFields.maxRolloutSteps)) {
+    parts.push(formatIterationsShort(variant.iterations));
+  }
+  if (differingFields.explorationConstant) {
+    parts.push(`c=${(variant.explorationConstant ?? Math.SQRT2).toFixed(2)}`);
+  }
+  if (differingFields.maxRolloutSteps) {
+    parts.push(`rollout=${variant.maxRolloutSteps ?? 1000}`);
+  }
+
+  return parts.join(', ');
 }
 
 export function computeWinRateByVariant(logs: StructuredGameLog[]): Map<string, { wins: number; games: number }> | null {
@@ -474,7 +504,7 @@ export function computeWinRateByVariant(logs: StructuredGameLog[]): Map<string, 
     // Group players by variant and tally wins/games
     const numWinners = log.finalScores.filter(fs => fs.score === maxScore).length;
     for (let i = 0; i < log.playerVariants.length; i++) {
-      const label = formatIterationsLabel(log.playerVariants[i].iterations);
+      const label = formatVariantLabel(log.playerVariants[i], log.playerVariants);
       if (!stats.has(label)) {
         stats.set(label, { wins: 0, games: 0 });
       }
