@@ -421,7 +421,13 @@ pub fn end_player_turn<R: Rng>(state: &mut GameState, rng: &mut R) {
     as_.current_player_index = (as_.current_player_index + 1) % num_players;
 
     if as_.current_player_index == starting_player {
-        initialize_cleanup_phase(state, rng);
+        let is_last_round = state.round >= 10
+            || state.players.iter().any(|p| p.cached_score >= 15);
+        if is_last_round {
+            end_round(state, rng);
+        } else {
+            initialize_cleanup_phase(state, rng);
+        }
     } else {
         let as_ = get_action_state_mut(state);
         as_.ability_stack.clear();
