@@ -495,6 +495,41 @@ export function wilsonConfidenceInterval(
   };
 }
 
+export function computePenultimateRoundDeckSizes(logs: StructuredGameLog[]): Map<number, number> {
+  const counts = new Map<number, number>();
+
+  for (const log of logs) {
+    let maxRound = 0;
+    for (const entry of log.entries) {
+      if (entry.round > maxRound) maxRound = entry.round;
+    }
+    if (maxRound < 2) continue;
+    const penultimateRound = maxRound - 1;
+
+    const playerDeckSizes: number[] = log.initialState.players.map(p =>
+      p.deck.length + p.discard.length + p.usedCards.length + p.workshopCards.length + p.draftedCards.length
+    );
+
+    for (const entry of log.entries) {
+      if (entry.round > penultimateRound) break;
+      const pi = entry.playerIndex;
+      if (entry.choice.type === 'draftPick') {
+        playerDeckSizes[pi]++;
+      } else if (entry.choice.type === 'destroyDraftedCard' || entry.choice.type === 'destroyAndMixAll' || entry.choice.type === 'destroyAndSell') {
+        playerDeckSizes[pi]--;
+      } else if (entry.choice.type === 'destroyDrawnCards') {
+        playerDeckSizes[pi] -= entry.choice.cardInstanceIds.length;
+      }
+    }
+
+    for (const size of playerDeckSizes) {
+      counts.set(size, (counts.get(size) ?? 0) + 1);
+    }
+  }
+
+  return counts;
+}
+
 export function computeDestroyRate(destroyedCounts: Map<string, number>, draftedCounts: Map<string, number>): Map<string, number> {
   const rates = new Map<string, number>();
   for (const [name, destroyed] of destroyedCounts) {
