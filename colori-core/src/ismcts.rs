@@ -1,7 +1,6 @@
 use crate::colori_game::*;
 use crate::types::*;
 use rand::Rng;
-use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 
 struct MctsNode {
@@ -9,8 +8,8 @@ struct MctsNode {
     cumulative_reward: f64,
     player_id: usize,
     choice: Option<ColoriChoice>,
-    children: FxHashMap<ColoriChoice, MctsNode>,
-    choice_availability_count: FxHashMap<ColoriChoice, u32>,
+    availability_count: u32,
+    children: Vec<MctsNode>,
 }
 
 impl MctsNode {
@@ -20,8 +19,8 @@ impl MctsNode {
             cumulative_reward: 0.0,
             player_id,
             choice,
-            children: FxHashMap::default(),
-            choice_availability_count: FxHashMap::default(),
+            availability_count: 0,
+            children: Vec::new(),
         }
     }
 
@@ -45,15 +44,12 @@ impl MctsNode {
         let mut added_new_node = false;
 
         for choice in choices.iter() {
-            if let Some(count) = self.choice_availability_count.get_mut(choice) {
-                *count += 1;
-            } else {
-                self.choice_availability_count.insert(choice.clone(), 0);
-            }
-
-            if self.is_root() || (!added_new_node && !self.children.contains_key(choice)) {
-                self.children
-                    .insert(choice.clone(), MctsNode::new(active_player, Some(choice.clone())));
+            if let Some(child) = self.children.iter_mut().find(|c| c.choice.as_ref() == Some(choice)) {
+                child.availability_count += 1;
+            } else if self.is_root() || !added_new_node {
+                let mut new_node = MctsNode::new(active_player, Some(choice.clone()));
+                new_node.availability_count = 1;
+                self.children.push(new_node);
                 added_new_node = true;
             }
         }
@@ -103,7 +99,7 @@ pub fn ismcts<R: Rng>(
     }
 
     let mut best_child: Option<&MctsNode> = None;
-    for child in root.children.values() {
+    for child in root.children.iter() {
         if best_child.is_none() || child.games > best_child.unwrap().games {
             best_child = Some(child);
         }
@@ -132,8 +128,8 @@ fn iteration<R: Rng>(
     }
 
     // Select
-    let best_key = match select(node, state) {
-        Some(key) => key.clone(),
+    let best_idx = match select(node, state) {
+        Some(idx) => idx,
         None => {
             let empty_scores = SmallVec::new();
             record_outcome(node, &empty_scores);
@@ -142,17 +138,17 @@ fn iteration<R: Rng>(
     };
 
     // Apply choice
-    let choice = node.children[&best_key].choice.clone().unwrap();
+    let choice = node.children[best_idx].choice.clone().unwrap();
     apply_choice_to_state(state, &choice, rng);
 
-    let should_rollout = node.children[&best_key].games == 0;
+    let should_rollout = node.children[best_idx].games == 0;
 
     let scores = if should_rollout {
         let scores = rollout(state, max_round, rng);
-        record_outcome(node.children.get_mut(&best_key).unwrap(), &scores);
+        record_outcome(&mut node.children[best_idx], &scores);
         scores
     } else {
-        let child = node.children.get_mut(&best_key).unwrap();
+        let child = &mut node.children[best_idx];
         iteration(child, state, max_round, choices_buf, rng)
     };
 
@@ -160,11 +156,11 @@ fn iteration<R: Rng>(
     scores
 }
 
-fn select<'a>(node: &'a MctsNode, state: &GameState) -> Option<&'a ColoriChoice> {
-    let mut best_key: Option<&ColoriChoice> = None;
+fn select(node: &MctsNode, state: &GameState) -> Option<usize> {
+    let mut best_idx: Option<usize> = None;
     let mut best_value = f64::NEG_INFINITY;
 
-    for (key, child) in &node.children {
+    for (idx, child) in node.children.iter().enumerate() {
         if !check_choice_available(state, child.choice.as_ref().unwrap()) {
             continue;
         }
@@ -175,18 +171,18 @@ fn select<'a>(node: &'a MctsNode, state: &GameState) -> Option<&'a ColoriChoice>
             let total_game_count = if node.is_root() {
                 node.games
             } else {
-                *node.choice_availability_count.get(key).unwrap_or(&node.games)
+                child.availability_count.max(1)
             };
             upper_confidence_bound(child.cumulative_reward, child.games, total_game_count, C)
         };
 
         if value > best_value {
             best_value = value;
-            best_key = Some(key);
+            best_idx = Some(idx);
         }
     }
 
-    best_key
+    best_idx
 }
 
 #[inline]

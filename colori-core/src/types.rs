@@ -4,6 +4,8 @@ use smallvec::SmallVec;
 use crate::fixed_vec::FixedVec;
 use crate::unordered_cards::{UnorderedBuyers, UnorderedCards};
 
+pub type AbilityStack = SmallVec<[Ability; 4]>;
+
 pub const MAX_PLAYERS: usize = 4;
 pub const MAX_BUYER_DISPLAY: usize = 6;
 
@@ -663,7 +665,7 @@ pub enum PendingChoice {
 #[serde(rename_all = "camelCase")]
 pub struct ActionState {
     pub current_player_index: usize,
-    pub ability_stack: Vec<Ability>,
+    pub ability_stack: AbilityStack,
     pub pending_choice: Option<PendingChoice>,
 }
 

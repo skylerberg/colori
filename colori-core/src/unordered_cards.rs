@@ -45,6 +45,21 @@ const BINOM: [[u64; 10]; 129] = {
     table
 };
 
+const BINOM_CUM: [[u64; 10]; 129] = {
+    let mut table = [[0u64; 10]; 129];
+    let mut n = 0usize;
+    while n <= 128 {
+        table[n][0] = BINOM[n][0];
+        let mut k = 1usize;
+        while k <= 9 {
+            table[n][k] = table[n][k - 1] + BINOM[n][k];
+            k += 1;
+        }
+        n += 1;
+    }
+    table
+};
+
 macro_rules! impl_bitset {
     ($name:ident) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -180,20 +195,18 @@ macro_rules! impl_bitset {
                 if c == 0 {
                     return $name(0);
                 }
-                let mut total: u64 = 0;
-                for k in 0..=c {
-                    total += BINOM[n][k];
-                }
+                let total = BINOM_CUM[n][c];
                 let mut r = rng.random_range(0..total);
-                // Find which size bucket
+                // Find which size bucket using cumulative table
                 let mut size = 0usize;
                 for k in 0..=c {
-                    let bin = BINOM[n][k];
-                    if r < bin {
+                    if r < BINOM_CUM[n][k] {
                         size = k;
+                        if k > 0 {
+                            r -= BINOM_CUM[n][k - 1];
+                        }
                         break;
                     }
-                    r -= bin;
                 }
                 if size == 0 {
                     return $name(0);
@@ -934,5 +947,35 @@ mod tests {
         cloned.insert(30);
         assert_ne!(original, cloned);
         assert!(!original.contains(30));
+    }
+
+    // ── BINOM_CUM table ──
+
+    #[test]
+    fn test_binom_cum_base() {
+        // BINOM_CUM[n][0] should always equal 1 (= BINOM[n][0])
+        for n in [0, 1, 10, 50, 128] {
+            assert_eq!(BINOM_CUM[n][0], 1, "BINOM_CUM[{}][0] should be 1", n);
+        }
+    }
+
+    #[test]
+    fn test_binom_cum_values() {
+        // BINOM_CUM[5][2] = C(5,0) + C(5,1) + C(5,2) = 1 + 5 + 10 = 16
+        assert_eq!(BINOM_CUM[5][2], 16);
+        // BINOM_CUM[n][n] for small n should be 2^n (sum of all binomials)
+        // BINOM_CUM[5][5] = 2^5 = 32
+        assert_eq!(BINOM_CUM[5][5], 32);
+    }
+
+    #[test]
+    fn test_binom_cum_consistency() {
+        // Verify BINOM_CUM[n][k] = sum of BINOM[n][0..=k] for a few values
+        for n in [3, 7, 15, 30] {
+            for k in 0..9usize.min(n) {
+                let manual_sum: u64 = (0..=k).map(|j| BINOM[n][j]).sum();
+                assert_eq!(BINOM_CUM[n][k], manual_sum, "BINOM_CUM[{}][{}]", n, k);
+            }
+        }
     }
 }

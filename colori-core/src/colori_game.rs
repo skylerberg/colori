@@ -1,11 +1,11 @@
 use crate::action_phase::{
     destroy_drafted_card, end_player_turn, resolve_choose_tertiary_to_gain,
     resolve_choose_tertiary_to_lose, resolve_destroy_cards, resolve_gain_primary,
-    resolve_gain_secondary, resolve_mix_colors, resolve_select_buyer, resolve_workshop_choice,
-    skip_mix, skip_workshop,
+    resolve_gain_secondary, resolve_mix_colors_unchecked,
+    resolve_select_buyer, resolve_workshop_choice, skip_mix, skip_workshop,
 };
 use crate::apply_choice::apply_choice;
-use crate::color_wheel::{can_pay_cost, perform_mix};
+use crate::color_wheel::{can_pay_cost, perform_mix_unchecked};
 use crate::colors::{can_mix, PRIMARIES, SECONDARIES, TERTIARIES, VALID_MIX_PAIRS};
 use crate::draft_phase::{confirm_pass, player_pick};
 use crate::draw_phase::execute_draw_phase;
@@ -61,7 +61,7 @@ fn enumerate_mix_sequences<F>(
 
             if remaining > 1 {
                 let mut wheel2 = wheel.clone();
-                perform_mix(&mut wheel2, a, b);
+                perform_mix_unchecked(&mut wheel2, a, b);
                 for &(c, d) in &VALID_MIX_PAIRS {
                     if wheel2.get(c) > 0 && wheel2.get(d) > 0 {
                         let mut mixes2 = SmallVec::new();
@@ -587,22 +587,6 @@ pub fn determinize_in_place<R: Rng>(
 // ── Fused rollout step ──
 
 pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
-    enum Op {
-        DraftPick(u32),
-        DestroyDrafted(u32),
-        DestroyAndMix { card_id: u32, mixes: [(Color, Color); 2], mix_count: usize },
-        DestroyAndSell { card_id: u32, buyer_id: u32 },
-        EndTurn,
-        SkipWorkshop,
-        Workshop(UnorderedCards),
-        DestroyDrawn(UnorderedCards),
-        MixAll { mixes: [(Color, Color); 2], mix_count: usize },
-        SelectBuyer(u32),
-        GainSecondary(Color),
-        GainPrimary(Color),
-        SwapTertiary(Color, Color),
-    }
-
     fn random_mix_seq_inline<R2: Rng>(
         wheel: &ColorWheel,
         remaining: u32,
@@ -633,31 +617,59 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
             let (a, b) = pairs[target];
             mixes[count] = (a, b);
             count += 1;
-            perform_mix(&mut sim_wheel, a, b);
+            perform_mix_unchecked(&mut sim_wheel, a, b);
         }
         (mixes, count)
     }
 
-    let op = match &state.phase {
+    // Small discriminant constants to avoid constructing the large Op enum
+    const DRAFT_PICK: u8 = 0;
+    const DESTROY_DRAFTED: u8 = 1;
+    const DESTROY_AND_MIX: u8 = 2;
+    const DESTROY_AND_SELL: u8 = 3;
+    const END_TURN: u8 = 4;
+    const SKIP_WORKSHOP: u8 = 5;
+    const WORKSHOP: u8 = 6;
+    const DESTROY_DRAWN: u8 = 7;
+    const MIX_ALL: u8 = 8;
+    const SELECT_BUYER: u8 = 9;
+    const GAIN_SECONDARY: u8 = 10;
+    const GAIN_PRIMARY: u8 = 11;
+    const SWAP_TERTIARY: u8 = 12;
+
+    // Flat locals for extracted data (avoids constructing a large tagged union)
+    let disc: u8;
+    let mut id1: u32 = 0;
+    let mut id2: u32 = 0;
+    let mut mixes = [(Color::Red, Color::Red); 2];
+    let mut mix_count: usize = 0;
+    let mut selected = UnorderedCards(0);
+    let mut color1 = Color::Red;
+    let mut color2 = Color::Red;
+
+    match &state.phase {
         GamePhase::Draft { draft_state } => {
             let hand = draft_state.hands[draft_state.current_player_index];
-            let id = hand.pick_random(rng).unwrap();
-            Op::DraftPick(id as u32)
+            id1 = hand.pick_random(rng).unwrap() as u32;
+            disc = DRAFT_PICK;
         }
         GamePhase::Action { action_state } => {
             let player = &state.players[action_state.current_player_index];
             match &action_state.pending_choice {
                 None => {
                     let mut copy = player.drafted_cards;
-                    let selected = copy.draw_up_to(1, rng);
-                    if !selected.is_empty() {
-                        let card_id = selected.0.trailing_zeros() as u8;
+                    let sel = copy.draw_up_to(1, rng);
+                    if !sel.is_empty() {
+                        let card_id = sel.0.trailing_zeros() as u8;
+                        id1 = card_id as u32;
                         let card = state.card_lookup[card_id as usize];
                         match card.ability() {
                             Ability::MixColors { count } => {
-                                let (mixes, mix_count) =
+                                let (m, mc) =
                                     random_mix_seq_inline(&player.color_wheel, count, rng);
-                                Op::DestroyAndMix { card_id: card_id as u32, mixes, mix_count }
+                                mixes = m;
+                                mix_count = mc;
+                                disc = DESTROY_AND_MIX;
                             }
                             Ability::Sell => {
                                 let mut affordable = [0u32; 6];
@@ -670,35 +682,36 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                                 }
                                 if aff_count > 0 {
                                     let buyer_idx = rng.random_range(0..aff_count);
-                                    Op::DestroyAndSell { card_id: card_id as u32, buyer_id: affordable[buyer_idx] }
+                                    id2 = affordable[buyer_idx];
+                                    disc = DESTROY_AND_SELL;
                                 } else {
-                                    Op::DestroyDrafted(card_id as u32)
+                                    disc = DESTROY_DRAFTED;
                                 }
                             }
-                            _ => Op::DestroyDrafted(card_id as u32),
+                            _ => {
+                                disc = DESTROY_DRAFTED;
+                            }
                         }
                     } else {
-                        Op::EndTurn
+                        disc = END_TURN;
                     }
                 }
                 Some(PendingChoice::ChooseCardsForWorkshop { count }) => {
                     let mut copy = player.workshop_cards;
-                    let selected = copy.draw_up_to(*count as u8, rng);
-                    if selected.is_empty() {
-                        Op::SkipWorkshop
-                    } else {
-                        Op::Workshop(selected)
-                    }
+                    selected = copy.draw_up_to(*count as u8, rng);
+                    disc = if selected.is_empty() { SKIP_WORKSHOP } else { WORKSHOP };
                 }
                 Some(PendingChoice::ChooseCardsToDestroy { count }) => {
                     let mut copy = player.workshop_cards;
-                    let selected = copy.draw_up_to(*count as u8, rng);
-                    Op::DestroyDrawn(selected)
+                    selected = copy.draw_up_to(*count as u8, rng);
+                    disc = DESTROY_DRAWN;
                 }
                 Some(PendingChoice::ChooseMix { remaining }) => {
-                    let (mixes, mix_count) =
+                    let (m, mc) =
                         random_mix_seq_inline(&player.color_wheel, *remaining, rng);
-                    Op::MixAll { mixes, mix_count }
+                    mixes = m;
+                    mix_count = mc;
+                    disc = MIX_ALL;
                 }
                 Some(PendingChoice::ChooseBuyer) => {
                     let mut affordable = [0u32; 6];
@@ -710,15 +723,18 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                         }
                     }
                     let idx = rng.random_range(0..aff_count);
-                    Op::SelectBuyer(affordable[idx])
+                    id1 = affordable[idx];
+                    disc = SELECT_BUYER;
                 }
                 Some(PendingChoice::ChooseSecondaryColor) => {
                     let idx = rng.random_range(0..SECONDARIES.len());
-                    Op::GainSecondary(SECONDARIES[idx])
+                    color1 = SECONDARIES[idx];
+                    disc = GAIN_SECONDARY;
                 }
                 Some(PendingChoice::ChoosePrimaryColor) => {
                     let idx = rng.random_range(0..PRIMARIES.len());
-                    Op::GainPrimary(PRIMARIES[idx])
+                    color1 = PRIMARIES[idx];
+                    disc = GAIN_PRIMARY;
                 }
                 Some(PendingChoice::ChooseTertiaryToLose) => {
                     let mut owned = [Color::Red; 6];
@@ -732,37 +748,38 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                     let r = rng.random_range(0..own_count * 5);
                     let lose_idx = r / 5;
                     let gain_local_idx = r % 5;
-                    let lose = owned[lose_idx];
+                    color1 = owned[lose_idx];
                     let mut options = [Color::Red; 6];
                     let mut opt_count = 0usize;
                     for &c in &TERTIARIES {
-                        if c != lose {
+                        if c != color1 {
                             options[opt_count] = c;
                             opt_count += 1;
                         }
                     }
-                    Op::SwapTertiary(lose, options[gain_local_idx])
+                    color2 = options[gain_local_idx];
+                    disc = SWAP_TERTIARY;
                 }
             }
         }
         _ => panic!("Cannot apply rollout step for current state"),
-    };
+    }
 
-    match op {
-        Op::DraftPick(id) => {
-            player_pick(state, id);
+    match disc {
+        DRAFT_PICK => {
+            player_pick(state, id1);
             if let GamePhase::Draft { ref draft_state } = state.phase {
                 if draft_state.waiting_for_pass {
                     confirm_pass(state);
                 }
             }
         }
-        Op::DestroyDrafted(id) => destroy_drafted_card(state, id, rng),
-        Op::DestroyAndMix { card_id, mixes, mix_count } => {
-            destroy_drafted_card(state, card_id, rng);
+        DESTROY_DRAFTED => destroy_drafted_card(state, id1, rng),
+        DESTROY_AND_MIX => {
+            destroy_drafted_card(state, id1, rng);
             for i in 0..mix_count {
                 let (a, b) = mixes[i];
-                resolve_mix_colors(state, a, b, rng);
+                resolve_mix_colors_unchecked(state, a, b, rng);
             }
             if let GamePhase::Action { ref action_state } = state.phase {
                 if matches!(action_state.pending_choice, Some(PendingChoice::ChooseMix { .. })) {
@@ -770,23 +787,23 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                 }
             }
         }
-        Op::DestroyAndSell { card_id, buyer_id } => {
-            destroy_drafted_card(state, card_id, rng);
-            resolve_select_buyer(state, buyer_id, rng);
+        DESTROY_AND_SELL => {
+            destroy_drafted_card(state, id1, rng);
+            resolve_select_buyer(state, id2, rng);
         }
-        Op::EndTurn => {
+        END_TURN => {
             end_player_turn(state, rng);
             if matches!(state.phase, GamePhase::Draw) {
                 execute_draw_phase(state, rng);
             }
         }
-        Op::SkipWorkshop => skip_workshop(state, rng),
-        Op::Workshop(selected) => resolve_workshop_choice(state, selected, rng),
-        Op::DestroyDrawn(selected) => resolve_destroy_cards(state, selected, rng),
-        Op::MixAll { mixes, mix_count } => {
+        SKIP_WORKSHOP => skip_workshop(state, rng),
+        WORKSHOP => resolve_workshop_choice(state, selected, rng),
+        DESTROY_DRAWN => resolve_destroy_cards(state, selected, rng),
+        MIX_ALL => {
             for i in 0..mix_count {
                 let (a, b) = mixes[i];
-                resolve_mix_colors(state, a, b, rng);
+                resolve_mix_colors_unchecked(state, a, b, rng);
             }
             if let GamePhase::Action { ref action_state } = state.phase {
                 if matches!(action_state.pending_choice, Some(PendingChoice::ChooseMix { .. })) {
@@ -794,12 +811,13 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                 }
             }
         }
-        Op::SelectBuyer(id) => resolve_select_buyer(state, id, rng),
-        Op::GainSecondary(c) => resolve_gain_secondary(state, c, rng),
-        Op::GainPrimary(c) => resolve_gain_primary(state, c, rng),
-        Op::SwapTertiary(lose, gain) => {
-            resolve_choose_tertiary_to_lose(state, lose);
-            resolve_choose_tertiary_to_gain(state, gain, rng);
+        SELECT_BUYER => resolve_select_buyer(state, id1, rng),
+        GAIN_SECONDARY => resolve_gain_secondary(state, color1, rng),
+        GAIN_PRIMARY => resolve_gain_primary(state, color1, rng),
+        SWAP_TERTIARY => {
+            resolve_choose_tertiary_to_lose(state, color1);
+            resolve_choose_tertiary_to_gain(state, color2, rng);
         }
+        _ => unreachable!(),
     }
 }

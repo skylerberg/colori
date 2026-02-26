@@ -26,6 +26,17 @@ pub fn perform_mix(wheel: &mut ColorWheel, a: Color, b: Color) -> bool {
     true
 }
 
+/// Performs a mix without checking `can_mix` or wheel amounts.
+/// The caller must guarantee that `a` and `b` are a valid mix pair
+/// and that the wheel has at least one of each.
+#[inline]
+pub fn perform_mix_unchecked(wheel: &mut ColorWheel, a: Color, b: Color) {
+    wheel.decrement(a);
+    wheel.decrement(b);
+    let result = mix_result(a, b);
+    wheel.increment(result);
+}
+
 #[inline]
 pub fn can_pay_cost(wheel: &ColorWheel, cost: &[Color]) -> bool {
     let mut used = [0u32; 12];
