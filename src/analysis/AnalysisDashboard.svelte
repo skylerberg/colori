@@ -160,7 +160,7 @@
           {@const ci = wilsonConfidenceInterval(stats.wins, stats.games)}
           <tr>
             <td>Player {position + 1}</td>
-            <td>{stats.wins}</td>
+            <td>{Number.isInteger(stats.wins) ? stats.wins : stats.wins.toFixed(1)}</td>
             <td>{stats.games}</td>
             <td>{stats.games > 0 ? ((stats.wins / stats.games) * 100).toFixed(1) : '0.0'}%</td>
             <td>{ci ? `[${ci.lower.toFixed(1)}%, ${ci.upper.toFixed(1)}%]` : '–'}</td>
@@ -189,7 +189,7 @@
           {@const ci = wilsonConfidenceInterval(stats.wins, stats.games)}
           <tr>
             <td>{variant}</td>
-            <td>{stats.wins}</td>
+            <td>{Number.isInteger(stats.wins) ? stats.wins : stats.wins.toFixed(1)}</td>
             <td>{stats.games}</td>
             <td>{stats.games > 0 ? ((stats.wins / stats.games) * 100).toFixed(1) : '0.0'}%</td>
             <td>{ci ? `[${ci.lower.toFixed(1)}%, ${ci.upper.toFixed(1)}%]` : '–'}</td>

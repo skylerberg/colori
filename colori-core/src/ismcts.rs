@@ -208,7 +208,8 @@ fn is_terminal(state: &GameState, max_round: Option<u32>) -> bool {
 fn compute_terminal_scores(state: &GameState) -> SmallVec<[f64; 4]> {
     let scores: SmallVec<[f64; 4]> = state.players.iter().map(|p| p.cached_score as f64).collect();
     let max_score = scores.iter().cloned().fold(0.0f64, f64::max);
-    scores.iter().map(|&s| if s == max_score { 1.0 } else { 0.0 }).collect()
+    let num_winners = scores.iter().filter(|&&s| s == max_score).count() as f64;
+    scores.iter().map(|&s| if s == max_score { 1.0 / num_winners } else { 0.0 }).collect()
 }
 
 fn rollout<R: Rng>(state: &mut GameState, max_round: Option<u32>, rng: &mut R) -> SmallVec<[f64; 4]> {

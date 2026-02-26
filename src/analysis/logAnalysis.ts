@@ -219,11 +219,12 @@ export function computeWinRateByPosition(logs: StructuredGameLog[]): Map<number,
     }
 
     // Match final scores back to player indices by name
+    const numWinners = log.finalScores.filter(fs => fs.score === maxScore).length;
     for (let i = 0; i < log.playerNames.length; i++) {
       const playerName = log.playerNames[i];
       const scoreEntry = log.finalScores.find(fs => fs.name === playerName);
       if (scoreEntry && scoreEntry.score === maxScore) {
-        stats.get(i)!.wins++;
+        stats.get(i)!.wins += 1 / numWinners;
       }
     }
   }
@@ -382,6 +383,7 @@ export function computeWinRateByVariant(logs: StructuredGameLog[]): Map<string, 
     }
 
     // Group players by variant and tally wins/games
+    const numWinners = log.finalScores.filter(fs => fs.score === maxScore).length;
     for (let i = 0; i < log.playerVariants.length; i++) {
       const label = formatIterationsLabel(log.playerVariants[i].iterations);
       if (!stats.has(label)) {
@@ -393,7 +395,7 @@ export function computeWinRateByVariant(logs: StructuredGameLog[]): Map<string, 
       const playerName = log.playerNames[i];
       const scoreEntry = log.finalScores.find(fs => fs.name === playerName);
       if (scoreEntry && scoreEntry.score === maxScore) {
-        entry.wins++;
+        entry.wins += 1 / numWinners;
       }
     }
   }
