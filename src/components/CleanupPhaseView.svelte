@@ -16,12 +16,12 @@
     cleanupState ? gameState.players[cleanupState.currentPlayerIndex] : null
   );
 
-  // All cards start selected (kept by default)
+  // All cards start unselected (discarded by default)
   let selectedIds: number[] = $state([]);
 
   $effect(() => {
     if (currentPlayer) {
-      selectedIds = currentPlayer.workshopCards.map(c => c.instanceId);
+      selectedIds = [];
     }
   });
 
