@@ -29,6 +29,10 @@ describe('Draft Phase', () => {
   bench('run_ismcts 1000 iterations', () => {
     runWasm(state, 0, 1000);
   });
+
+  bench('run_ismcts 10000 iterations', () => {
+    runWasm(state, 0, 10000);
+  });
 });
 
 describe('Action Phase', () => {
@@ -44,5 +48,9 @@ describe('Action Phase', () => {
 
   bench('run_ismcts 1000 iterations', () => {
     runWasm(state, 0, 1000);
+  });
+
+  bench('run_ismcts 10000 iterations', () => {
+    runWasm(state, 0, 10000);
   });
 });
