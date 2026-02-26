@@ -120,6 +120,81 @@ export function computeCardsAddedToDeck(logs: StructuredGameLog[]): Map<string, 
   return counts;
 }
 
+export function computeWinRateByCard(logs: StructuredGameLog[]): Map<string, { wins: number; games: number }> {
+  const stats = new Map<string, { wins: number; games: number }>();
+
+  for (const log of logs) {
+    if (!log.finalScores) continue;
+    const instanceMap = buildCardInstanceMap(log);
+
+    // Track per-player drafted and destroyed cards
+    const playerDrafted = new Map<number, Set<number>>();
+    const playerDestroyed = new Map<number, Set<number>>();
+
+    for (const entry of log.entries) {
+      const pi = entry.playerIndex;
+      if (entry.choice.type === 'draftPick') {
+        if (!playerDrafted.has(pi)) playerDrafted.set(pi, new Set());
+        playerDrafted.get(pi)!.add(entry.choice.cardInstanceId);
+      } else if (entry.choice.type === 'destroyDraftedCard' || entry.choice.type === 'destroyAndMixAll' || entry.choice.type === 'destroyAndSell') {
+        if (!playerDestroyed.has(pi)) playerDestroyed.set(pi, new Set());
+        playerDestroyed.get(pi)!.add(entry.choice.cardInstanceId);
+      }
+    }
+
+    // Compute winners
+    let maxScore = -Infinity;
+    for (const fs of log.finalScores) {
+      if (fs.score > maxScore) maxScore = fs.score;
+    }
+    const numWinners = log.finalScores.filter(fs => fs.score === maxScore).length;
+
+    // For each player, determine final deck cards and tally
+    for (let i = 0; i < log.playerNames.length; i++) {
+      const drafted = playerDrafted.get(i) ?? new Set<number>();
+      const destroyed = playerDestroyed.get(i) ?? new Set<number>();
+      const playerName = log.playerNames[i];
+      const scoreEntry = log.finalScores.find(fs => fs.name === playerName);
+      const isWinner = scoreEntry != null && scoreEntry.score === maxScore;
+
+      const deckCardNames = new Set<string>();
+      for (const id of drafted) {
+        if (!destroyed.has(id)) {
+          const inst = instanceMap.get(id);
+          if (inst) deckCardNames.add(getCardName(inst.card));
+        }
+      }
+
+      for (const name of deckCardNames) {
+        if (!stats.has(name)) stats.set(name, { wins: 0, games: 0 });
+        const entry = stats.get(name)!;
+        entry.games++;
+        if (isWinner) entry.wins += 1 / numWinners;
+      }
+    }
+  }
+
+  return stats;
+}
+
+export function computeWinRateCategoryStats(
+  cardWinRate: Map<string, { wins: number; games: number }>,
+  categories: CardCategory[],
+): { label: string; wins: number; games: number }[] {
+  return categories.map(cat => {
+    let wins = 0;
+    let games = 0;
+    for (const name of cat.cardNames) {
+      const entry = cardWinRate.get(name);
+      if (entry) {
+        wins += entry.wins;
+        games += entry.games;
+      }
+    }
+    return { label: cat.label, wins, games };
+  });
+}
+
 export function computeBuyerAcquisitions(logs: StructuredGameLog[]): {
   byBuyer: Map<string, number>;
   byStars: Map<number, number>;

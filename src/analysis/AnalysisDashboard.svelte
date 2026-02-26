@@ -17,6 +17,8 @@
     computeCategoryStats,
     computeDestroyRate,
     computeWinRateByVariant,
+    computeWinRateByCard,
+    computeWinRateCategoryStats,
     wilsonConfidenceInterval,
   } from './logAnalysis';
   import { DRAFT_CARD_CATEGORIES, getStarterCardCategories } from '../data/cards';
@@ -45,6 +47,9 @@
 
   let cardsAddedNormalized = $derived(normalizeByDraftCopies(cardsAdded));
   let cardsAddedCategories = $derived(computeCategoryStats(cardsAdded, allCategories));
+
+  let cardWinRate = $derived(computeWinRateByCard(logs));
+  let cardWinRateCategories = $derived(computeWinRateCategoryStats(cardWinRate, allCategories));
 
   let destroyRate = $derived(computeDestroyRate(destroyedDraft, draftFreq));
   let destroyRateCategories = $derived(computeCategoryStats(destroyedDraft, DRAFT_CARD_CATEGORIES));
@@ -316,6 +321,62 @@
               <div class="bar" style="width: {(value / maxVal) * 100}%"></div>
               <span>{value.toFixed(2)}</span>
             </td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  {/if}
+</details>
+
+<!-- Win Rate by Card in Deck -->
+<details>
+  <summary>Win Rate by Card in Deck</summary>
+  {#if cardWinRate.size === 0}
+    <p>No data available.</p>
+  {:else}
+    <h3>By Category</h3>
+    {@const catSorted = [...cardWinRateCategories].sort((a, b) => {
+      const rateA = a.games > 0 ? a.wins / a.games : 0;
+      const rateB = b.games > 0 ? b.wins / b.games : 0;
+      return rateB - rateA;
+    })}
+    <table>
+      <thead>
+        <tr><th>Category</th><th>Wins</th><th>Games</th><th>Win %</th><th>95% CI</th></tr>
+      </thead>
+      <tbody>
+        {#each catSorted as cat}
+          {@const ci = wilsonConfidenceInterval(cat.wins, cat.games)}
+          <tr>
+            <td>{cat.label}</td>
+            <td>{Number.isInteger(cat.wins) ? cat.wins : cat.wins.toFixed(1)}</td>
+            <td>{cat.games}</td>
+            <td>{cat.games > 0 ? ((cat.wins / cat.games) * 100).toFixed(1) : '0.0'}%</td>
+            <td>{ci ? `[${ci.lower.toFixed(1)}%, ${ci.upper.toFixed(1)}%]` : '–'}</td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+
+    <h3>By Card</h3>
+    {@const cardSorted = [...cardWinRate.entries()].sort((a, b) => {
+      const rateA = a[1].games > 0 ? a[1].wins / a[1].games : 0;
+      const rateB = b[1].games > 0 ? b[1].wins / b[1].games : 0;
+      return rateB - rateA;
+    })}
+    <table>
+      <thead>
+        <tr><th>Card</th><th>Wins</th><th>Games</th><th>Win %</th><th>95% CI</th></tr>
+      </thead>
+      <tbody>
+        {#each cardSorted as [card, stats]}
+          {@const ci = wilsonConfidenceInterval(stats.wins, stats.games)}
+          <tr>
+            <td>{card}</td>
+            <td>{Number.isInteger(stats.wins) ? stats.wins : stats.wins.toFixed(1)}</td>
+            <td>{stats.games}</td>
+            <td>{stats.games > 0 ? ((stats.wins / stats.games) * 100).toFixed(1) : '0.0'}%</td>
+            <td>{ci ? `[${ci.lower.toFixed(1)}%, ${ci.upper.toFixed(1)}%]` : '–'}</td>
           </tr>
         {/each}
       </tbody>
