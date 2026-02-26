@@ -1,15 +1,15 @@
 use crate::action_phase::{
-    destroy_drafted_card, end_player_turn, resolve_choose_tertiary_to_gain,
-    resolve_choose_tertiary_to_lose, resolve_destroy_cards, resolve_gain_primary,
-    resolve_gain_secondary, resolve_mix_colors_unchecked,
+    destroy_drafted_card, end_player_turn, initialize_action_phase,
+    resolve_choose_tertiary_to_gain, resolve_choose_tertiary_to_lose, resolve_destroy_cards,
+    resolve_gain_primary, resolve_gain_secondary, resolve_mix_colors_unchecked,
     resolve_select_buyer, resolve_workshop_choice, skip_mix, skip_workshop,
 };
 use crate::apply_choice::apply_choice;
 use crate::color_wheel::{can_pay_cost, perform_mix_unchecked};
 use crate::colors::{can_mix, PRIMARIES, SECONDARIES, TERTIARIES, VALID_MIX_PAIRS};
+use crate::deck_utils::draw_from_deck;
 use crate::draft_phase::{confirm_pass, player_pick};
 use crate::draw_phase::execute_draw_phase;
-use crate::scoring::calculate_score;
 use crate::types::*;
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
@@ -473,13 +473,14 @@ pub fn determinize_in_place<R: Rng>(
     source: &GameState,
     perspective_player: usize,
     seen_hands: &Option<Vec<Vec<CardInstance>>>,
+    cached_scores: &[u32; MAX_PLAYERS],
     rng: &mut R,
 ) {
     det.clone_from(source);
 
-    // Initialize cached scores for ISMCTS usage
-    for p in &mut det.players {
-        p.cached_score = calculate_score(p);
+    // Initialize cached scores from pre-computed values
+    for (i, p) in det.players.iter_mut().enumerate() {
+        p.cached_score = cached_scores[i];
     }
 
     if let GamePhase::Draft { ref mut draft_state } = det.phase {
@@ -584,6 +585,53 @@ pub fn determinize_in_place<R: Rng>(
     // because draw() from bitsets is inherently random
 }
 
+// ── Rollout draw+draft shortcut ──
+
+fn rollout_draw_and_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
+    let num_players = state.players.len();
+
+    // Step 1: Draw 5 cards from each player's personal deck (same as execute_draw_phase)
+    for i in 0..num_players {
+        let player = &mut state.players[i];
+        draw_from_deck(
+            &mut player.deck,
+            &mut player.discard,
+            &mut player.workshop_cards,
+            5,
+            rng,
+        );
+    }
+
+    // Step 2: Pool all available draft cards
+    let mut pool = state.draft_deck;
+    state.draft_deck = UnorderedCards::new();
+
+    let total_needed = 5 * num_players as u32;
+    if pool.len() < total_needed && !state.destroyed_pile.is_empty() {
+        pool = pool.union(state.destroyed_pile);
+        state.destroyed_pile = UnorderedCards::new();
+    }
+
+    // Step 3: Check if enough cards for all players
+    if pool.len() < 4 * num_players as u32 {
+        state.destroyed_pile = state.destroyed_pile.union(pool);
+        initialize_action_phase(state);
+        return;
+    }
+
+    // Step 4: Distribute 4 random cards per player to drafted_cards
+    for i in 0..num_players {
+        let drawn = pool.draw_multiple(4, rng);
+        state.players[i].drafted_cards = drawn;
+    }
+
+    // Step 5: Remaining cards go to destroyed_pile
+    state.destroyed_pile = state.destroyed_pile.union(pool);
+
+    // Step 6: Go directly to action phase
+    initialize_action_phase(state);
+}
+
 // ── Fused rollout step ──
 
 pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
@@ -623,7 +671,6 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
     }
 
     // Small discriminant constants to avoid constructing the large Op enum
-    const DRAFT_PICK: u8 = 0;
     const DESTROY_DRAFTED: u8 = 1;
     const DESTROY_AND_MIX: u8 = 2;
     const DESTROY_AND_SELL: u8 = 3;
@@ -647,12 +694,29 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
     let mut color1 = Color::Red;
     let mut color2 = Color::Red;
 
-    match &state.phase {
-        GamePhase::Draft { draft_state } => {
-            let hand = draft_state.hands[draft_state.current_player_index];
-            id1 = hand.pick_random(rng).unwrap() as u32;
-            disc = DRAFT_PICK;
+    // Fast path: complete entire draft in one step
+    if matches!(&state.phase, GamePhase::Draft { .. }) {
+        if let GamePhase::Draft { ref mut draft_state } = state.phase {
+            draft_state.waiting_for_pass = false;
         }
+        loop {
+            let card_id = {
+                if let GamePhase::Draft { ref draft_state } = state.phase {
+                    let hand = draft_state.hands[draft_state.current_player_index];
+                    hand.pick_random(rng).unwrap() as u32
+                } else {
+                    break;
+                }
+            };
+            player_pick(state, card_id);
+            if let GamePhase::Draft { ref mut draft_state } = state.phase {
+                draft_state.waiting_for_pass = false;
+            }
+        }
+        return;
+    }
+
+    match &state.phase {
         GamePhase::Action { action_state } => {
             let player = &state.players[action_state.current_player_index];
             match &action_state.pending_choice {
@@ -766,14 +830,6 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
     }
 
     match disc {
-        DRAFT_PICK => {
-            player_pick(state, id1);
-            if let GamePhase::Draft { ref draft_state } = state.phase {
-                if draft_state.waiting_for_pass {
-                    confirm_pass(state);
-                }
-            }
-        }
         DESTROY_DRAFTED => destroy_drafted_card(state, id1, rng),
         DESTROY_AND_MIX => {
             destroy_drafted_card(state, id1, rng);
@@ -794,7 +850,7 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
         END_TURN => {
             end_player_turn(state, rng);
             if matches!(state.phase, GamePhase::Draw) {
-                execute_draw_phase(state, rng);
+                rollout_draw_and_draft(state, rng);
             }
         }
         SKIP_WORKSHOP => skip_workshop(state, rng),

@@ -1,4 +1,5 @@
 use crate::colori_game::*;
+use crate::scoring::calculate_score;
 use crate::types::*;
 use rand::Rng;
 use smallvec::SmallVec;
@@ -87,8 +88,13 @@ pub fn ismcts<R: Rng>(
     let mut root = MctsNode::new(player_id, None);
     let mut det_state = state.clone();
 
+    let mut cached_scores = [0u32; MAX_PLAYERS];
+    for (i, p) in state.players.iter().enumerate() {
+        cached_scores[i] = calculate_score(p);
+    }
+
     for _ in 0..iterations {
-        determinize_in_place(&mut det_state, state, player_id, seen_hands, rng);
+        determinize_in_place(&mut det_state, state, player_id, seen_hands, &cached_scores, rng);
         iteration(&mut root, &mut det_state, max_round, &mut choices_buf, rng);
     }
 
@@ -138,8 +144,8 @@ fn iteration<R: Rng>(
     };
 
     // Apply choice
-    let choice = node.children[best_idx].choice.clone().unwrap();
-    apply_choice_to_state(state, &choice, rng);
+    let choice = node.children[best_idx].choice.as_ref().unwrap();
+    apply_choice_to_state(state, choice, rng);
 
     let should_rollout = node.children[best_idx].games == 0;
 

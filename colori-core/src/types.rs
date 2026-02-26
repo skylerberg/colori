@@ -589,7 +589,7 @@ pub struct PlayerState {
     pub drafted_cards: UnorderedCards,
     pub color_wheel: ColorWheel,
     pub materials: Materials,
-    pub completed_buyers: Vec<BuyerInstance>,
+    pub completed_buyers: SmallVec<[BuyerInstance; 12]>,
     pub ducats: u32,
     #[serde(skip)]
     pub cached_score: u32,

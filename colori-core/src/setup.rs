@@ -3,6 +3,7 @@ use crate::fixed_vec::FixedVec;
 use crate::types::*;
 use crate::unordered_cards::{set_buyer_registry, set_card_registry, UnorderedBuyers, UnorderedCards};
 use rand::Rng;
+use smallvec::SmallVec;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 static NEXT_CARD_ID: AtomicU32 = AtomicU32::new(0);
@@ -55,7 +56,7 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
                 drafted_cards: UnorderedCards::new(),
                 color_wheel,
                 materials: Materials::new(),
-                completed_buyers: Vec::new(),
+                completed_buyers: SmallVec::new(),
                 ducats: 0,
                 cached_score: 0,
             }

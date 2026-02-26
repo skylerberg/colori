@@ -235,7 +235,7 @@ fn run_game(
             .map(|(i, p)| FinalPlayerStats {
                 name: names[i].clone(),
                 deck_size: (p.deck.len() + p.discard.len() + p.workshop_cards.len()) as usize,
-                completed_buyers: p.completed_buyers.clone(),
+                completed_buyers: p.completed_buyers.to_vec(),
                 ducats: p.ducats,
                 color_wheel: p.color_wheel.clone(),
                 materials: p.materials.clone(),
