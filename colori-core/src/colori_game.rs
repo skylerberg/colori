@@ -647,8 +647,10 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
             let player = &state.players[action_state.current_player_index];
             match &action_state.pending_choice {
                 None => {
-                    if !player.drafted_cards.is_empty() && rng.random::<f64>() < 0.8 {
-                        let card_id = player.drafted_cards.pick_random(rng).unwrap();
+                    let mut copy = player.drafted_cards;
+                    let selected = copy.draw_up_to(1, rng);
+                    if !selected.is_empty() {
+                        let card_id = selected.0.trailing_zeros() as u8;
                         let card = state.card_lookup[card_id as usize];
                         match card.ability() {
                             Ability::MixColors { count } => {
@@ -726,7 +728,9 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                             own_count += 1;
                         }
                     }
-                    let lose_idx = rng.random_range(0..own_count);
+                    let r = rng.random_range(0..own_count * 5);
+                    let lose_idx = r / 5;
+                    let gain_local_idx = r % 5;
                     let lose = owned[lose_idx];
                     let mut options = [Color::Red; 6];
                     let mut opt_count = 0usize;
@@ -736,8 +740,7 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                             opt_count += 1;
                         }
                     }
-                    let gain_idx = rng.random_range(0..opt_count);
-                    Op::SwapTertiary(lose, options[gain_idx])
+                    Op::SwapTertiary(lose, options[gain_local_idx])
                 }
             }
         }
