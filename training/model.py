@@ -123,6 +123,7 @@ def export_onnx(model, path, max_actions=256):
             'value': {0: 'batch'},
         },
         opset_version=17,
+        dynamo=False,
     )
     print(f"Model exported to {path}")
 

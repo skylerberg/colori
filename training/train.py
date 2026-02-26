@@ -44,6 +44,8 @@ def train_epoch(model, optimizer, replay_buffer, batch_size):
     # Renormalize target
     target_sum = target_policies.sum(dim=-1, keepdim=True).clamp(min=1e-8)
     target_policies = target_policies / target_sum
+    # Replace -inf in log_policy with 0 where target is 0 to avoid 0 * -inf = NaN
+    log_policy = log_policy.masked_fill(~action_masks, 0.0)
     policy_loss = -(target_policies * log_policy).sum(dim=-1).mean()
 
     # Value loss: MSE between predicted value[0] (perspective player's win prob) and actual outcome

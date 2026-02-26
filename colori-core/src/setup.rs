@@ -4,22 +4,32 @@ use crate::types::*;
 use crate::unordered_cards::{set_buyer_registry, set_card_registry, UnorderedBuyers, UnorderedCards};
 use rand::Rng;
 use smallvec::SmallVec;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::cell::Cell;
 
-static NEXT_CARD_ID: AtomicU32 = AtomicU32::new(0);
-static NEXT_BUYER_ID: AtomicU32 = AtomicU32::new(0);
+thread_local! {
+    static NEXT_CARD_ID: Cell<u32> = const { Cell::new(0) };
+    static NEXT_BUYER_ID: Cell<u32> = const { Cell::new(0) };
+}
 
 fn next_card_id() -> u8 {
-    NEXT_CARD_ID.fetch_add(1, Ordering::Relaxed) as u8
+    NEXT_CARD_ID.with(|c| {
+        let id = c.get();
+        c.set(id + 1);
+        id as u8
+    })
 }
 
 fn next_buyer_id() -> u8 {
-    NEXT_BUYER_ID.fetch_add(1, Ordering::Relaxed) as u8
+    NEXT_BUYER_ID.with(|c| {
+        let id = c.get();
+        c.set(id + 1);
+        id as u8
+    })
 }
 
 fn reset_id_counters() {
-    NEXT_CARD_ID.store(0, Ordering::Relaxed);
-    NEXT_BUYER_ID.store(0, Ordering::Relaxed);
+    NEXT_CARD_ID.with(|c| c.set(0));
+    NEXT_BUYER_ID.with(|c| c.set(0));
 }
 
 pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool], rng: &mut R) -> GameState {

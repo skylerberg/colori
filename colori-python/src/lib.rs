@@ -219,33 +219,35 @@ fn run_self_play_games(
         c_puct,
     };
 
-    let all_samples: Vec<Vec<TrainingSample>> = std::thread::scope(|s| {
-        let games_per_thread = num_games / num_threads;
-        let remainder = num_games % num_threads;
-        let mut handles = Vec::new();
+    let all_samples: Vec<Vec<TrainingSample>> = py.allow_threads(|| {
+        std::thread::scope(|s| {
+            let games_per_thread = num_games / num_threads;
+            let remainder = num_games % num_threads;
+            let mut handles = Vec::new();
 
-        for t in 0..num_threads {
-            let count = games_per_thread + if t < remainder { 1 } else { 0 };
-            let eval = Arc::clone(&evaluator);
-            let cfg = config.clone();
+            for t in 0..num_threads {
+                let count = games_per_thread + if t < remainder { 1 } else { 0 };
+                let eval = Arc::clone(&evaluator);
+                let cfg = config.clone();
 
-            handles.push(s.spawn(move || {
-                let mut rng = SmallRng::from_os_rng();
-                let mut thread_samples = Vec::new();
+                handles.push(s.spawn(move || {
+                    let mut rng = SmallRng::from_os_rng();
+                    let mut thread_samples = Vec::new();
 
-                for _ in 0..count {
-                    let samples = run_single_self_play_game(eval.as_ref(), &cfg, &mut rng);
-                    thread_samples.push(samples);
-                }
-                thread_samples
-            }));
-        }
+                    for _ in 0..count {
+                        let samples = run_single_self_play_game(eval.as_ref(), &cfg, &mut rng);
+                        thread_samples.push(samples);
+                    }
+                    thread_samples
+                }));
+            }
 
-        let mut all = Vec::new();
-        for handle in handles {
-            all.extend(handle.join().unwrap());
-        }
-        all
+            let mut all = Vec::new();
+            for handle in handles {
+                all.extend(handle.join().unwrap());
+            }
+            all
+        })
     });
 
     let samples: Vec<TrainingSample> = all_samples.into_iter().flatten().collect();
