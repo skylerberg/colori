@@ -45,6 +45,7 @@ struct VariantFileEntry {
     name: Option<String>,
     #[serde(flatten)]
     config: MctsConfig,
+    model: Option<String>,
 }
 
 fn parse_args() -> Args {
@@ -116,7 +117,7 @@ fn parse_args() -> Args {
                 variants = Some(
                     entries
                         .into_iter()
-                        .map(|e| NamedVariant { name: e.name, config: e.config, model_path: None })
+                        .map(|e| NamedVariant { name: e.name, config: e.config, model_path: e.model })
                         .collect(),
                 );
             }
@@ -275,6 +276,11 @@ fn has_any_difference(variants: &[NamedVariant]) -> bool {
     }
     // If any variant has a name, treat as having variants
     if variants.iter().any(|v| v.name.is_some()) {
+        return true;
+    }
+    // If model_path differs between variants (some NN, some ISMCTS)
+    let first_model = &variants[0].model_path;
+    if variants.iter().any(|v| &v.model_path != first_model) {
         return true;
     }
     let diff = compute_differing_fields(variants);
@@ -495,7 +501,9 @@ fn main() {
 
     if let Some(ref model) = args.model {
         for v in &mut player_variants {
-            v.model_path = Some(model.clone());
+            if v.model_path.is_none() {
+                v.model_path = Some(model.clone());
+            }
         }
     }
     let num_players = player_variants.len();
