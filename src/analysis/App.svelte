@@ -1,6 +1,9 @@
 <script lang="ts">
   import type { StructuredGameLog } from '../gameLog';
   import AnalysisDashboard from './AnalysisDashboard.svelte';
+  import CardReference from './CardReference.svelte';
+
+  let activeTab: 'analysis' | 'cardReference' = $state('analysis');
 
   interface TaggedGameLog {
     log: StructuredGameLog;
@@ -126,44 +129,55 @@
     </label>
   </div>
 
-  {#if loading}
-    <p>Loading...</p>
-  {:else if error}
-    <p class="error">{error}</p>
-  {:else if taggedLogs.length > 0}
-    {#if selectedBatch === "all"}
-      <p>{taggedLogs.length} games loaded</p>
-    {:else}
-      <p>{filteredLogs.length} of {taggedLogs.length} games shown</p>
-      {#if selectedBatchInfo}
-        <div class="batch-meta">
-          {#if selectedBatchInfo.variants}
-            <span class="meta-tag">Variants: {selectedBatchInfo.variants}</span>
-          {:else if selectedBatchInfo.iterations != null}
-            <span class="meta-tag">Iterations: {selectedBatchInfo.iterations}</span>
-          {/if}
-          {#if selectedBatchInfo.note}
-            <span class="meta-tag">Note: {selectedBatchInfo.note}</span>
-          {/if}
+  <nav class="tab-bar">
+    <button class="tab" class:active={activeTab === 'analysis'}
+      onclick={() => activeTab = 'analysis'}>Game Analysis</button>
+    <button class="tab" class:active={activeTab === 'cardReference'}
+      onclick={() => activeTab = 'cardReference'}>Card Reference</button>
+  </nav>
+
+  {#if activeTab === 'analysis'}
+    {#if loading}
+      <p>Loading...</p>
+    {:else if error}
+      <p class="error">{error}</p>
+    {:else if taggedLogs.length > 0}
+      {#if selectedBatch === "all"}
+        <p>{taggedLogs.length} games loaded</p>
+      {:else}
+        <p>{filteredLogs.length} of {taggedLogs.length} games shown</p>
+        {#if selectedBatchInfo}
+          <div class="batch-meta">
+            {#if selectedBatchInfo.variants}
+              <span class="meta-tag">Variants: {selectedBatchInfo.variants}</span>
+            {:else if selectedBatchInfo.iterations != null}
+              <span class="meta-tag">Iterations: {selectedBatchInfo.iterations}</span>
+            {/if}
+            {#if selectedBatchInfo.note}
+              <span class="meta-tag">Note: {selectedBatchInfo.note}</span>
+            {/if}
+          </div>
+        {/if}
+      {/if}
+
+      {#if availableBatches.length > 1}
+        <div class="batch-filter">
+          <label>
+            Batch:
+            <select bind:value={selectedBatch}>
+              <option value="all">All batches</option>
+              {#each availableBatches as batch}
+                <option value={batch}>{batchLabel(batch)}</option>
+              {/each}
+            </select>
+          </label>
         </div>
       {/if}
-    {/if}
 
-    {#if availableBatches.length > 1}
-      <div class="batch-filter">
-        <label>
-          Batch:
-          <select bind:value={selectedBatch}>
-            <option value="all">All batches</option>
-            {#each availableBatches as batch}
-              <option value={batch}>{batchLabel(batch)}</option>
-            {/each}
-          </select>
-        </label>
-      </div>
+      <AnalysisDashboard logs={filteredLogs} />
     {/if}
-
-    <AnalysisDashboard logs={filteredLogs} />
+  {:else if activeTab === 'cardReference'}
+    <CardReference />
   {/if}
 </main>
 
@@ -190,6 +204,29 @@
     padding: 0.25rem 0.75rem;
     border-radius: 4px;
     font-size: 0.9rem;
+  }
+  .tab-bar {
+    display: flex;
+    border-bottom: 2px solid #ddd;
+    margin: 1rem 0;
+  }
+  .tab {
+    padding: 0.5rem 1.5rem;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 1rem;
+    color: #666;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+  }
+  .tab:hover {
+    color: #333;
+  }
+  .tab.active {
+    color: #333;
+    font-weight: bold;
+    border-bottom-color: #4a9eff;
   }
   .error {
     color: red;
