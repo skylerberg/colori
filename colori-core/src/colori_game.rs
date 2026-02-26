@@ -679,28 +679,18 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                     }
                 }
                 Some(PendingChoice::ChooseCardsForWorkshop { count }) => {
-                    let total = player.workshop_cards.len();
-                    if total == 0 || rng.random::<f64>() < 0.2 {
+                    let mut copy = player.workshop_cards;
+                    let selected = copy.draw_up_to(*count as u8, rng);
+                    if selected.is_empty() {
                         Op::SkipWorkshop
                     } else {
-                        let max_pick = (*count as usize).min(total as usize);
-                        let pick = rng.random_range(1..=max_pick);
-                        let mut copy = player.workshop_cards;
-                        let selected = copy.draw_multiple(pick as u32, rng);
                         Op::Workshop(selected)
                     }
                 }
                 Some(PendingChoice::ChooseCardsToDestroy { count }) => {
-                    let ws_len = player.workshop_cards.len();
-                    let destroy_count = (*count as usize).min(ws_len as usize);
-                    if destroy_count == 0 {
-                        Op::DestroyDrawn(UnorderedCards::new())
-                    } else {
-                        let destroy_pick = rng.random_range(1..=destroy_count);
-                        let mut copy = player.workshop_cards;
-                        let selected = copy.draw_multiple(destroy_pick as u32, rng);
-                        Op::DestroyDrawn(selected)
-                    }
+                    let mut copy = player.workshop_cards;
+                    let selected = copy.draw_up_to(*count as u8, rng);
+                    Op::DestroyDrawn(selected)
                 }
                 Some(PendingChoice::ChooseMix { remaining }) => {
                     let (mixes, mix_count) =

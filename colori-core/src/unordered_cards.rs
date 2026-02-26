@@ -161,6 +161,52 @@ macro_rules! impl_bitset {
             }
 
             #[inline]
+            pub fn draw_up_to<R: Rng>(&mut self, max_count: u8, rng: &mut R) -> Self {
+                let n = self.0.count_ones() as usize;
+                let c = (max_count as usize).min(n);
+                if c == 0 {
+                    return $name(0);
+                }
+                let mut total: u64 = 0;
+                for k in 0..=c {
+                    total += BINOM[n][k];
+                }
+                let mut r = rng.random_range(0..total);
+                // Find which size bucket
+                let mut size = 0usize;
+                for k in 0..=c {
+                    let bin = BINOM[n][k];
+                    if r < bin {
+                        size = k;
+                        break;
+                    }
+                    r -= bin;
+                }
+                if size == 0 {
+                    return $name(0);
+                }
+                // Unrank within the size bucket using combinatorial number system
+                let mut remaining = n;
+                let mut to_pick = size;
+                let mut selected = 0u128;
+                let mut bits = self.0;
+                while to_pick > 0 {
+                    let pos = bits.trailing_zeros();
+                    bits &= bits - 1;
+                    remaining -= 1;
+                    let threshold = BINOM[remaining][to_pick - 1];
+                    if r < threshold {
+                        selected |= 1u128 << pos;
+                        to_pick -= 1;
+                    } else {
+                        r -= threshold;
+                    }
+                }
+                self.0 &= !selected;
+                $name(selected)
+            }
+
+            #[inline]
             pub fn iter(self) -> BitIter {
                 BitIter(self.0)
             }
