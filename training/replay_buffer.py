@@ -42,9 +42,9 @@ class ReplayBuffer:
     def _compact(self):
         """Merge all chunks and trim to max_size (keep most recent)."""
         all_states = np.concatenate(self.states, axis=0)
-        all_action_features = np.concatenate(self.action_features, axis=0)
-        all_action_masks = np.concatenate(self.action_masks, axis=0)
-        all_policies = np.concatenate(self.policies, axis=0)
+        all_action_features, all_action_masks, all_policies = pad_to_max_actions(
+            self.action_features, self.action_masks, self.policies
+        )
         all_values = np.concatenate(self.values, axis=0)
 
         # Keep most recent samples
