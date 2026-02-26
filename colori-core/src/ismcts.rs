@@ -29,18 +29,13 @@ impl MctsNode {
         self.choice.is_none()
     }
 
-    fn expand<R: Rng>(&mut self, state: &GameState, choices: &mut Vec<ColoriChoice>, rng: &mut R) {
+    fn expand<R: Rng>(&mut self, choices: &mut Vec<ColoriChoice>, active_player: usize, rng: &mut R) {
         // Shuffle choices in place
         let len = choices.len();
         for i in (1..len).rev() {
             let j = rng.random_range(0..=i);
             choices.swap(i, j);
         }
-
-        let active_player = match get_game_status(state, None) {
-            GameStatus::AwaitingAction { player_id } => player_id,
-            _ => return,
-        };
 
         let mut added_new_node = false;
 
@@ -65,6 +60,16 @@ fn upper_confidence_bound(
 ) -> f64 {
     let win_rate = cumulative_reward / games as f64;
     win_rate + c * ((total_game_count as f64).ln() / games as f64).sqrt()
+}
+
+fn upper_confidence_bound_with_ln(
+    cumulative_reward: f64,
+    games: u32,
+    ln_total: f64,
+    c: f64,
+) -> f64 {
+    let win_rate = cumulative_reward / games as f64;
+    win_rate + c * (ln_total / games as f64).sqrt()
 }
 
 const C: f64 = std::f64::consts::SQRT_2;
@@ -121,16 +126,18 @@ fn iteration<R: Rng>(
     choices_buf: &mut Vec<ColoriChoice>,
     rng: &mut R,
 ) -> SmallVec<[f64; 4]> {
-    let status = get_game_status(state, max_round);
-    if let GameStatus::Terminated { scores } = status {
-        record_outcome(node, &scores);
-        return scores;
-    }
+    let active_player = match get_game_status(state, max_round) {
+        GameStatus::Terminated { scores } => {
+            record_outcome(node, &scores);
+            return scores;
+        }
+        GameStatus::AwaitingAction { player_id } => player_id,
+    };
 
     // Expand
     if !(node.is_root() && !node.children.is_empty()) {
         enumerate_choices_into(state, choices_buf);
-        node.expand(state, choices_buf, rng);
+        node.expand(choices_buf, active_player, rng);
     }
 
     // Select
@@ -166,6 +173,8 @@ fn select(node: &MctsNode, state: &GameState) -> Option<usize> {
     let mut best_idx: Option<usize> = None;
     let mut best_value = f64::NEG_INFINITY;
 
+    let root_ln = if node.is_root() { (node.games as f64).ln() } else { 0.0 };
+
     for (idx, child) in node.children.iter().enumerate() {
         if !check_choice_available(state, child.choice.as_ref().unwrap()) {
             continue;
@@ -173,12 +182,10 @@ fn select(node: &MctsNode, state: &GameState) -> Option<usize> {
 
         let value = if child.games == 0 {
             f64::INFINITY
+        } else if node.is_root() {
+            upper_confidence_bound_with_ln(child.cumulative_reward, child.games, root_ln, C)
         } else {
-            let total_game_count = if node.is_root() {
-                node.games
-            } else {
-                child.availability_count.max(1)
-            };
+            let total_game_count = child.availability_count.max(1);
             upper_confidence_bound(child.cumulative_reward, child.games, total_game_count, C)
         };
 

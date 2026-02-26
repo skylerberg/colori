@@ -1,7 +1,6 @@
 use crate::color_wheel::{can_pay_cost, pay_cost, perform_mix, perform_mix_unchecked, remove_color, store_color};
 use crate::colors::TERTIARIES;
 use crate::deck_utils::draw_from_deck;
-use crate::scoring::calculate_score;
 use crate::types::{
     Ability, ActionState, BuyerInstance, Color, GamePhase, GameState, PendingChoice,
 };
@@ -432,7 +431,7 @@ pub fn end_player_turn<R: Rng>(state: &mut GameState, rng: &mut R) {
 
 pub fn end_round<R: Rng>(state: &mut GameState, _rng: &mut R) {
     state.round += 1;
-    let any_reached_15 = state.players.iter().any(|p| calculate_score(p) >= 15);
+    let any_reached_15 = state.players.iter().any(|p| p.cached_score >= 15);
     if any_reached_15 || state.round > 10 {
         state.phase = GamePhase::GameOver;
     } else {

@@ -1,11 +1,11 @@
 use crate::action_phase::{
-    destroy_drafted_card, end_player_turn, initialize_action_phase,
+    destroy_drafted_card, end_player_turn, initialize_action_phase, process_queue,
     resolve_choose_tertiary_to_gain, resolve_choose_tertiary_to_lose, resolve_destroy_cards,
-    resolve_gain_primary, resolve_gain_secondary, resolve_mix_colors_unchecked,
-    resolve_select_buyer, resolve_workshop_choice, skip_mix, skip_workshop,
+    resolve_gain_primary, resolve_gain_secondary,
+    resolve_select_buyer, resolve_workshop_choice, skip_workshop,
 };
 use crate::apply_choice::apply_choice;
-use crate::color_wheel::{can_pay_cost, perform_mix_unchecked};
+use crate::color_wheel::{can_pay_cost, pay_cost, perform_mix_unchecked};
 use crate::colors::{can_mix, PRIMARIES, SECONDARIES, TERTIARIES, VALID_MIX_PAIRS};
 use crate::deck_utils::draw_from_deck;
 use crate::draft_phase::{confirm_pass, player_pick};
@@ -619,10 +619,18 @@ fn rollout_draw_and_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
         return;
     }
 
-    // Step 4: Distribute 4 random cards per player to drafted_cards
-    for i in 0..num_players {
-        let drawn = pool.draw_multiple(4, rng);
-        state.players[i].drafted_cards = drawn;
+    // Step 4: Distribute 4 random cards per player to drafted_cards (single batch draw)
+    let total = 4 * num_players as u32;
+    let all_drawn = pool.draw_multiple(total, rng);
+    let mut player_idx = 0;
+    let mut count = 0u32;
+    for id in all_drawn.iter() {
+        state.players[player_idx].drafted_cards.insert(id);
+        count += 1;
+        if count == 4 {
+            player_idx += 1;
+            count = 0;
+        }
     }
 
     // Step 5: Remaining cards go to destroyed_pile
@@ -832,20 +840,43 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
     match disc {
         DESTROY_DRAFTED => destroy_drafted_card(state, id1, rng),
         DESTROY_AND_MIX => {
-            destroy_drafted_card(state, id1, rng);
+            // Fused: ability stack is guaranteed empty when pending_choice is None,
+            // so we can skip all process_queue calls.
+            let player_index = match &state.phase {
+                GamePhase::Action { action_state } => action_state.current_player_index,
+                _ => unreachable!(),
+            };
+            state.players[player_index].drafted_cards.remove(id1 as u8);
+            state.destroyed_pile.insert(id1 as u8);
             for i in 0..mix_count {
                 let (a, b) = mixes[i];
-                resolve_mix_colors_unchecked(state, a, b, rng);
-            }
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if matches!(action_state.pending_choice, Some(PendingChoice::ChooseMix { .. })) {
-                    skip_mix(state, rng);
-                }
+                perform_mix_unchecked(&mut state.players[player_index].color_wheel, a, b);
             }
         }
         DESTROY_AND_SELL => {
-            destroy_drafted_card(state, id1, rng);
-            resolve_select_buyer(state, id2, rng);
+            // Fused: ability stack is guaranteed empty when pending_choice is None,
+            // so we can skip all process_queue calls.
+            let player_index = match &state.phase {
+                GamePhase::Action { action_state } => action_state.current_player_index,
+                _ => unreachable!(),
+            };
+            state.players[player_index].drafted_cards.remove(id1 as u8);
+            state.destroyed_pile.insert(id1 as u8);
+            let buyer_index = state.buyer_display.iter()
+                .position(|c| c.instance_id == id2)
+                .unwrap();
+            let buyer = state.buyer_display.swap_remove(buyer_index);
+            let player = &mut state.players[player_index];
+            player.materials.decrement(buyer.buyer.required_material());
+            pay_cost(&mut player.color_wheel, buyer.buyer.color_cost());
+            player.cached_score += buyer.buyer.stars();
+            player.completed_buyers.push(buyer);
+            if let Some(id) = state.buyer_deck.draw(rng) {
+                state.buyer_display.push(BuyerInstance {
+                    instance_id: id as u32,
+                    buyer: state.buyer_lookup[id as usize],
+                });
+            }
         }
         END_TURN => {
             end_player_turn(state, rng);
@@ -857,15 +888,20 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
         WORKSHOP => resolve_workshop_choice(state, selected, rng),
         DESTROY_DRAWN => resolve_destroy_cards(state, selected, rng),
         MIX_ALL => {
+            // Fused: apply all mixes directly, then process_queue once.
+            // Ability stack may not be empty here, so we must call process_queue.
+            let player_index = match &state.phase {
+                GamePhase::Action { action_state } => action_state.current_player_index,
+                _ => unreachable!(),
+            };
             for i in 0..mix_count {
                 let (a, b) = mixes[i];
-                resolve_mix_colors_unchecked(state, a, b, rng);
+                perform_mix_unchecked(&mut state.players[player_index].color_wheel, a, b);
             }
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if matches!(action_state.pending_choice, Some(PendingChoice::ChooseMix { .. })) {
-                    skip_mix(state, rng);
-                }
+            if let GamePhase::Action { ref mut action_state } = state.phase {
+                action_state.pending_choice = None;
             }
+            process_queue(state, rng);
         }
         SELECT_BUYER => resolve_select_buyer(state, id1, rng),
         GAIN_SECONDARY => resolve_gain_secondary(state, color1, rng),
