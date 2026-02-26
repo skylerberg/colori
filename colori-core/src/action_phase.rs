@@ -166,7 +166,7 @@ pub fn resolve_workshop_choice<R: Rng>(
         for pip in card.pips() {
             store_color(&mut player.color_wheel, *pip);
         }
-        player.discard.insert(id);
+        player.used_cards.insert(id);
     }
 
     // Remove action cards from workshop, move to discard, collect abilities
@@ -205,7 +205,7 @@ pub fn resolve_workshop_choice<R: Rng>(
             }
         }
 
-        player.discard.insert(id);
+        player.used_cards.insert(id);
     }
 
     // Clear pending choice and push abilities onto LIFO stack in reverse resolution order
@@ -410,9 +410,10 @@ pub fn end_player_turn<R: Rng>(state: &mut GameState, rng: &mut R) {
     let player = &mut state.players[player_index];
 
     // Move remaining cards to discard
-    player.discard = player.discard.union(player.workshop_cards).union(player.drafted_cards);
+    player.discard = player.discard.union(player.workshop_cards).union(player.drafted_cards).union(player.used_cards);
     player.workshop_cards = UnorderedCards::new();
     player.drafted_cards = UnorderedCards::new();
+    player.used_cards = UnorderedCards::new();
 
     let num_players = state.players.len();
     let starting_player = ((state.round - 1) as usize) % num_players;

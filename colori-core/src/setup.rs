@@ -52,6 +52,7 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
             PlayerState {
                 deck,
                 discard: UnorderedCards::new(),
+                used_cards: UnorderedCards::new(),
                 workshop_cards: UnorderedCards::new(),
                 drafted_cards: UnorderedCards::new(),
                 color_wheel,

@@ -9,6 +9,7 @@ export function sanitizeGameState(
   const players: SanitizedPlayerState[] = fullState.players.map(p => ({
     deckCount: p.deck.length,
     discardCount: p.discard.length,
+    usedCardsCount: p.usedCards.length,
     workshopCards: [...p.workshopCards],
     draftedCards: [...p.draftedCards],
     colorWheel: { ...p.colorWheel },

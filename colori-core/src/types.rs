@@ -585,6 +585,8 @@ impl<'de> Deserialize<'de> for Materials {
 pub struct PlayerState {
     pub deck: UnorderedCards,
     pub discard: UnorderedCards,
+    #[serde(default)]
+    pub used_cards: UnorderedCards,
     pub workshop_cards: UnorderedCards,
     pub drafted_cards: UnorderedCards,
     pub color_wheel: ColorWheel,

@@ -78,7 +78,7 @@ export class GameLogAccumulator {
     this.log.finalScores = calculateScores(state.players, state.playerNames);
     this.log.finalPlayerStats = state.players.map((p, i) => ({
       name: state.playerNames[i],
-      deckSize: p.deck.length + p.discard.length + p.workshopCards.length + p.draftedCards.length,
+      deckSize: p.deck.length + p.discard.length + p.workshopCards.length + p.draftedCards.length + p.usedCards.length,
       completedBuyers: p.completedBuyers,
       ducats: p.ducats,
       colorWheel: { ...p.colorWheel },

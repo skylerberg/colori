@@ -23,6 +23,7 @@ function buildCardInstanceMap(log: StructuredGameLog): Map<number, { instanceId:
   for (const p of state.players) {
     addCards(p.deck);
     addCards(p.discard);
+    addCards(p.usedCards);
     addCards(p.workshopCards);
     addCards(p.draftedCards);
   }

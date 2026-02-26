@@ -268,6 +268,18 @@ impl ExactSizeIterator for BitIter {}
 impl_bitset!(UnorderedCards);
 impl_bitset!(UnorderedBuyers);
 
+impl Default for UnorderedCards {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Default for UnorderedBuyers {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // Serde for UnorderedCards: serialize as Vec<CardInstance>, deserialize and rebuild bitset
 impl Serialize for UnorderedCards {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {

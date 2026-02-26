@@ -94,7 +94,7 @@
 
             <div class="card-section">
               <h4>Full Deck</h4>
-              <CardList cards={[...player.deck, ...player.discard]} />
+              <CardList cards={[...player.deck, ...player.discard, ...player.usedCards]} />
             </div>
 
             {#if player.completedBuyers.length > 0}

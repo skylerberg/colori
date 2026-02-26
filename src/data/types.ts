@@ -99,6 +99,7 @@ export interface BuyerInstance {
 export interface PlayerState {
   deck: CardInstance[];
   discard: CardInstance[];
+  usedCards: CardInstance[];
   workshopCards: CardInstance[];
   draftedCards: CardInstance[];
   colorWheel: Record<Color, number>;
