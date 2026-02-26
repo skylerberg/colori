@@ -20,9 +20,16 @@ export class AIController {
 
   private precomputeMap = new Map<string, PrecomputeEntry>();
   private generationId = 0;
+  private useNnMcts = false;
+  private cPuct = 1.5;
 
   constructor() {
     this.worker = new AIWorkerModule();
+  }
+
+  setNnMctsMode(enabled: boolean, cPuct = 1.5): void {
+    this.useNnMcts = enabled;
+    this.cPuct = cPuct;
   }
 
   getAIChoice(
@@ -35,7 +42,14 @@ export class AIController {
       this.worker.onmessage = (event: MessageEvent<ColoriChoice>) => {
         resolve(event.data);
       };
-      const plain = JSON.parse(JSON.stringify({ gameState, playerIndex, iterations, seenHands }));
+      const plain = JSON.parse(JSON.stringify({
+        gameState,
+        playerIndex,
+        iterations,
+        seenHands,
+        useNnMcts: this.useNnMcts,
+        cPuct: this.cPuct,
+      }));
       this.worker.postMessage(plain);
     });
   }
