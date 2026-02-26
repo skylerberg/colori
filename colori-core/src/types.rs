@@ -218,23 +218,23 @@ const CARD_DATA: [CardProperties; 42] = [
     // FineTextiles
     CardProperties { name: "Fine Textiles", kind: CardKind::Material, ability: Ability::DrawCards { count: 2 }, pips: &[], material_types: &[MaterialType::Textiles, MaterialType::Textiles], workshop_abilities: &[] },
     // TerraCotta
-    CardProperties { name: "Terra Cotta", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, pips: &[Color::Red], material_types: &[MaterialType::Ceramics], workshop_abilities: &[] },
+    CardProperties { name: "Terra Cotta", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, pips: &[Color::Orange], material_types: &[MaterialType::Ceramics], workshop_abilities: &[] },
     // OchreWare
-    CardProperties { name: "Ochre Ware", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, pips: &[Color::Yellow], material_types: &[MaterialType::Ceramics], workshop_abilities: &[] },
+    CardProperties { name: "Ochre Ware", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, pips: &[Color::Green], material_types: &[MaterialType::Ceramics], workshop_abilities: &[] },
     // CobaltWare
-    CardProperties { name: "Cobalt Ware", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, pips: &[Color::Blue], material_types: &[MaterialType::Ceramics], workshop_abilities: &[] },
+    CardProperties { name: "Cobalt Ware", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, pips: &[Color::Purple], material_types: &[MaterialType::Ceramics], workshop_abilities: &[] },
     // CinnabarCanvas
-    CardProperties { name: "Cinnabar & Canvas", kind: CardKind::Material, ability: Ability::Sell, pips: &[Color::Red], material_types: &[MaterialType::Paintings], workshop_abilities: &[] },
+    CardProperties { name: "Cinnabar & Canvas", kind: CardKind::Material, ability: Ability::Sell, pips: &[Color::Orange], material_types: &[MaterialType::Paintings], workshop_abilities: &[] },
     // OrpimentCanvas
-    CardProperties { name: "Orpiment & Canvas", kind: CardKind::Material, ability: Ability::Sell, pips: &[Color::Yellow], material_types: &[MaterialType::Paintings], workshop_abilities: &[] },
+    CardProperties { name: "Orpiment & Canvas", kind: CardKind::Material, ability: Ability::Sell, pips: &[Color::Green], material_types: &[MaterialType::Paintings], workshop_abilities: &[] },
     // UltramarineCanvas
-    CardProperties { name: "Ultramarine & Canvas", kind: CardKind::Material, ability: Ability::Sell, pips: &[Color::Blue], material_types: &[MaterialType::Paintings], workshop_abilities: &[] },
+    CardProperties { name: "Ultramarine & Canvas", kind: CardKind::Material, ability: Ability::Sell, pips: &[Color::Purple], material_types: &[MaterialType::Paintings], workshop_abilities: &[] },
     // AlizarinFabric
-    CardProperties { name: "Alizarin & Fabric", kind: CardKind::Material, ability: Ability::DrawCards { count: 2 }, pips: &[Color::Red], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
+    CardProperties { name: "Alizarin & Fabric", kind: CardKind::Material, ability: Ability::DrawCards { count: 2 }, pips: &[Color::Orange], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
     // FusticFabric
-    CardProperties { name: "Fustic & Fabric", kind: CardKind::Material, ability: Ability::DrawCards { count: 2 }, pips: &[Color::Yellow], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
+    CardProperties { name: "Fustic & Fabric", kind: CardKind::Material, ability: Ability::DrawCards { count: 2 }, pips: &[Color::Green], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
     // PastelFabric
-    CardProperties { name: "Pastel & Fabric", kind: CardKind::Material, ability: Ability::DrawCards { count: 2 }, pips: &[Color::Blue], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
+    CardProperties { name: "Pastel & Fabric", kind: CardKind::Material, ability: Ability::DrawCards { count: 2 }, pips: &[Color::Purple], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
     // ClayCanvas
     CardProperties { name: "Clay & Canvas", kind: CardKind::Material, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[MaterialType::Ceramics, MaterialType::Paintings], workshop_abilities: &[] },
     // ClayFabric
