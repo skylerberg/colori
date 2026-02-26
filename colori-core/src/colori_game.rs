@@ -34,6 +34,7 @@ fn enumerate_subsets_into(
 
 // ── Buyer affordability ──
 
+#[inline]
 fn can_afford_buyer(player: &PlayerState, buyer: &BuyerCard) -> bool {
     player.materials.get(buyer.required_material()) >= 1
         && can_pay_cost(&player.color_wheel, buyer.color_cost())

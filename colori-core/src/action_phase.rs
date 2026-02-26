@@ -102,6 +102,7 @@ pub fn process_queue<R: Rng>(state: &mut GameState, rng: &mut R) {
     }
 }
 
+#[inline]
 fn can_sell_to_any_buyer(state: &GameState) -> bool {
     let as_ = get_action_state(state);
     let player = &state.players[as_.current_player_index];
@@ -398,6 +399,7 @@ pub fn end_round<R: Rng>(state: &mut GameState, _rng: &mut R) {
     }
 }
 
+#[inline]
 fn get_action_state(state: &GameState) -> &ActionState {
     match &state.phase {
         GamePhase::Action { action_state } => action_state,
@@ -405,6 +407,7 @@ fn get_action_state(state: &GameState) -> &ActionState {
     }
 }
 
+#[inline]
 fn get_action_state_mut(state: &mut GameState) -> &mut ActionState {
     match &mut state.phase {
         GamePhase::Action { action_state } => action_state,

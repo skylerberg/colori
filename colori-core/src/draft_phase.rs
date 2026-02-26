@@ -8,20 +8,25 @@ pub fn initialize_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
     let mut hands = [UnorderedCards::new(); MAX_PLAYERS];
 
     for i in 0..num_players {
-        let mut remaining = 5u32;
-        while remaining > 0 {
-            if state.draft_deck.is_empty() {
-                if !state.destroyed_pile.is_empty() {
+        let deck_len = state.draft_deck.len();
+        if deck_len >= 5 {
+            hands[i] = state.draft_deck.draw_multiple(5, rng);
+        } else {
+            // Take everything from deck directly
+            hands[i] = state.draft_deck;
+            state.draft_deck = UnorderedCards::new();
+            let remaining = 5 - deck_len;
+            if remaining > 0 {
+                if state.draft_deck.is_empty() && !state.destroyed_pile.is_empty() {
                     state.draft_deck = state.destroyed_pile;
                     state.destroyed_pile = UnorderedCards::new();
-                } else {
-                    break;
+                }
+                let available = state.draft_deck.len().min(remaining);
+                if available > 0 {
+                    let drawn = state.draft_deck.draw_multiple(available, rng);
+                    hands[i] = hands[i].union(drawn);
                 }
             }
-            let available = state.draft_deck.len().min(remaining);
-            let drawn = state.draft_deck.draw_multiple(available, rng);
-            hands[i] = hands[i].union(drawn);
-            remaining -= available;
         }
     }
 
@@ -50,8 +55,7 @@ pub fn player_pick(state: &mut GameState, card_instance_id: u32) {
     let starting_player = ((state.round - 1) as usize) % num_players;
     let id = card_instance_id as u8;
 
-    let mut phase = std::mem::replace(&mut state.phase, GamePhase::Draw);
-    let _player_index = match &mut phase {
+    let (pi, next_player) = match &mut state.phase {
         GamePhase::Draft { draft_state } => {
             let pi = draft_state.current_player_index;
             assert!(
@@ -59,25 +63,18 @@ pub fn player_pick(state: &mut GameState, card_instance_id: u32) {
                 "Card not found in player's draft hand"
             );
             draft_state.hands[pi].remove(id);
-            state.players[pi].drafted_cards.insert(id);
-            draft_state.current_player_index = (pi + 1) % num_players;
-            pi
+            let next = (pi + 1) % num_players;
+            draft_state.current_player_index = next;
+            (pi, next)
         }
         _ => panic!("Expected draft phase"),
     };
-    state.phase = phase;
+    state.players[pi].drafted_cards.insert(id);
 
-    let should_advance = match &state.phase {
-        GamePhase::Draft { draft_state } => draft_state.current_player_index == starting_player,
-        _ => false,
-    };
-
-    if should_advance {
+    if next_player == starting_player {
         advance_draft(state);
-    } else {
-        if let GamePhase::Draft { ref mut draft_state } = state.phase {
-            draft_state.waiting_for_pass = true;
-        }
+    } else if let GamePhase::Draft { ref mut draft_state } = state.phase {
+        draft_state.waiting_for_pass = true;
     }
 }
 
@@ -130,19 +127,17 @@ pub fn advance_draft(state: &mut GameState) {
 
 pub fn simultaneous_pick(state: &mut GameState, player_index: usize, card_instance_id: u32) {
     let id = card_instance_id as u8;
-    let mut phase = std::mem::replace(&mut state.phase, GamePhase::Draw);
-    match &mut phase {
+    match &mut state.phase {
         GamePhase::Draft { draft_state } => {
             assert!(
                 draft_state.hands[player_index].contains(id),
                 "Card not found in player's draft hand"
             );
             draft_state.hands[player_index].remove(id);
-            state.players[player_index].drafted_cards.insert(id);
         }
         _ => panic!("Expected draft phase"),
     }
-    state.phase = phase;
+    state.players[player_index].drafted_cards.insert(id);
 }
 
 pub fn confirm_pass(state: &mut GameState) {

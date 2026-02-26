@@ -1,14 +1,17 @@
 use crate::colors::{can_mix, mix_result};
 use crate::types::{Color, ColorWheel};
 
+#[inline]
 pub fn store_color(wheel: &mut ColorWheel, color: Color) {
     wheel.increment(color);
 }
 
+#[inline]
 pub fn remove_color(wheel: &mut ColorWheel, color: Color) -> bool {
     wheel.decrement(color)
 }
 
+#[inline]
 pub fn perform_mix(wheel: &mut ColorWheel, a: Color, b: Color) -> bool {
     if !can_mix(a, b) {
         return false;
@@ -23,6 +26,7 @@ pub fn perform_mix(wheel: &mut ColorWheel, a: Color, b: Color) -> bool {
     true
 }
 
+#[inline]
 pub fn can_pay_cost(wheel: &ColorWheel, cost: &[Color]) -> bool {
     let mut used = [0u32; 12];
     for &c in cost {
@@ -36,6 +40,7 @@ pub fn can_pay_cost(wheel: &ColorWheel, cost: &[Color]) -> bool {
     true
 }
 
+#[inline]
 pub fn pay_cost(wheel: &mut ColorWheel, cost: &[Color]) -> bool {
     if !can_pay_cost(wheel, cost) {
         return false;

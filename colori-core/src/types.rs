@@ -41,10 +41,12 @@ pub const ALL_COLORS: [Color; 12] = [
 pub const NUM_COLORS: usize = 12;
 
 impl Color {
+    #[inline]
     pub fn index(self) -> usize {
         self as usize
     }
 
+    #[inline]
     pub fn from_index(i: usize) -> Color {
         ALL_COLORS[i]
     }
@@ -252,34 +254,42 @@ const CARD_DATA: [CardProperties; 42] = [
 ];
 
 impl Card {
+    #[inline]
     fn props(&self) -> &'static CardProperties {
         &CARD_DATA[*self as usize]
     }
 
+    #[inline]
     pub fn name(&self) -> &'static str {
         self.props().name
     }
 
+    #[inline]
     pub fn kind(&self) -> CardKind {
         self.props().kind
     }
 
+    #[inline]
     pub fn ability(&self) -> Ability {
         self.props().ability
     }
 
+    #[inline]
     pub fn pips(&self) -> &'static [Color] {
         self.props().pips
     }
 
+    #[inline]
     pub fn material_types(&self) -> &'static [MaterialType] {
         self.props().material_types
     }
 
+    #[inline]
     pub fn workshop_abilities(&self) -> &'static [Ability] {
         self.props().workshop_abilities
     }
 
+    #[inline]
     pub fn is_action(&self) -> bool {
         self.kind() == CardKind::Action
     }
@@ -411,18 +421,22 @@ const BUYER_DATA: [BuyerProperties; 51] = [
 ];
 
 impl BuyerCard {
+    #[inline]
     fn props(&self) -> &'static BuyerProperties {
         &BUYER_DATA[*self as usize]
     }
 
+    #[inline]
     pub fn stars(&self) -> u32 {
         self.props().stars
     }
 
+    #[inline]
     pub fn required_material(&self) -> MaterialType {
         self.props().required_material
     }
 
+    #[inline]
     pub fn color_cost(&self) -> &'static [Color] {
         self.props().color_cost
     }
@@ -459,18 +473,22 @@ impl ColorWheel {
         }
     }
 
+    #[inline]
     pub fn get(&self, color: Color) -> u32 {
         self.counts[color.index()]
     }
 
+    #[inline]
     pub fn set(&mut self, color: Color, value: u32) {
         self.counts[color.index()] = value;
     }
 
+    #[inline]
     pub fn increment(&mut self, color: Color) {
         self.counts[color.index()] += 1;
     }
 
+    #[inline]
     pub fn decrement(&mut self, color: Color) -> bool {
         let idx = color.index();
         if self.counts[idx] == 0 {
@@ -516,14 +534,17 @@ impl Materials {
         Materials { counts: [0; 3] }
     }
 
+    #[inline]
     pub fn get(&self, mt: MaterialType) -> u32 {
         self.counts[mt as usize]
     }
 
+    #[inline]
     pub fn increment(&mut self, mt: MaterialType) {
         self.counts[mt as usize] += 1;
     }
 
+    #[inline]
     pub fn decrement(&mut self, mt: MaterialType) -> bool {
         let idx = mt as usize;
         if self.counts[idx] == 0 {

@@ -132,13 +132,14 @@ fn iteration<R: Rng>(
     }
 
     // Select
-    let best_key = select(node, state);
-    if best_key.is_none() {
-        let empty_scores = SmallVec::new();
-        record_outcome(node, &empty_scores);
-        return empty_scores;
-    }
-    let best_key = best_key.unwrap();
+    let best_key = match select(node, state) {
+        Some(key) => key.clone(),
+        None => {
+            let empty_scores = SmallVec::new();
+            record_outcome(node, &empty_scores);
+            return empty_scores;
+        }
+    };
 
     // Apply choice
     let choice = node.children[&best_key].choice.clone().unwrap();
@@ -159,8 +160,8 @@ fn iteration<R: Rng>(
     scores
 }
 
-fn select(node: &MctsNode, state: &GameState) -> Option<ColoriChoice> {
-    let mut best_key: Option<ColoriChoice> = None;
+fn select<'a>(node: &'a MctsNode, state: &GameState) -> Option<&'a ColoriChoice> {
+    let mut best_key: Option<&ColoriChoice> = None;
     let mut best_value = f64::NEG_INFINITY;
 
     for (key, child) in &node.children {
@@ -181,25 +182,36 @@ fn select(node: &MctsNode, state: &GameState) -> Option<ColoriChoice> {
 
         if value > best_value {
             best_value = value;
-            best_key = Some(key.clone());
+            best_key = Some(key);
         }
     }
 
     best_key
 }
 
+#[inline]
+fn is_terminal(state: &GameState, max_round: Option<u32>) -> bool {
+    matches!(state.phase, GamePhase::GameOver)
+        || max_round.is_some_and(|mr| state.round > mr)
+}
+
+#[inline]
+fn compute_terminal_scores(state: &GameState) -> SmallVec<[f64; 4]> {
+    let scores: SmallVec<[f64; 4]> = state.players.iter().map(|p| p.cached_score as f64).collect();
+    let max_score = scores.iter().cloned().fold(0.0f64, f64::max);
+    scores.iter().map(|&s| if s == max_score { 1.0 } else { 0.0 }).collect()
+}
+
 fn rollout<R: Rng>(state: &mut GameState, max_round: Option<u32>, rng: &mut R) -> SmallVec<[f64; 4]> {
     for _ in 0..MAX_ROLLOUT_STEPS {
-        let status = get_game_status(state, max_round);
-        if let GameStatus::Terminated { scores } = status {
-            return scores;
+        if is_terminal(state, max_round) {
+            return compute_terminal_scores(state);
         }
         apply_rollout_step(state, rng);
     }
 
-    let status = get_game_status(state, max_round);
-    if let GameStatus::Terminated { scores } = status {
-        return scores;
+    if is_terminal(state, max_round) {
+        return compute_terminal_scores(state);
     }
 
     SmallVec::new()

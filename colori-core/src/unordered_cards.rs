@@ -162,6 +162,19 @@ macro_rules! impl_bitset {
 
             #[inline]
             pub fn draw_up_to<R: Rng>(&mut self, max_count: u8, rng: &mut R) -> Self {
+                if max_count == 1 {
+                    let n = self.0.count_ones();
+                    if n == 0 { return $name(0); }
+                    let r = rng.random_range(0..(n as u64 + 1));
+                    if r == 0 { return $name(0); }
+                    let mut val = self.0;
+                    for _ in 0..(r - 1) {
+                        val &= val - 1;
+                    }
+                    let pos = val.trailing_zeros();
+                    self.0 &= !(1u128 << pos);
+                    return $name(1u128 << pos);
+                }
                 let n = self.0.count_ones() as usize;
                 let c = (max_count as usize).min(n);
                 if c == 0 {

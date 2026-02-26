@@ -8,18 +8,24 @@ pub fn draw_from_deck<R: Rng>(
     count: usize,
     rng: &mut R,
 ) {
-    let mut remaining = count as u32;
-    while remaining > 0 {
-        if deck.is_empty() {
-            if discard.is_empty() {
-                break;
-            }
+    let count = count as u32;
+    let deck_len = deck.len();
+    if deck_len >= count {
+        let drawn = deck.draw_multiple(count, rng);
+        *dest = dest.union(drawn);
+    } else {
+        // Take everything from deck directly (no draw_multiple needed)
+        *dest = dest.union(*deck);
+        *deck = UnorderedCards::new();
+        let remaining = count - deck_len;
+        if remaining > 0 && !discard.is_empty() {
             *deck = *discard;
             *discard = UnorderedCards::new();
+            let available = deck.len().min(remaining);
+            if available > 0 {
+                let drawn = deck.draw_multiple(available, rng);
+                *dest = dest.union(drawn);
+            }
         }
-        let available = deck.len().min(remaining);
-        let drawn = deck.draw_multiple(available, rng);
-        *dest = dest.union(drawn);
-        remaining -= available;
     }
 }
