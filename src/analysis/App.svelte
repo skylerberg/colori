@@ -87,7 +87,6 @@
 
     loading = true;
     error = null;
-    selectedBatch = "all";
     const parsed: TaggedGameLog[] = [];
 
     for (const file of files) {
@@ -109,6 +108,11 @@
     }
 
     taggedLogs = parsed;
+    if (availableBatches.length > 1) {
+      selectedBatch = availableBatches[0];
+    } else {
+      selectedBatch = "all";
+    }
     loading = false;
   }
 </script>
