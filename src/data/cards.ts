@@ -107,7 +107,7 @@ export const MATERIAL_CARDS: MaterialCardData[] = [
     kind: 'material',
     name: 'Paintings',
     materialTypes: ['Paintings'],
-    ability: { type: 'sell' },
+    ability: { type: 'workshop', count: 2 },
   },
   {
     kind: 'material',
