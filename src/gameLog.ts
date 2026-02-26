@@ -44,7 +44,7 @@ export class GameLogAccumulator {
   private log: StructuredGameLog;
   private seq = 0;
 
-  constructor(initialState: GameState) {
+  constructor(initialState: GameState, aiIterations?: number[]) {
     this.log = {
       version: 1,
       gameStartedAt: new Date().toISOString(),
@@ -56,6 +56,9 @@ export class GameLogAccumulator {
       finalPlayerStats: null,
       entries: [],
     };
+    if (aiIterations) {
+      this.log.playerVariants = aiIterations.map(iterations => ({ iterations }));
+    }
   }
 
   recordChoice(state: GameState, choice: ColoriChoice, playerIndex: number) {

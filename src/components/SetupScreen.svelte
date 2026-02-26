@@ -2,13 +2,23 @@
   import type { GameState } from '../data/types';
   import { createInitialGameState } from '../engine/wasmEngine';
 
+  const DIFFICULTY_LEVELS: { label: string; iterations: number }[] = [
+    { label: 'Easy', iterations: 10000 },
+    { label: 'Medium', iterations: 50000 },
+    { label: 'Hard', iterations: 100000 },
+    { label: 'Very Hard', iterations: 200000 },
+    { label: 'Insane', iterations: 400000 },
+    { label: 'Godly', iterations: 1000000 },
+  ];
+
   let { onGameStarted }: {
-    onGameStarted: (state: GameState) => void;
+    onGameStarted: (state: GameState, aiIterations: number[]) => void;
   } = $props();
 
   let playerCount = $state(2);
   let playerNames: string[] = $state(['Player 1', 'Player 2', 'Player 3', 'Player 4', 'Player 5']);
   let isAI: boolean[] = $state([false, false, false, false, false]);
+  let aiIterations: number[] = $state([100000, 100000, 100000, 100000, 100000]);
 
   function updatePlayerCount(count: number) {
     playerCount = count;
@@ -21,18 +31,26 @@
 
   function toggleAI(index: number) {
     isAI[index] = !isAI[index];
-    if (isAI[index] && playerNames[index] === `Player ${index + 1}`) {
-      playerNames[index] = `AI Player ${index + 1}`;
-    } else if (!isAI[index] && playerNames[index] === `AI Player ${index + 1}`) {
+    if (isAI[index]) {
+      aiIterations[index] = 100000;
+      if (playerNames[index] === `Player ${index + 1}`) {
+        playerNames[index] = `AI Player ${index + 1}`;
+      }
+    } else if (playerNames[index] === `AI Player ${index + 1}`) {
       playerNames[index] = `Player ${index + 1}`;
     }
+  }
+
+  function handleDifficultyChange(index: number, event: Event) {
+    const target = event.target as HTMLSelectElement;
+    aiIterations[index] = Number(target.value);
   }
 
   function startGame() {
     const names = playerNames.slice(0, playerCount).map((n, i) => n.trim() || `Player ${i + 1}`);
     const aiPlayers = isAI.slice(0, playerCount);
     const state = createInitialGameState(names, aiPlayers);
-    onGameStarted(state);
+    onGameStarted(state, aiIterations.slice(0, playerCount));
   }
 </script>
 
@@ -73,6 +91,17 @@
         >
           {isAI[i] ? 'AI' : 'Human'}
         </button>
+        {#if isAI[i]}
+          <select
+            class="difficulty-select"
+            value={aiIterations[i]}
+            onchange={(e: Event) => handleDifficultyChange(i, e)}
+          >
+            {#each DIFFICULTY_LEVELS as level}
+              <option value={level.iterations}>{level.label}</option>
+            {/each}
+          </select>
+        {/if}
       </div>
     {/each}
   </div>
@@ -173,6 +202,15 @@
     border-color: #e67e22;
     background: #e67e22;
     color: #fff;
+  }
+
+  .difficulty-select {
+    padding: 6px 8px;
+    font-size: 0.8rem;
+    border: 2px solid #e67e22;
+    border-radius: 6px;
+    background: #fff;
+    cursor: pointer;
   }
 
   .start-btn {

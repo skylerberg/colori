@@ -13,13 +13,14 @@
   import BuyerDisplay from './BuyerDisplay.svelte';
   import CardList from './CardList.svelte';
 
-  let { gameState, gameStartTime, onGameUpdated, initialGameLog, onLeaveGame, gameLogAccumulator }: {
+  let { gameState, gameStartTime, onGameUpdated, initialGameLog, onLeaveGame, gameLogAccumulator, aiIterations }: {
     gameState: GameState;
     gameStartTime: number | null;
     onGameUpdated: (state: GameState, log: string[]) => void;
     initialGameLog: string[];
     onLeaveGame: () => void;
     gameLogAccumulator: GameLogAccumulator | null;
+    aiIterations: number[];
   } = $props();
 
   function handleLeaveGame() {
@@ -198,7 +199,7 @@
           gameState: clone,
           playerIndex: idx,
           pickNumber: ds.pickNumber,
-          iterations: 100000,
+          iterations: aiIterations[idx],
           seenHands: aiSeenHands,
         });
       }
@@ -257,7 +258,7 @@
     aiThinking = true;
     const playerSeenHands = seenHands.get(playerIdx);
 
-    aiController.getAIChoice(gameState, playerIdx, 100000, playerSeenHands).then((choice) => {
+    aiController.getAIChoice(gameState, playerIdx, aiIterations[playerIdx], playerSeenHands).then((choice) => {
       aiThinking = false;
       handleAction(choice);
     });

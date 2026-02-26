@@ -31,6 +31,7 @@
   let gameState: GameState | null = $state(saved?.gameState ?? null);
   let gameStartTime: number | null = $state(saved?.gameStartTime ?? null);
   let savedGameLog: string[] = $state(saved?.gameLog ?? []);
+  let aiIterations: number[] | null = $state(saved?.aiIterations ?? null);
   let hasSavedGame = $state(saved !== null && saved.gameState.phase.type !== 'gameOver');
 
   // Structured logging state
@@ -48,13 +49,14 @@
 
   // -- Local game handlers --
 
-  function handleGameStarted(state: GameState) {
+  function handleGameStarted(state: GameState, iterations: number[]) {
     gameState = state;
+    aiIterations = iterations;
     gameStartTime = Date.now();
     savedGameLog = [];
-    gameLogAccumulator = new GameLogAccumulator(state);
+    gameLogAccumulator = new GameLogAccumulator(state, iterations);
     finalGameLog = null;
-    saveGame(state, gameStartTime!, []);
+    saveGame(state, gameStartTime!, [], iterations);
     screen = { type: 'localGame' };
   }
 
@@ -69,7 +71,7 @@
       }
       screen = { type: 'score' };
     } else {
-      saveGame(state, gameStartTime!, log);
+      saveGame(state, gameStartTime!, log, aiIterations ?? undefined);
     }
   }
 
@@ -77,6 +79,7 @@
     gameState = null;
     gameStartTime = null;
     savedGameLog = [];
+    aiIterations = null;
     gameLogAccumulator = null;
     finalGameLog = null;
     clearSavedGame();
@@ -89,6 +92,7 @@
     gameState = null;
     gameStartTime = null;
     savedGameLog = [];
+    aiIterations = null;
     gameLogAccumulator = null;
     finalGameLog = null;
     hasSavedGame = false;
@@ -231,7 +235,7 @@
       onBack={goToMainMenu}
     />
   {:else if screen.type === 'localGame' && gameState !== null}
-    <GameScreen {gameState} {gameStartTime} onGameUpdated={handleGameUpdated} initialGameLog={savedGameLog} onLeaveGame={handleLeaveGame} {gameLogAccumulator} />
+    <GameScreen {gameState} {gameStartTime} onGameUpdated={handleGameUpdated} initialGameLog={savedGameLog} onLeaveGame={handleLeaveGame} {gameLogAccumulator} aiIterations={aiIterations ?? gameState.aiPlayers.map(() => 100000)} />
   {:else if screen.type === 'onlineGame' && gameState !== null}
     <OnlineGameScreen
       role={screen.role}
