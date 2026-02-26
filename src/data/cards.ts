@@ -432,3 +432,71 @@ export function getCardPips(card: string): Color[] {
     case 'buyer': return [];
   }
 }
+
+export const DRAFT_COPY_COUNTS: Record<string, number> = {};
+for (const card of DYE_CARDS) {
+  DRAFT_COPY_COUNTS[card.name] = 4;
+}
+for (const card of DRAFT_MATERIAL_CARDS) {
+  DRAFT_COPY_COUNTS[card.name] = 1;
+}
+for (const card of ACTION_CARDS) {
+  DRAFT_COPY_COUNTS[card.name] = 3;
+}
+
+export function getDraftCopies(name: string): number {
+  return DRAFT_COPY_COUNTS[name] ?? 1;
+}
+
+export interface CardCategory {
+  label: string;
+  cardNames: string[];
+  totalCopies: number;
+}
+
+export const DRAFT_CARD_CATEGORIES: CardCategory[] = [
+  (() => {
+    const cardNames = DYE_CARDS.filter(c => c.ability.type === 'sell').map(c => c.name);
+    return { label: 'Primary Dyes', cardNames, totalCopies: cardNames.length * 4 };
+  })(),
+  (() => {
+    const cardNames = DYE_CARDS.filter(c => c.ability.type === 'workshop').map(c => c.name);
+    return { label: 'Secondary Dyes', cardNames, totalCopies: cardNames.length * 4 };
+  })(),
+  (() => {
+    const cardNames = DYE_CARDS.filter(c => c.ability.type === 'mixColors').map(c => c.name);
+    return { label: 'Tertiary Dyes', cardNames, totalCopies: cardNames.length * 4 };
+  })(),
+  (() => {
+    const cardNames = ACTION_CARDS.map(c => c.name);
+    return { label: 'Action Cards', cardNames, totalCopies: cardNames.length * 3 };
+  })(),
+  (() => {
+    const cardNames = DRAFT_MATERIAL_CARDS
+      .filter(c => c.materialTypes.length === 2 && c.materialTypes[0] === c.materialTypes[1] && !c.colorPip)
+      .map(c => c.name);
+    return { label: 'Double Materials', cardNames, totalCopies: cardNames.length * 1 };
+  })(),
+  (() => {
+    const cardNames = DRAFT_MATERIAL_CARDS
+      .filter(c => c.colorPip !== undefined)
+      .map(c => c.name);
+    return { label: 'Material + Color', cardNames, totalCopies: cardNames.length * 1 };
+  })(),
+  (() => {
+    const cardNames = DRAFT_MATERIAL_CARDS
+      .filter(c => c.materialTypes.length === 2 && c.materialTypes[0] !== c.materialTypes[1] && !c.colorPip)
+      .map(c => c.name);
+    return { label: 'Dual Materials', cardNames, totalCopies: cardNames.length * 1 };
+  })(),
+];
+
+export function getStarterCardCategories(numPlayers: number): CardCategory[] {
+  const starterDyeNames = BASIC_DYE_CARDS.map(c => c.name);
+  const starterMaterialNames = MATERIAL_CARDS.map(c => c.name);
+  return [
+    { label: 'Starter Dyes', cardNames: starterDyeNames, totalCopies: starterDyeNames.length * numPlayers },
+    { label: 'Starter Materials', cardNames: starterMaterialNames, totalCopies: starterMaterialNames.length * numPlayers },
+    { label: 'Chalk', cardNames: ['Chalk'], totalCopies: 1 * numPlayers },
+  ];
+}

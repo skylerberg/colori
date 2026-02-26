@@ -13,7 +13,11 @@
     computeAverageGameLength,
     computeColorWheelStats,
     computeDurationStats,
+    normalizeByDraftCopies,
+    computeCategoryStats,
+    computeDestroyRate,
   } from './logAnalysis';
+  import { DRAFT_CARD_CATEGORIES, getStarterCardCategories } from '../data/cards';
 
   let { logs }: { logs: StructuredGameLog[] } = $props();
 
@@ -29,6 +33,30 @@
   let gameLength = $derived(computeAverageGameLength(logs));
   let colorStats = $derived(computeColorWheelStats(logs));
   let durationStats = $derived(computeDurationStats(logs));
+
+  let numPlayers = $derived(logs.length > 0 ? logs[0].playerNames.length : 2);
+  let allCategories = $derived([...DRAFT_CARD_CATEGORIES, ...getStarterCardCategories(numPlayers)]);
+
+  let draftFreqNormalized = $derived(normalizeByDraftCopies(draftFreq));
+  let draftFreqCategories = $derived(computeCategoryStats(draftFreq, DRAFT_CARD_CATEGORIES));
+
+  let cardsAddedNormalized = $derived(normalizeByDraftCopies(cardsAdded));
+  let cardsAddedCategories = $derived(computeCategoryStats(cardsAdded, allCategories));
+
+  let destroyRate = $derived(computeDestroyRate(destroyedDraft, draftFreq));
+  let destroyRateCategories = $derived(computeCategoryStats(destroyedDraft, DRAFT_CARD_CATEGORIES));
+  let destroyRateCategoryNormalized = $derived(
+    destroyRateCategories.map(cat => {
+      const draftCat = draftFreqCategories.find(d => d.label === cat.label);
+      const draftRaw = draftCat?.rawTotal ?? 0;
+      return {
+        label: cat.label,
+        rawTotal: cat.rawTotal,
+        totalCopies: cat.totalCopies,
+        normalizedRate: draftRaw > 0 ? cat.rawTotal / draftRaw : 0,
+      };
+    })
+  );
 
   function sortedByValue(map: Map<string, number>): [string, number][] {
     return [...map.entries()].sort((a, b) => b[1] - a[1]);
@@ -171,11 +199,32 @@
   {#if draftFreq.size === 0}
     <p>No draft data available.</p>
   {:else}
-    {@const sorted = sortedByValue(draftFreq)}
-    {@const maxVal = maxOfMap(draftFreq)}
+    <h3>By Category</h3>
+    {@const catSorted = [...draftFreqCategories].sort((a, b) => b.normalizedRate - a.normalizedRate)}
+    {@const catMax = Math.max(...draftFreqCategories.map(c => c.normalizedRate))}
     <table>
       <thead>
-        <tr><th>Card</th><th>Times Drafted</th></tr>
+        <tr><th>Category</th><th>Drafts per Copy</th></tr>
+      </thead>
+      <tbody>
+        {#each catSorted as cat}
+          <tr>
+            <td>{cat.label}</td>
+            <td class="bar-cell">
+              <div class="bar" style="width: {catMax > 0 ? (cat.normalizedRate / catMax) * 100 : 0}%"></div>
+              <span>{cat.normalizedRate.toFixed(2)}</span>
+            </td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+
+    <h3>By Card</h3>
+    {@const sorted = sortedByValue(draftFreqNormalized)}
+    {@const maxVal = maxOfMap(draftFreqNormalized)}
+    <table>
+      <thead>
+        <tr><th>Card</th><th>Drafts per Copy</th></tr>
       </thead>
       <tbody>
         {#each sorted as [key, value]}
@@ -183,7 +232,7 @@
             <td>{key}</td>
             <td class="bar-cell">
               <div class="bar" style="width: {(value / maxVal) * 100}%"></div>
-              <span>{value}</span>
+              <span>{value.toFixed(2)}</span>
             </td>
           </tr>
         {/each}
@@ -198,11 +247,32 @@
   {#if cardsAdded.size === 0}
     <p>No data available.</p>
   {:else}
-    {@const sorted = sortedByValue(cardsAdded)}
-    {@const maxVal = maxOfMap(cardsAdded)}
+    <h3>By Category</h3>
+    {@const catSorted = [...cardsAddedCategories].sort((a, b) => b.normalizedRate - a.normalizedRate)}
+    {@const catMax = Math.max(...cardsAddedCategories.map(c => c.normalizedRate))}
     <table>
       <thead>
-        <tr><th>Card</th><th>Count</th></tr>
+        <tr><th>Category</th><th>Added per Copy</th></tr>
+      </thead>
+      <tbody>
+        {#each catSorted as cat}
+          <tr>
+            <td>{cat.label}</td>
+            <td class="bar-cell">
+              <div class="bar" style="width: {catMax > 0 ? (cat.normalizedRate / catMax) * 100 : 0}%"></div>
+              <span>{cat.normalizedRate.toFixed(2)}</span>
+            </td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+
+    <h3>By Card</h3>
+    {@const sorted = sortedByValue(cardsAddedNormalized)}
+    {@const maxVal = maxOfMap(cardsAddedNormalized)}
+    <table>
+      <thead>
+        <tr><th>Card</th><th>Added per Copy</th></tr>
       </thead>
       <tbody>
         {#each sorted as [key, value]}
@@ -210,7 +280,7 @@
             <td>{key}</td>
             <td class="bar-cell">
               <div class="bar" style="width: {(value / maxVal) * 100}%"></div>
-              <span>{value}</span>
+              <span>{value.toFixed(2)}</span>
             </td>
           </tr>
         {/each}
@@ -225,19 +295,40 @@
   {#if destroyedDraft.size === 0}
     <p>No data available.</p>
   {:else}
-    {@const sorted = sortedByValue(destroyedDraft)}
-    {@const maxVal = maxOfMap(destroyedDraft)}
+    <h3>By Category</h3>
+    {@const catSorted = [...destroyRateCategoryNormalized].sort((a, b) => b.normalizedRate - a.normalizedRate)}
+    {@const catMax = Math.max(...destroyRateCategoryNormalized.map(c => c.normalizedRate))}
     <table>
       <thead>
-        <tr><th>Card</th><th>Count</th></tr>
+        <tr><th>Category</th><th>Destroy Rate</th></tr>
+      </thead>
+      <tbody>
+        {#each catSorted as cat}
+          <tr>
+            <td>{cat.label}</td>
+            <td class="bar-cell">
+              <div class="bar" style="width: {catMax > 0 ? (cat.normalizedRate / catMax) * 100 : 0}%"></div>
+              <span>{(cat.normalizedRate * 100).toFixed(1)}%</span>
+            </td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+
+    <h3>By Card</h3>
+    {@const sorted = sortedByValue(destroyRate)}
+    {@const maxVal = maxOfMap(destroyRate)}
+    <table>
+      <thead>
+        <tr><th>Card</th><th>Destroy Rate</th></tr>
       </thead>
       <tbody>
         {#each sorted as [key, value]}
           <tr>
             <td>{key}</td>
             <td class="bar-cell">
-              <div class="bar" style="width: {(value / maxVal) * 100}%"></div>
-              <span>{value}</span>
+              <div class="bar" style="width: {maxVal > 0 ? (value / maxVal) * 100 : 0}%"></div>
+              <span>{(value * 100).toFixed(1)}%</span>
             </td>
           </tr>
         {/each}

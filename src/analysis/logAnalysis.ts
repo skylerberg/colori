@@ -1,6 +1,7 @@
 import type { StructuredGameLog, FinalPlayerStats } from '../gameLog';
 import type { AnyCardData } from '../data/types';
-import { getAnyCardData } from '../data/cards';
+import type { CardCategory } from '../data/cards';
+import { getAnyCardData, getDraftCopies } from '../data/cards';
 
 function getCardName(card: string): string {
   const data = getAnyCardData(card);
@@ -325,4 +326,43 @@ export function computeColorWheelStats(logs: StructuredGameLog[]): Map<string, n
   }
 
   return averages;
+}
+
+export function normalizeByDraftCopies(rawCounts: Map<string, number>): Map<string, number> {
+  const normalized = new Map<string, number>();
+  for (const [name, count] of rawCounts) {
+    normalized.set(name, count / getDraftCopies(name));
+  }
+  return normalized;
+}
+
+export interface CategoryStat {
+  label: string;
+  rawTotal: number;
+  totalCopies: number;
+  normalizedRate: number;
+}
+
+export function computeCategoryStats(rawCounts: Map<string, number>, categories: CardCategory[]): CategoryStat[] {
+  return categories.map(cat => {
+    let rawTotal = 0;
+    for (const name of cat.cardNames) {
+      rawTotal += rawCounts.get(name) ?? 0;
+    }
+    return {
+      label: cat.label,
+      rawTotal,
+      totalCopies: cat.totalCopies,
+      normalizedRate: cat.totalCopies > 0 ? rawTotal / cat.totalCopies : 0,
+    };
+  });
+}
+
+export function computeDestroyRate(destroyedCounts: Map<string, number>, draftedCounts: Map<string, number>): Map<string, number> {
+  const rates = new Map<string, number>();
+  for (const [name, destroyed] of destroyedCounts) {
+    const drafted = draftedCounts.get(name) ?? 0;
+    rates.set(name, drafted > 0 ? destroyed / drafted : 0);
+  }
+  return rates;
 }
