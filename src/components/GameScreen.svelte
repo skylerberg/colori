@@ -7,6 +7,7 @@
   import PlayerStatus from './PlayerStatus.svelte';
   import DraftPhaseView from './DraftPhaseView.svelte';
   import ActionPhaseView from './ActionPhaseView.svelte';
+  import CleanupPhaseView from './CleanupPhaseView.svelte';
   import GameLog from './GameLog.svelte';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import BuyerDisplay from './BuyerDisplay.svelte';
@@ -112,7 +113,7 @@
   );
   let showSidebar = $derived(
     selectedPlayer !== undefined &&
-    (gameState.phase.type === 'draft' || gameState.phase.type === 'action')
+    (gameState.phase.type === 'draft' || gameState.phase.type === 'action' || gameState.phase.type === 'cleanup')
   );
 
   function selectPlayer(index: number) {
@@ -125,6 +126,9 @@
     }
     if (gs.phase.type === 'action') {
       return gs.phase.actionState.currentPlayerIndex;
+    }
+    if (gs.phase.type === 'cleanup') {
+      return gs.phase.cleanupState.currentPlayerIndex;
     }
     return -1;
   }
@@ -331,6 +335,17 @@
                   <CardList cards={selectedPlayer.completedBuyers} />
                 </div>
               {/if}
+            </div>
+          {/if}
+        {:else if gameState.phase.type === 'cleanup'}
+          {#if isViewingActiveHuman}
+            <CleanupPhaseView {gameState} onAction={handleAction} />
+          {:else}
+            <div class="readonly-cards">
+              <div class="section-box">
+                <h3>Workshop</h3>
+                <CardList cards={selectedPlayer.workshopCards} />
+              </div>
             </div>
           {/if}
         {/if}

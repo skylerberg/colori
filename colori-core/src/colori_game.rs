@@ -1,7 +1,7 @@
 use crate::action_phase::{
     destroy_drafted_card, end_player_turn, initialize_action_phase, process_queue,
     resolve_choose_tertiary_to_gain, resolve_choose_tertiary_to_lose, resolve_destroy_cards,
-    resolve_gain_primary, resolve_gain_secondary,
+    resolve_gain_primary, resolve_gain_secondary, resolve_keep_workshop_cards,
     resolve_select_buyer, resolve_workshop_choice, skip_workshop,
 };
 use crate::apply_choice::apply_choice;
@@ -201,6 +201,23 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>
                 }
             }
         }
+        GamePhase::Cleanup { cleanup_state } => {
+            let player = &state.players[cleanup_state.current_player_index];
+            let mask = player.workshop_cards;
+            // Enumerate all subsets (including empty = discard all)
+            // Empty set (discard all)
+            choices.push(ColoriChoice::KeepWorkshopCards {
+                card_instance_ids: UnorderedCards::new(),
+            });
+            // All non-empty subsets
+            let mut sub = mask.0;
+            while sub > 0 {
+                choices.push(ColoriChoice::KeepWorkshopCards {
+                    card_instance_ids: UnorderedCards(sub),
+                });
+                sub = (sub - 1) & mask.0;
+            }
+        }
         _ => {}
     }
 }
@@ -224,6 +241,11 @@ pub fn apply_choice_to_state<R: Rng>(state: &mut GameState, choice: &ColoriChoic
         }
     }
     if matches!(choice, ColoriChoice::EndTurn) {
+        if matches!(state.phase, GamePhase::Draw) {
+            execute_draw_phase(state, rng);
+        }
+    }
+    if matches!(choice, ColoriChoice::KeepWorkshopCards { .. }) {
         if matches!(state.phase, GamePhase::Draw) {
             execute_draw_phase(state, rng);
         }
@@ -418,6 +440,14 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                 false
             }
         }
+        ColoriChoice::KeepWorkshopCards { card_instance_ids } => {
+            if let GamePhase::Cleanup { ref cleanup_state } = state.phase {
+                let player = &state.players[cleanup_state.current_player_index];
+                card_instance_ids.difference(player.workshop_cards).is_empty()
+            } else {
+                false
+            }
+        }
     }
 }
 
@@ -451,6 +481,9 @@ pub fn get_game_status(state: &GameState, max_round: Option<u32>) -> GameStatus 
         }
         GamePhase::Action { action_state } => GameStatus::AwaitingAction {
             player_id: action_state.current_player_index,
+        },
+        GamePhase::Cleanup { cleanup_state } => GameStatus::AwaitingAction {
+            player_id: cleanup_state.current_player_index,
         },
         GamePhase::GameOver => {
             let scores: SmallVec<[f64; 4]> = state.players.iter().map(|p| p.cached_score as f64).collect();
@@ -590,16 +623,20 @@ pub fn determinize_in_place<R: Rng>(
 fn rollout_draw_and_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
     let num_players = state.players.len();
 
-    // Step 1: Draw 5 cards from each player's personal deck (same as execute_draw_phase)
+    // Step 1: Draw up to 5 cards from each player's personal deck (same as execute_draw_phase)
     for i in 0..num_players {
         let player = &mut state.players[i];
-        draw_from_deck(
-            &mut player.deck,
-            &mut player.discard,
-            &mut player.workshop_cards,
-            5,
-            rng,
-        );
+        let current = player.workshop_cards.len() as usize;
+        let to_draw = if current >= 5 { 0 } else { 5 - current };
+        if to_draw > 0 {
+            draw_from_deck(
+                &mut player.deck,
+                &mut player.discard,
+                &mut player.workshop_cards,
+                to_draw,
+                rng,
+            );
+        }
     }
 
     // Step 2: Pool all available draft cards
@@ -683,6 +720,7 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
     const GAIN_SECONDARY: u8 = 10;
     const GAIN_PRIMARY: u8 = 11;
     const SWAP_TERTIARY: u8 = 12;
+    const KEEP_ALL_WORKSHOP: u8 = 13;
 
     // Flat locals for extracted data (avoids constructing a large tagged union)
     let disc: u8;
@@ -826,6 +864,11 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                 }
             }
         }
+        GamePhase::Cleanup { cleanup_state } => {
+            // Rollout policy: keep all workshop cards
+            selected = state.players[cleanup_state.current_player_index].workshop_cards;
+            disc = KEEP_ALL_WORKSHOP;
+        }
         _ => panic!("Cannot apply rollout step for current state"),
     }
 
@@ -872,6 +915,15 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
         }
         END_TURN => {
             end_player_turn(state, rng);
+            if matches!(state.phase, GamePhase::Cleanup { .. }) {
+                // Rollout policy: keep all workshop cards for each player
+                while matches!(state.phase, GamePhase::Cleanup { .. }) {
+                    if let GamePhase::Cleanup { ref cleanup_state } = state.phase {
+                        let keep = state.players[cleanup_state.current_player_index].workshop_cards;
+                        resolve_keep_workshop_cards(state, keep, rng);
+                    }
+                }
+            }
             if matches!(state.phase, GamePhase::Draw) {
                 rollout_draw_and_draft(state, rng);
             }
@@ -901,6 +953,12 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
         SWAP_TERTIARY => {
             resolve_choose_tertiary_to_lose(state, color1);
             resolve_choose_tertiary_to_gain(state, color2, rng);
+        }
+        KEEP_ALL_WORKSHOP => {
+            resolve_keep_workshop_cards(state, selected, rng);
+            if matches!(state.phase, GamePhase::Draw) {
+                rollout_draw_and_draft(state, rng);
+            }
         }
         _ => unreachable!(),
     }

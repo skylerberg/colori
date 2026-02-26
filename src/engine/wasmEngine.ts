@@ -139,6 +139,11 @@ export function getChoiceLogMessage(
       const buyer = state.buyerDisplay.find(g => g.instanceId === choice.buyerInstanceId);
       return `${name} destroyed ${cardName} from drafted cards, sold to a ${buyer ? getBuyerData(buyer.card).stars : '?'}-star buyer`;
     }
+    case 'keepWorkshopCards': {
+      const count = choice.cardInstanceIds.length;
+      const total = player.workshopCards.length;
+      return `${name} kept ${count} of ${total} workshop cards`;
+    }
     default:
       return assertNever(choice);
   }

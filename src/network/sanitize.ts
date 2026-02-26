@@ -43,6 +43,13 @@ export function sanitizeGameState(
         pendingChoice: as_.pendingChoice ? { ...as_.pendingChoice } : null,
       },
     };
+  } else if (fullState.phase.type === 'cleanup') {
+    phase = {
+      type: 'cleanup',
+      cleanupState: {
+        currentPlayerIndex: fullState.phase.cleanupState.currentPlayerIndex,
+      },
+    };
   } else if (fullState.phase.type === 'gameOver') {
     phase = { type: 'gameOver' };
   } else {

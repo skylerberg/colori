@@ -27,10 +27,15 @@ export interface SanitizedActionState {
   pendingChoice: PendingChoice | null;
 }
 
+export interface SanitizedCleanupState {
+  currentPlayerIndex: number;
+}
+
 export type SanitizedGamePhase =
   | { type: 'draw' }
   | { type: 'draft'; draftState: SanitizedDraftState }
   | { type: 'action'; actionState: SanitizedActionState }
+  | { type: 'cleanup'; cleanupState: SanitizedCleanupState }
   | { type: 'gameOver' };
 
 export interface SanitizedGameState {

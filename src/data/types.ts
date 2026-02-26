@@ -131,10 +131,15 @@ export interface ActionState {
   pendingChoice: PendingChoice | null;
 }
 
+export interface CleanupState {
+  currentPlayerIndex: number;
+}
+
 export type GamePhase =
   | { type: 'draw' }
   | { type: 'draft'; draftState: DraftState }
   | { type: 'action'; actionState: ActionState }
+  | { type: 'cleanup'; cleanupState: CleanupState }
   | { type: 'gameOver' };
 
 export interface GameState {
@@ -162,4 +167,5 @@ export type ColoriChoice =
   | { type: 'mixAll'; mixes: [Color, Color][] }
   | { type: 'swapTertiary'; loseColor: Color; gainColor: Color }
   | { type: 'destroyAndMixAll'; cardInstanceId: number; mixes: [Color, Color][] }
-  | { type: 'destroyAndSell'; cardInstanceId: number; buyerInstanceId: number };
+  | { type: 'destroyAndSell'; cardInstanceId: number; buyerInstanceId: number }
+  | { type: 'keepWorkshopCards'; cardInstanceIds: number[] };

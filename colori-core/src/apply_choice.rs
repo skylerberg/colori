@@ -70,5 +70,8 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &ColoriChoice, rng: &
             destroy_drafted_card(state, *card_instance_id, rng);
             resolve_select_buyer(state, *buyer_instance_id, rng);
         }
+        ColoriChoice::KeepWorkshopCards { card_instance_ids } => {
+            resolve_keep_workshop_cards(state, *card_instance_ids, rng);
+        }
     }
 }

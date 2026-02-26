@@ -2,7 +2,7 @@ use crate::color_wheel::{can_pay_cost, pay_cost, perform_mix, perform_mix_unchec
 use crate::colors::TERTIARIES;
 use crate::deck_utils::draw_from_deck;
 use crate::types::{
-    Ability, ActionState, BuyerInstance, Color, GamePhase, GameState, PendingChoice,
+    Ability, ActionState, BuyerInstance, CleanupState, Color, GamePhase, GameState, PendingChoice,
 };
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
@@ -410,8 +410,7 @@ pub fn end_player_turn<R: Rng>(state: &mut GameState, rng: &mut R) {
     let player = &mut state.players[player_index];
 
     // Move remaining cards to discard
-    player.discard = player.discard.union(player.workshop_cards).union(player.drafted_cards).union(player.used_cards);
-    player.workshop_cards = UnorderedCards::new();
+    player.discard = player.discard.union(player.drafted_cards).union(player.used_cards);
     player.drafted_cards = UnorderedCards::new();
     player.used_cards = UnorderedCards::new();
 
@@ -422,7 +421,7 @@ pub fn end_player_turn<R: Rng>(state: &mut GameState, rng: &mut R) {
     as_.current_player_index = (as_.current_player_index + 1) % num_players;
 
     if as_.current_player_index == starting_player {
-        end_round(state, rng);
+        initialize_cleanup_phase(state, rng);
     } else {
         let as_ = get_action_state_mut(state);
         as_.ability_stack.clear();
@@ -437,6 +436,77 @@ pub fn end_round<R: Rng>(state: &mut GameState, _rng: &mut R) {
         state.phase = GamePhase::GameOver;
     } else {
         state.phase = GamePhase::Draw;
+    }
+}
+
+pub fn initialize_cleanup_phase<R: Rng>(state: &mut GameState, rng: &mut R) {
+    let num_players = state.players.len();
+    let starting_player = ((state.round - 1) as usize) % num_players;
+    state.phase = GamePhase::Cleanup {
+        cleanup_state: CleanupState {
+            current_player_index: starting_player,
+        },
+    };
+    advance_cleanup_to_next_nonempty(state, rng);
+}
+
+fn advance_cleanup_to_next_nonempty<R: Rng>(state: &mut GameState, rng: &mut R) {
+    let num_players = state.players.len();
+    let starting_player = ((state.round - 1) as usize) % num_players;
+    loop {
+        let current = get_cleanup_state(state).current_player_index;
+        if !state.players[current].workshop_cards.is_empty() {
+            return; // This player has workshop cards; wait for their choice
+        }
+        // Advance to next player
+        let next = (current + 1) % num_players;
+        if next == starting_player {
+            // All players done, end round
+            end_round(state, rng);
+            return;
+        }
+        get_cleanup_state_mut(state).current_player_index = next;
+    }
+}
+
+pub fn resolve_keep_workshop_cards<R: Rng>(
+    state: &mut GameState,
+    keep_ids: UnorderedCards,
+    rng: &mut R,
+) {
+    let current = get_cleanup_state(state).current_player_index;
+    let player = &mut state.players[current];
+
+    // Discard cards NOT in keep_ids
+    let to_discard = player.workshop_cards.difference(keep_ids);
+    player.discard = player.discard.union(to_discard);
+    player.workshop_cards = keep_ids;
+
+    // Advance to next player
+    let num_players = state.players.len();
+    let starting_player = ((state.round - 1) as usize) % num_players;
+    let next = (current + 1) % num_players;
+    if next == starting_player {
+        end_round(state, rng);
+    } else {
+        get_cleanup_state_mut(state).current_player_index = next;
+        advance_cleanup_to_next_nonempty(state, rng);
+    }
+}
+
+#[inline]
+fn get_cleanup_state(state: &GameState) -> &CleanupState {
+    match &state.phase {
+        GamePhase::Cleanup { cleanup_state } => cleanup_state,
+        _ => panic!("Expected cleanup phase"),
+    }
+}
+
+#[inline]
+fn get_cleanup_state_mut(state: &mut GameState) -> &mut CleanupState {
+    match &mut state.phase {
+        GamePhase::Cleanup { cleanup_state } => cleanup_state,
+        _ => panic!("Expected cleanup phase"),
     }
 }
 

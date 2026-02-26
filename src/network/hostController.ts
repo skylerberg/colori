@@ -313,6 +313,9 @@ export class HostController {
     if (this.gameState.phase.type === 'action') {
       return this.gameState.phase.actionState.currentPlayerIndex;
     }
+    if (this.gameState.phase.type === 'cleanup') {
+      return this.gameState.phase.cleanupState.currentPlayerIndex;
+    }
     return -1;
   }
 

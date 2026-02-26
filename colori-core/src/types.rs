@@ -672,6 +672,12 @@ pub struct ActionState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CleanupState {
+    pub current_player_index: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum GamePhase {
     #[serde(rename = "draw")]
@@ -685,6 +691,11 @@ pub enum GamePhase {
     Action {
         #[serde(rename = "actionState")]
         action_state: ActionState,
+    },
+    #[serde(rename = "cleanup")]
+    Cleanup {
+        #[serde(rename = "cleanupState")]
+        cleanup_state: CleanupState,
     },
     #[serde(rename = "gameOver")]
     GameOver,
@@ -800,5 +811,14 @@ pub enum ColoriChoice {
         card_instance_id: u32,
         #[serde(rename = "buyerInstanceId")]
         buyer_instance_id: u32,
+    },
+    #[serde(rename = "keepWorkshopCards")]
+    KeepWorkshopCards {
+        #[serde(
+            rename = "cardInstanceIds",
+            serialize_with = "serialize_ids",
+            deserialize_with = "deserialize_ids"
+        )]
+        card_instance_ids: UnorderedCards,
     },
 }

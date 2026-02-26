@@ -11,6 +11,7 @@
   import PlayerStatus from './PlayerStatus.svelte';
   import DraftPhaseView from './DraftPhaseView.svelte';
   import ActionPhaseView from './ActionPhaseView.svelte';
+  import CleanupPhaseView from './CleanupPhaseView.svelte';
   import GameLog from './GameLog.svelte';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import BuyerDisplay from './BuyerDisplay.svelte';
@@ -96,7 +97,7 @@
 
   let showSidebar = $derived(
     gameState !== null &&
-    (gameState.phase.type === 'draft' || gameState.phase.type === 'action')
+    (gameState.phase.type === 'draft' || gameState.phase.type === 'action' || gameState.phase.type === 'cleanup')
   );
 
   let myPlayer = $derived(
@@ -109,6 +110,9 @@
     }
     if (gs.phase.type === 'action') {
       return gs.phase.actionState.currentPlayerIndex;
+    }
+    if (gs.phase.type === 'cleanup') {
+      return gs.phase.cleanupState.currentPlayerIndex;
     }
     return -1;
   }
@@ -319,6 +323,21 @@
             {/if}
           {:else if gameState.phase.type === 'action' && isMyTurn}
             <ActionPhaseView {gameState} onAction={handleAction} onUndo={() => {}} undoAvailable={false} />
+          {:else if gameState.phase.type === 'cleanup' && isMyTurn}
+            <CleanupPhaseView {gameState} onAction={handleAction} />
+          {:else if gameState.phase.type === 'cleanup' && !isMyTurn}
+            <div class="waiting-banner">
+              <div class="spinner"></div>
+              <p>Waiting for {gameState.playerNames[activePlayerIndex] ?? 'other player'} to finish cleanup...</p>
+            </div>
+            {#if myPlayer}
+              <div class="readonly-cards">
+                <div class="section">
+                  <h3>Your Workshop</h3>
+                  <CardList cards={myPlayer.workshopCards} />
+                </div>
+              </div>
+            {/if}
           {/if}
         </div>
 

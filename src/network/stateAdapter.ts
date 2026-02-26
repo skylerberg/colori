@@ -25,6 +25,11 @@ export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
       type: 'action',
       actionState: { ...sanitized.phase.actionState },
     };
+  } else if (sanitized.phase.type === 'cleanup') {
+    phase = {
+      type: 'cleanup',
+      cleanupState: { ...sanitized.phase.cleanupState },
+    };
   } else if (sanitized.phase.type === 'gameOver') {
     phase = { type: 'gameOver' };
   } else {
