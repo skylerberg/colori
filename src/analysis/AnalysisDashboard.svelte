@@ -21,6 +21,7 @@
     computeWinRateCategoryStats,
     wilsonConfidenceInterval,
     computePenultimateRoundDeckSizes,
+    computeRoundCountDistribution,
   } from './logAnalysis';
   import { DRAFT_CARD_CATEGORIES, getStarterCardCategories } from '../data/cards';
 
@@ -40,6 +41,7 @@
   let durationStats = $derived(computeDurationStats(logs));
   let variantWinRate = $derived(computeWinRateByVariant(logs));
   let penultimateDeckSizes = $derived(computePenultimateRoundDeckSizes(logs));
+  let roundCountDist = $derived(computeRoundCountDistribution(logs));
 
   let numPlayers = $derived(logs.length > 0 ? logs[0].playerNames.length : 2);
   let allCategories = $derived([...DRAFT_CARD_CATEGORIES, ...getStarterCardCategories(numPlayers)]);
@@ -136,6 +138,33 @@
         {#each sorted as [score, count]}
           <tr>
             <td>{score}</td>
+            <td class="bar-cell">
+              <div class="bar" style="width: {(count / maxVal) * 100}%"></div>
+              <span>{count}</span>
+            </td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  {/if}
+</details>
+
+<!-- Game Length (Rounds) Distribution -->
+<details open>
+  <summary>Game Length (Rounds) Distribution</summary>
+  {#if roundCountDist.size === 0}
+    <p>No data available.</p>
+  {:else}
+    {@const sorted = sortedByNumericKey(roundCountDist)}
+    {@const maxVal = maxOfMap(roundCountDist)}
+    <table>
+      <thead>
+        <tr><th>Rounds</th><th>Count</th></tr>
+      </thead>
+      <tbody>
+        {#each sorted as [rounds, count]}
+          <tr>
+            <td>{rounds}</td>
             <td class="bar-cell">
               <div class="bar" style="width: {(count / maxVal) * 100}%"></div>
               <span>{count}</span>

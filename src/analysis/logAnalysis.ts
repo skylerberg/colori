@@ -324,6 +324,20 @@ export function computeDraftFrequency(logs: StructuredGameLog[]): Map<string, nu
   return counts;
 }
 
+export function computeRoundCountDistribution(logs: StructuredGameLog[]): Map<number, number> {
+  const counts = new Map<number, number>();
+  for (const log of logs) {
+    let maxRound = 0;
+    for (const entry of log.entries) {
+      if (entry.round > maxRound) maxRound = entry.round;
+    }
+    if (maxRound > 0) {
+      counts.set(maxRound, (counts.get(maxRound) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
 export function computeAverageGameLength(logs: StructuredGameLog[]): {
   avgRounds: number;
   avgChoices: number;
