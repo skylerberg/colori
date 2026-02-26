@@ -15,6 +15,9 @@ fn deserialize_state(json: &str) -> GameState {
         serde_json::from_str(json).expect("Failed to parse game state JSON");
     state.card_lookup = get_card_registry();
     state.buyer_lookup = get_buyer_registry();
+    for p in state.players.iter_mut() {
+        p.cached_score = calculate_score(p);
+    }
     state
 }
 
