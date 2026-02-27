@@ -15,6 +15,7 @@
   let loading = $state(false);
   let error: string | null = $state(null);
   let selectedBatch: string = $state("all");
+  let selectedVariant: string = $state("all");
 
   interface BatchInfo {
     count: number;
@@ -78,6 +79,25 @@
       ? taggedLogs.map(t => t.log)
       : taggedLogs.filter(t => t.batchId === selectedBatch).map(t => t.log)
   );
+
+  let availableVariants = $derived(() => {
+    const labels = new Set<string>();
+    for (const log of filteredLogs) {
+      if (!log.playerVariants) continue;
+      for (const v of log.playerVariants) {
+        labels.add(formatVariantLabel(v, log.playerVariants));
+      }
+    }
+    return [...labels].sort();
+  });
+
+  let previousBatch = $state(selectedBatch);
+  $effect(() => {
+    if (selectedBatch !== previousBatch) {
+      selectedVariant = "all";
+      previousBatch = selectedBatch;
+    }
+  });
 
   function extractBatchId(filename: string): string {
     const match = filename.match(/^game-\d+-([a-z0-9]{6})\.json$/);
@@ -175,7 +195,21 @@
         </div>
       {/if}
 
-      <AnalysisDashboard logs={filteredLogs} />
+      {#if availableVariants().length > 1}
+        <div class="batch-filter">
+          <label>
+            Variant:
+            <select bind:value={selectedVariant}>
+              <option value="all">All variants</option>
+              {#each availableVariants() as variant}
+                <option value={variant}>{variant}</option>
+              {/each}
+            </select>
+          </label>
+        </div>
+      {/if}
+
+      <AnalysisDashboard logs={filteredLogs} variantLabel={selectedVariant === "all" ? null : selectedVariant} />
     {/if}
   {:else if activeTab === 'cardReference'}
     <CardReference />

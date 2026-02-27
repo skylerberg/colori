@@ -3,6 +3,25 @@ import type { AnyCardData } from '../data/types';
 import type { CardCategory } from '../data/cards';
 import { getAnyCardData, getDraftCopies } from '../data/cards';
 
+export type PlayerFilter = Map<StructuredGameLog, Set<number>>;
+
+export function computePlayerFilter(logs: StructuredGameLog[], variantLabel: string): PlayerFilter {
+  const filter: PlayerFilter = new Map();
+  for (const log of logs) {
+    if (!log.playerVariants) continue;
+    const indices = new Set<number>();
+    for (let i = 0; i < log.playerVariants.length; i++) {
+      if (formatVariantLabel(log.playerVariants[i], log.playerVariants) === variantLabel) {
+        indices.add(i);
+      }
+    }
+    if (indices.size > 0) {
+      filter.set(log, indices);
+    }
+  }
+  return filter;
+}
+
 function getCardName(card: string): string {
   const data = getAnyCardData(card);
   if (!data) return card;
@@ -46,10 +65,12 @@ function buildBuyerInstanceMap(log: StructuredGameLog): Map<number, { instanceId
   return map;
 }
 
-export function computeActionDistribution(logs: StructuredGameLog[]): Map<string, number> {
+export function computeActionDistribution(logs: StructuredGameLog[], playerFilter?: PlayerFilter): Map<string, number> {
   const counts = new Map<string, number>();
   for (const log of logs) {
+    const allowed = playerFilter?.get(log);
     for (const entry of log.entries) {
+      if (allowed && !allowed.has(entry.playerIndex)) continue;
       const type = entry.choice.type;
       counts.set(type, (counts.get(type) ?? 0) + 1);
     }
@@ -57,11 +78,13 @@ export function computeActionDistribution(logs: StructuredGameLog[]): Map<string
   return counts;
 }
 
-export function computeDestroyedFromDraft(logs: StructuredGameLog[]): Map<string, number> {
+export function computeDestroyedFromDraft(logs: StructuredGameLog[], playerFilter?: PlayerFilter): Map<string, number> {
   const counts = new Map<string, number>();
   for (const log of logs) {
+    const allowed = playerFilter?.get(log);
     const instanceMap = buildCardInstanceMap(log);
     for (const entry of log.entries) {
+      if (allowed && !allowed.has(entry.playerIndex)) continue;
       if (entry.choice.type === 'destroyDraftedCard' || entry.choice.type === 'destroyAndMixAll' || entry.choice.type === 'destroyAndSell') {
         const inst = instanceMap.get(entry.choice.cardInstanceId);
         if (inst) {
@@ -74,11 +97,13 @@ export function computeDestroyedFromDraft(logs: StructuredGameLog[]): Map<string
   return counts;
 }
 
-export function computeDestroyedFromWorkshop(logs: StructuredGameLog[]): Map<string, number> {
+export function computeDestroyedFromWorkshop(logs: StructuredGameLog[], playerFilter?: PlayerFilter): Map<string, number> {
   const counts = new Map<string, number>();
   for (const log of logs) {
+    const allowed = playerFilter?.get(log);
     const instanceMap = buildCardInstanceMap(log);
     for (const entry of log.entries) {
+      if (allowed && !allowed.has(entry.playerIndex)) continue;
       if (entry.choice.type === 'destroyDrawnCards') {
         for (const id of entry.choice.cardInstanceIds) {
           const inst = instanceMap.get(id);
@@ -93,14 +118,16 @@ export function computeDestroyedFromWorkshop(logs: StructuredGameLog[]): Map<str
   return counts;
 }
 
-export function computeCardsAddedToDeck(logs: StructuredGameLog[]): Map<string, number> {
+export function computeCardsAddedToDeck(logs: StructuredGameLog[], playerFilter?: PlayerFilter): Map<string, number> {
   const counts = new Map<string, number>();
   for (const log of logs) {
+    const allowed = playerFilter?.get(log);
     const instanceMap = buildCardInstanceMap(log);
     const drafted = new Map<number, string>();
     const destroyed = new Set<number>();
 
     for (const entry of log.entries) {
+      if (allowed && !allowed.has(entry.playerIndex)) continue;
       if (entry.choice.type === 'draftPick') {
         const inst = instanceMap.get(entry.choice.cardInstanceId);
         if (inst) {
@@ -120,11 +147,12 @@ export function computeCardsAddedToDeck(logs: StructuredGameLog[]): Map<string, 
   return counts;
 }
 
-export function computeWinRateByCard(logs: StructuredGameLog[]): Map<string, { wins: number; games: number }> {
+export function computeWinRateByCard(logs: StructuredGameLog[], playerFilter?: PlayerFilter): Map<string, { wins: number; games: number }> {
   const stats = new Map<string, { wins: number; games: number }>();
 
   for (const log of logs) {
     if (!log.finalScores) continue;
+    const allowed = playerFilter?.get(log);
     const instanceMap = buildCardInstanceMap(log);
 
     // Track per-player drafted and destroyed cards
@@ -132,6 +160,7 @@ export function computeWinRateByCard(logs: StructuredGameLog[]): Map<string, { w
     const playerDestroyed = new Map<number, Set<number>>();
 
     for (const entry of log.entries) {
+      if (allowed && !allowed.has(entry.playerIndex)) continue;
       const pi = entry.playerIndex;
       if (entry.choice.type === 'draftPick') {
         if (!playerDrafted.has(pi)) playerDrafted.set(pi, new Set());
@@ -151,6 +180,7 @@ export function computeWinRateByCard(logs: StructuredGameLog[]): Map<string, { w
 
     // For each player, determine final deck cards and tally
     for (let i = 0; i < log.playerNames.length; i++) {
+      if (allowed && !allowed.has(i)) continue;
       const drafted = playerDrafted.get(i) ?? new Set<number>();
       const destroyed = playerDestroyed.get(i) ?? new Set<number>();
       const playerName = log.playerNames[i];
@@ -195,7 +225,7 @@ export function computeWinRateCategoryStats(
   });
 }
 
-export function computeBuyerAcquisitions(logs: StructuredGameLog[]): {
+export function computeBuyerAcquisitions(logs: StructuredGameLog[], playerFilter?: PlayerFilter): {
   byBuyer: Map<string, number>;
   byStars: Map<number, number>;
   byMaterial: Map<string, number>;
@@ -205,8 +235,10 @@ export function computeBuyerAcquisitions(logs: StructuredGameLog[]): {
   const byMaterial = new Map<string, number>();
 
   for (const log of logs) {
+    const allowed = playerFilter?.get(log);
     const instanceMap = buildBuyerInstanceMap(log);
     for (const entry of log.entries) {
+      if (allowed && !allowed.has(entry.playerIndex)) continue;
       if (entry.choice.type === 'selectBuyer' || entry.choice.type === 'destroyAndSell') {
         const inst = instanceMap.get(entry.choice.buyerInstanceId);
         if (inst) {
@@ -225,7 +257,7 @@ export function computeBuyerAcquisitions(logs: StructuredGameLog[]): {
   return { byBuyer, byStars, byMaterial };
 }
 
-export function computeDeckSizeStats(logs: StructuredGameLog[]): {
+export function computeDeckSizeStats(logs: StructuredGameLog[], playerFilter?: PlayerFilter): {
   mean: number;
   median: number;
   min: number;
@@ -234,8 +266,14 @@ export function computeDeckSizeStats(logs: StructuredGameLog[]): {
   const sizes: number[] = [];
   for (const log of logs) {
     if (log.finalPlayerStats) {
-      for (const ps of log.finalPlayerStats) {
-        sizes.push(ps.deckSize);
+      const allowed = playerFilter?.get(log);
+      for (let i = 0; i < log.playerNames.length; i++) {
+        if (allowed && !allowed.has(i)) continue;
+        const playerName = log.playerNames[i];
+        const ps = log.finalPlayerStats.find(p => p.name === playerName);
+        if (ps) {
+          sizes.push(ps.deckSize);
+        }
       }
     }
   }
@@ -260,27 +298,35 @@ export function computeDeckSizeStats(logs: StructuredGameLog[]): {
   };
 }
 
-export function computeScoreDistribution(logs: StructuredGameLog[]): Map<number, number> {
+export function computeScoreDistribution(logs: StructuredGameLog[], playerFilter?: PlayerFilter): Map<number, number> {
   const counts = new Map<number, number>();
   for (const log of logs) {
     if (log.finalScores) {
-      for (const fs of log.finalScores) {
-        counts.set(fs.score, (counts.get(fs.score) ?? 0) + 1);
+      const allowed = playerFilter?.get(log);
+      for (let i = 0; i < log.playerNames.length; i++) {
+        if (allowed && !allowed.has(i)) continue;
+        const playerName = log.playerNames[i];
+        const scoreEntry = log.finalScores.find(fs => fs.name === playerName);
+        if (scoreEntry) {
+          counts.set(scoreEntry.score, (counts.get(scoreEntry.score) ?? 0) + 1);
+        }
       }
     }
   }
   return counts;
 }
 
-export function computeWinRateByPosition(logs: StructuredGameLog[]): Map<number, { wins: number; games: number }> {
+export function computeWinRateByPosition(logs: StructuredGameLog[], playerFilter?: PlayerFilter): Map<number, { wins: number; games: number }> {
   const stats = new Map<number, { wins: number; games: number }>();
 
   for (const log of logs) {
     if (!log.finalScores) continue;
+    const allowed = playerFilter?.get(log);
     const numPlayers = log.finalScores.length;
 
     // Initialize positions for this game
     for (let i = 0; i < numPlayers; i++) {
+      if (allowed && !allowed.has(i)) continue;
       if (!stats.has(i)) {
         stats.set(i, { wins: 0, games: 0 });
       }
@@ -296,6 +342,7 @@ export function computeWinRateByPosition(logs: StructuredGameLog[]): Map<number,
     // Match final scores back to player indices by name
     const numWinners = log.finalScores.filter(fs => fs.score === maxScore).length;
     for (let i = 0; i < log.playerNames.length; i++) {
+      if (allowed && !allowed.has(i)) continue;
       const playerName = log.playerNames[i];
       const scoreEntry = log.finalScores.find(fs => fs.name === playerName);
       if (scoreEntry && scoreEntry.score === maxScore) {
@@ -307,11 +354,13 @@ export function computeWinRateByPosition(logs: StructuredGameLog[]): Map<number,
   return stats;
 }
 
-export function computeDraftFrequency(logs: StructuredGameLog[]): Map<string, number> {
+export function computeDraftFrequency(logs: StructuredGameLog[], playerFilter?: PlayerFilter): Map<string, number> {
   const counts = new Map<string, number>();
   for (const log of logs) {
+    const allowed = playerFilter?.get(log);
     const instanceMap = buildCardInstanceMap(log);
     for (const entry of log.entries) {
+      if (allowed && !allowed.has(entry.playerIndex)) continue;
       if (entry.choice.type === 'draftPick') {
         const inst = instanceMap.get(entry.choice.cardInstanceId);
         if (inst) {
@@ -395,13 +444,18 @@ export function computeDurationStats(logs: StructuredGameLog[]): {
   };
 }
 
-export function computeColorWheelStats(logs: StructuredGameLog[]): Map<string, number> {
+export function computeColorWheelStats(logs: StructuredGameLog[], playerFilter?: PlayerFilter): Map<string, number> {
   const totals = new Map<string, number>();
   let playerCount = 0;
 
   for (const log of logs) {
     if (!log.finalPlayerStats) continue;
-    for (const ps of log.finalPlayerStats) {
+    const allowed = playerFilter?.get(log);
+    for (let i = 0; i < log.playerNames.length; i++) {
+      if (allowed && !allowed.has(i)) continue;
+      const playerName = log.playerNames[i];
+      const ps = log.finalPlayerStats.find(p => p.name === playerName);
+      if (!ps) continue;
       playerCount++;
       for (const [color, count] of Object.entries(ps.colorWheel)) {
         totals.set(color, (totals.get(color) ?? 0) + count);
@@ -539,7 +593,7 @@ export function wilsonConfidenceInterval(
   };
 }
 
-export function computePenultimateRoundDeckSizes(logs: StructuredGameLog[]): Map<number, number> {
+export function computePenultimateRoundDeckSizes(logs: StructuredGameLog[], playerFilter?: PlayerFilter): Map<number, number> {
   const counts = new Map<number, number>();
 
   for (const log of logs) {
@@ -549,6 +603,7 @@ export function computePenultimateRoundDeckSizes(logs: StructuredGameLog[]): Map
     }
     if (maxRound < 2) continue;
     const penultimateRound = maxRound - 1;
+    const allowed = playerFilter?.get(log);
 
     const playerDeckSizes: number[] = log.initialState.players.map(p =>
       p.deck.length + p.discard.length + p.usedCards.length + p.workshopCards.length + p.draftedCards.length
@@ -566,7 +621,9 @@ export function computePenultimateRoundDeckSizes(logs: StructuredGameLog[]): Map
       }
     }
 
-    for (const size of playerDeckSizes) {
+    for (let i = 0; i < playerDeckSizes.length; i++) {
+      if (allowed && !allowed.has(i)) continue;
+      const size = playerDeckSizes[i];
       counts.set(size, (counts.get(size) ?? 0) + 1);
     }
   }

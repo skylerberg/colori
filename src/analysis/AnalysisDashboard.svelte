@@ -22,25 +22,29 @@
     wilsonConfidenceInterval,
     computePenultimateRoundDeckSizes,
     computeRoundCountDistribution,
+    computePlayerFilter,
   } from './logAnalysis';
+  import type { PlayerFilter } from './logAnalysis';
   import { DRAFT_CARD_CATEGORIES, getStarterCardCategories } from '../data/cards';
 
-  let { logs }: { logs: StructuredGameLog[] } = $props();
+  let { logs, variantLabel }: { logs: StructuredGameLog[]; variantLabel: string | null } = $props();
 
-  let actionDist = $derived(computeActionDistribution(logs));
-  let destroyedDraft = $derived(computeDestroyedFromDraft(logs));
-  let destroyedWorkshop = $derived(computeDestroyedFromWorkshop(logs));
-  let cardsAdded = $derived(computeCardsAddedToDeck(logs));
-  let buyerAcq = $derived(computeBuyerAcquisitions(logs));
-  let deckStats = $derived(computeDeckSizeStats(logs));
-  let scoreDist = $derived(computeScoreDistribution(logs));
-  let winRate = $derived(computeWinRateByPosition(logs));
-  let draftFreq = $derived(computeDraftFrequency(logs));
+  let playerFilter: PlayerFilter | undefined = $derived(variantLabel ? computePlayerFilter(logs, variantLabel) : undefined);
+
+  let actionDist = $derived(computeActionDistribution(logs, playerFilter));
+  let destroyedDraft = $derived(computeDestroyedFromDraft(logs, playerFilter));
+  let destroyedWorkshop = $derived(computeDestroyedFromWorkshop(logs, playerFilter));
+  let cardsAdded = $derived(computeCardsAddedToDeck(logs, playerFilter));
+  let buyerAcq = $derived(computeBuyerAcquisitions(logs, playerFilter));
+  let deckStats = $derived(computeDeckSizeStats(logs, playerFilter));
+  let scoreDist = $derived(computeScoreDistribution(logs, playerFilter));
+  let winRate = $derived(computeWinRateByPosition(logs, playerFilter));
+  let draftFreq = $derived(computeDraftFrequency(logs, playerFilter));
   let gameLength = $derived(computeAverageGameLength(logs));
-  let colorStats = $derived(computeColorWheelStats(logs));
+  let colorStats = $derived(computeColorWheelStats(logs, playerFilter));
   let durationStats = $derived(computeDurationStats(logs));
   let variantWinRate = $derived(computeWinRateByVariant(logs));
-  let penultimateDeckSizes = $derived(computePenultimateRoundDeckSizes(logs));
+  let penultimateDeckSizes = $derived(computePenultimateRoundDeckSizes(logs, playerFilter));
   let roundCountDist = $derived(computeRoundCountDistribution(logs));
 
   let numPlayers = $derived(logs.length > 0 ? logs[0].playerNames.length : 2);
@@ -52,7 +56,7 @@
   let cardsAddedNormalized = $derived(normalizeByDraftCopies(cardsAdded));
   let cardsAddedCategories = $derived(computeCategoryStats(cardsAdded, allCategories));
 
-  let cardWinRate = $derived(computeWinRateByCard(logs));
+  let cardWinRate = $derived(computeWinRateByCard(logs, playerFilter));
   let cardWinRateCategories = $derived(computeWinRateCategoryStats(cardWinRate, allCategories));
 
   let destroyRate = $derived(computeDestroyRate(destroyedDraft, draftFreq));
