@@ -85,7 +85,7 @@ export function computeDestroyedFromDraft(logs: StructuredGameLog[], playerFilte
     const instanceMap = buildCardInstanceMap(log);
     for (const entry of log.entries) {
       if (allowed && !allowed.has(entry.playerIndex)) continue;
-      if (entry.choice.type === 'destroyDraftedCard' || entry.choice.type === 'destroyAndMixAll' || entry.choice.type === 'destroyAndSell') {
+      if (entry.choice.type === 'destroyDraftedCard' || entry.choice.type === 'destroyAndMixAll' || entry.choice.type === 'destroyAndSell' || entry.choice.type === 'compoundDestroy') {
         const inst = instanceMap.get(entry.choice.cardInstanceId);
         if (inst) {
           const name = getCardName(inst.card);
@@ -113,6 +113,15 @@ export function computeDestroyedFromWorkshop(logs: StructuredGameLog[], playerFi
           }
         }
       }
+      if (entry.choice.type === 'compoundDestroy') {
+        for (const id of entry.choice.targets) {
+          const inst = instanceMap.get(id);
+          if (inst) {
+            const name = getCardName(inst.card);
+            counts.set(name, (counts.get(name) ?? 0) + 1);
+          }
+        }
+      }
     }
   }
   return counts;
@@ -133,7 +142,7 @@ export function computeCardsAddedToDeck(logs: StructuredGameLog[], playerFilter?
         if (inst) {
           drafted.set(entry.choice.cardInstanceId, getCardName(inst.card));
         }
-      } else if (entry.choice.type === 'destroyDraftedCard' || entry.choice.type === 'destroyAndMixAll' || entry.choice.type === 'destroyAndSell') {
+      } else if (entry.choice.type === 'destroyDraftedCard' || entry.choice.type === 'destroyAndMixAll' || entry.choice.type === 'destroyAndSell' || entry.choice.type === 'compoundDestroy') {
         destroyed.add(entry.choice.cardInstanceId);
       }
     }
@@ -165,7 +174,7 @@ export function computeWinRateByCard(logs: StructuredGameLog[], playerFilter?: P
       if (entry.choice.type === 'draftPick') {
         if (!playerDrafted.has(pi)) playerDrafted.set(pi, new Set());
         playerDrafted.get(pi)!.add(entry.choice.cardInstanceId);
-      } else if (entry.choice.type === 'destroyDraftedCard' || entry.choice.type === 'destroyAndMixAll' || entry.choice.type === 'destroyAndSell') {
+      } else if (entry.choice.type === 'destroyDraftedCard' || entry.choice.type === 'destroyAndMixAll' || entry.choice.type === 'destroyAndSell' || entry.choice.type === 'compoundDestroy') {
         if (!playerDestroyed.has(pi)) playerDestroyed.set(pi, new Set());
         playerDestroyed.get(pi)!.add(entry.choice.cardInstanceId);
       }
@@ -239,8 +248,14 @@ export function computeBuyerAcquisitions(logs: StructuredGameLog[], playerFilter
     const instanceMap = buildBuyerInstanceMap(log);
     for (const entry of log.entries) {
       if (allowed && !allowed.has(entry.playerIndex)) continue;
+      let buyerInstanceId: number | undefined;
       if (entry.choice.type === 'selectBuyer' || entry.choice.type === 'destroyAndSell') {
-        const inst = instanceMap.get(entry.choice.buyerInstanceId);
+        buyerInstanceId = entry.choice.buyerInstanceId;
+      } else if (entry.choice.type === 'compoundDestroy' && entry.choice.followUp.type === 'sell') {
+        buyerInstanceId = entry.choice.followUp.buyerInstanceId;
+      }
+      if (buyerInstanceId !== undefined) {
+        const inst = instanceMap.get(buyerInstanceId);
         if (inst) {
           const data = getAnyCardData(inst.card);
           if (data && data.kind === 'buyer') {
@@ -518,16 +533,18 @@ export function formatVariantLabel(variant: PlayerVariant, allVariants?: PlayerV
     iterations: false,
     explorationConstant: false,
     maxRolloutSteps: false,
+    compoundDestroy: false,
   };
   if (allVariants && allVariants.length > 1) {
     const first = allVariants[0];
     differingFields.iterations = allVariants.some(v => v.iterations !== first.iterations);
     differingFields.explorationConstant = allVariants.some(v => (v.explorationConstant ?? null) !== (first.explorationConstant ?? null));
     differingFields.maxRolloutSteps = allVariants.some(v => (v.maxRolloutSteps ?? null) !== (first.maxRolloutSteps ?? null));
+    differingFields.compoundDestroy = allVariants.some(v => (v.compoundDestroy ?? false) !== (first.compoundDestroy ?? false));
   }
 
   const parts: string[] = [];
-  if (differingFields.iterations || (!differingFields.explorationConstant && !differingFields.maxRolloutSteps)) {
+  if (differingFields.iterations || (!differingFields.explorationConstant && !differingFields.maxRolloutSteps && !differingFields.compoundDestroy)) {
     parts.push(formatIterationsShort(variant.iterations));
   }
   if (differingFields.explorationConstant) {
@@ -535,6 +552,9 @@ export function formatVariantLabel(variant: PlayerVariant, allVariants?: PlayerV
   }
   if (differingFields.maxRolloutSteps) {
     parts.push(`rollout=${variant.maxRolloutSteps ?? 1000}`);
+  }
+  if (differingFields.compoundDestroy) {
+    parts.push(variant.compoundDestroy ? 'compound' : 'standard');
   }
 
   return parts.join(', ');
@@ -616,6 +636,8 @@ export function computePenultimateRoundDeckSizes(logs: StructuredGameLog[], play
         playerDeckSizes[pi]++;
       } else if (entry.choice.type === 'destroyDraftedCard' || entry.choice.type === 'destroyAndMixAll' || entry.choice.type === 'destroyAndSell') {
         playerDeckSizes[pi]--;
+      } else if (entry.choice.type === 'compoundDestroy') {
+        playerDeckSizes[pi] -= 1 + entry.choice.targets.length;
       } else if (entry.choice.type === 'destroyDrawnCards') {
         playerDeckSizes[pi] -= entry.choice.cardInstanceIds.length;
       }

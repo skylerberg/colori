@@ -2,13 +2,13 @@ use crate::colori_game::enumerate_choices;
 use crate::types::*;
 
 pub const STATE_ENCODING_SIZE: usize = 768;
-pub const ACTION_ENCODING_SIZE: usize = 86;
+pub const ACTION_ENCODING_SIZE: usize = 87;
 
 const NUM_CARD_TYPES: usize = 42;
 const NUM_BUYER_TYPES: usize = 54;
 const NUM_BUYER_CATEGORIES: usize = 18;
 const NUM_PENDING_CHOICE_TYPES: usize = 7;
-const NUM_CHOICE_TYPES: usize = 14;
+const NUM_CHOICE_TYPES: usize = 15;
 
 const FEATURES_PER_PLAYER: usize = 199;
 const MAX_ENCODED_PLAYERS: usize = 3;
@@ -221,6 +221,7 @@ pub fn encode_action(choice: &ColoriChoice, state: &GameState) -> Vec<f32> {
         ColoriChoice::DestroyAndMixAll { .. } => 11,
         ColoriChoice::DestroyAndSell { .. } => 12,
         ColoriChoice::KeepWorkshopCards { .. } => 13,
+        ColoriChoice::CompoundDestroy { .. } => 14,
     };
     out[idx + choice_type_idx] = 1.0;
     idx += NUM_CHOICE_TYPES;
@@ -242,6 +243,14 @@ pub fn encode_action(choice: &ColoriChoice, state: &GameState) -> Vec<f32> {
                 out[idx + card as usize] += 1.0;
             }
         }
+        ColoriChoice::CompoundDestroy { card_instance_id, targets, .. } => {
+            let card = state.card_lookup[*card_instance_id as usize];
+            out[idx + card as usize] = 1.0;
+            for &tid in targets.iter() {
+                let tcard = state.card_lookup[tid as usize];
+                out[idx + tcard as usize] += 1.0;
+            }
+        }
         _ => {}
     }
     idx += NUM_CARD_TYPES;
@@ -254,6 +263,11 @@ pub fn encode_action(choice: &ColoriChoice, state: &GameState) -> Vec<f32> {
             out[idx + category] = 1.0;
         }
         ColoriChoice::DestroyAndSell { buyer_instance_id, .. } => {
+            let buyer_card = state.buyer_lookup[*buyer_instance_id as usize];
+            let category = buyer_card as usize / 3;
+            out[idx + category] = 1.0;
+        }
+        ColoriChoice::CompoundDestroy { follow_up: CompoundFollowUp::Sell { buyer_instance_id }, .. } => {
             let buyer_card = state.buyer_lookup[*buyer_instance_id as usize];
             let category = buyer_card as usize / 3;
             out[idx + category] = 1.0;
@@ -275,6 +289,24 @@ pub fn encode_action(choice: &ColoriChoice, state: &GameState) -> Vec<f32> {
             for &(a, b) in mixes.iter() {
                 out[idx + a.index()] = 1.0;
                 out[idx + b.index()] = 1.0;
+            }
+        }
+        ColoriChoice::CompoundDestroy { follow_up, .. } => {
+            match follow_up {
+                CompoundFollowUp::MixAll { mixes } => {
+                    for &(a, b) in mixes.iter() {
+                        out[idx + a.index()] = 1.0;
+                        out[idx + b.index()] = 1.0;
+                    }
+                }
+                CompoundFollowUp::GainSecondary { color } | CompoundFollowUp::GainPrimary { color } => {
+                    out[idx + color.index()] = 1.0;
+                }
+                CompoundFollowUp::SwapTertiary { lose, gain } => {
+                    out[idx + lose.index()] = 1.0;
+                    out[idx + gain.index()] = 1.0;
+                }
+                _ => {}
             }
         }
         _ => {}
@@ -361,7 +393,6 @@ mod tests {
         for choice in &choices {
             let encoded = encode_action(choice, &state);
             assert_eq!(encoded.len(), ACTION_ENCODING_SIZE);
-            assert_eq!(encoded.len(), 86);
         }
     }
 

@@ -2,7 +2,7 @@
 
 # State/action encoding dimensions (must match Rust)
 STATE_ENCODING_SIZE = 768
-ACTION_ENCODING_SIZE = 86
+ACTION_ENCODING_SIZE = 87
 
 # Network architecture
 STATE_HIDDEN_DIM = 256

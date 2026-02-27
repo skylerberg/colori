@@ -232,6 +232,7 @@ pub fn wasm_run_nn_mcts(
     let config = NnMctsConfig {
         iterations,
         c_puct,
+        compound_destroy: false,
     };
 
     let max_round = std::cmp::max(8, state.round + 2);

@@ -153,6 +153,8 @@ struct PlayerVariant {
     exploration_constant: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     max_rollout_steps: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    compound_destroy: Option<bool>,
 }
 
 #[derive(Serialize)]
@@ -245,6 +247,9 @@ fn format_variant_label(variant: &NamedVariant, differing: &DifferingFields) -> 
     if differing.max_rollout_steps {
         parts.push(format!("rollout={}", variant.config.max_rollout_steps));
     }
+    if differing.compound_destroy {
+        parts.push(if variant.config.compound_destroy { "compound".to_string() } else { "standard".to_string() });
+    }
     if parts.is_empty() {
         // All same config, just show iterations
         parts.push(format_iterations(variant.config.iterations));
@@ -256,17 +261,19 @@ struct DifferingFields {
     iterations: bool,
     exploration_constant: bool,
     max_rollout_steps: bool,
+    compound_destroy: bool,
 }
 
 fn compute_differing_fields(variants: &[NamedVariant]) -> DifferingFields {
     if variants.len() <= 1 {
-        return DifferingFields { iterations: false, exploration_constant: false, max_rollout_steps: false };
+        return DifferingFields { iterations: false, exploration_constant: false, max_rollout_steps: false, compound_destroy: false };
     }
     let first = &variants[0].config;
     DifferingFields {
         iterations: variants.iter().any(|v| v.config.iterations != first.iterations),
         exploration_constant: variants.iter().any(|v| v.config.exploration_constant != first.exploration_constant),
         max_rollout_steps: variants.iter().any(|v| v.config.max_rollout_steps != first.max_rollout_steps),
+        compound_destroy: variants.iter().any(|v| v.config.compound_destroy != first.compound_destroy),
     }
 }
 
@@ -284,7 +291,7 @@ fn has_any_difference(variants: &[NamedVariant]) -> bool {
         return true;
     }
     let diff = compute_differing_fields(variants);
-    diff.iterations || diff.exploration_constant || diff.max_rollout_steps
+    diff.iterations || diff.exploration_constant || diff.max_rollout_steps || diff.compound_destroy
 }
 
 // ── Game loop ──
@@ -364,6 +371,7 @@ fn run_game(
                 let nn_config = NnMctsConfig {
                     iterations: shuffled_variants[player_index].config.iterations,
                     c_puct: 1.5,
+                    compound_destroy: shuffled_variants[player_index].config.compound_destroy,
                 };
                 let (choice, _visit_dist) = nn_ismcts(
                     &state, player_index, &nn_config, evaluator.as_ref().unwrap().as_ref(),
@@ -445,6 +453,11 @@ fn run_game(
                             },
                             max_rollout_steps: if c.max_rollout_steps != defaults.max_rollout_steps {
                                 Some(c.max_rollout_steps)
+                            } else {
+                                None
+                            },
+                            compound_destroy: if c.compound_destroy {
+                                Some(true)
                             } else {
                                 None
                             },

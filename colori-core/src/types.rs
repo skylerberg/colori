@@ -750,6 +750,35 @@ fn deserialize_ids<'de, D: serde::Deserializer<'de>>(d: D) -> Result<UnorderedCa
     Ok(cards)
 }
 
+// ── CompoundFollowUp ──
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum CompoundFollowUp {
+    #[serde(rename = "none")]
+    None,
+    #[serde(rename = "sell")]
+    Sell {
+        #[serde(rename = "buyerInstanceId")]
+        buyer_instance_id: u32,
+    },
+    #[serde(rename = "mixAll")]
+    MixAll {
+        mixes: SmallVec<[(Color, Color); 2]>,
+    },
+    #[serde(rename = "gainSecondary")]
+    GainSecondary { color: Color },
+    #[serde(rename = "gainPrimary")]
+    GainPrimary { color: Color },
+    #[serde(rename = "swapTertiary")]
+    SwapTertiary {
+        #[serde(rename = "loseColor")]
+        lose: Color,
+        #[serde(rename = "gainColor")]
+        gain: Color,
+    },
+}
+
 // ── ColoriChoice ──
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -828,5 +857,13 @@ pub enum ColoriChoice {
             deserialize_with = "deserialize_ids"
         )]
         card_instance_ids: UnorderedCards,
+    },
+    #[serde(rename = "compoundDestroy")]
+    CompoundDestroy {
+        #[serde(rename = "cardInstanceId")]
+        card_instance_id: u32,
+        targets: SmallVec<[u32; 3]>,
+        #[serde(rename = "followUp")]
+        follow_up: CompoundFollowUp,
     },
 }

@@ -144,6 +144,19 @@ export function getChoiceLogMessage(
       const total = player.workshopCards.length;
       return `${name} kept ${count} of ${total} workshop cards`;
     }
+    case 'compoundDestroy': {
+      const card = player.draftedCards.find(c => c.instanceId === choice.cardInstanceId);
+      const cardName = card ? (getAnyCardData(card.card) as { name?: string })?.name ?? 'a card' : 'a card';
+      const targetNames = choice.targets.map(id => {
+        const c = player.workshopCards.find(c => c.instanceId === id);
+        return c ? (getAnyCardData(c.card) as { name?: string })?.name ?? 'a card' : 'a card';
+      });
+      let msg = `${name} destroyed ${cardName} from drafted cards`;
+      if (targetNames.length > 0) {
+        msg += `, destroyed ${targetNames.join(', ')} from workshop`;
+      }
+      return msg;
+    }
     default:
       return assertNever(choice);
   }

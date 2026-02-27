@@ -16,6 +16,7 @@ export interface PlayerVariant {
   iterations: number;
   explorationConstant?: number;
   maxRolloutSteps?: number;
+  compoundDestroy?: boolean;
 }
 
 export interface StructuredGameLog {

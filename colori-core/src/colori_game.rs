@@ -78,6 +78,14 @@ fn enumerate_mix_sequences<F>(
 // ── Choice enumeration ──
 
 pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>) {
+    enumerate_choices_inner(state, choices, false);
+}
+
+pub fn enumerate_choices_into_with_config(state: &GameState, choices: &mut Vec<ColoriChoice>, compound_destroy: bool) {
+    enumerate_choices_inner(state, choices, compound_destroy);
+}
+
+fn enumerate_choices_inner(state: &GameState, choices: &mut Vec<ColoriChoice>, compound_destroy: bool) {
     choices.clear();
     match &state.phase {
         GamePhase::Draft { draft_state } => {
@@ -128,6 +136,16 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>
                                         card_instance_id,
                                     });
                                 }
+                            }
+                            Ability::DestroyCards { .. } if compound_destroy => {
+                                enumerate_compound_destroy(
+                                    card_instance_id,
+                                    player.workshop_cards,
+                                    &player.color_wheel,
+                                    player,
+                                    state,
+                                    choices,
+                                );
                             }
                             _ => {
                                 choices.push(ColoriChoice::DestroyDraftedCard {
@@ -226,6 +244,141 @@ pub fn enumerate_choices(state: &GameState) -> Vec<ColoriChoice> {
     let mut choices = Vec::new();
     enumerate_choices_into(state, &mut choices);
     choices
+}
+
+// ── Compound destroy enumeration ──
+
+fn enumerate_compound_destroy(
+    drafted_card_id: u32,
+    workshop: UnorderedCards,
+    color_wheel: &ColorWheel,
+    player: &PlayerState,
+    state: &GameState,
+    choices: &mut Vec<ColoriChoice>,
+) {
+    if workshop.is_empty() {
+        choices.push(ColoriChoice::CompoundDestroy {
+            card_instance_id: drafted_card_id,
+            targets: SmallVec::new(),
+            follow_up: CompoundFollowUp::None,
+        });
+        return;
+    }
+    let chain = SmallVec::new();
+    enumerate_destroy_chain(drafted_card_id, workshop, color_wheel, player, state, chain, choices);
+}
+
+fn enumerate_destroy_chain(
+    drafted_card_id: u32,
+    remaining_workshop: UnorderedCards,
+    color_wheel: &ColorWheel,
+    player: &PlayerState,
+    state: &GameState,
+    chain_so_far: SmallVec<[u32; 3]>,
+    choices: &mut Vec<ColoriChoice>,
+) {
+    for target_id in remaining_workshop.iter() {
+        let card = state.card_lookup[target_id as usize];
+        let mut new_chain = chain_so_far.clone();
+        new_chain.push(target_id as u32);
+        let new_remaining = remaining_workshop.without(target_id);
+
+        match card.ability() {
+            Ability::DestroyCards { .. } => {
+                if new_remaining.is_empty() {
+                    choices.push(ColoriChoice::CompoundDestroy {
+                        card_instance_id: drafted_card_id,
+                        targets: new_chain,
+                        follow_up: CompoundFollowUp::None,
+                    });
+                } else {
+                    enumerate_destroy_chain(
+                        drafted_card_id, new_remaining, color_wheel,
+                        player, state, new_chain, choices,
+                    );
+                }
+            }
+            Ability::Sell => {
+                let mut has_buyer = false;
+                for g in state.buyer_display.iter() {
+                    if can_afford_buyer(player, &g.buyer) {
+                        has_buyer = true;
+                        choices.push(ColoriChoice::CompoundDestroy {
+                            card_instance_id: drafted_card_id,
+                            targets: new_chain.clone(),
+                            follow_up: CompoundFollowUp::Sell { buyer_instance_id: g.instance_id },
+                        });
+                    }
+                }
+                if !has_buyer {
+                    choices.push(ColoriChoice::CompoundDestroy {
+                        card_instance_id: drafted_card_id,
+                        targets: new_chain,
+                        follow_up: CompoundFollowUp::None,
+                    });
+                }
+            }
+            Ability::MixColors { count } => {
+                enumerate_mix_sequences(color_wheel, count, choices,
+                    |mixes| ColoriChoice::CompoundDestroy {
+                        card_instance_id: drafted_card_id,
+                        targets: new_chain.clone(),
+                        follow_up: CompoundFollowUp::MixAll { mixes },
+                    },
+                );
+            }
+            Ability::GainSecondary => {
+                for &c in SECONDARIES.iter() {
+                    choices.push(ColoriChoice::CompoundDestroy {
+                        card_instance_id: drafted_card_id,
+                        targets: new_chain.clone(),
+                        follow_up: CompoundFollowUp::GainSecondary { color: c },
+                    });
+                }
+            }
+            Ability::GainPrimary => {
+                for &c in PRIMARIES.iter() {
+                    choices.push(ColoriChoice::CompoundDestroy {
+                        card_instance_id: drafted_card_id,
+                        targets: new_chain.clone(),
+                        follow_up: CompoundFollowUp::GainPrimary { color: c },
+                    });
+                }
+            }
+            Ability::ChangeTertiary => {
+                let has_any = TERTIARIES.iter().any(|&c| color_wheel.get(c) > 0);
+                if has_any {
+                    for &lose in TERTIARIES.iter() {
+                        if color_wheel.get(lose) > 0 {
+                            for &gain in TERTIARIES.iter() {
+                                if gain != lose {
+                                    choices.push(ColoriChoice::CompoundDestroy {
+                                        card_instance_id: drafted_card_id,
+                                        targets: new_chain.clone(),
+                                        follow_up: CompoundFollowUp::SwapTertiary { lose, gain },
+                                    });
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    choices.push(ColoriChoice::CompoundDestroy {
+                        card_instance_id: drafted_card_id,
+                        targets: new_chain,
+                        follow_up: CompoundFollowUp::None,
+                    });
+                }
+            }
+            // DrawCards, GainDucats, Workshop — all auto-resolve or leave pending
+            _ => {
+                choices.push(ColoriChoice::CompoundDestroy {
+                    card_instance_id: drafted_card_id,
+                    targets: new_chain,
+                    follow_up: CompoundFollowUp::None,
+                });
+            }
+        }
+    }
 }
 
 // ── Apply choice with AI post-processing ──
@@ -444,6 +597,41 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
             if let GamePhase::Cleanup { ref cleanup_state } = state.phase {
                 let player = &state.players[cleanup_state.current_player_index];
                 card_instance_ids.difference(player.workshop_cards).is_empty()
+            } else {
+                false
+            }
+        }
+        ColoriChoice::CompoundDestroy { card_instance_id, targets, follow_up } => {
+            if let GamePhase::Action { ref action_state } = state.phase {
+                if action_state.pending_choice.is_some() {
+                    return false;
+                }
+                let player = &state.players[action_state.current_player_index];
+                if !player.drafted_cards.contains(*card_instance_id as u8) {
+                    return false;
+                }
+                for &tid in targets.iter() {
+                    if !player.workshop_cards.contains(tid as u8) {
+                        return false;
+                    }
+                }
+                match follow_up {
+                    CompoundFollowUp::Sell { buyer_instance_id } => {
+                        state.buyer_display.iter()
+                            .find(|g| g.instance_id == *buyer_instance_id)
+                            .map(|g| can_afford_buyer(player, &g.buyer))
+                            .unwrap_or(false)
+                    }
+                    CompoundFollowUp::MixAll { mixes } => {
+                        if mixes.is_empty() { return true; }
+                        let (a, b) = mixes[0];
+                        player.color_wheel.get(a) > 0 && player.color_wheel.get(b) > 0 && can_mix(a, b)
+                    }
+                    CompoundFollowUp::SwapTertiary { lose, .. } => {
+                        player.color_wheel.get(*lose) > 0
+                    }
+                    _ => true,
+                }
             } else {
                 false
             }
@@ -672,6 +860,14 @@ fn rollout_draw_and_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
 // ── Fused rollout step ──
 
 pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
+    apply_rollout_step_inner(state, rng, false);
+}
+
+pub fn apply_rollout_step_with_config<R: Rng>(state: &mut GameState, rng: &mut R, compound_destroy: bool) {
+    apply_rollout_step_inner(state, rng, compound_destroy);
+}
+
+fn apply_rollout_step_inner<R: Rng>(state: &mut GameState, rng: &mut R, compound_destroy: bool) {
     fn random_mix_seq_inline<R2: Rng>(
         wheel: &ColorWheel,
         remaining: u32,
@@ -721,6 +917,7 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
     const GAIN_PRIMARY: u8 = 11;
     const SWAP_TERTIARY: u8 = 12;
     const KEEP_ALL_WORKSHOP: u8 = 13;
+    const COMPOUND_DESTROY: u8 = 14;
 
     // Flat locals for extracted data (avoids constructing a large tagged union)
     let disc: u8;
@@ -789,6 +986,9 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                                 } else {
                                     disc = DESTROY_DRAFTED;
                                 }
+                            }
+                            Ability::DestroyCards { .. } if compound_destroy => {
+                                disc = COMPOUND_DESTROY;
                             }
                             _ => {
                                 disc = DESTROY_DRAFTED;
@@ -959,6 +1159,23 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
             if matches!(state.phase, GamePhase::Draw) {
                 rollout_draw_and_draft(state, rng);
             }
+        }
+        COMPOUND_DESTROY => {
+            destroy_drafted_card(state, id1, rng);
+            // Chain: resolve each pending ChooseCardsToDestroy by picking random targets
+            loop {
+                if let GamePhase::Action { ref action_state } = state.phase {
+                    if let Some(PendingChoice::ChooseCardsToDestroy { count }) = &action_state.pending_choice {
+                        let player = &state.players[action_state.current_player_index];
+                        let mut copy = player.workshop_cards;
+                        let sel = copy.draw_up_to(*count as u8, rng);
+                        resolve_destroy_cards(state, sel, rng);
+                        continue;
+                    }
+                }
+                break;
+            }
+            // Remaining pending choice (mix, sell, workshop, etc.) handled by next rollout step
         }
         _ => unreachable!(),
     }
