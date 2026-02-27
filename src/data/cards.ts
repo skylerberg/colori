@@ -101,19 +101,19 @@ export const MATERIAL_CARDS: MaterialCardData[] = [
     kind: 'material',
     name: 'Ceramics',
     materialTypes: ['Ceramics'],
-    ability: { type: 'workshop', count: 2 },
+    ability: { type: 'workshop', count: 4 },
   },
   {
     kind: 'material',
     name: 'Paintings',
     materialTypes: ['Paintings'],
-    ability: { type: 'workshop', count: 2 },
+    ability: { type: 'workshop', count: 4 },
   },
   {
     kind: 'material',
     name: 'Textiles',
     materialTypes: ['Textiles'],
-    ability: { type: 'workshop', count: 2 },
+    ability: { type: 'workshop', count: 4 },
   },
 ];
 
