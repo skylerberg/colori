@@ -49,10 +49,11 @@ def train_epoch(model, optimizer, replay_buffer, batch_size):
     log_policy = log_policy.masked_fill(~action_masks, 0.0)
     policy_loss = -(target_policies * log_policy).sum(dim=-1).mean()
 
-    # Value loss: MSE between predicted value[0] (perspective player's win prob) and actual outcome
-    # target_values is (batch,) float - 1.0 for winner, 0.0 for loser
-    # value_pred is (batch, 3) softmax - we use index 0 (perspective player)
-    value_loss = F.mse_loss(value_pred[:, 0], target_values)
+    # Value loss: cross-entropy over per-player win probability distribution
+    # target_values is (batch, NUM_PLAYERS) - outcome distribution from acting player's perspective
+    # value_pred is (batch, NUM_PLAYERS) softmax
+    log_value = torch.log(value_pred.clamp(min=1e-8))
+    value_loss = -(target_values * log_value).sum(dim=-1).mean()
 
     # Total loss
     loss = policy_loss + value_loss
@@ -148,7 +149,10 @@ def run_training():
                 dummy_policies = np.random.dirichlet(np.ones(max_actions), size=n_dummy).astype(np.float32)
                 dummy_policies *= dummy_masks
                 dummy_policies /= dummy_policies.sum(axis=-1, keepdims=True)
-                dummy_values = np.random.choice([0.0, 1.0], size=n_dummy).astype(np.float32)
+                dummy_values = np.zeros((n_dummy, NUM_PLAYERS), dtype=np.float32)
+                for i in range(n_dummy):
+                    winner = np.random.randint(0, NUM_PLAYERS)
+                    dummy_values[i, winner] = 1.0
                 replay_buffer.add_batch(
                     dummy_states, dummy_actions, dummy_masks, dummy_policies, dummy_values
                 )

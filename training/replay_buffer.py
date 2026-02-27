@@ -24,7 +24,7 @@ class ReplayBuffer:
             action_features: np.ndarray (N, max_actions, 86)
             action_masks: np.ndarray (N, max_actions) bool
             policies: np.ndarray (N, max_actions) visit distribution
-            values: np.ndarray (N,) game outcome from acting player's perspective
+            values: np.ndarray (N, NUM_PLAYERS) per-player outcome from acting player's perspective
         """
         n = len(states)
 

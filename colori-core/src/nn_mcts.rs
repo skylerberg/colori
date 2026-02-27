@@ -14,8 +14,9 @@ pub trait NnEvaluator: Send + Sync {
     /// * `action_encodings` - Slice of float slices, each of size ACTION_ENCODING_SIZE
     ///
     /// # Returns
-    /// * `(action_priors, state_value)` - Softmax'd policy over actions and value in [0, 1]
-    fn evaluate(&self, state_encoding: &[f32], action_encodings: &[&[f32]]) -> (Vec<f32>, f32);
+    /// * `(action_priors, per_player_values)` - Softmax'd policy over actions and per-player
+    ///   win probabilities where index 0 = active/perspective player, index 1 = next player, etc.
+    fn evaluate(&self, state_encoding: &[f32], action_encodings: &[&[f32]]) -> (Vec<f32>, Vec<f32>);
 }
 
 /// Configuration for NN-MCTS.
@@ -112,7 +113,7 @@ fn expand_and_evaluate(
         .collect();
     let action_refs: Vec<&[f32]> = action_encs.iter().map(|v| v.as_slice()).collect();
 
-    let (priors, value) = evaluator.evaluate(&state_enc, &action_refs);
+    let (priors, values) = evaluator.evaluate(&state_enc, &action_refs);
 
     // Create child nodes with priors
     for (i, choice) in choices.iter().enumerate() {
@@ -121,15 +122,14 @@ fn expand_and_evaluate(
             .push(NnMctsNode::new(Some(choice.clone()), prior));
     }
 
-    // Value is from active player's perspective.
-    // Convert to perspective player's perspective if different.
-    if active_player == perspective_player {
-        value as f64
+    // Values are from active player's perspective (index 0 = active player).
+    // Look up the perspective player's slot in the rotated value vector.
+    let num_players = state.players.len();
+    let perspective_slot = (perspective_player + num_players - active_player) % num_players;
+    if perspective_slot < values.len() {
+        values[perspective_slot] as f64
     } else {
-        // For a zero-sum multiplayer game, we don't have direct opponent values.
-        // Use a simple heuristic: if not the perspective player, invert.
-        // In a 3-player game this is approximate, but workable.
-        (1.0 - value) as f64 / (state.players.len() - 1) as f64
+        0.0
     }
 }
 
@@ -287,14 +287,14 @@ pub fn nn_ismcts<R: Rng>(
 }
 
 /// A uniform random evaluator for testing.
-/// Returns equal priors and value 0.5.
+/// Returns equal priors and uniform per-player values.
 pub struct UniformEvaluator;
 
 impl NnEvaluator for UniformEvaluator {
-    fn evaluate(&self, _state_encoding: &[f32], action_encodings: &[&[f32]]) -> (Vec<f32>, f32) {
+    fn evaluate(&self, _state_encoding: &[f32], action_encodings: &[&[f32]]) -> (Vec<f32>, Vec<f32>) {
         let n = action_encodings.len();
         let uniform = if n > 0 { 1.0 / n as f32 } else { 0.0 };
-        (vec![uniform; n], 0.5)
+        (vec![uniform; n], vec![1.0 / 3.0; 3])
     }
 }
 
@@ -325,10 +325,10 @@ pub mod onnx_evaluator {
             &self,
             state_encoding: &[f32],
             action_encodings: &[&[f32]],
-        ) -> (Vec<f32>, f32) {
+        ) -> (Vec<f32>, Vec<f32>) {
             let num_actions = action_encodings.len();
             if num_actions == 0 {
-                return (vec![], 0.5);
+                return (vec![], vec![1.0 / 3.0; 3]);
             }
 
             // Build input tensors
@@ -386,13 +386,13 @@ pub mod onnx_evaluator {
                 .map(|&x| (x - max_logit).exp() / exp_sum)
                 .collect();
 
-            // value: (1, 3) - win prob per player, index 0 is perspective player
+            // value: (1, NUM_PLAYERS) - win prob per player, index 0 is perspective player
             let (_shape, value_slice) = outputs["value"]
                 .try_extract_tensor::<f32>()
                 .unwrap();
-            let value = value_slice[0]; // perspective player's win prob
+            let values: Vec<f32> = value_slice.iter().copied().collect();
 
-            (priors, value)
+            (priors, values)
         }
     }
 }

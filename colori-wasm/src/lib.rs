@@ -165,7 +165,7 @@ unsafe impl Send for JsEvaluator {}
 unsafe impl Sync for JsEvaluator {}
 
 impl NnEvaluator for JsEvaluator {
-    fn evaluate(&self, state_encoding: &[f32], action_encodings: &[&[f32]]) -> (Vec<f32>, f32) {
+    fn evaluate(&self, state_encoding: &[f32], action_encodings: &[&[f32]]) -> (Vec<f32>, Vec<f32>) {
         // Convert state encoding to JS Float32Array
         let state_arr = js_sys::Float32Array::new_with_length(state_encoding.len() as u32);
         state_arr.copy_from(state_encoding);
@@ -178,7 +178,7 @@ impl NnEvaluator for JsEvaluator {
             actions_arr.set(i as u32, arr.into());
         }
 
-        // Call JS function: (Float32Array, Array<Float32Array>) -> {priors: Float32Array, value: number}
+        // Call JS function: (Float32Array, Array<Float32Array>) -> {priors: Float32Array, value: Float32Array}
         let this = JsValue::NULL;
         let result = self
             .eval_fn
@@ -195,9 +195,11 @@ impl NnEvaluator for JsEvaluator {
         let mut priors = vec![0.0f32; priors_typed.length() as usize];
         priors_typed.copy_to(&mut priors);
 
-        let value = value_js.as_f64().unwrap_or(0.5) as f32;
+        let value_typed = js_sys::Float32Array::from(value_js);
+        let mut values = vec![0.0f32; value_typed.length() as usize];
+        value_typed.copy_to(&mut values);
 
-        (priors, value)
+        (priors, values)
     }
 }
 
@@ -205,7 +207,7 @@ impl NnEvaluator for JsEvaluator {
 ///
 /// The eval_fn is a JavaScript function with signature:
 ///   (stateEncoding: Float32Array, actionEncodings: Float32Array[]) =>
-///     { priors: Float32Array, value: number }
+///     { priors: Float32Array, value: Float32Array }
 ///
 /// Returns a JSON-serialized ColoriChoice.
 #[wasm_bindgen]

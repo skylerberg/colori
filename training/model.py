@@ -101,7 +101,7 @@ def export_onnx(model, path, max_actions=256):
 
     And returns:
       - policy_logits: (1, N)
-      - value: (1, 3)
+      - value: (1, NUM_PLAYERS)
     """
     model.eval()
 

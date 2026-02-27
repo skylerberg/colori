@@ -18,7 +18,7 @@ struct TrainingSample {
     state: Vec<f32>,
     action_features: Vec<Vec<f32>>,
     policy: Vec<f32>,
-    value: f32,
+    values: Vec<f32>,
 }
 
 fn run_single_self_play_game(
@@ -130,16 +130,21 @@ fn run_single_self_play_game(
     pending_samples
         .into_iter()
         .map(|(player_id, state_enc, action_features, policy)| {
-            let value = if scores[player_id] == max_score {
-                1.0 / num_winners as f32
-            } else {
-                0.0
-            };
+            // Build per-player outcome vector rotated so the acting player is at index 0
+            let mut values = vec![0.0f32; num_players];
+            for slot in 0..num_players {
+                let actual_player = (player_id + slot) % num_players;
+                values[slot] = if scores[actual_player] == max_score {
+                    1.0 / num_winners as f32
+                } else {
+                    0.0
+                };
+            }
             TrainingSample {
                 state: state_enc,
                 action_features,
                 policy,
-                value,
+                values,
             }
         })
         .collect()
@@ -153,15 +158,16 @@ fn samples_to_numpy(py: Python<'_>, samples: &[TrainingSample]) -> PyResult<PyOb
         .max()
         .unwrap_or(1);
 
+    let num_players = 3;
     let mut states = Vec::with_capacity(n * STATE_ENCODING_SIZE);
     let mut action_features = vec![0.0f32; n * max_actions * ACTION_ENCODING_SIZE];
     let mut action_masks = vec![false; n * max_actions];
     let mut policies = vec![0.0f32; n * max_actions];
-    let mut values = Vec::with_capacity(n);
+    let mut values = Vec::with_capacity(n * num_players);
 
     for (i, sample) in samples.iter().enumerate() {
         states.extend_from_slice(&sample.state);
-        values.push(sample.value);
+        values.extend_from_slice(&sample.values);
 
         for (j, af) in sample.action_features.iter().enumerate() {
             let offset = (i * max_actions + j) * ACTION_ENCODING_SIZE;
@@ -187,7 +193,9 @@ fn samples_to_numpy(py: Python<'_>, samples: &[TrainingSample]) -> PyResult<PyOb
     let policy_arr = PyArray1::from_vec(py, policies)
         .reshape([n, max_actions])
         .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("reshape error: {}", e)))?;
-    let values_arr = PyArray1::from_vec(py, values);
+    let values_arr = PyArray1::from_vec(py, values)
+        .reshape([n, num_players])
+        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("reshape error: {}", e)))?;
 
     dict.set_item("states", states_arr)?;
     dict.set_item("action_features", af_arr)?;

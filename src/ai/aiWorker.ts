@@ -22,12 +22,13 @@ function ensureInit(): Promise<unknown> {
 function nnEvaluate(
   _stateEncoding: Float32Array,
   actionEncodings: Float32Array[],
-): { priors: Float32Array; value: number } {
+): { priors: Float32Array; value: Float32Array } {
   // Fallback: uniform priors and neutral value.
   // A real implementation would run ONNX Runtime Web inference here.
   const n = actionEncodings.length;
   const priors = new Float32Array(n).fill(1.0 / n);
-  return { priors, value: 0.5 };
+  const value = new Float32Array(3).fill(1.0 / 3);
+  return { priors, value };
 }
 
 self.onmessage = async (event: MessageEvent<AIWorkerRequest>) => {
