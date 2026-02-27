@@ -233,11 +233,6 @@ macro_rules! impl_bitset {
             }
 
             #[inline]
-            pub fn without(&self, id: u8) -> $name {
-                $name(self.0 & !(1u128 << id))
-            }
-
-            #[inline]
             pub fn iter(self) -> BitIter {
                 BitIter(self.0)
             }

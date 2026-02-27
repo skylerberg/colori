@@ -1,7 +1,4 @@
-use crate::colori_game::{
-    apply_choice_to_state, apply_rollout_step_with_config, check_choice_available,
-    determinize_in_place, enumerate_choices_into_with_config, get_game_status, GameStatus,
-};
+use crate::colori_game::*;
 use crate::scoring::calculate_score;
 use crate::types::*;
 use rand::Rng;
@@ -13,7 +10,6 @@ pub struct MctsConfig {
     pub iterations: u32,
     pub exploration_constant: f64,
     pub max_rollout_steps: u32,
-    pub compound_destroy: bool,
 }
 
 impl Default for MctsConfig {
@@ -22,7 +18,6 @@ impl Default for MctsConfig {
             iterations: 100,
             exploration_constant: std::f64::consts::SQRT_2,
             max_rollout_steps: 1000,
-            compound_destroy: false,
         }
     }
 }
@@ -41,8 +36,6 @@ impl<'de> Deserialize<'de> for MctsConfig {
             exploration_constant: f64,
             #[serde(default = "default_max_rollout_steps")]
             max_rollout_steps: u32,
-            #[serde(default)]
-            compound_destroy: bool,
         }
 
         fn default_iterations() -> u32 { 100 }
@@ -54,7 +47,6 @@ impl<'de> Deserialize<'de> for MctsConfig {
             iterations: helper.iterations,
             exploration_constant: helper.exploration_constant,
             max_rollout_steps: helper.max_rollout_steps,
-            compound_destroy: helper.compound_destroy,
         })
     }
 }
@@ -137,7 +129,7 @@ pub fn ismcts<R: Rng>(
 ) -> ColoriChoice {
     // If there's only one legal choice, return it immediately without searching
     let mut choices_buf: Vec<ColoriChoice> = Vec::new();
-    enumerate_choices_into_with_config(state, &mut choices_buf, config.compound_destroy);
+    enumerate_choices_into(state, &mut choices_buf);
     if choices_buf.len() == 1 {
         return choices_buf.swap_remove(0);
     }
@@ -156,7 +148,7 @@ pub fn ismcts<R: Rng>(
     }
 
     if root.children.is_empty() {
-        enumerate_choices_into_with_config(state, &mut choices_buf, config.compound_destroy);
+        enumerate_choices_into(state, &mut choices_buf);
         let idx = rng.random_range(0..choices_buf.len());
         return choices_buf[idx].clone();
     }
@@ -189,7 +181,7 @@ fn iteration<R: Rng>(
 
     // Expand
     if !(node.is_root() && !node.children.is_empty()) {
-        enumerate_choices_into_with_config(state, choices_buf, config.compound_destroy);
+        enumerate_choices_into(state, choices_buf);
         node.expand(choices_buf, active_player, rng);
     }
 
@@ -210,7 +202,7 @@ fn iteration<R: Rng>(
     let should_rollout = node.children[best_idx].games == 0;
 
     let scores = if should_rollout {
-        let scores = rollout(state, max_round, config.max_rollout_steps, config.compound_destroy, rng);
+        let scores = rollout(state, max_round, config.max_rollout_steps, rng);
         record_outcome(&mut node.children[best_idx], &scores);
         scores
     } else {
@@ -265,12 +257,12 @@ fn compute_terminal_scores(state: &GameState) -> SmallVec<[f64; 4]> {
     scores.iter().map(|&s| if s == max_score { 1.0 / num_winners } else { 0.0 }).collect()
 }
 
-fn rollout<R: Rng>(state: &mut GameState, max_round: Option<u32>, max_rollout_steps: u32, compound_destroy: bool, rng: &mut R) -> SmallVec<[f64; 4]> {
+fn rollout<R: Rng>(state: &mut GameState, max_round: Option<u32>, max_rollout_steps: u32, rng: &mut R) -> SmallVec<[f64; 4]> {
     for _ in 0..max_rollout_steps {
         if is_terminal(state, max_round) {
             return compute_terminal_scores(state);
         }
-        apply_rollout_step_with_config(state, rng, compound_destroy);
+        apply_rollout_step(state, rng);
     }
 
     if is_terminal(state, max_round) {

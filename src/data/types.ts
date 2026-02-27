@@ -169,13 +169,4 @@ export type ColoriChoice =
   | { type: 'swapTertiary'; loseColor: Color; gainColor: Color }
   | { type: 'destroyAndMixAll'; cardInstanceId: number; mixes: [Color, Color][] }
   | { type: 'destroyAndSell'; cardInstanceId: number; buyerInstanceId: number }
-  | { type: 'keepWorkshopCards'; cardInstanceIds: number[] }
-  | { type: 'compoundDestroy'; cardInstanceId: number; targets: number[]; followUp: CompoundFollowUp };
-
-export type CompoundFollowUp =
-  | { type: 'none' }
-  | { type: 'sell'; buyerInstanceId: number }
-  | { type: 'mixAll'; mixes: [Color, Color][] }
-  | { type: 'gainSecondary'; color: Color }
-  | { type: 'gainPrimary'; color: Color }
-  | { type: 'swapTertiary'; loseColor: Color; gainColor: Color };
+  | { type: 'keepWorkshopCards'; cardInstanceIds: number[] };

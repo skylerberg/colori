@@ -225,7 +225,6 @@ fn run_self_play_games(
     let config = NnMctsConfig {
         iterations: mcts_iterations,
         c_puct,
-        compound_destroy: false,
     };
 
     let all_samples: Vec<Vec<TrainingSample>> = py.allow_threads(|| {

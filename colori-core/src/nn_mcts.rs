@@ -1,7 +1,4 @@
-use crate::colori_game::{
-    apply_choice_to_state, check_choice_available, determinize_in_place,
-    enumerate_choices_into_with_config, get_game_status, GameStatus,
-};
+use crate::colori_game::*;
 use crate::scoring::calculate_score;
 use crate::state_encoding::{encode_action, encode_state};
 use crate::types::*;
@@ -27,7 +24,6 @@ pub trait NnEvaluator: Send + Sync {
 pub struct NnMctsConfig {
     pub iterations: u32,
     pub c_puct: f32,
-    pub compound_destroy: bool,
 }
 
 impl Default for NnMctsConfig {
@@ -35,7 +31,6 @@ impl Default for NnMctsConfig {
         NnMctsConfig {
             iterations: 200,
             c_puct: 1.5,
-            compound_destroy: false,
         }
     }
 }
@@ -166,7 +161,7 @@ fn nn_iteration<R: Rng>(
 
     // If leaf node, expand and evaluate with NN
     if node.is_leaf() {
-        enumerate_choices_into_with_config(state, choices_buf, config.compound_destroy);
+        enumerate_choices_into(state, choices_buf);
         if choices_buf.is_empty() {
             node.visits += 1;
             return 0.0;
@@ -228,7 +223,7 @@ pub fn nn_ismcts<R: Rng>(
 ) -> (ColoriChoice, Vec<(ColoriChoice, f32)>) {
     // If only one legal choice, return immediately
     let mut choices_buf: Vec<ColoriChoice> = Vec::new();
-    enumerate_choices_into_with_config(state, &mut choices_buf, config.compound_destroy);
+    enumerate_choices_into(state, &mut choices_buf);
     if choices_buf.len() == 1 {
         let choice = choices_buf.swap_remove(0);
         return (choice.clone(), vec![(choice, 1.0)]);
@@ -283,7 +278,7 @@ pub fn nn_ismcts<R: Rng>(
         Some(choice) => (choice, visit_distribution),
         None => {
             // Fallback: random legal move
-            enumerate_choices_into_with_config(state, &mut choices_buf, config.compound_destroy);
+            enumerate_choices_into(state, &mut choices_buf);
             let idx = rng.random_range(0..choices_buf.len());
             let choice = choices_buf[idx].clone();
             (choice.clone(), vec![(choice, 1.0)])
@@ -405,7 +400,6 @@ pub mod onnx_evaluator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::colori_game::enumerate_choices;
     use crate::draw_phase::execute_draw_phase;
     use crate::setup::create_initial_game_state;
     use rand::rngs::SmallRng;
@@ -422,7 +416,6 @@ mod tests {
         let config = NnMctsConfig {
             iterations: 50,
             c_puct: 1.5,
-            compound_destroy: false,
         };
 
         let (choice, visit_dist) = nn_ismcts(
@@ -469,7 +462,6 @@ mod tests {
         let config = NnMctsConfig {
             iterations: 10,
             c_puct: 1.5,
-            compound_destroy: false,
         };
 
         // Just verify nn_ismcts doesn't crash
