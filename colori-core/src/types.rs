@@ -92,11 +92,15 @@ pub enum Ability {
 
 // ── CardKind ──
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CardKind {
+    #[serde(rename = "dye")]
     Dye,
+    #[serde(rename = "basicDye")]
     BasicDye,
+    #[serde(rename = "material")]
     Material,
+    #[serde(rename = "action")]
     Action,
 }
 
