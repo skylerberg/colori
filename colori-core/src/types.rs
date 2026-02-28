@@ -104,7 +104,7 @@ pub enum CardKind {
     Action,
 }
 
-// ── Card enum (42 variants) ──
+// ── Card enum (45 variants) ──
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Card {
@@ -112,10 +112,13 @@ pub enum Card {
     BasicRed,
     BasicYellow,
     BasicBlue,
-    // Primary dyes (3)
-    Kermes,
-    Weld,
-    Woad,
+    // Primary dyes (6)
+    Lac,
+    Brazilwood,
+    Pomegranate,
+    Sumac,
+    Elderberry,
+    Turnsole,
     // Secondary dyes (6)
     Madder,
     Turmeric,
@@ -172,19 +175,25 @@ struct CardProperties {
     workshop_abilities: &'static [Ability],
 }
 
-const CARD_DATA: [CardProperties; 42] = [
+const CARD_DATA: [CardProperties; 45] = [
     // BasicRed
     CardProperties { name: "Basic Red", kind: CardKind::BasicDye, ability: Ability::Sell, pips: &[Color::Red], material_types: &[], workshop_abilities: &[] },
     // BasicYellow
     CardProperties { name: "Basic Yellow", kind: CardKind::BasicDye, ability: Ability::Sell, pips: &[Color::Yellow], material_types: &[], workshop_abilities: &[] },
     // BasicBlue
     CardProperties { name: "Basic Blue", kind: CardKind::BasicDye, ability: Ability::Sell, pips: &[Color::Blue], material_types: &[], workshop_abilities: &[] },
-    // Kermes
-    CardProperties { name: "Kermes", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Red, Color::Red, Color::Red], material_types: &[], workshop_abilities: &[] },
-    // Weld
-    CardProperties { name: "Weld", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Yellow, Color::Yellow, Color::Yellow], material_types: &[], workshop_abilities: &[] },
-    // Woad
-    CardProperties { name: "Woad", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Blue, Color::Blue, Color::Blue], material_types: &[], workshop_abilities: &[] },
+    // Lac
+    CardProperties { name: "Lac", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Red, Color::Red, Color::Yellow], material_types: &[], workshop_abilities: &[] },
+    // Brazilwood
+    CardProperties { name: "Brazilwood", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Red, Color::Red, Color::Blue], material_types: &[], workshop_abilities: &[] },
+    // Pomegranate
+    CardProperties { name: "Pomegranate", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Yellow, Color::Yellow, Color::Red], material_types: &[], workshop_abilities: &[] },
+    // Sumac
+    CardProperties { name: "Sumac", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Yellow, Color::Yellow, Color::Blue], material_types: &[], workshop_abilities: &[] },
+    // Elderberry
+    CardProperties { name: "Elderberry", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Blue, Color::Blue, Color::Red], material_types: &[], workshop_abilities: &[] },
+    // Turnsole
+    CardProperties { name: "Turnsole", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Blue, Color::Blue, Color::Yellow], material_types: &[], workshop_abilities: &[] },
     // Madder
     CardProperties { name: "Madder", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, pips: &[Color::Orange, Color::Red], material_types: &[], workshop_abilities: &[] },
     // Turmeric

@@ -25,8 +25,8 @@ Each player has their own color wheel that tracks how many of each color they ha
 - Basic Yellow — 1 Yellow pip | Destroy: Sell
 - Basic Blue — 1 Blue pip | Destroy: Sell
 
-**Dye Cards** (15 unique, 4 copies each, 60 total in draft deck):
-- 3 Primary dyes — 3 pips of one primary color | Destroy: Sell
+**Dye Cards** (18 unique, 4 copies each, 72 total in draft deck):
+- 6 Primary dyes — 2 pips of one primary + 1 pip of a different primary | Destroy: Sell
 - 6 Secondary dyes — 2 pips of two adjacent primary/secondary colors | Destroy: Workshop ×3
 - 6 Tertiary dyes — 1 pip of a tertiary color | Destroy: Mix Colors ×2
 
@@ -44,7 +44,7 @@ Each buyer requires 2 of a specific material type and a set of colors as its cos
 
 ### Decks
 
-- **Draft Deck**: Contains 60 dye cards + 15 draft material cards + 16 action cards (91 total). When the draft deck runs out, shuffle all destroyed cards back in.
+- **Draft Deck**: Contains 72 dye cards + 15 draft material cards + 16 action cards (103 total). When the draft deck runs out, shuffle all destroyed cards back in.
 - **Buyer Deck**: Contains all buyer cards. 6 buyers are displayed face-up at all times.
 - **Personal Deck**: Each player has their own deck that they draw from and build over the course of the game.
 
@@ -187,15 +187,18 @@ Each player's score = buyer stars + ducats. The player with the highest score wi
 | Basic Yellow | 1 Yellow | Sell |
 | Basic Blue | 1 Blue | Sell |
 
-### Dye Cards (15 unique, 4 copies each in draft deck)
+### Dye Cards (18 unique, 4 copies each in draft deck)
 
-**Primary Dyes** (3 pips of one color):
+**Primary Dyes** (2 pips of one primary + 1 pip of a different primary):
 
 | Name | Colors | Destroy Ability |
 |------|--------|-----------------|
-| Kermes | 3 Red | Sell |
-| Weld | 3 Yellow | Sell |
-| Woad | 3 Blue | Sell |
+| Lac | 2 Red, 1 Yellow | Sell |
+| Brazilwood | 2 Red, 1 Blue | Sell |
+| Pomegranate | 2 Yellow, 1 Red | Sell |
+| Sumac | 2 Yellow, 1 Blue | Sell |
+| Elderberry | 2 Blue, 1 Red | Sell |
+| Turnsole | 2 Blue, 1 Yellow | Sell |
 
 **Secondary Dyes** (2 pips of adjacent colors):
 

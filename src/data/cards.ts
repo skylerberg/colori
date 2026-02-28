@@ -4,20 +4,38 @@ import type { Card, BuyerCard, Color, AnyCardData, DyeCardData, BasicDyeCardData
 export const DYE_CARDS: DyeCardData[] = [
   {
     kind: 'dye',
-    name: 'Kermes',
-    colors: ['Red', 'Red', 'Red'],
+    name: 'Lac',
+    colors: ['Red', 'Red', 'Yellow'],
     ability: { type: 'sell' },
   },
   {
     kind: 'dye',
-    name: 'Weld',
-    colors: ['Yellow', 'Yellow', 'Yellow'],
+    name: 'Brazilwood',
+    colors: ['Red', 'Red', 'Blue'],
     ability: { type: 'sell' },
   },
   {
     kind: 'dye',
-    name: 'Woad',
-    colors: ['Blue', 'Blue', 'Blue'],
+    name: 'Pomegranate',
+    colors: ['Yellow', 'Yellow', 'Red'],
+    ability: { type: 'sell' },
+  },
+  {
+    kind: 'dye',
+    name: 'Sumac',
+    colors: ['Yellow', 'Yellow', 'Blue'],
+    ability: { type: 'sell' },
+  },
+  {
+    kind: 'dye',
+    name: 'Elderberry',
+    colors: ['Blue', 'Blue', 'Red'],
+    ability: { type: 'sell' },
+  },
+  {
+    kind: 'dye',
+    name: 'Turnsole',
+    colors: ['Blue', 'Blue', 'Yellow'],
     ability: { type: 'sell' },
   },
   {
@@ -339,21 +357,24 @@ CARD_LOOKUP['BasicRed'] = { kind: 'basicDye', name: 'Basic Red', color: 'Red', a
 CARD_LOOKUP['BasicYellow'] = { kind: 'basicDye', name: 'Basic Yellow', color: 'Yellow', ability: { type: 'sell' } };
 CARD_LOOKUP['BasicBlue'] = { kind: 'basicDye', name: 'Basic Blue', color: 'Blue', ability: { type: 'sell' } };
 
-CARD_LOOKUP['Kermes'] = DYE_CARDS[0];
-CARD_LOOKUP['Weld'] = DYE_CARDS[1];
-CARD_LOOKUP['Woad'] = DYE_CARDS[2];
-CARD_LOOKUP['Madder'] = DYE_CARDS[3];
-CARD_LOOKUP['Turmeric'] = DYE_CARDS[4];
-CARD_LOOKUP['DyersGreenweed'] = DYE_CARDS[5];
-CARD_LOOKUP['Verdigris'] = DYE_CARDS[6];
-CARD_LOOKUP['Orchil'] = DYE_CARDS[7];
-CARD_LOOKUP['Logwood'] = DYE_CARDS[8];
-CARD_LOOKUP['VermilionDye'] = DYE_CARDS[9];
-CARD_LOOKUP['Saffron'] = DYE_CARDS[10];
-CARD_LOOKUP['PersianBerries'] = DYE_CARDS[11];
-CARD_LOOKUP['Azurite'] = DYE_CARDS[12];
-CARD_LOOKUP['IndigoDye'] = DYE_CARDS[13];
-CARD_LOOKUP['Cochineal'] = DYE_CARDS[14];
+CARD_LOOKUP['Lac'] = DYE_CARDS[0];
+CARD_LOOKUP['Brazilwood'] = DYE_CARDS[1];
+CARD_LOOKUP['Pomegranate'] = DYE_CARDS[2];
+CARD_LOOKUP['Sumac'] = DYE_CARDS[3];
+CARD_LOOKUP['Elderberry'] = DYE_CARDS[4];
+CARD_LOOKUP['Turnsole'] = DYE_CARDS[5];
+CARD_LOOKUP['Madder'] = DYE_CARDS[6];
+CARD_LOOKUP['Turmeric'] = DYE_CARDS[7];
+CARD_LOOKUP['DyersGreenweed'] = DYE_CARDS[8];
+CARD_LOOKUP['Verdigris'] = DYE_CARDS[9];
+CARD_LOOKUP['Orchil'] = DYE_CARDS[10];
+CARD_LOOKUP['Logwood'] = DYE_CARDS[11];
+CARD_LOOKUP['VermilionDye'] = DYE_CARDS[12];
+CARD_LOOKUP['Saffron'] = DYE_CARDS[13];
+CARD_LOOKUP['PersianBerries'] = DYE_CARDS[14];
+CARD_LOOKUP['Azurite'] = DYE_CARDS[15];
+CARD_LOOKUP['IndigoDye'] = DYE_CARDS[16];
+CARD_LOOKUP['Cochineal'] = DYE_CARDS[17];
 
 CARD_LOOKUP['StarterCeramics'] = MATERIAL_CARDS[0];
 CARD_LOOKUP['StarterPaintings'] = MATERIAL_CARDS[1];
@@ -462,9 +483,12 @@ export function getCardPips(card: string): Color[] {
 }
 
 export const DRAFT_COPY_COUNTS: Record<string, number> = {};
-DRAFT_COPY_COUNTS['Kermes'] = 4;
-DRAFT_COPY_COUNTS['Weld'] = 4;
-DRAFT_COPY_COUNTS['Woad'] = 4;
+DRAFT_COPY_COUNTS['Lac'] = 4;
+DRAFT_COPY_COUNTS['Brazilwood'] = 4;
+DRAFT_COPY_COUNTS['Pomegranate'] = 4;
+DRAFT_COPY_COUNTS['Sumac'] = 4;
+DRAFT_COPY_COUNTS['Elderberry'] = 4;
+DRAFT_COPY_COUNTS['Turnsole'] = 4;
 DRAFT_COPY_COUNTS['Madder'] = 4;
 DRAFT_COPY_COUNTS['Turmeric'] = 4;
 DRAFT_COPY_COUNTS['Dyer\'s Greenweed'] = 4;
@@ -508,7 +532,7 @@ export interface CardCategory {
 }
 
 export const DRAFT_CARD_CATEGORIES: CardCategory[] = [
-  { label: 'Primary Dyes', cardNames: ['Kermes', 'Weld', 'Woad'], totalCopies: 12 },
+  { label: 'Primary Dyes', cardNames: ['Lac', 'Brazilwood', 'Pomegranate', 'Sumac', 'Elderberry', 'Turnsole'], totalCopies: 24 },
   { label: 'Secondary Dyes', cardNames: ['Madder', 'Turmeric', 'Dyer\'s Greenweed', 'Verdigris', 'Orchil', 'Logwood'], totalCopies: 24 },
   { label: 'Tertiary Dyes', cardNames: ['Vermilion', 'Saffron', 'Persian Berries', 'Azurite', 'Indigo', 'Cochineal'], totalCopies: 24 },
   { label: 'Action Cards', cardNames: ['Alum', 'Cream of Tartar', 'Gum Arabic', 'Potash'], totalCopies: 16 },

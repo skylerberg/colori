@@ -18,7 +18,7 @@ export type Ability =
 
 // Card variant name strings from Rust
 export type Card = 'BasicRed' | 'BasicYellow' | 'BasicBlue'
-  | 'Kermes' | 'Weld' | 'Woad'
+  | 'Lac' | 'Brazilwood' | 'Pomegranate' | 'Sumac' | 'Elderberry' | 'Turnsole'
   | 'Madder' | 'Turmeric' | 'DyersGreenweed' | 'Verdigris' | 'Orchil' | 'Logwood'
   | 'VermilionDye' | 'Saffron' | 'PersianBerries' | 'Azurite' | 'IndigoDye' | 'Cochineal'
   | 'StarterCeramics' | 'StarterPaintings' | 'StarterTextiles'

@@ -12,9 +12,10 @@ pub fn chalk_card() -> Card {
     Card::Chalk
 }
 
-pub fn dye_cards() -> [Card; 15] {
+pub fn dye_cards() -> [Card; 18] {
     [
-        Card::Kermes, Card::Weld, Card::Woad,
+        Card::Lac, Card::Brazilwood, Card::Pomegranate,
+        Card::Sumac, Card::Elderberry, Card::Turnsole,
         Card::Madder, Card::Turmeric, Card::DyersGreenweed,
         Card::Verdigris, Card::Orchil, Card::Logwood,
         Card::VermilionDye, Card::Saffron, Card::PersianBerries,
