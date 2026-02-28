@@ -25,10 +25,11 @@ Each player has their own color wheel that tracks how many of each color they ha
 - Basic Yellow — 1 Yellow pip | Destroy: Sell
 - Basic Blue — 1 Blue pip | Destroy: Sell
 
-**Dye Cards** (18 unique, 4 copies each, 72 total in draft deck):
-- 6 Primary dyes — 2 pips of one primary + 1 pip of a different primary | Destroy: Sell
+**Dye Cards** (21 unique, 3 copies each, 63 total in draft deck):
+- 3 Pure primary dyes — 3 pips of one primary color | Destroy: Mix Colors ×3
+- 6 Primary dyes — 2 pips of one primary + 1 pip of a different primary | Destroy: Mix Colors ×2
 - 6 Secondary dyes — 2 pips of two adjacent primary/secondary colors | Destroy: Workshop ×3
-- 6 Tertiary dyes — 1 pip of a tertiary color | Destroy: Mix Colors ×2
+- 6 Tertiary dyes — 1 pip of a tertiary color | Destroy: Sell
 
 **Material Cards** (3 types in starting deck, 1 per player; 15 unique draft material cards in draft deck):
 Starting deck materials gain 1 material when workshopped. Draft material cards offer enhanced gains: double materials, material + color pip, or dual materials.
@@ -37,14 +38,14 @@ Starting deck materials gain 1 material when workshopped. Draft material cards o
 - Textiles | Destroy: Draw Cards ×2
 
 **Action Cards** (4 unique in draft deck, 4 copies each, 16 total; plus Chalk as a starter card):
-Each action card has Destroy Cards ×1 as its destroy ability, plus workshop abilities that trigger when the card is chosen during Workshop resolution. See the card reference below.
+Each action card has a destroy ability plus workshop abilities that trigger when the card is chosen during Workshop resolution. See the card reference below.
 
 **Buyer Cards** (51 total, single deck):
 Each buyer requires 2 of a specific material type and a set of colors as its cost. All 51 buyers are shuffled into a single deck. Each buyer is worth 2–4 stars.
 
 ### Decks
 
-- **Draft Deck**: Contains 72 dye cards + 15 draft material cards + 16 action cards (103 total). When the draft deck runs out, shuffle all destroyed cards back in.
+- **Draft Deck**: Contains 63 dye cards + 15 draft material cards + 16 action cards (94 total). When the draft deck runs out, shuffle all destroyed cards back in.
 - **Buyer Deck**: Contains all buyer cards. 6 buyers are displayed face-up at all times.
 - **Personal Deck**: Each player has their own deck that they draw from and build over the course of the game.
 
@@ -53,7 +54,7 @@ Each buyer requires 2 of a specific material type and a set of colors as its cos
 1. Each player receives a starting personal deck of 7 cards: 1 Basic Red, 1 Basic Yellow, 1 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles, 1 Chalk. Shuffle it.
 2. Each player starts with 1 Red, 1 Yellow, and 1 Blue already stored on their color wheel.
 3. Each player starts with 1 of each stored material (1 Ceramics, 1 Paintings, 1 Textiles).
-4. Place all dye cards (4 copies each), 15 unique draft material cards, and action cards (4 copies each) into the draft deck. Shuffle it.
+4. Place all dye cards (3 copies each), 15 unique draft material cards, and action cards (4 copies each) into the draft deck. Shuffle it.
 5. Shuffle the buyer deck and reveal 6 buyers face-up in the buyer display.
 
 ## Player Area
@@ -187,18 +188,26 @@ Each player's score = buyer stars + ducats. The player with the highest score wi
 | Basic Yellow | 1 Yellow | Sell |
 | Basic Blue | 1 Blue | Sell |
 
-### Dye Cards (18 unique, 4 copies each in draft deck)
+### Dye Cards (21 unique, 3 copies each in draft deck)
+
+**Pure Primary Dyes** (3 pips of one primary color):
+
+| Name | Colors | Destroy Ability |
+|------|--------|-----------------|
+| Kermes | 3 Red | Mix Colors ×3 |
+| Weld | 3 Yellow | Mix Colors ×3 |
+| Woad | 3 Blue | Mix Colors ×3 |
 
 **Primary Dyes** (2 pips of one primary + 1 pip of a different primary):
 
 | Name | Colors | Destroy Ability |
 |------|--------|-----------------|
-| Lac | 2 Red, 1 Yellow | Sell |
-| Brazilwood | 2 Red, 1 Blue | Sell |
-| Pomegranate | 2 Yellow, 1 Red | Sell |
-| Sumac | 2 Yellow, 1 Blue | Sell |
-| Elderberry | 2 Blue, 1 Red | Sell |
-| Turnsole | 2 Blue, 1 Yellow | Sell |
+| Lac | 2 Red, 1 Yellow | Mix Colors ×2 |
+| Brazilwood | 2 Red, 1 Blue | Mix Colors ×2 |
+| Pomegranate | 2 Yellow, 1 Red | Mix Colors ×2 |
+| Sumac | 2 Yellow, 1 Blue | Mix Colors ×2 |
+| Elderberry | 2 Blue, 1 Red | Mix Colors ×2 |
+| Turnsole | 2 Blue, 1 Yellow | Mix Colors ×2 |
 
 **Secondary Dyes** (2 pips of adjacent colors):
 
@@ -215,12 +224,12 @@ Each player's score = buyer stars + ducats. The player with the highest score wi
 
 | Name | Colors | Destroy Ability |
 |------|--------|-----------------|
-| Vermilion | 1 Vermilion | Mix Colors ×2 |
-| Saffron | 1 Amber | Mix Colors ×2 |
-| Persian Berries | 1 Chartreuse | Mix Colors ×2 |
-| Azurite | 1 Teal | Mix Colors ×2 |
-| Indigo | 1 Indigo | Mix Colors ×2 |
-| Cochineal | 1 Magenta | Mix Colors ×2 |
+| Vermilion | 1 Vermilion | Sell |
+| Saffron | 1 Amber | Sell |
+| Persian Berries | 1 Chartreuse | Sell |
+| Azurite | 1 Teal | Sell |
+| Indigo | 1 Indigo | Sell |
+| Cochineal | 1 Magenta | Sell |
 
 ### Starting Material Cards (3 types, 1 per player in starting deck)
 
@@ -234,9 +243,9 @@ Each player's score = buyer stars + ducats. The player with the highest score wi
 
 | Name | Material Gain | Color Pip | Destroy Ability |
 |------|--------------|-----------|-----------------|
-| Fine Ceramics | 2x Ceramics | — | Draw Cards ×2 |
-| Fine Paintings | 2x Paintings | — | Draw Cards ×2 |
-| Fine Textiles | 2x Textiles | — | Draw Cards ×2 |
+| Fine Ceramics | 2x Ceramics | — | Destroy Cards ×1 |
+| Fine Paintings | 2x Paintings | — | Destroy Cards ×1 |
+| Fine Textiles | 2x Textiles | — | Destroy Cards ×1 |
 | Terra Cotta | 1 Ceramics | Red | Workshop ×2 |
 | Ochre Ware | 1 Ceramics | Yellow | Workshop ×2 |
 | Cobalt Ware | 1 Ceramics | Blue | Workshop ×2 |
@@ -252,16 +261,16 @@ Each player's score = buyer stars + ducats. The player with the highest score wi
 
 ### Action Cards (4 unique in draft deck, 4 copies each; plus Chalk as a starter)
 
-All action cards have **Destroy Cards ×1** as their destroy ability. Their workshop abilities (triggered when chosen during Workshop resolution) are:
+Their workshop abilities (triggered when chosen during Workshop resolution) are:
 
-| Name | Workshop Abilities | Notes |
-|------|-------------------|-------|
-| Chalk | Any Primary | Starter card (1 per player, not in draft deck) |
-| Alum | Gain Ducats ×1 | Draft deck |
-| Cream of Tartar | Draw Cards ×3 | Draft deck |
-| Gum Arabic | Any Secondary | Draft deck |
-| Potash | Workshop ×3 | Draft deck |
-| Vinegar | Change Tertiary | Temporarily removed from draft deck |
+| Name | Destroy Ability | Workshop Abilities | Notes |
+|------|----------------|-------------------|-------|
+| Chalk | Sell | Any Primary | Starter card (1 per player, not in draft deck) |
+| Alum | Destroy Cards ×1 | Gain Ducats ×1 | Draft deck |
+| Cream of Tartar | Workshop ×2 | Draw Cards ×3 | Draft deck |
+| Gum Arabic | Destroy Cards ×1 | Any Secondary | Draft deck |
+| Potash | Draw Cards ×2 | Workshop ×3 | Draft deck |
+| Vinegar | Destroy Cards ×1 | Change Tertiary | Temporarily removed from draft deck |
 
 ### Buyer Cards (51 total, single deck)
 

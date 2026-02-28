@@ -104,7 +104,7 @@ pub enum CardKind {
     Action,
 }
 
-// ── Card enum (45 variants) ──
+// ── Card enum (48 variants) ──
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Card {
@@ -112,7 +112,10 @@ pub enum Card {
     BasicRed,
     BasicYellow,
     BasicBlue,
-    // Primary dyes (6)
+    // Primary dyes (9)
+    Kermes,
+    Weld,
+    Woad,
     Lac,
     Brazilwood,
     Pomegranate,
@@ -175,25 +178,31 @@ struct CardProperties {
     workshop_abilities: &'static [Ability],
 }
 
-const CARD_DATA: [CardProperties; 45] = [
+const CARD_DATA: [CardProperties; 48] = [
     // BasicRed
     CardProperties { name: "Basic Red", kind: CardKind::BasicDye, ability: Ability::Sell, pips: &[Color::Red], material_types: &[], workshop_abilities: &[] },
     // BasicYellow
     CardProperties { name: "Basic Yellow", kind: CardKind::BasicDye, ability: Ability::Sell, pips: &[Color::Yellow], material_types: &[], workshop_abilities: &[] },
     // BasicBlue
     CardProperties { name: "Basic Blue", kind: CardKind::BasicDye, ability: Ability::Sell, pips: &[Color::Blue], material_types: &[], workshop_abilities: &[] },
+    // Kermes
+    CardProperties { name: "Kermes", kind: CardKind::Dye, ability: Ability::MixColors { count: 3 }, pips: &[Color::Red, Color::Red, Color::Red], material_types: &[], workshop_abilities: &[] },
+    // Weld
+    CardProperties { name: "Weld", kind: CardKind::Dye, ability: Ability::MixColors { count: 3 }, pips: &[Color::Yellow, Color::Yellow, Color::Yellow], material_types: &[], workshop_abilities: &[] },
+    // Woad
+    CardProperties { name: "Woad", kind: CardKind::Dye, ability: Ability::MixColors { count: 3 }, pips: &[Color::Blue, Color::Blue, Color::Blue], material_types: &[], workshop_abilities: &[] },
     // Lac
-    CardProperties { name: "Lac", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Red, Color::Red, Color::Yellow], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Lac", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Red, Color::Red, Color::Yellow], material_types: &[], workshop_abilities: &[] },
     // Brazilwood
-    CardProperties { name: "Brazilwood", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Red, Color::Red, Color::Blue], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Brazilwood", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Red, Color::Red, Color::Blue], material_types: &[], workshop_abilities: &[] },
     // Pomegranate
-    CardProperties { name: "Pomegranate", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Yellow, Color::Yellow, Color::Red], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Pomegranate", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Yellow, Color::Yellow, Color::Red], material_types: &[], workshop_abilities: &[] },
     // Sumac
-    CardProperties { name: "Sumac", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Yellow, Color::Yellow, Color::Blue], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Sumac", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Yellow, Color::Yellow, Color::Blue], material_types: &[], workshop_abilities: &[] },
     // Elderberry
-    CardProperties { name: "Elderberry", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Blue, Color::Blue, Color::Red], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Elderberry", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Blue, Color::Blue, Color::Red], material_types: &[], workshop_abilities: &[] },
     // Turnsole
-    CardProperties { name: "Turnsole", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Blue, Color::Blue, Color::Yellow], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Turnsole", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Blue, Color::Blue, Color::Yellow], material_types: &[], workshop_abilities: &[] },
     // Madder
     CardProperties { name: "Madder", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, pips: &[Color::Orange, Color::Red], material_types: &[], workshop_abilities: &[] },
     // Turmeric
@@ -207,17 +216,17 @@ const CARD_DATA: [CardProperties; 45] = [
     // Logwood
     CardProperties { name: "Logwood", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, pips: &[Color::Purple, Color::Blue], material_types: &[], workshop_abilities: &[] },
     // VermilionDye
-    CardProperties { name: "Vermilion", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Vermilion], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Vermilion", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Vermilion], material_types: &[], workshop_abilities: &[] },
     // Saffron
-    CardProperties { name: "Saffron", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Amber], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Saffron", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Amber], material_types: &[], workshop_abilities: &[] },
     // PersianBerries
-    CardProperties { name: "Persian Berries", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Chartreuse], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Persian Berries", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Chartreuse], material_types: &[], workshop_abilities: &[] },
     // Azurite
-    CardProperties { name: "Azurite", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Teal], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Azurite", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Teal], material_types: &[], workshop_abilities: &[] },
     // IndigoDye
-    CardProperties { name: "Indigo", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Indigo], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Indigo", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Indigo], material_types: &[], workshop_abilities: &[] },
     // Cochineal
-    CardProperties { name: "Cochineal", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Magenta], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Cochineal", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Magenta], material_types: &[], workshop_abilities: &[] },
     // StarterCeramics
     CardProperties { name: "Ceramics", kind: CardKind::Material, ability: Ability::Workshop { count: 3 }, pips: &[], material_types: &[MaterialType::Ceramics], workshop_abilities: &[] },
     // StarterPaintings
@@ -225,11 +234,11 @@ const CARD_DATA: [CardProperties; 45] = [
     // StarterTextiles
     CardProperties { name: "Textiles", kind: CardKind::Material, ability: Ability::Workshop { count: 3 }, pips: &[], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
     // FineCeramics
-    CardProperties { name: "Fine Ceramics", kind: CardKind::Material, ability: Ability::DrawCards { count: 2 }, pips: &[], material_types: &[MaterialType::Ceramics, MaterialType::Ceramics], workshop_abilities: &[] },
+    CardProperties { name: "Fine Ceramics", kind: CardKind::Material, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[MaterialType::Ceramics, MaterialType::Ceramics], workshop_abilities: &[] },
     // FinePaintings
-    CardProperties { name: "Fine Paintings", kind: CardKind::Material, ability: Ability::DrawCards { count: 2 }, pips: &[], material_types: &[MaterialType::Paintings, MaterialType::Paintings], workshop_abilities: &[] },
+    CardProperties { name: "Fine Paintings", kind: CardKind::Material, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[MaterialType::Paintings, MaterialType::Paintings], workshop_abilities: &[] },
     // FineTextiles
-    CardProperties { name: "Fine Textiles", kind: CardKind::Material, ability: Ability::DrawCards { count: 2 }, pips: &[], material_types: &[MaterialType::Textiles, MaterialType::Textiles], workshop_abilities: &[] },
+    CardProperties { name: "Fine Textiles", kind: CardKind::Material, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[MaterialType::Textiles, MaterialType::Textiles], workshop_abilities: &[] },
     // TerraCotta
     CardProperties { name: "Terra Cotta", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, pips: &[Color::Red], material_types: &[MaterialType::Ceramics], workshop_abilities: &[] },
     // OchreWare
@@ -257,11 +266,11 @@ const CARD_DATA: [CardProperties; 45] = [
     // Alum
     CardProperties { name: "Alum", kind: CardKind::Action, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::GainDucats { count: 1 }] },
     // CreamOfTartar
-    CardProperties { name: "Cream of Tartar", kind: CardKind::Action, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::DrawCards { count: 3 }] },
+    CardProperties { name: "Cream of Tartar", kind: CardKind::Action, ability: Ability::Workshop { count: 2 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::DrawCards { count: 3 }] },
     // GumArabic
     CardProperties { name: "Gum Arabic", kind: CardKind::Action, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::GainSecondary] },
     // Potash
-    CardProperties { name: "Potash", kind: CardKind::Action, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::Workshop { count: 3 }] },
+    CardProperties { name: "Potash", kind: CardKind::Action, ability: Ability::DrawCards { count: 2 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::Workshop { count: 3 }] },
     // Vinegar — temporarily removed from draft deck, will be added back
     CardProperties { name: "Vinegar", kind: CardKind::Action, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::ChangeTertiary] },
     // Chalk

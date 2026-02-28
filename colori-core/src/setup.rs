@@ -78,7 +78,7 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
     let mut draft_deck = UnorderedCards::new();
 
     for dye in dye_cards() {
-        for _ in 0..4 {
+        for _ in 0..3 {
             let id = next_card_id();
             card_lookup[id as usize] = dye;
             draft_deck.insert(id);
