@@ -99,19 +99,19 @@ export const MATERIAL_CARDS: MaterialCardData[] = [
     kind: 'material',
     name: 'Ceramics',
     materialTypes: ['Ceramics'],
-    ability: { type: 'workshop', count: 4 },
+    ability: { type: 'workshop', count: 3 },
   },
   {
     kind: 'material',
     name: 'Paintings',
     materialTypes: ['Paintings'],
-    ability: { type: 'workshop', count: 4 },
+    ability: { type: 'workshop', count: 3 },
   },
   {
     kind: 'material',
     name: 'Textiles',
     materialTypes: ['Textiles'],
-    ability: { type: 'workshop', count: 4 },
+    ability: { type: 'workshop', count: 3 },
   },
 ];
 
@@ -263,12 +263,6 @@ export const ACTION_CARDS: ActionCardData[] = [
     ability: { type: 'destroyCards', count: 1 },
     workshopAbilities: [{ type: 'workshop', count: 3 }],
   },
-  {
-    kind: 'action',
-    name: 'Vinegar',
-    ability: { type: 'destroyCards', count: 1 },
-    workshopAbilities: [{ type: 'changeTertiary' }],
-  },
 ];
 
 export const PRIMARIES: Color[] = ['Red', 'Yellow', 'Blue'];
@@ -385,7 +379,6 @@ CARD_LOOKUP['Alum'] = ACTION_CARDS[0];
 CARD_LOOKUP['CreamOfTartar'] = ACTION_CARDS[1];
 CARD_LOOKUP['GumArabic'] = ACTION_CARDS[2];
 CARD_LOOKUP['Potash'] = ACTION_CARDS[3];
-CARD_LOOKUP['Vinegar'] = ACTION_CARDS[4];
 CARD_LOOKUP['Chalk'] = CHALK_CARD;
 
 const BUYER_LOOKUP: Record<string, BuyerCardData> = {};
@@ -499,11 +492,10 @@ DRAFT_COPY_COUNTS['Pastel & Fabric'] = 1;
 DRAFT_COPY_COUNTS['Clay & Canvas'] = 1;
 DRAFT_COPY_COUNTS['Clay & Fabric'] = 1;
 DRAFT_COPY_COUNTS['Canvas & Fabric'] = 1;
-DRAFT_COPY_COUNTS['Alum'] = 3;
-DRAFT_COPY_COUNTS['Cream of Tartar'] = 3;
-DRAFT_COPY_COUNTS['Gum Arabic'] = 3;
-DRAFT_COPY_COUNTS['Potash'] = 3;
-DRAFT_COPY_COUNTS['Vinegar'] = 3;
+DRAFT_COPY_COUNTS['Alum'] = 4;
+DRAFT_COPY_COUNTS['Cream of Tartar'] = 4;
+DRAFT_COPY_COUNTS['Gum Arabic'] = 4;
+DRAFT_COPY_COUNTS['Potash'] = 4;
 
 export function getDraftCopies(name: string): number {
   return DRAFT_COPY_COUNTS[name] ?? 1;
@@ -519,7 +511,7 @@ export const DRAFT_CARD_CATEGORIES: CardCategory[] = [
   { label: 'Primary Dyes', cardNames: ['Kermes', 'Weld', 'Woad'], totalCopies: 12 },
   { label: 'Secondary Dyes', cardNames: ['Madder', 'Turmeric', 'Dyer\'s Greenweed', 'Verdigris', 'Orchil', 'Logwood'], totalCopies: 24 },
   { label: 'Tertiary Dyes', cardNames: ['Vermilion', 'Saffron', 'Persian Berries', 'Azurite', 'Indigo', 'Cochineal'], totalCopies: 24 },
-  { label: 'Action Cards', cardNames: ['Alum', 'Cream of Tartar', 'Gum Arabic', 'Potash', 'Vinegar'], totalCopies: 15 },
+  { label: 'Action Cards', cardNames: ['Alum', 'Cream of Tartar', 'Gum Arabic', 'Potash'], totalCopies: 16 },
   { label: 'Double Materials', cardNames: ['Fine Ceramics', 'Fine Paintings', 'Fine Textiles'], totalCopies: 3 },
   { label: 'Material + Color', cardNames: ['Terra Cotta', 'Ochre Ware', 'Cobalt Ware', 'Cinnabar & Canvas', 'Orpiment & Canvas', 'Ultramarine & Canvas', 'Alizarin & Fabric', 'Fustic & Fabric', 'Pastel & Fabric'], totalCopies: 9 },
   { label: 'Dual Materials', cardNames: ['Clay & Canvas', 'Clay & Fabric', 'Canvas & Fabric'], totalCopies: 3 },

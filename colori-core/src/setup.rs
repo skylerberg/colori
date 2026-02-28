@@ -92,7 +92,7 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
     }
 
     for action in action_cards() {
-        for _ in 0..3 {
+        for _ in 0..4 {
             let id = next_card_id();
             card_lookup[id as usize] = action;
             draft_deck.insert(id);

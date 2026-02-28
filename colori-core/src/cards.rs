@@ -32,8 +32,9 @@ pub fn draft_material_cards() -> [Card; 15] {
     ]
 }
 
-pub fn action_cards() -> [Card; 5] {
-    [Card::Alum, Card::CreamOfTartar, Card::GumArabic, Card::Potash, Card::Vinegar]
+pub fn action_cards() -> [Card; 4] {
+    // Vinegar is temporarily removed from the draft deck and will be added back
+    [Card::Alum, Card::CreamOfTartar, Card::GumArabic, Card::Potash]
 }
 
 pub fn generate_all_buyers() -> [BuyerCard; 54] {

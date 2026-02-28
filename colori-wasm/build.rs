@@ -376,7 +376,7 @@ fn main() {
     for card in action_cards() {
         write!(
             out,
-            "DRAFT_COPY_COUNTS['{}'] = 3;\n",
+            "DRAFT_COPY_COUNTS['{}'] = 4;\n",
             card.name().replace('\'', "\\'")
         )
         .unwrap();
@@ -447,7 +447,7 @@ fn main() {
     format_category(&mut out, "Primary Dyes", &primary_dye_names, 4);
     format_category(&mut out, "Secondary Dyes", &secondary_dye_names, 4);
     format_category(&mut out, "Tertiary Dyes", &tertiary_dye_names, 4);
-    format_category(&mut out, "Action Cards", &action_names, 3);
+    format_category(&mut out, "Action Cards", &action_names, 4);
     format_category(&mut out, "Double Materials", &double_material_names, 1);
     format_category(&mut out, "Material + Color", &material_color_names, 1);
     format_category(&mut out, "Dual Materials", &dual_material_names, 1);

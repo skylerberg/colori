@@ -210,11 +210,11 @@ const CARD_DATA: [CardProperties; 42] = [
     // Cochineal
     CardProperties { name: "Cochineal", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Magenta], material_types: &[], workshop_abilities: &[] },
     // StarterCeramics
-    CardProperties { name: "Ceramics", kind: CardKind::Material, ability: Ability::Workshop { count: 4 }, pips: &[], material_types: &[MaterialType::Ceramics], workshop_abilities: &[] },
+    CardProperties { name: "Ceramics", kind: CardKind::Material, ability: Ability::Workshop { count: 3 }, pips: &[], material_types: &[MaterialType::Ceramics], workshop_abilities: &[] },
     // StarterPaintings
-    CardProperties { name: "Paintings", kind: CardKind::Material, ability: Ability::Workshop { count: 4 }, pips: &[], material_types: &[MaterialType::Paintings], workshop_abilities: &[] },
+    CardProperties { name: "Paintings", kind: CardKind::Material, ability: Ability::Workshop { count: 3 }, pips: &[], material_types: &[MaterialType::Paintings], workshop_abilities: &[] },
     // StarterTextiles
-    CardProperties { name: "Textiles", kind: CardKind::Material, ability: Ability::Workshop { count: 4 }, pips: &[], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
+    CardProperties { name: "Textiles", kind: CardKind::Material, ability: Ability::Workshop { count: 3 }, pips: &[], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
     // FineCeramics
     CardProperties { name: "Fine Ceramics", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, pips: &[], material_types: &[MaterialType::Ceramics, MaterialType::Ceramics], workshop_abilities: &[] },
     // FinePaintings
@@ -253,7 +253,7 @@ const CARD_DATA: [CardProperties; 42] = [
     CardProperties { name: "Gum Arabic", kind: CardKind::Action, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::GainSecondary] },
     // Potash
     CardProperties { name: "Potash", kind: CardKind::Action, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::Workshop { count: 3 }] },
-    // Vinegar
+    // Vinegar — temporarily removed from draft deck, will be added back
     CardProperties { name: "Vinegar", kind: CardKind::Action, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::ChangeTertiary] },
     // Chalk
     CardProperties { name: "Chalk", kind: CardKind::Action, ability: Ability::Sell, pips: &[], material_types: &[], workshop_abilities: &[Ability::GainPrimary] },
