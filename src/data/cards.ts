@@ -301,9 +301,9 @@ export const ACTION_CARDS: ActionCardData[] = [
   },
 ];
 
-export const PRIMARIES: Color[] = ['Vermilion', 'Amber', 'Chartreuse', 'Teal', 'Indigo', 'Magenta'];
+export const PRIMARIES: Color[] = ['Red', 'Yellow', 'Blue'];
 export const SECONDARIES: Color[] = ['Orange', 'Green', 'Purple'];
-export const TERTIARIES: Color[] = ['Red', 'Yellow', 'Blue'];
+export const TERTIARIES: Color[] = ['Vermilion', 'Amber', 'Chartreuse', 'Teal', 'Indigo', 'Magenta'];
 
 export const CHALK_CARD: ActionCardData = {
   kind: 'action',
@@ -504,27 +504,27 @@ export function getCardPips(card: string): Color[] {
 }
 
 export const DRAFT_COPY_COUNTS: Record<string, number> = {};
-DRAFT_COPY_COUNTS['Kermes'] = 4;
-DRAFT_COPY_COUNTS['Weld'] = 4;
-DRAFT_COPY_COUNTS['Woad'] = 4;
-DRAFT_COPY_COUNTS['Lac'] = 4;
-DRAFT_COPY_COUNTS['Brazilwood'] = 4;
-DRAFT_COPY_COUNTS['Pomegranate'] = 4;
-DRAFT_COPY_COUNTS['Sumac'] = 4;
-DRAFT_COPY_COUNTS['Elderberry'] = 4;
-DRAFT_COPY_COUNTS['Turnsole'] = 4;
-DRAFT_COPY_COUNTS['Madder'] = 4;
-DRAFT_COPY_COUNTS['Turmeric'] = 4;
-DRAFT_COPY_COUNTS['Dyer\'s Greenweed'] = 4;
-DRAFT_COPY_COUNTS['Verdigris'] = 4;
-DRAFT_COPY_COUNTS['Orchil'] = 4;
-DRAFT_COPY_COUNTS['Logwood'] = 4;
-DRAFT_COPY_COUNTS['Vermilion'] = 4;
-DRAFT_COPY_COUNTS['Saffron'] = 4;
-DRAFT_COPY_COUNTS['Persian Berries'] = 4;
-DRAFT_COPY_COUNTS['Azurite'] = 4;
-DRAFT_COPY_COUNTS['Indigo'] = 4;
-DRAFT_COPY_COUNTS['Cochineal'] = 4;
+DRAFT_COPY_COUNTS['Kermes'] = 3;
+DRAFT_COPY_COUNTS['Weld'] = 3;
+DRAFT_COPY_COUNTS['Woad'] = 3;
+DRAFT_COPY_COUNTS['Lac'] = 3;
+DRAFT_COPY_COUNTS['Brazilwood'] = 3;
+DRAFT_COPY_COUNTS['Pomegranate'] = 3;
+DRAFT_COPY_COUNTS['Sumac'] = 3;
+DRAFT_COPY_COUNTS['Elderberry'] = 3;
+DRAFT_COPY_COUNTS['Turnsole'] = 3;
+DRAFT_COPY_COUNTS['Madder'] = 3;
+DRAFT_COPY_COUNTS['Turmeric'] = 3;
+DRAFT_COPY_COUNTS['Dyer\'s Greenweed'] = 3;
+DRAFT_COPY_COUNTS['Verdigris'] = 3;
+DRAFT_COPY_COUNTS['Orchil'] = 3;
+DRAFT_COPY_COUNTS['Logwood'] = 3;
+DRAFT_COPY_COUNTS['Vermilion'] = 3;
+DRAFT_COPY_COUNTS['Saffron'] = 3;
+DRAFT_COPY_COUNTS['Persian Berries'] = 3;
+DRAFT_COPY_COUNTS['Azurite'] = 3;
+DRAFT_COPY_COUNTS['Indigo'] = 3;
+DRAFT_COPY_COUNTS['Cochineal'] = 3;
 DRAFT_COPY_COUNTS['Fine Ceramics'] = 1;
 DRAFT_COPY_COUNTS['Fine Paintings'] = 1;
 DRAFT_COPY_COUNTS['Fine Textiles'] = 1;
@@ -556,9 +556,10 @@ export interface CardCategory {
 }
 
 export const DRAFT_CARD_CATEGORIES: CardCategory[] = [
-  { label: 'Primary Dyes', cardNames: ['Vermilion', 'Saffron', 'Persian Berries', 'Azurite', 'Indigo', 'Cochineal'], totalCopies: 24 },
-  { label: 'Secondary Dyes', cardNames: ['Madder', 'Turmeric', 'Dyer\'s Greenweed', 'Verdigris', 'Orchil', 'Logwood'], totalCopies: 24 },
-  { label: 'Tertiary Dyes', cardNames: ['Kermes', 'Weld', 'Woad', 'Lac', 'Brazilwood', 'Pomegranate', 'Sumac', 'Elderberry', 'Turnsole'], totalCopies: 36 },
+  { label: 'Pure Primary Dyes', cardNames: ['Kermes', 'Weld', 'Woad'], totalCopies: 9 },
+  { label: 'Primary Dyes', cardNames: ['Lac', 'Brazilwood', 'Pomegranate', 'Sumac', 'Elderberry', 'Turnsole'], totalCopies: 18 },
+  { label: 'Secondary Dyes', cardNames: ['Madder', 'Turmeric', 'Dyer\'s Greenweed', 'Verdigris', 'Orchil', 'Logwood'], totalCopies: 18 },
+  { label: 'Tertiary Dyes', cardNames: ['Vermilion', 'Saffron', 'Persian Berries', 'Azurite', 'Indigo', 'Cochineal'], totalCopies: 18 },
   { label: 'Action Cards', cardNames: ['Alum', 'Cream of Tartar', 'Gum Arabic', 'Potash'], totalCopies: 16 },
   { label: 'Double Materials', cardNames: ['Fine Ceramics', 'Fine Paintings', 'Fine Textiles'], totalCopies: 3 },
   { label: 'Material + Color', cardNames: ['Terra Cotta', 'Ochre Ware', 'Cobalt Ware', 'Cinnabar & Canvas', 'Orpiment & Canvas', 'Ultramarine & Canvas', 'Alizarin & Fabric', 'Fustic & Fabric', 'Pastel & Fabric'], totalCopies: 9 },

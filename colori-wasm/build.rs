@@ -175,30 +175,24 @@ fn main() {
 
     for card in &dyes {
         let pips = card.pips();
-        let ability = card.ability();
-        match ability {
-            Ability::Sell => {
-                // Primary dye — pips are all the same primary
-                let color_name = format_color(&pips[0]);
-                if !primaries.contains(&color_name) {
-                    primaries.push(color_name);
-                }
+        if pips.len() == 3 {
+            // Primary dye (pure or 2+1) — collect unique primary colors
+            let color_name = format_color(&pips[0]);
+            if !primaries.contains(&color_name) {
+                primaries.push(color_name);
             }
-            Ability::Workshop { .. } => {
-                // Secondary dye — first pip is the secondary color
-                let color_name = format_color(&pips[0]);
-                if !secondaries.contains(&color_name) {
-                    secondaries.push(color_name);
-                }
+        } else if pips.len() == 2 {
+            // Secondary dye — first pip is the secondary color
+            let color_name = format_color(&pips[0]);
+            if !secondaries.contains(&color_name) {
+                secondaries.push(color_name);
             }
-            Ability::MixColors { .. } => {
-                // Tertiary dye — single pip is the tertiary color
-                let color_name = format_color(&pips[0]);
-                if !tertiaries.contains(&color_name) {
-                    tertiaries.push(color_name);
-                }
+        } else if pips.len() == 1 {
+            // Tertiary dye — single pip is the tertiary color
+            let color_name = format_color(&pips[0]);
+            if !tertiaries.contains(&color_name) {
+                tertiaries.push(color_name);
             }
-            _ => {}
         }
     }
 
@@ -360,7 +354,7 @@ fn main() {
     for card in dye_cards() {
         write!(
             out,
-            "DRAFT_COPY_COUNTS['{}'] = 4;\n",
+            "DRAFT_COPY_COUNTS['{}'] = 3;\n",
             card.name().replace('\'', "\\'")
         )
         .unwrap();
@@ -391,17 +385,26 @@ fn main() {
 
     // DRAFT_CARD_CATEGORIES
     // Build categories from the dye card data
+    let mut pure_primary_dye_names: Vec<String> = Vec::new();
     let mut primary_dye_names: Vec<String> = Vec::new();
     let mut secondary_dye_names: Vec<String> = Vec::new();
     let mut tertiary_dye_names: Vec<String> = Vec::new();
 
     for card in dye_cards() {
         let name = card.name().replace('\'', "\\'");
-        match card.ability() {
-            Ability::Sell => primary_dye_names.push(name.to_string()),
-            Ability::Workshop { .. } => secondary_dye_names.push(name.to_string()),
-            Ability::MixColors { .. } => tertiary_dye_names.push(name.to_string()),
-            _ => {}
+        let pips = card.pips();
+        if pips.len() == 3 && pips[0] == pips[1] && pips[1] == pips[2] {
+            // 3 identical primary pips = pure primary dye
+            pure_primary_dye_names.push(name.to_string());
+        } else if pips.len() == 3 {
+            // 3 pips, not all same = primary dye (2+1)
+            primary_dye_names.push(name.to_string());
+        } else if pips.len() == 2 {
+            // 2 pips = secondary dye
+            secondary_dye_names.push(name.to_string());
+        } else if pips.len() == 1 {
+            // 1 pip = tertiary dye
+            tertiary_dye_names.push(name.to_string());
         }
     }
 
@@ -444,9 +447,10 @@ fn main() {
     }
 
     out.push_str("export const DRAFT_CARD_CATEGORIES: CardCategory[] = [\n");
-    format_category(&mut out, "Primary Dyes", &primary_dye_names, 4);
-    format_category(&mut out, "Secondary Dyes", &secondary_dye_names, 4);
-    format_category(&mut out, "Tertiary Dyes", &tertiary_dye_names, 4);
+    format_category(&mut out, "Pure Primary Dyes", &pure_primary_dye_names, 3);
+    format_category(&mut out, "Primary Dyes", &primary_dye_names, 3);
+    format_category(&mut out, "Secondary Dyes", &secondary_dye_names, 3);
+    format_category(&mut out, "Tertiary Dyes", &tertiary_dye_names, 3);
     format_category(&mut out, "Action Cards", &action_names, 4);
     format_category(&mut out, "Double Materials", &double_material_names, 1);
     format_category(&mut out, "Material + Color", &material_color_names, 1);
