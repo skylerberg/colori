@@ -147,3 +147,174 @@ pub fn confirm_pass(state: &mut GameState) {
         panic!("Expected draft phase");
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::apply_choice::apply_choice;
+    use crate::colori_game::enumerate_choices;
+    use crate::draw_phase::execute_draw_phase;
+    use crate::scoring::calculate_score;
+    use crate::setup::create_initial_game_state;
+    use crate::types::*;
+    use crate::unordered_cards::{
+        get_buyer_registry, get_card_registry, set_buyer_registry, set_card_registry,
+    };
+    use rand::rngs::SmallRng;
+    use rand::SeedableRng;
+
+    fn test_serialize(state: &GameState) -> String {
+        set_card_registry(&state.card_lookup);
+        set_buyer_registry(&state.buyer_lookup);
+        serde_json::to_string(state).unwrap()
+    }
+
+    fn test_deserialize(json: &str) -> GameState {
+        let mut state: GameState = serde_json::from_str(json).unwrap();
+        state.card_lookup = get_card_registry();
+        state.buyer_lookup = get_buyer_registry();
+        for p in state.players.iter_mut() {
+            p.cached_score = calculate_score(p);
+        }
+        state
+    }
+
+    fn round_trip(state: &GameState) -> GameState {
+        let json = test_serialize(state);
+        test_deserialize(&json)
+    }
+
+    #[test]
+    fn test_round2_draft_hands_after_serde_round_trips() {
+        let mut rng = SmallRng::seed_from_u64(42);
+        let ai_players = vec![false, true, true];
+        let mut state = create_initial_game_state(3, &ai_players, &mut rng);
+
+        // Play through round 1 fully using enumerate_choices + apply_choice
+        assert_eq!(state.round, 1);
+
+        // Execute draw phase to start round 1
+        execute_draw_phase(&mut state, &mut rng);
+        assert!(matches!(state.phase, GamePhase::Draft { .. }));
+
+        // Play through all phases until round 2
+        loop {
+            if state.round == 2 && matches!(state.phase, GamePhase::Draw) {
+                break;
+            }
+
+            let choices = enumerate_choices(&state);
+            if choices.is_empty() {
+                // waiting_for_pass - call confirm_pass
+                confirm_pass(&mut state);
+                continue;
+            }
+            apply_choice(&mut state, &choices[0], &mut rng);
+        }
+
+        // Now at round 2 draw phase - execute draw to initialize draft
+        execute_draw_phase(&mut state, &mut rng);
+        assert!(matches!(state.phase, GamePhase::Draft { .. }));
+        assert_eq!(state.round, 2);
+
+        // Verify all 3 hands have 5 cards
+        if let GamePhase::Draft { ref draft_state } = state.phase {
+            for i in 0..3 {
+                assert_eq!(
+                    draft_state.hands[i].len(),
+                    5,
+                    "Hand {} should have 5 cards before any picks",
+                    i
+                );
+            }
+            // In round 2, starting player is (2-1) % 3 = player 1 (AI)
+            assert_eq!(draft_state.current_player_index, 1);
+        }
+
+        // Simulate the frontend's WASM round-trip pattern for AI picks.
+        // The frontend does: serialize -> deserialize -> applyChoice -> serialize -> deserialize -> confirmPass
+        // for each AI pick.
+
+        // AI player 1 picks
+        let choices = enumerate_choices(&state);
+        assert!(!choices.is_empty(), "AI player 1 should have draft choices");
+        // Round trip before applying choice (simulating frontend state passing)
+        state = round_trip(&state);
+        apply_choice(&mut state, &choices[0], &mut rng);
+        // Round trip after applying choice (the applyChoice WASM call returns serialized state)
+        state = round_trip(&state);
+
+        // Check hand[0] after first AI pick + round trips
+        if let GamePhase::Draft { ref draft_state } = state.phase {
+            assert_eq!(
+                draft_state.hands[0].len(),
+                5,
+                "Hand 0 should still have 5 cards after player 1's pick (before confirm_pass)"
+            );
+        }
+
+        // confirmPass round trip
+        confirm_pass(&mut state);
+        state = round_trip(&state);
+
+        if let GamePhase::Draft { ref draft_state } = state.phase {
+            assert_eq!(
+                draft_state.hands[0].len(),
+                5,
+                "Hand 0 should still have 5 cards after player 1's confirm_pass"
+            );
+        }
+
+        // AI player 2 picks
+        let choices = enumerate_choices(&state);
+        assert!(!choices.is_empty(), "AI player 2 should have draft choices");
+        state = round_trip(&state);
+        apply_choice(&mut state, &choices[0], &mut rng);
+        state = round_trip(&state);
+
+        if let GamePhase::Draft { ref draft_state } = state.phase {
+            assert_eq!(
+                draft_state.hands[0].len(),
+                5,
+                "Hand 0 should still have 5 cards after player 2's pick (before confirm_pass)"
+            );
+        }
+
+        // After player 2 picks, all players have picked once, so advance_draft rotates hands.
+        // Now it should be player 1's turn again (starting player for pick 2).
+        // But first check that hand 0 still has the right number of cards.
+        // After rotation, each hand should have 4 cards (since one was picked from each).
+
+        // The human (player 0) should now pick. They should see their hand.
+        let choices = enumerate_choices(&state);
+        if choices.is_empty() {
+            // May need to confirm_pass first
+            confirm_pass(&mut state);
+            state = round_trip(&state);
+        }
+        let choices = enumerate_choices(&state);
+
+        // The human should have choices matching their hand size
+        let hand_size = if let GamePhase::Draft { ref draft_state } = state.phase {
+            draft_state.hands[draft_state.current_player_index].len()
+        } else {
+            panic!("Expected draft phase");
+        };
+
+        assert_eq!(
+            choices.len(),
+            hand_size as usize,
+            "Number of draft choices should match hand size for human player"
+        );
+
+        // Player 0 hasn't picked yet, so their hand should still have 5 cards.
+        // (Rotation only happens after ALL players in a round have picked.)
+        if let GamePhase::Draft { ref draft_state } = state.phase {
+            assert_eq!(
+                draft_state.hands[0].len(),
+                5,
+                "Hand 0 should have 5 cards - player 0 hasn't picked yet"
+            );
+        }
+    }
+}
