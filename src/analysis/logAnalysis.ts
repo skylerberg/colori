@@ -1,5 +1,5 @@
 import type { StructuredGameLog, FinalPlayerStats, PlayerVariant } from '../gameLog';
-import type { AnyCardData } from '../data/types';
+import type { AnyCardData, ColoriChoice } from '../data/types';
 import type { CardCategory } from '../data/cards';
 import { getAnyCardData, getDraftCopies } from '../data/cards';
 
@@ -22,7 +22,7 @@ export function computePlayerFilter(logs: StructuredGameLog[], variantLabel: str
   return filter;
 }
 
-function getCardName(card: string): string {
+export function getCardName(card: string): string {
   const data = getAnyCardData(card);
   if (!data) return card;
   if (data.kind === 'buyer') {
@@ -33,7 +33,7 @@ function getCardName(card: string): string {
   return data.name;
 }
 
-function buildCardInstanceMap(log: StructuredGameLog): Map<number, { instanceId: number; card: string }> {
+export function buildCardInstanceMap(log: StructuredGameLog): Map<number, { instanceId: number; card: string }> {
   const map = new Map<number, { instanceId: number; card: string }>();
   const addCards = (cards: { instanceId: number; card: string }[]) => {
     for (const c of cards) map.set(c.instanceId, c);
@@ -51,7 +51,7 @@ function buildCardInstanceMap(log: StructuredGameLog): Map<number, { instanceId:
   return map;
 }
 
-function buildBuyerInstanceMap(log: StructuredGameLog): Map<number, { instanceId: number; card: string }> {
+export function buildBuyerInstanceMap(log: StructuredGameLog): Map<number, { instanceId: number; card: string }> {
   const map = new Map<number, { instanceId: number; card: string }>();
   const addBuyers = (buyers: { instanceId: number; card: string }[]) => {
     for (const b of buyers) map.set(b.instanceId, b);
@@ -63,6 +63,61 @@ function buildBuyerInstanceMap(log: StructuredGameLog): Map<number, { instanceId
   addBuyers(state.buyerDeck);
   addBuyers(state.buyerDisplay);
   return map;
+}
+
+export function formatChoice(
+  choice: ColoriChoice,
+  cardMap: Map<number, { instanceId: number; card: string }>,
+  buyerMap: Map<number, { instanceId: number; card: string }>,
+): string {
+  const cardName = (id: number) => {
+    const inst = cardMap.get(id);
+    return inst ? getCardName(inst.card) : `Card #${id}`;
+  };
+  const buyerName = (id: number) => {
+    const inst = buyerMap.get(id);
+    return inst ? getCardName(inst.card) : `Buyer #${id}`;
+  };
+  const cardNames = (ids: number[]) => ids.map(cardName).join(', ');
+
+  switch (choice.type) {
+    case 'draftPick':
+      return `Drafted ${cardName(choice.cardInstanceId)}`;
+    case 'destroyDraftedCard':
+      return `Destroyed ${cardName(choice.cardInstanceId)} from draft`;
+    case 'endTurn':
+      return 'Ended turn';
+    case 'workshop':
+      return choice.cardInstanceIds.length > 0
+        ? `Workshopped ${cardNames(choice.cardInstanceIds)}`
+        : 'Workshopped nothing';
+    case 'skipWorkshop':
+      return 'Skipped workshop';
+    case 'destroyDrawnCards':
+      return `Destroyed ${cardNames(choice.cardInstanceIds)} from workshop`;
+    case 'selectBuyer':
+      return `Sold to ${buyerName(choice.buyerInstanceId)}`;
+    case 'gainSecondary':
+      return `Gained ${choice.color} (secondary)`;
+    case 'gainPrimary':
+      return `Gained ${choice.color} (primary)`;
+    case 'mixAll':
+      return choice.mixes.length > 0
+        ? `Mixed ${choice.mixes.map(([a, b]) => `${a}+${b}`).join(', ')}`
+        : 'Skipped mixing';
+    case 'swapTertiary':
+      return `Swapped ${choice.loseColor} for ${choice.gainColor}`;
+    case 'destroyAndMixAll':
+      return choice.mixes.length > 0
+        ? `Destroyed ${cardName(choice.cardInstanceId)} and mixed ${choice.mixes.map(([a, b]) => `${a}+${b}`).join(', ')}`
+        : `Destroyed ${cardName(choice.cardInstanceId)} and skipped mixing`;
+    case 'destroyAndSell':
+      return `Destroyed ${cardName(choice.cardInstanceId)} and sold to ${buyerName(choice.buyerInstanceId)}`;
+    case 'keepWorkshopCards':
+      return choice.cardInstanceIds.length > 0
+        ? `Kept ${cardNames(choice.cardInstanceIds)} in workshop`
+        : 'Kept nothing';
+  }
 }
 
 export function computeActionDistribution(logs: StructuredGameLog[], playerFilter?: PlayerFilter): Map<string, number> {

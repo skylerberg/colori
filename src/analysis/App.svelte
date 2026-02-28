@@ -3,8 +3,9 @@
   import { formatVariantLabel } from './logAnalysis';
   import AnalysisDashboard from './AnalysisDashboard.svelte';
   import CardReference from './CardReference.svelte';
+  import GameViewer from './GameViewer.svelte';
 
-  let activeTab: 'analysis' | 'cardReference' = $state('analysis');
+  let activeTab: 'analysis' | 'cardReference' | 'gameViewer' = $state('analysis');
 
   interface TaggedGameLog {
     log: StructuredGameLog;
@@ -16,6 +17,7 @@
   let error: string | null = $state(null);
   let selectedBatch: string = $state("all");
   let selectedVariant: string = $state("all");
+  let selectedGameIndex: number | null = $state(null);
 
   interface BatchInfo {
     count: number;
@@ -95,6 +97,7 @@
   $effect(() => {
     if (selectedBatch !== previousBatch) {
       selectedVariant = "all";
+      selectedGameIndex = null;
       previousBatch = selectedBatch;
     }
   });
@@ -155,6 +158,8 @@
       onclick={() => activeTab = 'analysis'}>Game Analysis</button>
     <button class="tab" class:active={activeTab === 'cardReference'}
       onclick={() => activeTab = 'cardReference'}>Card Reference</button>
+    <button class="tab" class:active={activeTab === 'gameViewer'}
+      onclick={() => activeTab = 'gameViewer'}>Game Viewer</button>
   </nav>
 
   {#if activeTab === 'analysis'}
@@ -213,6 +218,31 @@
     {/if}
   {:else if activeTab === 'cardReference'}
     <CardReference />
+  {:else if activeTab === 'gameViewer'}
+    {#if filteredLogs.length === 0}
+      <p>Load game logs to view individual games.</p>
+    {:else}
+      <div class="game-selector">
+        <label>
+          Select game:
+          <select bind:value={selectedGameIndex}>
+            <option value={null}>-- Choose a game --</option>
+            {#each filteredLogs as game, i}
+              <option value={i}>
+                Game {i + 1}: {game.playerNames.join(' vs ')}
+                {#if game.finalScores}
+                  ({game.finalScores.map(fs => `${fs.name}: ${fs.score}`).join(', ')})
+                {/if}
+                — {game.entries.length > 0 ? Math.max(...game.entries.map(e => e.round)) : 0} rounds
+              </option>
+            {/each}
+          </select>
+        </label>
+      </div>
+      {#if selectedGameIndex != null && filteredLogs[selectedGameIndex]}
+        <GameViewer log={filteredLogs[selectedGameIndex]} />
+      {/if}
+    {/if}
   {/if}
 </main>
 
@@ -262,6 +292,12 @@
     color: #333;
     font-weight: bold;
     border-bottom-color: #4a9eff;
+  }
+  .game-selector {
+    margin: 0.5rem 0 1rem;
+  }
+  .game-selector select {
+    max-width: 100%;
   }
   .error {
     color: red;
