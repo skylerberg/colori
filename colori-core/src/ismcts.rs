@@ -1,6 +1,7 @@
 use crate::colori_game::{
-    apply_choice_to_state, apply_rollout_step, check_choice_available, determinize_in_place,
-    enumerate_choices_canonical_into, enumerate_choices_into, get_game_status, GameStatus,
+    abstract_choice, apply_choice_to_state, apply_rollout_step, deduplicate_choices,
+    determinize_in_place, enumerate_choices_canonical_into, enumerate_choices_into,
+    get_game_status, resolve_abstract_choice, GameStatus,
 };
 use crate::scoring::calculate_score;
 use crate::types::*;
@@ -14,6 +15,7 @@ pub struct MctsConfig {
     pub exploration_constant: f64,
     pub max_rollout_steps: u32,
     pub canonical_ordering: bool,
+    pub abstract_choices: bool,
 }
 
 impl Default for MctsConfig {
@@ -23,6 +25,7 @@ impl Default for MctsConfig {
             exploration_constant: std::f64::consts::SQRT_2,
             max_rollout_steps: 1000,
             canonical_ordering: false,
+            abstract_choices: false,
         }
     }
 }
@@ -43,6 +46,8 @@ impl<'de> Deserialize<'de> for MctsConfig {
             max_rollout_steps: u32,
             #[serde(default)]
             canonical_ordering: bool,
+            #[serde(default)]
+            abstract_choices: bool,
         }
 
         fn default_iterations() -> u32 { 100 }
@@ -55,6 +60,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
             exploration_constant: helper.exploration_constant,
             max_rollout_steps: helper.max_rollout_steps,
             canonical_ordering: helper.canonical_ordering,
+            abstract_choices: helper.abstract_choices,
         })
     }
 }
@@ -63,13 +69,13 @@ struct MctsNode {
     games: u32,
     cumulative_reward: f64,
     player_id: usize,
-    choice: Option<ColoriChoice>,
+    choice: Option<AbstractChoice>,
     availability_count: u32,
     children: Vec<MctsNode>,
 }
 
 impl MctsNode {
-    fn new(player_id: usize, choice: Option<ColoriChoice>) -> Self {
+    fn new(player_id: usize, choice: Option<AbstractChoice>) -> Self {
         MctsNode {
             games: 0,
             cumulative_reward: 0.0,
@@ -84,7 +90,13 @@ impl MctsNode {
         self.choice.is_none()
     }
 
-    fn expand<R: Rng>(&mut self, choices: &mut Vec<ColoriChoice>, active_player: usize, rng: &mut R) {
+    fn expand<R: Rng>(
+        &mut self,
+        choices: &mut Vec<ColoriChoice>,
+        active_player: usize,
+        state: &GameState,
+        rng: &mut R,
+    ) {
         // Shuffle choices in place
         let len = choices.len();
         for i in (1..len).rev() {
@@ -93,13 +105,22 @@ impl MctsNode {
         }
 
         let mut added_new_node = false;
+        // Track which abstract choices we've already incremented availability for
+        // to avoid double-counting duplicates within the same determinization
+        let mut seen_this_expand: SmallVec<[usize; 32]> = SmallVec::new();
 
         for choice in choices.iter() {
-            if let Some(child) = self.children.iter_mut().find(|c| c.choice.as_ref() == Some(choice)) {
-                child.availability_count += 1;
+            let abs = abstract_choice(choice, state);
+            if let Some(idx) = self.children.iter().position(|c| c.choice.as_ref() == Some(&abs))
+            {
+                if !seen_this_expand.contains(&idx) {
+                    self.children[idx].availability_count += 1;
+                    seen_this_expand.push(idx);
+                }
             } else if self.is_root() || !added_new_node {
-                let mut new_node = MctsNode::new(active_player, Some(choice.clone()));
+                let mut new_node = MctsNode::new(active_player, Some(abs));
                 new_node.availability_count = 1;
+                seen_this_expand.push(self.children.len());
                 self.children.push(new_node);
                 added_new_node = true;
             }
@@ -142,6 +163,9 @@ pub fn ismcts<R: Rng>(
     } else {
         enumerate_choices_into(state, &mut choices_buf);
     }
+    if config.abstract_choices {
+        deduplicate_choices(&mut choices_buf, state);
+    }
     if choices_buf.len() == 1 {
         return choices_buf.swap_remove(0);
     }
@@ -176,7 +200,9 @@ pub fn ismcts<R: Rng>(
         }
     }
 
-    best_child.unwrap().choice.clone().unwrap()
+    // Resolve the best AbstractChoice back to a concrete ColoriChoice using the original state
+    let best_abs = best_child.unwrap().choice.as_ref().unwrap();
+    resolve_abstract_choice(best_abs, state).unwrap()
 }
 
 fn iteration<R: Rng>(
@@ -202,7 +228,10 @@ fn iteration<R: Rng>(
         } else {
             enumerate_choices_into(state, choices_buf);
         }
-        node.expand(choices_buf, active_player, rng);
+        if config.abstract_choices {
+            deduplicate_choices(choices_buf, state);
+        }
+        node.expand(choices_buf, active_player, state, rng);
     }
 
     // Select
@@ -215,9 +244,10 @@ fn iteration<R: Rng>(
         }
     };
 
-    // Apply choice
-    let choice = node.children[best_idx].choice.as_ref().unwrap();
-    apply_choice_to_state(state, choice, rng);
+    // Resolve AbstractChoice to concrete ColoriChoice and apply
+    let abs = node.children[best_idx].choice.as_ref().unwrap();
+    let choice = resolve_abstract_choice(abs, state).unwrap();
+    apply_choice_to_state(state, &choice, rng);
 
     let should_rollout = node.children[best_idx].games == 0;
 
@@ -241,7 +271,7 @@ fn select(node: &MctsNode, state: &GameState, c: f64) -> Option<usize> {
     let root_ln = if node.is_root() { (node.games as f64).ln() } else { 0.0 };
 
     for (idx, child) in node.children.iter().enumerate() {
-        if !check_choice_available(state, child.choice.as_ref().unwrap()) {
+        if resolve_abstract_choice(child.choice.as_ref().unwrap(), state).is_none() {
             continue;
         }
 

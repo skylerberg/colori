@@ -836,3 +836,21 @@ pub enum ColoriChoice {
         card_instance_ids: UnorderedCards,
     },
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum AbstractChoice {
+    DraftPick { card: Card },
+    DestroyDraftedCard { card: Card },
+    EndTurn,
+    Workshop { card_types: SmallVec<[Card; 4]> },
+    SkipWorkshop,
+    DestroyDrawnCards { card_types: SmallVec<[Card; 4]> },
+    SelectBuyer { buyer: BuyerCard },
+    GainSecondary { color: Color },
+    GainPrimary { color: Color },
+    MixAll { mixes: SmallVec<[(Color, Color); 2]> },
+    SwapTertiary { lose: Color, gain: Color },
+    DestroyAndMixAll { card: Card, mixes: SmallVec<[(Color, Color); 2]> },
+    DestroyAndSell { card: Card, buyer: BuyerCard },
+    KeepWorkshopCards { card_types: SmallVec<[Card; 4]> },
+}
