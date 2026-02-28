@@ -234,18 +234,18 @@ Each player's score = buyer stars + ducats. The player with the highest score wi
 
 | Name | Material Gain | Color Pip | Destroy Ability |
 |------|--------------|-----------|-----------------|
-| Fine Ceramics | 2x Ceramics | — | Workshop ×2 |
-| Fine Paintings | 2x Paintings | — | Sell |
+| Fine Ceramics | 2x Ceramics | — | Draw Cards ×2 |
+| Fine Paintings | 2x Paintings | — | Draw Cards ×2 |
 | Fine Textiles | 2x Textiles | — | Draw Cards ×2 |
 | Terra Cotta | 1 Ceramics | Red | Workshop ×2 |
 | Ochre Ware | 1 Ceramics | Yellow | Workshop ×2 |
 | Cobalt Ware | 1 Ceramics | Blue | Workshop ×2 |
-| Cinnabar & Canvas | 1 Paintings | Red | Sell |
-| Orpiment & Canvas | 1 Paintings | Yellow | Sell |
-| Ultramarine & Canvas | 1 Paintings | Blue | Sell |
-| Alizarin & Fabric | 1 Textiles | Red | Draw Cards ×2 |
-| Fustic & Fabric | 1 Textiles | Yellow | Draw Cards ×2 |
-| Pastel & Fabric | 1 Textiles | Blue | Draw Cards ×2 |
+| Cinnabar & Canvas | 1 Paintings | Red | Workshop ×2 |
+| Orpiment & Canvas | 1 Paintings | Yellow | Workshop ×2 |
+| Ultramarine & Canvas | 1 Paintings | Blue | Workshop ×2 |
+| Alizarin & Fabric | 1 Textiles | Red | Workshop ×2 |
+| Fustic & Fabric | 1 Textiles | Yellow | Workshop ×2 |
+| Pastel & Fabric | 1 Textiles | Blue | Workshop ×2 |
 | Clay & Canvas | 1 Ceramics + 1 Paintings | — | Destroy Cards ×1 |
 | Clay & Fabric | 1 Ceramics + 1 Textiles | — | Destroy Cards ×1 |
 | Canvas & Fabric | 1 Paintings + 1 Textiles | — | Destroy Cards ×1 |
