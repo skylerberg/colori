@@ -1,5 +1,9 @@
 use crate::types::{Card, BuyerCard};
 
+pub const DYE_COPIES: usize = 3;
+pub const ACTION_COPIES: usize = 4;
+pub const MATERIAL_COPIES: usize = 1;
+
 pub fn basic_dye_cards() -> [Card; 3] {
     [Card::BasicRed, Card::BasicYellow, Card::BasicBlue]
 }

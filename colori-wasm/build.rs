@@ -354,24 +354,27 @@ fn main() {
     for card in dye_cards() {
         write!(
             out,
-            "DRAFT_COPY_COUNTS['{}'] = 3;\n",
-            card.name().replace('\'', "\\'")
+            "DRAFT_COPY_COUNTS['{}'] = {};\n",
+            card.name().replace('\'', "\\'"),
+            DYE_COPIES,
         )
         .unwrap();
     }
     for card in draft_material_cards() {
         write!(
             out,
-            "DRAFT_COPY_COUNTS['{}'] = 1;\n",
-            card.name().replace('\'', "\\'")
+            "DRAFT_COPY_COUNTS['{}'] = {};\n",
+            card.name().replace('\'', "\\'"),
+            MATERIAL_COPIES,
         )
         .unwrap();
     }
     for card in action_cards() {
         write!(
             out,
-            "DRAFT_COPY_COUNTS['{}'] = 4;\n",
-            card.name().replace('\'', "\\'")
+            "DRAFT_COPY_COUNTS['{}'] = {};\n",
+            card.name().replace('\'', "\\'"),
+            ACTION_COPIES,
         )
         .unwrap();
     }
@@ -447,14 +450,14 @@ fn main() {
     }
 
     out.push_str("export const DRAFT_CARD_CATEGORIES: CardCategory[] = [\n");
-    format_category(&mut out, "Pure Primary Dyes", &pure_primary_dye_names, 3);
-    format_category(&mut out, "Primary Dyes", &primary_dye_names, 3);
-    format_category(&mut out, "Secondary Dyes", &secondary_dye_names, 3);
-    format_category(&mut out, "Tertiary Dyes", &tertiary_dye_names, 3);
-    format_category(&mut out, "Action Cards", &action_names, 4);
-    format_category(&mut out, "Double Materials", &double_material_names, 1);
-    format_category(&mut out, "Material + Color", &material_color_names, 1);
-    format_category(&mut out, "Dual Materials", &dual_material_names, 1);
+    format_category(&mut out, "Pure Primary Dyes", &pure_primary_dye_names, DYE_COPIES);
+    format_category(&mut out, "Primary Dyes", &primary_dye_names, DYE_COPIES);
+    format_category(&mut out, "Secondary Dyes", &secondary_dye_names, DYE_COPIES);
+    format_category(&mut out, "Tertiary Dyes", &tertiary_dye_names, DYE_COPIES);
+    format_category(&mut out, "Action Cards", &action_names, ACTION_COPIES);
+    format_category(&mut out, "Double Materials", &double_material_names, MATERIAL_COPIES);
+    format_category(&mut out, "Material + Color", &material_color_names, MATERIAL_COPIES);
+    format_category(&mut out, "Dual Materials", &dual_material_names, MATERIAL_COPIES);
     out.push_str("];\n\n");
 
     // getStarterCardCategories

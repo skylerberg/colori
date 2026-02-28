@@ -78,7 +78,7 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
     let mut draft_deck = UnorderedCards::new();
 
     for dye in dye_cards() {
-        for _ in 0..3 {
+        for _ in 0..DYE_COPIES {
             let id = next_card_id();
             card_lookup[id as usize] = dye;
             draft_deck.insert(id);
@@ -86,13 +86,15 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
     }
 
     for &mat in &draft_material_cards() {
-        let id = next_card_id();
-        card_lookup[id as usize] = mat;
-        draft_deck.insert(id);
+        for _ in 0..MATERIAL_COPIES {
+            let id = next_card_id();
+            card_lookup[id as usize] = mat;
+            draft_deck.insert(id);
+        }
     }
 
     for action in action_cards() {
-        for _ in 0..4 {
+        for _ in 0..ACTION_COPIES {
             let id = next_card_id();
             card_lookup[id as usize] = action;
             draft_deck.insert(id);
