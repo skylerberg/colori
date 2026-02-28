@@ -6,11 +6,6 @@ use colori_core::setup::create_initial_game_state;
 use colori_core::types::*;
 use colori_core::unordered_cards::{set_buyer_registry, set_card_registry};
 
-#[cfg(feature = "nn")]
-use colori_core::nn_mcts::{nn_ismcts, onnx_evaluator::OnnxEvaluator, NnMctsConfig};
-#[cfg(feature = "nn")]
-use std::sync::Arc;
-
 use rand::rngs::SmallRng;
 use rand::seq::SliceRandom;
 use rand::Rng;
@@ -29,14 +24,12 @@ struct Args {
     output: String,
     note: Option<String>,
     variants: Option<Vec<NamedVariant>>,
-    model: Option<String>,
 }
 
 #[derive(Clone)]
 struct NamedVariant {
     name: Option<String>,
     config: MctsConfig,
-    model_path: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -45,7 +38,6 @@ struct VariantFileEntry {
     name: Option<String>,
     #[serde(flatten)]
     config: MctsConfig,
-    model: Option<String>,
 }
 
 fn parse_args() -> Args {
@@ -59,7 +51,6 @@ fn parse_args() -> Args {
     let mut output = "game-logs".to_string();
     let mut note: Option<String> = None;
     let mut variants: Option<Vec<NamedVariant>> = None;
-    let mut model: Option<String> = None;
 
     let mut i = 1;
     while i < args.len() {
@@ -88,10 +79,6 @@ fn parse_args() -> Args {
                 i += 1;
                 note = Some(args[i].clone());
             }
-            "--model" => {
-                i += 1;
-                model = Some(args[i].clone());
-            }
             "--variants" => {
                 i += 1;
                 variants = Some(
@@ -102,7 +89,6 @@ fn parse_args() -> Args {
                             NamedVariant {
                                 name: None,
                                 config: MctsConfig { iterations: iters, ..MctsConfig::default() },
-                                model_path: None,
                             }
                         })
                         .collect(),
@@ -117,7 +103,7 @@ fn parse_args() -> Args {
                 variants = Some(
                     entries
                         .into_iter()
-                        .map(|e| NamedVariant { name: e.name, config: e.config, model_path: e.model })
+                        .map(|e| NamedVariant { name: e.name, config: e.config })
                         .collect(),
                 );
             }
@@ -137,7 +123,6 @@ fn parse_args() -> Args {
         output,
         note,
         variants,
-        model,
     }
 }
 
@@ -283,11 +268,6 @@ fn has_any_difference(variants: &[NamedVariant]) -> bool {
     if variants.iter().any(|v| v.name.is_some()) {
         return true;
     }
-    // If model_path differs between variants (some NN, some ISMCTS)
-    let first_model = &variants[0].model_path;
-    if variants.iter().any(|v| &v.model_path != first_model) {
-        return true;
-    }
     let diff = compute_differing_fields(variants);
     diff.iterations || diff.exploration_constant || diff.max_rollout_steps || diff.canonical_ordering
 }
@@ -331,20 +311,11 @@ fn run_game(
     let mut entries: Vec<StructuredLogEntry> = Vec::new();
     let mut seq: u32 = 0;
 
-    #[cfg(feature = "nn")]
-    let evaluator: Option<Arc<OnnxEvaluator>> = {
-        let model_path = shuffled_variants.iter()
-            .find_map(|v| v.model_path.as_ref());
-        model_path.map(|p| Arc::new(OnnxEvaluator::new(std::path::Path::new(p)).expect("Failed to load ONNX model")))
-    };
-
     // Main game loop
     while !matches!(state.phase, GamePhase::GameOver) {
         let (player_index, phase_str) = match &state.phase {
             GamePhase::Draft { draft_state } => {
                 if draft_state.waiting_for_pass {
-                    // This shouldn't happen since apply_choice_to_state handles it,
-                    // but guard against it
                     break;
                 }
                 (draft_state.current_player_index, "draft")
@@ -356,33 +327,13 @@ fn run_game(
                 (cleanup_state.current_player_index, "cleanup")
             }
             GamePhase::Draw => {
-                // Draw phase is handled internally by apply_choice_to_state on EndTurn
                 break;
             }
             GamePhase::GameOver => break,
         };
 
         let max_round = std::cmp::max(8, state.round + 2);
-        let choice = if shuffled_variants[player_index].model_path.is_some() {
-            #[cfg(feature = "nn")]
-            {
-                let nn_config = NnMctsConfig {
-                    iterations: shuffled_variants[player_index].config.iterations,
-                    c_puct: 1.5,
-                };
-                let (choice, _visit_dist) = nn_ismcts(
-                    &state, player_index, &nn_config, evaluator.as_ref().unwrap().as_ref(),
-                    &None, Some(max_round), rng,
-                );
-                choice
-            }
-            #[cfg(not(feature = "nn"))]
-            {
-                panic!("NN-MCTS requires the 'nn' feature flag. Build with: cargo run --features nn");
-            }
-        } else {
-            ismcts(&state, player_index, &shuffled_variants[player_index].config, &None, Some(max_round), rng)
-        };
+        let choice = ismcts(&state, player_index, &shuffled_variants[player_index].config, &None, Some(max_round), rng);
 
         seq += 1;
         entries.push(StructuredLogEntry {
@@ -492,25 +443,17 @@ fn generate_batch_id() -> String {
 fn main() {
     let args = parse_args();
 
-    let mut player_variants: Vec<NamedVariant> = match &args.variants {
+    let player_variants: Vec<NamedVariant> = match &args.variants {
         Some(v) => v.clone(),
         None => vec![
             NamedVariant {
                 name: None,
                 config: MctsConfig { iterations: args.iterations, ..MctsConfig::default() },
-                model_path: None,
             };
             args.players
         ],
     };
 
-    if let Some(ref model) = args.model {
-        for v in &mut player_variants {
-            if v.model_path.is_none() {
-                v.model_path = Some(model.clone());
-            }
-        }
-    }
     let num_players = player_variants.len();
 
     if args.variants.is_some() {
@@ -527,10 +470,6 @@ fn main() {
             "Running {} games with {} players, {} ISMCTS iterations, {} threads",
             args.games, num_players, args.iterations, args.threads
         );
-    }
-
-    if let Some(ref model) = args.model {
-        eprintln!("Using NN-MCTS with model: {}", model);
     }
 
     std::fs::create_dir_all(&args.output).expect("Failed to create output directory");

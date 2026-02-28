@@ -5,16 +5,15 @@ Colori is a strategic deck-building card game for 2-5 players about dyeing mater
 ## Tech Stack
 
 - Rust (game engine), Svelte 5 + TypeScript (frontend), Vite (build tool)
-- trystero (P2P WebRTC multiplayer), PyTorch + PyO3/maturin (training), ONNX Runtime (NN inference)
+- trystero (P2P WebRTC multiplayer)
 
 ## Project Structure
 
-Rust workspace with 4 crates plus a Svelte frontend and Python training pipeline:
+Rust workspace with 3 crates plus a Svelte frontend:
 
-- `colori-core/` — Core game engine library: game logic, phases, cards, colors, AI (MCTS + NN-MCTS), state encoding
+- `colori-core/` — Core game engine library: game logic, phases, cards, colors, AI (MCTS)
 - `colori-wasm/` — WASM bindings exposing Rust engine to the browser via wasm-bindgen (JSON serialization for state passing)
 - `colori-runner/` — CLI tool for batch game simulation and benchmarking
-- `colori-python/` — PyO3 Python bindings for the AlphaZero training pipeline
 - `src/` — Svelte 5 + TypeScript frontend
   - `src/components/` — UI components (game screen, draft/action views, card display, multiplayer screens)
   - `src/data/` — TypeScript type definitions and game data (mirrors Rust types)
@@ -23,11 +22,6 @@ Rust workspace with 4 crates plus a Svelte frontend and Python training pipeline
   - `src/network/` — P2P multiplayer via trystero (host/guest controllers, state sanitization)
   - `src/analysis/` — Game log analysis dashboard
   - `src/wasm-pkg/` — Generated WASM output (gitignored)
-- `training/` — AlphaZero-style neural network training (Python/PyTorch)
-  - `train.py` — Main training loop with checkpoint resume
-  - `model.py` — ColoriNet neural network (768-dim state → policy + value)
-  - `replay_buffer.py` — Experience replay buffer
-  - `config.py` — Training hyperparameters
 - `game-logs/` — JSON game replay logs (gitignored)
 
 ## Build & Run Commands
@@ -41,17 +35,16 @@ Rust workspace with 4 crates plus a Svelte frontend and Python training pipeline
 - `cargo build --release` — Build all Rust crates
 - `cargo test` — Run Rust tests
 - `npm run run-games -- --games N --iterations I --threads T` — Batch game simulation via colori-runner
-- Training: `cd colori-python && maturin develop --release`, then `cd training && python train.py`
 
 ## Architecture Notes
 
 - Game state flows through phases: Draw → Draft → Action → Cleanup (repeats up to 10 rounds or until a player reaches 15+ points)
 - All game logic lives in Rust (`colori-core`); other crates and the frontend consume it through bindings
-- AI uses Information Set MCTS (for imperfect information); NN-MCTS adds AlphaZero-style neural network policy/value guidance
+- AI uses Information Set MCTS (for imperfect information)
 - Frontend runs AI in Web Workers; draft picks are precomputed for responsiveness
 - Online multiplayer is peer-to-peer via trystero (WebRTC); opponent hands are sanitized before sending
-- State encoding for NN: 768-dim state vector, 86-dim action features
-- Cross-language FFI: Rust ↔ WASM (JSON) ↔ TypeScript, Rust ↔ Python (NumPy/PyO3)
+- Cross-language FFI: Rust ↔ WASM (JSON) ↔ TypeScript
+- Card instance IDs (`cardInstanceId`) and buyer instance IDs (`buyerInstanceId`) use separate counters both starting from 0. In game logs, look up card IDs in `draftDeck` and player decks; look up buyer IDs in `buyerDeck` and `buyerDisplay`.
 
 ## Testing
 
@@ -63,7 +56,7 @@ Rust workspace with 4 crates plus a Svelte frontend and Python training pipeline
 
 - No explicit formatter/linter configs — use default `rustfmt` for Rust and default formatting for TypeScript
 - Rust types use `#[derive(Debug, Clone, Serialize, Deserialize)]` extensively; add `Copy, PartialEq, Eq, Hash` where appropriate
-- Serde JSON is the serialization format for game state across all boundaries (WASM, Python, game logs)
+- Serde JSON is the serialization format for game state across all boundaries (WASM, game logs)
 - TypeScript uses discriminated unions for game phases (e.g., `{ type: 'draft'; draftState: ... }`)
 - TypeScript interfaces for sanitized/public state use `Sanitized` prefix (e.g., `SanitizedGameState`)
 

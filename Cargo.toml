@@ -1,3 +1,3 @@
 [workspace]
-members = ["colori-core", "colori-wasm", "colori-runner", "colori-python"]
+members = ["colori-core", "colori-wasm", "colori-runner"]
 resolver = "2"
