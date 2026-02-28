@@ -727,17 +727,17 @@ pub struct GameState {
     pub round: u32,
     pub ai_players: FixedVec<bool, MAX_PLAYERS>,
     #[serde(skip, default = "default_card_lookup")]
-    pub card_lookup: [Card; 128],
+    pub card_lookup: [Card; 256],
     #[serde(skip, default = "default_buyer_lookup")]
-    pub buyer_lookup: [BuyerCard; 128],
+    pub buyer_lookup: [BuyerCard; 256],
 }
 
-fn default_card_lookup() -> [Card; 128] {
-    [Card::BasicRed; 128]
+fn default_card_lookup() -> [Card; 256] {
+    [Card::BasicRed; 256]
 }
 
-fn default_buyer_lookup() -> [BuyerCard; 128] {
-    [BuyerCard::Textiles2Vermilion; 128]
+fn default_buyer_lookup() -> [BuyerCard; 256] {
+    [BuyerCard::Textiles2Vermilion; 256]
 }
 
 // ── Serde helpers for UnorderedCards as Vec<u32> ──

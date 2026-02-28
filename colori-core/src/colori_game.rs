@@ -24,11 +24,13 @@ fn enumerate_subsets_into(
     f: impl Fn(UnorderedCards) -> ColoriChoice,
 ) {
     let mut sub = mask.0;
-    while sub > 0 {
-        if (sub.count_ones() as usize) <= max_size {
+    while sub[0] != 0 || sub[1] != 0 {
+        if (sub[0].count_ones() + sub[1].count_ones()) as usize <= max_size {
             choices.push(f(UnorderedCards(sub)));
         }
-        sub = (sub - 1) & mask.0;
+        let (new_lo, borrow) = sub[0].overflowing_sub(1);
+        let new_hi = if borrow { sub[1].wrapping_sub(1) } else { sub[1] };
+        sub = [new_lo & mask.0[0], new_hi & mask.0[1]];
     }
 }
 
@@ -211,11 +213,13 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>
             });
             // All non-empty subsets
             let mut sub = mask.0;
-            while sub > 0 {
+            while sub[0] != 0 || sub[1] != 0 {
                 choices.push(ColoriChoice::KeepWorkshopCards {
                     card_instance_ids: UnorderedCards(sub),
                 });
-                sub = (sub - 1) & mask.0;
+                let (new_lo, borrow) = sub[0].overflowing_sub(1);
+                let new_hi = if borrow { sub[1].wrapping_sub(1) } else { sub[1] };
+                sub = [new_lo & mask.0[0], new_hi & mask.0[1]];
             }
         }
         _ => {}
@@ -1114,7 +1118,7 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
     let mut id2: u32 = 0;
     let mut mixes = [(Color::Red, Color::Red); 2];
     let mut mix_count: usize = 0;
-    let mut selected = UnorderedCards(0);
+    let mut selected = UnorderedCards::new();
     let mut color1 = Color::Red;
     let mut color2 = Color::Red;
 
@@ -1148,7 +1152,7 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                     let mut copy = player.drafted_cards;
                     let sel = copy.draw_up_to(1, rng);
                     if !sel.is_empty() {
-                        let card_id = sel.0.trailing_zeros() as u8;
+                        let card_id = sel.lowest_bit().unwrap();
                         id1 = card_id as u32;
                         let card = state.card_lookup[card_id as usize];
                         match card.ability() {

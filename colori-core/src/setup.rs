@@ -35,8 +35,8 @@ fn reset_id_counters() {
 pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool], rng: &mut R) -> GameState {
     reset_id_counters();
 
-    let mut card_lookup = [Card::BasicRed; 128];
-    let mut buyer_lookup = [BuyerCard::Textiles2Vermilion; 128];
+    let mut card_lookup = [Card::BasicRed; 256];
+    let mut buyer_lookup = [BuyerCard::Textiles2Vermilion; 256];
 
     // Build each player's starting state
     let players: FixedVec<PlayerState, MAX_PLAYERS> = (0..num_players)

@@ -6,34 +6,34 @@ use crate::types::{BuyerCard, BuyerInstance, Card, CardInstance};
 
 // Thread-local registries for serde: map instance_id -> Card/BuyerCard
 thread_local! {
-    static CARD_REGISTRY: RefCell<[Card; 128]> = RefCell::new([Card::BasicRed; 128]);
-    static BUYER_REGISTRY: RefCell<[BuyerCard; 128]> = RefCell::new([BuyerCard::Textiles2Vermilion; 128]);
+    static CARD_REGISTRY: RefCell<[Card; 256]> = RefCell::new([Card::BasicRed; 256]);
+    static BUYER_REGISTRY: RefCell<[BuyerCard; 256]> = RefCell::new([BuyerCard::Textiles2Vermilion; 256]);
 }
 
-pub fn set_card_registry(lookup: &[Card; 128]) {
+pub fn set_card_registry(lookup: &[Card; 256]) {
     CARD_REGISTRY.with(|r| {
         *r.borrow_mut() = *lookup;
     });
 }
 
-pub fn get_card_registry() -> [Card; 128] {
+pub fn get_card_registry() -> [Card; 256] {
     CARD_REGISTRY.with(|r| *r.borrow())
 }
 
-pub fn set_buyer_registry(lookup: &[BuyerCard; 128]) {
+pub fn set_buyer_registry(lookup: &[BuyerCard; 256]) {
     BUYER_REGISTRY.with(|r| {
         *r.borrow_mut() = *lookup;
     });
 }
 
-pub fn get_buyer_registry() -> [BuyerCard; 128] {
+pub fn get_buyer_registry() -> [BuyerCard; 256] {
     BUYER_REGISTRY.with(|r| *r.borrow())
 }
 
-const BINOM: [[u64; 10]; 129] = {
-    let mut table = [[0u64; 10]; 129];
+const BINOM: [[u64; 10]; 257] = {
+    let mut table = [[0u64; 10]; 257];
     let mut n = 0usize;
-    while n <= 128 {
+    while n <= 256 {
         table[n][0] = 1;
         let mut k = 1usize;
         while k <= 9 && k <= n {
@@ -45,10 +45,10 @@ const BINOM: [[u64; 10]; 129] = {
     table
 };
 
-const BINOM_CUM: [[u64; 10]; 129] = {
-    let mut table = [[0u64; 10]; 129];
+const BINOM_CUM: [[u64; 10]; 257] = {
+    let mut table = [[0u64; 10]; 257];
     let mut n = 0usize;
-    while n <= 128 {
+    while n <= 256 {
         table[n][0] = BINOM[n][0];
         let mut k = 1usize;
         while k <= 9 {
@@ -63,93 +63,130 @@ const BINOM_CUM: [[u64; 10]; 129] = {
 macro_rules! impl_bitset {
     ($name:ident) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-        pub struct $name(pub u128);
+        pub struct $name(pub [u128; 2]);
 
         impl $name {
             #[inline]
             pub fn new() -> Self {
-                $name(0)
+                $name([0; 2])
             }
 
             #[inline]
             pub fn insert(&mut self, id: u8) {
-                self.0 |= 1u128 << id;
+                let limb = (id >> 7) as usize;
+                let bit = id & 127;
+                self.0[limb] |= 1u128 << bit;
             }
 
             #[inline]
             pub fn remove(&mut self, id: u8) {
-                self.0 &= !(1u128 << id);
+                let limb = (id >> 7) as usize;
+                let bit = id & 127;
+                self.0[limb] &= !(1u128 << bit);
             }
 
             #[inline]
             pub fn contains(&self, id: u8) -> bool {
-                (self.0 >> id) & 1 != 0
+                let limb = (id >> 7) as usize;
+                let bit = id & 127;
+                (self.0[limb] >> bit) & 1 != 0
             }
 
             #[inline]
             pub fn len(&self) -> u32 {
-                self.0.count_ones()
+                self.0[0].count_ones() + self.0[1].count_ones()
             }
 
             #[inline]
             pub fn is_empty(&self) -> bool {
-                self.0 == 0
+                self.0[0] == 0 && self.0[1] == 0
             }
 
             #[inline]
             pub fn union(self, other: Self) -> Self {
-                $name(self.0 | other.0)
+                $name([self.0[0] | other.0[0], self.0[1] | other.0[1]])
             }
 
             #[inline]
             pub fn intersection(self, other: Self) -> Self {
-                $name(self.0 & other.0)
+                $name([self.0[0] & other.0[0], self.0[1] & other.0[1]])
             }
 
             #[inline]
             pub fn difference(self, other: Self) -> Self {
-                $name(self.0 & !other.0)
+                $name([self.0[0] & !other.0[0], self.0[1] & !other.0[1]])
+            }
+
+            /// Returns the position of the lowest set bit, or None if empty.
+            #[inline]
+            pub fn lowest_bit(&self) -> Option<u8> {
+                if self.0[0] != 0 {
+                    Some(self.0[0].trailing_zeros() as u8)
+                } else if self.0[1] != 0 {
+                    Some(128 + self.0[1].trailing_zeros() as u8)
+                } else {
+                    None
+                }
             }
 
             #[inline]
             pub fn pick_random<R: Rng>(&self, rng: &mut R) -> Option<u8> {
-                let count = self.0.count_ones();
+                let count = self.len();
                 if count == 0 {
                     return None;
                 }
                 let k = rng.random_range(0..count);
-                let mut val = self.0;
-                for _ in 0..k {
-                    val &= val - 1;
+                // Find the k-th set bit across both limbs
+                let lo_count = self.0[0].count_ones();
+                if k < lo_count {
+                    let mut val = self.0[0];
+                    for _ in 0..k {
+                        val &= val - 1;
+                    }
+                    Some(val.trailing_zeros() as u8)
+                } else {
+                    let mut val = self.0[1];
+                    for _ in 0..(k - lo_count) {
+                        val &= val - 1;
+                    }
+                    Some(128 + val.trailing_zeros() as u8)
                 }
-                Some(val.trailing_zeros() as u8)
             }
 
             #[inline]
             pub fn draw<R: Rng>(&mut self, rng: &mut R) -> Option<u8> {
-                let count = self.0.count_ones();
+                let count = self.len();
                 if count == 0 {
                     return None;
                 }
                 let k = rng.random_range(0..count);
-                let mut val = self.0;
-                for _ in 0..k {
-                    val &= val - 1; // clear lowest set bit
-                }
-                let pos = val.trailing_zeros() as u8;
-                self.0 &= !(1u128 << pos);
+                let lo_count = self.0[0].count_ones();
+                let pos = if k < lo_count {
+                    let mut val = self.0[0];
+                    for _ in 0..k {
+                        val &= val - 1;
+                    }
+                    val.trailing_zeros() as u8
+                } else {
+                    let mut val = self.0[1];
+                    for _ in 0..(k - lo_count) {
+                        val &= val - 1;
+                    }
+                    128 + val.trailing_zeros() as u8
+                };
+                self.remove(pos);
                 Some(pos)
             }
 
             #[inline]
             pub fn draw_multiple<R: Rng>(&mut self, count: u32, rng: &mut R) -> Self {
-                let n = self.0.count_ones();
+                let n = self.len();
                 if count == 0 {
-                    return $name(0);
+                    return $name::new();
                 }
                 if count >= n {
                     let all = self.0;
-                    self.0 = 0;
+                    self.0 = [0; 2];
                     return $name(all);
                 }
                 let c = count as usize;
@@ -157,43 +194,75 @@ macro_rules! impl_bitset {
                 let mut k = rng.random_range(0..total);
                 let mut remaining = n as usize;
                 let mut to_pick = c;
-                let mut selected = 0u128;
-                let mut bits = self.0;
-                while to_pick > 0 {
-                    let pos = bits.trailing_zeros();
-                    bits &= bits - 1; // clear lowest set bit
+                let mut selected = [0u128; 2];
+
+                // Iterate set bits in limb 0, then limb 1
+                let mut bits0 = self.0[0];
+                while to_pick > 0 && bits0 != 0 {
+                    let pos = bits0.trailing_zeros();
+                    bits0 &= bits0 - 1;
                     remaining -= 1;
                     let threshold = BINOM[remaining][to_pick - 1];
                     if k < threshold {
-                        selected |= 1u128 << pos;
+                        selected[0] |= 1u128 << pos;
                         to_pick -= 1;
                     } else {
                         k -= threshold;
                     }
                 }
-                self.0 &= !selected;
+                let mut bits1 = self.0[1];
+                while to_pick > 0 && bits1 != 0 {
+                    let pos = bits1.trailing_zeros();
+                    bits1 &= bits1 - 1;
+                    remaining -= 1;
+                    let threshold = BINOM[remaining][to_pick - 1];
+                    if k < threshold {
+                        selected[1] |= 1u128 << pos;
+                        to_pick -= 1;
+                    } else {
+                        k -= threshold;
+                    }
+                }
+
+                self.0[0] &= !selected[0];
+                self.0[1] &= !selected[1];
                 $name(selected)
             }
 
             #[inline]
             pub fn draw_up_to<R: Rng>(&mut self, max_count: u8, rng: &mut R) -> Self {
                 if max_count == 1 {
-                    let n = self.0.count_ones();
-                    if n == 0 { return $name(0); }
+                    let n = self.len();
+                    if n == 0 { return $name::new(); }
                     let r = rng.random_range(0..(n as u64 + 1));
-                    if r == 0 { return $name(0); }
-                    let mut val = self.0;
-                    for _ in 0..(r - 1) {
-                        val &= val - 1;
+                    if r == 0 { return $name::new(); }
+                    // Find the (r-1)-th set bit
+                    let k = (r - 1) as u32;
+                    let lo_count = self.0[0].count_ones();
+                    let pos;
+                    let mut result = [0u128; 2];
+                    if k < lo_count {
+                        let mut val = self.0[0];
+                        for _ in 0..k {
+                            val &= val - 1;
+                        }
+                        pos = val.trailing_zeros() as u8;
+                        result[0] = 1u128 << pos;
+                    } else {
+                        let mut val = self.0[1];
+                        for _ in 0..(k - lo_count) {
+                            val &= val - 1;
+                        }
+                        pos = 128 + val.trailing_zeros() as u8;
+                        result[1] = 1u128 << (pos - 128);
                     }
-                    let pos = val.trailing_zeros();
-                    self.0 &= !(1u128 << pos);
-                    return $name(1u128 << pos);
+                    self.remove(pos);
+                    return $name(result);
                 }
-                let n = self.0.count_ones() as usize;
+                let n = self.len() as usize;
                 let c = (max_count as usize).min(n);
                 if c == 0 {
-                    return $name(0);
+                    return $name::new();
                 }
                 let total = BINOM_CUM[n][c];
                 let mut r = rng.random_range(0..total);
@@ -209,56 +278,79 @@ macro_rules! impl_bitset {
                     }
                 }
                 if size == 0 {
-                    return $name(0);
+                    return $name::new();
                 }
                 // Unrank within the size bucket using combinatorial number system
                 let mut remaining = n;
                 let mut to_pick = size;
-                let mut selected = 0u128;
-                let mut bits = self.0;
-                while to_pick > 0 {
-                    let pos = bits.trailing_zeros();
-                    bits &= bits - 1;
+                let mut selected = [0u128; 2];
+
+                let mut bits0 = self.0[0];
+                while to_pick > 0 && bits0 != 0 {
+                    let pos = bits0.trailing_zeros();
+                    bits0 &= bits0 - 1;
                     remaining -= 1;
                     let threshold = BINOM[remaining][to_pick - 1];
                     if r < threshold {
-                        selected |= 1u128 << pos;
+                        selected[0] |= 1u128 << pos;
                         to_pick -= 1;
                     } else {
                         r -= threshold;
                     }
                 }
-                self.0 &= !selected;
+                let mut bits1 = self.0[1];
+                while to_pick > 0 && bits1 != 0 {
+                    let pos = bits1.trailing_zeros();
+                    bits1 &= bits1 - 1;
+                    remaining -= 1;
+                    let threshold = BINOM[remaining][to_pick - 1];
+                    if r < threshold {
+                        selected[1] |= 1u128 << pos;
+                        to_pick -= 1;
+                    } else {
+                        r -= threshold;
+                    }
+                }
+
+                self.0[0] &= !selected[0];
+                self.0[1] &= !selected[1];
                 $name(selected)
             }
 
             #[inline]
             pub fn iter(self) -> BitIter {
-                BitIter(self.0)
+                BitIter { lo: self.0[0], hi: self.0[1] }
             }
         }
     };
 }
 
-pub struct BitIter(u128);
+pub struct BitIter {
+    lo: u128,
+    hi: u128,
+}
 
 impl Iterator for BitIter {
     type Item = u8;
 
     #[inline]
     fn next(&mut self) -> Option<u8> {
-        if self.0 == 0 {
-            None
-        } else {
-            let pos = self.0.trailing_zeros() as u8;
-            self.0 &= self.0 - 1; // clear lowest set bit
+        if self.lo != 0 {
+            let pos = self.lo.trailing_zeros() as u8;
+            self.lo &= self.lo - 1;
             Some(pos)
+        } else if self.hi != 0 {
+            let pos = self.hi.trailing_zeros() as u8;
+            self.hi &= self.hi - 1;
+            Some(128 + pos)
+        } else {
+            None
         }
     }
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let c = self.0.count_ones() as usize;
+        let c = (self.lo.count_ones() + self.hi.count_ones()) as usize;
         (c, Some(c))
     }
 }
@@ -380,6 +472,20 @@ mod tests {
     }
 
     #[test]
+    fn test_insert_high_ids() {
+        let mut s = UnorderedCards::new();
+        s.insert(128);
+        s.insert(200);
+        s.insert(255);
+        assert_eq!(s.len(), 3);
+        assert!(s.contains(128));
+        assert!(s.contains(200));
+        assert!(s.contains(255));
+        assert!(!s.contains(127));
+        assert!(!s.contains(0));
+    }
+
+    #[test]
     fn test_insert_idempotent() {
         let mut s = UnorderedCards::new();
         s.insert(42);
@@ -397,6 +503,14 @@ mod tests {
     }
 
     #[test]
+    fn test_remove_high_id() {
+        let mut s = UnorderedCards::new();
+        s.insert(200);
+        s.remove(200);
+        assert!(s.is_empty());
+    }
+
+    #[test]
     fn test_remove_nonexistent() {
         let mut s = UnorderedCards::new();
         s.remove(50);
@@ -409,6 +523,8 @@ mod tests {
         assert!(!s.contains(0));
         assert!(!s.contains(64));
         assert!(!s.contains(127));
+        assert!(!s.contains(128));
+        assert!(!s.contains(255));
     }
 
     #[test]
@@ -434,6 +550,22 @@ mod tests {
         assert!(u.contains(0));
         assert!(u.contains(1));
         assert!(u.contains(2));
+    }
+
+    #[test]
+    fn test_union_across_limbs() {
+        let mut a = UnorderedCards::new();
+        a.insert(50);
+        a.insert(200);
+        let mut b = UnorderedCards::new();
+        b.insert(100);
+        b.insert(250);
+        let u = a.union(b);
+        assert_eq!(u.len(), 4);
+        assert!(u.contains(50));
+        assert!(u.contains(100));
+        assert!(u.contains(200));
+        assert!(u.contains(250));
     }
 
     #[test]
@@ -567,6 +699,17 @@ mod tests {
     }
 
     #[test]
+    fn test_iter_across_limbs() {
+        let mut s = UnorderedCards::new();
+        s.insert(50);
+        s.insert(127);
+        s.insert(128);
+        s.insert(200);
+        let elems: Vec<u8> = s.iter().collect();
+        assert_eq!(elems, vec![50, 127, 128, 200]);
+    }
+
+    #[test]
     fn test_iter_all_low_bits() {
         let mut s = UnorderedCards::new();
         for i in 0..8 {
@@ -624,6 +767,16 @@ mod tests {
         let mut rng = SmallRng::seed_from_u64(42);
         for _ in 0..10 {
             assert_eq!(s.pick_random(&mut rng), Some(99));
+        }
+    }
+
+    #[test]
+    fn test_pick_random_high_id() {
+        let mut s = UnorderedCards::new();
+        s.insert(200);
+        let mut rng = SmallRng::seed_from_u64(42);
+        for _ in 0..10 {
+            assert_eq!(s.pick_random(&mut rng), Some(200));
         }
     }
 
@@ -768,11 +921,11 @@ mod tests {
             s
         };
         let mut rng = SmallRng::seed_from_u64(42);
-        let mut counts: HashMap<u128, u32> = HashMap::new();
+        let mut counts: HashMap<UnorderedCards, u32> = HashMap::new();
         for _ in 0..10_000 {
             let mut s = base;
             let drawn = s.draw_multiple(2, &mut rng);
-            *counts.entry(drawn.0).or_insert(0) += 1;
+            *counts.entry(drawn).or_insert(0) += 1;
         }
         // C(5,2) = 10 possible subsets
         assert_eq!(counts.len(), 10);
@@ -846,11 +999,35 @@ mod tests {
         assert!(saw_empty, "draw_up_to never returned empty in 1000 trials");
     }
 
+    // ── lowest_bit ──
+
+    #[test]
+    fn test_lowest_bit_empty() {
+        let s = UnorderedCards::new();
+        assert_eq!(s.lowest_bit(), None);
+    }
+
+    #[test]
+    fn test_lowest_bit_lo() {
+        let mut s = UnorderedCards::new();
+        s.insert(42);
+        s.insert(100);
+        assert_eq!(s.lowest_bit(), Some(42));
+    }
+
+    #[test]
+    fn test_lowest_bit_hi_only() {
+        let mut s = UnorderedCards::new();
+        s.insert(200);
+        s.insert(250);
+        assert_eq!(s.lowest_bit(), Some(200));
+    }
+
     // ── BINOM table ──
 
     #[test]
     fn test_binom_base_cases() {
-        for n in [0, 1, 10, 50, 128] {
+        for n in [0, 1, 10, 50, 128, 256] {
             assert_eq!(BINOM[n][0], 1, "BINOM[{}][0] should be 1", n);
         }
         for k in 1..10 {
@@ -863,6 +1040,7 @@ mod tests {
         assert_eq!(BINOM[5][2], 10);
         assert_eq!(BINOM[10][3], 120);
         assert_eq!(BINOM[128][1], 128);
+        assert_eq!(BINOM[256][1], 256);
     }
 
     #[test]
@@ -879,7 +1057,7 @@ mod tests {
 
     #[test]
     fn test_serde_roundtrip_cards() {
-        let mut registry = [Card::BasicRed; 128];
+        let mut registry = [Card::BasicRed; 256];
         registry[0] = Card::BasicRed;
         registry[5] = Card::BasicYellow;
         registry[10] = Card::BasicBlue;
@@ -897,7 +1075,7 @@ mod tests {
 
     #[test]
     fn test_serde_roundtrip_empty() {
-        set_card_registry(&[Card::BasicRed; 128]);
+        set_card_registry(&[Card::BasicRed; 256]);
         let s = UnorderedCards::new();
         let json = serde_json::to_string(&s).unwrap();
         assert_eq!(json, "[]");
@@ -907,7 +1085,7 @@ mod tests {
 
     #[test]
     fn test_serde_roundtrip_buyers() {
-        let mut registry = [BuyerCard::Textiles2Vermilion; 128];
+        let mut registry = [BuyerCard::Textiles2Vermilion; 256];
         registry[0] = BuyerCard::Textiles2Vermilion;
         registry[3] = BuyerCard::Textiles2Amber;
         registry[7] = BuyerCard::Textiles2Chartreuse;
@@ -966,7 +1144,7 @@ mod tests {
     #[test]
     fn test_binom_cum_base() {
         // BINOM_CUM[n][0] should always equal 1 (= BINOM[n][0])
-        for n in [0, 1, 10, 50, 128] {
+        for n in [0, 1, 10, 50, 128, 256] {
             assert_eq!(BINOM_CUM[n][0], 1, "BINOM_CUM[{}][0] should be 1", n);
         }
     }
