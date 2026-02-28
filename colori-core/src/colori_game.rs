@@ -1,8 +1,8 @@
 use crate::action_phase::{
-    destroy_drafted_card, end_player_turn, initialize_action_phase, process_queue,
-    resolve_choose_tertiary_to_gain, resolve_choose_tertiary_to_lose, resolve_destroy_cards,
-    resolve_gain_primary, resolve_gain_secondary, resolve_keep_workshop_cards,
-    resolve_select_buyer, resolve_workshop_choice, skip_workshop,
+    ability_canonical_phase, destroy_drafted_card, end_player_turn, initialize_action_phase,
+    process_queue, resolve_choose_tertiary_to_gain, resolve_choose_tertiary_to_lose,
+    resolve_destroy_cards, resolve_gain_primary, resolve_gain_secondary,
+    resolve_keep_workshop_cards, resolve_select_buyer, resolve_workshop_choice, skip_workshop,
 };
 use crate::apply_choice::apply_choice;
 use crate::color_wheel::{can_pay_cost, pay_cost, perform_mix_unchecked};
@@ -226,6 +226,36 @@ pub fn enumerate_choices(state: &GameState) -> Vec<ColoriChoice> {
     let mut choices = Vec::new();
     enumerate_choices_into(state, &mut choices);
     choices
+}
+
+pub fn filter_choices_canonical(state: &GameState, choices: &mut Vec<ColoriChoice>) {
+    let canonical_phase = match &state.phase {
+        GamePhase::Action { action_state } if action_state.pending_choice.is_none() => {
+            action_state.canonical_phase
+        }
+        _ => return,
+    };
+    if canonical_phase == 0 {
+        return;
+    }
+    choices.retain(|choice| match choice {
+        ColoriChoice::EndTurn => true,
+        ColoriChoice::DestroyDraftedCard { card_instance_id } => {
+            let card = state.card_lookup[*card_instance_id as usize];
+            match ability_canonical_phase(&card.ability()) {
+                Some(phase) => phase >= canonical_phase,
+                None => true,
+            }
+        }
+        ColoriChoice::DestroyAndMixAll { .. } => 1 >= canonical_phase,
+        ColoriChoice::DestroyAndSell { .. } => true, // phase 2, always highest
+        _ => true,
+    });
+}
+
+pub fn enumerate_choices_canonical_into(state: &GameState, choices: &mut Vec<ColoriChoice>) {
+    enumerate_choices_into(state, choices);
+    filter_choices_canonical(state, choices);
 }
 
 // ── Apply choice with AI post-processing ──

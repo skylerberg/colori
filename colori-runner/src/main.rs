@@ -245,6 +245,9 @@ fn format_variant_label(variant: &NamedVariant, differing: &DifferingFields) -> 
     if differing.max_rollout_steps {
         parts.push(format!("rollout={}", variant.config.max_rollout_steps));
     }
+    if differing.canonical_ordering && variant.config.canonical_ordering {
+        parts.push("canonical".to_string());
+    }
     if parts.is_empty() {
         // All same config, just show iterations
         parts.push(format_iterations(variant.config.iterations));
@@ -256,17 +259,19 @@ struct DifferingFields {
     iterations: bool,
     exploration_constant: bool,
     max_rollout_steps: bool,
+    canonical_ordering: bool,
 }
 
 fn compute_differing_fields(variants: &[NamedVariant]) -> DifferingFields {
     if variants.len() <= 1 {
-        return DifferingFields { iterations: false, exploration_constant: false, max_rollout_steps: false };
+        return DifferingFields { iterations: false, exploration_constant: false, max_rollout_steps: false, canonical_ordering: false };
     }
     let first = &variants[0].config;
     DifferingFields {
         iterations: variants.iter().any(|v| v.config.iterations != first.iterations),
         exploration_constant: variants.iter().any(|v| v.config.exploration_constant != first.exploration_constant),
         max_rollout_steps: variants.iter().any(|v| v.config.max_rollout_steps != first.max_rollout_steps),
+        canonical_ordering: variants.iter().any(|v| v.config.canonical_ordering != first.canonical_ordering),
     }
 }
 
@@ -284,7 +289,7 @@ fn has_any_difference(variants: &[NamedVariant]) -> bool {
         return true;
     }
     let diff = compute_differing_fields(variants);
-    diff.iterations || diff.exploration_constant || diff.max_rollout_steps
+    diff.iterations || diff.exploration_constant || diff.max_rollout_steps || diff.canonical_ordering
 }
 
 // ── Game loop ──

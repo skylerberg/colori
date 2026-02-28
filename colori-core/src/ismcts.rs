@@ -1,4 +1,7 @@
-use crate::colori_game::*;
+use crate::colori_game::{
+    apply_choice_to_state, apply_rollout_step, check_choice_available, determinize_in_place,
+    enumerate_choices_canonical_into, enumerate_choices_into, get_game_status, GameStatus,
+};
 use crate::scoring::calculate_score;
 use crate::types::*;
 use rand::Rng;
@@ -10,6 +13,7 @@ pub struct MctsConfig {
     pub iterations: u32,
     pub exploration_constant: f64,
     pub max_rollout_steps: u32,
+    pub canonical_ordering: bool,
 }
 
 impl Default for MctsConfig {
@@ -18,6 +22,7 @@ impl Default for MctsConfig {
             iterations: 100,
             exploration_constant: std::f64::consts::SQRT_2,
             max_rollout_steps: 1000,
+            canonical_ordering: false,
         }
     }
 }
@@ -36,6 +41,8 @@ impl<'de> Deserialize<'de> for MctsConfig {
             exploration_constant: f64,
             #[serde(default = "default_max_rollout_steps")]
             max_rollout_steps: u32,
+            #[serde(default)]
+            canonical_ordering: bool,
         }
 
         fn default_iterations() -> u32 { 100 }
@@ -47,6 +54,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
             iterations: helper.iterations,
             exploration_constant: helper.exploration_constant,
             max_rollout_steps: helper.max_rollout_steps,
+            canonical_ordering: helper.canonical_ordering,
         })
     }
 }
@@ -129,7 +137,11 @@ pub fn ismcts<R: Rng>(
 ) -> ColoriChoice {
     // If there's only one legal choice, return it immediately without searching
     let mut choices_buf: Vec<ColoriChoice> = Vec::new();
-    enumerate_choices_into(state, &mut choices_buf);
+    if config.canonical_ordering {
+        enumerate_choices_canonical_into(state, &mut choices_buf);
+    } else {
+        enumerate_choices_into(state, &mut choices_buf);
+    }
     if choices_buf.len() == 1 {
         return choices_buf.swap_remove(0);
     }
@@ -148,7 +160,11 @@ pub fn ismcts<R: Rng>(
     }
 
     if root.children.is_empty() {
-        enumerate_choices_into(state, &mut choices_buf);
+        if config.canonical_ordering {
+            enumerate_choices_canonical_into(state, &mut choices_buf);
+        } else {
+            enumerate_choices_into(state, &mut choices_buf);
+        }
         let idx = rng.random_range(0..choices_buf.len());
         return choices_buf[idx].clone();
     }
@@ -181,7 +197,11 @@ fn iteration<R: Rng>(
 
     // Expand
     if !(node.is_root() && !node.children.is_empty()) {
-        enumerate_choices_into(state, choices_buf);
+        if config.canonical_ordering {
+            enumerate_choices_canonical_into(state, choices_buf);
+        } else {
+            enumerate_choices_into(state, choices_buf);
+        }
         node.expand(choices_buf, active_player, rng);
     }
 

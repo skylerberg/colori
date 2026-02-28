@@ -681,6 +681,8 @@ pub struct ActionState {
     pub current_player_index: usize,
     pub ability_stack: AbilityStack,
     pub pending_choice: Option<PendingChoice>,
+    #[serde(default)]
+    pub canonical_phase: u8,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

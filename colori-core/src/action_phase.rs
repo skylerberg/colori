@@ -8,11 +8,21 @@ use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
 use smallvec::SmallVec;
 
+pub fn ability_canonical_phase(ability: &Ability) -> Option<u8> {
+    match ability {
+        Ability::DrawCards { .. } | Ability::Workshop { .. } => Some(0),
+        Ability::MixColors { .. } => Some(1),
+        Ability::Sell => Some(2),
+        _ => None,
+    }
+}
+
 pub fn initialize_action_phase(state: &mut GameState) {
     let action_state = ActionState {
         current_player_index: ((state.round - 1) as usize) % state.players.len(),
         ability_stack: SmallVec::new(),
         pending_choice: None,
+        canonical_phase: 0,
     };
     state.phase = GamePhase::Action { action_state };
 }
@@ -32,7 +42,13 @@ pub fn destroy_drafted_card<R: Rng>(state: &mut GameState, card_instance_id: u32
     let ability = card.ability();
     state.destroyed_pile.insert(id);
 
-    get_action_state_mut(state).ability_stack.push(ability);
+    let as_ = get_action_state_mut(state);
+    if let Some(phase) = ability_canonical_phase(&ability) {
+        if phase > as_.canonical_phase {
+            as_.canonical_phase = phase;
+        }
+    }
+    as_.ability_stack.push(ability);
     process_queue(state, rng);
 }
 
@@ -432,6 +448,7 @@ pub fn end_player_turn<R: Rng>(state: &mut GameState, rng: &mut R) {
         let as_ = get_action_state_mut(state);
         as_.ability_stack.clear();
         as_.pending_choice = None;
+        as_.canonical_phase = 0;
     }
 }
 
