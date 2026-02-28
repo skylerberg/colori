@@ -65,17 +65,23 @@ impl<'de> Deserialize<'de> for MctsConfig {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum NodeChoice {
+    Abstract(AbstractChoice),
+    Concrete(ColoriChoice),
+}
+
 struct MctsNode {
     games: u32,
     cumulative_reward: f64,
     player_id: usize,
-    choice: Option<AbstractChoice>,
+    choice: Option<NodeChoice>,
     availability_count: u32,
     children: Vec<MctsNode>,
 }
 
 impl MctsNode {
-    fn new(player_id: usize, choice: Option<AbstractChoice>) -> Self {
+    fn new(player_id: usize, choice: Option<NodeChoice>) -> Self {
         MctsNode {
             games: 0,
             cumulative_reward: 0.0,
@@ -94,6 +100,7 @@ impl MctsNode {
         &mut self,
         choices: &mut Vec<ColoriChoice>,
         active_player: usize,
+        abstract_choices: bool,
         state: &GameState,
         rng: &mut R,
     ) {
@@ -105,20 +112,27 @@ impl MctsNode {
         }
 
         let mut added_new_node = false;
-        // Track which abstract choices we've already incremented availability for
+        // Track which choices we've already incremented availability for
         // to avoid double-counting duplicates within the same determinization
         let mut seen_this_expand: SmallVec<[usize; 32]> = SmallVec::new();
 
         for choice in choices.iter() {
-            let abs = abstract_choice(choice, state);
-            if let Some(idx) = self.children.iter().position(|c| c.choice.as_ref() == Some(&abs))
+            let node_choice = if abstract_choices {
+                NodeChoice::Abstract(abstract_choice(choice, state))
+            } else {
+                NodeChoice::Concrete(choice.clone())
+            };
+            if let Some(idx) = self
+                .children
+                .iter()
+                .position(|c| c.choice.as_ref() == Some(&node_choice))
             {
                 if !seen_this_expand.contains(&idx) {
                     self.children[idx].availability_count += 1;
                     seen_this_expand.push(idx);
                 }
             } else if self.is_root() || !added_new_node {
-                let mut new_node = MctsNode::new(active_player, Some(abs));
+                let mut new_node = MctsNode::new(active_player, Some(node_choice));
                 new_node.availability_count = 1;
                 seen_this_expand.push(self.children.len());
                 self.children.push(new_node);
@@ -200,9 +214,11 @@ pub fn ismcts<R: Rng>(
         }
     }
 
-    // Resolve the best AbstractChoice back to a concrete ColoriChoice using the original state
-    let best_abs = best_child.unwrap().choice.as_ref().unwrap();
-    resolve_abstract_choice(best_abs, state).unwrap()
+    // Resolve the best choice back to a concrete ColoriChoice using the original state
+    match best_child.unwrap().choice.as_ref().unwrap() {
+        NodeChoice::Abstract(abs) => resolve_abstract_choice(abs, state).unwrap(),
+        NodeChoice::Concrete(c) => c.clone(),
+    }
 }
 
 fn iteration<R: Rng>(
@@ -221,32 +237,35 @@ fn iteration<R: Rng>(
         GameStatus::AwaitingAction { player_id } => player_id,
     };
 
+    // Enumerate choices (needed for both expand and select)
+    if config.canonical_ordering {
+        enumerate_choices_canonical_into(state, choices_buf);
+    } else {
+        enumerate_choices_into(state, choices_buf);
+    }
+
     // Expand
     if !(node.is_root() && !node.children.is_empty()) {
-        if config.canonical_ordering {
-            enumerate_choices_canonical_into(state, choices_buf);
-        } else {
-            enumerate_choices_into(state, choices_buf);
-        }
-        if config.abstract_choices {
-            deduplicate_choices(choices_buf, state);
-        }
-        node.expand(choices_buf, active_player, state, rng);
+        node.expand(choices_buf, active_player, config.abstract_choices, state, rng);
     }
 
     // Select
-    let best_idx = match select(node, state, config.exploration_constant) {
-        Some(idx) => idx,
-        None => {
-            let empty_scores = SmallVec::new();
-            record_outcome(node, &empty_scores);
-            return empty_scores;
-        }
-    };
+    let best_idx =
+        match select(node, choices_buf, state, config.exploration_constant)
+        {
+            Some(idx) => idx,
+            None => {
+                let empty_scores = SmallVec::new();
+                record_outcome(node, &empty_scores);
+                return empty_scores;
+            }
+        };
 
-    // Resolve AbstractChoice to concrete ColoriChoice and apply
-    let abs = node.children[best_idx].choice.as_ref().unwrap();
-    let choice = resolve_abstract_choice(abs, state).unwrap();
+    // Resolve selected child to a concrete ColoriChoice and apply
+    let choice = match node.children[best_idx].choice.as_ref().unwrap() {
+        NodeChoice::Abstract(abs) => resolve_abstract_choice(abs, state).unwrap(),
+        NodeChoice::Concrete(c) => c.clone(),
+    };
     apply_choice_to_state(state, &choice, rng);
 
     let should_rollout = node.children[best_idx].games == 0;
@@ -264,14 +283,23 @@ fn iteration<R: Rng>(
     scores
 }
 
-fn select(node: &MctsNode, state: &GameState, c: f64) -> Option<usize> {
+fn select(
+    node: &MctsNode,
+    choices: &[ColoriChoice],
+    state: &GameState,
+    c: f64,
+) -> Option<usize> {
     let mut best_idx: Option<usize> = None;
     let mut best_value = f64::NEG_INFINITY;
 
     let root_ln = if node.is_root() { (node.games as f64).ln() } else { 0.0 };
 
     for (idx, child) in node.children.iter().enumerate() {
-        if resolve_abstract_choice(child.choice.as_ref().unwrap(), state).is_none() {
+        let available = match child.choice.as_ref().unwrap() {
+            NodeChoice::Abstract(abs) => resolve_abstract_choice(abs, state).is_some(),
+            NodeChoice::Concrete(c) => choices.contains(c),
+        };
+        if !available {
             continue;
         }
 
