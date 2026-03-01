@@ -61,7 +61,7 @@
     const idx = selectedDestroyIds.indexOf(instanceId);
     if (idx >= 0) {
       selectedDestroyIds = selectedDestroyIds.filter(id => id !== instanceId);
-    } else if (selectedDestroyIds.length < pendingChoice.count) {
+    } else if (selectedDestroyIds.length < 1) {
       selectedDestroyIds = [...selectedDestroyIds, instanceId];
     }
   }
@@ -124,7 +124,7 @@
             Skip Workshop
           </button>
         {:else if pendingChoice?.type === 'chooseCardsToDestroy'}
-          <h3>Workshop — Select up to {pendingChoice.count} card(s) to destroy</h3>
+          <h3>Workshop — Select a card to destroy</h3>
           <CardList
             cards={currentPlayer.workshopCards}
             selectable={true}

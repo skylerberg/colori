@@ -149,7 +149,7 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>
                         |ids| ColoriChoice::Workshop { card_instance_ids: ids },
                     );
                 }
-                Some(PendingChoice::ChooseCardsToDestroy { count }) => {
+                Some(PendingChoice::ChooseCardsToDestroy) => {
                     if player.workshop_cards.is_empty() {
                         choices.push(ColoriChoice::DestroyDrawnCards {
                             card_instance_ids: UnorderedCards::new(),
@@ -157,7 +157,7 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>
                     } else {
                         enumerate_subsets_into(
                             player.workshop_cards,
-                            *count as usize,
+                            1,
                             choices,
                             |ids| ColoriChoice::DestroyDrawnCards { card_instance_ids: ids },
                         );
@@ -344,7 +344,7 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
         ColoriChoice::DestroyDrawnCards { card_instance_ids } => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 match &action_state.pending_choice {
-                    Some(PendingChoice::ChooseCardsToDestroy { .. }) => {
+                    Some(PendingChoice::ChooseCardsToDestroy) => {
                         let player = &state.players[action_state.current_player_index];
                         card_instance_ids.difference(player.workshop_cards).is_empty()
                     }
@@ -769,7 +769,7 @@ pub fn resolve_abstract_choice(abs: &AbstractChoice, state: &GameState) -> Optio
         }
         AbstractChoice::DestroyDrawnCards { card_types } => {
             if let GamePhase::Action { ref action_state } = state.phase {
-                if let Some(PendingChoice::ChooseCardsToDestroy { .. }) =
+                if let Some(PendingChoice::ChooseCardsToDestroy) =
                     &action_state.pending_choice
                 {
                     let player = &state.players[action_state.current_player_index];
@@ -1193,9 +1193,9 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                     selected = copy.draw_up_to(*count as u8, rng);
                     disc = if selected.is_empty() { SKIP_WORKSHOP } else { WORKSHOP };
                 }
-                Some(PendingChoice::ChooseCardsToDestroy { count }) => {
+                Some(PendingChoice::ChooseCardsToDestroy) => {
                     let mut copy = player.workshop_cards;
-                    selected = copy.draw_up_to(*count as u8, rng);
+                    selected = copy.draw_up_to(1, rng);
                     disc = DESTROY_DRAWN;
                 }
                 Some(PendingChoice::ChooseMix { remaining }) => {

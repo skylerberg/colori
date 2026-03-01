@@ -8,7 +8,7 @@ fn format_ability(ability: &Ability) -> String {
         Ability::Workshop { count } => format!("{{ type: 'workshop', count: {} }}", count),
         Ability::DrawCards { count } => format!("{{ type: 'drawCards', count: {} }}", count),
         Ability::MixColors { count } => format!("{{ type: 'mixColors', count: {} }}", count),
-        Ability::DestroyCards { count } => format!("{{ type: 'destroyCards', count: {} }}", count),
+        Ability::DestroyCards => "{ type: 'destroyCards' }".to_string(),
         Ability::Sell => "{ type: 'sell' }".to_string(),
         Ability::GainDucats { count } => format!("{{ type: 'gainDucats', count: {} }}", count),
         Ability::GainSecondary => "{ type: 'gainSecondary' }".to_string(),

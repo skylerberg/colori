@@ -156,19 +156,19 @@ export const DRAFT_MATERIAL_CARDS: MaterialCardData[] = [
     kind: 'material',
     name: 'Fine Ceramics',
     materialTypes: ['Ceramics', 'Ceramics'],
-    ability: { type: 'destroyCards', count: 1 },
+    ability: { type: 'destroyCards' },
   },
   {
     kind: 'material',
     name: 'Fine Paintings',
     materialTypes: ['Paintings', 'Paintings'],
-    ability: { type: 'destroyCards', count: 1 },
+    ability: { type: 'destroyCards' },
   },
   {
     kind: 'material',
     name: 'Fine Textiles',
     materialTypes: ['Textiles', 'Textiles'],
-    ability: { type: 'destroyCards', count: 1 },
+    ability: { type: 'destroyCards' },
   },
   {
     kind: 'material',
@@ -237,19 +237,19 @@ export const DRAFT_MATERIAL_CARDS: MaterialCardData[] = [
     kind: 'material',
     name: 'Clay & Canvas',
     materialTypes: ['Ceramics', 'Paintings'],
-    ability: { type: 'destroyCards', count: 1 },
+    ability: { type: 'destroyCards' },
   },
   {
     kind: 'material',
     name: 'Clay & Fabric',
     materialTypes: ['Ceramics', 'Textiles'],
-    ability: { type: 'destroyCards', count: 1 },
+    ability: { type: 'destroyCards' },
   },
   {
     kind: 'material',
     name: 'Canvas & Fabric',
     materialTypes: ['Paintings', 'Textiles'],
-    ability: { type: 'destroyCards', count: 1 },
+    ability: { type: 'destroyCards' },
   },
 ];
 
@@ -278,19 +278,19 @@ export const ACTION_CARDS: ActionCardData[] = [
   {
     kind: 'action',
     name: 'Alum',
-    ability: { type: 'destroyCards', count: 1 },
+    ability: { type: 'destroyCards' },
     workshopAbilities: [{ type: 'gainDucats', count: 1 }],
   },
   {
     kind: 'action',
     name: 'Cream of Tartar',
-    ability: { type: 'destroyCards', count: 1 },
+    ability: { type: 'destroyCards' },
     workshopAbilities: [{ type: 'drawCards', count: 3 }],
   },
   {
     kind: 'action',
     name: 'Gum Arabic',
-    ability: { type: 'destroyCards', count: 1 },
+    ability: { type: 'destroyCards' },
     workshopAbilities: [{ type: 'gainSecondary' }],
   },
   {

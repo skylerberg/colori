@@ -90,9 +90,9 @@ pub fn process_queue<R: Rng>(state: &mut GameState, rng: &mut R) {
                     Some(PendingChoice::ChooseMix { remaining: count });
                 return;
             }
-            Ability::DestroyCards { count } => {
+            Ability::DestroyCards => {
                 get_action_state_mut(state).pending_choice =
-                    Some(PendingChoice::ChooseCardsToDestroy { count });
+                    Some(PendingChoice::ChooseCardsToDestroy);
                 return;
             }
             Ability::Sell => {

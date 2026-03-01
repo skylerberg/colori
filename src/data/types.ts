@@ -9,7 +9,7 @@ export type Ability =
   | { type: 'workshop'; count: number }
   | { type: 'drawCards'; count: number }
   | { type: 'mixColors'; count: number }
-  | { type: 'destroyCards'; count: number }
+  | { type: 'destroyCards' }
   | { type: 'sell' }
   | { type: 'gainDucats'; count: number }
   | { type: 'gainSecondary' }
@@ -119,7 +119,7 @@ export interface DraftState {
 
 export type PendingChoice =
   | { type: 'chooseCardsForWorkshop'; count: number }
-  | { type: 'chooseCardsToDestroy'; count: number }
+  | { type: 'chooseCardsToDestroy' }
   | { type: 'chooseMix'; remaining: number }
   | { type: 'chooseBuyer' }
   | { type: 'chooseSecondaryColor' }

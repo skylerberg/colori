@@ -77,7 +77,7 @@ pub enum Ability {
     #[serde(rename = "mixColors")]
     MixColors { count: u32 },
     #[serde(rename = "destroyCards")]
-    DestroyCards { count: u32 },
+    DestroyCards,
     #[serde(rename = "sell")]
     Sell,
     #[serde(rename = "gainDucats")]
@@ -234,11 +234,11 @@ const CARD_DATA: [CardProperties; 48] = [
     // StarterTextiles
     CardProperties { name: "Textiles", kind: CardKind::Material, ability: Ability::Workshop { count: 3 }, pips: &[], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
     // FineCeramics
-    CardProperties { name: "Fine Ceramics", kind: CardKind::Material, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[MaterialType::Ceramics, MaterialType::Ceramics], workshop_abilities: &[] },
+    CardProperties { name: "Fine Ceramics", kind: CardKind::Material, ability: Ability::DestroyCards, pips: &[], material_types: &[MaterialType::Ceramics, MaterialType::Ceramics], workshop_abilities: &[] },
     // FinePaintings
-    CardProperties { name: "Fine Paintings", kind: CardKind::Material, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[MaterialType::Paintings, MaterialType::Paintings], workshop_abilities: &[] },
+    CardProperties { name: "Fine Paintings", kind: CardKind::Material, ability: Ability::DestroyCards, pips: &[], material_types: &[MaterialType::Paintings, MaterialType::Paintings], workshop_abilities: &[] },
     // FineTextiles
-    CardProperties { name: "Fine Textiles", kind: CardKind::Material, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[MaterialType::Textiles, MaterialType::Textiles], workshop_abilities: &[] },
+    CardProperties { name: "Fine Textiles", kind: CardKind::Material, ability: Ability::DestroyCards, pips: &[], material_types: &[MaterialType::Textiles, MaterialType::Textiles], workshop_abilities: &[] },
     // TerraCotta
     CardProperties { name: "Terra Cotta", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, pips: &[Color::Red], material_types: &[MaterialType::Ceramics], workshop_abilities: &[] },
     // OchreWare
@@ -258,21 +258,21 @@ const CARD_DATA: [CardProperties; 48] = [
     // PastelFabric
     CardProperties { name: "Pastel & Fabric", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, pips: &[Color::Blue], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
     // ClayCanvas
-    CardProperties { name: "Clay & Canvas", kind: CardKind::Material, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[MaterialType::Ceramics, MaterialType::Paintings], workshop_abilities: &[] },
+    CardProperties { name: "Clay & Canvas", kind: CardKind::Material, ability: Ability::DestroyCards, pips: &[], material_types: &[MaterialType::Ceramics, MaterialType::Paintings], workshop_abilities: &[] },
     // ClayFabric
-    CardProperties { name: "Clay & Fabric", kind: CardKind::Material, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[MaterialType::Ceramics, MaterialType::Textiles], workshop_abilities: &[] },
+    CardProperties { name: "Clay & Fabric", kind: CardKind::Material, ability: Ability::DestroyCards, pips: &[], material_types: &[MaterialType::Ceramics, MaterialType::Textiles], workshop_abilities: &[] },
     // CanvasFabric
-    CardProperties { name: "Canvas & Fabric", kind: CardKind::Material, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[MaterialType::Paintings, MaterialType::Textiles], workshop_abilities: &[] },
+    CardProperties { name: "Canvas & Fabric", kind: CardKind::Material, ability: Ability::DestroyCards, pips: &[], material_types: &[MaterialType::Paintings, MaterialType::Textiles], workshop_abilities: &[] },
     // Alum
-    CardProperties { name: "Alum", kind: CardKind::Action, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::GainDucats { count: 1 }] },
+    CardProperties { name: "Alum", kind: CardKind::Action, ability: Ability::DestroyCards, pips: &[], material_types: &[], workshop_abilities: &[Ability::GainDucats { count: 1 }] },
     // CreamOfTartar
-    CardProperties { name: "Cream of Tartar", kind: CardKind::Action, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::DrawCards { count: 3 }] },
+    CardProperties { name: "Cream of Tartar", kind: CardKind::Action, ability: Ability::DestroyCards, pips: &[], material_types: &[], workshop_abilities: &[Ability::DrawCards { count: 3 }] },
     // GumArabic
-    CardProperties { name: "Gum Arabic", kind: CardKind::Action, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::GainSecondary] },
+    CardProperties { name: "Gum Arabic", kind: CardKind::Action, ability: Ability::DestroyCards, pips: &[], material_types: &[], workshop_abilities: &[Ability::GainSecondary] },
     // Potash
     CardProperties { name: "Potash", kind: CardKind::Action, ability: Ability::DrawCards { count: 2 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::Workshop { count: 3 }] },
     // Vinegar — temporarily removed from draft deck, will be added back
-    CardProperties { name: "Vinegar", kind: CardKind::Action, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::ChangeTertiary] },
+    CardProperties { name: "Vinegar", kind: CardKind::Action, ability: Ability::DestroyCards, pips: &[], material_types: &[], workshop_abilities: &[Ability::ChangeTertiary] },
     // Chalk
     CardProperties { name: "Chalk", kind: CardKind::Action, ability: Ability::Sell, pips: &[], material_types: &[], workshop_abilities: &[Ability::GainPrimary] },
 ];
@@ -680,7 +680,7 @@ pub enum PendingChoice {
     #[serde(rename = "chooseCardsForWorkshop")]
     ChooseCardsForWorkshop { count: u32 },
     #[serde(rename = "chooseCardsToDestroy")]
-    ChooseCardsToDestroy { count: u32 },
+    ChooseCardsToDestroy,
     #[serde(rename = "chooseMix")]
     ChooseMix { remaining: u32 },
     #[serde(rename = "chooseBuyer")]
