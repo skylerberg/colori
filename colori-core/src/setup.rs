@@ -44,7 +44,7 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
             let personal_cards = [
                 Card::BasicRed, Card::BasicYellow, Card::BasicBlue,
                 Card::StarterCeramics, Card::StarterPaintings, Card::StarterTextiles,
-                Card::Chalk,
+                Card::Argol,
             ];
 
             let mut deck = UnorderedCards::new();

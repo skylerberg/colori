@@ -27,7 +27,7 @@ export type Card = 'BasicRed' | 'BasicYellow' | 'BasicBlue'
   | 'CinnabarCanvas' | 'OrpimentCanvas' | 'UltramarineCanvas'
   | 'AlizarinFabric' | 'FusticFabric' | 'PastelFabric'
   | 'ClayCanvas' | 'ClayFabric' | 'CanvasFabric'
-  | 'Alum' | 'CreamOfTartar' | 'GumArabic' | 'Potash' | 'Vinegar' | 'Chalk';
+  | 'Alum' | 'CreamOfTartar' | 'GumArabic' | 'Potash' | 'Vinegar' | 'Argol';
 
 export type BuyerCard = 'Textiles2Vermilion' | 'Textiles2Amber' | 'Textiles2Chartreuse'
   | 'Textiles2Teal' | 'Textiles2Indigo' | 'Textiles2Magenta'

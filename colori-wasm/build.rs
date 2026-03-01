@@ -227,15 +227,15 @@ fn main() {
     )
     .unwrap();
 
-    // CHALK_CARD
-    let chalk = chalk_card();
-    out.push_str("export const CHALK_CARD: ActionCardData = {\n");
+    // ARGOL_CARD
+    let argol = argol_card();
+    out.push_str("export const ARGOL_CARD: ActionCardData = {\n");
     write!(
         out,
         "  kind: 'action',\n  name: '{}',\n  ability: {},\n  workshopAbilities: [{}],\n",
-        chalk.name(),
-        format_ability(&chalk.ability()),
-        chalk
+        argol.name(),
+        format_ability(&argol.ability()),
+        argol
             .workshop_abilities()
             .iter()
             .map(|a| format_ability(a))
@@ -314,7 +314,7 @@ fn main() {
         let variant = card_variant_name(card);
         write!(out, "CARD_LOOKUP['{}'] = ACTION_CARDS[{}];\n", variant, i).unwrap();
     }
-    out.push_str("CARD_LOOKUP['Chalk'] = CHALK_CARD;\n\n");
+    out.push_str("CARD_LOOKUP['Argol'] = ARGOL_CARD;\n\n");
 
     // BUYER_LOOKUP
     out.push_str("const BUYER_LOOKUP: Record<string, BuyerCardData> = {};\n");
@@ -486,7 +486,7 @@ fn main() {
     out.push_str("  return [\n");
     out.push_str("    { label: 'Starter Dyes', cardNames: starterDyeNames, totalCopies: starterDyeNames.length * numPlayers },\n");
     out.push_str("    { label: 'Starter Materials', cardNames: starterMaterialNames, totalCopies: starterMaterialNames.length * numPlayers },\n");
-    out.push_str("    { label: 'Chalk', cardNames: ['Chalk'], totalCopies: 1 * numPlayers },\n");
+    out.push_str("    { label: 'Argol', cardNames: ['Argol'], totalCopies: 1 * numPlayers },\n");
     out.push_str("  ];\n");
     out.push_str("}\n");
 

@@ -37,7 +37,7 @@ Starting deck materials gain 1 material when workshopped. Draft material cards o
 - Paintings | Destroy: Sell
 - Textiles | Destroy: Draw Cards ×2
 
-**Action Cards** (4 unique in draft deck, 4 copies each, 16 total; plus Chalk as a starter card):
+**Action Cards** (4 unique in draft deck, 4 copies each, 16 total; plus Argol as a starter card):
 Each action card has a destroy ability plus workshop abilities that trigger when the card is chosen during Workshop resolution. See the card reference below.
 
 **Buyer Cards** (51 total, single deck):
@@ -51,7 +51,7 @@ Each buyer requires 2 of a specific material type and a set of colors as its cos
 
 ## Setup
 
-1. Each player receives a starting personal deck of 7 cards: 1 Basic Red, 1 Basic Yellow, 1 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles, 1 Chalk. Shuffle it.
+1. Each player receives a starting personal deck of 7 cards: 1 Basic Red, 1 Basic Yellow, 1 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles, 1 Argol. Shuffle it.
 2. Each player starts with 1 Red, 1 Yellow, and 1 Blue already stored on their color wheel.
 3. Each player starts with 1 of each stored material (1 Ceramics, 1 Paintings, 1 Textiles).
 4. Place all dye cards (3 copies each), 15 unique draft material cards, and action cards (4 copies each) into the draft deck. Shuffle it.
@@ -259,13 +259,13 @@ Each player's score = buyer stars + ducats. The player with the highest score wi
 | Clay & Fabric | 1 Ceramics + 1 Textiles | — | Sell |
 | Canvas & Fabric | 1 Paintings + 1 Textiles | — | Sell |
 
-### Action Cards (4 unique in draft deck, 4 copies each; plus Chalk as a starter)
+### Action Cards (4 unique in draft deck, 4 copies each; plus Argol as a starter)
 
 Their workshop abilities (triggered when chosen during Workshop resolution) are:
 
 | Name | Destroy Ability | Workshop Abilities | Notes |
 |------|----------------|-------------------|-------|
-| Chalk | Sell | Any Primary | Starter card (1 per player, not in draft deck) |
+| Argol | Sell | Draw 2 | Starter card (1 per player, not in draft deck) |
 | Alum | Destroy Cards ×1 | Gain Ducats ×1 | Draft deck |
 | Cream of Tartar | Destroy Cards ×1 | Draw Cards ×3 | Draft deck |
 | Gum Arabic | Destroy Cards ×1 | Any Secondary | Draft deck |

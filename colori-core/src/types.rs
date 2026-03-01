@@ -166,7 +166,7 @@ pub enum Card {
     GumArabic,
     Potash,
     Vinegar,
-    Chalk,
+    Argol,
 }
 
 struct CardProperties {
@@ -273,8 +273,8 @@ const CARD_DATA: [CardProperties; 48] = [
     CardProperties { name: "Potash", kind: CardKind::Action, ability: Ability::DrawCards { count: 2 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::Workshop { count: 3 }] },
     // Vinegar — temporarily removed from draft deck, will be added back
     CardProperties { name: "Vinegar", kind: CardKind::Action, ability: Ability::DestroyCards, pips: &[], material_types: &[], workshop_abilities: &[Ability::ChangeTertiary] },
-    // Chalk
-    CardProperties { name: "Chalk", kind: CardKind::Action, ability: Ability::Sell, pips: &[], material_types: &[], workshop_abilities: &[Ability::GainPrimary] },
+    // Argol
+    CardProperties { name: "Argol", kind: CardKind::Action, ability: Ability::Sell, pips: &[], material_types: &[], workshop_abilities: &[Ability::DrawCards { count: 2 }] },
 ];
 
 impl Card {

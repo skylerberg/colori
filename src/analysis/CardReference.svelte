@@ -6,7 +6,7 @@
     MATERIAL_CARDS,
     BASIC_DYE_CARDS,
     ACTION_CARDS,
-    CHALK_CARD,
+    ARGOL_CARD,
     BUYER_CARDS,
     DRAFT_CARD_CATEGORIES,
     DRAFT_COPY_COUNTS,
@@ -257,10 +257,10 @@
         </tr>
       {/each}
       <tr>
-        <td>{CHALK_CARD.name}</td>
+        <td>{ARGOL_CARD.name}</td>
         <td>Action</td>
-        <td>Workshop: {CHALK_CARD.workshopAbilities.map(formatSingleAbility).join(', ')}</td>
-        <td>{formatSingleAbility(CHALK_CARD.ability)}</td>
+        <td>Workshop: {ARGOL_CARD.workshopAbilities.map(formatSingleAbility).join(', ')}</td>
+        <td>{formatSingleAbility(ARGOL_CARD.ability)}</td>
       </tr>
     </tbody>
   </table>

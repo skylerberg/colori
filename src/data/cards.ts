@@ -305,11 +305,11 @@ export const PRIMARIES: Color[] = ['Red', 'Yellow', 'Blue'];
 export const SECONDARIES: Color[] = ['Orange', 'Green', 'Purple'];
 export const TERTIARIES: Color[] = ['Vermilion', 'Amber', 'Chartreuse', 'Teal', 'Indigo', 'Magenta'];
 
-export const CHALK_CARD: ActionCardData = {
+export const ARGOL_CARD: ActionCardData = {
   kind: 'action',
-  name: 'Chalk',
+  name: 'Argol',
   ability: { type: 'sell' },
-  workshopAbilities: [{ type: 'gainPrimary' }],
+  workshopAbilities: [{ type: 'drawCards', count: 2 }],
 };
 
 export const BUYER_CARDS: BuyerCardData[] = [
@@ -421,7 +421,7 @@ CARD_LOOKUP['Alum'] = ACTION_CARDS[0];
 CARD_LOOKUP['CreamOfTartar'] = ACTION_CARDS[1];
 CARD_LOOKUP['GumArabic'] = ACTION_CARDS[2];
 CARD_LOOKUP['Potash'] = ACTION_CARDS[3];
-CARD_LOOKUP['Chalk'] = CHALK_CARD;
+CARD_LOOKUP['Argol'] = ARGOL_CARD;
 
 const BUYER_LOOKUP: Record<string, BuyerCardData> = {};
 BUYER_LOOKUP['Textiles2Vermilion'] = BUYER_CARDS[0];
@@ -572,6 +572,6 @@ export function getStarterCardCategories(numPlayers: number): CardCategory[] {
   return [
     { label: 'Starter Dyes', cardNames: starterDyeNames, totalCopies: starterDyeNames.length * numPlayers },
     { label: 'Starter Materials', cardNames: starterMaterialNames, totalCopies: starterMaterialNames.length * numPlayers },
-    { label: 'Chalk', cardNames: ['Chalk'], totalCopies: 1 * numPlayers },
+    { label: 'Argol', cardNames: ['Argol'], totalCopies: 1 * numPlayers },
   ];
 }
