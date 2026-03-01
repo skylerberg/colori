@@ -128,7 +128,7 @@ pub fn process_queue<R: Rng>(state: &mut GameState, rng: &mut R) {
 }
 
 #[inline]
-fn can_sell_to_any_buyer(state: &GameState) -> bool {
+pub fn can_sell_to_any_buyer(state: &GameState) -> bool {
     let as_ = get_action_state(state);
     let player = &state.players[as_.current_player_index];
     for buyer_instance in &state.buyer_display {

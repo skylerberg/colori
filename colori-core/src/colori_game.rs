@@ -3,6 +3,7 @@ use crate::action_phase::{
     process_queue, resolve_choose_tertiary_to_gain, resolve_choose_tertiary_to_lose,
     resolve_destroy_cards, resolve_gain_primary, resolve_gain_secondary,
     resolve_keep_workshop_cards, resolve_select_buyer, resolve_workshop_choice, skip_workshop,
+    can_sell_to_any_buyer,
 };
 use crate::apply_choice::apply_choice;
 use crate::color_wheel::{can_pay_cost, pay_cost, perform_mix_unchecked};
@@ -629,6 +630,14 @@ pub fn resolve_abstract_choice(abs: &AbstractChoice, state: &GameState) -> Optio
                         && player.color_wheel.get(b) > 0
                         && can_mix(a, b)
                     {
+                        if mixes.len() > 1 {
+                            let mut wheel = player.color_wheel.clone();
+                            perform_mix_unchecked(&mut wheel, a, b);
+                            let (c, d) = mixes[1];
+                            if wheel.get(c) == 0 || wheel.get(d) == 0 || !can_mix(c, d) {
+                                return None;
+                            }
+                        }
                         return Some(ColoriChoice::MixAll {
                             mixes: mixes.clone(),
                         });
@@ -639,6 +648,9 @@ pub fn resolve_abstract_choice(abs: &AbstractChoice, state: &GameState) -> Optio
         }
         AbstractChoice::DraftPick { card } => {
             if let GamePhase::Draft { ref draft_state } = state.phase {
+                if draft_state.waiting_for_pass {
+                    return None;
+                }
                 let hand = draft_state.hands[draft_state.current_player_index];
                 for id in hand.iter() {
                     if state.card_lookup[id as usize] == *card {
@@ -658,6 +670,17 @@ pub fn resolve_abstract_choice(abs: &AbstractChoice, state: &GameState) -> Optio
                 let player = &state.players[action_state.current_player_index];
                 for id in player.drafted_cards.iter() {
                     if state.card_lookup[id as usize] == *card {
+                        match card.ability() {
+                            Ability::Sell => {
+                                if can_sell_to_any_buyer(state) {
+                                    return None;
+                                }
+                            }
+                            Ability::MixColors { .. } => {
+                                return None;
+                            }
+                            _ => {}
+                        }
                         return Some(ColoriChoice::DestroyDraftedCard {
                             card_instance_id: id as u32,
                         });
@@ -681,6 +704,14 @@ pub fn resolve_abstract_choice(abs: &AbstractChoice, state: &GameState) -> Optio
                                 || !can_mix(a, b)
                             {
                                 return None;
+                            }
+                            if mixes.len() > 1 {
+                                let mut wheel = player.color_wheel.clone();
+                                perform_mix_unchecked(&mut wheel, a, b);
+                                let (c, d) = mixes[1];
+                                if wheel.get(c) == 0 || wheel.get(d) == 0 || !can_mix(c, d) {
+                                    return None;
+                                }
                             }
                         }
                         return Some(ColoriChoice::DestroyAndMixAll {
