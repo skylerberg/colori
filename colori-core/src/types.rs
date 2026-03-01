@@ -186,11 +186,11 @@ const CARD_DATA: [CardProperties; 48] = [
     // BasicBlue
     CardProperties { name: "Basic Blue", kind: CardKind::BasicDye, ability: Ability::Sell, pips: &[Color::Blue], material_types: &[], workshop_abilities: &[] },
     // Kermes
-    CardProperties { name: "Kermes", kind: CardKind::Dye, ability: Ability::MixColors { count: 3 }, pips: &[Color::Red, Color::Red, Color::Red], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Kermes", kind: CardKind::Dye, ability: Ability::DestroyCards, pips: &[Color::Red, Color::Red, Color::Red], material_types: &[], workshop_abilities: &[] },
     // Weld
-    CardProperties { name: "Weld", kind: CardKind::Dye, ability: Ability::MixColors { count: 3 }, pips: &[Color::Yellow, Color::Yellow, Color::Yellow], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Weld", kind: CardKind::Dye, ability: Ability::DestroyCards, pips: &[Color::Yellow, Color::Yellow, Color::Yellow], material_types: &[], workshop_abilities: &[] },
     // Woad
-    CardProperties { name: "Woad", kind: CardKind::Dye, ability: Ability::MixColors { count: 3 }, pips: &[Color::Blue, Color::Blue, Color::Blue], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Woad", kind: CardKind::Dye, ability: Ability::DestroyCards, pips: &[Color::Blue, Color::Blue, Color::Blue], material_types: &[], workshop_abilities: &[] },
     // Lac
     CardProperties { name: "Lac", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Red, Color::Red, Color::Yellow], material_types: &[], workshop_abilities: &[] },
     // Brazilwood
@@ -234,11 +234,11 @@ const CARD_DATA: [CardProperties; 48] = [
     // StarterTextiles
     CardProperties { name: "Textiles", kind: CardKind::Material, ability: Ability::Workshop { count: 3 }, pips: &[], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
     // FineCeramics
-    CardProperties { name: "Fine Ceramics", kind: CardKind::Material, ability: Ability::DestroyCards, pips: &[], material_types: &[MaterialType::Ceramics, MaterialType::Ceramics], workshop_abilities: &[] },
+    CardProperties { name: "Fine Ceramics", kind: CardKind::Material, ability: Ability::Sell, pips: &[], material_types: &[MaterialType::Ceramics, MaterialType::Ceramics], workshop_abilities: &[] },
     // FinePaintings
-    CardProperties { name: "Fine Paintings", kind: CardKind::Material, ability: Ability::DestroyCards, pips: &[], material_types: &[MaterialType::Paintings, MaterialType::Paintings], workshop_abilities: &[] },
+    CardProperties { name: "Fine Paintings", kind: CardKind::Material, ability: Ability::Sell, pips: &[], material_types: &[MaterialType::Paintings, MaterialType::Paintings], workshop_abilities: &[] },
     // FineTextiles
-    CardProperties { name: "Fine Textiles", kind: CardKind::Material, ability: Ability::DestroyCards, pips: &[], material_types: &[MaterialType::Textiles, MaterialType::Textiles], workshop_abilities: &[] },
+    CardProperties { name: "Fine Textiles", kind: CardKind::Material, ability: Ability::Sell, pips: &[], material_types: &[MaterialType::Textiles, MaterialType::Textiles], workshop_abilities: &[] },
     // TerraCotta
     CardProperties { name: "Terra Cotta", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, pips: &[Color::Red], material_types: &[MaterialType::Ceramics], workshop_abilities: &[] },
     // OchreWare
@@ -258,11 +258,11 @@ const CARD_DATA: [CardProperties; 48] = [
     // PastelFabric
     CardProperties { name: "Pastel & Fabric", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, pips: &[Color::Blue], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
     // ClayCanvas
-    CardProperties { name: "Clay & Canvas", kind: CardKind::Material, ability: Ability::DestroyCards, pips: &[], material_types: &[MaterialType::Ceramics, MaterialType::Paintings], workshop_abilities: &[] },
+    CardProperties { name: "Clay & Canvas", kind: CardKind::Material, ability: Ability::Sell, pips: &[], material_types: &[MaterialType::Ceramics, MaterialType::Paintings], workshop_abilities: &[] },
     // ClayFabric
-    CardProperties { name: "Clay & Fabric", kind: CardKind::Material, ability: Ability::DestroyCards, pips: &[], material_types: &[MaterialType::Ceramics, MaterialType::Textiles], workshop_abilities: &[] },
+    CardProperties { name: "Clay & Fabric", kind: CardKind::Material, ability: Ability::Sell, pips: &[], material_types: &[MaterialType::Ceramics, MaterialType::Textiles], workshop_abilities: &[] },
     // CanvasFabric
-    CardProperties { name: "Canvas & Fabric", kind: CardKind::Material, ability: Ability::DestroyCards, pips: &[], material_types: &[MaterialType::Paintings, MaterialType::Textiles], workshop_abilities: &[] },
+    CardProperties { name: "Canvas & Fabric", kind: CardKind::Material, ability: Ability::Sell, pips: &[], material_types: &[MaterialType::Paintings, MaterialType::Textiles], workshop_abilities: &[] },
     // Alum
     CardProperties { name: "Alum", kind: CardKind::Action, ability: Ability::DestroyCards, pips: &[], material_types: &[], workshop_abilities: &[Ability::GainDucats { count: 1 }] },
     // CreamOfTartar

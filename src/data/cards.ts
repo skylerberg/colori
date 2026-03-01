@@ -6,19 +6,19 @@ export const DYE_CARDS: DyeCardData[] = [
     kind: 'dye',
     name: 'Kermes',
     colors: ['Red', 'Red', 'Red'],
-    ability: { type: 'mixColors', count: 3 },
+    ability: { type: 'destroyCards' },
   },
   {
     kind: 'dye',
     name: 'Weld',
     colors: ['Yellow', 'Yellow', 'Yellow'],
-    ability: { type: 'mixColors', count: 3 },
+    ability: { type: 'destroyCards' },
   },
   {
     kind: 'dye',
     name: 'Woad',
     colors: ['Blue', 'Blue', 'Blue'],
-    ability: { type: 'mixColors', count: 3 },
+    ability: { type: 'destroyCards' },
   },
   {
     kind: 'dye',
@@ -156,19 +156,19 @@ export const DRAFT_MATERIAL_CARDS: MaterialCardData[] = [
     kind: 'material',
     name: 'Fine Ceramics',
     materialTypes: ['Ceramics', 'Ceramics'],
-    ability: { type: 'destroyCards' },
+    ability: { type: 'sell' },
   },
   {
     kind: 'material',
     name: 'Fine Paintings',
     materialTypes: ['Paintings', 'Paintings'],
-    ability: { type: 'destroyCards' },
+    ability: { type: 'sell' },
   },
   {
     kind: 'material',
     name: 'Fine Textiles',
     materialTypes: ['Textiles', 'Textiles'],
-    ability: { type: 'destroyCards' },
+    ability: { type: 'sell' },
   },
   {
     kind: 'material',
@@ -237,19 +237,19 @@ export const DRAFT_MATERIAL_CARDS: MaterialCardData[] = [
     kind: 'material',
     name: 'Clay & Canvas',
     materialTypes: ['Ceramics', 'Paintings'],
-    ability: { type: 'destroyCards' },
+    ability: { type: 'sell' },
   },
   {
     kind: 'material',
     name: 'Clay & Fabric',
     materialTypes: ['Ceramics', 'Textiles'],
-    ability: { type: 'destroyCards' },
+    ability: { type: 'sell' },
   },
   {
     kind: 'material',
     name: 'Canvas & Fabric',
     materialTypes: ['Paintings', 'Textiles'],
-    ability: { type: 'destroyCards' },
+    ability: { type: 'sell' },
   },
 ];
 

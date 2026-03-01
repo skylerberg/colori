@@ -194,9 +194,9 @@ Each player's score = buyer stars + ducats. The player with the highest score wi
 
 | Name | Colors | Destroy Ability |
 |------|--------|-----------------|
-| Kermes | 3 Red | Mix Colors ×3 |
-| Weld | 3 Yellow | Mix Colors ×3 |
-| Woad | 3 Blue | Mix Colors ×3 |
+| Kermes | 3 Red | Destroy Cards ×1 |
+| Weld | 3 Yellow | Destroy Cards ×1 |
+| Woad | 3 Blue | Destroy Cards ×1 |
 
 **Primary Dyes** (2 pips of one primary + 1 pip of a different primary):
 
@@ -243,9 +243,9 @@ Each player's score = buyer stars + ducats. The player with the highest score wi
 
 | Name | Material Gain | Color Pip | Destroy Ability |
 |------|--------------|-----------|-----------------|
-| Fine Ceramics | 2x Ceramics | — | Destroy Cards ×1 |
-| Fine Paintings | 2x Paintings | — | Destroy Cards ×1 |
-| Fine Textiles | 2x Textiles | — | Destroy Cards ×1 |
+| Fine Ceramics | 2x Ceramics | — | Sell |
+| Fine Paintings | 2x Paintings | — | Sell |
+| Fine Textiles | 2x Textiles | — | Sell |
 | Terra Cotta | 1 Ceramics | Red | Workshop ×2 |
 | Ochre Ware | 1 Ceramics | Yellow | Workshop ×2 |
 | Cobalt Ware | 1 Ceramics | Blue | Workshop ×2 |
@@ -255,9 +255,9 @@ Each player's score = buyer stars + ducats. The player with the highest score wi
 | Alizarin & Fabric | 1 Textiles | Red | Workshop ×2 |
 | Fustic & Fabric | 1 Textiles | Yellow | Workshop ×2 |
 | Pastel & Fabric | 1 Textiles | Blue | Workshop ×2 |
-| Clay & Canvas | 1 Ceramics + 1 Paintings | — | Destroy Cards ×1 |
-| Clay & Fabric | 1 Ceramics + 1 Textiles | — | Destroy Cards ×1 |
-| Canvas & Fabric | 1 Paintings + 1 Textiles | — | Destroy Cards ×1 |
+| Clay & Canvas | 1 Ceramics + 1 Paintings | — | Sell |
+| Clay & Fabric | 1 Ceramics + 1 Textiles | — | Sell |
+| Canvas & Fabric | 1 Paintings + 1 Textiles | — | Sell |
 
 ### Action Cards (4 unique in draft deck, 4 copies each; plus Chalk as a starter)
 
