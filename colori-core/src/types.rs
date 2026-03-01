@@ -192,29 +192,29 @@ const CARD_DATA: [CardProperties; 48] = [
     // Woad
     CardProperties { name: "Woad", kind: CardKind::Dye, ability: Ability::DestroyCards, pips: &[Color::Blue, Color::Blue, Color::Blue], material_types: &[], workshop_abilities: &[] },
     // Lac
-    CardProperties { name: "Lac", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Red, Color::Red, Color::Yellow], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Lac", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, pips: &[Color::Red, Color::Red, Color::Yellow], material_types: &[], workshop_abilities: &[] },
     // Brazilwood
-    CardProperties { name: "Brazilwood", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Red, Color::Red, Color::Blue], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Brazilwood", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, pips: &[Color::Red, Color::Red, Color::Blue], material_types: &[], workshop_abilities: &[] },
     // Pomegranate
-    CardProperties { name: "Pomegranate", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Yellow, Color::Yellow, Color::Red], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Pomegranate", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, pips: &[Color::Yellow, Color::Yellow, Color::Red], material_types: &[], workshop_abilities: &[] },
     // Sumac
-    CardProperties { name: "Sumac", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Yellow, Color::Yellow, Color::Blue], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Sumac", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, pips: &[Color::Yellow, Color::Yellow, Color::Blue], material_types: &[], workshop_abilities: &[] },
     // Elderberry
-    CardProperties { name: "Elderberry", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Blue, Color::Blue, Color::Red], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Elderberry", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, pips: &[Color::Blue, Color::Blue, Color::Red], material_types: &[], workshop_abilities: &[] },
     // Turnsole
-    CardProperties { name: "Turnsole", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Blue, Color::Blue, Color::Yellow], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Turnsole", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, pips: &[Color::Blue, Color::Blue, Color::Yellow], material_types: &[], workshop_abilities: &[] },
     // Madder
-    CardProperties { name: "Madder", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, pips: &[Color::Orange, Color::Red], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Madder", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Orange, Color::Red], material_types: &[], workshop_abilities: &[] },
     // Turmeric
-    CardProperties { name: "Turmeric", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, pips: &[Color::Orange, Color::Yellow], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Turmeric", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Orange, Color::Yellow], material_types: &[], workshop_abilities: &[] },
     // DyersGreenweed
-    CardProperties { name: "Dyer's Greenweed", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, pips: &[Color::Green, Color::Yellow], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Dyer's Greenweed", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Green, Color::Yellow], material_types: &[], workshop_abilities: &[] },
     // Verdigris
-    CardProperties { name: "Verdigris", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, pips: &[Color::Green, Color::Blue], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Verdigris", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Green, Color::Blue], material_types: &[], workshop_abilities: &[] },
     // Orchil
-    CardProperties { name: "Orchil", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, pips: &[Color::Purple, Color::Red], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Orchil", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Purple, Color::Red], material_types: &[], workshop_abilities: &[] },
     // Logwood
-    CardProperties { name: "Logwood", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, pips: &[Color::Purple, Color::Blue], material_types: &[], workshop_abilities: &[] },
+    CardProperties { name: "Logwood", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, pips: &[Color::Purple, Color::Blue], material_types: &[], workshop_abilities: &[] },
     // VermilionDye
     CardProperties { name: "Vermilion", kind: CardKind::Dye, ability: Ability::Sell, pips: &[Color::Vermilion], material_types: &[], workshop_abilities: &[] },
     // Saffron

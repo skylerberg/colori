@@ -27,8 +27,8 @@ Each player has their own color wheel that tracks how many of each color they ha
 
 **Dye Cards** (21 unique, 3 copies each, 63 total in draft deck):
 - 3 Pure primary dyes — 3 pips of one primary color | Destroy: Mix Colors ×3
-- 6 Primary dyes — 2 pips of one primary + 1 pip of a different primary | Destroy: Mix Colors ×2
-- 6 Secondary dyes — 2 pips of two adjacent primary/secondary colors | Destroy: Workshop ×3
+- 6 Primary dyes — 2 pips of one primary + 1 pip of a different primary | Destroy: Workshop ×3
+- 6 Secondary dyes — 2 pips of two adjacent primary/secondary colors | Destroy: Mix Colors ×2
 - 6 Tertiary dyes — 1 pip of a tertiary color | Destroy: Sell
 
 **Material Cards** (3 types in starting deck, 1 per player; 15 unique draft material cards in draft deck):
@@ -202,23 +202,23 @@ Each player's score = buyer stars + ducats. The player with the highest score wi
 
 | Name | Colors | Destroy Ability |
 |------|--------|-----------------|
-| Lac | 2 Red, 1 Yellow | Mix Colors ×2 |
-| Brazilwood | 2 Red, 1 Blue | Mix Colors ×2 |
-| Pomegranate | 2 Yellow, 1 Red | Mix Colors ×2 |
-| Sumac | 2 Yellow, 1 Blue | Mix Colors ×2 |
-| Elderberry | 2 Blue, 1 Red | Mix Colors ×2 |
-| Turnsole | 2 Blue, 1 Yellow | Mix Colors ×2 |
+| Lac | 2 Red, 1 Yellow | Workshop ×3 |
+| Brazilwood | 2 Red, 1 Blue | Workshop ×3 |
+| Pomegranate | 2 Yellow, 1 Red | Workshop ×3 |
+| Sumac | 2 Yellow, 1 Blue | Workshop ×3 |
+| Elderberry | 2 Blue, 1 Red | Workshop ×3 |
+| Turnsole | 2 Blue, 1 Yellow | Workshop ×3 |
 
 **Secondary Dyes** (2 pips of adjacent colors):
 
 | Name | Colors | Destroy Ability |
 |------|--------|-----------------|
-| Madder | 1 Orange, 1 Red | Workshop ×3 |
-| Turmeric | 1 Orange, 1 Yellow | Workshop ×3 |
-| Dyer's Greenweed | 1 Green, 1 Yellow | Workshop ×3 |
-| Verdigris | 1 Green, 1 Blue | Workshop ×3 |
-| Orchil | 1 Purple, 1 Red | Workshop ×3 |
-| Logwood | 1 Purple, 1 Blue | Workshop ×3 |
+| Madder | 1 Orange, 1 Red | Mix Colors ×2 |
+| Turmeric | 1 Orange, 1 Yellow | Mix Colors ×2 |
+| Dyer's Greenweed | 1 Green, 1 Yellow | Mix Colors ×2 |
+| Verdigris | 1 Green, 1 Blue | Mix Colors ×2 |
+| Orchil | 1 Purple, 1 Red | Mix Colors ×2 |
+| Logwood | 1 Purple, 1 Blue | Mix Colors ×2 |
 
 **Tertiary Dyes** (1 pip of a tertiary color):
 
