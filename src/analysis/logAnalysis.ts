@@ -262,6 +262,56 @@ export function computeWinRateByCard(logs: StructuredGameLog[], playerFilter?: P
   return stats;
 }
 
+export function computeWinRateIfDrafted(logs: StructuredGameLog[], playerFilter?: PlayerFilter): Map<string, { wins: number; games: number }> {
+  const stats = new Map<string, { wins: number; games: number }>();
+
+  for (const log of logs) {
+    if (!log.finalScores) continue;
+    const allowed = playerFilter?.get(log);
+    const instanceMap = buildCardInstanceMap(log);
+
+    // Track per-player drafted cards (no destruction filtering)
+    const playerDrafted = new Map<number, Set<string>>();
+
+    for (const entry of log.entries) {
+      if (allowed && !allowed.has(entry.playerIndex)) continue;
+      if (entry.choice.type === 'draftPick') {
+        const inst = instanceMap.get(entry.choice.cardInstanceId);
+        if (inst) {
+          const pi = entry.playerIndex;
+          if (!playerDrafted.has(pi)) playerDrafted.set(pi, new Set());
+          playerDrafted.get(pi)!.add(getCardName(inst.card));
+        }
+      }
+    }
+
+    // Compute winners
+    let maxScore = -Infinity;
+    for (const fs of log.finalScores) {
+      if (fs.score > maxScore) maxScore = fs.score;
+    }
+    const numWinners = log.finalScores.filter(fs => fs.score === maxScore).length;
+
+    // For each player, tally win rate by drafted card names
+    for (let i = 0; i < log.playerNames.length; i++) {
+      if (allowed && !allowed.has(i)) continue;
+      const draftedNames = playerDrafted.get(i) ?? new Set<string>();
+      const playerName = log.playerNames[i];
+      const scoreEntry = log.finalScores.find(fs => fs.name === playerName);
+      const isWinner = scoreEntry != null && scoreEntry.score === maxScore;
+
+      for (const name of draftedNames) {
+        if (!stats.has(name)) stats.set(name, { wins: 0, games: 0 });
+        const entry = stats.get(name)!;
+        entry.games++;
+        if (isWinner) entry.wins += 1 / numWinners;
+      }
+    }
+  }
+
+  return stats;
+}
+
 export function computeWinRateCategoryStats(
   cardWinRate: Map<string, { wins: number; games: number }>,
   categories: CardCategory[],
