@@ -266,7 +266,7 @@ const CARD_DATA: [CardProperties; 48] = [
     // Alum
     CardProperties { name: "Alum", kind: CardKind::Action, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::GainDucats { count: 1 }] },
     // CreamOfTartar
-    CardProperties { name: "Cream of Tartar", kind: CardKind::Action, ability: Ability::Workshop { count: 2 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::DrawCards { count: 3 }] },
+    CardProperties { name: "Cream of Tartar", kind: CardKind::Action, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::DrawCards { count: 3 }] },
     // GumArabic
     CardProperties { name: "Gum Arabic", kind: CardKind::Action, ability: Ability::DestroyCards { count: 1 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::GainSecondary] },
     // Potash

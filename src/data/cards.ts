@@ -284,7 +284,7 @@ export const ACTION_CARDS: ActionCardData[] = [
   {
     kind: 'action',
     name: 'Cream of Tartar',
-    ability: { type: 'workshop', count: 2 },
+    ability: { type: 'destroyCards', count: 1 },
     workshopAbilities: [{ type: 'drawCards', count: 3 }],
   },
   {

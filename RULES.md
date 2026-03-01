@@ -267,7 +267,7 @@ Their workshop abilities (triggered when chosen during Workshop resolution) are:
 |------|----------------|-------------------|-------|
 | Chalk | Sell | Any Primary | Starter card (1 per player, not in draft deck) |
 | Alum | Destroy Cards ×1 | Gain Ducats ×1 | Draft deck |
-| Cream of Tartar | Workshop ×2 | Draw Cards ×3 | Draft deck |
+| Cream of Tartar | Destroy Cards ×1 | Draw Cards ×3 | Draft deck |
 | Gum Arabic | Destroy Cards ×1 | Any Secondary | Draft deck |
 | Potash | Draw Cards ×2 | Workshop ×3 | Draft deck |
 | Vinegar | Destroy Cards ×1 | Change Tertiary | Temporarily removed from draft deck |
