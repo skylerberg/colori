@@ -17,7 +17,8 @@
   let error: string | null = $state(null);
   let selectedBatch: string = $state("all");
   let selectedVariant: string = $state("all");
-  let selectedGameIndex: number | null = $state(null);
+  let viewerGame: StructuredGameLog | null = $state(null);
+  let viewerError: string | null = $state(null);
 
   interface BatchInfo {
     count: number;
@@ -97,7 +98,6 @@
   $effect(() => {
     if (selectedBatch !== previousBatch) {
       selectedVariant = "all";
-      selectedGameIndex = null;
       previousBatch = selectedBatch;
     }
   });
@@ -141,6 +141,26 @@
       selectedBatch = "all";
     }
     loading = false;
+  }
+
+  async function handleGameFileSelect(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    viewerError = null;
+    viewerGame = null;
+    try {
+      const text = await file.text();
+      const log = JSON.parse(text) as StructuredGameLog;
+      if (log.version === 1) {
+        viewerGame = log;
+      } else {
+        viewerError = 'Unsupported game log version.';
+      }
+    } catch {
+      viewerError = 'Failed to parse game log file.';
+    }
   }
 </script>
 
@@ -219,29 +239,17 @@
   {:else if activeTab === 'cardReference'}
     <CardReference />
   {:else if activeTab === 'gameViewer'}
-    {#if filteredLogs.length === 0}
-      <p>Load game logs to view individual games.</p>
-    {:else}
-      <div class="game-selector">
-        <label>
-          Select game:
-          <select bind:value={selectedGameIndex}>
-            <option value={null}>-- Choose a game --</option>
-            {#each filteredLogs as game, i}
-              <option value={i}>
-                Game {i + 1}: {game.playerNames.join(' vs ')}
-                {#if game.finalScores}
-                  ({game.finalScores.map(fs => `${fs.name}: ${fs.score}`).join(', ')})
-                {/if}
-                — {game.entries.length > 0 ? Math.max(...game.entries.map(e => e.round)) : 0} rounds
-              </option>
-            {/each}
-          </select>
-        </label>
-      </div>
-      {#if selectedGameIndex != null && filteredLogs[selectedGameIndex]}
-        <GameViewer log={filteredLogs[selectedGameIndex]} />
-      {/if}
+    <div class="game-file-picker">
+      <label>
+        Load a game log file:
+        <input type="file" accept=".json" onchange={handleGameFileSelect} />
+      </label>
+    </div>
+    {#if viewerError}
+      <p class="error">{viewerError}</p>
+    {/if}
+    {#if viewerGame}
+      <GameViewer log={viewerGame} />
     {/if}
   {/if}
 </main>
@@ -293,11 +301,8 @@
     font-weight: bold;
     border-bottom-color: #4a9eff;
   }
-  .game-selector {
+  .game-file-picker {
     margin: 0.5rem 0 1rem;
-  }
-  .game-selector select {
-    max-width: 100%;
   }
   .error {
     color: red;
