@@ -1,7 +1,7 @@
 import { describe, bench } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { initSync, run_ismcts } from '../wasm-pkg/colori_wasm';
+import { initSync, wasm_run_ismcts } from '../wasm-pkg/colori_wasm';
 import { setupDraftGame, setupActionGame } from './benchHelper';
 
 // Initialize WASM synchronously for Node.js (vitest) environment
@@ -11,7 +11,7 @@ initSync({ module: new WebAssembly.Module(wasmBytes) });
 
 function runWasm(state: object, playerIndex: number, iterations: number): object {
   const json = JSON.stringify(state);
-  const resultJson = run_ismcts(json, playerIndex, iterations, '');
+  const resultJson = wasm_run_ismcts(json, playerIndex, iterations, '');
   return JSON.parse(resultJson);
 }
 
