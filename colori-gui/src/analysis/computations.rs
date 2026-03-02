@@ -174,7 +174,6 @@ pub fn format_variant_label(
     let mut differing_algorithm = false;
     let mut differing_iterations = false;
     let mut differing_exploration = false;
-    let mut differing_gamma = false;
     let mut differing_rollout = false;
     let mut differing_simultaneous_draft = false;
 
@@ -186,9 +185,6 @@ pub fn format_variant_label(
             differing_exploration = all
                 .iter()
                 .any(|v| v.exploration_constant != first.exploration_constant);
-            differing_gamma = all
-                .iter()
-                .any(|v| v.gamma != first.gamma);
             differing_rollout = all
                 .iter()
                 .any(|v| v.max_rollout_steps != first.max_rollout_steps);
@@ -203,17 +199,12 @@ pub fn format_variant_label(
     if differing_algorithm {
         parts.push(variant.algorithm.clone().unwrap_or_else(|| "ucb".to_string()));
     }
-    if differing_iterations || (!differing_algorithm && !differing_exploration && !differing_gamma && !differing_rollout && !differing_simultaneous_draft) {
+    if differing_iterations || (!differing_algorithm && !differing_exploration && !differing_rollout && !differing_simultaneous_draft) {
         parts.push(format_iterations_short(variant.iterations));
     }
     if differing_exploration {
         let c = variant.exploration_constant.unwrap_or(std::f64::consts::SQRT_2);
         parts.push(format!("c={:.2}", c));
-    }
-    if differing_gamma {
-        if let Some(g) = variant.gamma {
-            parts.push(format!("γ={:.2}", g));
-        }
     }
     if differing_rollout {
         let rollout = variant.max_rollout_steps.unwrap_or(1000);
