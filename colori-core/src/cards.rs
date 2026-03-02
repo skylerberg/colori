@@ -12,7 +12,7 @@ pub fn starter_material_cards() -> [Card; 3] {
     [Card::StarterCeramics, Card::StarterPaintings, Card::StarterTextiles]
 }
 
-// argol_card — not currently used
+// argol_card — not in the draft deck
 pub fn argol_card() -> Card {
     Card::Argol
 }

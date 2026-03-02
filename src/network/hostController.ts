@@ -6,6 +6,7 @@ import { createInitialGameState, executeDrawPhase, confirmPass, simultaneousPick
 import { sanitizeGameState } from './sanitize';
 import type { StructuredGameLog } from '../data/types';
 import { GameLogAccumulator } from '../gameLog';
+import { getActivePlayerIndex } from '../gameUtils';
 
 export class HostController {
   private network: NetworkManager;
@@ -280,7 +281,7 @@ export class HostController {
     }
 
     // For non-draft actions, check it's the player's turn
-    const activeIndex = this.getActivePlayerIndex();
+    const activeIndex = getActivePlayerIndex(this.gameState);
     if (activeIndex !== playerIndex) {
       const peerId = this.playerIndexToPeer.get(playerIndex);
       if (peerId) {
@@ -304,20 +305,6 @@ export class HostController {
     this.broadcastGameState(newLogEntries);
     this.onGameStateChanged?.(this.gameState);
     this.onLogUpdated?.(this.gameLog);
-  }
-
-  getActivePlayerIndex(): number {
-    if (!this.gameState) return -1;
-    if (this.gameState.phase.type === 'draft') {
-      return this.gameState.phase.draftState.currentPlayerIndex;
-    }
-    if (this.gameState.phase.type === 'action') {
-      return this.gameState.phase.actionState.currentPlayerIndex;
-    }
-    if (this.gameState.phase.type === 'cleanup') {
-      return this.gameState.phase.cleanupState.currentPlayerIndex;
-    }
-    return -1;
   }
 
   private executeDrawIfNeeded() {
