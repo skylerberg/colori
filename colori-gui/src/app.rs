@@ -45,8 +45,10 @@ pub struct ColoriGuiApp {
 }
 
 impl ColoriGuiApp {
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
-        Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        cc.egui_ctx.set_visuals(egui::Visuals::light());
+
+        let mut app = Self {
             active_tab: Tab::Analysis,
             loader: LogLoader::new(),
             tagged_logs: Vec::new(),
@@ -57,7 +59,17 @@ impl ColoriGuiApp {
             cached_analysis: None,
             cache_key: String::new(),
             game_viewer: GameViewerState::new(),
+        };
+
+        // Auto-load game-logs directory if it exists
+        if let Ok(cwd) = std::env::current_dir() {
+            let game_logs_path = cwd.join("game-logs");
+            if game_logs_path.is_dir() {
+                app.loader.start_loading(&game_logs_path);
+            }
         }
+
+        app
     }
 
     fn filtered_logs(&self) -> Vec<&StructuredGameLog> {

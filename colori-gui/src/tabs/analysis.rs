@@ -193,35 +193,33 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis, num_gam
                 stat_grid(ui, &cards);
             });
 
-        // 2. Score Distribution
-        render_btree_bar_section(
-            ui,
-            "Score Distribution",
-            "Score",
-            "Count",
-            &analysis.score_dist,
-            true,
-        );
-
-        // 3. Game Length Distribution
-        render_btree_bar_section(
-            ui,
-            "Game Length (Rounds) Distribution",
-            "Rounds",
-            "Count",
-            &analysis.round_count_dist,
-            true,
-        );
-
-        // 4. Deck Size Distribution (Penultimate Round)
-        render_btree_bar_section(
-            ui,
-            "Deck Size Distribution (Penultimate Round)",
-            "Deck Size",
-            "Count",
-            &analysis.penultimate_deck_sizes,
-            true,
-        );
+        // 2-4. Score, Game Length, and Deck Size distributions side by side
+        ui.columns(3, |columns| {
+            render_btree_bar_section(
+                &mut columns[0],
+                "Score Distribution",
+                "Score",
+                "Count",
+                &analysis.score_dist,
+                true,
+            );
+            render_btree_bar_section(
+                &mut columns[1],
+                "Game Length (Rounds) Distribution",
+                "Rounds",
+                "Count",
+                &analysis.round_count_dist,
+                true,
+            );
+            render_btree_bar_section(
+                &mut columns[2],
+                "Deck Size Distribution (Penultimate Round)",
+                "Deck Size",
+                "Count",
+                &analysis.penultimate_deck_sizes,
+                true,
+            );
+        });
 
         // 5. Win Rate by Position
         let id = ui.make_persistent_id("win_rate_position");

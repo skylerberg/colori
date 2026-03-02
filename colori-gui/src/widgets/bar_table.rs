@@ -33,7 +33,7 @@ pub fn bar_table(ui: &mut egui::Ui, headers: &[&str], rows: &[(String, String, f
                     ui.painter().rect_filled(
                         bar_rect,
                         2.0,
-                        egui::Color32::from_rgba_unmultiplied(74, 158, 255, 51),
+                        egui::Color32::from_rgba_unmultiplied(74, 158, 255, 100),
                     );
                     // Draw text on top
                     ui.painter().text(
