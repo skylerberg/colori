@@ -1,6 +1,7 @@
 pub mod action_phase;
 pub mod apply_choice;
 pub mod cards;
+pub mod choices;
 pub mod colori_game;
 pub mod colors;
 pub mod deck_utils;
@@ -9,6 +10,7 @@ pub mod draw_phase;
 pub mod fixed_vec;
 pub mod game_log;
 pub mod ismcts;
+pub mod rollout;
 pub mod scoring;
 pub mod setup;
 pub mod types;
