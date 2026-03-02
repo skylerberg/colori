@@ -1,5 +1,5 @@
 use crate::colori_game::{
-    apply_choice_to_state, apply_rollout_step, check_choice_available,
+    apply_choice_to_state, apply_rollout_step,
     determinize_in_place, enumerate_choices_into,
     get_game_status, GameStatus,
 };
@@ -85,6 +85,7 @@ impl MctsNode {
         &mut self,
         choices: &mut Vec<Choice>,
         active_player: usize,
+        available: &mut Vec<bool>,
         rng: &mut R,
     ) {
         // Shuffle choices in place
@@ -94,10 +95,10 @@ impl MctsNode {
             choices.swap(i, j);
         }
 
+        available.clear();
+        available.resize(self.children.len(), false);
+
         let mut added_new_node = false;
-        // Track which choices we've already incremented availability for
-        // to avoid double-counting duplicates within the same determinization
-        let mut seen_this_expand: SmallVec<[usize; 32]> = SmallVec::new();
 
         for choice in choices.iter() {
             if let Some(idx) = self
@@ -105,14 +106,14 @@ impl MctsNode {
                 .iter()
                 .position(|c| c.choice.as_ref() == Some(choice))
             {
-                if !seen_this_expand.contains(&idx) {
+                if !available[idx] {
                     self.children[idx].availability_count += 1;
-                    seen_this_expand.push(idx);
+                    available[idx] = true;
                 }
             } else if self.is_root() || !added_new_node {
                 let mut new_node = MctsNode::new(active_player, Some(choice.clone()));
                 new_node.availability_count = 1;
-                seen_this_expand.push(self.children.len());
+                available.push(true);
                 self.children.push(new_node);
                 added_new_node = true;
             }
@@ -163,9 +164,11 @@ pub fn ismcts<R: Rng>(
         cached_scores[i] = calculate_score(p);
     }
 
+    let mut availability_buf: Vec<bool> = Vec::new();
+
     for _ in 0..config.iterations {
         determinize_in_place(&mut det_state, state, player_index, known_draft_hands, &cached_scores, rng);
-        iteration(&mut root, &mut det_state, max_rollout_round, config, &mut choices_buf, rng);
+        iteration(&mut root, &mut det_state, max_rollout_round, config, &mut choices_buf, &mut availability_buf, rng);
     }
 
     if root.children.is_empty() {
@@ -190,6 +193,7 @@ fn iteration<R: Rng>(
     max_rollout_round: Option<u32>,
     config: &MctsConfig,
     choices_buf: &mut Vec<Choice>,
+    availability_buf: &mut Vec<bool>,
     rng: &mut R,
 ) -> SmallVec<[f64; 4]> {
     let active_player = match get_game_status(state, max_rollout_round) {
@@ -203,14 +207,12 @@ fn iteration<R: Rng>(
     // Enumerate choices (needed for both expand and select)
     enumerate_choices_into(state, choices_buf);
 
-    // Expand
-    if !(node.is_root() && !node.children.is_empty()) {
-        node.expand(choices_buf, active_player, rng);
-    }
+    // Expand (also populates availability_buf)
+    node.expand(choices_buf, active_player, availability_buf, rng);
 
     // Select
     let best_idx =
-        match select(node, state, config.exploration_constant)
+        match select(node, availability_buf, config.exploration_constant)
         {
             Some(idx) => idx,
             None => {
@@ -232,7 +234,7 @@ fn iteration<R: Rng>(
         scores
     } else {
         let child = &mut node.children[best_idx];
-        iteration(child, state, max_rollout_round, config, choices_buf, rng)
+        iteration(child, state, max_rollout_round, config, choices_buf, availability_buf, rng)
     };
 
     record_outcome(node, &scores);
@@ -241,7 +243,7 @@ fn iteration<R: Rng>(
 
 fn select(
     node: &MctsNode,
-    state: &GameState,
+    available: &[bool],
     c: f64,
 ) -> Option<usize> {
     let mut best_idx: Option<usize> = None;
@@ -250,8 +252,7 @@ fn select(
     let root_ln = if node.is_root() { (node.visit_count as f64).ln() } else { 0.0 };
 
     for (idx, child) in node.children.iter().enumerate() {
-        let available = check_choice_available(state, child.choice.as_ref().unwrap());
-        if !available {
+        if !available[idx] {
             continue;
         }
 
