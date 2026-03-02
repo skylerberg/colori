@@ -1,5 +1,5 @@
 import type { GameState, BuyerInstance, Color, MaterialType } from './data/types';
-import type { ColoriChoice } from './data/types';
+import type { Choice } from './data/types';
 import { calculateScores } from './engine/wasmEngine';
 
 export interface StructuredLogEntry {
@@ -8,7 +8,7 @@ export interface StructuredLogEntry {
   round: number;
   phase: string;
   playerIndex: number;
-  choice: ColoriChoice;
+  choice: Choice;
 }
 
 export interface PlayerVariant {
@@ -64,7 +64,7 @@ export class GameLogAccumulator {
     }
   }
 
-  recordChoice(state: GameState, choice: ColoriChoice, playerIndex: number) {
+  recordChoice(state: GameState, choice: Choice, playerIndex: number) {
     let phase: string;
     if (state.phase.type === 'draft') {
       phase = 'draft';

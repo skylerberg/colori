@@ -1,13 +1,12 @@
 <script lang="ts">
-  import type { GameState } from '../data/types';
-  import type { ColoriChoice } from '../data/types';
+  import type { GameState, Choice } from '../data/types';
   import CardList from './CardList.svelte';
   import AbilityPrompt from './AbilityPrompt.svelte';
   import OpponentBoardPanel from './OpponentBoardPanel.svelte';
 
   let { gameState, onAction, onUndo, undoAvailable }: {
     gameState: GameState;
-    onAction: (choice: ColoriChoice) => void;
+    onAction: (choice: Choice) => void;
     onUndo: () => void;
     undoAvailable: boolean;
   } = $props();
@@ -49,7 +48,12 @@
   }
 
   function confirmWorkshop() {
-    onAction({ type: 'workshop', cardInstanceIds: selectedWorkshopIds });
+    if (!currentPlayer) return;
+    const cardTypes = selectedWorkshopIds.map(id => {
+      const ci = currentPlayer!.workshopCards.find(c => c.instanceId === id);
+      return ci!.card;
+    });
+    onAction({ type: 'workshop', cardTypes });
   }
 
   function handleSkipWorkshop() {
@@ -67,12 +71,19 @@
   }
 
   function confirmDestroy() {
-    onAction({ type: 'destroyDrawnCards', cardInstanceIds: selectedDestroyIds });
+    if (!currentPlayer) return;
+    const cardTypes = selectedDestroyIds.map(id => {
+      const ci = currentPlayer!.workshopCards.find(c => c.instanceId === id);
+      return ci!.card;
+    });
+    onAction({ type: 'destroyDrawnCards', cardTypes });
   }
 
   function handleDestroyDrafted(cardInstanceId: number) {
-    if (hasPendingChoice) return;
-    onAction({ type: 'destroyDraftedCard', cardInstanceId });
+    if (hasPendingChoice || !currentPlayer) return;
+    const ci = currentPlayer.draftedCards.find(c => c.instanceId === cardInstanceId);
+    if (!ci) return;
+    onAction({ type: 'destroyDraftedCard', card: ci.card });
   }
 
   function handleEndTurn() {

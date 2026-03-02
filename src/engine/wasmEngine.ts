@@ -1,4 +1,4 @@
-import type { GameState, ColoriChoice, PlayerState, Color } from '../data/types';
+import type { GameState, Choice, PlayerState, Color, Card } from '../data/types';
 import { mixResult } from '../data/colors';
 import { getCardData, getBuyerData, getAnyCardData } from '../data/cards';
 import init, {
@@ -36,7 +36,7 @@ export function executeDrawPhase(state: GameState): void {
   Object.assign(state, newState);
 }
 
-export function applyChoice(state: GameState, choice: ColoriChoice): void {
+export function applyChoice(state: GameState, choice: Choice): void {
   const resultJson = wasm_apply_choice(JSON.stringify(state), JSON.stringify(choice));
   const newState: GameState = JSON.parse(resultJson);
   Object.assign(state, newState);
@@ -48,8 +48,8 @@ export function confirmPass(state: GameState): void {
   Object.assign(state, newState);
 }
 
-export function simultaneousPick(state: GameState, playerIndex: number, cardInstanceId: number): void {
-  const resultJson = wasm_simultaneous_pick(JSON.stringify(state), playerIndex, cardInstanceId);
+export function simultaneousPick(state: GameState, playerIndex: number, card: Card): void {
+  const resultJson = wasm_simultaneous_pick(JSON.stringify(state), playerIndex, JSON.stringify(card));
   const newState: GameState = JSON.parse(resultJson);
   Object.assign(state, newState);
 }
@@ -76,41 +76,32 @@ function assertNever(x: never): never {
 
 export function getChoiceLogMessage(
   state: GameState,
-  choice: ColoriChoice,
+  choice: Choice,
   playerIndex: number,
 ): string | null {
   const name = state.playerNames[playerIndex];
-  const player = state.players[playerIndex];
 
   switch (choice.type) {
     case 'draftPick':
       return null;
     case 'destroyDraftedCard': {
-      const card = player.draftedCards.find(c => c.instanceId === choice.cardInstanceId);
-      const cardName = card ? (getAnyCardData(card.card) as { name?: string })?.name ?? 'a card' : 'a card';
+      const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
       return `${name} destroyed ${cardName} from drafted cards`;
     }
     case 'endTurn':
       return `${name} ended their turn`;
     case 'workshop': {
-      const cardNames = choice.cardInstanceIds.map(id => {
-        const c = player.workshopCards.find(c => c.instanceId === id);
-        return c ? (getAnyCardData(c.card) as { name?: string })?.name ?? 'a card' : 'a card';
-      });
+      const cardNames = choice.cardTypes.map(c => (getAnyCardData(c) as { name?: string })?.name ?? 'a card');
       return `${name} workshopped ${cardNames.join(', ')}`;
     }
     case 'skipWorkshop':
       return `${name} skipped workshop`;
     case 'destroyDrawnCards': {
-      const cardNames = choice.cardInstanceIds.map(id => {
-        const c = player.workshopCards.find(c => c.instanceId === id);
-        return c ? (getAnyCardData(c.card) as { name?: string })?.name ?? 'a card' : 'a card';
-      });
+      const cardNames = choice.cardTypes.map(c => (getAnyCardData(c) as { name?: string })?.name ?? 'a card');
       return `${name} destroyed ${cardNames.join(', ')} from workshop`;
     }
     case 'selectBuyer': {
-      const buyer = state.buyerDisplay.find(g => g.instanceId === choice.buyerInstanceId);
-      return `${name} sold to a ${buyer ? getBuyerData(buyer.card).stars : '?'}-star buyer`;
+      return `${name} sold to a ${getBuyerData(choice.buyer).stars}-star buyer`;
     }
     case 'gainSecondary':
       return `${name} gained ${choice.color}`;
@@ -124,8 +115,7 @@ export function getChoiceLogMessage(
     case 'swapTertiary':
       return `${name} swapped ${choice.loseColor} for ${choice.gainColor}`;
     case 'destroyAndMixAll': {
-      const card = player.draftedCards.find(c => c.instanceId === choice.cardInstanceId);
-      const cardName = card ? (getAnyCardData(card.card) as { name?: string })?.name ?? 'a card' : 'a card';
+      const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
       let msg = `${name} destroyed ${cardName} from drafted cards`;
       if (choice.mixes.length > 0) {
         const parts = choice.mixes.map(([a, b]) => `mixed ${a} + ${b} to make ${mixResult(a, b)}`);
@@ -134,13 +124,12 @@ export function getChoiceLogMessage(
       return msg;
     }
     case 'destroyAndSell': {
-      const card = player.draftedCards.find(c => c.instanceId === choice.cardInstanceId);
-      const cardName = card ? (getAnyCardData(card.card) as { name?: string })?.name ?? 'a card' : 'a card';
-      const buyer = state.buyerDisplay.find(g => g.instanceId === choice.buyerInstanceId);
-      return `${name} destroyed ${cardName} from drafted cards, sold to a ${buyer ? getBuyerData(buyer.card).stars : '?'}-star buyer`;
+      const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
+      return `${name} destroyed ${cardName} from drafted cards, sold to a ${getBuyerData(choice.buyer).stars}-star buyer`;
     }
     case 'keepWorkshopCards': {
-      const count = choice.cardInstanceIds.length;
+      const player = state.players[playerIndex];
+      const count = choice.cardTypes.length;
       const total = player.workshopCards.length;
       return `${name} kept ${count} of ${total} workshop cards`;
     }

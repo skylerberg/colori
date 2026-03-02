@@ -15,19 +15,27 @@ use crate::types::*;
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
 use smallvec::SmallVec;
+use std::collections::HashSet;
 
 // ── Subset enumeration ──
 
 fn enumerate_subsets_into(
     mask: UnorderedCards,
     max_size: usize,
-    choices: &mut Vec<ColoriChoice>,
-    f: impl Fn(UnorderedCards) -> ColoriChoice,
+    card_lookup: &[Card; 256],
+    choices: &mut Vec<Choice>,
+    f: impl Fn(SmallVec<[Card; 4]>) -> Choice,
 ) {
     let mut sub = mask.0;
     while sub[0] != 0 || sub[1] != 0 {
         if (sub[0].count_ones() + sub[1].count_ones()) as usize <= max_size {
-            choices.push(f(UnorderedCards(sub)));
+            let subset = UnorderedCards(sub);
+            let mut card_types: SmallVec<[Card; 4]> = subset
+                .iter()
+                .map(|id| card_lookup[id as usize])
+                .collect();
+            card_types.sort_by_key(|c| *c as usize);
+            choices.push(f(card_types));
         }
         let (new_lo, borrow) = sub[0].overflowing_sub(1);
         let new_hi = if borrow { sub[1].wrapping_sub(1) } else { sub[1] };
@@ -48,10 +56,10 @@ fn can_afford_buyer(player: &PlayerState, buyer: &BuyerCard) -> bool {
 fn enumerate_mix_sequences<F>(
     wheel: &ColorWheel,
     remaining: u32,
-    choices: &mut Vec<ColoriChoice>,
+    choices: &mut Vec<Choice>,
     make_choice: F,
 ) where
-    F: Fn(SmallVec<[(Color, Color); 2]>) -> ColoriChoice,
+    F: Fn(SmallVec<[(Color, Color); 2]>) -> Choice,
 {
     // Always include skip-all (empty mixes)
     choices.push(make_choice(SmallVec::new()));
@@ -80,7 +88,7 @@ fn enumerate_mix_sequences<F>(
 
 // ── Choice enumeration ──
 
-pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>) {
+pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
     choices.clear();
     match &state.phase {
         GamePhase::Draft { draft_state } => {
@@ -89,9 +97,8 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>
             }
             let hand = draft_state.hands[draft_state.current_player_index];
             for id in hand.iter() {
-                choices.push(ColoriChoice::DraftPick {
-                    card_instance_id: id as u32,
-                });
+                let card = state.card_lookup[id as usize];
+                choices.push(Choice::DraftPick { card });
             }
         }
         GamePhase::Action { action_state } => {
@@ -102,15 +109,14 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>
                 None => {
                     for id in player.drafted_cards.iter() {
                         let card = state.card_lookup[id as usize];
-                        let card_instance_id = id as u32;
                         match card.ability() {
                             Ability::MixColors { count } => {
                                 enumerate_mix_sequences(
                                     &player.color_wheel,
                                     count,
                                     choices,
-                                    |mixes| ColoriChoice::DestroyAndMixAll {
-                                        card_instance_id,
+                                    |mixes| Choice::DestroyAndMixAll {
+                                        card,
                                         mixes,
                                     },
                                 );
@@ -120,47 +126,45 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>
                                 for g in state.buyer_display.iter() {
                                     if can_afford_buyer(player, &g.buyer) {
                                         has_buyer = true;
-                                        choices.push(ColoriChoice::DestroyAndSell {
-                                            card_instance_id,
-                                            buyer_instance_id: g.instance_id,
+                                        choices.push(Choice::DestroyAndSell {
+                                            card,
+                                            buyer: g.buyer,
                                         });
                                     }
                                 }
                                 if !has_buyer {
-                                    choices.push(ColoriChoice::DestroyDraftedCard {
-                                        card_instance_id,
-                                    });
+                                    choices.push(Choice::DestroyDraftedCard { card });
                                 }
                             }
                             _ => {
-                                choices.push(ColoriChoice::DestroyDraftedCard {
-                                    card_instance_id,
-                                });
+                                choices.push(Choice::DestroyDraftedCard { card });
                             }
                         }
                     }
-                    choices.push(ColoriChoice::EndTurn);
+                    choices.push(Choice::EndTurn);
                 }
                 Some(PendingChoice::ChooseCardsForWorkshop { count }) => {
-                    choices.push(ColoriChoice::SkipWorkshop);
+                    choices.push(Choice::SkipWorkshop);
                     enumerate_subsets_into(
                         player.workshop_cards,
                         *count as usize,
+                        &state.card_lookup,
                         choices,
-                        |ids| ColoriChoice::Workshop { card_instance_ids: ids },
+                        |card_types| Choice::Workshop { card_types },
                     );
                 }
                 Some(PendingChoice::ChooseCardsToDestroy) => {
                     if player.workshop_cards.is_empty() {
-                        choices.push(ColoriChoice::DestroyDrawnCards {
-                            card_instance_ids: UnorderedCards::new(),
+                        choices.push(Choice::DestroyDrawnCards {
+                            card_types: SmallVec::new(),
                         });
                     } else {
                         enumerate_subsets_into(
                             player.workshop_cards,
                             1,
+                            &state.card_lookup,
                             choices,
-                            |ids| ColoriChoice::DestroyDrawnCards { card_instance_ids: ids },
+                            |card_types| Choice::DestroyDrawnCards { card_types },
                         );
                     }
                 }
@@ -169,26 +173,26 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>
                         &player.color_wheel,
                         *remaining,
                         choices,
-                        |mixes| ColoriChoice::MixAll { mixes },
+                        |mixes| Choice::MixAll { mixes },
                     );
                 }
                 Some(PendingChoice::ChooseBuyer) => {
                     for g in state.buyer_display.iter() {
                         if can_afford_buyer(player, &g.buyer) {
-                            choices.push(ColoriChoice::SelectBuyer {
-                                buyer_instance_id: g.instance_id,
+                            choices.push(Choice::SelectBuyer {
+                                buyer: g.buyer,
                             });
                         }
                     }
                 }
                 Some(PendingChoice::ChooseSecondaryColor) => {
                     for &c in SECONDARIES.iter() {
-                        choices.push(ColoriChoice::GainSecondary { color: c });
+                        choices.push(Choice::GainSecondary { color: c });
                     }
                 }
                 Some(PendingChoice::ChoosePrimaryColor) => {
                     for &c in PRIMARIES.iter() {
-                        choices.push(ColoriChoice::GainPrimary { color: c });
+                        choices.push(Choice::GainPrimary { color: c });
                     }
                 }
                 Some(PendingChoice::ChooseTertiaryToLose) => {
@@ -196,7 +200,7 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>
                         if player.color_wheel.get(lose) > 0 {
                             for &gain in TERTIARIES.iter() {
                                 if gain != lose {
-                                    choices.push(ColoriChoice::SwapTertiary { lose, gain });
+                                    choices.push(Choice::SwapTertiary { lose, gain });
                                 }
                             }
                         }
@@ -207,17 +211,20 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>
         GamePhase::Cleanup { cleanup_state } => {
             let player = &state.players[cleanup_state.current_player_index];
             let mask = player.workshop_cards;
-            // Enumerate all subsets (including empty = discard all)
             // Empty set (discard all)
-            choices.push(ColoriChoice::KeepWorkshopCards {
-                card_instance_ids: UnorderedCards::new(),
+            choices.push(Choice::KeepWorkshopCards {
+                card_types: SmallVec::new(),
             });
             // All non-empty subsets
             let mut sub = mask.0;
             while sub[0] != 0 || sub[1] != 0 {
-                choices.push(ColoriChoice::KeepWorkshopCards {
-                    card_instance_ids: UnorderedCards(sub),
-                });
+                let subset = UnorderedCards(sub);
+                let mut card_types: SmallVec<[Card; 4]> = subset
+                    .iter()
+                    .map(|id| state.card_lookup[id as usize])
+                    .collect();
+                card_types.sort_by_key(|c| *c as usize);
+                choices.push(Choice::KeepWorkshopCards { card_types });
                 let (new_lo, borrow) = sub[0].overflowing_sub(1);
                 let new_hi = if borrow { sub[1].wrapping_sub(1) } else { sub[1] };
                 sub = [new_lo & mask.0[0], new_hi & mask.0[1]];
@@ -225,9 +232,12 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<ColoriChoice>
         }
         _ => {}
     }
+    // Deduplicate: multiple instances of the same card type produce identical choices
+    let mut seen = HashSet::new();
+    choices.retain(|c| seen.insert(c.clone()));
 }
 
-pub fn enumerate_choices(state: &GameState) -> Vec<ColoriChoice> {
+pub fn enumerate_choices(state: &GameState) -> Vec<Choice> {
     let mut choices = Vec::new();
     enumerate_choices_into(state, &mut choices);
     choices
@@ -235,22 +245,22 @@ pub fn enumerate_choices(state: &GameState) -> Vec<ColoriChoice> {
 
 // ── Apply choice with AI post-processing ──
 
-pub fn apply_choice_to_state<R: Rng>(state: &mut GameState, choice: &ColoriChoice, rng: &mut R) {
+pub fn apply_choice_to_state<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R) {
     apply_choice(state, choice, rng);
 
-    if matches!(choice, ColoriChoice::DraftPick { .. }) {
+    if matches!(choice, Choice::DraftPick { .. }) {
         if let GamePhase::Draft { ref mut draft_state } = state.phase {
             if draft_state.waiting_for_pass {
                 confirm_pass(state);
             }
         }
     }
-    if matches!(choice, ColoriChoice::EndTurn) {
+    if matches!(choice, Choice::EndTurn) {
         if matches!(state.phase, GamePhase::Draw) {
             execute_draw_phase(state, rng);
         }
     }
-    if matches!(choice, ColoriChoice::KeepWorkshopCards { .. }) {
+    if matches!(choice, Choice::KeepWorkshopCards { .. }) {
         if matches!(state.phase, GamePhase::Draw) {
             execute_draw_phase(state, rng);
         }
@@ -259,42 +269,54 @@ pub fn apply_choice_to_state<R: Rng>(state: &mut GameState, choice: &ColoriChoic
 
 // ── Choice availability ──
 
-pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool {
+pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
     match choice {
-        ColoriChoice::DraftPick { card_instance_id } => {
+        Choice::DraftPick { card } => {
             if let GamePhase::Draft { ref draft_state } = state.phase {
-                draft_state.hands[draft_state.current_player_index]
-                    .contains(*card_instance_id as u8)
+                if draft_state.waiting_for_pass {
+                    return false;
+                }
+                let hand = draft_state.hands[draft_state.current_player_index];
+                hand.iter().any(|id| state.card_lookup[id as usize] == *card)
             } else {
                 false
             }
         }
-        ColoriChoice::DestroyDraftedCard { card_instance_id } => {
+        Choice::DestroyDraftedCard { card } => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 if action_state.pending_choice.is_some() {
                     return false;
                 }
-                state.players[action_state.current_player_index]
-                    .drafted_cards
-                    .contains(*card_instance_id as u8)
+                let player = &state.players[action_state.current_player_index];
+                let has_card = player.drafted_cards.iter().any(|id| state.card_lookup[id as usize] == *card);
+                if !has_card {
+                    return false;
+                }
+                match card.ability() {
+                    Ability::Sell => !can_sell_to_any_buyer(state),
+                    Ability::MixColors { .. } => false,
+                    _ => true,
+                }
             } else {
                 false
             }
         }
-        ColoriChoice::EndTurn => {
+        Choice::EndTurn => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 action_state.pending_choice.is_none()
             } else {
                 false
             }
         }
-        ColoriChoice::Workshop { card_instance_ids } => {
+        Choice::Workshop { card_types } => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 match &action_state.pending_choice {
                     Some(PendingChoice::ChooseCardsForWorkshop { .. }) => {
+                        if card_types.is_empty() {
+                            return false;
+                        }
                         let player = &state.players[action_state.current_player_index];
-                        !card_instance_ids.is_empty()
-                            && card_instance_ids.difference(player.workshop_cards).is_empty()
+                        resolve_card_types_to_ids(card_types, &player.workshop_cards, &state.card_lookup).is_some()
                     }
                     _ => false,
                 }
@@ -302,7 +324,7 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                 false
             }
         }
-        ColoriChoice::SkipWorkshop => {
+        Choice::SkipWorkshop => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 matches!(
                     action_state.pending_choice,
@@ -312,12 +334,15 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                 false
             }
         }
-        ColoriChoice::DestroyDrawnCards { card_instance_ids } => {
+        Choice::DestroyDrawnCards { card_types } => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 match &action_state.pending_choice {
                     Some(PendingChoice::ChooseCardsToDestroy) => {
+                        if card_types.is_empty() {
+                            return true;
+                        }
                         let player = &state.players[action_state.current_player_index];
-                        card_instance_ids.difference(player.workshop_cards).is_empty()
+                        resolve_card_types_to_ids(card_types, &player.workshop_cards, &state.card_lookup).is_some()
                     }
                     _ => false,
                 }
@@ -325,19 +350,12 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                 false
             }
         }
-        ColoriChoice::SelectBuyer {
-            buyer_instance_id,
-        } => {
+        Choice::SelectBuyer { buyer } => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 match &action_state.pending_choice {
                     Some(PendingChoice::ChooseBuyer) => {
                         let player = &state.players[action_state.current_player_index];
-                        state
-                            .buyer_display
-                            .iter()
-                            .find(|g| g.instance_id == *buyer_instance_id)
-                            .map(|g| can_afford_buyer(player, &g.buyer))
-                            .unwrap_or(false)
+                        state.buyer_display.iter().any(|g| g.buyer == *buyer && can_afford_buyer(player, &g.buyer))
                     }
                     _ => false,
                 }
@@ -345,7 +363,7 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                 false
             }
         }
-        ColoriChoice::GainSecondary { color } => {
+        Choice::GainSecondary { color } => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 matches!(
                     action_state.pending_choice,
@@ -355,7 +373,7 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                 false
             }
         }
-        ColoriChoice::GainPrimary { color } => {
+        Choice::GainPrimary { color } => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 matches!(
                     action_state.pending_choice,
@@ -365,7 +383,7 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                 false
             }
         }
-        ColoriChoice::MixAll { mixes } => {
+        Choice::MixAll { mixes } => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 match &action_state.pending_choice {
                     Some(PendingChoice::ChooseMix { .. }) => {
@@ -384,7 +402,7 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                 false
             }
         }
-        ColoriChoice::SwapTertiary { lose, gain } => {
+        Choice::SwapTertiary { lose, gain } => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 match &action_state.pending_choice {
                     Some(PendingChoice::ChooseTertiaryToLose) => {
@@ -400,55 +418,56 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
                 false
             }
         }
-        ColoriChoice::DestroyAndMixAll {
-            card_instance_id,
-            mixes,
-        } => {
+        Choice::DestroyAndMixAll { card, mixes } => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 if action_state.pending_choice.is_some() {
                     return false;
                 }
                 let player = &state.players[action_state.current_player_index];
-                if !player.drafted_cards.contains(*card_instance_id as u8) {
+                if !player.drafted_cards.iter().any(|id| state.card_lookup[id as usize] == *card) {
                     return false;
                 }
                 if mixes.is_empty() {
                     return true;
                 }
                 let (a, b) = mixes[0];
-                player.color_wheel.get(a) > 0
-                    && player.color_wheel.get(b) > 0
-                    && can_mix(a, b)
+                if player.color_wheel.get(a) == 0 || player.color_wheel.get(b) == 0 || !can_mix(a, b) {
+                    return false;
+                }
+                if mixes.len() > 1 {
+                    let mut wheel = player.color_wheel.clone();
+                    perform_mix_unchecked(&mut wheel, a, b);
+                    let (c, d) = mixes[1];
+                    if wheel.get(c) == 0 || wheel.get(d) == 0 || !can_mix(c, d) {
+                        return false;
+                    }
+                }
+                true
             } else {
                 false
             }
         }
-        ColoriChoice::DestroyAndSell {
-            card_instance_id,
-            buyer_instance_id,
-        } => {
+        Choice::DestroyAndSell { card, buyer } => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 if action_state.pending_choice.is_some() {
                     return false;
                 }
                 let player = &state.players[action_state.current_player_index];
-                if !player.drafted_cards.contains(*card_instance_id as u8) {
+                if !player.drafted_cards.iter().any(|id| state.card_lookup[id as usize] == *card) {
                     return false;
                 }
-                state
-                    .buyer_display
-                    .iter()
-                    .find(|g| g.instance_id == *buyer_instance_id)
-                    .map(|g| can_afford_buyer(player, &g.buyer))
-                    .unwrap_or(false)
+                state.buyer_display.iter().any(|g| g.buyer == *buyer && can_afford_buyer(player, &g.buyer))
             } else {
                 false
             }
         }
-        ColoriChoice::KeepWorkshopCards { card_instance_ids } => {
+        Choice::KeepWorkshopCards { card_types } => {
             if let GamePhase::Cleanup { ref cleanup_state } = state.phase {
+                if card_types.is_empty() {
+                    return true;
+                }
                 let player = &state.players[cleanup_state.current_player_index];
-                card_instance_ids.difference(player.workshop_cards).is_empty()
+                resolve_card_types_to_ids(card_types, &player.workshop_cards, &state.card_lookup).is_some()
             } else {
                 false
             }
@@ -456,391 +475,32 @@ pub fn check_choice_available(state: &GameState, choice: &ColoriChoice) -> bool 
     }
 }
 
-// ── Abstract choice conversion ──
-
-pub fn abstract_choice(choice: &ColoriChoice, state: &GameState) -> AbstractChoice {
-    match choice {
-        ColoriChoice::DraftPick { card_instance_id } => AbstractChoice::DraftPick {
-            card: state.card_lookup[*card_instance_id as usize],
-        },
-        ColoriChoice::DestroyDraftedCard { card_instance_id } => {
-            AbstractChoice::DestroyDraftedCard {
-                card: state.card_lookup[*card_instance_id as usize],
+/// Resolve a list of card types to instance IDs from a card set.
+/// Returns None if any card type can't be found.
+fn resolve_card_types_to_ids(
+    card_types: &[Card],
+    available: &UnorderedCards,
+    card_lookup: &[Card; 256],
+) -> Option<UnorderedCards> {
+    let mut ids = UnorderedCards::new();
+    let mut used = UnorderedCards::new();
+    for &ct in card_types.iter() {
+        let mut found = false;
+        for id in available.iter() {
+            if !used.contains(id) && card_lookup[id as usize] == ct {
+                ids.insert(id);
+                used.insert(id);
+                found = true;
+                break;
             }
         }
-        ColoriChoice::EndTurn => AbstractChoice::EndTurn,
-        ColoriChoice::Workshop { card_instance_ids } => {
-            let mut card_types: SmallVec<[Card; 4]> = card_instance_ids
-                .iter()
-                .map(|id| state.card_lookup[id as usize])
-                .collect();
-            card_types.sort_by_key(|c| *c as usize);
-            AbstractChoice::Workshop { card_types }
-        }
-        ColoriChoice::SkipWorkshop => AbstractChoice::SkipWorkshop,
-        ColoriChoice::DestroyDrawnCards { card_instance_ids } => {
-            let mut card_types: SmallVec<[Card; 4]> = card_instance_ids
-                .iter()
-                .map(|id| state.card_lookup[id as usize])
-                .collect();
-            card_types.sort_by_key(|c| *c as usize);
-            AbstractChoice::DestroyDrawnCards { card_types }
-        }
-        ColoriChoice::SelectBuyer { buyer_instance_id } => AbstractChoice::SelectBuyer {
-            buyer: state.buyer_lookup[*buyer_instance_id as usize],
-        },
-        ColoriChoice::GainSecondary { color } => AbstractChoice::GainSecondary { color: *color },
-        ColoriChoice::GainPrimary { color } => AbstractChoice::GainPrimary { color: *color },
-        ColoriChoice::MixAll { mixes } => AbstractChoice::MixAll {
-            mixes: mixes.clone(),
-        },
-        ColoriChoice::SwapTertiary { lose, gain } => AbstractChoice::SwapTertiary {
-            lose: *lose,
-            gain: *gain,
-        },
-        ColoriChoice::DestroyAndMixAll {
-            card_instance_id,
-            mixes,
-        } => AbstractChoice::DestroyAndMixAll {
-            card: state.card_lookup[*card_instance_id as usize],
-            mixes: mixes.clone(),
-        },
-        ColoriChoice::DestroyAndSell {
-            card_instance_id,
-            buyer_instance_id,
-        } => AbstractChoice::DestroyAndSell {
-            card: state.card_lookup[*card_instance_id as usize],
-            buyer: state.buyer_lookup[*buyer_instance_id as usize],
-        },
-        ColoriChoice::KeepWorkshopCards { card_instance_ids } => {
-            let mut card_types: SmallVec<[Card; 4]> = card_instance_ids
-                .iter()
-                .map(|id| state.card_lookup[id as usize])
-                .collect();
-            card_types.sort_by_key(|c| *c as usize);
-            AbstractChoice::KeepWorkshopCards { card_types }
+        if !found {
+            return None;
         }
     }
+    Some(ids)
 }
 
-pub fn resolve_abstract_choice(abs: &AbstractChoice, state: &GameState) -> Option<ColoriChoice> {
-    match abs {
-        AbstractChoice::EndTurn => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if action_state.pending_choice.is_none() {
-                    return Some(ColoriChoice::EndTurn);
-                }
-            }
-            None
-        }
-        AbstractChoice::SkipWorkshop => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if matches!(
-                    action_state.pending_choice,
-                    Some(PendingChoice::ChooseCardsForWorkshop { .. })
-                ) {
-                    return Some(ColoriChoice::SkipWorkshop);
-                }
-            }
-            None
-        }
-        AbstractChoice::GainSecondary { color } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if matches!(
-                    action_state.pending_choice,
-                    Some(PendingChoice::ChooseSecondaryColor)
-                ) && SECONDARIES.contains(color)
-                {
-                    return Some(ColoriChoice::GainSecondary { color: *color });
-                }
-            }
-            None
-        }
-        AbstractChoice::GainPrimary { color } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if matches!(
-                    action_state.pending_choice,
-                    Some(PendingChoice::ChoosePrimaryColor)
-                ) && PRIMARIES.contains(color)
-                {
-                    return Some(ColoriChoice::GainPrimary { color: *color });
-                }
-            }
-            None
-        }
-        AbstractChoice::SwapTertiary { lose, gain } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if let Some(PendingChoice::ChooseTertiaryToLose) = &action_state.pending_choice {
-                    let player = &state.players[action_state.current_player_index];
-                    if TERTIARIES.contains(lose)
-                        && player.color_wheel.get(*lose) > 0
-                        && TERTIARIES.contains(gain)
-                        && lose != gain
-                    {
-                        return Some(ColoriChoice::SwapTertiary {
-                            lose: *lose,
-                            gain: *gain,
-                        });
-                    }
-                }
-            }
-            None
-        }
-        AbstractChoice::MixAll { mixes } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if let Some(PendingChoice::ChooseMix { .. }) = &action_state.pending_choice {
-                    if mixes.is_empty() {
-                        return Some(ColoriChoice::MixAll {
-                            mixes: SmallVec::new(),
-                        });
-                    }
-                    let player = &state.players[action_state.current_player_index];
-                    let (a, b) = mixes[0];
-                    if player.color_wheel.get(a) > 0
-                        && player.color_wheel.get(b) > 0
-                        && can_mix(a, b)
-                    {
-                        if mixes.len() > 1 {
-                            let mut wheel = player.color_wheel.clone();
-                            perform_mix_unchecked(&mut wheel, a, b);
-                            let (c, d) = mixes[1];
-                            if wheel.get(c) == 0 || wheel.get(d) == 0 || !can_mix(c, d) {
-                                return None;
-                            }
-                        }
-                        return Some(ColoriChoice::MixAll {
-                            mixes: mixes.clone(),
-                        });
-                    }
-                }
-            }
-            None
-        }
-        AbstractChoice::DraftPick { card } => {
-            if let GamePhase::Draft { ref draft_state } = state.phase {
-                if draft_state.waiting_for_pass {
-                    return None;
-                }
-                let hand = draft_state.hands[draft_state.current_player_index];
-                for id in hand.iter() {
-                    if state.card_lookup[id as usize] == *card {
-                        return Some(ColoriChoice::DraftPick {
-                            card_instance_id: id as u32,
-                        });
-                    }
-                }
-            }
-            None
-        }
-        AbstractChoice::DestroyDraftedCard { card } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if action_state.pending_choice.is_some() {
-                    return None;
-                }
-                let player = &state.players[action_state.current_player_index];
-                for id in player.drafted_cards.iter() {
-                    if state.card_lookup[id as usize] == *card {
-                        match card.ability() {
-                            Ability::Sell => {
-                                if can_sell_to_any_buyer(state) {
-                                    return None;
-                                }
-                            }
-                            Ability::MixColors { .. } => {
-                                return None;
-                            }
-                            _ => {}
-                        }
-                        return Some(ColoriChoice::DestroyDraftedCard {
-                            card_instance_id: id as u32,
-                        });
-                    }
-                }
-            }
-            None
-        }
-        AbstractChoice::DestroyAndMixAll { card, mixes } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if action_state.pending_choice.is_some() {
-                    return None;
-                }
-                let player = &state.players[action_state.current_player_index];
-                for id in player.drafted_cards.iter() {
-                    if state.card_lookup[id as usize] == *card {
-                        if !mixes.is_empty() {
-                            let (a, b) = mixes[0];
-                            if player.color_wheel.get(a) == 0
-                                || player.color_wheel.get(b) == 0
-                                || !can_mix(a, b)
-                            {
-                                return None;
-                            }
-                            if mixes.len() > 1 {
-                                let mut wheel = player.color_wheel.clone();
-                                perform_mix_unchecked(&mut wheel, a, b);
-                                let (c, d) = mixes[1];
-                                if wheel.get(c) == 0 || wheel.get(d) == 0 || !can_mix(c, d) {
-                                    return None;
-                                }
-                            }
-                        }
-                        return Some(ColoriChoice::DestroyAndMixAll {
-                            card_instance_id: id as u32,
-                            mixes: mixes.clone(),
-                        });
-                    }
-                }
-            }
-            None
-        }
-        AbstractChoice::DestroyAndSell { card, buyer } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if action_state.pending_choice.is_some() {
-                    return None;
-                }
-                let player = &state.players[action_state.current_player_index];
-                let mut card_id = None;
-                for id in player.drafted_cards.iter() {
-                    if state.card_lookup[id as usize] == *card {
-                        card_id = Some(id as u32);
-                        break;
-                    }
-                }
-                let card_id = card_id?;
-                for g in state.buyer_display.iter() {
-                    if state.buyer_lookup[g.instance_id as usize] == *buyer
-                        && can_afford_buyer(player, &g.buyer)
-                    {
-                        return Some(ColoriChoice::DestroyAndSell {
-                            card_instance_id: card_id,
-                            buyer_instance_id: g.instance_id,
-                        });
-                    }
-                }
-            }
-            None
-        }
-        AbstractChoice::SelectBuyer { buyer } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if let Some(PendingChoice::ChooseBuyer) = &action_state.pending_choice {
-                    let player = &state.players[action_state.current_player_index];
-                    for g in state.buyer_display.iter() {
-                        if state.buyer_lookup[g.instance_id as usize] == *buyer
-                            && can_afford_buyer(player, &g.buyer)
-                        {
-                            return Some(ColoriChoice::SelectBuyer {
-                                buyer_instance_id: g.instance_id,
-                            });
-                        }
-                    }
-                }
-            }
-            None
-        }
-        AbstractChoice::Workshop { card_types } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if let Some(PendingChoice::ChooseCardsForWorkshop { .. }) =
-                    &action_state.pending_choice
-                {
-                    let player = &state.players[action_state.current_player_index];
-                    let mut ids = UnorderedCards::new();
-                    let mut used = UnorderedCards::new();
-                    for &ct in card_types.iter() {
-                        let mut found = false;
-                        for id in player.workshop_cards.iter() {
-                            if !used.contains(id)
-                                && state.card_lookup[id as usize] == ct
-                            {
-                                ids.insert(id);
-                                used.insert(id);
-                                found = true;
-                                break;
-                            }
-                        }
-                        if !found {
-                            return None;
-                        }
-                    }
-                    return Some(ColoriChoice::Workshop {
-                        card_instance_ids: ids,
-                    });
-                }
-            }
-            None
-        }
-        AbstractChoice::DestroyDrawnCards { card_types } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if let Some(PendingChoice::ChooseCardsToDestroy) =
-                    &action_state.pending_choice
-                {
-                    let player = &state.players[action_state.current_player_index];
-                    let mut ids = UnorderedCards::new();
-                    let mut used = UnorderedCards::new();
-                    for &ct in card_types.iter() {
-                        let mut found = false;
-                        for id in player.workshop_cards.iter() {
-                            if !used.contains(id)
-                                && state.card_lookup[id as usize] == ct
-                            {
-                                ids.insert(id);
-                                used.insert(id);
-                                found = true;
-                                break;
-                            }
-                        }
-                        if !found {
-                            return None;
-                        }
-                    }
-                    return Some(ColoriChoice::DestroyDrawnCards {
-                        card_instance_ids: ids,
-                    });
-                }
-            }
-            None
-        }
-        AbstractChoice::KeepWorkshopCards { card_types } => {
-            if let GamePhase::Cleanup { ref cleanup_state } = state.phase {
-                let player = &state.players[cleanup_state.current_player_index];
-                let mut ids = UnorderedCards::new();
-                let mut used = UnorderedCards::new();
-                for &ct in card_types.iter() {
-                    let mut found = false;
-                    for id in player.workshop_cards.iter() {
-                        if !used.contains(id)
-                            && state.card_lookup[id as usize] == ct
-                        {
-                            ids.insert(id);
-                            used.insert(id);
-                            found = true;
-                            break;
-                        }
-                    }
-                    if !found {
-                        return None;
-                    }
-                }
-                return Some(ColoriChoice::KeepWorkshopCards {
-                    card_instance_ids: ids,
-                });
-            }
-            None
-        }
-    }
-}
-
-pub fn deduplicate_choices(choices: &mut Vec<ColoriChoice>, state: &GameState) {
-    let mut seen: Vec<AbstractChoice> = Vec::with_capacity(choices.len());
-    choices.retain(|choice| {
-        let abs = abstract_choice(choice, state);
-        if seen.contains(&abs) {
-            false
-        } else {
-            seen.push(abs);
-            true
-        }
-    });
-}
 
 // ── Game status ──
 

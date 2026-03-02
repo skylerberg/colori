@@ -1,5 +1,5 @@
 import type { GameState } from '../data/types';
-import type { ColoriChoice } from '../data/types';
+import type { Choice } from '../data/types';
 import type { NetworkManager } from './networkManager';
 import type { LobbyPlayer, GuestMessage } from './types';
 import { createInitialGameState, executeDrawPhase, confirmPass, simultaneousPick, advanceDraft, applyChoice, getChoiceLogMessage } from '../engine/wasmEngine';
@@ -236,18 +236,18 @@ export class HostController {
     this.onLogUpdated?.(this.gameLog);
   }
 
-  applyHostAction(choice: ColoriChoice) {
+  applyHostAction(choice: Choice) {
     if (!this.gameState) return;
     this.applyAction(choice, 0);
   }
 
-  private handlePlayerAction(peerId: string, choice: ColoriChoice) {
+  private handlePlayerAction(peerId: string, choice: Choice) {
     const playerIndex = this.peerToPlayerIndex.get(peerId);
     if (playerIndex === undefined) return;
     this.applyAction(choice, playerIndex);
   }
 
-  applyAction(choice: ColoriChoice, playerIndex: number) {
+  applyAction(choice: Choice, playerIndex: number) {
     if (!this.gameState) return;
 
     // During draft phase, use simultaneous picking
@@ -261,7 +261,7 @@ export class HostController {
       }
 
       this.structuredLog?.recordChoice(this.gameState, choice, playerIndex);
-      simultaneousPick(this.gameState, playerIndex, choice.cardInstanceId);
+      simultaneousPick(this.gameState, playerIndex, choice.card);
       this.pendingDraftPicks.add(playerIndex);
       this.broadcastGameState([]);
       this.onGameStateUpdated?.(this.gameState);

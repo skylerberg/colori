@@ -2,7 +2,7 @@
   import type { GameState, CardInstance } from '../data/types';
   import { executeDrawPhase, confirmPass, applyChoice, getChoiceLogMessage, cloneGameState } from '../engine/wasmEngine';
   import { AIController, type PrecomputeRequest } from '../ai/aiController';
-  import type { ColoriChoice } from '../data/types';
+  import type { Choice } from '../data/types';
   import type { GameLogAccumulator } from '../gameLog';
   import PlayerStatus from './PlayerStatus.svelte';
   import DraftPhaseView from './DraftPhaseView.svelte';
@@ -140,7 +140,7 @@
   }
 
   // Unified action handler for both human UI and AI choices
-  function handleAction(choice: ColoriChoice) {
+  function handleAction(choice: Choice) {
     const playerIdx = getActivePlayerIndex(gameState);
     const name = playerIdx >= 0 ? gameState.playerNames[playerIdx] : 'Unknown';
 

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { GameState, CardInstance } from '../data/types';
-  import type { ColoriChoice } from '../data/types';
+  import type { Choice } from '../data/types';
   import type { SanitizedGameState } from '../network/types';
   import type { HostController } from '../network/hostController';
   import type { GuestController } from '../network/guestController';
@@ -168,7 +168,7 @@
   });
 
   // Handle action from phase views
-  function handleAction(choice: ColoriChoice) {
+  function handleAction(choice: Choice) {
     if (choice.type === 'draftPick') {
       hasPicked = true;
     }

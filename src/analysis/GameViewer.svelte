@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { StructuredGameLog, StructuredLogEntry } from '../gameLog';
-  import { buildCardInstanceMap, buildBuyerInstanceMap, formatChoice } from './logAnalysis';
+  import { formatChoice } from './logAnalysis';
   import ColorWheelDisplay from '../components/ColorWheelDisplay.svelte';
   import CardList from '../components/CardList.svelte';
 
@@ -9,9 +9,6 @@
   const PLAYER_COLORS = ['#e63946', '#3b82f6', '#2ecc71', '#f4a261', '#a855f7'];
 
   let selectedPlayer: number | null = $state(null);
-
-  let cardMap = $derived(buildCardInstanceMap(log));
-  let buyerMap = $derived(buildBuyerInstanceMap(log));
 
   let filteredEntries = $derived(
     selectedPlayer != null
@@ -152,7 +149,7 @@
                     {log.playerNames[entry.playerIndex]}
                   </span>
                 {/if}
-                <span class="choice-text">{formatChoice(entry.choice, cardMap, buyerMap)}</span>
+                <span class="choice-text">{formatChoice(entry.choice)}</span>
               </div>
             {/each}
           </div>

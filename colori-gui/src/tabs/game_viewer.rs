@@ -305,8 +305,8 @@ fn build_round_groups<'a>(
 fn render_timeline(
     ui: &mut egui::Ui,
     game: &StructuredGameLog,
-    card_map: &HashMap<u32, CardInstance>,
-    buyer_map: &HashMap<u32, BuyerInstance>,
+    _card_map: &HashMap<u32, CardInstance>,
+    _buyer_map: &HashMap<u32, BuyerInstance>,
     selected_player: Option<usize>,
 ) {
     let round_groups = build_round_groups(&game.entries, selected_player);
@@ -326,7 +326,7 @@ fn render_timeline(
                                 .get(entry.player_index)
                                 .map(|s| s.as_str())
                                 .unwrap_or("Unknown");
-                            let choice_text = format_choice(&entry.choice, card_map, buyer_map);
+                            let choice_text = format_choice(&entry.choice);
 
                             ui.horizontal(|ui| {
                                 ui.colored_label(player_color, player_name);

@@ -1,6 +1,6 @@
 import type { NetworkManager } from './networkManager';
 import type { SanitizedGameState, LobbyPlayer, HostMessage } from './types';
-import type { ColoriChoice } from '../data/types';
+import type { Choice } from '../data/types';
 
 export class GuestController {
   private network: NetworkManager;
@@ -54,7 +54,7 @@ export class GuestController {
     }
   }
 
-  sendAction(choice: ColoriChoice) {
+  sendAction(choice: Choice) {
     this.network.sendToHost({ type: 'action', choice });
   }
 

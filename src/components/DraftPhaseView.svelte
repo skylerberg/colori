@@ -1,6 +1,5 @@
 <script lang="ts">
-  import type { GameState } from '../data/types';
-  import type { ColoriChoice } from '../data/types';
+  import type { GameState, Choice } from '../data/types';
   import { confirmPass } from '../engine/wasmEngine';
   import CardList from './CardList.svelte';
   import OpponentBoardPanel from './OpponentBoardPanel.svelte';
@@ -8,7 +7,7 @@
 
   let { gameState, onAction, onGameUpdated, playerIndex, selectable }: {
     gameState: GameState;
-    onAction: (choice: ColoriChoice) => void;
+    onAction: (choice: Choice) => void;
     onGameUpdated?: () => void;
     playerIndex?: number;
     selectable?: boolean;
@@ -35,7 +34,9 @@
   );
 
   function handlePick(cardInstanceId: number) {
-    onAction({ type: 'draftPick', cardInstanceId });
+    const clickedCard = currentHand.find(c => c.instanceId === cardInstanceId);
+    if (!clickedCard) return;
+    onAction({ type: 'draftPick', card: clickedCard.card });
   }
 
   function handlePassReady() {

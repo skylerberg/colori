@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use colori_core::game_log::{LogChoice, PlayerVariant, StructuredGameLog};
-use colori_core::types::{BuyerCard, BuyerInstance, CardInstance, ALL_COLORS};
+use colori_core::game_log::{PlayerVariant, StructuredGameLog};
+use colori_core::types::{BuyerCard, BuyerInstance, CardInstance, Choice, ALL_COLORS};
 
 use super::card_names::{buyer_display_name, card_display_name, get_draft_copies_by_name};
 use super::categories::CardCategory;
@@ -113,6 +113,7 @@ pub fn buyer_name_from_instance(buyer: BuyerCard) -> String {
 }
 
 /// Look up a card instance ID and return its display name.
+#[allow(dead_code)]
 pub fn get_card_name(card_map: &HashMap<u32, CardInstance>, id: u32) -> String {
     match card_map.get(&id) {
         Some(inst) => card_name_from_instance(inst.card),
@@ -121,6 +122,7 @@ pub fn get_card_name(card_map: &HashMap<u32, CardInstance>, id: u32) -> String {
 }
 
 /// Look up a buyer instance ID and return its display name.
+#[allow(dead_code)]
 pub fn get_buyer_name(buyer_map: &HashMap<u32, BuyerInstance>, id: u32) -> String {
     match buyer_map.get(&id) {
         Some(inst) => buyer_name_from_instance(inst.buyer),
@@ -205,53 +207,50 @@ pub fn format_variant_label(
 
 // ── Format choice ──
 
-/// Format a log choice as a human-readable string.
-pub fn format_choice(
-    choice: &LogChoice,
-    card_map: &HashMap<u32, CardInstance>,
-    buyer_map: &HashMap<u32, BuyerInstance>,
-) -> String {
-    let card_name = |id: u32| get_card_name(card_map, id);
-    let buyer_name = |id: u32| get_buyer_name(buyer_map, id);
-    let card_names = |ids: &[u32]| {
-        ids.iter()
-            .map(|&id| card_name(id))
+/// Format a choice as a human-readable string.
+pub fn format_choice(choice: &Choice) -> String {
+    let card_name = |card: &colori_core::types::Card| card_name_from_instance(*card);
+    let buyer_name = |buyer: &BuyerCard| buyer_name_from_instance(*buyer);
+    let card_names = |cards: &[colori_core::types::Card]| {
+        cards
+            .iter()
+            .map(|c| card_name(c))
             .collect::<Vec<_>>()
             .join(", ")
     };
 
     match choice {
-        LogChoice::DraftPick { card_instance_id } => {
-            format!("Drafted {}", card_name(*card_instance_id))
+        Choice::DraftPick { card } => {
+            format!("Drafted {}", card_name(card))
         }
-        LogChoice::DestroyDraftedCard { card_instance_id } => {
-            format!("Destroyed {} from draft", card_name(*card_instance_id))
+        Choice::DestroyDraftedCard { card } => {
+            format!("Destroyed {} from draft", card_name(card))
         }
-        LogChoice::EndTurn => "Ended turn".to_string(),
-        LogChoice::Workshop { card_instance_ids } => {
-            if card_instance_ids.is_empty() {
+        Choice::EndTurn => "Ended turn".to_string(),
+        Choice::Workshop { card_types } => {
+            if card_types.is_empty() {
                 "Workshopped nothing".to_string()
             } else {
-                format!("Workshopped {}", card_names(card_instance_ids))
+                format!("Workshopped {}", card_names(card_types))
             }
         }
-        LogChoice::SkipWorkshop => "Skipped workshop".to_string(),
-        LogChoice::DestroyDrawnCards { card_instance_ids } => {
+        Choice::SkipWorkshop => "Skipped workshop".to_string(),
+        Choice::DestroyDrawnCards { card_types } => {
             format!(
                 "Destroyed {} from workshop",
-                card_names(card_instance_ids)
+                card_names(card_types)
             )
         }
-        LogChoice::SelectBuyer { buyer_instance_id } => {
-            format!("Sold to {}", buyer_name(*buyer_instance_id))
+        Choice::SelectBuyer { buyer } => {
+            format!("Sold to {}", buyer_name(buyer))
         }
-        LogChoice::GainSecondary { color } => {
+        Choice::GainSecondary { color } => {
             format!("Gained {:?} (secondary)", color)
         }
-        LogChoice::GainPrimary { color } => {
+        Choice::GainPrimary { color } => {
             format!("Gained {:?} (primary)", color)
         }
-        LogChoice::MixAll { mixes } => {
+        Choice::MixAll { mixes } => {
             if mixes.is_empty() {
                 "Skipped mixing".to_string()
             } else {
@@ -260,43 +259,43 @@ pub fn format_choice(
                 format!("Mixed {}", mix_strs.join(", "))
             }
         }
-        LogChoice::SwapTertiary { lose, gain } => {
+        Choice::SwapTertiary { lose, gain } => {
             format!("Swapped {:?} for {:?}", lose, gain)
         }
-        LogChoice::DestroyAndMixAll {
-            card_instance_id,
+        Choice::DestroyAndMixAll {
+            card,
             mixes,
         } => {
             if mixes.is_empty() {
                 format!(
                     "Destroyed {} and skipped mixing",
-                    card_name(*card_instance_id)
+                    card_name(card)
                 )
             } else {
                 let mix_strs: Vec<String> =
                     mixes.iter().map(|(a, b)| format!("{:?}+{:?}", a, b)).collect();
                 format!(
                     "Destroyed {} and mixed {}",
-                    card_name(*card_instance_id),
+                    card_name(card),
                     mix_strs.join(", ")
                 )
             }
         }
-        LogChoice::DestroyAndSell {
-            card_instance_id,
-            buyer_instance_id,
+        Choice::DestroyAndSell {
+            card,
+            buyer,
         } => {
             format!(
                 "Destroyed {} and sold to {}",
-                card_name(*card_instance_id),
-                buyer_name(*buyer_instance_id)
+                card_name(card),
+                buyer_name(buyer)
             )
         }
-        LogChoice::KeepWorkshopCards { card_instance_ids } => {
-            if card_instance_ids.is_empty() {
+        Choice::KeepWorkshopCards { card_types } => {
+            if card_types.is_empty() {
                 "Kept nothing".to_string()
             } else {
-                format!("Kept {} in workshop", card_names(card_instance_ids))
+                format!("Kept {} in workshop", card_names(card_types))
             }
         }
     }
@@ -325,22 +324,22 @@ pub fn compute_action_distribution(
     counts
 }
 
-fn choice_type_name(choice: &LogChoice) -> String {
+fn choice_type_name(choice: &Choice) -> String {
     match choice {
-        LogChoice::DraftPick { .. } => "draftPick".to_string(),
-        LogChoice::DestroyDraftedCard { .. } => "destroyDraftedCard".to_string(),
-        LogChoice::EndTurn => "endTurn".to_string(),
-        LogChoice::Workshop { .. } => "workshop".to_string(),
-        LogChoice::SkipWorkshop => "skipWorkshop".to_string(),
-        LogChoice::DestroyDrawnCards { .. } => "destroyDrawnCards".to_string(),
-        LogChoice::SelectBuyer { .. } => "selectBuyer".to_string(),
-        LogChoice::GainSecondary { .. } => "gainSecondary".to_string(),
-        LogChoice::GainPrimary { .. } => "gainPrimary".to_string(),
-        LogChoice::MixAll { .. } => "mixAll".to_string(),
-        LogChoice::SwapTertiary { .. } => "swapTertiary".to_string(),
-        LogChoice::DestroyAndMixAll { .. } => "destroyAndMixAll".to_string(),
-        LogChoice::DestroyAndSell { .. } => "destroyAndSell".to_string(),
-        LogChoice::KeepWorkshopCards { .. } => "keepWorkshopCards".to_string(),
+        Choice::DraftPick { .. } => "draftPick".to_string(),
+        Choice::DestroyDraftedCard { .. } => "destroyDraftedCard".to_string(),
+        Choice::EndTurn => "endTurn".to_string(),
+        Choice::Workshop { .. } => "workshop".to_string(),
+        Choice::SkipWorkshop => "skipWorkshop".to_string(),
+        Choice::DestroyDrawnCards { .. } => "destroyDrawnCards".to_string(),
+        Choice::SelectBuyer { .. } => "selectBuyer".to_string(),
+        Choice::GainSecondary { .. } => "gainSecondary".to_string(),
+        Choice::GainPrimary { .. } => "gainPrimary".to_string(),
+        Choice::MixAll { .. } => "mixAll".to_string(),
+        Choice::SwapTertiary { .. } => "swapTertiary".to_string(),
+        Choice::DestroyAndMixAll { .. } => "destroyAndMixAll".to_string(),
+        Choice::DestroyAndSell { .. } => "destroyAndSell".to_string(),
+        Choice::KeepWorkshopCards { .. } => "keepWorkshopCards".to_string(),
     }
 }
 
@@ -354,15 +353,14 @@ pub fn compute_draft_frequency(
     let mut counts = HashMap::new();
     for (log_idx, log) in logs.iter().enumerate() {
         let allowed = filter.and_then(|f| f.get(&log_idx));
-        let card_map = build_card_instance_map(log);
         for entry in &log.entries {
             if let Some(allowed) = allowed {
                 if !allowed.contains(&entry.player_index) {
                     continue;
                 }
             }
-            if let LogChoice::DraftPick { card_instance_id } = &entry.choice {
-                let name = get_card_name(&card_map, *card_instance_id);
+            if let Choice::DraftPick { card } = &entry.choice {
+                let name = card_name_from_instance(*card);
                 *counts.entry(name).or_insert(0) += 1;
             }
         }
@@ -378,9 +376,9 @@ pub fn compute_cards_added_to_deck(
     let mut counts = HashMap::new();
     for (log_idx, log) in logs.iter().enumerate() {
         let allowed = filter.and_then(|f| f.get(&log_idx));
-        let card_map = build_card_instance_map(log);
-        let mut drafted: HashMap<u32, String> = HashMap::new();
-        let mut destroyed: HashSet<u32> = HashSet::new();
+        // Track per-player drafted and destroyed card names with counts
+        let mut player_drafted: HashMap<usize, HashMap<String, usize>> = HashMap::new();
+        let mut player_destroyed: HashMap<usize, HashMap<String, usize>> = HashMap::new();
 
         for entry in &log.entries {
             if let Some(allowed) = allowed {
@@ -388,27 +386,39 @@ pub fn compute_cards_added_to_deck(
                     continue;
                 }
             }
+            let pi = entry.player_index;
             match &entry.choice {
-                LogChoice::DraftPick { card_instance_id } => {
-                    let name = get_card_name(&card_map, *card_instance_id);
-                    drafted.insert(*card_instance_id, name);
+                Choice::DraftPick { card } => {
+                    let name = card_name_from_instance(*card);
+                    *player_drafted.entry(pi).or_default().entry(name).or_insert(0) += 1;
                 }
-                LogChoice::DestroyDraftedCard { card_instance_id }
-                | LogChoice::DestroyAndMixAll {
-                    card_instance_id, ..
+                Choice::DestroyDraftedCard { card } => {
+                    let name = card_name_from_instance(*card);
+                    *player_destroyed.entry(pi).or_default().entry(name).or_insert(0) += 1;
                 }
-                | LogChoice::DestroyAndSell {
-                    card_instance_id, ..
-                } => {
-                    destroyed.insert(*card_instance_id);
+                Choice::DestroyAndMixAll { card, .. } => {
+                    let name = card_name_from_instance(*card);
+                    *player_destroyed.entry(pi).or_default().entry(name).or_insert(0) += 1;
+                }
+                Choice::DestroyAndSell { card, .. } => {
+                    let name = card_name_from_instance(*card);
+                    *player_destroyed.entry(pi).or_default().entry(name).or_insert(0) += 1;
                 }
                 _ => {}
             }
         }
 
-        for (id, name) in &drafted {
-            if !destroyed.contains(id) {
-                *counts.entry(name.clone()).or_insert(0) += 1;
+        for (_pi, drafted) in &player_drafted {
+            let destroyed = player_destroyed.get(_pi);
+            for (name, &drafted_count) in drafted {
+                let destroyed_count = destroyed
+                    .and_then(|d| d.get(name))
+                    .copied()
+                    .unwrap_or(0);
+                let kept = drafted_count.saturating_sub(destroyed_count);
+                if kept > 0 {
+                    *counts.entry(name.clone()).or_insert(0) += kept;
+                }
             }
         }
     }
@@ -462,25 +472,20 @@ pub fn compute_destroyed_from_draft(
     let mut counts = HashMap::new();
     for (log_idx, log) in logs.iter().enumerate() {
         let allowed = filter.and_then(|f| f.get(&log_idx));
-        let card_map = build_card_instance_map(log);
         for entry in &log.entries {
             if let Some(allowed) = allowed {
                 if !allowed.contains(&entry.player_index) {
                     continue;
                 }
             }
-            let card_instance_id = match &entry.choice {
-                LogChoice::DestroyDraftedCard { card_instance_id }
-                | LogChoice::DestroyAndMixAll {
-                    card_instance_id, ..
-                }
-                | LogChoice::DestroyAndSell {
-                    card_instance_id, ..
-                } => Some(*card_instance_id),
+            let card = match &entry.choice {
+                Choice::DestroyDraftedCard { card } => Some(card),
+                Choice::DestroyAndMixAll { card, .. } => Some(card),
+                Choice::DestroyAndSell { card, .. } => Some(card),
                 _ => None,
             };
-            if let Some(id) = card_instance_id {
-                let name = get_card_name(&card_map, id);
+            if let Some(card) = card {
+                let name = card_name_from_instance(*card);
                 *counts.entry(name).or_insert(0) += 1;
             }
         }
@@ -496,16 +501,15 @@ pub fn compute_destroyed_from_workshop(
     let mut counts = HashMap::new();
     for (log_idx, log) in logs.iter().enumerate() {
         let allowed = filter.and_then(|f| f.get(&log_idx));
-        let card_map = build_card_instance_map(log);
         for entry in &log.entries {
             if let Some(allowed) = allowed {
                 if !allowed.contains(&entry.player_index) {
                     continue;
                 }
             }
-            if let LogChoice::DestroyDrawnCards { card_instance_ids } = &entry.choice {
-                for &id in card_instance_ids {
-                    let name = get_card_name(&card_map, id);
+            if let Choice::DestroyDrawnCards { card_types } = &entry.choice {
+                for card in card_types {
+                    let name = card_name_from_instance(*card);
                     *counts.entry(name).or_insert(0) += 1;
                 }
             }
@@ -547,11 +551,10 @@ pub fn compute_win_rate_by_card(
             None => continue,
         };
         let allowed = filter.and_then(|f| f.get(&log_idx));
-        let card_map = build_card_instance_map(log);
 
-        // Track per-player drafted and destroyed cards
-        let mut player_drafted: HashMap<usize, HashSet<u32>> = HashMap::new();
-        let mut player_destroyed: HashMap<usize, HashSet<u32>> = HashMap::new();
+        // Track per-player drafted and destroyed card names with counts
+        let mut player_drafted: HashMap<usize, HashMap<String, usize>> = HashMap::new();
+        let mut player_destroyed: HashMap<usize, HashMap<String, usize>> = HashMap::new();
 
         for entry in &log.entries {
             if let Some(allowed) = allowed {
@@ -561,23 +564,21 @@ pub fn compute_win_rate_by_card(
             }
             let pi = entry.player_index;
             match &entry.choice {
-                LogChoice::DraftPick { card_instance_id } => {
-                    player_drafted
-                        .entry(pi)
-                        .or_default()
-                        .insert(*card_instance_id);
+                Choice::DraftPick { card } => {
+                    let name = card_name_from_instance(*card);
+                    *player_drafted.entry(pi).or_default().entry(name).or_insert(0) += 1;
                 }
-                LogChoice::DestroyDraftedCard { card_instance_id }
-                | LogChoice::DestroyAndMixAll {
-                    card_instance_id, ..
+                Choice::DestroyDraftedCard { card } => {
+                    let name = card_name_from_instance(*card);
+                    *player_destroyed.entry(pi).or_default().entry(name).or_insert(0) += 1;
                 }
-                | LogChoice::DestroyAndSell {
-                    card_instance_id, ..
-                } => {
-                    player_destroyed
-                        .entry(pi)
-                        .or_default()
-                        .insert(*card_instance_id);
+                Choice::DestroyAndMixAll { card, .. } => {
+                    let name = card_name_from_instance(*card);
+                    *player_destroyed.entry(pi).or_default().entry(name).or_insert(0) += 1;
+                }
+                Choice::DestroyAndSell { card, .. } => {
+                    let name = card_name_from_instance(*card);
+                    *player_destroyed.entry(pi).or_default().entry(name).or_insert(0) += 1;
                 }
                 _ => {}
             }
@@ -603,10 +604,13 @@ pub fn compute_win_rate_by_card(
 
             let mut deck_card_names: HashSet<String> = HashSet::new();
             if let Some(drafted) = drafted {
-                for &id in drafted {
-                    if destroyed.map_or(true, |d| !d.contains(&id)) {
-                        let name = get_card_name(&card_map, id);
-                        deck_card_names.insert(name);
+                for (name, &drafted_count) in drafted {
+                    let destroyed_count = destroyed
+                        .and_then(|d| d.get(name))
+                        .copied()
+                        .unwrap_or(0);
+                    if drafted_count > destroyed_count {
+                        deck_card_names.insert(name.clone());
                     }
                 }
             }
@@ -639,7 +643,6 @@ pub fn compute_win_rate_if_drafted(
             None => continue,
         };
         let allowed = filter.and_then(|f| f.get(&log_idx));
-        let card_map = build_card_instance_map(log);
 
         // Track per-player drafted card names (no destruction filtering)
         let mut player_drafted: HashMap<usize, HashSet<String>> = HashMap::new();
@@ -650,8 +653,8 @@ pub fn compute_win_rate_if_drafted(
                     continue;
                 }
             }
-            if let LogChoice::DraftPick { card_instance_id } = &entry.choice {
-                let name = get_card_name(&card_map, *card_instance_id);
+            if let Choice::DraftPick { card } = &entry.choice {
+                let name = card_name_from_instance(*card);
                 player_drafted
                     .entry(entry.player_index)
                     .or_default()
@@ -1016,16 +1019,16 @@ pub fn compute_penultimate_round_deck_sizes(
             }
             let pi = entry.player_index;
             match &entry.choice {
-                LogChoice::DraftPick { .. } => {
+                Choice::DraftPick { .. } => {
                     player_deck_sizes[pi] += 1;
                 }
-                LogChoice::DestroyDraftedCard { .. }
-                | LogChoice::DestroyAndMixAll { .. }
-                | LogChoice::DestroyAndSell { .. } => {
+                Choice::DestroyDraftedCard { .. }
+                | Choice::DestroyAndMixAll { .. }
+                | Choice::DestroyAndSell { .. } => {
                     player_deck_sizes[pi] -= 1;
                 }
-                LogChoice::DestroyDrawnCards { card_instance_ids } => {
-                    player_deck_sizes[pi] -= card_instance_ids.len() as i32;
+                Choice::DestroyDrawnCards { card_types } => {
+                    player_deck_sizes[pi] -= card_types.len() as i32;
                 }
                 _ => {}
             }
@@ -1058,7 +1061,6 @@ pub fn compute_buyer_acquisitions(
 
     for (log_idx, log) in logs.iter().enumerate() {
         let allowed = filter.and_then(|f| f.get(&log_idx));
-        let buyer_map = build_buyer_instance_map(log);
 
         for entry in &log.entries {
             if let Some(allowed) = allowed {
@@ -1066,22 +1068,17 @@ pub fn compute_buyer_acquisitions(
                     continue;
                 }
             }
-            let buyer_instance_id = match &entry.choice {
-                LogChoice::SelectBuyer { buyer_instance_id } => Some(*buyer_instance_id),
-                LogChoice::DestroyAndSell {
-                    buyer_instance_id, ..
-                } => Some(*buyer_instance_id),
+            let buyer = match &entry.choice {
+                Choice::SelectBuyer { buyer } => Some(buyer),
+                Choice::DestroyAndSell { buyer, .. } => Some(buyer),
                 _ => None,
             };
-            if let Some(buyer_id) = buyer_instance_id {
-                if let Some(inst) = buyer_map.get(&buyer_id) {
-                    let buyer = inst.buyer;
-                    let name = buyer_name_from_instance(buyer);
-                    *by_buyer.entry(name).or_insert(0) += 1;
-                    *by_stars.entry(buyer.stars()).or_insert(0) += 1;
-                    let material_name = format!("{:?}", buyer.required_material());
-                    *by_material.entry(material_name).or_insert(0) += 1;
-                }
+            if let Some(buyer) = buyer {
+                let name = buyer_name_from_instance(*buyer);
+                *by_buyer.entry(name).or_insert(0) += 1;
+                *by_stars.entry(buyer.stars()).or_insert(0) += 1;
+                let material_name = format!("{:?}", buyer.required_material());
+                *by_material.entry(material_name).or_insert(0) += 1;
             }
         }
     }

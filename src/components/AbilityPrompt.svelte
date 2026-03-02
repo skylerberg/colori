@@ -1,6 +1,5 @@
 <script lang="ts">
-  import type { GameState, Color } from '../data/types';
-  import type { ColoriChoice } from '../data/types';
+  import type { GameState, Color, Choice } from '../data/types';
   import { canSell } from '../engine/wasmEngine';
   import { canMix, mixResult, colorToHex, textColorForBackground, ALL_COLORS } from '../data/colors';
   import { PRIMARIES, SECONDARIES, TERTIARIES } from '../data/cards';
@@ -9,7 +8,7 @@
 
   let { gameState, onAction }: {
     gameState: GameState;
-    onAction: (choice: ColoriChoice) => void;
+    onAction: (choice: Choice) => void;
   } = $props();
 
   let actionState = $derived(
@@ -116,7 +115,9 @@
 
   function confirmBuyer() {
     if (selectedBuyerId === undefined) return;
-    onAction({ type: 'selectBuyer', buyerInstanceId: selectedBuyerId });
+    const buyerInstance = gameState.buyerDisplay.find(b => b.instanceId === selectedBuyerId);
+    if (!buyerInstance) return;
+    onAction({ type: 'selectBuyer', buyer: buyerInstance.card });
   }
 </script>
 

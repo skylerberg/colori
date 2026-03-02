@@ -5,7 +5,7 @@ use colori_core::draw_phase::execute_draw_phase;
 use colori_core::ismcts::{ismcts, MctsConfig};
 use colori_core::scoring::calculate_score;
 use colori_core::setup::create_initial_game_state;
-use colori_core::types::{CardInstance, ColoriChoice, GameState, PlayerState};
+use colori_core::types::{Card, CardInstance, Choice, GameState, PlayerState};
 use colori_core::unordered_cards::{
     get_buyer_registry, get_card_registry, set_buyer_registry, set_card_registry,
 };
@@ -50,7 +50,7 @@ pub fn run_ismcts(
     let mut rng = SmallRng::from_os_rng();
 
     let config = MctsConfig { iterations, ..MctsConfig::default() };
-    let choice: ColoriChoice = ismcts(
+    let choice: Choice = ismcts(
         &game_state,
         player_index as usize,
         &config,
@@ -82,7 +82,7 @@ pub fn wasm_execute_draw_phase(state_json: &str) -> String {
 #[wasm_bindgen]
 pub fn wasm_apply_choice(state_json: &str, choice_json: &str) -> String {
     let mut state = deserialize_state(state_json);
-    let choice: ColoriChoice =
+    let choice: Choice =
         serde_json::from_str(choice_json).expect("Failed to parse choice JSON");
     let mut rng = SmallRng::from_os_rng();
     apply_choice(&mut state, &choice, &mut rng);
@@ -100,10 +100,11 @@ pub fn wasm_confirm_pass(state_json: &str) -> String {
 pub fn wasm_simultaneous_pick(
     state_json: &str,
     player_index: u32,
-    card_instance_id: u32,
+    card_json: &str,
 ) -> String {
     let mut state = deserialize_state(state_json);
-    simultaneous_pick(&mut state, player_index as usize, card_instance_id);
+    let card: Card = serde_json::from_str(card_json).expect("Failed to parse card JSON");
+    simultaneous_pick(&mut state, player_index as usize, card);
     serialize_state(&state)
 }
 

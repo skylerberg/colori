@@ -1,11 +1,10 @@
 <script lang="ts">
-  import type { GameState } from '../data/types';
-  import type { ColoriChoice } from '../data/types';
+  import type { GameState, Choice } from '../data/types';
   import CardList from './CardList.svelte';
 
   let { gameState, onAction }: {
     gameState: GameState;
-    onAction: (choice: ColoriChoice) => void;
+    onAction: (choice: Choice) => void;
   } = $props();
 
   let cleanupState = $derived(
@@ -35,7 +34,12 @@
   }
 
   function confirmKeep() {
-    onAction({ type: 'keepWorkshopCards', cardInstanceIds: selectedIds });
+    if (!currentPlayer) return;
+    const cardTypes = selectedIds.map(id => {
+      const ci = currentPlayer!.workshopCards.find(c => c.instanceId === id);
+      return ci!.card;
+    });
+    onAction({ type: 'keepWorkshopCards', cardTypes });
   }
 
   function keepAll() {

@@ -1,5 +1,5 @@
 import type { CardInstance, BuyerInstance, Color, MaterialType, PendingChoice, Ability } from '../data/types';
-import type { ColoriChoice } from '../data/types';
+import type { Choice } from '../data/types';
 
 export interface SanitizedPlayerState {
   deckCount: number;
@@ -72,4 +72,4 @@ export type HostMessage =
 export type GuestMessage =
   | { type: 'joinRequest'; name: string }
   | { type: 'rejoinRequest'; name: string }
-  | { type: 'action'; choice: ColoriChoice };
+  | { type: 'action'; choice: Choice };

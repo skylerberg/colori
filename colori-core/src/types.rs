@@ -759,64 +759,31 @@ fn default_buyer_lookup() -> [BuyerCard; 256] {
     [BuyerCard::Textiles2Vermilion; 256]
 }
 
-// ── Serde helpers for UnorderedCards as Vec<u32> ──
-
-fn serialize_ids<S: serde::Serializer>(cards: &UnorderedCards, s: S) -> Result<S::Ok, S::Error> {
-    let ids: Vec<u32> = cards.iter().map(|id| id as u32).collect();
-    ids.serialize(s)
-}
-
-fn deserialize_ids<'de, D: serde::Deserializer<'de>>(d: D) -> Result<UnorderedCards, D::Error> {
-    let ids = Vec::<u32>::deserialize(d)?;
-    let mut cards = UnorderedCards::new();
-    for id in ids {
-        cards.insert(id as u8);
-    }
-    Ok(cards)
-}
-
-// ── ColoriChoice ──
+// ── Choice ──
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(tag = "type")]
-pub enum ColoriChoice {
+pub enum Choice {
     #[serde(rename = "draftPick")]
-    DraftPick {
-        #[serde(rename = "cardInstanceId")]
-        card_instance_id: u32,
-    },
+    DraftPick { card: Card },
     #[serde(rename = "destroyDraftedCard")]
-    DestroyDraftedCard {
-        #[serde(rename = "cardInstanceId")]
-        card_instance_id: u32,
-    },
+    DestroyDraftedCard { card: Card },
     #[serde(rename = "endTurn")]
     EndTurn,
     #[serde(rename = "workshop")]
     Workshop {
-        #[serde(
-            rename = "cardInstanceIds",
-            serialize_with = "serialize_ids",
-            deserialize_with = "deserialize_ids"
-        )]
-        card_instance_ids: UnorderedCards,
+        #[serde(rename = "cardTypes")]
+        card_types: SmallVec<[Card; 4]>,
     },
     #[serde(rename = "skipWorkshop")]
     SkipWorkshop,
     #[serde(rename = "destroyDrawnCards")]
     DestroyDrawnCards {
-        #[serde(
-            rename = "cardInstanceIds",
-            serialize_with = "serialize_ids",
-            deserialize_with = "deserialize_ids"
-        )]
-        card_instance_ids: UnorderedCards,
+        #[serde(rename = "cardTypes")]
+        card_types: SmallVec<[Card; 4]>,
     },
     #[serde(rename = "selectBuyer")]
-    SelectBuyer {
-        #[serde(rename = "buyerInstanceId")]
-        buyer_instance_id: u32,
-    },
+    SelectBuyer { buyer: BuyerCard },
     #[serde(rename = "gainSecondary")]
     GainSecondary { color: Color },
     #[serde(rename = "gainPrimary")]
@@ -834,42 +801,14 @@ pub enum ColoriChoice {
     },
     #[serde(rename = "destroyAndMixAll")]
     DestroyAndMixAll {
-        #[serde(rename = "cardInstanceId")]
-        card_instance_id: u32,
+        card: Card,
         mixes: SmallVec<[(Color, Color); 2]>,
     },
     #[serde(rename = "destroyAndSell")]
-    DestroyAndSell {
-        #[serde(rename = "cardInstanceId")]
-        card_instance_id: u32,
-        #[serde(rename = "buyerInstanceId")]
-        buyer_instance_id: u32,
-    },
+    DestroyAndSell { card: Card, buyer: BuyerCard },
     #[serde(rename = "keepWorkshopCards")]
     KeepWorkshopCards {
-        #[serde(
-            rename = "cardInstanceIds",
-            serialize_with = "serialize_ids",
-            deserialize_with = "deserialize_ids"
-        )]
-        card_instance_ids: UnorderedCards,
+        #[serde(rename = "cardTypes")]
+        card_types: SmallVec<[Card; 4]>,
     },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum AbstractChoice {
-    DraftPick { card: Card },
-    DestroyDraftedCard { card: Card },
-    EndTurn,
-    Workshop { card_types: SmallVec<[Card; 4]> },
-    SkipWorkshop,
-    DestroyDrawnCards { card_types: SmallVec<[Card; 4]> },
-    SelectBuyer { buyer: BuyerCard },
-    GainSecondary { color: Color },
-    GainPrimary { color: Color },
-    MixAll { mixes: SmallVec<[(Color, Color); 2]> },
-    SwapTertiary { lose: Color, gain: Color },
-    DestroyAndMixAll { card: Card, mixes: SmallVec<[(Color, Color); 2]> },
-    DestroyAndSell { card: Card, buyer: BuyerCard },
-    KeepWorkshopCards { card_types: SmallVec<[Card; 4]> },
 }

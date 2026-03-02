@@ -125,17 +125,26 @@ pub fn advance_draft(state: &mut GameState) {
     }
 }
 
-pub fn simultaneous_pick(state: &mut GameState, player_index: usize, card_instance_id: u32) {
-    let id = card_instance_id as u8;
-    match &mut state.phase {
+pub fn simultaneous_pick(state: &mut GameState, player_index: usize, card: crate::types::Card) {
+    let id = match &state.phase {
         GamePhase::Draft { draft_state } => {
-            assert!(
-                draft_state.hands[player_index].contains(id),
-                "Card not found in player's draft hand"
-            );
-            draft_state.hands[player_index].remove(id);
+            let hand = draft_state.hands[player_index];
+            let mut found = None;
+            for inst_id in hand.iter() {
+                if state.card_lookup[inst_id as usize] == card {
+                    found = Some(inst_id);
+                    break;
+                }
+            }
+            found.expect("Card type not found in player's draft hand")
         }
         _ => panic!("Expected draft phase"),
+    };
+    match &mut state.phase {
+        GamePhase::Draft { draft_state } => {
+            draft_state.hands[player_index].remove(id);
+        }
+        _ => unreachable!(),
     }
     state.players[player_index].drafted_cards.insert(id);
 }
@@ -294,17 +303,18 @@ mod tests {
         }
         let choices = enumerate_choices(&state);
 
-        // The human should have choices matching their hand size
+        // The human should have choices (may be fewer than hand size due to dedup of same card types)
         let hand_size = if let GamePhase::Draft { ref draft_state } = state.phase {
             draft_state.hands[draft_state.current_player_index].len()
         } else {
             panic!("Expected draft phase");
         };
 
-        assert_eq!(
+        assert!(
+            !choices.is_empty() && choices.len() <= hand_size as usize,
+            "Number of draft choices ({}) should be between 1 and hand size ({}) for human player",
             choices.len(),
-            hand_size as usize,
-            "Number of draft choices should match hand size for human player"
+            hand_size,
         );
 
         // Player 0 hasn't picked yet, so their hand should still have 5 cards.

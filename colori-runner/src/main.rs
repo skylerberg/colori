@@ -159,7 +159,7 @@ struct StructuredLogEntry {
     round: u32,
     phase: String,
     player_index: usize,
-    choice: ColoriChoice,
+    choice: Choice,
 }
 
 // ── Helpers ──
@@ -201,9 +201,6 @@ fn format_variant_label(variant: &NamedVariant, differing: &DifferingFields) -> 
     if differing.max_rollout_steps {
         parts.push(format!("rollout={}", variant.config.max_rollout_steps));
     }
-    if differing.abstract_choices && variant.config.abstract_choices {
-        parts.push("abstract".to_string());
-    }
     if parts.is_empty() {
         // All same config, just show iterations
         parts.push(format_iterations(variant.config.iterations));
@@ -215,19 +212,17 @@ struct DifferingFields {
     iterations: bool,
     exploration_constant: bool,
     max_rollout_steps: bool,
-    abstract_choices: bool,
 }
 
 fn compute_differing_fields(variants: &[NamedVariant]) -> DifferingFields {
     if variants.len() <= 1 {
-        return DifferingFields { iterations: false, exploration_constant: false, max_rollout_steps: false, abstract_choices: false };
+        return DifferingFields { iterations: false, exploration_constant: false, max_rollout_steps: false };
     }
     let first = &variants[0].config;
     DifferingFields {
         iterations: variants.iter().any(|v| v.config.iterations != first.iterations),
         exploration_constant: variants.iter().any(|v| v.config.exploration_constant != first.exploration_constant),
         max_rollout_steps: variants.iter().any(|v| v.config.max_rollout_steps != first.max_rollout_steps),
-        abstract_choices: variants.iter().any(|v| v.config.abstract_choices != first.abstract_choices),
     }
 }
 
@@ -240,7 +235,7 @@ fn has_any_difference(variants: &[NamedVariant]) -> bool {
         return true;
     }
     let diff = compute_differing_fields(variants);
-    diff.iterations || diff.exploration_constant || diff.max_rollout_steps || diff.abstract_choices
+    diff.iterations || diff.exploration_constant || diff.max_rollout_steps
 }
 
 // ── Game loop ──

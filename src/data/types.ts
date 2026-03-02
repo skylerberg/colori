@@ -155,18 +155,18 @@ export interface GameState {
   aiPlayers: boolean[];
 }
 
-export type ColoriChoice =
-  | { type: 'draftPick'; cardInstanceId: number }
-  | { type: 'destroyDraftedCard'; cardInstanceId: number }
+export type Choice =
+  | { type: 'draftPick'; card: Card }
+  | { type: 'destroyDraftedCard'; card: Card }
   | { type: 'endTurn' }
-  | { type: 'workshop'; cardInstanceIds: number[] }
+  | { type: 'workshop'; cardTypes: Card[] }
   | { type: 'skipWorkshop' }
-  | { type: 'destroyDrawnCards'; cardInstanceIds: number[] }
-  | { type: 'selectBuyer'; buyerInstanceId: number }
+  | { type: 'destroyDrawnCards'; cardTypes: Card[] }
+  | { type: 'selectBuyer'; buyer: BuyerCard }
   | { type: 'gainSecondary'; color: Color }
   | { type: 'gainPrimary'; color: Color }
   | { type: 'mixAll'; mixes: [Color, Color][] }
   | { type: 'swapTertiary'; loseColor: Color; gainColor: Color }
-  | { type: 'destroyAndMixAll'; cardInstanceId: number; mixes: [Color, Color][] }
-  | { type: 'destroyAndSell'; cardInstanceId: number; buyerInstanceId: number }
-  | { type: 'keepWorkshopCards'; cardInstanceIds: number[] };
+  | { type: 'destroyAndMixAll'; card: Card; mixes: [Color, Color][] }
+  | { type: 'destroyAndSell'; card: Card; buyer: BuyerCard }
+  | { type: 'keepWorkshopCards'; cardTypes: Card[] };

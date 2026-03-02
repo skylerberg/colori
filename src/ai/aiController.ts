@@ -1,4 +1,4 @@
-import type { GameState, CardInstance, ColoriChoice } from '../data/types';
+import type { GameState, CardInstance, Choice } from '../data/types';
 import AIWorkerModule from './aiWorker?worker';
 
 export interface PrecomputeRequest {
@@ -11,8 +11,8 @@ export interface PrecomputeRequest {
 
 interface PrecomputeEntry {
   worker: Worker;
-  result: ColoriChoice | null;
-  resolve: ((choice: ColoriChoice) => void) | null;
+  result: Choice | null;
+  resolve: ((choice: Choice) => void) | null;
 }
 
 export class AIController {
@@ -30,9 +30,9 @@ export class AIController {
     playerIndex: number,
     iterations: number,
     seenHands?: CardInstance[][],
-  ): Promise<ColoriChoice> {
+  ): Promise<Choice> {
     return new Promise((resolve) => {
-      this.worker.onmessage = (event: MessageEvent<ColoriChoice>) => {
+      this.worker.onmessage = (event: MessageEvent<Choice>) => {
         resolve(event.data);
       };
       const plain = JSON.parse(JSON.stringify({
@@ -54,7 +54,7 @@ export class AIController {
       const worker = new AIWorkerModule();
       const entry: PrecomputeEntry = { worker, result: null, resolve: null };
 
-      worker.onmessage = (event: MessageEvent<ColoriChoice>) => {
+      worker.onmessage = (event: MessageEvent<Choice>) => {
         if (gen !== this.generationId) return;
         entry.result = event.data;
         if (entry.resolve) {
@@ -74,7 +74,7 @@ export class AIController {
     }
   }
 
-  waitForPrecomputedChoice(playerIndex: number, pickNumber: number): Promise<ColoriChoice> | null {
+  waitForPrecomputedChoice(playerIndex: number, pickNumber: number): Promise<Choice> | null {
     const key = `${playerIndex}:${pickNumber}`;
     const entry = this.precomputeMap.get(key);
     if (!entry) return null;
@@ -87,7 +87,7 @@ export class AIController {
     }
 
     return new Promise((resolve) => {
-      entry.resolve = (choice: ColoriChoice) => {
+      entry.resolve = (choice: Choice) => {
         entry.worker.terminate();
         this.precomputeMap.delete(key);
         resolve(choice);

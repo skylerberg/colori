@@ -1,5 +1,5 @@
 import type { StructuredGameLog, FinalPlayerStats, PlayerVariant } from '../gameLog';
-import type { AnyCardData, ColoriChoice } from '../data/types';
+import type { Choice } from '../data/types';
 import type { CardCategory } from '../data/cards';
 import { getAnyCardData, getDraftCopies } from '../data/cards';
 
@@ -33,70 +33,30 @@ export function getCardName(card: string): string {
   return data.name;
 }
 
-export function buildCardInstanceMap(log: StructuredGameLog): Map<number, { instanceId: number; card: string }> {
-  const map = new Map<number, { instanceId: number; card: string }>();
-  const addCards = (cards: { instanceId: number; card: string }[]) => {
-    for (const c of cards) map.set(c.instanceId, c);
-  };
-  const state = log.initialState;
-  for (const p of state.players) {
-    addCards(p.deck);
-    addCards(p.discard);
-    addCards(p.usedCards);
-    addCards(p.workshopCards);
-    addCards(p.draftedCards);
-  }
-  addCards(state.draftDeck);
-  addCards(state.destroyedPile);
-  return map;
-}
-
-export function buildBuyerInstanceMap(log: StructuredGameLog): Map<number, { instanceId: number; card: string }> {
-  const map = new Map<number, { instanceId: number; card: string }>();
-  const addBuyers = (buyers: { instanceId: number; card: string }[]) => {
-    for (const b of buyers) map.set(b.instanceId, b);
-  };
-  const state = log.initialState;
-  for (const p of state.players) {
-    addBuyers(p.completedBuyers);
-  }
-  addBuyers(state.buyerDeck);
-  addBuyers(state.buyerDisplay);
-  return map;
-}
-
 export function formatChoice(
-  choice: ColoriChoice,
-  cardMap: Map<number, { instanceId: number; card: string }>,
-  buyerMap: Map<number, { instanceId: number; card: string }>,
+  choice: Choice,
 ): string {
-  const cardName = (id: number) => {
-    const inst = cardMap.get(id);
-    return inst ? getCardName(inst.card) : `Card #${id}`;
-  };
-  const buyerName = (id: number) => {
-    const inst = buyerMap.get(id);
-    return inst ? getCardName(inst.card) : `Buyer #${id}`;
-  };
-  const cardNames = (ids: number[]) => ids.map(cardName).join(', ');
+  const cardName = (card: string) => getCardName(card);
+  const buyerName = (buyer: string) => getCardName(buyer);
+  const cardNames = (cards: string[]) => cards.map(cardName).join(', ');
 
   switch (choice.type) {
     case 'draftPick':
-      return `Drafted ${cardName(choice.cardInstanceId)}`;
+      return `Drafted ${cardName(choice.card)}`;
     case 'destroyDraftedCard':
-      return `Destroyed ${cardName(choice.cardInstanceId)} from draft`;
+      return `Destroyed ${cardName(choice.card)} from draft`;
     case 'endTurn':
       return 'Ended turn';
     case 'workshop':
-      return choice.cardInstanceIds.length > 0
-        ? `Workshopped ${cardNames(choice.cardInstanceIds)}`
+      return choice.cardTypes.length > 0
+        ? `Workshopped ${cardNames(choice.cardTypes)}`
         : 'Workshopped nothing';
     case 'skipWorkshop':
       return 'Skipped workshop';
     case 'destroyDrawnCards':
-      return `Destroyed ${cardNames(choice.cardInstanceIds)} from workshop`;
+      return `Destroyed ${cardNames(choice.cardTypes)} from workshop`;
     case 'selectBuyer':
-      return `Sold to ${buyerName(choice.buyerInstanceId)}`;
+      return `Sold to ${buyerName(choice.buyer)}`;
     case 'gainSecondary':
       return `Gained ${choice.color} (secondary)`;
     case 'gainPrimary':
@@ -109,13 +69,13 @@ export function formatChoice(
       return `Swapped ${choice.loseColor} for ${choice.gainColor}`;
     case 'destroyAndMixAll':
       return choice.mixes.length > 0
-        ? `Destroyed ${cardName(choice.cardInstanceId)} and mixed ${choice.mixes.map(([a, b]) => `${a}+${b}`).join(', ')}`
-        : `Destroyed ${cardName(choice.cardInstanceId)} and skipped mixing`;
+        ? `Destroyed ${cardName(choice.card)} and mixed ${choice.mixes.map(([a, b]) => `${a}+${b}`).join(', ')}`
+        : `Destroyed ${cardName(choice.card)} and skipped mixing`;
     case 'destroyAndSell':
-      return `Destroyed ${cardName(choice.cardInstanceId)} and sold to ${buyerName(choice.buyerInstanceId)}`;
+      return `Destroyed ${cardName(choice.card)} and sold to ${buyerName(choice.buyer)}`;
     case 'keepWorkshopCards':
-      return choice.cardInstanceIds.length > 0
-        ? `Kept ${cardNames(choice.cardInstanceIds)} in workshop`
+      return choice.cardTypes.length > 0
+        ? `Kept ${cardNames(choice.cardTypes)} in workshop`
         : 'Kept nothing';
   }
 }
@@ -137,15 +97,11 @@ export function computeDestroyedFromDraft(logs: StructuredGameLog[], playerFilte
   const counts = new Map<string, number>();
   for (const log of logs) {
     const allowed = playerFilter?.get(log);
-    const instanceMap = buildCardInstanceMap(log);
     for (const entry of log.entries) {
       if (allowed && !allowed.has(entry.playerIndex)) continue;
       if (entry.choice.type === 'destroyDraftedCard' || entry.choice.type === 'destroyAndMixAll' || entry.choice.type === 'destroyAndSell') {
-        const inst = instanceMap.get(entry.choice.cardInstanceId);
-        if (inst) {
-          const name = getCardName(inst.card);
-          counts.set(name, (counts.get(name) ?? 0) + 1);
-        }
+        const name = getCardName(entry.choice.card);
+        counts.set(name, (counts.get(name) ?? 0) + 1);
       }
     }
   }
@@ -156,16 +112,12 @@ export function computeDestroyedFromWorkshop(logs: StructuredGameLog[], playerFi
   const counts = new Map<string, number>();
   for (const log of logs) {
     const allowed = playerFilter?.get(log);
-    const instanceMap = buildCardInstanceMap(log);
     for (const entry of log.entries) {
       if (allowed && !allowed.has(entry.playerIndex)) continue;
       if (entry.choice.type === 'destroyDrawnCards') {
-        for (const id of entry.choice.cardInstanceIds) {
-          const inst = instanceMap.get(id);
-          if (inst) {
-            const name = getCardName(inst.card);
-            counts.set(name, (counts.get(name) ?? 0) + 1);
-          }
+        for (const card of entry.choice.cardTypes) {
+          const name = getCardName(card);
+          counts.set(name, (counts.get(name) ?? 0) + 1);
         }
       }
     }
@@ -177,25 +129,34 @@ export function computeCardsAddedToDeck(logs: StructuredGameLog[], playerFilter?
   const counts = new Map<string, number>();
   for (const log of logs) {
     const allowed = playerFilter?.get(log);
-    const instanceMap = buildCardInstanceMap(log);
-    const drafted = new Map<number, string>();
-    const destroyed = new Set<number>();
+    // Track per-player drafted and destroyed counts by card name
+    const playerDrafted = new Map<number, Map<string, number>>();
+    const playerDestroyed = new Map<number, Map<string, number>>();
 
     for (const entry of log.entries) {
       if (allowed && !allowed.has(entry.playerIndex)) continue;
+      const pi = entry.playerIndex;
       if (entry.choice.type === 'draftPick') {
-        const inst = instanceMap.get(entry.choice.cardInstanceId);
-        if (inst) {
-          drafted.set(entry.choice.cardInstanceId, getCardName(inst.card));
-        }
+        const name = getCardName(entry.choice.card);
+        if (!playerDrafted.has(pi)) playerDrafted.set(pi, new Map());
+        const m = playerDrafted.get(pi)!;
+        m.set(name, (m.get(name) ?? 0) + 1);
       } else if (entry.choice.type === 'destroyDraftedCard' || entry.choice.type === 'destroyAndMixAll' || entry.choice.type === 'destroyAndSell') {
-        destroyed.add(entry.choice.cardInstanceId);
+        const name = getCardName(entry.choice.card);
+        if (!playerDestroyed.has(pi)) playerDestroyed.set(pi, new Map());
+        const m = playerDestroyed.get(pi)!;
+        m.set(name, (m.get(name) ?? 0) + 1);
       }
     }
 
-    for (const [id, name] of drafted) {
-      if (!destroyed.has(id)) {
-        counts.set(name, (counts.get(name) ?? 0) + 1);
+    for (const [pi, drafted] of playerDrafted) {
+      const destroyed = playerDestroyed.get(pi) ?? new Map<string, number>();
+      for (const [name, draftCount] of drafted) {
+        const destroyCount = destroyed.get(name) ?? 0;
+        const net = draftCount - destroyCount;
+        if (net > 0) {
+          counts.set(name, (counts.get(name) ?? 0) + net);
+        }
       }
     }
   }
@@ -208,21 +169,24 @@ export function computeWinRateByCard(logs: StructuredGameLog[], playerFilter?: P
   for (const log of logs) {
     if (!log.finalScores) continue;
     const allowed = playerFilter?.get(log);
-    const instanceMap = buildCardInstanceMap(log);
 
-    // Track per-player drafted and destroyed cards
-    const playerDrafted = new Map<number, Set<number>>();
-    const playerDestroyed = new Map<number, Set<number>>();
+    // Track per-player drafted and destroyed card counts by name
+    const playerDrafted = new Map<number, Map<string, number>>();
+    const playerDestroyed = new Map<number, Map<string, number>>();
 
     for (const entry of log.entries) {
       if (allowed && !allowed.has(entry.playerIndex)) continue;
       const pi = entry.playerIndex;
       if (entry.choice.type === 'draftPick') {
-        if (!playerDrafted.has(pi)) playerDrafted.set(pi, new Set());
-        playerDrafted.get(pi)!.add(entry.choice.cardInstanceId);
+        if (!playerDrafted.has(pi)) playerDrafted.set(pi, new Map());
+        const m = playerDrafted.get(pi)!;
+        const name = getCardName(entry.choice.card);
+        m.set(name, (m.get(name) ?? 0) + 1);
       } else if (entry.choice.type === 'destroyDraftedCard' || entry.choice.type === 'destroyAndMixAll' || entry.choice.type === 'destroyAndSell') {
-        if (!playerDestroyed.has(pi)) playerDestroyed.set(pi, new Set());
-        playerDestroyed.get(pi)!.add(entry.choice.cardInstanceId);
+        if (!playerDestroyed.has(pi)) playerDestroyed.set(pi, new Map());
+        const m = playerDestroyed.get(pi)!;
+        const name = getCardName(entry.choice.card);
+        m.set(name, (m.get(name) ?? 0) + 1);
       }
     }
 
@@ -236,17 +200,18 @@ export function computeWinRateByCard(logs: StructuredGameLog[], playerFilter?: P
     // For each player, determine final deck cards and tally
     for (let i = 0; i < log.playerNames.length; i++) {
       if (allowed && !allowed.has(i)) continue;
-      const drafted = playerDrafted.get(i) ?? new Set<number>();
-      const destroyed = playerDestroyed.get(i) ?? new Set<number>();
+      const drafted = playerDrafted.get(i) ?? new Map<string, number>();
+      const destroyed = playerDestroyed.get(i) ?? new Map<string, number>();
       const playerName = log.playerNames[i];
       const scoreEntry = log.finalScores.find(fs => fs.name === playerName);
       const isWinner = scoreEntry != null && scoreEntry.score === maxScore;
 
+      // Collect card names that have net positive count (drafted more than destroyed)
       const deckCardNames = new Set<string>();
-      for (const id of drafted) {
-        if (!destroyed.has(id)) {
-          const inst = instanceMap.get(id);
-          if (inst) deckCardNames.add(getCardName(inst.card));
+      for (const [name, draftCount] of drafted) {
+        const destroyCount = destroyed.get(name) ?? 0;
+        if (draftCount > destroyCount) {
+          deckCardNames.add(name);
         }
       }
 
@@ -268,7 +233,6 @@ export function computeWinRateIfDrafted(logs: StructuredGameLog[], playerFilter?
   for (const log of logs) {
     if (!log.finalScores) continue;
     const allowed = playerFilter?.get(log);
-    const instanceMap = buildCardInstanceMap(log);
 
     // Track per-player drafted cards (no destruction filtering)
     const playerDrafted = new Map<number, Set<string>>();
@@ -276,12 +240,9 @@ export function computeWinRateIfDrafted(logs: StructuredGameLog[], playerFilter?
     for (const entry of log.entries) {
       if (allowed && !allowed.has(entry.playerIndex)) continue;
       if (entry.choice.type === 'draftPick') {
-        const inst = instanceMap.get(entry.choice.cardInstanceId);
-        if (inst) {
-          const pi = entry.playerIndex;
-          if (!playerDrafted.has(pi)) playerDrafted.set(pi, new Set());
-          playerDrafted.get(pi)!.add(getCardName(inst.card));
-        }
+        const pi = entry.playerIndex;
+        if (!playerDrafted.has(pi)) playerDrafted.set(pi, new Set());
+        playerDrafted.get(pi)!.add(getCardName(entry.choice.card));
       }
     }
 
@@ -341,19 +302,15 @@ export function computeBuyerAcquisitions(logs: StructuredGameLog[], playerFilter
 
   for (const log of logs) {
     const allowed = playerFilter?.get(log);
-    const instanceMap = buildBuyerInstanceMap(log);
     for (const entry of log.entries) {
       if (allowed && !allowed.has(entry.playerIndex)) continue;
       if (entry.choice.type === 'selectBuyer' || entry.choice.type === 'destroyAndSell') {
-        const inst = instanceMap.get(entry.choice.buyerInstanceId);
-        if (inst) {
-          const data = getAnyCardData(inst.card);
-          if (data && data.kind === 'buyer') {
-            const name = getCardName(inst.card);
-            byBuyer.set(name, (byBuyer.get(name) ?? 0) + 1);
-            byStars.set(data.stars, (byStars.get(data.stars) ?? 0) + 1);
-            byMaterial.set(data.requiredMaterial, (byMaterial.get(data.requiredMaterial) ?? 0) + 1);
-          }
+        const data = getAnyCardData(entry.choice.buyer);
+        if (data && data.kind === 'buyer') {
+          const name = getCardName(entry.choice.buyer);
+          byBuyer.set(name, (byBuyer.get(name) ?? 0) + 1);
+          byStars.set(data.stars, (byStars.get(data.stars) ?? 0) + 1);
+          byMaterial.set(data.requiredMaterial, (byMaterial.get(data.requiredMaterial) ?? 0) + 1);
         }
       }
     }
@@ -463,15 +420,11 @@ export function computeDraftFrequency(logs: StructuredGameLog[], playerFilter?: 
   const counts = new Map<string, number>();
   for (const log of logs) {
     const allowed = playerFilter?.get(log);
-    const instanceMap = buildCardInstanceMap(log);
     for (const entry of log.entries) {
       if (allowed && !allowed.has(entry.playerIndex)) continue;
       if (entry.choice.type === 'draftPick') {
-        const inst = instanceMap.get(entry.choice.cardInstanceId);
-        if (inst) {
-          const name = getCardName(inst.card);
-          counts.set(name, (counts.get(name) ?? 0) + 1);
-        }
+        const name = getCardName(entry.choice.card);
+        counts.set(name, (counts.get(name) ?? 0) + 1);
       }
     }
   }
@@ -722,7 +675,7 @@ export function computePenultimateRoundDeckSizes(logs: StructuredGameLog[], play
       } else if (entry.choice.type === 'destroyDraftedCard' || entry.choice.type === 'destroyAndMixAll' || entry.choice.type === 'destroyAndSell') {
         playerDeckSizes[pi]--;
       } else if (entry.choice.type === 'destroyDrawnCards') {
-        playerDeckSizes[pi] -= entry.choice.cardInstanceIds.length;
+        playerDeckSizes[pi] -= entry.choice.cardTypes.length;
       }
     }
 
