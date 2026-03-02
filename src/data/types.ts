@@ -118,7 +118,7 @@ export interface DraftState {
 }
 
 export type PendingChoice =
-  | { type: 'chooseCardsForWorkshop'; count: number }
+  | { type: 'chooseCardsForWorkshop'; remainingPicks: number }
   | { type: 'chooseCardsToDestroy' }
   | { type: 'chooseMix'; remaining: number }
   | { type: 'chooseBuyer' }

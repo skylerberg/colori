@@ -31,7 +31,7 @@ fn serialize_state(state: &GameState) -> String {
 }
 
 #[wasm_bindgen]
-pub fn run_ismcts(
+pub fn wasm_run_ismcts(
     game_state_json: &str,
     player_index: u32,
     iterations: u32,

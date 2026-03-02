@@ -92,7 +92,7 @@
   const aiController = new AIController();
 
   // Per-AI-player seen hands for draft knowledge tracking
-  let seenHands: Map<number, CardInstance[][]> = $state(new Map());
+  let aiDraftKnowledge: Map<number, CardInstance[][]> = $state(new Map());
 
   // When the phase is 'draw', automatically execute the draw phase.
   $effect(() => {
@@ -100,8 +100,8 @@
       drawExecutedForRound = gameState.round;
       addLog(`Round ${gameState.round} began`);
       executeDrawPhase(gameState);
-      // Reset seenHands for the new draft round
-      seenHands = new Map();
+      // Reset aiDraftKnowledge for the new draft round
+      aiDraftKnowledge = new Map();
       onGameUpdated(gameState, gameLog);
     }
   });
@@ -186,9 +186,9 @@
         cloneDs.currentPlayerIndex = idx;
         cloneDs.waitingForPass = false;
 
-        // Build seenHands snapshot for the AI player
-        const aiSeenHands = seenHands.has(idx)
-          ? [...seenHands.get(idx)!.map(h => [...h])]
+        // Build aiDraftKnowledge snapshot for the AI player
+        const aiSeenHands = aiDraftKnowledge.has(idx)
+          ? [...aiDraftKnowledge.get(idx)!.map(h => [...h])]
           : [];
         const hand = ds.hands[idx];
         if (aiSeenHands.length <= ds.pickNumber) {
@@ -200,7 +200,7 @@
           playerIndex: idx,
           pickNumber: ds.pickNumber,
           iterations: aiIterations[idx],
-          seenHands: aiSeenHands,
+          aiDraftKnowledge: aiSeenHands,
         });
       }
       idx = (idx + 1) % numPlayers;
@@ -235,10 +235,10 @@
     if (gameState.phase.type === 'draft') {
       const ds = gameState.phase.draftState;
       const hand = ds.hands[playerIdx];
-      if (!seenHands.has(playerIdx)) {
-        seenHands.set(playerIdx, []);
+      if (!aiDraftKnowledge.has(playerIdx)) {
+        aiDraftKnowledge.set(playerIdx, []);
       }
-      const playerSeenHands = seenHands.get(playerIdx)!;
+      const playerSeenHands = aiDraftKnowledge.get(playerIdx)!;
       if (playerSeenHands.length <= ds.pickNumber) {
         playerSeenHands.push([...hand]);
       }
@@ -256,7 +256,7 @@
     }
 
     aiThinking = true;
-    const playerSeenHands = seenHands.get(playerIdx);
+    const playerSeenHands = aiDraftKnowledge.get(playerIdx);
 
     aiController.getAIChoice(gameState, playerIdx, aiIterations[playerIdx], playerSeenHands).then((choice) => {
       aiThinking = false;

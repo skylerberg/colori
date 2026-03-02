@@ -131,7 +131,7 @@ fn parse_args() -> Args {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct StructuredGameLog {
+struct GameRunOutput {
     version: u32,
     game_started_at: String,
     game_ended_at: Option<String>,
@@ -171,7 +171,7 @@ fn now_epoch_millis() -> u64 {
         .as_millis() as u64
 }
 
-fn now_iso() -> String {
+fn now_epoch_secs_string() -> String {
     let secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -192,16 +192,16 @@ fn format_variant_label(variant: &NamedVariant, differing: &DifferingFields) -> 
         return name.clone();
     }
     let mut parts = Vec::new();
-    if differing.iterations {
+    if differing.iterations_differs {
         parts.push(format_iterations(variant.config.iterations));
     }
-    if differing.exploration_constant {
+    if differing.exploration_constant_differs {
         parts.push(format!("c={:.2}", variant.config.exploration_constant));
     }
-    if differing.max_rollout_steps {
+    if differing.max_rollout_steps_differs {
         parts.push(format!("rollout={}", variant.config.max_rollout_steps));
     }
-    if differing.random_cleanup_keep && variant.config.random_cleanup_keep {
+    if differing.random_cleanup_keep_differs && variant.config.random_cleanup_keep {
         parts.push("rck".to_string());
     }
     if parts.is_empty() {
@@ -212,22 +212,22 @@ fn format_variant_label(variant: &NamedVariant, differing: &DifferingFields) -> 
 }
 
 struct DifferingFields {
-    iterations: bool,
-    exploration_constant: bool,
-    max_rollout_steps: bool,
-    random_cleanup_keep: bool,
+    iterations_differs: bool,
+    exploration_constant_differs: bool,
+    max_rollout_steps_differs: bool,
+    random_cleanup_keep_differs: bool,
 }
 
 fn compute_differing_fields(variants: &[NamedVariant]) -> DifferingFields {
     if variants.len() <= 1 {
-        return DifferingFields { iterations: false, exploration_constant: false, max_rollout_steps: false, random_cleanup_keep: false };
+        return DifferingFields { iterations_differs: false, exploration_constant_differs: false, max_rollout_steps_differs: false, random_cleanup_keep_differs: false };
     }
     let first = &variants[0].config;
     DifferingFields {
-        iterations: variants.iter().any(|v| v.config.iterations != first.iterations),
-        exploration_constant: variants.iter().any(|v| v.config.exploration_constant != first.exploration_constant),
-        max_rollout_steps: variants.iter().any(|v| v.config.max_rollout_steps != first.max_rollout_steps),
-        random_cleanup_keep: variants.iter().any(|v| v.config.random_cleanup_keep != first.random_cleanup_keep),
+        iterations_differs: variants.iter().any(|v| v.config.iterations != first.iterations),
+        exploration_constant_differs: variants.iter().any(|v| v.config.exploration_constant != first.exploration_constant),
+        max_rollout_steps_differs: variants.iter().any(|v| v.config.max_rollout_steps != first.max_rollout_steps),
+        random_cleanup_keep_differs: variants.iter().any(|v| v.config.random_cleanup_keep != first.random_cleanup_keep),
     }
 }
 
@@ -240,7 +240,7 @@ fn has_any_difference(variants: &[NamedVariant]) -> bool {
         return true;
     }
     let diff = compute_differing_fields(variants);
-    diff.iterations || diff.exploration_constant || diff.max_rollout_steps || diff.random_cleanup_keep
+    diff.iterations_differs || diff.exploration_constant_differs || diff.max_rollout_steps_differs || diff.random_cleanup_keep_differs
 }
 
 // ── Game loop ──
@@ -250,7 +250,7 @@ fn run_game(
     player_variants: &[NamedVariant],
     note: Option<String>,
     rng: &mut WyRand,
-) -> StructuredGameLog {
+) -> GameRunOutput {
     let start = Instant::now();
     let num_players = player_variants.len();
 
@@ -274,7 +274,7 @@ fn run_game(
     let mut state = create_initial_game_state(num_players, &ai_players, rng);
     let initial_state = state.clone();
 
-    let game_started_at = now_iso();
+    let game_started_at = now_epoch_secs_string();
 
     // Start first round (draw phase -> draft phase)
     execute_draw_phase(&mut state, rng);
@@ -319,7 +319,7 @@ fn run_game(
         apply_choice_to_state(&mut state, &choice, rng);
     }
 
-    let game_ended_at = Some(now_iso());
+    let game_ended_at = Some(now_epoch_secs_string());
 
     // Compute final scores
     let final_scores: Option<Vec<FinalScore>> = Some(
@@ -389,7 +389,7 @@ fn run_game(
         (Some(shuffled_variants[0].config.iterations), None)
     };
 
-    StructuredGameLog {
+    GameRunOutput {
         version: 1,
         game_started_at,
         game_ended_at,

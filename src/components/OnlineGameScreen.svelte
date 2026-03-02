@@ -67,7 +67,7 @@
 
   // AI controller (host only)
   const aiController = role === 'host' ? new AIController() : null;
-  let seenHands: Map<number, CardInstance[][]> = $state(new Map());
+  let aiDraftKnowledge: Map<number, CardInstance[][]> = $state(new Map());
 
   // Derive the GameState for rendering (works for both host and guest)
   let gameState = $derived.by(() => {
@@ -124,7 +124,7 @@
 
   // Setup host controller callbacks
   if (role === 'host' && hostController) {
-    hostController.onGameStateUpdated = (state) => {
+    hostController.onGameStateChanged = (state) => {
       hostGameState = state;
     };
     hostController.onLogUpdated = (log) => {
@@ -142,7 +142,7 @@
 
   // Setup guest controller callbacks
   if (role === 'guest' && guestController) {
-    guestController.onStateUpdated = (state) => {
+    guestController.onSanitizedStateChanged = (state) => {
       guestSanitizedState = state;
       guestGameLog = [...guestController!.getGameLog()];
     };
@@ -198,10 +198,10 @@
       const ds = gameState.phase.draftState;
       for (const playerIdx of aiPlayerIndices) {
         const hand = ds.hands[playerIdx];
-        if (!seenHands.has(playerIdx)) {
-          seenHands.set(playerIdx, []);
+        if (!aiDraftKnowledge.has(playerIdx)) {
+          aiDraftKnowledge.set(playerIdx, []);
         }
-        const playerSeenHands = seenHands.get(playerIdx)!;
+        const playerSeenHands = aiDraftKnowledge.get(playerIdx)!;
         if (playerSeenHands.length <= ds.pickNumber) {
           playerSeenHands.push([...hand]);
         }
@@ -210,7 +210,7 @@
       aiThinking = true;
       Promise.all(
         aiPlayerIndices.map(playerIdx => {
-          const playerSeenHands = seenHands.get(playerIdx);
+          const playerSeenHands = aiDraftKnowledge.get(playerIdx);
           return aiController!.getAIChoice(gameState!, playerIdx, 100000, playerSeenHands).then(choice => ({
             playerIdx,
             choice,
@@ -230,7 +230,7 @@
 
     const playerIdx = getActivePlayerIndex(gameState);
     aiThinking = true;
-    const playerSeenHands = seenHands.get(playerIdx);
+    const playerSeenHands = aiDraftKnowledge.get(playerIdx);
 
     aiController!.getAIChoice(gameState, playerIdx, 100000, playerSeenHands).then((choice) => {
       aiThinking = false;
@@ -238,11 +238,11 @@
     });
   });
 
-  // Reset seenHands when entering draft phase (host only)
+  // Reset aiDraftKnowledge when entering draft phase (host only)
   $effect(() => {
     if (role !== 'host' || !gameState) return;
     if (gameState.phase.type === 'draft' && gameState.phase.draftState.pickNumber === 0) {
-      seenHands = new Map();
+      aiDraftKnowledge = new Map();
     }
   });
 </script>

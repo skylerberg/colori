@@ -34,13 +34,13 @@ export function sanitizeGameState(
       },
     };
   } else if (fullState.phase.type === 'action') {
-    const as_ = fullState.phase.actionState;
+    const actionState = fullState.phase.actionState;
     phase = {
       type: 'action',
       actionState: {
-        currentPlayerIndex: as_.currentPlayerIndex,
-        abilityStack: as_.abilityStack.map(a => ({ ...a })),
-        pendingChoice: as_.pendingChoice ? { ...as_.pendingChoice } : null,
+        currentPlayerIndex: actionState.currentPlayerIndex,
+        abilityStack: actionState.abilityStack.map(a => ({ ...a })),
+        pendingChoice: actionState.pendingChoice ? { ...actionState.pendingChoice } : null,
       },
     };
   } else if (fullState.phase.type === 'cleanup') {

@@ -4,7 +4,7 @@ use rand::Rng;
 pub fn draw_from_deck<R: Rng>(
     deck: &mut UnorderedCards,
     discard: &mut UnorderedCards,
-    dest: &mut UnorderedCards,
+    destination: &mut UnorderedCards,
     count: usize,
     rng: &mut R,
 ) {
@@ -12,10 +12,10 @@ pub fn draw_from_deck<R: Rng>(
     let deck_len = deck.len();
     if deck_len >= count {
         let drawn = deck.draw_multiple(count, rng);
-        *dest = dest.union(drawn);
+        *destination = destination.union(drawn);
     } else {
         // Take everything from deck directly (no draw_multiple needed)
-        *dest = dest.union(*deck);
+        *destination = destination.union(*deck);
         *deck = UnorderedCards::new();
         let remaining = count - deck_len;
         if remaining > 0 && !discard.is_empty() {
@@ -24,7 +24,7 @@ pub fn draw_from_deck<R: Rng>(
             let available = deck.len().min(remaining);
             if available > 0 {
                 let drawn = deck.draw_multiple(available, rng);
-                *dest = dest.union(drawn);
+                *destination = destination.union(drawn);
             }
         }
     }

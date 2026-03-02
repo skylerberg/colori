@@ -74,13 +74,13 @@
       <h3>Players ({humanPlayerCount} / {playerCount})</h3>
       <div class="player-list">
         {#each lobbyPlayers as player}
-          <div class="player-row" class:disconnected={!player.connected}>
+          <div class="player-row" class:disconnected={!player.isConnected}>
             <span class="player-name">
               {player.name}
               {#if player.isHost}<span class="host-badge">Host</span>{/if}
             </span>
-            <span class="player-status" class:connected={player.connected}>
-              {player.connected ? 'Connected' : 'Disconnected'}
+            <span class="player-status" class:connected={player.isConnected}>
+              {player.isConnected ? 'Connected' : 'Disconnected'}
             </span>
           </div>
         {/each}

@@ -1,4 +1,4 @@
-import init, { run_ismcts } from '../wasm-pkg/colori_wasm.js';
+import init, { wasm_run_ismcts } from '../wasm-pkg/colori_wasm.js';
 import type { GameState, CardInstance } from '../data/types';
 
 export interface AIWorkerRequest {
@@ -23,7 +23,7 @@ self.onmessage = async (event: MessageEvent<AIWorkerRequest>) => {
   const gameStateJson = JSON.stringify(gameState);
   const seenHandsJson = seenHands ? JSON.stringify(seenHands) : '';
 
-  const resultJson = run_ismcts(gameStateJson, playerIndex, iterations, seenHandsJson);
+  const resultJson = wasm_run_ismcts(gameStateJson, playerIndex, iterations, seenHandsJson);
 
   const choice = JSON.parse(resultJson);
   self.postMessage(choice);

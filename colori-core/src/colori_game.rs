@@ -107,9 +107,9 @@ fn pick_random_affordable_buyer<R: Rng>(
 ) -> Option<u32> {
     let mut affordable = [0u32; MAX_BUYER_DISPLAY];
     let mut count = 0usize;
-    for g in buyer_display {
-        if can_afford_buyer(player, &g.buyer) {
-            affordable[count] = g.instance_id;
+    for buyer in buyer_display {
+        if can_afford_buyer(player, &buyer.buyer) {
+            affordable[count] = buyer.instance_id;
             count += 1;
         }
     }
@@ -200,12 +200,12 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                             }
                             Ability::Sell => {
                                 let mut has_buyer = false;
-                                for g in state.buyer_display.iter() {
-                                    if can_afford_buyer(player, &g.buyer) {
+                                for buyer in state.buyer_display.iter() {
+                                    if can_afford_buyer(player, &buyer.buyer) {
                                         has_buyer = true;
                                         choices.push(Choice::DestroyAndSell {
                                             card,
-                                            buyer: g.buyer,
+                                            buyer: buyer.buyer,
                                         });
                                     }
                                 }
@@ -220,13 +220,13 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                     }
                     choices.push(Choice::EndTurn);
                 }
-                Some(PendingChoice::ChooseCardsForWorkshop { count }) => {
+                Some(PendingChoice::ChooseCardsForWorkshop { remaining_picks }) => {
                     choices.push(Choice::SkipWorkshop);
                     let (types, counts, len) = count_card_types(player.workshop_cards, &state.card_lookup);
                     enumerate_multiset_subsets(
                         &types[..len],
                         &counts[..len],
-                        *count as usize,
+                        *remaining_picks as usize,
                         &mut SmallVec::new(),
                         choices,
                         &|card_types| Choice::Workshop { card_types },
@@ -255,10 +255,10 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                     );
                 }
                 Some(PendingChoice::ChooseBuyer) => {
-                    for g in state.buyer_display.iter() {
-                        if can_afford_buyer(player, &g.buyer) {
+                    for buyer in state.buyer_display.iter() {
+                        if can_afford_buyer(player, &buyer.buyer) {
                             choices.push(Choice::SelectBuyer {
-                                buyer: g.buyer,
+                                buyer: buyer.buyer,
                             });
                         }
                     }
@@ -426,7 +426,7 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
                 match &action_state.pending_choice {
                     Some(PendingChoice::ChooseBuyer) => {
                         let player = &state.players[action_state.current_player_index];
-                        state.buyer_display.iter().any(|g| g.buyer == *buyer && can_afford_buyer(player, &g.buyer))
+                        state.buyer_display.iter().any(|b| b.buyer == *buyer && can_afford_buyer(player, &b.buyer))
                     }
                     _ => false,
                 }
@@ -527,7 +527,7 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
                 if !player.drafted_cards.iter().any(|id| state.card_lookup[id as usize] == *card) {
                     return false;
                 }
-                state.buyer_display.iter().any(|g| g.buyer == *buyer && can_afford_buyer(player, &g.buyer))
+                state.buyer_display.iter().any(|b| b.buyer == *buyer && can_afford_buyer(player, &b.buyer))
             } else {
                 false
             }
@@ -936,9 +936,9 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, random_cleanup_keep: bo
                 None => {
                     handle_action_no_pending(state, player_index, rng);
                 }
-                Some(PendingChoice::ChooseCardsForWorkshop { count }) => {
+                Some(PendingChoice::ChooseCardsForWorkshop { remaining_picks }) => {
                     let mut copy = state.players[player_index].workshop_cards;
-                    let selected = copy.draw_up_to(*count as u8, rng);
+                    let selected = copy.draw_up_to(*remaining_picks as u8, rng);
                     if selected.is_empty() {
                         skip_workshop(state, rng);
                     } else {
@@ -988,18 +988,18 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, random_cleanup_keep: bo
                 }
                 Some(PendingChoice::ChooseTertiaryToLose) => {
                     let player = &state.players[player_index];
-                    let mut owned = [Color::Red; 6];
+                    let mut owned_tertiaries = [Color::Red; 6];
                     let mut own_count = 0usize;
                     for &c in &TERTIARIES {
                         if player.color_wheel.get(c) > 0 {
-                            owned[own_count] = c;
+                            owned_tertiaries[own_count] = c;
                             own_count += 1;
                         }
                     }
                     let r = rng.random_range(0..own_count * 5);
                     let lose_idx = r / 5;
                     let gain_local_idx = r % 5;
-                    let lose_color = owned[lose_idx];
+                    let lose_color = owned_tertiaries[lose_idx];
                     let mut options = [Color::Red; 6];
                     let mut opt_count = 0usize;
                     for &c in &TERTIARIES {

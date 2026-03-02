@@ -57,7 +57,7 @@ export interface LobbyPlayer {
   name: string;
   playerIndex: number;
   isHost: boolean;
-  connected: boolean;
+  isConnected: boolean;
 }
 
 export type HostMessage =

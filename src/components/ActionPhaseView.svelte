@@ -42,7 +42,7 @@
     const idx = selectedWorkshopIds.indexOf(instanceId);
     if (idx >= 0) {
       selectedWorkshopIds = selectedWorkshopIds.filter(id => id !== instanceId);
-    } else if (selectedWorkshopIds.length < pendingChoice.count) {
+    } else if (selectedWorkshopIds.length < pendingChoice.remainingPicks) {
       selectedWorkshopIds = [...selectedWorkshopIds, instanceId];
     }
   }
@@ -120,7 +120,7 @@
 
       <div class="section" class:active-choice={drawnCardChoice}>
         {#if pendingChoice?.type === 'chooseCardsForWorkshop'}
-          <h3>Workshop — Select cards ({pendingChoice.count} available)</h3>
+          <h3>Workshop — Select cards ({pendingChoice.remainingPicks} available)</h3>
           <CardList
             cards={currentPlayer.workshopCards}
             selectable={true}

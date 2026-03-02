@@ -10,7 +10,7 @@ export class GuestController {
 
   onLobbyUpdated: ((players: LobbyPlayer[], playerCount: number) => void) | null = null;
   onGameStarted: ((state: SanitizedGameState) => void) | null = null;
-  onStateUpdated: ((state: SanitizedGameState) => void) | null = null;
+  onSanitizedStateChanged: ((state: SanitizedGameState) => void) | null = null;
   onGameOver: ((state: SanitizedGameState) => void) | null = null;
   onError: ((message: string) => void) | null = null;
   onHostDisconnected: (() => void) | null = null;
@@ -73,7 +73,7 @@ export class GuestController {
         break;
       case 'stateUpdate':
         this.gameLog.push(...msg.state.logEntries);
-        this.onStateUpdated?.(msg.state);
+        this.onSanitizedStateChanged?.(msg.state);
         break;
       case 'gameOver':
         this.gameLog.push(...msg.state.logEntries);

@@ -19,7 +19,7 @@ export class HostController {
   private structuredLog: GameLogAccumulator | null = null;
 
   onLobbyUpdated: ((players: LobbyPlayer[]) => void) | null = null;
-  onGameStateUpdated: ((state: GameState) => void) | null = null;
+  onGameStateChanged: ((state: GameState) => void) | null = null;
   onLogUpdated: ((log: string[]) => void) | null = null;
   onGameOver: ((state: GameState) => void) | null = null;
 
@@ -31,7 +31,7 @@ export class HostController {
       name: hostName,
       playerIndex: 0,
       isHost: true,
-      connected: true,
+      isConnected: true,
     });
 
     this.network.onGuestMessage = (msg, peerId) => this.handleGuestMessage(msg, peerId);
@@ -44,7 +44,7 @@ export class HostController {
   }
 
   setPlayerCount(count: number) {
-    const connectedHumans = this.lobbyPlayers.filter(p => p.connected).length;
+    const connectedHumans = this.lobbyPlayers.filter(p => p.isConnected).length;
     if (count < connectedHumans) return;
     this.playerCount = count;
     this.broadcastLobbyUpdate();
@@ -86,7 +86,7 @@ export class HostController {
 
   private handleJoinRequest(peerId: string, name: string) {
     if (this.gameState) {
-      const disconnectedPlayer = this.lobbyPlayers.find(p => !p.connected && p.name === name);
+      const disconnectedPlayer = this.lobbyPlayers.find(p => !p.isConnected && p.name === name);
       if (disconnectedPlayer) {
         this.handleRejoinRequest(peerId, name);
         return;
@@ -112,7 +112,7 @@ export class HostController {
       name,
       playerIndex,
       isHost: false,
-      connected: true,
+      isConnected: true,
     });
     this.peerToPlayerIndex.set(peerId, playerIndex);
     this.playerIndexToPeer.set(playerIndex, peerId);
@@ -125,7 +125,7 @@ export class HostController {
       return;
     }
 
-    const player = this.lobbyPlayers.find(p => !p.connected && p.name === name);
+    const player = this.lobbyPlayers.find(p => !p.isConnected && p.name === name);
     if (!player) {
       this.network.sendToGuest({ type: 'error', message: 'Cannot rejoin: no matching disconnected player' }, peerId);
       return;
@@ -141,7 +141,7 @@ export class HostController {
     this.peerToPlayerIndex.delete(oldPeerId);
 
     player.peerId = peerId;
-    player.connected = true;
+    player.isConnected = true;
     this.peerToPlayerIndex.set(peerId, player.playerIndex);
     this.playerIndexToPeer.set(player.playerIndex, peerId);
     this.gameState.aiPlayers[player.playerIndex] = false;
@@ -157,7 +157,7 @@ export class HostController {
 
     this.addLog(`${player.name} reconnected`);
     this.broadcastLobbyUpdate();
-    this.onGameStateUpdated?.(this.gameState);
+    this.onGameStateChanged?.(this.gameState);
   }
 
   private handlePeerDisconnect(peerId: string) {
@@ -167,7 +167,7 @@ export class HostController {
     const player = this.lobbyPlayers.find(p => p.peerId === peerId);
     if (!player) return;
 
-    player.connected = false;
+    player.isConnected = false;
 
     if (!this.gameState) {
       this.lobbyPlayers = this.lobbyPlayers.filter(p => p.peerId !== peerId);
@@ -197,7 +197,7 @@ export class HostController {
     this.gameState.aiPlayers[playerIndex] = true;
     this.disconnectTimers.delete(playerIndex);
     this.addLog(`${this.gameState.playerNames[playerIndex]} replaced by AI`);
-    this.onGameStateUpdated?.(this.gameState);
+    this.onGameStateChanged?.(this.gameState);
   }
 
   startGame() {
@@ -226,13 +226,13 @@ export class HostController {
     this.executeDrawIfNeeded();
 
     for (const lp of this.lobbyPlayers) {
-      if (!lp.isHost && lp.connected) {
+      if (!lp.isHost && lp.isConnected) {
         const sanitized = sanitizeGameState(this.gameState, lp.playerIndex, [...this.gameLog]);
         this.network.sendToGuest({ type: 'gameStarted', state: sanitized }, lp.peerId);
       }
     }
 
-    this.onGameStateUpdated?.(this.gameState);
+    this.onGameStateChanged?.(this.gameState);
     this.onLogUpdated?.(this.gameLog);
   }
 
@@ -264,7 +264,7 @@ export class HostController {
       simultaneousPick(this.gameState, playerIndex, choice.card);
       this.pendingDraftPicks.add(playerIndex);
       this.broadcastGameState([]);
-      this.onGameStateUpdated?.(this.gameState);
+      this.onGameStateChanged?.(this.gameState);
 
       // Check if all players have picked
       if (this.pendingDraftPicks.size === this.gameState.players.length) {
@@ -272,7 +272,7 @@ export class HostController {
         this.pendingDraftPicks.clear();
         this.executeDrawIfNeeded();
         this.broadcastGameState([]);
-        this.onGameStateUpdated?.(this.gameState);
+        this.onGameStateChanged?.(this.gameState);
         this.onLogUpdated?.(this.gameLog);
       }
       return;
@@ -301,7 +301,7 @@ export class HostController {
     this.gameLog.push(...newLogEntries);
     this.executeDrawIfNeeded();
     this.broadcastGameState(newLogEntries);
-    this.onGameStateUpdated?.(this.gameState);
+    this.onGameStateChanged?.(this.gameState);
     this.onLogUpdated?.(this.gameLog);
   }
 
@@ -338,7 +338,7 @@ export class HostController {
     const isGameOver = this.gameState.phase.type === 'gameOver';
 
     for (const lp of this.lobbyPlayers) {
-      if (!lp.isHost && lp.connected) {
+      if (!lp.isHost && lp.isConnected) {
         const sanitized = sanitizeGameState(this.gameState, lp.playerIndex, newLogEntries);
         if (isGameOver) {
           this.network.sendToGuest({ type: 'gameOver', state: sanitized }, lp.peerId);

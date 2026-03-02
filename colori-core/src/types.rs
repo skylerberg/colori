@@ -681,7 +681,10 @@ fn deserialize_hands<'de, D: serde::Deserializer<'de>>(
 #[serde(tag = "type")]
 pub enum PendingChoice {
     #[serde(rename = "chooseCardsForWorkshop")]
-    ChooseCardsForWorkshop { count: u32 },
+    ChooseCardsForWorkshop {
+        #[serde(rename = "remainingPicks")]
+        remaining_picks: u32,
+    },
     #[serde(rename = "chooseCardsToDestroy")]
     ChooseCardsToDestroy,
     #[serde(rename = "chooseMix")]

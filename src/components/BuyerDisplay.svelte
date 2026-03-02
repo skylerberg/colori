@@ -13,11 +13,11 @@
 <div class="buyer-display">
   <h3 class="section-title">Buyer Display</h3>
   <div class="buyer-grid">
-    {#each buyers as gi (gi.instanceId)}
+    {#each buyers as buyer (buyer.instanceId)}
       <CardDisplay
-        card={gi.card}
-        selected={selectedId === gi.instanceId}
-        onclick={selectable && onSelect ? () => onSelect!(gi.instanceId) : undefined}
+        card={buyer.card}
+        selected={selectedId === buyer.instanceId}
+        onclick={selectable && onSelect ? () => onSelect!(buyer.instanceId) : undefined}
       />
     {/each}
     {#if buyers.length === 0}

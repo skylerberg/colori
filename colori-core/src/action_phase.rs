@@ -32,18 +32,18 @@ pub fn destroy_drafted_card<R: Rng>(state: &mut GameState, card_instance_id: u32
     let ability = card.ability();
     state.destroyed_pile.insert(id);
 
-    let as_ = get_action_state_mut(state);
-    as_.ability_stack.push(ability);
+    let action_state = get_action_state_mut(state);
+    action_state.ability_stack.push(ability);
     process_queue(state, rng);
 }
 
 pub fn process_queue<R: Rng>(state: &mut GameState, rng: &mut R) {
     loop {
-        let as_ = get_action_state(state);
-        if as_.pending_choice.is_some() {
+        let action_state = get_action_state(state);
+        if action_state.pending_choice.is_some() {
             return;
         }
-        if as_.ability_stack.is_empty() {
+        if action_state.ability_stack.is_empty() {
             return;
         }
 
@@ -61,7 +61,7 @@ pub fn process_queue<R: Rng>(state: &mut GameState, rng: &mut R) {
                     continue;
                 } else {
                     get_action_state_mut(state).pending_choice =
-                        Some(PendingChoice::ChooseCardsForWorkshop { count });
+                        Some(PendingChoice::ChooseCardsForWorkshop { remaining_picks: count });
                     return;
                 }
             }
@@ -114,8 +114,8 @@ pub fn process_queue<R: Rng>(state: &mut GameState, rng: &mut R) {
 
 #[inline]
 pub fn can_sell_to_any_buyer(state: &GameState) -> bool {
-    let as_ = get_action_state(state);
-    let player = &state.players[as_.current_player_index];
+    let action_state = get_action_state(state);
+    let player = &state.players[action_state.current_player_index];
     for buyer_instance in &state.buyer_display {
         if player.materials.get(buyer_instance.buyer.required_material()) >= 1
             && can_pay_cost(&player.color_wheel, buyer_instance.buyer.color_cost())
@@ -131,13 +131,13 @@ pub fn resolve_workshop_choice<R: Rng>(
     selected_cards: UnorderedCards,
     rng: &mut R,
 ) {
-    let as_ = get_action_state(state);
-    let count = match &as_.pending_choice {
-        Some(PendingChoice::ChooseCardsForWorkshop { count }) => *count,
+    let action_state = get_action_state(state);
+    let remaining_picks = match &action_state.pending_choice {
+        Some(PendingChoice::ChooseCardsForWorkshop { remaining_picks }) => *remaining_picks,
         _ => panic!("No pending workshop choice"),
     };
-    let player_index = as_.current_player_index;
-    let remaining = count - selected_cards.len();
+    let player_index = action_state.current_player_index;
+    let remaining = remaining_picks - selected_cards.len();
 
     // Partition selected cards into action and non-action using card_lookup
     let mut action_ids = [0u8; 16];
@@ -259,8 +259,8 @@ pub fn resolve_mix_colors<R: Rng>(
     }
 
     let new_remaining = {
-        let as_ = get_action_state(state);
-        match &as_.pending_choice {
+        let action_state = get_action_state(state);
+        match &action_state.pending_choice {
             Some(PendingChoice::ChooseMix { remaining }) => remaining - 1,
             _ => 0,
         }
@@ -290,8 +290,8 @@ pub fn resolve_mix_colors_unchecked<R: Rng>(
     perform_mix_unchecked(&mut state.players[player_index].color_wheel, color_a, color_b);
 
     let new_remaining = {
-        let as_ = get_action_state(state);
-        match &as_.pending_choice {
+        let action_state = get_action_state(state);
+        match &action_state.pending_choice {
             Some(PendingChoice::ChooseMix { remaining }) => remaining - 1,
             _ => 0,
         }
@@ -418,10 +418,10 @@ pub fn end_player_turn<R: Rng>(state: &mut GameState, rng: &mut R) {
     let num_players = state.players.len();
     let starting_player = ((state.round - 1) as usize) % num_players;
 
-    let as_ = get_action_state_mut(state);
-    as_.current_player_index = (as_.current_player_index + 1) % num_players;
+    let action_state = get_action_state_mut(state);
+    action_state.current_player_index = (action_state.current_player_index + 1) % num_players;
 
-    if as_.current_player_index == starting_player {
+    if action_state.current_player_index == starting_player {
         let is_last_round = state.round >= 10
             || state.players.iter().any(|p| p.cached_score >= 15);
         if is_last_round {
@@ -430,9 +430,9 @@ pub fn end_player_turn<R: Rng>(state: &mut GameState, rng: &mut R) {
             initialize_cleanup_phase(state, rng);
         }
     } else {
-        let as_ = get_action_state_mut(state);
-        as_.ability_stack.clear();
-        as_.pending_choice = None;
+        let action_state = get_action_state_mut(state);
+        action_state.ability_stack.clear();
+        action_state.pending_choice = None;
     }
 }
 
