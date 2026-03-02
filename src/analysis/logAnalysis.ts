@@ -576,12 +576,14 @@ export function formatVariantLabel(variant: PlayerVariant, allVariants?: PlayerV
     iterations: false,
     explorationConstant: false,
     maxRolloutSteps: false,
+    randomCleanupKeep: false,
   };
   if (allVariants && allVariants.length > 1) {
     const first = allVariants[0];
     differingFields.iterations = allVariants.some(v => v.iterations !== first.iterations);
     differingFields.explorationConstant = allVariants.some(v => (v.explorationConstant ?? null) !== (first.explorationConstant ?? null));
     differingFields.maxRolloutSteps = allVariants.some(v => (v.maxRolloutSteps ?? null) !== (first.maxRolloutSteps ?? null));
+    differingFields.randomCleanupKeep = allVariants.some(v => (v.randomCleanupKeep ?? false) !== (first.randomCleanupKeep ?? false));
   }
 
   const parts: string[] = [];
@@ -593,6 +595,9 @@ export function formatVariantLabel(variant: PlayerVariant, allVariants?: PlayerV
   }
   if (differingFields.maxRolloutSteps) {
     parts.push(`rollout=${variant.maxRolloutSteps ?? 1000}`);
+  }
+  if (differingFields.randomCleanupKeep && variant.randomCleanupKeep) {
+    parts.push('rck');
   }
 
   return parts.join(', ');

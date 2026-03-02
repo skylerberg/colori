@@ -15,6 +15,7 @@ pub struct MctsConfig {
     pub iterations: u32,
     pub exploration_constant: f64,
     pub max_rollout_steps: u32,
+    pub random_cleanup_keep: bool,
 }
 
 impl Default for MctsConfig {
@@ -23,6 +24,7 @@ impl Default for MctsConfig {
             iterations: 100,
             exploration_constant: std::f64::consts::SQRT_2,
             max_rollout_steps: 1000,
+            random_cleanup_keep: false,
         }
     }
 }
@@ -41,6 +43,8 @@ impl<'de> Deserialize<'de> for MctsConfig {
             exploration_constant: f64,
             #[serde(default = "default_max_rollout_steps")]
             max_rollout_steps: u32,
+            #[serde(default)]
+            random_cleanup_keep: bool,
         }
 
         fn default_iterations() -> u32 { 100 }
@@ -52,6 +56,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
             iterations: helper.iterations,
             exploration_constant: helper.exploration_constant,
             max_rollout_steps: helper.max_rollout_steps,
+            random_cleanup_keep: helper.random_cleanup_keep,
         })
     }
 }
@@ -227,7 +232,7 @@ fn iteration<R: Rng>(
     let should_rollout = node.children[best_idx].games == 0;
 
     let scores = if should_rollout {
-        let scores = rollout(state, max_round, config.max_rollout_steps, rng);
+        let scores = rollout(state, max_round, config.max_rollout_steps, config.random_cleanup_keep, rng);
         record_outcome(&mut node.children[best_idx], &scores);
         scores
     } else {
@@ -287,12 +292,12 @@ fn compute_terminal_scores(state: &GameState) -> SmallVec<[f64; 4]> {
     scores.iter().map(|&s| if s == max_score { 1.0 / num_winners } else { 0.0 }).collect()
 }
 
-fn rollout<R: Rng>(state: &mut GameState, max_round: Option<u32>, max_rollout_steps: u32, rng: &mut R) -> SmallVec<[f64; 4]> {
+fn rollout<R: Rng>(state: &mut GameState, max_round: Option<u32>, max_rollout_steps: u32, random_cleanup_keep: bool, rng: &mut R) -> SmallVec<[f64; 4]> {
     for _ in 0..max_rollout_steps {
         if is_terminal(state, max_round) {
             return compute_terminal_scores(state);
         }
-        apply_rollout_step(state, rng);
+        apply_rollout_step(state, random_cleanup_keep, rng);
     }
 
     if is_terminal(state, max_round) {
