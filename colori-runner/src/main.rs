@@ -1,5 +1,6 @@
 use colori_core::colori_game::apply_choice_to_state;
 use colori_core::draw_phase::execute_draw_phase;
+use colori_core::exp3_ismcts::{exp3_ismcts, Exp3Config};
 use colori_core::game_log::{FinalPlayerStats, FinalScore, PlayerVariant};
 use colori_core::ismcts::{ismcts, MctsConfig};
 use colori_core::scoring::calculate_score;
@@ -28,17 +29,80 @@ struct Args {
 }
 
 #[derive(Clone)]
+enum AiVariant {
+    Ucb(MctsConfig),
+    Exp3(Exp3Config),
+}
+
+impl AiVariant {
+    fn iterations(&self) -> u32 {
+        match self {
+            AiVariant::Ucb(c) => c.iterations,
+            AiVariant::Exp3(c) => c.iterations,
+        }
+    }
+
+    fn max_rollout_steps(&self) -> u32 {
+        match self {
+            AiVariant::Ucb(c) => c.max_rollout_steps,
+            AiVariant::Exp3(c) => c.max_rollout_steps,
+        }
+    }
+
+    fn algorithm_name(&self) -> &str {
+        match self {
+            AiVariant::Ucb(_) => "ucb",
+            AiVariant::Exp3(_) => "exp3",
+        }
+    }
+}
+
+#[derive(Clone)]
 struct NamedVariant {
     name: Option<String>,
-    config: MctsConfig,
+    ai: AiVariant,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct VariantFileEntry {
     name: Option<String>,
-    #[serde(flatten)]
-    config: MctsConfig,
+    #[serde(default = "default_variant_type")]
+    r#type: String,
+    #[serde(default)]
+    iterations: Option<u32>,
+    #[serde(default)]
+    exploration_constant: Option<f64>,
+    #[serde(default)]
+    gamma: Option<f64>,
+    #[serde(default)]
+    max_rollout_steps: Option<u32>,
+}
+
+fn default_variant_type() -> String { "ucb".to_string() }
+
+impl VariantFileEntry {
+    fn into_named_variant(self) -> NamedVariant {
+        let ai = match self.r#type.as_str() {
+            "exp3" => {
+                let defaults = Exp3Config::default();
+                AiVariant::Exp3(Exp3Config {
+                    iterations: self.iterations.unwrap_or(defaults.iterations),
+                    gamma: self.gamma.unwrap_or(defaults.gamma),
+                    max_rollout_steps: self.max_rollout_steps.unwrap_or(defaults.max_rollout_steps),
+                })
+            }
+            _ => {
+                let defaults = MctsConfig::default();
+                AiVariant::Ucb(MctsConfig {
+                    iterations: self.iterations.unwrap_or(defaults.iterations),
+                    exploration_constant: self.exploration_constant.unwrap_or(defaults.exploration_constant),
+                    max_rollout_steps: self.max_rollout_steps.unwrap_or(defaults.max_rollout_steps),
+                })
+            }
+        };
+        NamedVariant { name: self.name, ai }
+    }
 }
 
 fn parse_args() -> Args {
@@ -89,7 +153,7 @@ fn parse_args() -> Args {
                             let iters: u32 = s.trim().parse().expect("Invalid --variants value");
                             NamedVariant {
                                 name: None,
-                                config: MctsConfig { iterations: iters, ..MctsConfig::default() },
+                                ai: AiVariant::Ucb(MctsConfig { iterations: iters, ..MctsConfig::default() }),
                             }
                         })
                         .collect(),
@@ -104,7 +168,7 @@ fn parse_args() -> Args {
                 variants = Some(
                     entries
                         .into_iter()
-                        .map(|e| NamedVariant { name: e.name, config: e.config })
+                        .map(|e| e.into_named_variant())
                         .collect(),
                 );
             }
@@ -192,37 +256,68 @@ fn format_variant_label(variant: &NamedVariant, differing: &DifferingFields) -> 
         return name.clone();
     }
     let mut parts = Vec::new();
+    if differing.algorithm_differs {
+        parts.push(variant.ai.algorithm_name().to_string());
+    }
     if differing.iterations_differs {
-        parts.push(format_iterations(variant.config.iterations));
+        parts.push(format_iterations(variant.ai.iterations()));
     }
     if differing.exploration_constant_differs {
-        parts.push(format!("c={:.2}", variant.config.exploration_constant));
+        if let AiVariant::Ucb(c) = &variant.ai {
+            parts.push(format!("c={:.2}", c.exploration_constant));
+        }
+    }
+    if differing.gamma_differs {
+        if let AiVariant::Exp3(c) = &variant.ai {
+            parts.push(format!("γ={:.2}", c.gamma));
+        }
     }
     if differing.max_rollout_steps_differs {
-        parts.push(format!("rollout={}", variant.config.max_rollout_steps));
+        parts.push(format!("rollout={}", variant.ai.max_rollout_steps()));
     }
     if parts.is_empty() {
-        // All same config, just show iterations
-        parts.push(format_iterations(variant.config.iterations));
+        parts.push(format_iterations(variant.ai.iterations()));
     }
     parts.join(", ")
 }
 
 struct DifferingFields {
+    algorithm_differs: bool,
     iterations_differs: bool,
     exploration_constant_differs: bool,
+    gamma_differs: bool,
     max_rollout_steps_differs: bool,
 }
 
 fn compute_differing_fields(variants: &[NamedVariant]) -> DifferingFields {
     if variants.len() <= 1 {
-        return DifferingFields { iterations_differs: false, exploration_constant_differs: false, max_rollout_steps_differs: false };
+        return DifferingFields {
+            algorithm_differs: false,
+            iterations_differs: false,
+            exploration_constant_differs: false,
+            gamma_differs: false,
+            max_rollout_steps_differs: false,
+        };
     }
-    let first = &variants[0].config;
+    let first = &variants[0].ai;
     DifferingFields {
-        iterations_differs: variants.iter().any(|v| v.config.iterations != first.iterations),
-        exploration_constant_differs: variants.iter().any(|v| v.config.exploration_constant != first.exploration_constant),
-        max_rollout_steps_differs: variants.iter().any(|v| v.config.max_rollout_steps != first.max_rollout_steps),
+        algorithm_differs: variants.iter().any(|v| {
+            std::mem::discriminant(&v.ai) != std::mem::discriminant(first)
+        }),
+        iterations_differs: variants.iter().any(|v| v.ai.iterations() != first.iterations()),
+        exploration_constant_differs: variants.iter().any(|v| {
+            match (&v.ai, first) {
+                (AiVariant::Ucb(a), AiVariant::Ucb(b)) => a.exploration_constant != b.exploration_constant,
+                _ => false,
+            }
+        }),
+        gamma_differs: variants.iter().any(|v| {
+            match (&v.ai, first) {
+                (AiVariant::Exp3(a), AiVariant::Exp3(b)) => a.gamma != b.gamma,
+                _ => false,
+            }
+        }),
+        max_rollout_steps_differs: variants.iter().any(|v| v.ai.max_rollout_steps() != first.max_rollout_steps()),
     }
 }
 
@@ -230,12 +325,11 @@ fn has_any_difference(variants: &[NamedVariant]) -> bool {
     if variants.len() <= 1 {
         return false;
     }
-    // If any variant has a name, treat as having variants
     if variants.iter().any(|v| v.name.is_some()) {
         return true;
     }
     let diff = compute_differing_fields(variants);
-    diff.iterations_differs || diff.exploration_constant_differs || diff.max_rollout_steps_differs
+    diff.algorithm_differs || diff.iterations_differs || diff.exploration_constant_differs || diff.gamma_differs || diff.max_rollout_steps_differs
 }
 
 // ── Game loop ──
@@ -299,7 +393,10 @@ fn run_game(
         };
 
         let max_rollout_round = std::cmp::max(8, state.round + 2);
-        let choice = ismcts(&state, player_index, &shuffled_variants[player_index].config, &None, Some(max_rollout_round), rng);
+        let choice = match &shuffled_variants[player_index].ai {
+            AiVariant::Ucb(config) => ismcts(&state, player_index, config, &None, Some(max_rollout_round), rng),
+            AiVariant::Exp3(config) => exp3_ismcts(&state, player_index, config, &None, Some(max_rollout_round), rng),
+        };
 
         seq += 1;
         entries.push(StructuredLogEntry {
@@ -348,35 +445,53 @@ fn run_game(
 
     let duration_ms = Some(start.elapsed().as_millis() as u64);
 
-    let defaults = MctsConfig::default();
+    let ucb_defaults = MctsConfig::default();
+    let exp3_defaults = Exp3Config::default();
     let (log_iterations, log_player_variants) = if has_variants {
         (
             None,
             Some(
                 shuffled_variants
                     .iter()
-                    .map(|v| {
-                        let c = &v.config;
-                        PlayerVariant {
+                    .map(|v| match &v.ai {
+                        AiVariant::Ucb(c) => PlayerVariant {
                             name: v.name.clone(),
+                            algorithm: Some("ucb".to_string()),
                             iterations: c.iterations,
-                            exploration_constant: if c.exploration_constant != defaults.exploration_constant {
+                            exploration_constant: if c.exploration_constant != ucb_defaults.exploration_constant {
                                 Some(c.exploration_constant)
                             } else {
                                 None
                             },
-                            max_rollout_steps: if c.max_rollout_steps != defaults.max_rollout_steps {
+                            gamma: None,
+                            max_rollout_steps: if c.max_rollout_steps != ucb_defaults.max_rollout_steps {
                                 Some(c.max_rollout_steps)
                             } else {
                                 None
                             },
-                        }
+                        },
+                        AiVariant::Exp3(c) => PlayerVariant {
+                            name: v.name.clone(),
+                            algorithm: Some("exp3".to_string()),
+                            iterations: c.iterations,
+                            exploration_constant: None,
+                            gamma: if c.gamma != exp3_defaults.gamma {
+                                Some(c.gamma)
+                            } else {
+                                None
+                            },
+                            max_rollout_steps: if c.max_rollout_steps != exp3_defaults.max_rollout_steps {
+                                Some(c.max_rollout_steps)
+                            } else {
+                                None
+                            },
+                        },
                     })
                     .collect(),
             ),
         )
     } else {
-        (Some(shuffled_variants[0].config.iterations), None)
+        (Some(shuffled_variants[0].ai.iterations()), None)
     };
 
     GameRunOutput {
@@ -414,7 +529,7 @@ fn main() {
         None => vec![
             NamedVariant {
                 name: None,
-                config: MctsConfig { iterations: args.iterations, ..MctsConfig::default() },
+                ai: AiVariant::Ucb(MctsConfig { iterations: args.iterations, ..MctsConfig::default() }),
             };
             args.players
         ],

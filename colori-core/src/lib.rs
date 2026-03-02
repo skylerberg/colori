@@ -8,6 +8,7 @@ pub mod colors;
 pub(crate) mod deck_utils;
 pub mod draft_phase;
 pub mod draw_phase;
+pub mod exp3_ismcts;
 pub mod fixed_vec;
 pub mod game_log;
 pub mod ismcts;
