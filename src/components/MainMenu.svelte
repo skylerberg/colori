@@ -16,7 +16,6 @@
     <button class="menu-btn local-btn" onclick={onLocalGame}>Local Game</button>
     <button class="menu-btn online-btn" onclick={onHostOnline}>Host Online Game</button>
     <button class="menu-btn online-btn" onclick={onJoinOnline}>Join Online Game</button>
-    <a class="menu-btn analysis-btn" href="analysis.html">Analysis</a>
   </div>
 </div>
 
@@ -74,16 +73,4 @@
     background: #b8890f;
   }
 
-  .analysis-btn {
-    background: #5a7a5a;
-    color: #fff;
-    text-align: center;
-    text-decoration: none;
-    display: block;
-    box-sizing: border-box;
-  }
-
-  .analysis-btn:hover {
-    background: #4a664a;
-  }
 </style>
