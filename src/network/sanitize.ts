@@ -29,7 +29,7 @@ export function sanitizeGameState(
         hands: ds.hands.map((hand, i) =>
           i === forPlayerIndex ? [...hand] : []
         ),
-        direction: ds.direction,
+        passingDirection: ds.passingDirection,
         waitingForPass: ds.waitingForPass,
       },
     };

@@ -244,12 +244,12 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                     let selected = copy.draw_up_to(1, rng);
                     resolve_destroy_cards(state, selected, rng);
                 }
-                Some(PendingChoice::ChooseMix { remaining }) => {
+                Some(PendingChoice::ChooseMix { remaining_mixes }) => {
                     // Fused: apply all mixes directly, then process_ability_stack once.
                     // Ability stack may not be empty here, so we must call process_ability_stack.
-                    let remaining = *remaining;
+                    let remaining_mixes = *remaining_mixes;
                     let (mixes, mix_count) =
-                        random_mix_seq(&state.players[player_index].color_wheel, remaining, rng);
+                        random_mix_seq(&state.players[player_index].color_wheel, remaining_mixes, rng);
                     for i in 0..mix_count {
                         let (a, b) = mixes[i];
                         perform_mix_unchecked(

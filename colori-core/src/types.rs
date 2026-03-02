@@ -570,18 +570,18 @@ impl Materials {
     }
 
     #[inline]
-    pub fn get(&self, mt: MaterialType) -> u32 {
-        self.counts[mt as usize]
+    pub fn get(&self, material_type: MaterialType) -> u32 {
+        self.counts[material_type as usize]
     }
 
     #[inline]
-    pub fn increment(&mut self, mt: MaterialType) {
-        self.counts[mt as usize] += 1;
+    pub fn increment(&mut self, material_type: MaterialType) {
+        self.counts[material_type as usize] += 1;
     }
 
     #[inline]
-    pub fn decrement(&mut self, mt: MaterialType) -> bool {
-        let idx = mt as usize;
+    pub fn decrement(&mut self, material_type: MaterialType) -> bool {
+        let idx = material_type as usize;
         if self.counts[idx] == 0 {
             return false;
         }
@@ -594,8 +594,8 @@ impl Serialize for Materials {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         use serde::ser::SerializeMap;
         let mut map = serializer.serialize_map(Some(3))?;
-        for &mt in &ALL_MATERIAL_TYPES {
-            map.serialize_entry(&mt, &self.counts[mt as usize])?;
+        for &material_type in &ALL_MATERIAL_TYPES {
+            map.serialize_entry(&material_type, &self.counts[material_type as usize])?;
         }
         map.end()
     }
@@ -606,8 +606,8 @@ impl<'de> Deserialize<'de> for Materials {
         let map: std::collections::HashMap<MaterialType, u32> =
             std::collections::HashMap::deserialize(deserializer)?;
         let mut materials = Materials::new();
-        for (&mt, &count) in &map {
-            materials.counts[mt as usize] = count;
+        for (&material_type, &count) in &map {
+            materials.counts[material_type as usize] = count;
         }
         Ok(materials)
     }
@@ -641,7 +641,7 @@ pub struct DraftState {
     )]
     pub hands: [UnorderedCards; MAX_PLAYERS],
     pub num_hands: usize,
-    pub direction: i32,
+    pub passing_direction: i32,
     pub waiting_for_pass: bool,
 }
 
@@ -688,7 +688,10 @@ pub enum PendingChoice {
     #[serde(rename = "chooseCardsToDestroy")]
     ChooseCardsToDestroy,
     #[serde(rename = "chooseMix")]
-    ChooseMix { remaining: u32 },
+    ChooseMix {
+        #[serde(rename = "remainingMixes")]
+        remaining_mixes: u32,
+    },
     #[serde(rename = "chooseBuyer")]
     ChooseBuyer,
     #[serde(rename = "chooseSecondaryColor")]

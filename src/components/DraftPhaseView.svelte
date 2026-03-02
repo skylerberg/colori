@@ -30,7 +30,7 @@
   );
 
   let directionLabel = $derived(
-    draftState ? (draftState.direction === 1 ? 'Left >>' : '<< Right') : ''
+    draftState ? (draftState.passingDirection === 1 ? 'Left >>' : '<< Right') : ''
   );
 
   function handlePick(cardInstanceId: number) {

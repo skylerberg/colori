@@ -100,7 +100,7 @@ pub fn determinize_in_place<R: Rng>(
 
     if let GamePhase::Draft { ref mut draft_state } = det.phase {
         let num_players = det.players.len();
-        let direction = draft_state.direction;
+        let direction = draft_state.passing_direction;
 
         // Determine which hands are known
         let mut known_hands = [false; 4];

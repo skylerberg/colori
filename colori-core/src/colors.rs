@@ -9,30 +9,30 @@ fn is_secondary(idx: usize) -> bool {
 }
 
 pub fn can_mix(a: Color, b: Color) -> bool {
-    let ai = a.index();
-    let bi = b.index();
-    let diff = if ai > bi { ai - bi } else { bi - ai };
+    let a_index = a.index();
+    let b_index = b.index();
+    let diff = if a_index > b_index { a_index - b_index } else { b_index - a_index };
     let distance = diff.min(NUM_COLORS - diff);
 
-    if is_primary(ai) && is_primary(bi) {
-        return ai != bi;
+    if is_primary(a_index) && is_primary(b_index) {
+        return a_index != b_index;
     }
 
-    let one_is_primary = is_primary(ai) || is_primary(bi);
-    let one_is_secondary = is_secondary(ai) || is_secondary(bi);
+    let one_is_primary = is_primary(a_index) || is_primary(b_index);
+    let one_is_secondary = is_secondary(a_index) || is_secondary(b_index);
     one_is_primary && one_is_secondary && distance == 2
 }
 
 pub fn mix_result(a: Color, b: Color) -> Color {
-    let ai = a.index();
-    let bi = b.index();
+    let a_index = a.index();
+    let b_index = b.index();
     let n = NUM_COLORS;
-    let forward_dist = (bi + n - ai) % n;
+    let forward_dist = (b_index + n - a_index) % n;
     if forward_dist <= n / 2 {
-        Color::from_index((ai + forward_dist / 2) % n)
+        Color::from_index((a_index + forward_dist / 2) % n)
     } else {
         let back_dist = n - forward_dist;
-        Color::from_index((ai + n - back_dist / 2) % n)
+        Color::from_index((a_index + n - back_dist / 2) % n)
     }
 }
 

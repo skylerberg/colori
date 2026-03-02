@@ -114,14 +114,14 @@ export interface DraftState {
   pickNumber: number;
   currentPlayerIndex: number;
   hands: CardInstance[][];
-  direction: 1 | -1;
+  passingDirection: 1 | -1;
   waitingForPass: boolean;
 }
 
 export type PendingChoice =
   | { type: 'chooseCardsForWorkshop'; remainingPicks: number }
   | { type: 'chooseCardsToDestroy' }
-  | { type: 'chooseMix'; remaining: number }
+  | { type: 'chooseMix'; remainingMixes: number }
   | { type: 'chooseBuyer' }
   | { type: 'chooseSecondaryColor' }
   | { type: 'choosePrimaryColor' }

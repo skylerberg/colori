@@ -17,7 +17,7 @@ export interface SanitizedDraftState {
   pickNumber: number;
   currentPlayerIndex: number;
   hands: CardInstance[][];
-  direction: 1 | -1;
+  passingDirection: 1 | -1;
   waitingForPass: boolean;
 }
 

@@ -71,7 +71,7 @@ pub fn process_ability_stack<R: Rng>(state: &mut GameState, rng: &mut R) {
             }
             Ability::MixColors { count } => {
                 get_action_state_mut(state).pending_choice =
-                    Some(PendingChoice::ChooseMix { remaining: count });
+                    Some(PendingChoice::ChooseMix { remaining_mixes: count });
                 return;
             }
             Ability::DestroyCards => {
@@ -260,7 +260,7 @@ pub fn resolve_mix_colors<R: Rng>(
     let new_remaining = {
         let action_state = get_action_state(state);
         match &action_state.pending_choice {
-            Some(PendingChoice::ChooseMix { remaining }) => remaining - 1,
+            Some(PendingChoice::ChooseMix { remaining_mixes }) => remaining_mixes - 1,
             _ => 0,
         }
     };
@@ -268,7 +268,7 @@ pub fn resolve_mix_colors<R: Rng>(
     if new_remaining > 0 {
         get_action_state_mut(state).pending_choice =
             Some(PendingChoice::ChooseMix {
-                remaining: new_remaining,
+                remaining_mixes: new_remaining,
             });
     } else {
         get_action_state_mut(state).pending_choice = None;
@@ -291,7 +291,7 @@ pub fn resolve_mix_colors_unchecked<R: Rng>(
     let new_remaining = {
         let action_state = get_action_state(state);
         match &action_state.pending_choice {
-            Some(PendingChoice::ChooseMix { remaining }) => remaining - 1,
+            Some(PendingChoice::ChooseMix { remaining_mixes }) => remaining_mixes - 1,
             _ => 0,
         }
     };
@@ -299,7 +299,7 @@ pub fn resolve_mix_colors_unchecked<R: Rng>(
     if new_remaining > 0 {
         get_action_state_mut(state).pending_choice =
             Some(PendingChoice::ChooseMix {
-                remaining: new_remaining,
+                remaining_mixes: new_remaining,
             });
     } else {
         get_action_state_mut(state).pending_choice = None;

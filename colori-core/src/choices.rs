@@ -12,8 +12,8 @@ fn count_card_types(
     mask: UnorderedCards,
     card_lookup: &[Card; 256],
 ) -> ([Card; 49], [u8; 49], usize) {
-    let mut types = [Card::BasicRed; 49];
-    let mut counts = [0u8; 49];
+    let mut card_types = [Card::BasicRed; 49];
+    let mut type_counts = [0u8; 49];
     let mut len = 0usize;
     let mut seen: u64 = 0;
     for id in mask.iter() {
@@ -21,13 +21,13 @@ fn count_card_types(
         let bit = 1u64 << (card as u64);
         if seen & bit == 0 {
             seen |= bit;
-            types[len] = card;
-            counts[len] = 1;
+            card_types[len] = card;
+            type_counts[len] = 1;
             len += 1;
         } else {
             for i in 0..len {
-                if types[i] == card {
-                    counts[i] += 1;
+                if card_types[i] == card {
+                    type_counts[i] += 1;
                     break;
                 }
             }
@@ -36,13 +36,13 @@ fn count_card_types(
     // Sort by card discriminant for deterministic output
     for i in 1..len {
         let mut j = i;
-        while j > 0 && (types[j] as usize) < (types[j - 1] as usize) {
-            types.swap(j, j - 1);
-            counts.swap(j, j - 1);
+        while j > 0 && (card_types[j] as usize) < (card_types[j - 1] as usize) {
+            card_types.swap(j, j - 1);
+            type_counts.swap(j, j - 1);
             j -= 1;
         }
     }
-    (types, counts, len)
+    (card_types, type_counts, len)
 }
 
 /// Enumerate all non-empty subsets of a card-type multiset up to max_size.
@@ -51,32 +51,32 @@ fn enumerate_multiset_subsets(
     types: &[Card],
     counts: &[u8],
     max_remaining: usize,
-    current: &mut SmallVec<[Card; 4]>,
+    current_subset: &mut SmallVec<[Card; 4]>,
     choices: &mut Vec<Choice>,
     make_choice: &impl Fn(SmallVec<[Card; 4]>) -> Choice,
 ) {
     if types.is_empty() || max_remaining == 0 {
-        if !current.is_empty() {
-            choices.push(make_choice(current.clone()));
+        if !current_subset.is_empty() {
+            choices.push(make_choice(current_subset.clone()));
         }
         return;
     }
     let card = types[0];
     let count = counts[0] as usize;
     let max_take = max_remaining.min(count);
-    let base_len = current.len();
+    let base_len = current_subset.len();
     for take in 0..=max_take {
         enumerate_multiset_subsets(
             &types[1..],
             &counts[1..],
             max_remaining - take,
-            current,
+            current_subset,
             choices,
             make_choice,
         );
-        current.push(card);
+        current_subset.push(card);
     }
-    current.truncate(base_len);
+    current_subset.truncate(base_len);
 }
 
 // ── Buyer affordability ──
@@ -91,7 +91,7 @@ pub(crate) fn can_afford_buyer(player: &PlayerState, buyer: &BuyerCard) -> bool 
 
 fn enumerate_mix_sequences<F>(
     wheel: &ColorWheel,
-    remaining: u32,
+    remaining_mixes: u32,
     choices: &mut Vec<Choice>,
     make_choice: F,
 ) where
@@ -106,7 +106,7 @@ fn enumerate_mix_sequences<F>(
             mixes1.push((a, b));
             choices.push(make_choice(mixes1));
 
-            if remaining > 1 {
+            if remaining_mixes > 1 {
                 let mut wheel2 = wheel.clone();
                 perform_mix_unchecked(&mut wheel2, a, b);
                 for &(c, d) in &VALID_MIX_PAIRS {
@@ -189,10 +189,10 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                 }
                 Some(PendingChoice::ChooseCardsForWorkshop { remaining_picks }) => {
                     choices.push(Choice::SkipWorkshop);
-                    let (types, counts, len) = count_card_types(player.workshop_cards, &state.card_lookup);
+                    let (card_types, type_counts, len) = count_card_types(player.workshop_cards, &state.card_lookup);
                     enumerate_multiset_subsets(
-                        &types[..len],
-                        &counts[..len],
+                        &card_types[..len],
+                        &type_counts[..len],
                         *remaining_picks as usize,
                         &mut SmallVec::new(),
                         choices,
@@ -213,10 +213,10 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                         }
                     }
                 }
-                Some(PendingChoice::ChooseMix { remaining }) => {
+                Some(PendingChoice::ChooseMix { remaining_mixes }) => {
                     enumerate_mix_sequences(
                         &player.color_wheel,
-                        *remaining,
+                        *remaining_mixes,
                         choices,
                         |mixes| Choice::MixAll { mixes },
                     );
@@ -260,11 +260,11 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                 card_types: SmallVec::new(),
             });
             // All non-empty subsets via multiset enumeration
-            let (types, counts, len) = count_card_types(player.workshop_cards, &state.card_lookup);
+            let (card_types, type_counts, len) = count_card_types(player.workshop_cards, &state.card_lookup);
             let total = player.workshop_cards.len() as usize;
             enumerate_multiset_subsets(
-                &types[..len],
-                &counts[..len],
+                &card_types[..len],
+                &type_counts[..len],
                 total,
                 &mut SmallVec::new(),
                 choices,

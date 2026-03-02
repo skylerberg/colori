@@ -27,7 +27,7 @@
     {#if pendingChoice.type === 'chooseMix'}
       <MixColorPrompt
         colorWheel={currentPlayer.colorWheel}
-        remaining={pendingChoice.remaining}
+        remaining={pendingChoice.remainingMixes}
         {onAction}
       />
     {:else if pendingChoice.type === 'chooseBuyer'}
