@@ -775,7 +775,7 @@ pub enum Choice {
         #[serde(rename = "gainColor")]
         gain: Color,
     },
-    #[serde(rename = "destroyAndMix")]
+    #[serde(rename = "destroyAndMix", alias = "destroyAndMixAll")]
     DestroyAndMix {
         card: Card,
         mixes: SmallVec<[(Color, Color); 2]>,
