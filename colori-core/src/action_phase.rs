@@ -1,7 +1,8 @@
+use crate::cleanup_phase::initialize_cleanup_phase;
 use crate::colors::{can_pay_cost, pay_cost, perform_mix, perform_mix_unchecked, TERTIARIES};
 use crate::deck_utils::draw_from_deck;
 use crate::types::{
-    Ability, ActionState, BuyerInstance, CleanupState, Color, GamePhase, GameState,
+    Ability, ActionState, BuyerCard, BuyerInstance, Color, GamePhase, GameState, PlayerState,
 };
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
@@ -99,17 +100,19 @@ pub fn process_ability_stack<R: Rng>(state: &mut GameState, rng: &mut R) {
 }
 
 #[inline]
+pub(crate) fn can_afford_buyer(player: &PlayerState, buyer: &BuyerCard) -> bool {
+    player.materials.get(buyer.required_material()) >= 1
+        && can_pay_cost(&player.color_wheel, buyer.color_cost())
+}
+
+#[inline]
 pub fn can_sell_to_any_buyer(state: &GameState) -> bool {
     let action_state = get_action_state(state);
     let player = &state.players[action_state.current_player_index];
-    for buyer_instance in &state.buyer_display {
-        if player.materials.get(buyer_instance.buyer.required_material()) >= 1
-            && can_pay_cost(&player.color_wheel, buyer_instance.buyer.color_cost())
-        {
-            return true;
-        }
-    }
-    false
+    state
+        .buyer_display
+        .iter()
+        .any(|b| can_afford_buyer(player, &b.buyer))
 }
 
 pub fn resolve_workshop_choice<R: Rng>(
@@ -245,19 +248,7 @@ pub fn resolve_mix_colors<R: Rng>(
     if !success {
         panic!("Cannot mix {:?} and {:?}", color_a, color_b);
     }
-
-    let action_state = get_action_state_mut(state);
-    match action_state.ability_stack.last_mut() {
-        Some(Ability::MixColors { count }) => {
-            *count -= 1;
-            if *count == 0 {
-                action_state.ability_stack.pop();
-            }
-        }
-        _ => {}
-    }
-
-    process_ability_stack(state, rng);
+    finish_mix(state, rng);
 }
 
 /// Same as `resolve_mix_colors` but skips the `can_mix` and wheel amount checks.
@@ -270,7 +261,11 @@ pub fn resolve_mix_colors_unchecked<R: Rng>(
 ) {
     let player_index = get_action_state(state).current_player_index;
     perform_mix_unchecked(&mut state.players[player_index].color_wheel, color_a, color_b);
+    finish_mix(state, rng);
+}
 
+/// Decrement the remaining mix count and process the ability stack.
+fn finish_mix<R: Rng>(state: &mut GameState, rng: &mut R) {
     let action_state = get_action_state_mut(state);
     match action_state.ability_stack.last_mut() {
         Some(Ability::MixColors { count }) => {
@@ -281,7 +276,6 @@ pub fn resolve_mix_colors_unchecked<R: Rng>(
         }
         _ => {}
     }
-
     process_ability_stack(state, rng);
 }
 
@@ -357,13 +351,14 @@ pub fn resolve_select_buyer<R: Rng>(
 }
 
 pub fn resolve_gain_secondary<R: Rng>(state: &mut GameState, color: Color, rng: &mut R) {
-    let player_index = get_action_state(state).current_player_index;
-    state.players[player_index].color_wheel.increment(color);
-    get_action_state_mut(state).ability_stack.pop();
-    process_ability_stack(state, rng);
+    resolve_gain_color(state, color, rng);
 }
 
 pub fn resolve_gain_primary<R: Rng>(state: &mut GameState, color: Color, rng: &mut R) {
+    resolve_gain_color(state, color, rng);
+}
+
+fn resolve_gain_color<R: Rng>(state: &mut GameState, color: Color, rng: &mut R) {
     let player_index = get_action_state(state).current_player_index;
     state.players[player_index].color_wheel.increment(color);
     get_action_state_mut(state).ability_stack.pop();
@@ -422,77 +417,6 @@ pub fn end_round<R: Rng>(state: &mut GameState, _rng: &mut R) {
         state.phase = GamePhase::GameOver;
     } else {
         state.phase = GamePhase::Draw;
-    }
-}
-
-pub fn initialize_cleanup_phase<R: Rng>(state: &mut GameState, rng: &mut R) {
-    let num_players = state.players.len();
-    let starting_player = ((state.round - 1) as usize) % num_players;
-    state.phase = GamePhase::Cleanup {
-        cleanup_state: CleanupState {
-            current_player_index: starting_player,
-        },
-    };
-    advance_cleanup_to_next_nonempty(state, rng);
-}
-
-fn advance_cleanup_to_next_nonempty<R: Rng>(state: &mut GameState, rng: &mut R) {
-    let num_players = state.players.len();
-    let starting_player = ((state.round - 1) as usize) % num_players;
-    loop {
-        let current = get_cleanup_state(state).current_player_index;
-        if !state.players[current].workshop_cards.is_empty() {
-            return; // This player has workshop cards; wait for their choice
-        }
-        // Advance to next player
-        let next = (current + 1) % num_players;
-        if next == starting_player {
-            // All players done, end round
-            end_round(state, rng);
-            return;
-        }
-        get_cleanup_state_mut(state).current_player_index = next;
-    }
-}
-
-pub fn resolve_keep_workshop_cards<R: Rng>(
-    state: &mut GameState,
-    keep_ids: UnorderedCards,
-    rng: &mut R,
-) {
-    let current = get_cleanup_state(state).current_player_index;
-    let player = &mut state.players[current];
-
-    // Discard cards NOT in keep_ids
-    let to_discard = player.workshop_cards.difference(keep_ids);
-    player.discard = player.discard.union(to_discard);
-    player.workshop_cards = keep_ids;
-
-    // Advance to next player
-    let num_players = state.players.len();
-    let starting_player = ((state.round - 1) as usize) % num_players;
-    let next = (current + 1) % num_players;
-    if next == starting_player {
-        end_round(state, rng);
-    } else {
-        get_cleanup_state_mut(state).current_player_index = next;
-        advance_cleanup_to_next_nonempty(state, rng);
-    }
-}
-
-#[inline]
-fn get_cleanup_state(state: &GameState) -> &CleanupState {
-    match &state.phase {
-        GamePhase::Cleanup { cleanup_state } => cleanup_state,
-        _ => panic!("Expected cleanup phase"),
-    }
-}
-
-#[inline]
-fn get_cleanup_state_mut(state: &mut GameState) -> &mut CleanupState {
-    match &mut state.phase {
-        GamePhase::Cleanup { cleanup_state } => cleanup_state,
-        _ => panic!("Expected cleanup phase"),
     }
 }
 

@@ -1,11 +1,12 @@
 use crate::action_phase::*;
+use crate::cleanup_phase::resolve_keep_workshop_cards;
 use crate::draft_phase::player_pick;
-use crate::types::{Ability, Choice, GamePhase, GameState};
+use crate::types::{Ability, Card, Choice, GamePhase, GameState};
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
 
 /// Find the first card instance ID matching a card type in a card set.
-fn find_card_instance(state: &GameState, card: &crate::types::Card, cards: &UnorderedCards) -> u32 {
+fn find_card_instance(state: &GameState, card: &Card, cards: &UnorderedCards) -> u32 {
     for id in cards.iter() {
         if state.card_lookup[id as usize] == *card {
             return id as u32;
@@ -24,24 +25,30 @@ fn find_buyer_instance(state: &GameState, buyer: &crate::types::BuyerCard) -> u3
     panic!("Buyer type {:?} not found in buyer display", buyer);
 }
 
-/// Find instance IDs for a list of card types, tracking used IDs to avoid duplicates.
-fn find_card_instances(
-    state: &GameState,
-    card_types: &[crate::types::Card],
-    cards: &UnorderedCards,
-) -> UnorderedCards {
+/// Resolve a list of card types to instance IDs from a card set, tracking used IDs
+/// to avoid duplicates. Returns None if any card type can't be found.
+pub(crate) fn resolve_card_types_to_ids(
+    card_types: &[Card],
+    available: &UnorderedCards,
+    card_lookup: &[Card; 256],
+) -> Option<UnorderedCards> {
     let mut ids = UnorderedCards::new();
     let mut used = UnorderedCards::new();
-    for ct in card_types.iter() {
-        for id in cards.iter() {
-            if !used.contains(id) && state.card_lookup[id as usize] == *ct {
+    for &ct in card_types.iter() {
+        let mut found = false;
+        for id in available.iter() {
+            if !used.contains(id) && card_lookup[id as usize] == ct {
                 ids.insert(id);
                 used.insert(id);
+                found = true;
                 break;
             }
         }
+        if !found {
+            return None;
+        }
     }
-    ids
+    Some(ids)
 }
 
 pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R) {
@@ -76,7 +83,8 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
                 }
                 _ => panic!("Expected action phase"),
             };
-            let card_instance_ids = find_card_instances(state, card_types, &workshop);
+            let card_instance_ids = resolve_card_types_to_ids(card_types, &workshop, &state.card_lookup)
+                .expect("Card types not found in workshop");
             resolve_workshop_choice(state, card_instance_ids, rng);
         }
         Choice::SkipWorkshop => {
@@ -162,7 +170,8 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
                 }
                 _ => panic!("Expected cleanup phase"),
             };
-            let card_instance_ids = find_card_instances(state, card_types, &workshop);
+            let card_instance_ids = resolve_card_types_to_ids(card_types, &workshop, &state.card_lookup)
+                .expect("Card types not found in workshop");
             resolve_keep_workshop_cards(state, card_instance_ids, rng);
         }
     }

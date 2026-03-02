@@ -1,10 +1,10 @@
 use crate::action_phase::{
-    destroy_drafted_card, end_player_turn, initialize_action_phase,
+    can_afford_buyer, destroy_drafted_card, end_player_turn, initialize_action_phase,
     process_ability_stack, resolve_choose_tertiary_to_gain, resolve_choose_tertiary_to_lose,
-    resolve_destroy_cards, resolve_gain_primary, resolve_gain_secondary,
-    resolve_keep_workshop_cards, resolve_select_buyer, resolve_workshop_choice, skip_workshop,
+    resolve_destroy_cards, resolve_gain_primary, resolve_gain_secondary, resolve_select_buyer,
+    resolve_workshop_choice, skip_workshop,
 };
-use crate::choices::can_afford_buyer;
+use crate::cleanup_phase::resolve_keep_workshop_cards;
 use crate::colors::{pay_cost, perform_mix_unchecked, PRIMARIES, SECONDARIES, TERTIARIES, VALID_MIX_PAIRS};
 use crate::deck_utils::draw_from_deck;
 use crate::draft_phase::player_pick;

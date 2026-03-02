@@ -2,6 +2,7 @@ pub mod action_phase;
 pub mod apply_choice;
 pub mod cards;
 pub mod choices;
+pub mod cleanup_phase;
 pub mod colori_game;
 pub mod colors;
 pub(crate) mod deck_utils;

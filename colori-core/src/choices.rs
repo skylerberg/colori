@@ -1,4 +1,5 @@
-use crate::action_phase::can_sell_to_any_buyer;
+use crate::action_phase::{can_afford_buyer, can_sell_to_any_buyer};
+use crate::apply_choice::resolve_card_types_to_ids;
 use crate::colors::{can_mix, perform_mix_unchecked, PRIMARIES, SECONDARIES, TERTIARIES, VALID_MIX_PAIRS};
 use crate::types::*;
 use crate::unordered_cards::UnorderedCards;
@@ -77,14 +78,6 @@ fn enumerate_multiset_subsets(
         current_subset.push(card);
     }
     current_subset.truncate(base_len);
-}
-
-// ── Buyer affordability ──
-
-#[inline]
-pub(crate) fn can_afford_buyer(player: &PlayerState, buyer: &BuyerCard) -> bool {
-    player.materials.get(buyer.required_material()) >= 1
-        && crate::colors::can_pay_cost(&player.color_wheel, buyer.color_cost())
 }
 
 // ── Mix sequence enumeration ──
@@ -491,28 +484,3 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
     }
 }
 
-/// Resolve a list of card types to instance IDs from a card set.
-/// Returns None if any card type can't be found.
-fn resolve_card_types_to_ids(
-    card_types: &[Card],
-    available: &UnorderedCards,
-    card_lookup: &[Card; 256],
-) -> Option<UnorderedCards> {
-    let mut ids = UnorderedCards::new();
-    let mut used = UnorderedCards::new();
-    for &ct in card_types.iter() {
-        let mut found = false;
-        for id in available.iter() {
-            if !used.contains(id) && card_lookup[id as usize] == ct {
-                ids.insert(id);
-                used.insert(id);
-                found = true;
-                break;
-            }
-        }
-        if !found {
-            return None;
-        }
-    }
-    Some(ids)
-}
