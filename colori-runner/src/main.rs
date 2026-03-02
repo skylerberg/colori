@@ -201,9 +201,6 @@ fn format_variant_label(variant: &NamedVariant, differing: &DifferingFields) -> 
     if differing.max_rollout_steps_differs {
         parts.push(format!("rollout={}", variant.config.max_rollout_steps));
     }
-    if differing.random_cleanup_keep_differs && variant.config.random_cleanup_keep {
-        parts.push("rck".to_string());
-    }
     if parts.is_empty() {
         // All same config, just show iterations
         parts.push(format_iterations(variant.config.iterations));
@@ -215,19 +212,17 @@ struct DifferingFields {
     iterations_differs: bool,
     exploration_constant_differs: bool,
     max_rollout_steps_differs: bool,
-    random_cleanup_keep_differs: bool,
 }
 
 fn compute_differing_fields(variants: &[NamedVariant]) -> DifferingFields {
     if variants.len() <= 1 {
-        return DifferingFields { iterations_differs: false, exploration_constant_differs: false, max_rollout_steps_differs: false, random_cleanup_keep_differs: false };
+        return DifferingFields { iterations_differs: false, exploration_constant_differs: false, max_rollout_steps_differs: false };
     }
     let first = &variants[0].config;
     DifferingFields {
         iterations_differs: variants.iter().any(|v| v.config.iterations != first.iterations),
         exploration_constant_differs: variants.iter().any(|v| v.config.exploration_constant != first.exploration_constant),
         max_rollout_steps_differs: variants.iter().any(|v| v.config.max_rollout_steps != first.max_rollout_steps),
-        random_cleanup_keep_differs: variants.iter().any(|v| v.config.random_cleanup_keep != first.random_cleanup_keep),
     }
 }
 
@@ -240,7 +235,7 @@ fn has_any_difference(variants: &[NamedVariant]) -> bool {
         return true;
     }
     let diff = compute_differing_fields(variants);
-    diff.iterations_differs || diff.exploration_constant_differs || diff.max_rollout_steps_differs || diff.random_cleanup_keep_differs
+    diff.iterations_differs || diff.exploration_constant_differs || diff.max_rollout_steps_differs
 }
 
 // ── Game loop ──
@@ -372,11 +367,6 @@ fn run_game(
                             },
                             max_rollout_steps: if c.max_rollout_steps != defaults.max_rollout_steps {
                                 Some(c.max_rollout_steps)
-                            } else {
-                                None
-                            },
-                            random_cleanup_keep: if c.random_cleanup_keep != defaults.random_cleanup_keep {
-                                Some(c.random_cleanup_keep)
                             } else {
                                 None
                             },

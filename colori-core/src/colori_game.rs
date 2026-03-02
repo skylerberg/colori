@@ -906,7 +906,7 @@ fn handle_action_no_pending<R: Rng>(state: &mut GameState, player_index: usize, 
     }
 }
 
-pub fn apply_rollout_step<R: Rng>(state: &mut GameState, random_cleanup_keep: bool, rng: &mut R) {
+pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
     // Fast path: complete entire draft in one step
     if matches!(&state.phase, GamePhase::Draft { .. }) {
         if let GamePhase::Draft { ref mut draft_state } = state.phase {
@@ -1015,12 +1015,8 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, random_cleanup_keep: bo
             }
         }
         GamePhase::Cleanup { cleanup_state } => {
-            let selected = if random_cleanup_keep {
-                let mut all_workshop_cards = state.players[cleanup_state.current_player_index].workshop_cards;
-                all_workshop_cards.draw_up_to(all_workshop_cards.len() as u8, rng)
-            } else {
-                state.players[cleanup_state.current_player_index].workshop_cards
-            };
+            let mut all_workshop_cards = state.players[cleanup_state.current_player_index].workshop_cards;
+            let selected = all_workshop_cards.draw_up_to(all_workshop_cards.len() as u8, rng);
             resolve_keep_workshop_cards(state, selected, rng);
             if matches!(state.phase, GamePhase::Draw) {
                 rollout_draw_and_draft(state, rng);
