@@ -235,11 +235,9 @@ pub fn format_choice(choice: &Choice) -> String {
             }
         }
         Choice::SkipWorkshop => "Skipped workshop".to_string(),
-        Choice::DestroyDrawnCards { card_types } => {
-            format!(
-                "Destroyed {} from workshop",
-                card_names(card_types)
-            )
+        Choice::DestroyDrawnCards { card } => match card {
+            Some(c) => format!("Destroyed {} from workshop", card_name(c)),
+            None => "Destroyed nothing from workshop".to_string(),
         }
         Choice::SelectBuyer { buyer } => {
             format!("Sold to {}", buyer_name(buyer))
@@ -507,11 +505,9 @@ pub fn compute_destroyed_from_workshop(
                     continue;
                 }
             }
-            if let Choice::DestroyDrawnCards { card_types } = &entry.choice {
-                for card in card_types {
-                    let name = card_name_from_instance(*card);
-                    *counts.entry(name).or_insert(0) += 1;
-                }
+            if let Choice::DestroyDrawnCards { card: Some(card) } = &entry.choice {
+                let name = card_name_from_instance(*card);
+                *counts.entry(name).or_insert(0) += 1;
             }
         }
     }
@@ -1027,8 +1023,10 @@ pub fn compute_penultimate_round_deck_sizes(
                 | Choice::DestroyAndSell { .. } => {
                     player_deck_sizes[pi] -= 1;
                 }
-                Choice::DestroyDrawnCards { card_types } => {
-                    player_deck_sizes[pi] -= card_types.len() as i32;
+                Choice::DestroyDrawnCards { card } => {
+                    if card.is_some() {
+                        player_deck_sizes[pi] -= 1;
+                    }
                 }
                 _ => {}
             }

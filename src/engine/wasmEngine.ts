@@ -97,8 +97,9 @@ export function getChoiceLogMessage(
     case 'skipWorkshop':
       return `${name} skipped workshop`;
     case 'destroyDrawnCards': {
-      const cardNames = choice.cardTypes.map(c => (getAnyCardData(c) as { name?: string })?.name ?? 'a card');
-      return `${name} destroyed ${cardNames.join(', ')} from workshop`;
+      if (choice.card === null) return `${name} destroyed nothing from workshop`;
+      const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
+      return `${name} destroyed ${cardName} from workshop`;
     }
     case 'selectBuyer': {
       return `${name} sold to a ${getBuyerData(choice.buyer).stars}-star buyer`;

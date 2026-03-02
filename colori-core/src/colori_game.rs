@@ -234,9 +234,7 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                 }
                 Some(PendingChoice::ChooseCardsToDestroy) => {
                     if player.workshop_cards.is_empty() {
-                        choices.push(Choice::DestroyDrawnCards {
-                            card_types: SmallVec::new(),
-                        });
+                        choices.push(Choice::DestroyDrawnCards { card: None });
                     } else {
                         let mut seen: u64 = 0;
                         for id in player.workshop_cards.iter() {
@@ -244,9 +242,7 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                             let bit = 1u64 << (card as u64);
                             if seen & bit != 0 { continue; }
                             seen |= bit;
-                            let mut card_types = SmallVec::new();
-                            card_types.push(card);
-                            choices.push(Choice::DestroyDrawnCards { card_types });
+                            choices.push(Choice::DestroyDrawnCards { card: Some(card) });
                         }
                     }
                 }
@@ -409,16 +405,16 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
                 false
             }
         }
-        Choice::DestroyDrawnCards { card_types } => {
+        Choice::DestroyDrawnCards { card } => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 match &action_state.pending_choice {
-                    Some(PendingChoice::ChooseCardsToDestroy) => {
-                        if card_types.is_empty() {
-                            return true;
+                    Some(PendingChoice::ChooseCardsToDestroy) => match card {
+                        None => true,
+                        Some(card) => {
+                            let player = &state.players[action_state.current_player_index];
+                            player.workshop_cards.iter().any(|id| state.card_lookup[id as usize] == *card)
                         }
-                        let player = &state.players[action_state.current_player_index];
-                        resolve_card_types_to_ids(card_types, &player.workshop_cards, &state.card_lookup).is_some()
-                    }
+                    },
                     _ => false,
                 }
             } else {

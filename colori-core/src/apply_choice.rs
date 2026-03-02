@@ -82,15 +82,23 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
         Choice::SkipWorkshop => {
             skip_workshop(state, rng);
         }
-        Choice::DestroyDrawnCards { card_types } => {
-            let workshop = match &state.phase {
-                GamePhase::Action { action_state } => {
-                    state.players[action_state.current_player_index].workshop_cards
+        Choice::DestroyDrawnCards { card } => {
+            let mut selected = UnorderedCards::new();
+            if let Some(card) = card {
+                let workshop = match &state.phase {
+                    GamePhase::Action { action_state } => {
+                        state.players[action_state.current_player_index].workshop_cards
+                    }
+                    _ => panic!("Expected action phase"),
+                };
+                for id in workshop.iter() {
+                    if state.card_lookup[id as usize] == *card {
+                        selected.insert(id);
+                        break;
+                    }
                 }
-                _ => panic!("Expected action phase"),
-            };
-            let card_instance_ids = resolve_card_types(state, card_types, &workshop);
-            resolve_destroy_cards(state, card_instance_ids, rng);
+            }
+            resolve_destroy_cards(state, selected, rng);
         }
         Choice::SelectBuyer { buyer } => {
             let buyer_instance_id = resolve_buyer(state, buyer);

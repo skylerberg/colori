@@ -778,10 +778,7 @@ pub enum Choice {
     #[serde(rename = "skipWorkshop")]
     SkipWorkshop,
     #[serde(rename = "destroyDrawnCards")]
-    DestroyDrawnCards {
-        #[serde(rename = "cardTypes")]
-        card_types: SmallVec<[Card; 4]>,
-    },
+    DestroyDrawnCards { card: Option<Card> },
     #[serde(rename = "selectBuyer")]
     SelectBuyer { buyer: BuyerCard },
     #[serde(rename = "gainSecondary")]

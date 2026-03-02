@@ -54,7 +54,7 @@ export function formatChoice(
     case 'skipWorkshop':
       return 'Skipped workshop';
     case 'destroyDrawnCards':
-      return `Destroyed ${cardNames(choice.cardTypes)} from workshop`;
+      return choice.card ? `Destroyed ${cardName(choice.card)} from workshop` : 'Destroyed nothing from workshop';
     case 'selectBuyer':
       return `Sold to ${buyerName(choice.buyer)}`;
     case 'gainSecondary':
@@ -114,11 +114,9 @@ export function computeDestroyedFromWorkshop(logs: StructuredGameLog[], playerFi
     const allowed = playerFilter?.get(log);
     for (const entry of log.entries) {
       if (allowed && !allowed.has(entry.playerIndex)) continue;
-      if (entry.choice.type === 'destroyDrawnCards') {
-        for (const card of entry.choice.cardTypes) {
-          const name = getCardName(card);
-          counts.set(name, (counts.get(name) ?? 0) + 1);
-        }
+      if (entry.choice.type === 'destroyDrawnCards' && entry.choice.card) {
+        const name = getCardName(entry.choice.card);
+        counts.set(name, (counts.get(name) ?? 0) + 1);
       }
     }
   }
@@ -680,7 +678,7 @@ export function computePenultimateRoundDeckSizes(logs: StructuredGameLog[], play
       } else if (entry.choice.type === 'destroyDraftedCard' || entry.choice.type === 'destroyAndMixAll' || entry.choice.type === 'destroyAndSell') {
         playerDeckSizes[pi]--;
       } else if (entry.choice.type === 'destroyDrawnCards') {
-        playerDeckSizes[pi] -= entry.choice.cardTypes.length;
+        if (entry.choice.card) playerDeckSizes[pi]--;
       }
     }
 

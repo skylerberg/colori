@@ -72,11 +72,10 @@
 
   function confirmDestroy() {
     if (!currentPlayer) return;
-    const cardTypes = selectedDestroyIds.map(id => {
-      const ci = currentPlayer!.workshopCards.find(c => c.instanceId === id);
-      return ci!.card;
-    });
-    onAction({ type: 'destroyDrawnCards', cardTypes });
+    const card = selectedDestroyIds.length > 0
+      ? currentPlayer.workshopCards.find(c => c.instanceId === selectedDestroyIds[0])!.card
+      : null;
+    onAction({ type: 'destroyDrawnCards', card });
   }
 
   function handleDestroyDrafted(cardInstanceId: number) {

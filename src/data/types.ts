@@ -161,7 +161,7 @@ export type Choice =
   | { type: 'endTurn' }
   | { type: 'workshop'; cardTypes: Card[] }
   | { type: 'skipWorkshop' }
-  | { type: 'destroyDrawnCards'; cardTypes: Card[] }
+  | { type: 'destroyDrawnCards'; card: Card | null }
   | { type: 'selectBuyer'; buyer: BuyerCard }
   | { type: 'gainSecondary'; color: Color }
   | { type: 'gainPrimary'; color: Color }
