@@ -426,7 +426,7 @@ fn section_group_heading(ui: &mut egui::Ui, title: &str) {
     ui.label(
         egui::RichText::new(title)
             .size(14.0)
-            .color(egui::Color32::from_rgb(160, 160, 180)),
+            .color(egui::Color32::WHITE),
     );
     ui.add_space(2.0);
 }

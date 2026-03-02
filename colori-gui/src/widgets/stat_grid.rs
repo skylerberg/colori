@@ -24,7 +24,7 @@ pub fn stat_grid(ui: &mut egui::Ui, cards: &[StatCard]) {
                     ui.label(
                         egui::RichText::new(&card.label)
                             .size(11.0)
-                            .color(egui::Color32::from_rgb(160, 160, 180)),
+                            .color(egui::Color32::WHITE),
                     );
                 });
             });
