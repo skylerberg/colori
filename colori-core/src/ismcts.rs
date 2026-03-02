@@ -6,6 +6,7 @@ use crate::colori_game::{
 use crate::scoring::calculate_score;
 use crate::types::*;
 use rand::Rng;
+use rand::RngExt;
 use serde::Deserialize;
 use smallvec::SmallVec;
 
@@ -319,23 +320,22 @@ mod tests {
     };
     use crate::draw_phase::execute_draw_phase;
     use crate::setup::create_initial_game_state;
-    use rand::rngs::SmallRng;
     use rand::SeedableRng;
+    use wyrand::WyRand;
 
-    fn run_full_game_validating_choices(num_players: usize, seed: u64, abstract_choices: bool) {
-        let mut rng = SmallRng::seed_from_u64(seed);
+    fn run_full_game_validating_choices(num_players: usize, seed: u64) {
+        let mut rng = WyRand::seed_from_u64(seed);
         let ai_players = vec![true; num_players];
         let mut state = create_initial_game_state(num_players, &ai_players, &mut rng);
 
         let config = MctsConfig {
             iterations: 10,
-            abstract_choices,
             ..MctsConfig::default()
         };
 
         execute_draw_phase(&mut state, &mut rng);
 
-        let mut choices_buf: Vec<ColoriChoice> = Vec::new();
+        let mut choices_buf: Vec<Choice> = Vec::new();
         let max_steps = 5000;
 
         for step in 0..max_steps {
@@ -348,7 +348,7 @@ mod tests {
                 GamePhase::Draft { draft_state } => {
                     assert!(
                         !draft_state.waiting_for_pass,
-                        "seed={seed}, players={num_players}, abstract={abstract_choices}, \
+                        "seed={seed}, players={num_players}, \
                          step={step}, round={}: unexpected waiting_for_pass in Draft phase",
                         state.round
                     );
@@ -366,7 +366,7 @@ mod tests {
             enumerate_choices_into(&state, &mut choices_buf);
             assert!(
                 choices_buf.contains(&choice),
-                "seed={seed}, players={num_players}, abstract={abstract_choices}, \
+                "seed={seed}, players={num_players}, \
                  step={step}, round={}, phase={:?}: ISMCTS choice {choice:?} \
                  not in enumerated choices",
                 state.round, state.phase
@@ -374,7 +374,7 @@ mod tests {
 
             assert!(
                 check_choice_available(&state, &choice),
-                "seed={seed}, players={num_players}, abstract={abstract_choices}, \
+                "seed={seed}, players={num_players}, \
                  step={step}, round={}, phase={:?}: check_choice_available returned \
                  false for {choice:?}",
                 state.round, state.phase
@@ -384,50 +384,29 @@ mod tests {
         }
 
         panic!(
-            "seed={seed}, players={num_players}, abstract={abstract_choices}: \
+            "seed={seed}, players={num_players}: \
              game did not finish within {max_steps} steps"
         );
     }
 
     #[test]
-    fn test_ismcts_valid_moves_2_players_concrete() {
+    fn test_ismcts_valid_moves_2_players() {
         for seed in 0..5 {
-            run_full_game_validating_choices(2, seed, false);
+            run_full_game_validating_choices(2, seed);
         }
     }
 
     #[test]
-    fn test_ismcts_valid_moves_3_players_concrete() {
+    fn test_ismcts_valid_moves_3_players() {
         for seed in 0..5 {
-            run_full_game_validating_choices(3, seed, false);
+            run_full_game_validating_choices(3, seed);
         }
     }
 
     #[test]
-    fn test_ismcts_valid_moves_4_players_concrete() {
+    fn test_ismcts_valid_moves_4_players() {
         for seed in 0..5 {
-            run_full_game_validating_choices(4, seed, false);
-        }
-    }
-
-    #[test]
-    fn test_ismcts_valid_moves_2_players_abstract() {
-        for seed in 0..5 {
-            run_full_game_validating_choices(2, seed, true);
-        }
-    }
-
-    #[test]
-    fn test_ismcts_valid_moves_3_players_abstract() {
-        for seed in 0..5 {
-            run_full_game_validating_choices(3, seed, true);
-        }
-    }
-
-    #[test]
-    fn test_ismcts_valid_moves_4_players_abstract() {
-        for seed in 0..5 {
-            run_full_game_validating_choices(4, seed, true);
+            run_full_game_validating_choices(4, seed);
         }
     }
 }

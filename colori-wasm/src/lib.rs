@@ -9,8 +9,8 @@ use colori_core::types::{Card, CardInstance, Choice, GameState, PlayerState};
 use colori_core::unordered_cards::{
     get_buyer_registry, get_card_registry, set_buyer_registry, set_card_registry,
 };
-use rand::rngs::SmallRng;
 use rand::SeedableRng;
+use wyrand::WyRand;
 use wasm_bindgen::prelude::*;
 
 fn deserialize_state(json: &str) -> GameState {
@@ -47,7 +47,7 @@ pub fn run_ismcts(
 
     let max_round = std::cmp::max(8, game_state.round + 2);
 
-    let mut rng = SmallRng::from_os_rng();
+    let mut rng = WyRand::from_rng(&mut rand::rng());
 
     let config = MctsConfig { iterations, ..MctsConfig::default() };
     let choice: Choice = ismcts(
@@ -66,7 +66,7 @@ pub fn run_ismcts(
 pub fn wasm_create_initial_game_state(num_players: u32, ai_players_json: &str) -> String {
     let ai_players: Vec<bool> =
         serde_json::from_str(ai_players_json).expect("Failed to parse ai players JSON");
-    let mut rng = SmallRng::from_os_rng();
+    let mut rng = WyRand::from_rng(&mut rand::rng());
     let state = create_initial_game_state(num_players as usize, &ai_players, &mut rng);
     serialize_state(&state)
 }
@@ -74,7 +74,7 @@ pub fn wasm_create_initial_game_state(num_players: u32, ai_players_json: &str) -
 #[wasm_bindgen]
 pub fn wasm_execute_draw_phase(state_json: &str) -> String {
     let mut state = deserialize_state(state_json);
-    let mut rng = SmallRng::from_os_rng();
+    let mut rng = WyRand::from_rng(&mut rand::rng());
     execute_draw_phase(&mut state, &mut rng);
     serialize_state(&state)
 }
@@ -84,7 +84,7 @@ pub fn wasm_apply_choice(state_json: &str, choice_json: &str) -> String {
     let mut state = deserialize_state(state_json);
     let choice: Choice =
         serde_json::from_str(choice_json).expect("Failed to parse choice JSON");
-    let mut rng = SmallRng::from_os_rng();
+    let mut rng = WyRand::from_rng(&mut rand::rng());
     apply_choice(&mut state, &choice, &mut rng);
     serialize_state(&state)
 }

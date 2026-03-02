@@ -1,4 +1,5 @@
 use rand::Rng;
+use rand::RngExt;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 
@@ -439,8 +440,8 @@ impl<'de> Deserialize<'de> for UnorderedBuyers {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::rngs::SmallRng;
     use rand::SeedableRng;
+    use wyrand::WyRand;
 
     // ── Basic operations ──
 
@@ -756,7 +757,7 @@ mod tests {
     #[test]
     fn test_pick_random_empty() {
         let s = UnorderedCards::new();
-        let mut rng = SmallRng::seed_from_u64(42);
+        let mut rng = WyRand::seed_from_u64(42);
         assert_eq!(s.pick_random(&mut rng), None);
     }
 
@@ -764,7 +765,7 @@ mod tests {
     fn test_pick_random_single() {
         let mut s = UnorderedCards::new();
         s.insert(99);
-        let mut rng = SmallRng::seed_from_u64(42);
+        let mut rng = WyRand::seed_from_u64(42);
         for _ in 0..10 {
             assert_eq!(s.pick_random(&mut rng), Some(99));
         }
@@ -774,7 +775,7 @@ mod tests {
     fn test_pick_random_high_id() {
         let mut s = UnorderedCards::new();
         s.insert(200);
-        let mut rng = SmallRng::seed_from_u64(42);
+        let mut rng = WyRand::seed_from_u64(42);
         for _ in 0..10 {
             assert_eq!(s.pick_random(&mut rng), Some(200));
         }
@@ -786,7 +787,7 @@ mod tests {
         s.insert(1);
         s.insert(2);
         s.insert(3);
-        let mut rng = SmallRng::seed_from_u64(42);
+        let mut rng = WyRand::seed_from_u64(42);
         let original_len = s.len();
         for _ in 0..20 {
             s.pick_random(&mut rng);
@@ -800,7 +801,7 @@ mod tests {
         for i in [10, 20, 30, 40, 50, 60, 70, 80, 90, 100] {
             s.insert(i);
         }
-        let mut rng = SmallRng::seed_from_u64(42);
+        let mut rng = WyRand::seed_from_u64(42);
         for _ in 0..100 {
             let picked = s.pick_random(&mut rng).unwrap();
             assert!(s.contains(picked), "picked {} not in set", picked);
@@ -810,7 +811,7 @@ mod tests {
     #[test]
     fn test_draw_empty() {
         let mut s = UnorderedCards::new();
-        let mut rng = SmallRng::seed_from_u64(42);
+        let mut rng = WyRand::seed_from_u64(42);
         assert_eq!(s.draw(&mut rng), None);
     }
 
@@ -818,7 +819,7 @@ mod tests {
     fn test_draw_single() {
         let mut s = UnorderedCards::new();
         s.insert(55);
-        let mut rng = SmallRng::seed_from_u64(42);
+        let mut rng = WyRand::seed_from_u64(42);
         let drawn = s.draw(&mut rng);
         assert_eq!(drawn, Some(55));
         assert!(s.is_empty());
@@ -830,7 +831,7 @@ mod tests {
         s.insert(10);
         s.insert(20);
         s.insert(30);
-        let mut rng = SmallRng::seed_from_u64(42);
+        let mut rng = WyRand::seed_from_u64(42);
         let drawn = s.draw(&mut rng).unwrap();
         assert_eq!(s.len(), 2);
         assert!(!s.contains(drawn));
@@ -844,7 +845,7 @@ mod tests {
             s.insert(e);
         }
         let original = s;
-        let mut rng = SmallRng::seed_from_u64(42);
+        let mut rng = WyRand::seed_from_u64(42);
         let mut drawn = Vec::new();
         while let Some(e) = s.draw(&mut rng) {
             drawn.push(e);
@@ -862,7 +863,7 @@ mod tests {
         s.insert(2);
         s.insert(3);
         let original = s;
-        let mut rng = SmallRng::seed_from_u64(42);
+        let mut rng = WyRand::seed_from_u64(42);
         let drawn = s.draw_multiple(0, &mut rng);
         assert!(drawn.is_empty());
         assert_eq!(s, original);
@@ -876,7 +877,7 @@ mod tests {
         s.insert(2);
         s.insert(3);
         let n = s.len();
-        let mut rng = SmallRng::seed_from_u64(42);
+        let mut rng = WyRand::seed_from_u64(42);
         let drawn = s.draw_multiple(n, &mut rng);
         assert_eq!(drawn.len(), n);
         assert!(s.is_empty());
@@ -888,7 +889,7 @@ mod tests {
         s.insert(10);
         s.insert(20);
         let original = s;
-        let mut rng = SmallRng::seed_from_u64(42);
+        let mut rng = WyRand::seed_from_u64(42);
         let drawn = s.draw_multiple(100, &mut rng);
         assert_eq!(drawn, original);
         assert!(s.is_empty());
@@ -901,7 +902,7 @@ mod tests {
             s.insert(i);
         }
         let original = s;
-        let mut rng = SmallRng::seed_from_u64(42);
+        let mut rng = WyRand::seed_from_u64(42);
         let drawn = s.draw_multiple(4, &mut rng);
         assert_eq!(drawn.len(), 4);
         // drawn and remainder are disjoint
@@ -920,7 +921,7 @@ mod tests {
             }
             s
         };
-        let mut rng = SmallRng::seed_from_u64(42);
+        let mut rng = WyRand::seed_from_u64(42);
         let mut counts: HashMap<UnorderedCards, u32> = HashMap::new();
         for _ in 0..10_000 {
             let mut s = base;
@@ -944,7 +945,7 @@ mod tests {
         s.insert(1);
         s.insert(2);
         let original = s;
-        let mut rng = SmallRng::seed_from_u64(42);
+        let mut rng = WyRand::seed_from_u64(42);
         let drawn = s.draw_up_to(0, &mut rng);
         assert!(drawn.is_empty());
         assert_eq!(s, original);
@@ -957,7 +958,7 @@ mod tests {
             s.insert(i);
         }
         let original = s;
-        let mut rng = SmallRng::seed_from_u64(42);
+        let mut rng = WyRand::seed_from_u64(42);
         let drawn = s.draw_up_to(5, &mut rng);
         assert!(drawn.len() <= 5);
         // drawn is a subset of original
@@ -972,7 +973,7 @@ mod tests {
         s.insert(10);
         s.insert(20);
         s.insert(30);
-        let mut rng = SmallRng::seed_from_u64(42);
+        let mut rng = WyRand::seed_from_u64(42);
         let drawn = s.draw_up_to(100, &mut rng);
         assert!(drawn.len() <= 3);
     }
@@ -986,7 +987,7 @@ mod tests {
             }
             s
         };
-        let mut rng = SmallRng::seed_from_u64(42);
+        let mut rng = WyRand::seed_from_u64(42);
         let mut saw_empty = false;
         for _ in 0..1000 {
             let mut s = base;
