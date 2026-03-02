@@ -5,7 +5,7 @@ export interface AIWorkerRequest {
   gameState: GameState;
   playerIndex: number;
   iterations: number;
-  seenHands?: CardInstance[][];
+  aiDraftKnowledge?: CardInstance[][];
 }
 
 let wasmReady: Promise<unknown> | null = null;
@@ -19,11 +19,11 @@ function ensureInit(): Promise<unknown> {
 
 self.onmessage = async (event: MessageEvent<AIWorkerRequest>) => {
   await ensureInit();
-  const { gameState, playerIndex, iterations, seenHands } = event.data;
+  const { gameState, playerIndex, iterations, aiDraftKnowledge } = event.data;
   const gameStateJson = JSON.stringify(gameState);
-  const seenHandsJson = seenHands ? JSON.stringify(seenHands) : '';
+  const aiDraftKnowledgeJson = aiDraftKnowledge ? JSON.stringify(aiDraftKnowledge) : '';
 
-  const resultJson = wasm_run_ismcts(gameStateJson, playerIndex, iterations, seenHandsJson);
+  const resultJson = wasm_run_ismcts(gameStateJson, playerIndex, iterations, aiDraftKnowledgeJson);
 
   const choice = JSON.parse(resultJson);
   self.postMessage(choice);

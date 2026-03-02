@@ -23,7 +23,7 @@
   let hasPendingChoice = $derived(actionState?.pendingChoice !== null);
   let hasAbilitiesQueued = $derived((actionState?.abilityStack.length ?? 0) > 0);
 
-  let drawnCardChoice = $derived(
+  let workshopPendingChoice = $derived(
     pendingChoice?.type === 'chooseCardsForWorkshop' || pendingChoice?.type === 'chooseCardsToDestroy'
       ? pendingChoice : null
   );
@@ -32,7 +32,7 @@
   let selectedDestroyIds: number[] = $state([]);
 
   $effect(() => {
-    const _pc = pendingChoice;
+    pendingChoice;
     selectedWorkshopIds = [];
     selectedDestroyIds = [];
   });
@@ -104,7 +104,7 @@
       </div>
     </div>
 
-    {#if hasPendingChoice && !drawnCardChoice}
+    {#if hasPendingChoice && !workshopPendingChoice}
       <AbilityPrompt {gameState} {onAction} />
     {/if}
 
@@ -118,7 +118,7 @@
         />
       </div>
 
-      <div class="section" class:active-choice={drawnCardChoice}>
+      <div class="section" class:active-choice={workshopPendingChoice}>
         {#if pendingChoice?.type === 'chooseCardsForWorkshop'}
           <h3>Workshop — Select cards ({pendingChoice.remainingPicks} available)</h3>
           <CardList

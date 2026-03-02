@@ -15,7 +15,7 @@ export class HostController {
   private playerCount: number = 2;
   private gameLog: string[] = [];
   private disconnectTimers: Map<number, ReturnType<typeof setTimeout>> = new Map();
-  private pendingDraftPicks: Set<number> = new Set();
+  private submittedDraftPicks: Set<number> = new Set();
   private structuredLog: GameLogAccumulator | null = null;
 
   onLobbyUpdated: ((players: LobbyPlayer[]) => void) | null = null;
@@ -201,7 +201,7 @@ export class HostController {
   }
 
   startGame() {
-    this.pendingDraftPicks.clear();
+    this.submittedDraftPicks.clear();
     const playerNames: string[] = new Array(this.playerCount);
     const aiPlayers: boolean[] = new Array(this.playerCount).fill(true);
 
@@ -252,7 +252,7 @@ export class HostController {
 
     // During draft phase, use simultaneous picking
     if (this.gameState.phase.type === 'draft' && choice.type === 'draftPick') {
-      if (this.pendingDraftPicks.has(playerIndex)) {
+      if (this.submittedDraftPicks.has(playerIndex)) {
         const peerId = this.playerIndexToPeer.get(playerIndex);
         if (peerId) {
           this.network.sendToGuest({ type: 'error', message: 'Already picked this round' }, peerId);
@@ -262,14 +262,14 @@ export class HostController {
 
       this.structuredLog?.recordChoice(this.gameState, choice, playerIndex);
       simultaneousPick(this.gameState, playerIndex, choice.card);
-      this.pendingDraftPicks.add(playerIndex);
+      this.submittedDraftPicks.add(playerIndex);
       this.broadcastGameState([]);
       this.onGameStateChanged?.(this.gameState);
 
       // Check if all players have picked
-      if (this.pendingDraftPicks.size === this.gameState.players.length) {
+      if (this.submittedDraftPicks.size === this.gameState.players.length) {
         advanceDraft(this.gameState);
-        this.pendingDraftPicks.clear();
+        this.submittedDraftPicks.clear();
         this.executeDrawIfNeeded();
         this.broadcastGameState([]);
         this.onGameStateChanged?.(this.gameState);

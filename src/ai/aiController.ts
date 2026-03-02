@@ -6,7 +6,7 @@ export interface PrecomputeRequest {
   playerIndex: number;
   pickNumber: number;
   iterations: number;
-  seenHands?: CardInstance[][];
+  aiDraftKnowledge?: CardInstance[][];
 }
 
 interface PrecomputeEntry {
@@ -29,7 +29,7 @@ export class AIController {
     gameState: GameState,
     playerIndex: number,
     iterations: number,
-    seenHands?: CardInstance[][],
+    aiDraftKnowledge?: CardInstance[][],
   ): Promise<Choice> {
     return new Promise((resolve) => {
       this.worker.onmessage = (event: MessageEvent<Choice>) => {
@@ -39,7 +39,7 @@ export class AIController {
         gameState,
         playerIndex,
         iterations,
-        seenHands,
+        aiDraftKnowledge,
       }));
       this.worker.postMessage(plain);
     });
@@ -67,7 +67,7 @@ export class AIController {
         gameState: req.gameState,
         playerIndex: req.playerIndex,
         iterations: req.iterations,
-        seenHands: req.seenHands,
+        aiDraftKnowledge: req.aiDraftKnowledge,
       }));
       worker.postMessage(plain);
       this.precomputeMap.set(key, entry);

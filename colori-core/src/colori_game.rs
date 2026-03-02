@@ -65,11 +65,11 @@ fn enumerate_multiset_subsets(
     max_remaining: usize,
     current: &mut SmallVec<[Card; 4]>,
     choices: &mut Vec<Choice>,
-    f: &impl Fn(SmallVec<[Card; 4]>) -> Choice,
+    make_choice: &impl Fn(SmallVec<[Card; 4]>) -> Choice,
 ) {
     if types.is_empty() || max_remaining == 0 {
         if !current.is_empty() {
-            choices.push(f(current.clone()));
+            choices.push(make_choice(current.clone()));
         }
         return;
     }
@@ -84,7 +84,7 @@ fn enumerate_multiset_subsets(
             max_remaining - take,
             current,
             choices,
-            f,
+            make_choice,
         );
         current.push(card);
     }
@@ -1016,8 +1016,8 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, random_cleanup_keep: bo
         }
         GamePhase::Cleanup { cleanup_state } => {
             let selected = if random_cleanup_keep {
-                let mut all = state.players[cleanup_state.current_player_index].workshop_cards;
-                all.draw_up_to(all.len() as u8, rng)
+                let mut all_workshop_cards = state.players[cleanup_state.current_player_index].workshop_cards;
+                all_workshop_cards.draw_up_to(all_workshop_cards.len() as u8, rng)
             } else {
                 state.players[cleanup_state.current_player_index].workshop_cards
             };

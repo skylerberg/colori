@@ -190,7 +190,7 @@
       const aiPlayerIndices = gameState.aiPlayers
         .map((isAI, idx) => isAI ? idx : -1)
         .filter(idx => idx >= 0)
-        .filter(idx => !hostController!['pendingDraftPicks'].has(idx));
+        .filter(idx => !hostController!['submittedDraftPicks'].has(idx));
 
       if (aiPlayerIndices.length === 0) return;
 

@@ -39,14 +39,14 @@ pub fn perform_mix_unchecked(wheel: &mut ColorWheel, a: Color, b: Color) {
 
 #[inline]
 pub fn can_pay_cost(wheel: &ColorWheel, cost: &[Color]) -> bool {
-    let mut used = [0u32; 12];
+    let mut colors_needed = [0u32; 12];
     for &c in cost {
         let idx = c.index();
-        let needed = used[idx] + 1;
+        let needed = colors_needed[idx] + 1;
         if wheel.get(c) < needed {
             return false;
         }
-        used[idx] = needed;
+        colors_needed[idx] = needed;
     }
     true
 }

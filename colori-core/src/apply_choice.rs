@@ -16,9 +16,9 @@ fn resolve_card(state: &GameState, card: &crate::types::Card, cards: &UnorderedC
 
 /// Resolve a buyer type to the first matching instance ID in the buyer display.
 fn resolve_buyer(state: &GameState, buyer: &crate::types::BuyerCard) -> u32 {
-    for g in state.buyer_display.iter() {
-        if g.buyer == *buyer {
-            return g.instance_id;
+    for buyer_instance in state.buyer_display.iter() {
+        if buyer_instance.buyer == *buyer {
+            return buyer_instance.instance_id;
         }
     }
     panic!("Buyer type {:?} not found in buyer display", buyer);
