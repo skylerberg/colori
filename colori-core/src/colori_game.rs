@@ -14,6 +14,7 @@ use crate::draw_phase::execute_draw_phase;
 use crate::types::*;
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
+use rand::RngExt;
 use smallvec::SmallVec;
 use std::collections::HashSet;
 

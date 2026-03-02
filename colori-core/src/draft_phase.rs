@@ -169,8 +169,8 @@ mod tests {
     use crate::unordered_cards::{
         get_buyer_registry, get_card_registry, set_buyer_registry, set_card_registry,
     };
-    use rand::rngs::SmallRng;
     use rand::SeedableRng;
+    use wyrand::WyRand;
 
     fn test_serialize(state: &GameState) -> String {
         set_card_registry(&state.card_lookup);
@@ -195,7 +195,7 @@ mod tests {
 
     #[test]
     fn test_round2_draft_hands_after_serde_round_trips() {
-        let mut rng = SmallRng::seed_from_u64(42);
+        let mut rng = WyRand::seed_from_u64(42);
         let ai_players = vec![false, true, true];
         let mut state = create_initial_game_state(3, &ai_players, &mut rng);
 
