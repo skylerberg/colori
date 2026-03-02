@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use rand::Rng;
 use rand::RngExt;
 
@@ -31,279 +33,305 @@ const BINOM_CUM: [[u64; 10]; 257] = {
     table
 };
 
-macro_rules! impl_bitset {
-    ($name:ident) => {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-        pub struct $name(pub [u128; 2]);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CardMarker {}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BuyerMarker {}
 
-        impl $name {
-            #[inline]
-            pub fn new() -> Self {
-                $name([0; 2])
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BitSet<T>(pub [u128; 2], PhantomData<T>);
+
+pub type UnorderedCards = BitSet<CardMarker>;
+pub type UnorderedBuyers = BitSet<BuyerMarker>;
+
+impl<T> Default for BitSet<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T> BitSet<T> {
+    #[inline]
+    pub fn new() -> Self {
+        BitSet([0; 2], PhantomData)
+    }
+
+    #[inline]
+    pub fn insert(&mut self, id: u8) {
+        let limb = (id >> 7) as usize;
+        let bit = id & 127;
+        self.0[limb] |= 1u128 << bit;
+    }
+
+    #[inline]
+    pub fn remove(&mut self, id: u8) {
+        let limb = (id >> 7) as usize;
+        let bit = id & 127;
+        self.0[limb] &= !(1u128 << bit);
+    }
+
+    #[inline]
+    pub fn contains(&self, id: u8) -> bool {
+        let limb = (id >> 7) as usize;
+        let bit = id & 127;
+        (self.0[limb] >> bit) & 1 != 0
+    }
+
+    #[inline]
+    pub fn len(&self) -> u32 {
+        self.0[0].count_ones() + self.0[1].count_ones()
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.0[0] == 0 && self.0[1] == 0
+    }
+
+    #[inline]
+    pub fn union(self, other: Self) -> Self {
+        BitSet(
+            [self.0[0] | other.0[0], self.0[1] | other.0[1]],
+            PhantomData,
+        )
+    }
+
+    #[inline]
+    pub fn intersection(self, other: Self) -> Self {
+        BitSet(
+            [self.0[0] & other.0[0], self.0[1] & other.0[1]],
+            PhantomData,
+        )
+    }
+
+    #[inline]
+    pub fn difference(self, other: Self) -> Self {
+        BitSet(
+            [self.0[0] & !other.0[0], self.0[1] & !other.0[1]],
+            PhantomData,
+        )
+    }
+
+    /// Returns the position of the lowest set bit, or None if empty.
+    #[inline]
+    pub fn lowest_bit(&self) -> Option<u8> {
+        if self.0[0] != 0 {
+            Some(self.0[0].trailing_zeros() as u8)
+        } else if self.0[1] != 0 {
+            Some(128 + self.0[1].trailing_zeros() as u8)
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    pub fn pick_random<R: Rng>(&self, rng: &mut R) -> Option<u8> {
+        let count = self.len();
+        if count == 0 {
+            return None;
+        }
+        let k = rng.random_range(0..count);
+        // Find the k-th set bit across both limbs
+        let lo_count = self.0[0].count_ones();
+        if k < lo_count {
+            let mut val = self.0[0];
+            for _ in 0..k {
+                val &= val - 1;
             }
-
-            #[inline]
-            pub fn insert(&mut self, id: u8) {
-                let limb = (id >> 7) as usize;
-                let bit = id & 127;
-                self.0[limb] |= 1u128 << bit;
+            Some(val.trailing_zeros() as u8)
+        } else {
+            let mut val = self.0[1];
+            for _ in 0..(k - lo_count) {
+                val &= val - 1;
             }
+            Some(128 + val.trailing_zeros() as u8)
+        }
+    }
 
-            #[inline]
-            pub fn remove(&mut self, id: u8) {
-                let limb = (id >> 7) as usize;
-                let bit = id & 127;
-                self.0[limb] &= !(1u128 << bit);
+    #[inline]
+    pub fn draw<R: Rng>(&mut self, rng: &mut R) -> Option<u8> {
+        let count = self.len();
+        if count == 0 {
+            return None;
+        }
+        let k = rng.random_range(0..count);
+        let lo_count = self.0[0].count_ones();
+        let pos = if k < lo_count {
+            let mut val = self.0[0];
+            for _ in 0..k {
+                val &= val - 1;
             }
-
-            #[inline]
-            pub fn contains(&self, id: u8) -> bool {
-                let limb = (id >> 7) as usize;
-                let bit = id & 127;
-                (self.0[limb] >> bit) & 1 != 0
+            val.trailing_zeros() as u8
+        } else {
+            let mut val = self.0[1];
+            for _ in 0..(k - lo_count) {
+                val &= val - 1;
             }
+            128 + val.trailing_zeros() as u8
+        };
+        self.remove(pos);
+        Some(pos)
+    }
 
-            #[inline]
-            pub fn len(&self) -> u32 {
-                self.0[0].count_ones() + self.0[1].count_ones()
+    #[inline]
+    pub fn draw_multiple<R: Rng>(&mut self, count: u32, rng: &mut R) -> Self {
+        let n = self.len();
+        if count == 0 {
+            return Self::new();
+        }
+        if count >= n {
+            let all = self.0;
+            self.0 = [0; 2];
+            return BitSet(all, PhantomData);
+        }
+        let mut remaining = n;
+        let mut to_pick = count;
+        let mut selected = [0u128; 2];
+
+        // Selection sampling (Algorithm S): for each element,
+        // include with probability to_pick/remaining.
+        let mut bits0 = self.0[0];
+        while to_pick > 0 && bits0 != 0 {
+            if remaining == to_pick {
+                // Must take all remaining elements
+                selected[0] |= bits0;
+                selected[1] = self.0[1];
+                self.0[0] &= !selected[0];
+                self.0[1] = 0;
+                return BitSet(selected, PhantomData);
             }
-
-            #[inline]
-            pub fn is_empty(&self) -> bool {
-                self.0[0] == 0 && self.0[1] == 0
+            let pos = bits0.trailing_zeros();
+            bits0 &= bits0 - 1;
+            if rng.random_range(0..remaining) < to_pick {
+                selected[0] |= 1u128 << pos;
+                to_pick -= 1;
             }
-
-            #[inline]
-            pub fn union(self, other: Self) -> Self {
-                $name([self.0[0] | other.0[0], self.0[1] | other.0[1]])
-            }
-
-            #[inline]
-            pub fn intersection(self, other: Self) -> Self {
-                $name([self.0[0] & other.0[0], self.0[1] & other.0[1]])
-            }
-
-            #[inline]
-            pub fn difference(self, other: Self) -> Self {
-                $name([self.0[0] & !other.0[0], self.0[1] & !other.0[1]])
-            }
-
-            /// Returns the position of the lowest set bit, or None if empty.
-            #[inline]
-            pub fn lowest_bit(&self) -> Option<u8> {
-                if self.0[0] != 0 {
-                    Some(self.0[0].trailing_zeros() as u8)
-                } else if self.0[1] != 0 {
-                    Some(128 + self.0[1].trailing_zeros() as u8)
-                } else {
-                    None
-                }
-            }
-
-            #[inline]
-            pub fn pick_random<R: Rng>(&self, rng: &mut R) -> Option<u8> {
-                let count = self.len();
-                if count == 0 {
-                    return None;
-                }
-                let k = rng.random_range(0..count);
-                // Find the k-th set bit across both limbs
-                let lo_count = self.0[0].count_ones();
-                if k < lo_count {
-                    let mut val = self.0[0];
-                    for _ in 0..k {
-                        val &= val - 1;
-                    }
-                    Some(val.trailing_zeros() as u8)
-                } else {
-                    let mut val = self.0[1];
-                    for _ in 0..(k - lo_count) {
-                        val &= val - 1;
-                    }
-                    Some(128 + val.trailing_zeros() as u8)
-                }
-            }
-
-            #[inline]
-            pub fn draw<R: Rng>(&mut self, rng: &mut R) -> Option<u8> {
-                let count = self.len();
-                if count == 0 {
-                    return None;
-                }
-                let k = rng.random_range(0..count);
-                let lo_count = self.0[0].count_ones();
-                let pos = if k < lo_count {
-                    let mut val = self.0[0];
-                    for _ in 0..k {
-                        val &= val - 1;
-                    }
-                    val.trailing_zeros() as u8
-                } else {
-                    let mut val = self.0[1];
-                    for _ in 0..(k - lo_count) {
-                        val &= val - 1;
-                    }
-                    128 + val.trailing_zeros() as u8
-                };
-                self.remove(pos);
-                Some(pos)
-            }
-
-            #[inline]
-            pub fn draw_multiple<R: Rng>(&mut self, count: u32, rng: &mut R) -> Self {
-                let n = self.len();
-                if count == 0 {
-                    return $name::new();
-                }
-                if count >= n {
-                    let all = self.0;
-                    self.0 = [0; 2];
-                    return $name(all);
-                }
-                let mut remaining = n;
-                let mut to_pick = count;
-                let mut selected = [0u128; 2];
-
-                // Selection sampling (Algorithm S): for each element,
-                // include with probability to_pick/remaining.
-                let mut bits0 = self.0[0];
-                while to_pick > 0 && bits0 != 0 {
-                    if remaining == to_pick {
-                        // Must take all remaining elements
-                        selected[0] |= bits0;
-                        selected[1] = self.0[1];
-                        self.0[0] &= !selected[0];
-                        self.0[1] = 0;
-                        return $name(selected);
-                    }
-                    let pos = bits0.trailing_zeros();
-                    bits0 &= bits0 - 1;
-                    if rng.random_range(0..remaining) < to_pick {
-                        selected[0] |= 1u128 << pos;
-                        to_pick -= 1;
-                    }
-                    remaining -= 1;
-                }
-                let mut bits1 = self.0[1];
-                while to_pick > 0 && bits1 != 0 {
-                    if remaining == to_pick {
-                        selected[1] |= bits1;
-                        self.0[0] &= !selected[0];
-                        self.0[1] &= !selected[1];
-                        return $name(selected);
-                    }
-                    let pos = bits1.trailing_zeros();
-                    bits1 &= bits1 - 1;
-                    if rng.random_range(0..remaining) < to_pick {
-                        selected[1] |= 1u128 << pos;
-                        to_pick -= 1;
-                    }
-                    remaining -= 1;
-                }
-
+            remaining -= 1;
+        }
+        let mut bits1 = self.0[1];
+        while to_pick > 0 && bits1 != 0 {
+            if remaining == to_pick {
+                selected[1] |= bits1;
                 self.0[0] &= !selected[0];
                 self.0[1] &= !selected[1];
-                $name(selected)
+                return BitSet(selected, PhantomData);
             }
-
-            #[inline]
-            pub fn draw_up_to<R: Rng>(&mut self, max_count: u8, rng: &mut R) -> Self {
-                if max_count == 1 {
-                    let n = self.len();
-                    if n == 0 { return $name::new(); }
-                    let r = rng.random_range(0..(n as u64 + 1));
-                    if r == 0 { return $name::new(); }
-                    // Find the (r-1)-th set bit
-                    let k = (r - 1) as u32;
-                    let lo_count = self.0[0].count_ones();
-                    let pos;
-                    let mut result = [0u128; 2];
-                    if k < lo_count {
-                        let mut val = self.0[0];
-                        for _ in 0..k {
-                            val &= val - 1;
-                        }
-                        pos = val.trailing_zeros() as u8;
-                        result[0] = 1u128 << pos;
-                    } else {
-                        let mut val = self.0[1];
-                        for _ in 0..(k - lo_count) {
-                            val &= val - 1;
-                        }
-                        pos = 128 + val.trailing_zeros() as u8;
-                        result[1] = 1u128 << (pos - 128);
-                    }
-                    self.remove(pos);
-                    return $name(result);
-                }
-                let n = self.len() as usize;
-                let c = (max_count as usize).min(n);
-                if c == 0 {
-                    return $name::new();
-                }
-                let total = BINOM_CUM[n][c];
-                let r = rng.random_range(0..total);
-                // Find which size bucket using cumulative table
-                let mut size = 0usize;
-                for k in 0..=c {
-                    if r < BINOM_CUM[n][k] {
-                        size = k;
-                        break;
-                    }
-                }
-                if size == 0 {
-                    return $name::new();
-                }
-                // Selection sampling for `size` elements
-                let mut remaining = n as u32;
-                let mut to_pick = size as u32;
-                let mut selected = [0u128; 2];
-
-                let mut bits0 = self.0[0];
-                while to_pick > 0 && bits0 != 0 {
-                    if remaining == to_pick {
-                        selected[0] |= bits0;
-                        selected[1] = self.0[1];
-                        self.0[0] &= !selected[0];
-                        self.0[1] = 0;
-                        return $name(selected);
-                    }
-                    let pos = bits0.trailing_zeros();
-                    bits0 &= bits0 - 1;
-                    if rng.random_range(0..remaining) < to_pick {
-                        selected[0] |= 1u128 << pos;
-                        to_pick -= 1;
-                    }
-                    remaining -= 1;
-                }
-                let mut bits1 = self.0[1];
-                while to_pick > 0 && bits1 != 0 {
-                    if remaining == to_pick {
-                        selected[1] |= bits1;
-                        self.0[0] &= !selected[0];
-                        self.0[1] &= !selected[1];
-                        return $name(selected);
-                    }
-                    let pos = bits1.trailing_zeros();
-                    bits1 &= bits1 - 1;
-                    if rng.random_range(0..remaining) < to_pick {
-                        selected[1] |= 1u128 << pos;
-                        to_pick -= 1;
-                    }
-                    remaining -= 1;
-                }
-
-                self.0[0] &= !selected[0];
-                self.0[1] &= !selected[1];
-                $name(selected)
+            let pos = bits1.trailing_zeros();
+            bits1 &= bits1 - 1;
+            if rng.random_range(0..remaining) < to_pick {
+                selected[1] |= 1u128 << pos;
+                to_pick -= 1;
             }
+            remaining -= 1;
+        }
 
-            #[inline]
-            pub fn iter(self) -> BitIter {
-                BitIter { lo: self.0[0], hi: self.0[1] }
+        self.0[0] &= !selected[0];
+        self.0[1] &= !selected[1];
+        BitSet(selected, PhantomData)
+    }
+
+    #[inline]
+    pub fn draw_up_to<R: Rng>(&mut self, max_count: u8, rng: &mut R) -> Self {
+        if max_count == 1 {
+            let n = self.len();
+            if n == 0 {
+                return Self::new();
+            }
+            let r = rng.random_range(0..(n as u64 + 1));
+            if r == 0 {
+                return Self::new();
+            }
+            // Find the (r-1)-th set bit
+            let k = (r - 1) as u32;
+            let lo_count = self.0[0].count_ones();
+            let pos;
+            let mut result = [0u128; 2];
+            if k < lo_count {
+                let mut val = self.0[0];
+                for _ in 0..k {
+                    val &= val - 1;
+                }
+                pos = val.trailing_zeros() as u8;
+                result[0] = 1u128 << pos;
+            } else {
+                let mut val = self.0[1];
+                for _ in 0..(k - lo_count) {
+                    val &= val - 1;
+                }
+                pos = 128 + val.trailing_zeros() as u8;
+                result[1] = 1u128 << (pos - 128);
+            }
+            self.remove(pos);
+            return BitSet(result, PhantomData);
+        }
+        let n = self.len() as usize;
+        let c = (max_count as usize).min(n);
+        if c == 0 {
+            return Self::new();
+        }
+        let total = BINOM_CUM[n][c];
+        let r = rng.random_range(0..total);
+        // Find which size bucket using cumulative table
+        let mut size = 0usize;
+        for k in 0..=c {
+            if r < BINOM_CUM[n][k] {
+                size = k;
+                break;
             }
         }
-    };
+        if size == 0 {
+            return Self::new();
+        }
+        // Selection sampling for `size` elements
+        let mut remaining = n as u32;
+        let mut to_pick = size as u32;
+        let mut selected = [0u128; 2];
+
+        let mut bits0 = self.0[0];
+        while to_pick > 0 && bits0 != 0 {
+            if remaining == to_pick {
+                selected[0] |= bits0;
+                selected[1] = self.0[1];
+                self.0[0] &= !selected[0];
+                self.0[1] = 0;
+                return BitSet(selected, PhantomData);
+            }
+            let pos = bits0.trailing_zeros();
+            bits0 &= bits0 - 1;
+            if rng.random_range(0..remaining) < to_pick {
+                selected[0] |= 1u128 << pos;
+                to_pick -= 1;
+            }
+            remaining -= 1;
+        }
+        let mut bits1 = self.0[1];
+        while to_pick > 0 && bits1 != 0 {
+            if remaining == to_pick {
+                selected[1] |= bits1;
+                self.0[0] &= !selected[0];
+                self.0[1] &= !selected[1];
+                return BitSet(selected, PhantomData);
+            }
+            let pos = bits1.trailing_zeros();
+            bits1 &= bits1 - 1;
+            if rng.random_range(0..remaining) < to_pick {
+                selected[1] |= 1u128 << pos;
+                to_pick -= 1;
+            }
+            remaining -= 1;
+        }
+
+        self.0[0] &= !selected[0];
+        self.0[1] &= !selected[1];
+        BitSet(selected, PhantomData)
+    }
+
+    #[inline]
+    pub fn iter(self) -> BitIter {
+        BitIter {
+            lo: self.0[0],
+            hi: self.0[1],
+        }
+    }
 }
 
 pub struct BitIter {
@@ -337,21 +365,6 @@ impl Iterator for BitIter {
 }
 
 impl ExactSizeIterator for BitIter {}
-
-impl_bitset!(UnorderedCards);
-impl_bitset!(UnorderedBuyers);
-
-impl Default for UnorderedCards {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Default for UnorderedBuyers {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 #[cfg(test)]
 mod tests {
