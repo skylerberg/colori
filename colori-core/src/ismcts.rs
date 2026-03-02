@@ -342,3 +342,124 @@ fn record_outcome(node: &mut MctsNode, scores: &[f64]) {
     node.cumulative_reward += reward;
     node.games += 1;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::colori_game::{
+        apply_choice_to_state, check_choice_available, enumerate_choices_into,
+    };
+    use crate::draw_phase::execute_draw_phase;
+    use crate::setup::create_initial_game_state;
+    use rand::rngs::SmallRng;
+    use rand::SeedableRng;
+
+    fn run_full_game_validating_choices(num_players: usize, seed: u64, abstract_choices: bool) {
+        let mut rng = SmallRng::seed_from_u64(seed);
+        let ai_players = vec![true; num_players];
+        let mut state = create_initial_game_state(num_players, &ai_players, &mut rng);
+
+        let config = MctsConfig {
+            iterations: 10,
+            abstract_choices,
+            ..MctsConfig::default()
+        };
+
+        execute_draw_phase(&mut state, &mut rng);
+
+        let mut choices_buf: Vec<ColoriChoice> = Vec::new();
+        let max_steps = 5000;
+
+        for step in 0..max_steps {
+            match &state.phase {
+                GamePhase::GameOver => return,
+                GamePhase::Draw => {
+                    execute_draw_phase(&mut state, &mut rng);
+                    continue;
+                }
+                GamePhase::Draft { draft_state } => {
+                    assert!(
+                        !draft_state.waiting_for_pass,
+                        "seed={seed}, players={num_players}, abstract={abstract_choices}, \
+                         step={step}, round={}: unexpected waiting_for_pass in Draft phase",
+                        state.round
+                    );
+                }
+                _ => {}
+            }
+
+            let player_index = match get_game_status(&state, None) {
+                GameStatus::AwaitingAction { player_id } => player_id,
+                GameStatus::Terminated { .. } => return,
+            };
+
+            let choice = ismcts(&state, player_index, &config, &None, None, &mut rng);
+
+            enumerate_choices_into(&state, &mut choices_buf);
+            assert!(
+                choices_buf.contains(&choice),
+                "seed={seed}, players={num_players}, abstract={abstract_choices}, \
+                 step={step}, round={}, phase={:?}: ISMCTS choice {choice:?} \
+                 not in enumerated choices",
+                state.round, state.phase
+            );
+
+            assert!(
+                check_choice_available(&state, &choice),
+                "seed={seed}, players={num_players}, abstract={abstract_choices}, \
+                 step={step}, round={}, phase={:?}: check_choice_available returned \
+                 false for {choice:?}",
+                state.round, state.phase
+            );
+
+            apply_choice_to_state(&mut state, &choice, &mut rng);
+        }
+
+        panic!(
+            "seed={seed}, players={num_players}, abstract={abstract_choices}: \
+             game did not finish within {max_steps} steps"
+        );
+    }
+
+    #[test]
+    fn test_ismcts_valid_moves_2_players_concrete() {
+        for seed in 0..5 {
+            run_full_game_validating_choices(2, seed, false);
+        }
+    }
+
+    #[test]
+    fn test_ismcts_valid_moves_3_players_concrete() {
+        for seed in 0..5 {
+            run_full_game_validating_choices(3, seed, false);
+        }
+    }
+
+    #[test]
+    fn test_ismcts_valid_moves_4_players_concrete() {
+        for seed in 0..5 {
+            run_full_game_validating_choices(4, seed, false);
+        }
+    }
+
+    #[test]
+    fn test_ismcts_valid_moves_2_players_abstract() {
+        for seed in 0..5 {
+            run_full_game_validating_choices(2, seed, true);
+        }
+    }
+
+    #[test]
+    fn test_ismcts_valid_moves_3_players_abstract() {
+        for seed in 0..5 {
+            run_full_game_validating_choices(3, seed, true);
+        }
+    }
+
+    #[test]
+    fn test_ismcts_valid_moves_4_players_abstract() {
+        for seed in 0..5 {
+            run_full_game_validating_choices(4, seed, true);
+        }
+    }
+}
