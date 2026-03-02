@@ -6,7 +6,7 @@ use crate::action_phase::{
     can_sell_to_any_buyer,
 };
 use crate::apply_choice::apply_choice;
-use crate::color_wheel::{can_pay_cost, pay_cost, perform_mix_unchecked};
+use crate::colors::{can_pay_cost, pay_cost, perform_mix_unchecked};
 use crate::colors::{can_mix, PRIMARIES, SECONDARIES, TERTIARIES, VALID_MIX_PAIRS};
 use crate::deck_utils::draw_from_deck;
 use crate::draft_phase::{confirm_pass, player_pick};

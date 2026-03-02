@@ -30,6 +30,12 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
   return state;
 }
 
+// IMPORTANT: All state-mutating WASM functions below use Object.assign(state, newState)
+// instead of direct assignment. This is because Rust's GameState does not include
+// TypeScript-only fields like `playerNames`. Object.assign preserves these existing
+// properties on `state` that are absent from the WASM output. If you change this to
+// direct assignment or structuredClone, those fields will be silently lost.
+
 export function executeDrawPhase(state: GameState): void {
   const resultJson = wasm_execute_draw_phase(JSON.stringify(state));
   const newState: GameState = JSON.parse(resultJson);

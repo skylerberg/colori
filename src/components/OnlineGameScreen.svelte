@@ -1,20 +1,16 @@
 <script lang="ts">
-  import type { GameState, CardInstance } from '../data/types';
-  import type { Choice } from '../data/types';
+  import type { GameState, CardInstance, Choice, StructuredGameLog } from '../data/types';
   import type { SanitizedGameState } from '../network/types';
   import type { HostController } from '../network/hostController';
   import type { GuestController } from '../network/guestController';
-  import type { StructuredGameLog } from '../gameLog';
   import { sanitizedToGameState } from '../network/stateAdapter';
   import { AIController } from '../ai/aiController';
   import { cloneGameState } from '../engine/wasmEngine';
-  import PlayerStatus from './PlayerStatus.svelte';
+  import { getActivePlayerIndex, isCurrentPlayerAI } from '../gameUtils';
+  import GameLayout from './GameLayout.svelte';
   import DraftPhaseView from './DraftPhaseView.svelte';
   import ActionPhaseView from './ActionPhaseView.svelte';
   import CleanupPhaseView from './CleanupPhaseView.svelte';
-  import GameLog from './GameLog.svelte';
-  import ColorWheelDisplay from './ColorWheelDisplay.svelte';
-  import BuyerDisplay from './BuyerDisplay.svelte';
   import CardList from './CardList.svelte';
   import OpponentBoardPanel from './OpponentBoardPanel.svelte';
 
@@ -26,12 +22,6 @@
     gameStartTime: number;
     onLeaveGame: () => void;
   } = $props();
-
-  function handleLeaveGame() {
-    if (confirm('Are you sure you want to leave this game? Your progress will be lost.')) {
-      onLeaveGame();
-    }
-  }
 
   // Host state
   let hostGameState: GameState | null = $state(null);
@@ -46,16 +36,6 @@
 
   // Timer
   let elapsedSeconds = $state(0);
-
-  function formatTime(seconds: number): string {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    if (h > 0) {
-      return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-    }
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  }
 
   $effect(() => {
     elapsedSeconds = Math.floor((Date.now() - gameStartTime) / 1000);
@@ -91,36 +71,9 @@
 
   let isMyTurn = $derived(activePlayerIndex === myPlayerIndex);
 
-  let currentPlayer = $derived(
-    gameState && activePlayerIndex >= 0 ? gameState.players[activePlayerIndex] : null
-  );
-
-  let showSidebar = $derived(
-    gameState !== null &&
-    (gameState.phase.type === 'draft' || gameState.phase.type === 'action' || gameState.phase.type === 'cleanup')
-  );
-
   let myPlayer = $derived(
     gameState && myPlayerIndex >= 0 ? gameState.players[myPlayerIndex] : null
   );
-
-  function getActivePlayerIndex(gs: GameState): number {
-    if (gs.phase.type === 'draft') {
-      return gs.phase.draftState.currentPlayerIndex;
-    }
-    if (gs.phase.type === 'action') {
-      return gs.phase.actionState.currentPlayerIndex;
-    }
-    if (gs.phase.type === 'cleanup') {
-      return gs.phase.cleanupState.currentPlayerIndex;
-    }
-    return -1;
-  }
-
-  function isCurrentPlayerAI(gs: GameState): boolean {
-    const idx = getActivePlayerIndex(gs);
-    return idx >= 0 && gs.aiPlayers[idx];
-  }
 
   // Setup host controller callbacks
   if (role === 'host' && hostController) {
@@ -248,233 +201,65 @@
 </script>
 
 {#if gameState}
-  <div class="game-screen">
-    <div class="top-bar">
-      <div class="top-bar-row">
-        <div class="round-indicator">Round {gameState.round} &mdash; {formatTime(elapsedSeconds)}</div>
-        <button class="leave-btn" onclick={handleLeaveGame}>Leave Game</button>
+  <GameLayout {gameState} {activePlayerIndex} {aiThinking} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} sidebarPlayer={myPlayer}>
+    {#if !isMyTurn && !aiThinking && gameState.phase.type === 'action'}
+      <div class="waiting-banner">
+        <div class="spinner"></div>
+        <p>Waiting for {gameState.playerNames[activePlayerIndex] ?? 'other player'}...</p>
       </div>
-      <div class="player-bar">
-        {#each gameState.players as player, i}
-          <PlayerStatus {player} playerName={gameState.playerNames[i]} active={i === activePlayerIndex} isAI={gameState.aiPlayers[i]} thinking={aiThinking && i === activePlayerIndex} />
-        {/each}
-      </div>
-    </div>
-
-    <div class="game-body">
-      {#if showSidebar && myPlayer}
-        <aside class="left-sidebar">
-          <div class="sidebar-section">
-            <h3>Color Wheel</h3>
-            <ColorWheelDisplay wheel={myPlayer.colorWheel} size={160} />
+      {#if myPlayer}
+        <div class="readonly-cards">
+          <div class="section">
+            <h3>Your Workshop</h3>
+            <CardList cards={myPlayer.workshopCards} />
           </div>
-
-          <div class="sidebar-section">
-            <h3>Stored Materials</h3>
-            <div class="material-counts">
-              {#each Object.entries(myPlayer.materials) as [material, count]}
-                <span class="material-count">{material}: {count}</span>
-              {/each}
-            </div>
-            {#if myPlayer.ducats > 0}
-              <div class="ducats-count">Ducats: {myPlayer.ducats}</div>
-            {/if}
+          <div class="section">
+            <h3>Your Drafted Cards</h3>
+            <CardList cards={myPlayer.draftedCards} />
           </div>
-        </aside>
-      {/if}
-
-      <div class="main-column">
-        <div class="phase-content">
-          {#if !isMyTurn && !aiThinking && gameState.phase.type === 'action'}
-            <div class="waiting-banner">
-              <div class="spinner"></div>
-              <p>Waiting for {gameState.playerNames[activePlayerIndex] ?? 'other player'}...</p>
-            </div>
-            {#if myPlayer}
-              <div class="readonly-cards">
-                <div class="section">
-                  <h3>Your Workshop</h3>
-                  <CardList cards={myPlayer.workshopCards} />
-                </div>
-                <div class="section">
-                  <h3>Your Drafted Cards</h3>
-                  <CardList cards={myPlayer.draftedCards} />
-                </div>
-              </div>
-              <div class="opponents-section">
-                <h3>Other Players</h3>
-                <div class="opponents-list">
-                  {#each gameState.players as player, i}
-                    {#if i !== myPlayerIndex}
-                      <OpponentBoardPanel {player} playerName={gameState.playerNames[i]} />
-                    {/if}
-                  {/each}
-                </div>
-              </div>
-            {/if}
-          {/if}
-
-          {#if gameState.phase.type === 'draft'}
-            <DraftPhaseView {gameState} onAction={handleAction} playerIndex={myPlayerIndex} selectable={!hasPicked} />
-            {#if hasPicked}
-              <div class="waiting-banner">
-                <p>Waiting for other players to pick...</p>
-              </div>
-            {/if}
-          {:else if gameState.phase.type === 'action' && isMyTurn}
-            <ActionPhaseView {gameState} onAction={handleAction} onUndo={() => {}} undoAvailable={false} />
-          {:else if gameState.phase.type === 'cleanup' && isMyTurn}
-            <CleanupPhaseView {gameState} onAction={handleAction} />
-          {:else if gameState.phase.type === 'cleanup' && !isMyTurn}
-            <div class="waiting-banner">
-              <div class="spinner"></div>
-              <p>Waiting for {gameState.playerNames[activePlayerIndex] ?? 'other player'} to finish cleanup...</p>
-            </div>
-            {#if myPlayer}
-              <div class="readonly-cards">
-                <div class="section">
-                  <h3>Your Workshop</h3>
-                  <CardList cards={myPlayer.workshopCards} />
-                </div>
-              </div>
-            {/if}
-          {/if}
         </div>
-
-        {#if gameLog.length > 0}
-          <GameLog entries={gameLog} />
-        {/if}
-      </div>
-
-      {#if showSidebar && myPlayer}
-        <aside class="sidebar">
-          <div class="sidebar-section">
-            <BuyerDisplay buyers={gameState.buyerDisplay} />
+        <div class="opponents-section">
+          <h3>Other Players</h3>
+          <div class="opponents-list">
+            {#each gameState.players as player, i}
+              {#if i !== myPlayerIndex}
+                <OpponentBoardPanel {player} playerName={gameState.playerNames[i]} />
+              {/if}
+            {/each}
           </div>
-        </aside>
+        </div>
       {/if}
-    </div>
-  </div>
+    {/if}
+
+    {#if gameState.phase.type === 'draft'}
+      <DraftPhaseView {gameState} onAction={handleAction} playerIndex={myPlayerIndex} selectable={!hasPicked} />
+      {#if hasPicked}
+        <div class="waiting-banner">
+          <p>Waiting for other players to pick...</p>
+        </div>
+      {/if}
+    {:else if gameState.phase.type === 'action' && isMyTurn}
+      <ActionPhaseView {gameState} onAction={handleAction} onUndo={() => {}} undoAvailable={false} />
+    {:else if gameState.phase.type === 'cleanup' && isMyTurn}
+      <CleanupPhaseView {gameState} onAction={handleAction} />
+    {:else if gameState.phase.type === 'cleanup' && !isMyTurn}
+      <div class="waiting-banner">
+        <div class="spinner"></div>
+        <p>Waiting for {gameState.playerNames[activePlayerIndex] ?? 'other player'} to finish cleanup...</p>
+      </div>
+      {#if myPlayer}
+        <div class="readonly-cards">
+          <div class="section">
+            <h3>Your Workshop</h3>
+            <CardList cards={myPlayer.workshopCards} />
+          </div>
+        </div>
+      {/if}
+    {/if}
+  </GameLayout>
 {/if}
 
 <style>
-  .game-screen {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .top-bar {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding-bottom: 8px;
-    border-bottom: 2px solid #e0d5c5;
-  }
-
-  .top-bar-row {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-  }
-
-  .round-indicator {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #4a3728;
-    text-align: center;
-  }
-
-  .leave-btn {
-    position: absolute;
-    right: 0;
-    padding: 4px 12px;
-    font-size: 0.75rem;
-    background: #e74c3c;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-  }
-
-  .leave-btn:hover {
-    background: #c0392b;
-  }
-
-  .player-bar {
-    display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-
-  .game-body {
-    display: flex;
-    gap: 1rem;
-  }
-
-  .main-column {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .phase-content {
-    min-height: 300px;
-  }
-
-  .left-sidebar {
-    width: 250px;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .sidebar {
-    width: 250px;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .sidebar-section {
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 10px 12px;
-    background: #fff;
-  }
-
-  .sidebar-section h3 {
-    font-size: 0.85rem;
-    color: #4a3728;
-    margin-bottom: 6px;
-  }
-
-  .material-counts {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.8rem;
-    color: #8b6914;
-  }
-
-  .material-count {
-    font-weight: 600;
-  }
-
-  .ducats-count {
-    font-size: 0.8rem;
-    color: #d4a017;
-    font-weight: 600;
-    margin-top: 4px;
-  }
-
   .waiting-banner {
     display: flex;
     align-items: center;

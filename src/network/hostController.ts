@@ -4,7 +4,8 @@ import type { NetworkManager } from './networkManager';
 import type { LobbyPlayer, GuestMessage } from './types';
 import { createInitialGameState, executeDrawPhase, confirmPass, simultaneousPick, advanceDraft, applyChoice, getChoiceLogMessage } from '../engine/wasmEngine';
 import { sanitizeGameState } from './sanitize';
-import { GameLogAccumulator, type StructuredGameLog } from '../gameLog';
+import type { StructuredGameLog } from '../data/types';
+import { GameLogAccumulator } from '../gameLog';
 
 export class HostController {
   private network: NetworkManager;

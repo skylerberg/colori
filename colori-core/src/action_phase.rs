@@ -1,5 +1,4 @@
-use crate::color_wheel::{can_pay_cost, pay_cost, perform_mix, perform_mix_unchecked, remove_color, store_color};
-use crate::colors::TERTIARIES;
+use crate::colors::{can_pay_cost, pay_cost, perform_mix, perform_mix_unchecked, TERTIARIES};
 use crate::deck_utils::draw_from_deck;
 use crate::types::{
     Ability, ActionState, BuyerInstance, CleanupState, Color, GamePhase, GameState, PendingChoice,
@@ -165,7 +164,7 @@ pub fn resolve_workshop_choice<R: Rng>(
             player.materials.increment(*mt);
         }
         for pip in card.pips() {
-            store_color(&mut player.color_wheel, *pip);
+            player.color_wheel.increment(*pip);
         }
         player.used_cards.insert(id);
     }
@@ -378,21 +377,21 @@ pub fn resolve_select_buyer<R: Rng>(
 
 pub fn resolve_gain_secondary<R: Rng>(state: &mut GameState, color: Color, rng: &mut R) {
     let player_index = get_action_state(state).current_player_index;
-    store_color(&mut state.players[player_index].color_wheel, color);
+    state.players[player_index].color_wheel.increment(color);
     get_action_state_mut(state).pending_choice = None;
     process_queue(state, rng);
 }
 
 pub fn resolve_gain_primary<R: Rng>(state: &mut GameState, color: Color, rng: &mut R) {
     let player_index = get_action_state(state).current_player_index;
-    store_color(&mut state.players[player_index].color_wheel, color);
+    state.players[player_index].color_wheel.increment(color);
     get_action_state_mut(state).pending_choice = None;
     process_queue(state, rng);
 }
 
 pub fn resolve_choose_tertiary_to_lose(state: &mut GameState, color: Color) {
     let player_index = get_action_state(state).current_player_index;
-    remove_color(&mut state.players[player_index].color_wheel, color);
+    state.players[player_index].color_wheel.decrement(color);
 }
 
 pub fn resolve_choose_tertiary_to_gain<R: Rng>(
@@ -401,7 +400,7 @@ pub fn resolve_choose_tertiary_to_gain<R: Rng>(
     rng: &mut R,
 ) {
     let player_index = get_action_state(state).current_player_index;
-    store_color(&mut state.players[player_index].color_wheel, color);
+    state.players[player_index].color_wheel.increment(color);
     get_action_state_mut(state).pending_choice = None;
     process_queue(state, rng);
 }

@@ -1,48 +1,5 @@
-import type { GameState, BuyerInstance, Color, MaterialType } from './data/types';
-import type { Choice } from './data/types';
+import type { GameState, Choice, StructuredGameLog } from './data/types';
 import { calculateScores } from './engine/wasmEngine';
-
-export interface StructuredLogEntry {
-  seq: number;
-  timestamp: number;
-  round: number;
-  phase: string;
-  playerIndex: number;
-  choice: Choice;
-}
-
-export interface PlayerVariant {
-  name?: string;
-  iterations: number;
-  explorationConstant?: number;
-  maxRolloutSteps?: number;
-  randomCleanupKeep?: boolean;
-}
-
-export interface StructuredGameLog {
-  version: 1;
-  gameStartedAt: string;
-  gameEndedAt: string | null;
-  playerNames: string[];
-  aiPlayers: boolean[];
-  initialState: GameState;
-  finalScores: { name: string; score: number }[] | null;
-  finalPlayerStats: FinalPlayerStats[] | null;
-  entries: StructuredLogEntry[];
-  durationMs?: number;
-  iterations?: number;
-  playerVariants?: PlayerVariant[];
-  note?: string;
-}
-
-export interface FinalPlayerStats {
-  name: string;
-  deckSize: number;
-  completedBuyers: BuyerInstance[];
-  ducats: number;
-  colorWheel: Record<Color, number>;
-  materials: Record<MaterialType, number>;
-}
 
 export class GameLogAccumulator {
   private log: StructuredGameLog;

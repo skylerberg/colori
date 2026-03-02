@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { GameState } from './data/types';
+  import type { GameState, StructuredGameLog } from './data/types';
   import type { LobbyPlayer, SanitizedGameState } from './network/types';
   import SetupScreen from './components/SetupScreen.svelte';
   import GameScreen from './components/GameScreen.svelte';
@@ -12,7 +12,7 @@
   import { HostController } from './network/hostController';
   import { GuestController } from './network/guestController';
   import { sanitizedToGameState } from './network/stateAdapter';
-  import { GameLogAccumulator, type StructuredGameLog } from './gameLog';
+  import { GameLogAccumulator } from './gameLog';
   import { initEngine } from './engine/wasmEngine';
 
   let engineReady = $state(false);

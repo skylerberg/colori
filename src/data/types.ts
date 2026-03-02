@@ -18,6 +18,7 @@ export type Ability =
 
 // Card variant name strings from Rust
 export type Card = 'BasicRed' | 'BasicYellow' | 'BasicBlue'
+  | 'Kermes' | 'Weld' | 'Woad'
   | 'Lac' | 'Brazilwood' | 'Pomegranate' | 'Sumac' | 'Elderberry' | 'Turnsole'
   | 'Madder' | 'Turmeric' | 'DyersGreenweed' | 'Verdigris' | 'Orchil' | 'Logwood'
   | 'VermilionDye' | 'Saffron' | 'PersianBerries' | 'Azurite' | 'IndigoDye' | 'Cochineal'
@@ -170,3 +171,47 @@ export type Choice =
   | { type: 'destroyAndMixAll'; card: Card; mixes: [Color, Color][] }
   | { type: 'destroyAndSell'; card: Card; buyer: BuyerCard }
   | { type: 'keepWorkshopCards'; cardTypes: Card[] };
+
+// ── Game Log Types ──
+
+export interface StructuredLogEntry {
+  seq: number;
+  timestamp: number;
+  round: number;
+  phase: string;
+  playerIndex: number;
+  choice: Choice;
+}
+
+export interface PlayerVariant {
+  name?: string;
+  iterations: number;
+  explorationConstant?: number;
+  maxRolloutSteps?: number;
+  randomCleanupKeep?: boolean;
+}
+
+export interface StructuredGameLog {
+  version: 1;
+  gameStartedAt: string;
+  gameEndedAt: string | null;
+  playerNames: string[];
+  aiPlayers: boolean[];
+  initialState: GameState;
+  finalScores: { name: string; score: number }[] | null;
+  finalPlayerStats: FinalPlayerStats[] | null;
+  entries: StructuredLogEntry[];
+  durationMs?: number;
+  iterations?: number;
+  playerVariants?: PlayerVariant[];
+  note?: string;
+}
+
+export interface FinalPlayerStats {
+  name: string;
+  deckSize: number;
+  completedBuyers: BuyerInstance[];
+  ducats: number;
+  colorWheel: Record<Color, number>;
+  materials: Record<MaterialType, number>;
+}

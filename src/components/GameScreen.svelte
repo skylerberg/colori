@@ -1,16 +1,13 @@
 <script lang="ts">
-  import type { GameState, CardInstance } from '../data/types';
+  import type { GameState, CardInstance, Choice } from '../data/types';
   import { executeDrawPhase, confirmPass, applyChoice, getChoiceLogMessage, cloneGameState } from '../engine/wasmEngine';
   import { AIController, type PrecomputeRequest } from '../ai/aiController';
-  import type { Choice } from '../data/types';
   import type { GameLogAccumulator } from '../gameLog';
-  import PlayerStatus from './PlayerStatus.svelte';
+  import { getActivePlayerIndex, isCurrentPlayerAI } from '../gameUtils';
+  import GameLayout from './GameLayout.svelte';
   import DraftPhaseView from './DraftPhaseView.svelte';
   import ActionPhaseView from './ActionPhaseView.svelte';
   import CleanupPhaseView from './CleanupPhaseView.svelte';
-  import GameLog from './GameLog.svelte';
-  import ColorWheelDisplay from './ColorWheelDisplay.svelte';
-  import BuyerDisplay from './BuyerDisplay.svelte';
   import CardList from './CardList.svelte';
 
   let { gameState, gameStartTime, onGameUpdated, initialGameLog, onLeaveGame, gameLogAccumulator, aiIterations }: {
@@ -23,23 +20,7 @@
     aiIterations: number[];
   } = $props();
 
-  function handleLeaveGame() {
-    if (confirm('Are you sure you want to leave this game? Your progress will be lost.')) {
-      onLeaveGame();
-    }
-  }
-
   let elapsedSeconds = $state(0);
-
-  function formatTime(seconds: number): string {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    if (h > 0) {
-      return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-    }
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  }
 
   $effect(() => {
     if (gameStartTime === null) return;
@@ -112,37 +93,14 @@
   let isViewingActiveHuman = $derived(
     selectedPlayerIndex === activePlayerIndex && activePlayerIndex >= 0 && !gameState.aiPlayers[selectedPlayerIndex]
   );
-  let showSidebar = $derived(
-    selectedPlayer !== undefined &&
-    (gameState.phase.type === 'draft' || gameState.phase.type === 'action' || gameState.phase.type === 'cleanup')
-  );
 
   function selectPlayer(index: number) {
     selectedPlayerIndex = index;
   }
 
-  function getActivePlayerIndex(gs: GameState): number {
-    if (gs.phase.type === 'draft') {
-      return gs.phase.draftState.currentPlayerIndex;
-    }
-    if (gs.phase.type === 'action') {
-      return gs.phase.actionState.currentPlayerIndex;
-    }
-    if (gs.phase.type === 'cleanup') {
-      return gs.phase.cleanupState.currentPlayerIndex;
-    }
-    return -1;
-  }
-
-  function isCurrentPlayerAI(gs: GameState): boolean {
-    const idx = getActivePlayerIndex(gs);
-    return idx >= 0 && gs.aiPlayers[idx];
-  }
-
   // Unified action handler for both human UI and AI choices
   function handleAction(choice: Choice) {
     const playerIdx = getActivePlayerIndex(gameState);
-    const name = playerIdx >= 0 ? gameState.playerNames[playerIdx] : 'Unknown';
 
     // Push undo snapshot for action phase choices (except endTurn)
     if (gameState.phase.type === 'action' && choice.type !== 'endTurn') {
@@ -265,226 +223,58 @@
   });
 </script>
 
-<div class="game-screen">
-  <div class="top-bar">
-    <div class="top-bar-row">
-      <div class="round-indicator">Round {gameState.round} &mdash; {formatTime(elapsedSeconds)}</div>
-      <button class="leave-btn" onclick={handleLeaveGame}>Leave Game</button>
-    </div>
-    <div class="player-bar">
-      {#each gameState.players as player, i}
-        <PlayerStatus {player} playerName={gameState.playerNames[i]} active={i === activePlayerIndex} selected={i === selectedPlayerIndex} isAI={gameState.aiPlayers[i]} thinking={aiThinking && i === activePlayerIndex} onclick={() => selectPlayer(i)} />
-      {/each}
-    </div>
-  </div>
-
-  <div class="game-body">
-    {#if showSidebar && selectedPlayer}
-      <aside class="left-sidebar">
-        <div class="sidebar-section">
-          <h3>Color Wheel</h3>
-          <ColorWheelDisplay wheel={selectedPlayer.colorWheel} size={160} />
+<GameLayout {gameState} {activePlayerIndex} {aiThinking} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} sidebarPlayer={selectedPlayer ?? null} {selectedPlayerIndex} onSelectPlayer={selectPlayer}>
+  {#if gameState.phase.type === 'draft'}
+    {#if isViewingActiveHuman}
+      <DraftPhaseView {gameState} onAction={handleAction} onGameUpdated={() => onGameUpdated(gameState, gameLog)} />
+    {:else}
+      <div class="readonly-cards">
+        <div class="section-box">
+          <h3>Drafted Cards</h3>
+          <CardList cards={selectedPlayer.draftedCards} />
         </div>
-
-        <div class="sidebar-section">
-          <h3>Stored Materials</h3>
-          <div class="material-counts">
-            {#each Object.entries(selectedPlayer.materials) as [material, count]}
-              <span class="material-count">{material}: {count}</span>
-            {/each}
-          </div>
-          {#if selectedPlayer.ducats > 0}
-            <div class="ducats-count">Ducats: {selectedPlayer.ducats}</div>
-          {/if}
+        <div class="section-box">
+          <h3>Workshop</h3>
+          <CardList cards={selectedPlayer.workshopCards} />
         </div>
-      </aside>
+      </div>
     {/if}
-
-    <div class="main-column">
-      <div class="phase-content">
-        {#if gameState.phase.type === 'draft'}
-          {#if isViewingActiveHuman}
-            <DraftPhaseView {gameState} onAction={handleAction} onGameUpdated={() => onGameUpdated(gameState, gameLog)} />
-          {:else}
-            <div class="readonly-cards">
-              <div class="section-box">
-                <h3>Drafted Cards</h3>
-                <CardList cards={selectedPlayer.draftedCards} />
-              </div>
-              <div class="section-box">
-                <h3>Workshop</h3>
-                <CardList cards={selectedPlayer.workshopCards} />
-              </div>
-            </div>
-          {/if}
-        {:else if gameState.phase.type === 'action'}
-          {#if isViewingActiveHuman}
-            <ActionPhaseView {gameState} onAction={handleAction} onUndo={performUndo} undoAvailable={undoStack.length > 0} />
-          {:else}
-            <div class="readonly-cards">
-              <div class="section-box">
-                <h3>Drafted Cards</h3>
-                <CardList cards={selectedPlayer.draftedCards} />
-              </div>
-              <div class="section-box">
-                <h3>Workshop</h3>
-                <CardList cards={selectedPlayer.workshopCards} />
-              </div>
-              {#if selectedPlayer.completedBuyers.length > 0}
-                <div class="section-box">
-                  <h3>Completed Buyers</h3>
-                  <CardList cards={selectedPlayer.completedBuyers} />
-                </div>
-              {/if}
-            </div>
-          {/if}
-        {:else if gameState.phase.type === 'cleanup'}
-          {#if isViewingActiveHuman}
-            <CleanupPhaseView {gameState} onAction={handleAction} />
-          {:else}
-            <div class="readonly-cards">
-              <div class="section-box">
-                <h3>Workshop</h3>
-                <CardList cards={selectedPlayer.workshopCards} />
-              </div>
-            </div>
-          {/if}
+  {:else if gameState.phase.type === 'action'}
+    {#if isViewingActiveHuman}
+      <ActionPhaseView {gameState} onAction={handleAction} onUndo={performUndo} undoAvailable={undoStack.length > 0} />
+    {:else}
+      <div class="readonly-cards">
+        <div class="section-box">
+          <h3>Drafted Cards</h3>
+          <CardList cards={selectedPlayer.draftedCards} />
+        </div>
+        <div class="section-box">
+          <h3>Workshop</h3>
+          <CardList cards={selectedPlayer.workshopCards} />
+        </div>
+        {#if selectedPlayer.completedBuyers.length > 0}
+          <div class="section-box">
+            <h3>Completed Buyers</h3>
+            <CardList cards={selectedPlayer.completedBuyers} />
+          </div>
         {/if}
       </div>
-
-      {#if gameLog.length > 0}
-        <GameLog entries={gameLog} />
-      {/if}
-    </div>
-
-    {#if showSidebar && selectedPlayer}
-      <aside class="sidebar">
-        <div class="sidebar-section">
-          <BuyerDisplay buyers={gameState.buyerDisplay} />
-        </div>
-      </aside>
     {/if}
-  </div>
-</div>
+  {:else if gameState.phase.type === 'cleanup'}
+    {#if isViewingActiveHuman}
+      <CleanupPhaseView {gameState} onAction={handleAction} />
+    {:else}
+      <div class="readonly-cards">
+        <div class="section-box">
+          <h3>Workshop</h3>
+          <CardList cards={selectedPlayer.workshopCards} />
+        </div>
+      </div>
+    {/if}
+  {/if}
+</GameLayout>
 
 <style>
-  .game-screen {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .top-bar {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding-bottom: 8px;
-    border-bottom: 2px solid #e0d5c5;
-  }
-
-  .top-bar-row {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-  }
-
-  .round-indicator {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #4a3728;
-    text-align: center;
-  }
-
-  .leave-btn {
-    position: absolute;
-    right: 0;
-    padding: 4px 12px;
-    font-size: 0.75rem;
-    background: #e74c3c;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-  }
-
-  .leave-btn:hover {
-    background: #c0392b;
-  }
-
-  .player-bar {
-    display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-
-  .game-body {
-    display: flex;
-    gap: 1rem;
-  }
-
-  .main-column {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .phase-content {
-    min-height: 300px;
-  }
-
-  .left-sidebar {
-    width: 250px;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .sidebar {
-    width: 250px;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .sidebar-section {
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 10px 12px;
-    background: #fff;
-  }
-
-  .sidebar-section h3 {
-    font-size: 0.85rem;
-    color: #4a3728;
-    margin-bottom: 6px;
-  }
-
-  .material-counts {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.8rem;
-    color: #8b6914;
-  }
-
-  .material-count {
-    font-weight: 600;
-  }
-
-  .ducats-count {
-    font-size: 0.8rem;
-    color: #d4a017;
-    font-weight: 600;
-    margin-top: 4px;
-  }
-
   .readonly-cards {
     display: flex;
     flex-direction: column;
@@ -505,5 +295,4 @@
     color: #4a3728;
     margin-bottom: 6px;
   }
-
 </style>

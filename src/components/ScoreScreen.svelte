@@ -1,7 +1,8 @@
 <script lang="ts">
-  import type { GameState } from '../data/types';
+  import type { GameState, StructuredGameLog } from '../data/types';
   import { calculateScores, determineWinner } from '../engine/wasmEngine';
-  import { downloadGameLog, type StructuredGameLog } from '../gameLog';
+  import { downloadGameLog } from '../gameLog';
+  import { formatTime } from '../gameUtils';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import CardList from './CardList.svelte';
 
@@ -11,16 +12,6 @@
     onPlayAgain: () => void;
     structuredLog?: StructuredGameLog | null;
   } = $props();
-
-  function formatTime(seconds: number): string {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    if (h > 0) {
-      return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-    }
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  }
 
   let finalTime = $derived(
     gameStartTime !== null ? formatTime(Math.floor((Date.now() - gameStartTime) / 1000)) : null
