@@ -118,19 +118,9 @@ export interface DraftState {
   waitingForPass: boolean;
 }
 
-export type PendingChoice =
-  | { type: 'chooseCardsForWorkshop'; remainingPicks: number }
-  | { type: 'chooseCardsToDestroy' }
-  | { type: 'chooseMix'; remainingMixes: number }
-  | { type: 'chooseBuyer' }
-  | { type: 'chooseSecondaryColor' }
-  | { type: 'choosePrimaryColor' }
-  | { type: 'chooseTertiaryToLose' };
-
 export interface ActionState {
   currentPlayerIndex: number;
   abilityStack: Ability[];
-  pendingChoice: PendingChoice | null;
 }
 
 export interface CleanupState {

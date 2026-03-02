@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { GameState, Choice } from '../data/types';
+  import type { GameState, Choice, Ability } from '../data/types';
   import MixColorPrompt from './MixColorPrompt.svelte';
   import BuyerSelectPrompt from './BuyerSelectPrompt.svelte';
   import PrimaryColorPrompt from './PrimaryColorPrompt.svelte';
@@ -15,28 +15,32 @@
     gameState.phase.type === 'action' ? gameState.phase.actionState : null
   );
 
-  let pendingChoice = $derived(actionState?.pendingChoice ?? null);
+  let topAbility: Ability | null = $derived(
+    actionState && actionState.abilityStack.length > 0
+      ? actionState.abilityStack[actionState.abilityStack.length - 1]
+      : null
+  );
 
   let currentPlayer = $derived(
     actionState ? gameState.players[actionState.currentPlayerIndex] : null
   );
 </script>
 
-{#if pendingChoice && currentPlayer}
+{#if topAbility && currentPlayer}
   <div class="ability-prompt">
-    {#if pendingChoice.type === 'chooseMix'}
+    {#if topAbility.type === 'mixColors'}
       <MixColorPrompt
         colorWheel={currentPlayer.colorWheel}
-        remaining={pendingChoice.remainingMixes}
+        remaining={topAbility.count}
         {onAction}
       />
-    {:else if pendingChoice.type === 'chooseBuyer'}
+    {:else if topAbility.type === 'sell'}
       <BuyerSelectPrompt {gameState} {onAction} />
-    {:else if pendingChoice.type === 'choosePrimaryColor'}
+    {:else if topAbility.type === 'gainPrimary'}
       <PrimaryColorPrompt {onAction} />
-    {:else if pendingChoice.type === 'chooseSecondaryColor'}
+    {:else if topAbility.type === 'gainSecondary'}
       <SecondaryColorPrompt {onAction} />
-    {:else if pendingChoice.type === 'chooseTertiaryToLose'}
+    {:else if topAbility.type === 'changeTertiary'}
       <TertiarySwapPrompt colorWheel={currentPlayer.colorWheel} {onAction} />
     {/if}
   </div>

@@ -1,6 +1,6 @@
 use crate::action_phase::*;
 use crate::draft_phase::player_pick;
-use crate::types::{Choice, GamePhase, GameState, PendingChoice};
+use crate::types::{Ability, Choice, GamePhase, GameState};
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
 
@@ -116,7 +116,7 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
             }
             // Skip any remaining mixes not used
             if let GamePhase::Action { ref action_state } = state.phase {
-                if matches!(action_state.pending_choice, Some(PendingChoice::ChooseMix { .. })) {
+                if matches!(action_state.ability_stack.last(), Some(Ability::MixColors { .. })) {
                     skip_mix(state, rng);
                 }
             }
@@ -138,7 +138,7 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
                 resolve_mix_colors(state, a, b, rng);
             }
             if let GamePhase::Action { ref action_state } = state.phase {
-                if matches!(action_state.pending_choice, Some(PendingChoice::ChooseMix { .. })) {
+                if matches!(action_state.ability_stack.last(), Some(Ability::MixColors { .. })) {
                     skip_mix(state, rng);
                 }
             }

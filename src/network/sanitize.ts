@@ -40,7 +40,6 @@ export function sanitizeGameState(
       actionState: {
         currentPlayerIndex: actionState.currentPlayerIndex,
         abilityStack: actionState.abilityStack.map(a => ({ ...a })),
-        pendingChoice: actionState.pendingChoice ? { ...actionState.pendingChoice } : null,
       },
     };
   } else if (fullState.phase.type === 'cleanup') {

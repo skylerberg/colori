@@ -149,7 +149,7 @@ fn handle_action_no_pending<R: Rng>(state: &mut GameState, player_index: usize, 
     let card = state.card_lookup[card_id as usize];
     match card.ability() {
         Ability::MixColors { count } => {
-            // Fused: ability stack is guaranteed empty when pending_choice is None,
+            // Fused: ability stack is guaranteed empty when stack is empty,
             // so we can skip all process_ability_stack calls.
             let (mixes, mix_count) =
                 random_mix_seq(&state.players[player_index].color_wheel, count, rng);
@@ -167,7 +167,7 @@ fn handle_action_no_pending<R: Rng>(state: &mut GameState, player_index: usize, 
                 rng,
             ) {
                 Some(buyer_id) => {
-                    // Fused: ability stack is guaranteed empty when pending_choice is None,
+                    // Fused: ability stack is guaranteed empty when stack is empty,
                     // so we can skip all process_ability_stack calls.
                     state.players[player_index].drafted_cards.remove(card_id);
                     state.destroyed_pile.insert(card_id);
@@ -226,28 +226,29 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
     match &state.phase {
         GamePhase::Action { action_state } => {
             let player_index = action_state.current_player_index;
-            match &action_state.pending_choice {
+            match action_state.ability_stack.last() {
                 None => {
                     handle_action_no_pending(state, player_index, rng);
                 }
-                Some(PendingChoice::ChooseCardsForWorkshop { remaining_picks }) => {
+                Some(Ability::Workshop { count }) => {
+                    let count = *count;
                     let mut copy = state.players[player_index].workshop_cards;
-                    let selected = copy.draw_up_to(*remaining_picks as u8, rng);
+                    let selected = copy.draw_up_to(count as u8, rng);
                     if selected.is_empty() {
                         skip_workshop(state, rng);
                     } else {
                         resolve_workshop_choice(state, selected, rng);
                     }
                 }
-                Some(PendingChoice::ChooseCardsToDestroy) => {
+                Some(Ability::DestroyCards) => {
                     let mut copy = state.players[player_index].workshop_cards;
                     let selected = copy.draw_up_to(1, rng);
                     resolve_destroy_cards(state, selected, rng);
                 }
-                Some(PendingChoice::ChooseMix { remaining_mixes }) => {
+                Some(Ability::MixColors { count }) => {
                     // Fused: apply all mixes directly, then process_ability_stack once.
-                    // Ability stack may not be empty here, so we must call process_ability_stack.
-                    let remaining_mixes = *remaining_mixes;
+                    // Ability stack may have more items below, so we must call process_ability_stack.
+                    let remaining_mixes = *count;
                     let (mixes, mix_count) =
                         random_mix_seq(&state.players[player_index].color_wheel, remaining_mixes, rng);
                     for i in 0..mix_count {
@@ -259,11 +260,11 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                         );
                     }
                     if let GamePhase::Action { ref mut action_state } = state.phase {
-                        action_state.pending_choice = None;
+                        action_state.ability_stack.pop();
                     }
                     process_ability_stack(state, rng);
                 }
-                Some(PendingChoice::ChooseBuyer) => {
+                Some(Ability::Sell) => {
                     let buyer_id = pick_random_affordable_buyer(
                         &state.players[player_index],
                         &state.buyer_display,
@@ -272,15 +273,15 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                     .unwrap();
                     resolve_select_buyer(state, buyer_id, rng);
                 }
-                Some(PendingChoice::ChooseSecondaryColor) => {
+                Some(Ability::GainSecondary) => {
                     let color = SECONDARIES[rng.random_range(0..SECONDARIES.len())];
                     resolve_gain_secondary(state, color, rng);
                 }
-                Some(PendingChoice::ChoosePrimaryColor) => {
+                Some(Ability::GainPrimary) => {
                     let color = PRIMARIES[rng.random_range(0..PRIMARIES.len())];
                     resolve_gain_primary(state, color, rng);
                 }
-                Some(PendingChoice::ChooseTertiaryToLose) => {
+                Some(Ability::ChangeTertiary) => {
                     let player = &state.players[player_index];
                     let mut owned_tertiaries = [Color::Red; 6];
                     let mut own_count = 0usize;
@@ -306,6 +307,8 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                     resolve_choose_tertiary_to_lose(state, lose_color);
                     resolve_choose_tertiary_to_gain(state, gain_color, rng);
                 }
+                // Instant abilities should never be on top waiting — they get processed immediately
+                Some(_) => panic!("Unexpected ability on stack top during rollout"),
             }
         }
         GamePhase::Cleanup { cleanup_state } => {

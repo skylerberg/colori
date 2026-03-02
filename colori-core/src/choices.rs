@@ -143,9 +143,8 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
         }
         GamePhase::Action { action_state } => {
             let player = &state.players[action_state.current_player_index];
-            let pending = &action_state.pending_choice;
 
-            match pending {
+            match action_state.ability_stack.last() {
                 None => {
                     let mut seen: u64 = 0;
                     for id in player.drafted_cards.iter() {
@@ -187,19 +186,19 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                     }
                     choices.push(Choice::EndTurn);
                 }
-                Some(PendingChoice::ChooseCardsForWorkshop { remaining_picks }) => {
+                Some(Ability::Workshop { count }) => {
                     choices.push(Choice::SkipWorkshop);
                     let (card_types, type_counts, len) = count_card_types(player.workshop_cards, &state.card_lookup);
                     enumerate_multiset_subsets(
                         &card_types[..len],
                         &type_counts[..len],
-                        *remaining_picks as usize,
+                        *count as usize,
                         &mut SmallVec::new(),
                         choices,
                         &|card_types| Choice::Workshop { card_types },
                     );
                 }
-                Some(PendingChoice::ChooseCardsToDestroy) => {
+                Some(Ability::DestroyCards) => {
                     if player.workshop_cards.is_empty() {
                         choices.push(Choice::DestroyDrawnCards { card: None });
                     } else {
@@ -213,15 +212,15 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                         }
                     }
                 }
-                Some(PendingChoice::ChooseMix { remaining_mixes }) => {
+                Some(Ability::MixColors { count }) => {
                     enumerate_mix_sequences(
                         &player.color_wheel,
-                        *remaining_mixes,
+                        *count,
                         choices,
                         |mixes| Choice::MixAll { mixes },
                     );
                 }
-                Some(PendingChoice::ChooseBuyer) => {
+                Some(Ability::Sell) => {
                     for buyer in state.buyer_display.iter() {
                         if can_afford_buyer(player, &buyer.buyer) {
                             choices.push(Choice::SelectBuyer {
@@ -230,17 +229,17 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                         }
                     }
                 }
-                Some(PendingChoice::ChooseSecondaryColor) => {
+                Some(Ability::GainSecondary) => {
                     for &c in SECONDARIES.iter() {
                         choices.push(Choice::GainSecondary { color: c });
                     }
                 }
-                Some(PendingChoice::ChoosePrimaryColor) => {
+                Some(Ability::GainPrimary) => {
                     for &c in PRIMARIES.iter() {
                         choices.push(Choice::GainPrimary { color: c });
                     }
                 }
-                Some(PendingChoice::ChooseTertiaryToLose) => {
+                Some(Ability::ChangeTertiary) => {
                     for &lose in TERTIARIES.iter() {
                         if player.color_wheel.get(lose) > 0 {
                             for &gain in TERTIARIES.iter() {
@@ -251,6 +250,9 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                         }
                     }
                 }
+                // Instant abilities (DrawCards, GainDucats) should never be on top
+                // when waiting for a choice — they get processed immediately.
+                Some(_) => {}
             }
         }
         GamePhase::Cleanup { cleanup_state } => {
@@ -298,7 +300,7 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
         }
         Choice::DestroyDraftedCard { card } => {
             if let GamePhase::Action { ref action_state } = state.phase {
-                if action_state.pending_choice.is_some() {
+                if !action_state.ability_stack.is_empty() {
                     return false;
                 }
                 let player = &state.players[action_state.current_player_index];
@@ -317,15 +319,15 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
         }
         Choice::EndTurn => {
             if let GamePhase::Action { ref action_state } = state.phase {
-                action_state.pending_choice.is_none()
+                action_state.ability_stack.is_empty()
             } else {
                 false
             }
         }
         Choice::Workshop { card_types } => {
             if let GamePhase::Action { ref action_state } = state.phase {
-                match &action_state.pending_choice {
-                    Some(PendingChoice::ChooseCardsForWorkshop { .. }) => {
+                match action_state.ability_stack.last() {
+                    Some(Ability::Workshop { .. }) => {
                         if card_types.is_empty() {
                             return false;
                         }
@@ -341,8 +343,8 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
         Choice::SkipWorkshop => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 matches!(
-                    action_state.pending_choice,
-                    Some(PendingChoice::ChooseCardsForWorkshop { .. })
+                    action_state.ability_stack.last(),
+                    Some(Ability::Workshop { .. })
                 )
             } else {
                 false
@@ -350,8 +352,8 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
         }
         Choice::DestroyDrawnCards { card } => {
             if let GamePhase::Action { ref action_state } = state.phase {
-                match &action_state.pending_choice {
-                    Some(PendingChoice::ChooseCardsToDestroy) => match card {
+                match action_state.ability_stack.last() {
+                    Some(Ability::DestroyCards) => match card {
                         None => true,
                         Some(card) => {
                             let player = &state.players[action_state.current_player_index];
@@ -366,8 +368,8 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
         }
         Choice::SelectBuyer { buyer } => {
             if let GamePhase::Action { ref action_state } = state.phase {
-                match &action_state.pending_choice {
-                    Some(PendingChoice::ChooseBuyer) => {
+                match action_state.ability_stack.last() {
+                    Some(Ability::Sell) => {
                         let player = &state.players[action_state.current_player_index];
                         state.buyer_display.iter().any(|b| b.buyer == *buyer && can_afford_buyer(player, &b.buyer))
                     }
@@ -380,8 +382,8 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
         Choice::GainSecondary { color } => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 matches!(
-                    action_state.pending_choice,
-                    Some(PendingChoice::ChooseSecondaryColor)
+                    action_state.ability_stack.last(),
+                    Some(Ability::GainSecondary)
                 ) && SECONDARIES.contains(color)
             } else {
                 false
@@ -390,8 +392,8 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
         Choice::GainPrimary { color } => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 matches!(
-                    action_state.pending_choice,
-                    Some(PendingChoice::ChoosePrimaryColor)
+                    action_state.ability_stack.last(),
+                    Some(Ability::GainPrimary)
                 ) && PRIMARIES.contains(color)
             } else {
                 false
@@ -399,8 +401,8 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
         }
         Choice::MixAll { mixes } => {
             if let GamePhase::Action { ref action_state } = state.phase {
-                match &action_state.pending_choice {
-                    Some(PendingChoice::ChooseMix { .. }) => {
+                match action_state.ability_stack.last() {
+                    Some(Ability::MixColors { .. }) => {
                         if mixes.is_empty() {
                             return true;
                         }
@@ -418,8 +420,8 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
         }
         Choice::SwapTertiary { lose, gain } => {
             if let GamePhase::Action { ref action_state } = state.phase {
-                match &action_state.pending_choice {
-                    Some(PendingChoice::ChooseTertiaryToLose) => {
+                match action_state.ability_stack.last() {
+                    Some(Ability::ChangeTertiary) => {
                         let player = &state.players[action_state.current_player_index];
                         TERTIARIES.contains(lose)
                             && player.color_wheel.get(*lose) > 0
@@ -434,7 +436,7 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
         }
         Choice::DestroyAndMixAll { card, mixes } => {
             if let GamePhase::Action { ref action_state } = state.phase {
-                if action_state.pending_choice.is_some() {
+                if !action_state.ability_stack.is_empty() {
                     return false;
                 }
                 let player = &state.players[action_state.current_player_index];
@@ -463,7 +465,7 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
         }
         Choice::DestroyAndSell { card, buyer } => {
             if let GamePhase::Action { ref action_state } = state.phase {
-                if action_state.pending_choice.is_some() {
+                if !action_state.ability_stack.is_empty() {
                     return false;
                 }
                 let player = &state.players[action_state.current_player_index];

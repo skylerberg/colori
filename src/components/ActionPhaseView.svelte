@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { GameState, Choice } from '../data/types';
+  import type { GameState, Choice, Ability } from '../data/types';
   import CardList from './CardList.svelte';
   import AbilityPrompt from './AbilityPrompt.svelte';
   import OpponentBoardPanel from './OpponentBoardPanel.svelte';
@@ -19,30 +19,34 @@
     actionState ? gameState.players[actionState.currentPlayerIndex] : null
   );
 
-  let pendingChoice = $derived(actionState?.pendingChoice ?? null);
-  let hasPendingChoice = $derived(actionState?.pendingChoice !== null);
+  let topAbility: Ability | null = $derived(
+    actionState && actionState.abilityStack.length > 0
+      ? actionState.abilityStack[actionState.abilityStack.length - 1]
+      : null
+  );
+  let hasPendingChoice = $derived(topAbility !== null);
   let hasAbilitiesQueued = $derived((actionState?.abilityStack.length ?? 0) > 0);
 
   let workshopPendingChoice = $derived(
-    pendingChoice?.type === 'chooseCardsForWorkshop' || pendingChoice?.type === 'chooseCardsToDestroy'
-      ? pendingChoice : null
+    topAbility?.type === 'workshop' || topAbility?.type === 'destroyCards'
+      ? topAbility : null
   );
 
   let selectedWorkshopIds: number[] = $state([]);
   let selectedDestroyIds: number[] = $state([]);
 
   $effect(() => {
-    pendingChoice;
+    topAbility;
     selectedWorkshopIds = [];
     selectedDestroyIds = [];
   });
 
   function toggleWorkshopCard(instanceId: number) {
-    if (!pendingChoice || pendingChoice.type !== 'chooseCardsForWorkshop') return;
+    if (!topAbility || topAbility.type !== 'workshop') return;
     const idx = selectedWorkshopIds.indexOf(instanceId);
     if (idx >= 0) {
       selectedWorkshopIds = selectedWorkshopIds.filter(id => id !== instanceId);
-    } else if (selectedWorkshopIds.length < pendingChoice.remainingPicks) {
+    } else if (selectedWorkshopIds.length < topAbility.count) {
       selectedWorkshopIds = [...selectedWorkshopIds, instanceId];
     }
   }
@@ -61,7 +65,7 @@
   }
 
   function toggleDestroyCard(instanceId: number) {
-    if (!pendingChoice || pendingChoice.type !== 'chooseCardsToDestroy') return;
+    if (!topAbility || topAbility.type !== 'destroyCards') return;
     const idx = selectedDestroyIds.indexOf(instanceId);
     if (idx >= 0) {
       selectedDestroyIds = selectedDestroyIds.filter(id => id !== instanceId);
@@ -119,8 +123,8 @@
       </div>
 
       <div class="section" class:active-choice={workshopPendingChoice}>
-        {#if pendingChoice?.type === 'chooseCardsForWorkshop'}
-          <h3>Workshop — Select cards ({pendingChoice.remainingPicks} available)</h3>
+        {#if topAbility?.type === 'workshop'}
+          <h3>Workshop — Select cards ({topAbility.count} available)</h3>
           <CardList
             cards={currentPlayer.workshopCards}
             selectable={true}
@@ -133,7 +137,7 @@
           <button class="confirm-btn skip-btn" onclick={handleSkipWorkshop}>
             Skip Workshop
           </button>
-        {:else if pendingChoice?.type === 'chooseCardsToDestroy'}
+        {:else if topAbility?.type === 'destroyCards'}
           <h3>Workshop — Select a card to destroy</h3>
           <CardList
             cards={currentPlayer.workshopCards}

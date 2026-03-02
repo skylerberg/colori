@@ -1,4 +1,4 @@
-import type { CardInstance, BuyerInstance, Color, MaterialType, PendingChoice, Ability } from '../data/types';
+import type { CardInstance, BuyerInstance, Color, MaterialType, Ability } from '../data/types';
 import type { Choice } from '../data/types';
 
 export interface SanitizedPlayerState {
@@ -24,7 +24,6 @@ export interface SanitizedDraftState {
 export interface SanitizedActionState {
   currentPlayerIndex: number;
   abilityStack: Ability[];
-  pendingChoice: PendingChoice | null;
 }
 
 export interface SanitizedCleanupState {

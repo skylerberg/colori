@@ -678,36 +678,10 @@ fn deserialize_hands<'de, D: serde::Deserializer<'de>>(
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
-pub enum PendingChoice {
-    #[serde(rename = "chooseCardsForWorkshop")]
-    ChooseCardsForWorkshop {
-        #[serde(rename = "remainingPicks")]
-        remaining_picks: u32,
-    },
-    #[serde(rename = "chooseCardsToDestroy")]
-    ChooseCardsToDestroy,
-    #[serde(rename = "chooseMix")]
-    ChooseMix {
-        #[serde(rename = "remainingMixes")]
-        remaining_mixes: u32,
-    },
-    #[serde(rename = "chooseBuyer")]
-    ChooseBuyer,
-    #[serde(rename = "chooseSecondaryColor")]
-    ChooseSecondaryColor,
-    #[serde(rename = "choosePrimaryColor")]
-    ChoosePrimaryColor,
-    #[serde(rename = "chooseTertiaryToLose")]
-    ChooseTertiaryToLose,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActionState {
     pub current_player_index: usize,
     pub ability_stack: AbilityStack,
-    pub pending_choice: Option<PendingChoice>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
