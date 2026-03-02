@@ -282,7 +282,7 @@ pub fn format_choice(choice: &Choice) -> String {
         Choice::SwapTertiary { lose, gain } => {
             format!("Swapped {:?} for {:?}", lose, gain)
         }
-        Choice::DestroyAndMixAll {
+        Choice::DestroyAndMix {
             card,
             mixes,
         } => {
@@ -310,6 +310,36 @@ pub fn format_choice(choice: &Choice) -> String {
                 card_name(card),
                 buyer_name(buyer)
             )
+        }
+        Choice::DestroyAndWorkshop {
+            card,
+            workshop_cards,
+        } => {
+            if workshop_cards.is_empty() {
+                format!("Destroyed {} and skipped workshop", card_name(card))
+            } else {
+                format!(
+                    "Destroyed {} and workshopped {}",
+                    card_name(card),
+                    card_names(workshop_cards)
+                )
+            }
+        }
+        Choice::DestroyAndDestroyCards {
+            card,
+            target,
+        } => {
+            match target {
+                Some(t) => format!(
+                    "Destroyed {} and destroyed {} from workshop",
+                    card_name(card),
+                    card_name(t)
+                ),
+                None => format!(
+                    "Destroyed {} and destroyed nothing from workshop",
+                    card_name(card)
+                ),
+            }
         }
         Choice::KeepWorkshopCards { card_types } => {
             if card_types.is_empty() {
@@ -357,8 +387,10 @@ fn choice_type_name(choice: &Choice) -> String {
         Choice::GainPrimary { .. } => "gainPrimary".to_string(),
         Choice::MixAll { .. } => "mixAll".to_string(),
         Choice::SwapTertiary { .. } => "swapTertiary".to_string(),
-        Choice::DestroyAndMixAll { .. } => "destroyAndMixAll".to_string(),
+        Choice::DestroyAndMix { .. } => "destroyAndMix".to_string(),
         Choice::DestroyAndSell { .. } => "destroyAndSell".to_string(),
+        Choice::DestroyAndWorkshop { .. } => "destroyAndWorkshop".to_string(),
+        Choice::DestroyAndDestroyCards { .. } => "destroyAndDestroyCards".to_string(),
         Choice::KeepWorkshopCards { .. } => "keepWorkshopCards".to_string(),
     }
 }
@@ -412,15 +444,11 @@ pub fn compute_cards_added_to_deck(
                     let name = card_name_from_instance(*card);
                     *player_drafted.entry(pi).or_default().entry(name).or_insert(0) += 1;
                 }
-                Choice::DestroyDraftedCard { card } => {
-                    let name = card_name_from_instance(*card);
-                    *player_destroyed.entry(pi).or_default().entry(name).or_insert(0) += 1;
-                }
-                Choice::DestroyAndMixAll { card, .. } => {
-                    let name = card_name_from_instance(*card);
-                    *player_destroyed.entry(pi).or_default().entry(name).or_insert(0) += 1;
-                }
-                Choice::DestroyAndSell { card, .. } => {
+                Choice::DestroyDraftedCard { card }
+                | Choice::DestroyAndMix { card, .. }
+                | Choice::DestroyAndSell { card, .. }
+                | Choice::DestroyAndWorkshop { card, .. }
+                | Choice::DestroyAndDestroyCards { card, .. } => {
                     let name = card_name_from_instance(*card);
                     *player_destroyed.entry(pi).or_default().entry(name).or_insert(0) += 1;
                 }
@@ -499,9 +527,11 @@ pub fn compute_destroyed_from_draft(
                 }
             }
             let card = match &entry.choice {
-                Choice::DestroyDraftedCard { card } => Some(card),
-                Choice::DestroyAndMixAll { card, .. } => Some(card),
-                Choice::DestroyAndSell { card, .. } => Some(card),
+                Choice::DestroyDraftedCard { card }
+                | Choice::DestroyAndMix { card, .. }
+                | Choice::DestroyAndSell { card, .. }
+                | Choice::DestroyAndWorkshop { card, .. }
+                | Choice::DestroyAndDestroyCards { card, .. } => Some(card),
                 _ => None,
             };
             if let Some(card) = card {
@@ -586,15 +616,11 @@ pub fn compute_win_rate_by_card(
                     let name = card_name_from_instance(*card);
                     *player_drafted.entry(pi).or_default().entry(name).or_insert(0) += 1;
                 }
-                Choice::DestroyDraftedCard { card } => {
-                    let name = card_name_from_instance(*card);
-                    *player_destroyed.entry(pi).or_default().entry(name).or_insert(0) += 1;
-                }
-                Choice::DestroyAndMixAll { card, .. } => {
-                    let name = card_name_from_instance(*card);
-                    *player_destroyed.entry(pi).or_default().entry(name).or_insert(0) += 1;
-                }
-                Choice::DestroyAndSell { card, .. } => {
+                Choice::DestroyDraftedCard { card }
+                | Choice::DestroyAndMix { card, .. }
+                | Choice::DestroyAndSell { card, .. }
+                | Choice::DestroyAndWorkshop { card, .. }
+                | Choice::DestroyAndDestroyCards { card, .. } => {
                     let name = card_name_from_instance(*card);
                     *player_destroyed.entry(pi).or_default().entry(name).or_insert(0) += 1;
                 }
@@ -1041,8 +1067,10 @@ pub fn compute_penultimate_round_deck_sizes(
                     player_deck_sizes[pi] += 1;
                 }
                 Choice::DestroyDraftedCard { .. }
-                | Choice::DestroyAndMixAll { .. }
-                | Choice::DestroyAndSell { .. } => {
+                | Choice::DestroyAndMix { .. }
+                | Choice::DestroyAndSell { .. }
+                | Choice::DestroyAndWorkshop { .. }
+                | Choice::DestroyAndDestroyCards { .. } => {
                     player_deck_sizes[pi] -= 1;
                 }
                 Choice::DestroyDrawnCards { card } => {

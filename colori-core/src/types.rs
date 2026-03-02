@@ -776,13 +776,24 @@ pub enum Choice {
         #[serde(rename = "gainColor")]
         gain: Color,
     },
-    #[serde(rename = "destroyAndMixAll")]
-    DestroyAndMixAll {
+    #[serde(rename = "destroyAndMix")]
+    DestroyAndMix {
         card: Card,
         mixes: SmallVec<[(Color, Color); 2]>,
     },
     #[serde(rename = "destroyAndSell")]
     DestroyAndSell { card: Card, buyer: BuyerCard },
+    #[serde(rename = "destroyAndWorkshop")]
+    DestroyAndWorkshop {
+        card: Card,
+        #[serde(rename = "workshopCards")]
+        workshop_cards: SmallVec<[Card; 4]>,
+    },
+    #[serde(rename = "destroyAndDestroyCards")]
+    DestroyAndDestroyCards {
+        card: Card,
+        target: Option<Card>,
+    },
     #[serde(rename = "keepWorkshopCards")]
     KeepWorkshopCards {
         #[serde(rename = "cardTypes")]

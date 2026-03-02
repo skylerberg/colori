@@ -115,6 +115,88 @@ fn enumerate_mix_sequences<F>(
     }
 }
 
+// ── Destroy choice dispatch ──
+
+fn enumerate_destroy_choices(
+    state: &GameState,
+    player: &PlayerState,
+    card: Card,
+    choices: &mut Vec<Choice>,
+) {
+    match card.ability() {
+        Ability::MixColors { count } => {
+            enumerate_mix_sequences(
+                &player.color_wheel,
+                count,
+                choices,
+                |mixes| Choice::DestroyAndMix { card, mixes },
+            );
+        }
+        Ability::Sell => {
+            let mut has_buyer = false;
+            for buyer in state.buyer_display.iter() {
+                if can_afford_buyer(player, &buyer.buyer) {
+                    has_buyer = true;
+                    choices.push(Choice::DestroyAndSell {
+                        card,
+                        buyer: buyer.buyer,
+                    });
+                }
+            }
+            if !has_buyer {
+                choices.push(Choice::DestroyDraftedCard { card });
+            }
+        }
+        Ability::Workshop { count } => {
+            // Skip option (empty workshop_cards)
+            choices.push(Choice::DestroyAndWorkshop {
+                card,
+                workshop_cards: SmallVec::new(),
+            });
+            let (card_types, type_counts, len) =
+                count_card_types(player.workshop_cards, &state.card_lookup);
+            if len > 0 {
+                enumerate_multiset_subsets(
+                    &card_types[..len],
+                    &type_counts[..len],
+                    count as usize,
+                    &mut SmallVec::new(),
+                    choices,
+                    &|workshop_cards| Choice::DestroyAndWorkshop {
+                        card,
+                        workshop_cards,
+                    },
+                );
+            }
+        }
+        Ability::DestroyCards => {
+            if player.workshop_cards.is_empty() {
+                choices.push(Choice::DestroyAndDestroyCards {
+                    card,
+                    target: None,
+                });
+            } else {
+                let mut seen: u64 = 0;
+                for id in player.workshop_cards.iter() {
+                    let target_card = state.card_lookup[id as usize];
+                    let bit = 1u64 << (target_card as u64);
+                    if seen & bit != 0 {
+                        continue;
+                    }
+                    seen |= bit;
+                    choices.push(Choice::DestroyAndDestroyCards {
+                        card,
+                        target: Some(target_card),
+                    });
+                }
+            }
+        }
+        _ => {
+            choices.push(Choice::DestroyDraftedCard { card });
+        }
+    }
+}
+
 // ── Choice enumeration ──
 
 pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
@@ -145,37 +227,7 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                         let bit = 1u64 << (card as u64);
                         if seen & bit != 0 { continue; }
                         seen |= bit;
-                        match card.ability() {
-                            Ability::MixColors { count } => {
-                                enumerate_mix_sequences(
-                                    &player.color_wheel,
-                                    count,
-                                    choices,
-                                    |mixes| Choice::DestroyAndMixAll {
-                                        card,
-                                        mixes,
-                                    },
-                                );
-                            }
-                            Ability::Sell => {
-                                let mut has_buyer = false;
-                                for buyer in state.buyer_display.iter() {
-                                    if can_afford_buyer(player, &buyer.buyer) {
-                                        has_buyer = true;
-                                        choices.push(Choice::DestroyAndSell {
-                                            card,
-                                            buyer: buyer.buyer,
-                                        });
-                                    }
-                                }
-                                if !has_buyer {
-                                    choices.push(Choice::DestroyDraftedCard { card });
-                                }
-                            }
-                            _ => {
-                                choices.push(Choice::DestroyDraftedCard { card });
-                            }
-                        }
+                        enumerate_destroy_choices(state, player, card, choices);
                     }
                     choices.push(Choice::EndTurn);
                 }
@@ -278,6 +330,20 @@ pub fn enumerate_choices(state: &GameState) -> Vec<Choice> {
 
 // ── Choice availability ──
 
+/// Check common preconditions for all destroy-drafted-card variants:
+/// ability stack is empty and the card exists in the current player's drafted_cards.
+fn check_destroy_preconditions(state: &GameState, card: &Card) -> bool {
+    if let GamePhase::Action { ref action_state } = state.phase {
+        action_state.ability_stack.is_empty()
+            && state.players[action_state.current_player_index]
+                .drafted_cards
+                .iter()
+                .any(|id| state.card_lookup[id as usize] == *card)
+    } else {
+        false
+    }
+}
+
 pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
     match choice {
         Choice::DraftPick { card } => {
@@ -292,22 +358,15 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
             }
         }
         Choice::DestroyDraftedCard { card } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if !action_state.ability_stack.is_empty() {
-                    return false;
-                }
-                let player = &state.players[action_state.current_player_index];
-                let has_card = player.drafted_cards.iter().any(|id| state.card_lookup[id as usize] == *card);
-                if !has_card {
-                    return false;
-                }
-                match card.ability() {
-                    Ability::Sell => !can_sell_to_any_buyer(state),
-                    Ability::MixColors { .. } => false,
-                    _ => true,
-                }
-            } else {
-                false
+            if !check_destroy_preconditions(state, card) {
+                return false;
+            }
+            match card.ability() {
+                Ability::Sell => !can_sell_to_any_buyer(state),
+                Ability::MixColors { .. } => false,
+                Ability::Workshop { .. } => false,
+                Ability::DestroyCards => false,
+                _ => true,
             }
         }
         Choice::EndTurn => {
@@ -427,47 +486,67 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
                 false
             }
         }
-        Choice::DestroyAndMixAll { card, mixes } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if !action_state.ability_stack.is_empty() {
-                    return false;
-                }
-                let player = &state.players[action_state.current_player_index];
-                if !player.drafted_cards.iter().any(|id| state.card_lookup[id as usize] == *card) {
-                    return false;
-                }
-                if mixes.is_empty() {
-                    return true;
-                }
-                let (a, b) = mixes[0];
-                if player.color_wheel.get(a) == 0 || player.color_wheel.get(b) == 0 || !can_mix(a, b) {
-                    return false;
-                }
-                if mixes.len() > 1 {
-                    let mut wheel = player.color_wheel.clone();
-                    perform_mix_unchecked(&mut wheel, a, b);
-                    let (c, d) = mixes[1];
-                    if wheel.get(c) == 0 || wheel.get(d) == 0 || !can_mix(c, d) {
-                        return false;
-                    }
-                }
-                true
-            } else {
-                false
+        Choice::DestroyAndMix { card, mixes } => {
+            if !check_destroy_preconditions(state, card) {
+                return false;
             }
+            if mixes.is_empty() {
+                return true;
+            }
+            let player = &state.players[match &state.phase {
+                GamePhase::Action { action_state } => action_state.current_player_index,
+                _ => return false,
+            }];
+            let (a, b) = mixes[0];
+            if player.color_wheel.get(a) == 0 || player.color_wheel.get(b) == 0 || !can_mix(a, b) {
+                return false;
+            }
+            if mixes.len() > 1 {
+                let mut wheel = player.color_wheel.clone();
+                perform_mix_unchecked(&mut wheel, a, b);
+                let (c, d) = mixes[1];
+                if wheel.get(c) == 0 || wheel.get(d) == 0 || !can_mix(c, d) {
+                    return false;
+                }
+            }
+            true
         }
         Choice::DestroyAndSell { card, buyer } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if !action_state.ability_stack.is_empty() {
-                    return false;
+            if !check_destroy_preconditions(state, card) {
+                return false;
+            }
+            let player = &state.players[match &state.phase {
+                GamePhase::Action { action_state } => action_state.current_player_index,
+                _ => return false,
+            }];
+            state.buyer_display.iter().any(|b| b.buyer == *buyer && can_afford_buyer(player, &b.buyer))
+        }
+        Choice::DestroyAndWorkshop { card, workshop_cards } => {
+            if !check_destroy_preconditions(state, card) {
+                return false;
+            }
+            if workshop_cards.is_empty() {
+                return true;
+            }
+            let player = &state.players[match &state.phase {
+                GamePhase::Action { action_state } => action_state.current_player_index,
+                _ => return false,
+            }];
+            resolve_card_types_to_ids(workshop_cards, &player.workshop_cards, &state.card_lookup).is_some()
+        }
+        Choice::DestroyAndDestroyCards { card, target } => {
+            if !check_destroy_preconditions(state, card) {
+                return false;
+            }
+            match target {
+                None => true,
+                Some(target_card) => {
+                    let player = &state.players[match &state.phase {
+                        GamePhase::Action { action_state } => action_state.current_player_index,
+                        _ => return false,
+                    }];
+                    player.workshop_cards.iter().any(|id| state.card_lookup[id as usize] == *target_card)
                 }
-                let player = &state.players[action_state.current_player_index];
-                if !player.drafted_cards.iter().any(|id| state.card_lookup[id as usize] == *card) {
-                    return false;
-                }
-                state.buyer_display.iter().any(|b| b.buyer == *buyer && can_afford_buyer(player, &b.buyer))
-            } else {
-                false
             }
         }
         Choice::KeepWorkshopCards { card_types } => {

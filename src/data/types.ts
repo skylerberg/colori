@@ -158,8 +158,10 @@ export type Choice =
   | { type: 'gainPrimary'; color: Color }
   | { type: 'mixAll'; mixes: [Color, Color][] }
   | { type: 'swapTertiary'; loseColor: Color; gainColor: Color }
-  | { type: 'destroyAndMixAll'; card: Card; mixes: [Color, Color][] }
+  | { type: 'destroyAndMix'; card: Card; mixes: [Color, Color][] }
   | { type: 'destroyAndSell'; card: Card; buyer: BuyerCard }
+  | { type: 'destroyAndWorkshop'; card: Card; workshopCards: Card[] }
+  | { type: 'destroyAndDestroyCards'; card: Card; target: Card | null }
   | { type: 'keepWorkshopCards'; cardTypes: Card[] };
 
 // ── Game Log Types ──

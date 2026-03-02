@@ -121,7 +121,7 @@ export function getChoiceLogMessage(
     }
     case 'swapTertiary':
       return `${name} swapped ${choice.loseColor} for ${choice.gainColor}`;
-    case 'destroyAndMixAll': {
+    case 'destroyAndMix': {
       const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
       let msg = `${name} destroyed ${cardName} from drafted cards`;
       if (choice.mixes.length > 0) {
@@ -133,6 +133,22 @@ export function getChoiceLogMessage(
     case 'destroyAndSell': {
       const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
       return `${name} destroyed ${cardName} from drafted cards, sold to a ${getBuyerData(choice.buyer).stars}-star buyer`;
+    }
+    case 'destroyAndWorkshop': {
+      const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
+      if (choice.workshopCards.length === 0) {
+        return `${name} destroyed ${cardName} from drafted cards, skipped workshop`;
+      }
+      const workshopNames = choice.workshopCards.map(c => (getAnyCardData(c) as { name?: string })?.name ?? 'a card');
+      return `${name} destroyed ${cardName} from drafted cards, workshopped ${workshopNames.join(', ')}`;
+    }
+    case 'destroyAndDestroyCards': {
+      const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
+      if (choice.target === null) {
+        return `${name} destroyed ${cardName} from drafted cards, destroyed nothing from workshop`;
+      }
+      const targetName = (getAnyCardData(choice.target) as { name?: string })?.name ?? 'a card';
+      return `${name} destroyed ${cardName} from drafted cards, destroyed ${targetName} from workshop`;
     }
     case 'keepWorkshopCards': {
       const player = state.players[playerIndex];
