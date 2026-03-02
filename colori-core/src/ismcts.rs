@@ -1,6 +1,6 @@
 use crate::colori_game::{
     abstract_choice, apply_choice_to_state, apply_rollout_step, deduplicate_choices,
-    determinize_in_place, enumerate_choices_canonical_into, enumerate_choices_into,
+    determinize_in_place, enumerate_choices_into,
     get_game_status, resolve_abstract_choice, GameStatus,
 };
 use crate::scoring::calculate_score;
@@ -14,7 +14,6 @@ pub struct MctsConfig {
     pub iterations: u32,
     pub exploration_constant: f64,
     pub max_rollout_steps: u32,
-    pub canonical_ordering: bool,
     pub abstract_choices: bool,
 }
 
@@ -24,7 +23,6 @@ impl Default for MctsConfig {
             iterations: 100,
             exploration_constant: std::f64::consts::SQRT_2,
             max_rollout_steps: 1000,
-            canonical_ordering: false,
             abstract_choices: false,
         }
     }
@@ -45,8 +43,6 @@ impl<'de> Deserialize<'de> for MctsConfig {
             #[serde(default = "default_max_rollout_steps")]
             max_rollout_steps: u32,
             #[serde(default)]
-            canonical_ordering: bool,
-            #[serde(default)]
             abstract_choices: bool,
         }
 
@@ -59,7 +55,6 @@ impl<'de> Deserialize<'de> for MctsConfig {
             iterations: helper.iterations,
             exploration_constant: helper.exploration_constant,
             max_rollout_steps: helper.max_rollout_steps,
-            canonical_ordering: helper.canonical_ordering,
             abstract_choices: helper.abstract_choices,
         })
     }
@@ -172,11 +167,7 @@ pub fn ismcts<R: Rng>(
 ) -> ColoriChoice {
     // If there's only one legal choice, return it immediately without searching
     let mut choices_buf: Vec<ColoriChoice> = Vec::new();
-    if config.canonical_ordering {
-        enumerate_choices_canonical_into(state, &mut choices_buf);
-    } else {
-        enumerate_choices_into(state, &mut choices_buf);
-    }
+    enumerate_choices_into(state, &mut choices_buf);
     if config.abstract_choices {
         deduplicate_choices(&mut choices_buf, state);
     }
@@ -198,11 +189,7 @@ pub fn ismcts<R: Rng>(
     }
 
     if root.children.is_empty() {
-        if config.canonical_ordering {
-            enumerate_choices_canonical_into(state, &mut choices_buf);
-        } else {
-            enumerate_choices_into(state, &mut choices_buf);
-        }
+        enumerate_choices_into(state, &mut choices_buf);
         let idx = rng.random_range(0..choices_buf.len());
         return choices_buf[idx].clone();
     }
@@ -238,11 +225,7 @@ fn iteration<R: Rng>(
     };
 
     // Enumerate choices (needed for both expand and select)
-    if config.canonical_ordering {
-        enumerate_choices_canonical_into(state, choices_buf);
-    } else {
-        enumerate_choices_into(state, choices_buf);
-    }
+    enumerate_choices_into(state, choices_buf);
 
     // Expand
     if !(node.is_root() && !node.children.is_empty()) {
