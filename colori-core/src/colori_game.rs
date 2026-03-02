@@ -1,6 +1,6 @@
 use crate::action_phase::{
     destroy_drafted_card, end_player_turn, initialize_action_phase,
-    process_queue, resolve_choose_tertiary_to_gain, resolve_choose_tertiary_to_lose,
+    process_ability_stack, resolve_choose_tertiary_to_gain, resolve_choose_tertiary_to_lose,
     resolve_destroy_cards, resolve_gain_primary, resolve_gain_secondary,
     resolve_keep_workshop_cards, resolve_select_buyer, resolve_workshop_choice, skip_workshop,
     can_sell_to_any_buyer,
@@ -577,7 +577,7 @@ fn resolve_card_types_to_ids(
 
 #[derive(Debug)]
 pub enum GameStatus {
-    AwaitingAction { player_id: usize },
+    AwaitingAction { player_index: usize },
     Terminated { scores: SmallVec<[f64; 4]> },
 }
 
@@ -598,14 +598,14 @@ pub fn get_game_status(state: &GameState, max_round: Option<u32>) -> GameStatus 
     match &state.phase {
         GamePhase::Draft { draft_state } if !draft_state.waiting_for_pass => {
             GameStatus::AwaitingAction {
-                player_id: draft_state.current_player_index,
+                player_index: draft_state.current_player_index,
             }
         }
         GamePhase::Action { action_state } => GameStatus::AwaitingAction {
-            player_id: action_state.current_player_index,
+            player_index: action_state.current_player_index,
         },
         GamePhase::Cleanup { cleanup_state } => GameStatus::AwaitingAction {
-            player_id: cleanup_state.current_player_index,
+            player_index: cleanup_state.current_player_index,
         },
         GamePhase::GameOver => {
             let scores: SmallVec<[f64; 4]> = state.players.iter().map(|p| p.cached_score as f64).collect();
@@ -617,7 +617,7 @@ pub fn get_game_status(state: &GameState, max_round: Option<u32>) -> GameStatus 
                     .collect(),
             }
         }
-        _ => GameStatus::AwaitingAction { player_id: 0 },
+        _ => GameStatus::AwaitingAction { player_index: 0 },
     }
 }
 
@@ -627,7 +627,7 @@ pub fn determinize_in_place<R: Rng>(
     det: &mut GameState,
     source: &GameState,
     perspective_player: usize,
-    seen_hands: &Option<Vec<Vec<CardInstance>>>,
+    known_draft_hands: &Option<Vec<Vec<CardInstance>>>,
     cached_scores: &[u32; MAX_PLAYERS],
     rng: &mut R,
 ) {
@@ -646,7 +646,7 @@ pub fn determinize_in_place<R: Rng>(
         let mut known_hands = [false; 4];
         known_hands[perspective_player] = true;
 
-        if let Some(ref sh) = seen_hands {
+        if let Some(ref sh) = known_draft_hands {
             // Track which drafted cards we've accounted for per player
             let mut persp_accounted = UnorderedCards::new();
             let mut receiver_accounted = [UnorderedCards::new(); MAX_PLAYERS];
@@ -657,7 +657,7 @@ pub fn determinize_in_place<R: Rng>(
                     continue;
                 }
 
-                // Convert seen_hands[round] to bitset
+                // Convert known_draft_hands[round] to bitset
                 let mut current_hand = UnorderedCards::new();
                 for c in hand.iter() {
                     current_hand.insert(c.instance_id as u8);
@@ -856,7 +856,7 @@ fn handle_action_no_pending<R: Rng>(state: &mut GameState, player_index: usize, 
     match card.ability() {
         Ability::MixColors { count } => {
             // Fused: ability stack is guaranteed empty when pending_choice is None,
-            // so we can skip all process_queue calls.
+            // so we can skip all process_ability_stack calls.
             let (mixes, mix_count) =
                 random_mix_seq(&state.players[player_index].color_wheel, count, rng);
             state.players[player_index].drafted_cards.remove(card_id);
@@ -874,7 +874,7 @@ fn handle_action_no_pending<R: Rng>(state: &mut GameState, player_index: usize, 
             ) {
                 Some(buyer_id) => {
                     // Fused: ability stack is guaranteed empty when pending_choice is None,
-                    // so we can skip all process_queue calls.
+                    // so we can skip all process_ability_stack calls.
                     state.players[player_index].drafted_cards.remove(card_id);
                     state.destroyed_pile.insert(card_id);
                     let buyer_index = state
@@ -951,8 +951,8 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, random_cleanup_keep: bo
                     resolve_destroy_cards(state, selected, rng);
                 }
                 Some(PendingChoice::ChooseMix { remaining }) => {
-                    // Fused: apply all mixes directly, then process_queue once.
-                    // Ability stack may not be empty here, so we must call process_queue.
+                    // Fused: apply all mixes directly, then process_ability_stack once.
+                    // Ability stack may not be empty here, so we must call process_ability_stack.
                     let remaining = *remaining;
                     let (mixes, mix_count) =
                         random_mix_seq(&state.players[player_index].color_wheel, remaining, rng);
@@ -967,7 +967,7 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, random_cleanup_keep: bo
                     if let GamePhase::Action { ref mut action_state } = state.phase {
                         action_state.pending_choice = None;
                     }
-                    process_queue(state, rng);
+                    process_ability_stack(state, rng);
                 }
                 Some(PendingChoice::ChooseBuyer) => {
                     let buyer_id = pick_random_affordable_buyer(

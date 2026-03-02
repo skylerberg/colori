@@ -41,7 +41,7 @@ pub struct LogPlayerState {
     pub deck: Vec<CardInstance>,
     pub discard: Vec<CardInstance>,
     #[serde(default)]
-    pub used_cards: Vec<CardInstance>,
+    pub workshopped_cards: Vec<CardInstance>,
     pub workshop_cards: Vec<CardInstance>,
     pub drafted_cards: Vec<CardInstance>,
     pub color_wheel: ColorWheel,

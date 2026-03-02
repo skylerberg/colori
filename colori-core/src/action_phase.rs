@@ -33,10 +33,10 @@ pub fn destroy_drafted_card<R: Rng>(state: &mut GameState, card_instance_id: u32
 
     let action_state = get_action_state_mut(state);
     action_state.ability_stack.push(ability);
-    process_queue(state, rng);
+    process_ability_stack(state, rng);
 }
 
-pub fn process_queue<R: Rng>(state: &mut GameState, rng: &mut R) {
+pub fn process_ability_stack<R: Rng>(state: &mut GameState, rng: &mut R) {
     loop {
         let action_state = get_action_state(state);
         if action_state.pending_choice.is_some() {
@@ -166,18 +166,18 @@ pub fn resolve_workshop_choice<R: Rng>(
         for pip in card.pips() {
             player.color_wheel.increment(*pip);
         }
-        player.used_cards.insert(id);
+        player.workshopped_cards.insert(id);
     }
 
     // Remove action cards from workshop, move to discard, collect abilities
     let mut regular_abilities = [Ability::Sell; 8];
     let mut regular_abilities_count = 0usize;
-    let mut cot_abilities = [Ability::Sell; 8];
-    let mut cot_abilities_count = 0usize;
-    let mut vinegar_abilities = [Ability::Sell; 8];
-    let mut vinegar_abilities_count = 0usize;
+    let mut draw_card_abilities = [Ability::Sell; 8];
+    let mut draw_card_abilities_count = 0usize;
+    let mut change_tertiary_abilities = [Ability::Sell; 8];
+    let mut change_tertiary_abilities_count = 0usize;
     let mut potash_base_count: Option<u32> = None;
-    let mut has_cot = false;
+    let mut has_draw_cards = false;
 
     for i in 0..action_count {
         let id = action_ids[i];
@@ -187,16 +187,16 @@ pub fn resolve_workshop_choice<R: Rng>(
         for &ability in card.workshop_abilities() {
             match ability {
                 Ability::ChangeTertiary => {
-                    vinegar_abilities[vinegar_abilities_count] = ability;
-                    vinegar_abilities_count += 1;
+                    change_tertiary_abilities[change_tertiary_abilities_count] = ability;
+                    change_tertiary_abilities_count += 1;
                 }
                 Ability::Workshop { count: c } => {
                     potash_base_count = Some(potash_base_count.unwrap_or(0) + c);
                 }
                 Ability::DrawCards { .. } => {
-                    has_cot = true;
-                    cot_abilities[cot_abilities_count] = ability;
-                    cot_abilities_count += 1;
+                    has_draw_cards = true;
+                    draw_card_abilities[draw_card_abilities_count] = ability;
+                    draw_card_abilities_count += 1;
                 }
                 _ => {
                     regular_abilities[regular_abilities_count] = ability;
@@ -205,7 +205,7 @@ pub fn resolve_workshop_choice<R: Rng>(
             }
         }
 
-        player.used_cards.insert(id);
+        player.workshopped_cards.insert(id);
     }
 
     // Clear pending choice and push abilities onto LIFO stack in reverse resolution order
@@ -213,7 +213,7 @@ pub fn resolve_workshop_choice<R: Rng>(
     let stack = &mut get_action_state_mut(state).ability_stack;
 
     if let Some(base) = potash_base_count {
-        let potash_count = if has_cot {
+        let potash_count = if has_draw_cards {
             base
         } else {
             base + remaining
@@ -221,28 +221,28 @@ pub fn resolve_workshop_choice<R: Rng>(
         stack.push(Ability::Workshop { count: potash_count });
     }
 
-    for i in 0..vinegar_abilities_count {
-        stack.push(vinegar_abilities[i]);
+    for i in 0..change_tertiary_abilities_count {
+        stack.push(change_tertiary_abilities[i]);
     }
 
-    if has_cot && remaining > 0 {
+    if has_draw_cards && remaining > 0 {
         stack.push(Ability::Workshop { count: remaining });
     }
 
-    for i in 0..cot_abilities_count {
-        stack.push(cot_abilities[i]);
+    for i in 0..draw_card_abilities_count {
+        stack.push(draw_card_abilities[i]);
     }
 
     for i in 0..regular_abilities_count {
         stack.push(regular_abilities[i]);
     }
 
-    process_queue(state, rng);
+    process_ability_stack(state, rng);
 }
 
 pub fn skip_workshop<R: Rng>(state: &mut GameState, rng: &mut R) {
     get_action_state_mut(state).pending_choice = None;
-    process_queue(state, rng);
+    process_ability_stack(state, rng);
 }
 
 pub fn resolve_mix_colors<R: Rng>(
@@ -274,7 +274,7 @@ pub fn resolve_mix_colors<R: Rng>(
         get_action_state_mut(state).pending_choice = None;
     }
 
-    process_queue(state, rng);
+    process_ability_stack(state, rng);
 }
 
 /// Same as `resolve_mix_colors` but skips the `can_mix` and wheel amount checks.
@@ -305,12 +305,12 @@ pub fn resolve_mix_colors_unchecked<R: Rng>(
         get_action_state_mut(state).pending_choice = None;
     }
 
-    process_queue(state, rng);
+    process_ability_stack(state, rng);
 }
 
 pub fn skip_mix<R: Rng>(state: &mut GameState, rng: &mut R) {
     get_action_state_mut(state).pending_choice = None;
-    process_queue(state, rng);
+    process_ability_stack(state, rng);
 }
 
 pub fn resolve_destroy_cards<R: Rng>(
@@ -334,7 +334,7 @@ pub fn resolve_destroy_cards<R: Rng>(
     }
 
     get_action_state_mut(state).pending_choice = None;
-    process_queue(state, rng);
+    process_ability_stack(state, rng);
 }
 
 pub fn resolve_select_buyer<R: Rng>(
@@ -372,21 +372,21 @@ pub fn resolve_select_buyer<R: Rng>(
     }
 
     get_action_state_mut(state).pending_choice = None;
-    process_queue(state, rng);
+    process_ability_stack(state, rng);
 }
 
 pub fn resolve_gain_secondary<R: Rng>(state: &mut GameState, color: Color, rng: &mut R) {
     let player_index = get_action_state(state).current_player_index;
     state.players[player_index].color_wheel.increment(color);
     get_action_state_mut(state).pending_choice = None;
-    process_queue(state, rng);
+    process_ability_stack(state, rng);
 }
 
 pub fn resolve_gain_primary<R: Rng>(state: &mut GameState, color: Color, rng: &mut R) {
     let player_index = get_action_state(state).current_player_index;
     state.players[player_index].color_wheel.increment(color);
     get_action_state_mut(state).pending_choice = None;
-    process_queue(state, rng);
+    process_ability_stack(state, rng);
 }
 
 pub fn resolve_choose_tertiary_to_lose(state: &mut GameState, color: Color) {
@@ -402,7 +402,7 @@ pub fn resolve_choose_tertiary_to_gain<R: Rng>(
     let player_index = get_action_state(state).current_player_index;
     state.players[player_index].color_wheel.increment(color);
     get_action_state_mut(state).pending_choice = None;
-    process_queue(state, rng);
+    process_ability_stack(state, rng);
 }
 
 pub fn end_player_turn<R: Rng>(state: &mut GameState, rng: &mut R) {
@@ -410,9 +410,9 @@ pub fn end_player_turn<R: Rng>(state: &mut GameState, rng: &mut R) {
     let player = &mut state.players[player_index];
 
     // Move remaining cards to discard
-    player.discard = player.discard.union(player.drafted_cards).union(player.used_cards);
+    player.discard = player.discard.union(player.drafted_cards).union(player.workshopped_cards);
     player.drafted_cards = UnorderedCards::new();
-    player.used_cards = UnorderedCards::new();
+    player.workshopped_cards = UnorderedCards::new();
 
     let num_players = state.players.len();
     let starting_player = ((state.round - 1) as usize) % num_players;

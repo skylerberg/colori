@@ -72,7 +72,7 @@ pub fn build_card_instance_map(log: &StructuredGameLog) -> HashMap<u32, CardInst
     for p in &state.players {
         add_cards(&mut map, &p.deck);
         add_cards(&mut map, &p.discard);
-        add_cards(&mut map, &p.used_cards);
+        add_cards(&mut map, &p.workshopped_cards);
         add_cards(&mut map, &p.workshop_cards);
         add_cards(&mut map, &p.drafted_cards);
     }
@@ -1003,7 +1003,7 @@ pub fn compute_penultimate_round_deck_sizes(
             .map(|p| {
                 (p.deck.len()
                     + p.discard.len()
-                    + p.used_cards.len()
+                    + p.workshopped_cards.len()
                     + p.workshop_cards.len()
                     + p.drafted_cards.len()) as i32
             })

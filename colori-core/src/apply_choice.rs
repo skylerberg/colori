@@ -4,8 +4,8 @@ use crate::types::{Choice, GamePhase, GameState, PendingChoice};
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
 
-/// Resolve a card type to the first matching instance ID in a card set.
-fn resolve_card(state: &GameState, card: &crate::types::Card, cards: &UnorderedCards) -> u32 {
+/// Find the first card instance ID matching a card type in a card set.
+fn find_card_instance(state: &GameState, card: &crate::types::Card, cards: &UnorderedCards) -> u32 {
     for id in cards.iter() {
         if state.card_lookup[id as usize] == *card {
             return id as u32;
@@ -14,8 +14,8 @@ fn resolve_card(state: &GameState, card: &crate::types::Card, cards: &UnorderedC
     panic!("Card type {:?} not found in card set", card);
 }
 
-/// Resolve a buyer type to the first matching instance ID in the buyer display.
-fn resolve_buyer(state: &GameState, buyer: &crate::types::BuyerCard) -> u32 {
+/// Find the first buyer instance ID matching a buyer type in the buyer display.
+fn find_buyer_instance(state: &GameState, buyer: &crate::types::BuyerCard) -> u32 {
     for buyer_instance in state.buyer_display.iter() {
         if buyer_instance.buyer == *buyer {
             return buyer_instance.instance_id;
@@ -24,8 +24,8 @@ fn resolve_buyer(state: &GameState, buyer: &crate::types::BuyerCard) -> u32 {
     panic!("Buyer type {:?} not found in buyer display", buyer);
 }
 
-/// Resolve a list of card types to instance IDs, tracking used IDs to avoid duplicates.
-fn resolve_card_types(
+/// Find instance IDs for a list of card types, tracking used IDs to avoid duplicates.
+fn find_card_instances(
     state: &GameState,
     card_types: &[crate::types::Card],
     cards: &UnorderedCards,
@@ -53,7 +53,7 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
                 }
                 _ => panic!("Expected draft phase"),
             };
-            let card_instance_id = resolve_card(state, card, &hand);
+            let card_instance_id = find_card_instance(state, card, &hand);
             player_pick(state, card_instance_id);
         }
         Choice::DestroyDraftedCard { card } => {
@@ -63,7 +63,7 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
                 }
                 _ => panic!("Expected action phase"),
             };
-            let card_instance_id = resolve_card(state, card, &drafted);
+            let card_instance_id = find_card_instance(state, card, &drafted);
             destroy_drafted_card(state, card_instance_id, rng);
         }
         Choice::EndTurn => {
@@ -76,7 +76,7 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
                 }
                 _ => panic!("Expected action phase"),
             };
-            let card_instance_ids = resolve_card_types(state, card_types, &workshop);
+            let card_instance_ids = find_card_instances(state, card_types, &workshop);
             resolve_workshop_choice(state, card_instance_ids, rng);
         }
         Choice::SkipWorkshop => {
@@ -101,7 +101,7 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
             resolve_destroy_cards(state, selected, rng);
         }
         Choice::SelectBuyer { buyer } => {
-            let buyer_instance_id = resolve_buyer(state, buyer);
+            let buyer_instance_id = find_buyer_instance(state, buyer);
             resolve_select_buyer(state, buyer_instance_id, rng);
         }
         Choice::GainSecondary { color } => {
@@ -132,7 +132,7 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
                 }
                 _ => panic!("Expected action phase"),
             };
-            let card_instance_id = resolve_card(state, card, &drafted);
+            let card_instance_id = find_card_instance(state, card, &drafted);
             destroy_drafted_card(state, card_instance_id, rng);
             for &(a, b) in mixes.iter() {
                 resolve_mix_colors(state, a, b, rng);
@@ -150,8 +150,8 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
                 }
                 _ => panic!("Expected action phase"),
             };
-            let card_instance_id = resolve_card(state, card, &drafted);
-            let buyer_instance_id = resolve_buyer(state, buyer);
+            let card_instance_id = find_card_instance(state, card, &drafted);
+            let buyer_instance_id = find_buyer_instance(state, buyer);
             destroy_drafted_card(state, card_instance_id, rng);
             resolve_select_buyer(state, buyer_instance_id, rng);
         }
@@ -162,7 +162,7 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
                 }
                 _ => panic!("Expected cleanup phase"),
             };
-            let card_instance_ids = resolve_card_types(state, card_types, &workshop);
+            let card_instance_ids = find_card_instances(state, card_types, &workshop);
             resolve_keep_workshop_cards(state, card_instance_ids, rng);
         }
     }

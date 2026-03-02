@@ -4,7 +4,7 @@ import type { Choice } from '../data/types';
 export interface SanitizedPlayerState {
   deckCount: number;
   discardCount: number;
-  usedCardsCount: number;
+  workshoppedCardsCount: number;
   workshopCards: CardInstance[];
   draftedCards: CardInstance[];
   colorWheel: Record<Color, number>;

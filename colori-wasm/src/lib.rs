@@ -35,17 +35,17 @@ pub fn wasm_run_ismcts(
     game_state_json: &str,
     player_index: u32,
     iterations: u32,
-    seen_hands_json: &str,
+    known_draft_hands_json: &str,
 ) -> String {
     let game_state = deserialize_state(game_state_json);
 
-    let seen_hands: Option<Vec<Vec<CardInstance>>> = if seen_hands_json.is_empty() {
+    let known_draft_hands: Option<Vec<Vec<CardInstance>>> = if known_draft_hands_json.is_empty() {
         None
     } else {
-        serde_json::from_str(seen_hands_json).ok()
+        serde_json::from_str(known_draft_hands_json).ok()
     };
 
-    let max_round = std::cmp::max(8, game_state.round + 2);
+    let max_rollout_round = std::cmp::max(8, game_state.round + 2);
 
     let mut rng = WyRand::from_rng(&mut rand::rng());
 
@@ -54,8 +54,8 @@ pub fn wasm_run_ismcts(
         &game_state,
         player_index as usize,
         &config,
-        &seen_hands,
-        Some(max_round),
+        &known_draft_hands,
+        Some(max_rollout_round),
         &mut rng,
     );
 

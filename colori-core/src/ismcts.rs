@@ -62,20 +62,20 @@ impl<'de> Deserialize<'de> for MctsConfig {
 }
 
 struct MctsNode {
-    games: u32,
+    visit_count: u32,
     cumulative_reward: f64,
-    player_id: usize,
+    player_index: usize,
     choice: Option<Choice>,
     availability_count: u32,
     children: Vec<MctsNode>,
 }
 
 impl MctsNode {
-    fn new(player_id: usize, choice: Option<Choice>) -> Self {
+    fn new(player_index: usize, choice: Option<Choice>) -> Self {
         MctsNode {
-            games: 0,
+            visit_count: 0,
             cumulative_reward: 0.0,
-            player_id,
+            player_index,
             choice,
             availability_count: 0,
             children: Vec::new(),
@@ -127,30 +127,30 @@ impl MctsNode {
 
 fn upper_confidence_bound(
     cumulative_reward: f64,
-    games: u32,
-    total_game_count: u32,
+    visit_count: u32,
+    total_visit_count: u32,
     c: f64,
 ) -> f64 {
-    let win_rate = cumulative_reward / games as f64;
-    win_rate + c * ((total_game_count as f64).ln() / games as f64).sqrt()
+    let win_rate = cumulative_reward / visit_count as f64;
+    win_rate + c * ((total_visit_count as f64).ln() / visit_count as f64).sqrt()
 }
 
 fn upper_confidence_bound_with_ln(
     cumulative_reward: f64,
-    games: u32,
+    visit_count: u32,
     ln_total: f64,
     c: f64,
 ) -> f64 {
-    let win_rate = cumulative_reward / games as f64;
-    win_rate + c * (ln_total / games as f64).sqrt()
+    let win_rate = cumulative_reward / visit_count as f64;
+    win_rate + c * (ln_total / visit_count as f64).sqrt()
 }
 
 pub fn ismcts<R: Rng>(
     state: &GameState,
-    player_id: usize,
+    player_index: usize,
     config: &MctsConfig,
-    seen_hands: &Option<Vec<Vec<CardInstance>>>,
-    max_round: Option<u32>,
+    known_draft_hands: &Option<Vec<Vec<CardInstance>>>,
+    max_rollout_round: Option<u32>,
     rng: &mut R,
 ) -> Choice {
     // If there's only one legal choice, return it immediately without searching
@@ -160,7 +160,7 @@ pub fn ismcts<R: Rng>(
         return choices_buf.swap_remove(0);
     }
 
-    let mut root = MctsNode::new(player_id, None);
+    let mut root = MctsNode::new(player_index, None);
     let mut det_state = state.clone();
 
     let mut cached_scores = [0u32; MAX_PLAYERS];
@@ -169,8 +169,8 @@ pub fn ismcts<R: Rng>(
     }
 
     for _ in 0..config.iterations {
-        determinize_in_place(&mut det_state, state, player_id, seen_hands, &cached_scores, rng);
-        iteration(&mut root, &mut det_state, max_round, config, &mut choices_buf, rng);
+        determinize_in_place(&mut det_state, state, player_index, known_draft_hands, &cached_scores, rng);
+        iteration(&mut root, &mut det_state, max_rollout_round, config, &mut choices_buf, rng);
     }
 
     if root.children.is_empty() {
@@ -181,7 +181,7 @@ pub fn ismcts<R: Rng>(
 
     let mut best_child: Option<&MctsNode> = None;
     for child in root.children.iter() {
-        if best_child.is_none() || child.games > best_child.unwrap().games {
+        if best_child.is_none() || child.visit_count > best_child.unwrap().visit_count {
             best_child = Some(child);
         }
     }
@@ -192,17 +192,17 @@ pub fn ismcts<R: Rng>(
 fn iteration<R: Rng>(
     node: &mut MctsNode,
     state: &mut GameState,
-    max_round: Option<u32>,
+    max_rollout_round: Option<u32>,
     config: &MctsConfig,
     choices_buf: &mut Vec<Choice>,
     rng: &mut R,
 ) -> SmallVec<[f64; 4]> {
-    let active_player = match get_game_status(state, max_round) {
+    let active_player = match get_game_status(state, max_rollout_round) {
         GameStatus::Terminated { scores } => {
             record_outcome(node, &scores);
             return scores;
         }
-        GameStatus::AwaitingAction { player_id } => player_id,
+        GameStatus::AwaitingAction { player_index } => player_index,
     };
 
     // Enumerate choices (needed for both expand and select)
@@ -229,15 +229,15 @@ fn iteration<R: Rng>(
     let choice = node.children[best_idx].choice.clone().unwrap();
     apply_choice_to_state(state, &choice, rng);
 
-    let should_rollout = node.children[best_idx].games == 0;
+    let should_rollout = node.children[best_idx].visit_count == 0;
 
     let scores = if should_rollout {
-        let scores = rollout(state, max_round, config.max_rollout_steps, config.random_cleanup_keep, rng);
+        let scores = rollout(state, max_rollout_round, config.max_rollout_steps, config.random_cleanup_keep, rng);
         record_outcome(&mut node.children[best_idx], &scores);
         scores
     } else {
         let child = &mut node.children[best_idx];
-        iteration(child, state, max_round, config, choices_buf, rng)
+        iteration(child, state, max_rollout_round, config, choices_buf, rng)
     };
 
     record_outcome(node, &scores);
@@ -252,7 +252,7 @@ fn select(
     let mut best_idx: Option<usize> = None;
     let mut best_value = f64::NEG_INFINITY;
 
-    let root_ln = if node.is_root() { (node.games as f64).ln() } else { 0.0 };
+    let root_ln = if node.is_root() { (node.visit_count as f64).ln() } else { 0.0 };
 
     for (idx, child) in node.children.iter().enumerate() {
         let available = check_choice_available(state, child.choice.as_ref().unwrap());
@@ -260,13 +260,13 @@ fn select(
             continue;
         }
 
-        let value = if child.games == 0 {
+        let value = if child.visit_count == 0 {
             f64::INFINITY
         } else if node.is_root() {
-            upper_confidence_bound_with_ln(child.cumulative_reward, child.games, root_ln, c)
+            upper_confidence_bound_with_ln(child.cumulative_reward, child.visit_count, root_ln, c)
         } else {
-            let total_game_count = child.availability_count.max(1);
-            upper_confidence_bound(child.cumulative_reward, child.games, total_game_count, c)
+            let total_visit_count = child.availability_count.max(1);
+            upper_confidence_bound(child.cumulative_reward, child.visit_count, total_visit_count, c)
         };
 
         if value > best_value {
@@ -279,9 +279,9 @@ fn select(
 }
 
 #[inline]
-fn is_terminal(state: &GameState, max_round: Option<u32>) -> bool {
+fn is_terminal(state: &GameState, max_rollout_round: Option<u32>) -> bool {
     matches!(state.phase, GamePhase::GameOver)
-        || max_round.is_some_and(|mr| state.round > mr)
+        || max_rollout_round.is_some_and(|mr| state.round > mr)
 }
 
 #[inline]
@@ -292,15 +292,15 @@ fn compute_terminal_scores(state: &GameState) -> SmallVec<[f64; 4]> {
     scores.iter().map(|&s| if s == max_score { 1.0 / num_winners } else { 0.0 }).collect()
 }
 
-fn rollout<R: Rng>(state: &mut GameState, max_round: Option<u32>, max_rollout_steps: u32, random_cleanup_keep: bool, rng: &mut R) -> SmallVec<[f64; 4]> {
+fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_rollout_steps: u32, random_cleanup_keep: bool, rng: &mut R) -> SmallVec<[f64; 4]> {
     for _ in 0..max_rollout_steps {
-        if is_terminal(state, max_round) {
+        if is_terminal(state, max_rollout_round) {
             return compute_terminal_scores(state);
         }
         apply_rollout_step(state, random_cleanup_keep, rng);
     }
 
-    if is_terminal(state, max_round) {
+    if is_terminal(state, max_rollout_round) {
         return compute_terminal_scores(state);
     }
 
@@ -308,13 +308,13 @@ fn rollout<R: Rng>(state: &mut GameState, max_round: Option<u32>, max_rollout_st
 }
 
 fn record_outcome(node: &mut MctsNode, scores: &[f64]) {
-    let reward = if node.player_id < scores.len() {
-        scores[node.player_id]
+    let reward = if node.player_index < scores.len() {
+        scores[node.player_index]
     } else {
         0.0
     };
     node.cumulative_reward += reward;
-    node.games += 1;
+    node.visit_count += 1;
 }
 
 #[cfg(test)]
@@ -362,7 +362,7 @@ mod tests {
             }
 
             let player_index = match get_game_status(&state, None) {
-                GameStatus::AwaitingAction { player_id } => player_id,
+                GameStatus::AwaitingAction { player_index } => player_index,
                 GameStatus::Terminated { .. } => return,
             };
 

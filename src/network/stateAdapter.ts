@@ -5,7 +5,7 @@ export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
   const players: PlayerState[] = sanitized.players.map(sp => ({
     deck: new Array(sp.deckCount) as CardInstance[],
     discard: new Array(sp.discardCount) as CardInstance[],
-    usedCards: new Array(sp.usedCardsCount) as CardInstance[],
+    workshoppedCards: new Array(sp.workshoppedCardsCount) as CardInstance[],
     workshopCards: sp.workshopCards,
     draftedCards: sp.draftedCards,
     colorWheel: sp.colorWheel,

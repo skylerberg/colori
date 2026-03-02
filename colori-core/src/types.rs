@@ -619,7 +619,7 @@ pub struct PlayerState {
     pub deck: UnorderedCards,
     pub discard: UnorderedCards,
     #[serde(default)]
-    pub used_cards: UnorderedCards,
+    pub workshopped_cards: UnorderedCards,
     pub workshop_cards: UnorderedCards,
     pub drafted_cards: UnorderedCards,
     pub color_wheel: ColorWheel,
