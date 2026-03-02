@@ -190,39 +190,45 @@ macro_rules! impl_bitset {
                     self.0 = [0; 2];
                     return $name(all);
                 }
-                let c = count as usize;
-                let total = BINOM[n as usize][c];
-                let mut k = rng.random_range(0..total);
-                let mut remaining = n as usize;
-                let mut to_pick = c;
+                let mut remaining = n;
+                let mut to_pick = count;
                 let mut selected = [0u128; 2];
 
-                // Iterate set bits in limb 0, then limb 1
+                // Selection sampling (Algorithm S): for each element,
+                // include with probability to_pick/remaining.
                 let mut bits0 = self.0[0];
                 while to_pick > 0 && bits0 != 0 {
+                    if remaining == to_pick {
+                        // Must take all remaining elements
+                        selected[0] |= bits0;
+                        selected[1] = self.0[1];
+                        self.0[0] &= !selected[0];
+                        self.0[1] = 0;
+                        return $name(selected);
+                    }
                     let pos = bits0.trailing_zeros();
                     bits0 &= bits0 - 1;
-                    remaining -= 1;
-                    let threshold = BINOM[remaining][to_pick - 1];
-                    if k < threshold {
+                    if rng.random_range(0..remaining) < to_pick {
                         selected[0] |= 1u128 << pos;
                         to_pick -= 1;
-                    } else {
-                        k -= threshold;
                     }
+                    remaining -= 1;
                 }
                 let mut bits1 = self.0[1];
                 while to_pick > 0 && bits1 != 0 {
+                    if remaining == to_pick {
+                        selected[1] |= bits1;
+                        self.0[0] &= !selected[0];
+                        self.0[1] &= !selected[1];
+                        return $name(selected);
+                    }
                     let pos = bits1.trailing_zeros();
                     bits1 &= bits1 - 1;
-                    remaining -= 1;
-                    let threshold = BINOM[remaining][to_pick - 1];
-                    if k < threshold {
+                    if rng.random_range(0..remaining) < to_pick {
                         selected[1] |= 1u128 << pos;
                         to_pick -= 1;
-                    } else {
-                        k -= threshold;
                     }
+                    remaining -= 1;
                 }
 
                 self.0[0] &= !selected[0];
@@ -266,51 +272,55 @@ macro_rules! impl_bitset {
                     return $name::new();
                 }
                 let total = BINOM_CUM[n][c];
-                let mut r = rng.random_range(0..total);
+                let r = rng.random_range(0..total);
                 // Find which size bucket using cumulative table
                 let mut size = 0usize;
                 for k in 0..=c {
                     if r < BINOM_CUM[n][k] {
                         size = k;
-                        if k > 0 {
-                            r -= BINOM_CUM[n][k - 1];
-                        }
                         break;
                     }
                 }
                 if size == 0 {
                     return $name::new();
                 }
-                // Unrank within the size bucket using combinatorial number system
-                let mut remaining = n;
-                let mut to_pick = size;
+                // Selection sampling for `size` elements
+                let mut remaining = n as u32;
+                let mut to_pick = size as u32;
                 let mut selected = [0u128; 2];
 
                 let mut bits0 = self.0[0];
                 while to_pick > 0 && bits0 != 0 {
+                    if remaining == to_pick {
+                        selected[0] |= bits0;
+                        selected[1] = self.0[1];
+                        self.0[0] &= !selected[0];
+                        self.0[1] = 0;
+                        return $name(selected);
+                    }
                     let pos = bits0.trailing_zeros();
                     bits0 &= bits0 - 1;
-                    remaining -= 1;
-                    let threshold = BINOM[remaining][to_pick - 1];
-                    if r < threshold {
+                    if rng.random_range(0..remaining) < to_pick {
                         selected[0] |= 1u128 << pos;
                         to_pick -= 1;
-                    } else {
-                        r -= threshold;
                     }
+                    remaining -= 1;
                 }
                 let mut bits1 = self.0[1];
                 while to_pick > 0 && bits1 != 0 {
+                    if remaining == to_pick {
+                        selected[1] |= bits1;
+                        self.0[0] &= !selected[0];
+                        self.0[1] &= !selected[1];
+                        return $name(selected);
+                    }
                     let pos = bits1.trailing_zeros();
                     bits1 &= bits1 - 1;
-                    remaining -= 1;
-                    let threshold = BINOM[remaining][to_pick - 1];
-                    if r < threshold {
+                    if rng.random_range(0..remaining) < to_pick {
                         selected[1] |= 1u128 << pos;
                         to_pick -= 1;
-                    } else {
-                        r -= threshold;
                     }
+                    remaining -= 1;
                 }
 
                 self.0[0] &= !selected[0];

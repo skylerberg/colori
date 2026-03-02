@@ -23,9 +23,9 @@ use smallvec::SmallVec;
 fn count_card_types(
     mask: UnorderedCards,
     card_lookup: &[Card; 256],
-) -> ([Card; 8], [u8; 8], usize) {
-    let mut types = [Card::BasicRed; 8];
-    let mut counts = [0u8; 8];
+) -> ([Card; 49], [u8; 49], usize) {
+    let mut types = [Card::BasicRed; 49];
+    let mut counts = [0u8; 49];
     let mut len = 0usize;
     let mut seen: u64 = 0;
     for id in mask.iter() {

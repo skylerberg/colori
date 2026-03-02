@@ -24,7 +24,7 @@ export function setupActionGame(numPlayers: number): GameState {
     if (hand.length === 0) break;
 
     // Pick the first card in hand
-    applyChoice(state, { type: 'draftPick', cardInstanceId: hand[0].instanceId });
+    applyChoice(state, { type: 'draftPick', card: hand[0].card });
   }
 
   return state;
