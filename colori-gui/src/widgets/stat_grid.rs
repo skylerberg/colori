@@ -11,6 +11,7 @@ pub fn stat_grid(ui: &mut egui::Ui, cards: &[StatCard]) {
         for card in cards {
             ui.group(|ui| {
                 ui.set_min_width(120.0);
+                ui.set_max_width(150.0);
                 ui.vertical_centered(|ui| {
                     ui.heading(&card.value);
                     ui.label(&card.label);
