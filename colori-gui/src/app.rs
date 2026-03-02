@@ -46,7 +46,7 @@ pub struct ColoriGuiApp {
 
 impl ColoriGuiApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        cc.egui_ctx.set_visuals(egui::Visuals::light());
+        cc.egui_ctx.set_visuals(egui::Visuals::dark());
 
         let mut app = Self {
             active_tab: Tab::Analysis,
