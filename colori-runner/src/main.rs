@@ -55,6 +55,13 @@ impl AiVariant {
             AiVariant::Exp3(_) => "exp3",
         }
     }
+
+    fn simultaneous_draft(&self) -> bool {
+        match self {
+            AiVariant::Ucb(c) => c.simultaneous_draft,
+            AiVariant::Exp3(_) => false,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -77,6 +84,8 @@ struct VariantFileEntry {
     gamma: Option<f64>,
     #[serde(default)]
     max_rollout_steps: Option<u32>,
+    #[serde(default)]
+    simultaneous_draft: Option<bool>,
 }
 
 fn default_variant_type() -> String { "ucb".to_string() }
@@ -98,6 +107,7 @@ impl VariantFileEntry {
                     iterations: self.iterations.unwrap_or(defaults.iterations),
                     exploration_constant: self.exploration_constant.unwrap_or(defaults.exploration_constant),
                     max_rollout_steps: self.max_rollout_steps.unwrap_or(defaults.max_rollout_steps),
+                    simultaneous_draft: self.simultaneous_draft.unwrap_or(defaults.simultaneous_draft),
                 })
             }
         };
@@ -275,6 +285,9 @@ fn format_variant_label(variant: &NamedVariant, differing: &DifferingFields) -> 
     if differing.max_rollout_steps_differs {
         parts.push(format!("rollout={}", variant.ai.max_rollout_steps()));
     }
+    if differing.simultaneous_draft_differs {
+        parts.push(if variant.ai.simultaneous_draft() { "sim-draft" } else { "seq-draft" }.to_string());
+    }
     if parts.is_empty() {
         parts.push(format_iterations(variant.ai.iterations()));
     }
@@ -287,6 +300,7 @@ struct DifferingFields {
     exploration_constant_differs: bool,
     gamma_differs: bool,
     max_rollout_steps_differs: bool,
+    simultaneous_draft_differs: bool,
 }
 
 fn compute_differing_fields(variants: &[NamedVariant]) -> DifferingFields {
@@ -297,6 +311,7 @@ fn compute_differing_fields(variants: &[NamedVariant]) -> DifferingFields {
             exploration_constant_differs: false,
             gamma_differs: false,
             max_rollout_steps_differs: false,
+            simultaneous_draft_differs: false,
         };
     }
     let first = &variants[0].ai;
@@ -318,6 +333,7 @@ fn compute_differing_fields(variants: &[NamedVariant]) -> DifferingFields {
             }
         }),
         max_rollout_steps_differs: variants.iter().any(|v| v.ai.max_rollout_steps() != first.max_rollout_steps()),
+        simultaneous_draft_differs: variants.iter().any(|v| v.ai.simultaneous_draft() != first.simultaneous_draft()),
     }
 }
 
@@ -329,7 +345,7 @@ fn has_any_difference(variants: &[NamedVariant]) -> bool {
         return true;
     }
     let diff = compute_differing_fields(variants);
-    diff.algorithm_differs || diff.iterations_differs || diff.exploration_constant_differs || diff.gamma_differs || diff.max_rollout_steps_differs
+    diff.algorithm_differs || diff.iterations_differs || diff.exploration_constant_differs || diff.gamma_differs || diff.max_rollout_steps_differs || diff.simultaneous_draft_differs
 }
 
 // ── Game loop ──
@@ -469,6 +485,11 @@ fn run_game(
                             } else {
                                 None
                             },
+                            simultaneous_draft: if c.simultaneous_draft != ucb_defaults.simultaneous_draft {
+                                Some(c.simultaneous_draft)
+                            } else {
+                                None
+                            },
                         },
                         AiVariant::Exp3(c) => PlayerVariant {
                             name: v.name.clone(),
@@ -485,6 +506,7 @@ fn run_game(
                             } else {
                                 None
                             },
+                            simultaneous_draft: None,
                         },
                     })
                     .collect(),

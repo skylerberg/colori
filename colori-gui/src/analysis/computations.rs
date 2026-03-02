@@ -171,35 +171,57 @@ pub fn format_variant_label(
         return name.clone();
     }
 
+    let mut differing_algorithm = false;
     let mut differing_iterations = false;
     let mut differing_exploration = false;
+    let mut differing_gamma = false;
     let mut differing_rollout = false;
+    let mut differing_simultaneous_draft = false;
 
     if let Some(all) = all_variants {
         if all.len() > 1 {
             let first = &all[0];
+            differing_algorithm = all.iter().any(|v| v.algorithm != first.algorithm);
             differing_iterations = all.iter().any(|v| v.iterations != first.iterations);
             differing_exploration = all
                 .iter()
                 .any(|v| v.exploration_constant != first.exploration_constant);
+            differing_gamma = all
+                .iter()
+                .any(|v| v.gamma != first.gamma);
             differing_rollout = all
                 .iter()
                 .any(|v| v.max_rollout_steps != first.max_rollout_steps);
+            differing_simultaneous_draft = all
+                .iter()
+                .any(|v| v.simultaneous_draft != first.simultaneous_draft);
         }
     }
 
     let mut parts = Vec::new();
 
-    if differing_iterations || (!differing_exploration && !differing_rollout) {
+    if differing_algorithm {
+        parts.push(variant.algorithm.clone().unwrap_or_else(|| "ucb".to_string()));
+    }
+    if differing_iterations || (!differing_algorithm && !differing_exploration && !differing_gamma && !differing_rollout && !differing_simultaneous_draft) {
         parts.push(format_iterations_short(variant.iterations));
     }
     if differing_exploration {
         let c = variant.exploration_constant.unwrap_or(std::f64::consts::SQRT_2);
         parts.push(format!("c={:.2}", c));
     }
+    if differing_gamma {
+        if let Some(g) = variant.gamma {
+            parts.push(format!("γ={:.2}", g));
+        }
+    }
     if differing_rollout {
         let rollout = variant.max_rollout_steps.unwrap_or(1000);
         parts.push(format!("rollout={}", rollout));
+    }
+    if differing_simultaneous_draft {
+        let sim = variant.simultaneous_draft.unwrap_or(false);
+        parts.push(if sim { "sim-draft" } else { "seq-draft" }.to_string());
     }
 
     parts.join(", ")

@@ -3,6 +3,7 @@ use crate::colori_game::{
     determinize_in_place, enumerate_choices_into,
     get_game_status, GameStatus,
 };
+use crate::draft_phase::player_pick;
 use crate::scoring::calculate_score;
 use crate::types::*;
 use rand::Rng;
@@ -15,6 +16,7 @@ pub struct MctsConfig {
     pub iterations: u32,
     pub exploration_constant: f64,
     pub max_rollout_steps: u32,
+    pub simultaneous_draft: bool,
 }
 
 impl Default for MctsConfig {
@@ -23,6 +25,7 @@ impl Default for MctsConfig {
             iterations: 100,
             exploration_constant: std::f64::consts::SQRT_2,
             max_rollout_steps: 1000,
+            simultaneous_draft: false,
         }
     }
 }
@@ -41,6 +44,8 @@ impl<'de> Deserialize<'de> for MctsConfig {
             exploration_constant: f64,
             #[serde(default = "default_max_rollout_steps")]
             max_rollout_steps: u32,
+            #[serde(default)]
+            simultaneous_draft: bool,
         }
 
         fn default_iterations() -> u32 { 100 }
@@ -52,6 +57,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
             iterations: helper.iterations,
             exploration_constant: helper.exploration_constant,
             max_rollout_steps: helper.max_rollout_steps,
+            simultaneous_draft: helper.simultaneous_draft,
         })
     }
 }
@@ -141,6 +147,171 @@ fn upper_confidence_bound_with_ln(
     win_rate + c * (ln_total / visit_count as f64).sqrt()
 }
 
+// ── DUCT (Decoupled UCT) for simultaneous draft picks ──
+
+struct OpponentPickStat {
+    choice: Choice,
+    visit_count: u32,
+    cumulative_reward: f64,
+    availability_count: u32,
+}
+
+struct OpponentDraftStats {
+    // [pick_round][player_index] -> list of per-choice stats
+    stats: [[Vec<OpponentPickStat>; MAX_PLAYERS]; 4],
+}
+
+impl OpponentDraftStats {
+    fn new() -> Self {
+        OpponentDraftStats {
+            stats: Default::default(),
+        }
+    }
+
+    fn update_availability(&mut self, pick_round: usize, player: usize, available_choices: &[Choice]) {
+        let slot = &mut self.stats[pick_round][player];
+        for choice in available_choices {
+            if let Some(stat) = slot.iter_mut().find(|s| s.choice == *choice) {
+                stat.availability_count += 1;
+            } else {
+                slot.push(OpponentPickStat {
+                    choice: choice.clone(),
+                    visit_count: 0,
+                    cumulative_reward: 0.0,
+                    availability_count: 1,
+                });
+            }
+        }
+    }
+
+    fn select<R: Rng>(
+        &self,
+        pick_round: usize,
+        player: usize,
+        available_choices: &[Choice],
+        exploration_constant: f64,
+        rng: &mut R,
+    ) -> Choice {
+        let slot = &self.stats[pick_round][player];
+
+        let mut best_choice: Option<&Choice> = None;
+        let mut best_value = f64::NEG_INFINITY;
+
+        for choice in available_choices {
+            let value = if let Some(stat) = slot.iter().find(|s| s.choice == *choice) {
+                if stat.visit_count == 0 {
+                    f64::INFINITY
+                } else {
+                    let total = stat.availability_count.max(1);
+                    upper_confidence_bound(
+                        stat.cumulative_reward,
+                        stat.visit_count,
+                        total,
+                        exploration_constant,
+                    )
+                }
+            } else {
+                f64::INFINITY
+            };
+
+            if value > best_value || (value == best_value && value == f64::INFINITY && rng.random_bool(0.5)) {
+                best_value = value;
+                best_choice = Some(choice);
+            }
+        }
+
+        best_choice.unwrap().clone()
+    }
+
+    fn record_outcome(&mut self, pick_round: usize, player: usize, choice: &Choice, reward: f64) {
+        let slot = &mut self.stats[pick_round][player];
+        if let Some(stat) = slot.iter_mut().find(|s| s.choice == *choice) {
+            stat.visit_count += 1;
+            stat.cumulative_reward += reward;
+        }
+    }
+}
+
+fn get_opponent_draft_choices(state: &GameState) -> SmallVec<[Choice; 8]> {
+    let mut choices = SmallVec::new();
+    if let GamePhase::Draft { ref draft_state } = state.phase {
+        let hand = draft_state.hands[draft_state.current_player_index];
+        let mut seen: u64 = 0;
+        for id in hand.iter() {
+            let card = state.card_lookup[id as usize];
+            let bit = 1u64 << (card as u64);
+            if seen & bit != 0 { continue; }
+            seen |= bit;
+            choices.push(Choice::DraftPick { card });
+        }
+    }
+    choices
+}
+
+fn find_card_id_for_choice(state: &GameState, choice: &Choice) -> u32 {
+    if let Choice::DraftPick { card } = choice {
+        if let GamePhase::Draft { ref draft_state } = state.phase {
+            let hand = draft_state.hands[draft_state.current_player_index];
+            for id in hand.iter() {
+                if state.card_lookup[id as usize] == *card {
+                    return id as u32;
+                }
+            }
+        }
+    }
+    panic!("Card not found for DUCT choice");
+}
+
+fn advance_past_opponent_draft_picks<R: Rng>(
+    state: &mut GameState,
+    perspective_player: usize,
+    opponent_stats: &mut OpponentDraftStats,
+    pick_log: &mut Vec<(u32, usize, Choice)>,
+    exploration_constant: f64,
+    rng: &mut R,
+) {
+    loop {
+        let (current_player, pick_number) = match &state.phase {
+            GamePhase::Draft { draft_state } => {
+                (draft_state.current_player_index, draft_state.pick_number)
+            }
+            _ => break,
+        };
+
+        if current_player == perspective_player {
+            break;
+        }
+
+        // Clear waiting_for_pass
+        if let GamePhase::Draft { ref mut draft_state } = state.phase {
+            draft_state.waiting_for_pass = false;
+        }
+
+        let available = get_opponent_draft_choices(state);
+        if available.is_empty() {
+            break;
+        }
+
+        opponent_stats.update_availability(pick_number as usize, current_player, &available);
+        let choice = opponent_stats.select(
+            pick_number as usize,
+            current_player,
+            &available,
+            exploration_constant,
+            rng,
+        );
+
+        let card_id = find_card_id_for_choice(state, &choice);
+        pick_log.push((pick_number, current_player, choice));
+        player_pick(state, card_id);
+
+        // Clear waiting_for_pass (player_pick may set it)
+        if let GamePhase::Draft { ref mut draft_state } = state.phase {
+            draft_state.waiting_for_pass = false;
+        }
+    }
+}
+
 pub fn ismcts<R: Rng>(
     state: &GameState,
     player_index: usize,
@@ -166,9 +337,32 @@ pub fn ismcts<R: Rng>(
 
     let mut availability_buf: Vec<bool> = Vec::new();
 
-    for _ in 0..config.iterations {
-        determinize_in_place(&mut det_state, state, player_index, known_draft_hands, &cached_scores, rng);
-        iteration(&mut root, &mut det_state, max_rollout_round, config, &mut choices_buf, &mut availability_buf, rng);
+    if config.simultaneous_draft {
+        let mut opponent_stats = OpponentDraftStats::new();
+        let mut pick_log: Vec<(u32, usize, Choice)> = Vec::new();
+
+        for _ in 0..config.iterations {
+            pick_log.clear();
+            determinize_in_place(&mut det_state, state, player_index, known_draft_hands, &cached_scores, rng);
+            advance_past_opponent_draft_picks(
+                &mut det_state, player_index, &mut opponent_stats,
+                &mut pick_log, config.exploration_constant, rng,
+            );
+            let scores = iteration_simultaneous(
+                &mut root, &mut det_state, player_index,
+                &mut opponent_stats, &mut pick_log,
+                max_rollout_round, config, &mut choices_buf, &mut availability_buf, rng,
+            );
+            for &(pick_round, player, ref choice) in &pick_log {
+                let reward = if player < scores.len() { scores[player] } else { 0.0 };
+                opponent_stats.record_outcome(pick_round as usize, player, choice, reward);
+            }
+        }
+    } else {
+        for _ in 0..config.iterations {
+            determinize_in_place(&mut det_state, state, player_index, known_draft_hands, &cached_scores, rng);
+            iteration(&mut root, &mut det_state, max_rollout_round, config, &mut choices_buf, &mut availability_buf, rng);
+        }
     }
 
     if root.children.is_empty() {
@@ -235,6 +429,73 @@ fn iteration<R: Rng>(
     } else {
         let child = &mut node.children[best_idx];
         iteration(child, state, max_rollout_round, config, choices_buf, availability_buf, rng)
+    };
+
+    record_outcome(node, &scores);
+    scores
+}
+
+fn iteration_simultaneous<R: Rng>(
+    node: &mut MctsNode,
+    state: &mut GameState,
+    perspective_player: usize,
+    opponent_stats: &mut OpponentDraftStats,
+    pick_log: &mut Vec<(u32, usize, Choice)>,
+    max_rollout_round: Option<u32>,
+    config: &MctsConfig,
+    choices_buf: &mut Vec<Choice>,
+    availability_buf: &mut Vec<bool>,
+    rng: &mut R,
+) -> SmallVec<[f64; 4]> {
+    let active_player = match get_game_status(state, max_rollout_round) {
+        GameStatus::Terminated { scores } => {
+            record_outcome(node, &scores);
+            return scores;
+        }
+        GameStatus::AwaitingAction { player_index } => player_index,
+    };
+
+    // Enumerate choices (needed for both expand and select)
+    enumerate_choices_into(state, choices_buf);
+
+    // Expand (also populates availability_buf)
+    node.expand(choices_buf, active_player, availability_buf, rng);
+
+    // Select
+    let best_idx =
+        match select(node, availability_buf, config.exploration_constant)
+        {
+            Some(idx) => idx,
+            None => {
+                let empty_scores = SmallVec::new();
+                record_outcome(node, &empty_scores);
+                return empty_scores;
+            }
+        };
+
+    // Apply selected child's choice
+    let choice = node.children[best_idx].choice.clone().unwrap();
+    apply_choice_to_state(state, &choice, rng);
+
+    // After applying the perspective player's draft pick, advance past opponents
+    advance_past_opponent_draft_picks(
+        state, perspective_player, opponent_stats,
+        pick_log, config.exploration_constant, rng,
+    );
+
+    let should_rollout = node.children[best_idx].visit_count == 0;
+
+    let scores = if should_rollout {
+        let scores = rollout(state, max_rollout_round, config.max_rollout_steps, rng);
+        record_outcome(&mut node.children[best_idx], &scores);
+        scores
+    } else {
+        let child = &mut node.children[best_idx];
+        iteration_simultaneous(
+            child, state, perspective_player,
+            opponent_stats, pick_log,
+            max_rollout_round, config, choices_buf, availability_buf, rng,
+        )
     };
 
     record_outcome(node, &scores);
