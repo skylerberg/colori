@@ -223,10 +223,27 @@ impl eframe::App for ColoriGuiApp {
             });
 
             // Tab bar
+            ui.add_space(4.0);
             ui.horizontal(|ui| {
-                ui.selectable_value(&mut self.active_tab, Tab::Analysis, "Game Analysis");
-                ui.selectable_value(&mut self.active_tab, Tab::CardReference, "Card Reference");
-                ui.selectable_value(&mut self.active_tab, Tab::GameViewer, "Game Viewer");
+                for (tab, label) in [
+                    (Tab::Analysis, "Game Analysis"),
+                    (Tab::CardReference, "Card Reference"),
+                    (Tab::GameViewer, "Game Viewer"),
+                ] {
+                    let is_active = self.active_tab == tab;
+                    let response = ui.selectable_value(&mut self.active_tab, tab, label);
+                    if is_active {
+                        let rect = response.rect;
+                        ui.painter().rect_filled(
+                            egui::Rect::from_min_size(
+                                egui::pos2(rect.min.x, rect.max.y - 2.0),
+                                egui::vec2(rect.width(), 2.0),
+                            ),
+                            0.0,
+                            egui::Color32::from_rgb(74, 158, 255),
+                        );
+                    }
+                }
             });
             ui.separator();
 

@@ -275,17 +275,9 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis, num_gam
                 });
         }
 
-        // 7. Action Distribution
-        render_hashmap_bar_section(
-            ui,
-            "Action Distribution",
-            "Action",
-            "Count",
-            &analysis.action_dist,
-            false,
-        );
+        // --- Draft Analysis ---
+        section_group_heading(ui, "Draft Analysis");
 
-        // 8. Draft Frequency
         let id = ui.make_persistent_id("draft_frequency");
         egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
             .show_header(ui, |ui| {
@@ -327,7 +319,9 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis, num_gam
                 );
             });
 
-        // 10. Win Rate by Card in Deck
+        // --- Win Rates ---
+        section_group_heading(ui, "Win Rates");
+
         render_win_rate_card_section(
             ui,
             "Win Rate by Card in Deck",
@@ -345,7 +339,19 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis, num_gam
             &analysis.draft_win_rate_categories,
         );
 
-        // 12. Destroyed from Draft
+        // --- Actions & Buyers ---
+        section_group_heading(ui, "Actions & Buyers");
+
+        render_hashmap_bar_section(
+            ui,
+            "Action Distribution",
+            "Action",
+            "Count",
+            &analysis.action_dist,
+            false,
+        );
+
+        // Destroyed from Draft
         let id = ui.make_persistent_id("destroyed_draft");
         egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
             .show_header(ui, |ui| {
@@ -395,7 +401,10 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis, num_gam
                 render_usize_hashmap_bar_rows(ui, &analysis.buyer_acq.by_material, "Count");
             });
 
-        // 15. Color Wheel at End
+        // --- End State ---
+        section_group_heading(ui, "End State");
+
+        // Color Wheel at End
         let id = ui.make_persistent_id("color_wheel_end");
         egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
             .show_header(ui, |ui| {
@@ -408,6 +417,19 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis, num_gam
 }
 
 // -- Helper rendering functions --
+
+/// Render a section group heading with a separator line above it.
+fn section_group_heading(ui: &mut egui::Ui, title: &str) {
+    ui.add_space(8.0);
+    ui.separator();
+    ui.add_space(2.0);
+    ui.label(
+        egui::RichText::new(title)
+            .size(14.0)
+            .color(egui::Color32::from_rgb(160, 160, 180)),
+    );
+    ui.add_space(2.0);
+}
 
 fn render_btree_bar_section(
     ui: &mut egui::Ui,
