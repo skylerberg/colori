@@ -211,11 +211,14 @@ impl eframe::App for ColoriGuiApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Colori Game Analysis");
 
-            // Folder picker
+            // Refresh button
             ui.horizontal(|ui| {
-                if ui.button("Select game logs folder...").clicked() {
-                    if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                        self.loader.start_loading(&path);
+                if ui.button("Refresh").clicked() && !self.loader.is_loading() {
+                    if let Ok(cwd) = std::env::current_dir() {
+                        let game_logs_path = cwd.join("game-logs");
+                        if game_logs_path.is_dir() {
+                            self.loader.start_loading(&game_logs_path);
+                        }
                     }
                 }
                 if self.loader.is_loading() {
