@@ -230,9 +230,9 @@ const CARD_DATA: [CardProperties; 48] = [
     // StarterCeramics
     CardProperties { name: "Ceramics", kind: CardKind::Material, ability: Ability::Workshop { count: 3 }, pips: &[], material_types: &[MaterialType::Ceramics], workshop_abilities: &[] },
     // StarterPaintings
-    CardProperties { name: "Paintings", kind: CardKind::Material, ability: Ability::Workshop { count: 3 }, pips: &[], material_types: &[MaterialType::Paintings], workshop_abilities: &[] },
+    CardProperties { name: "Paintings", kind: CardKind::Material, ability: Ability::Workshop { count: 4 }, pips: &[], material_types: &[MaterialType::Paintings], workshop_abilities: &[] },
     // StarterTextiles
-    CardProperties { name: "Textiles", kind: CardKind::Material, ability: Ability::Workshop { count: 3 }, pips: &[], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
+    CardProperties { name: "Textiles", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, pips: &[], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
     // FineCeramics
     CardProperties { name: "Fine Ceramics", kind: CardKind::Material, ability: Ability::Sell, pips: &[], material_types: &[MaterialType::Ceramics, MaterialType::Ceramics], workshop_abilities: &[] },
     // FinePaintings
