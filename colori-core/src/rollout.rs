@@ -34,31 +34,50 @@ fn rollout_draw_and_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
         }
     }
 
-    // Step 2: Pool all available draft cards
-    let mut pool = state.draft_deck;
-    state.draft_deck = UnorderedCards::new();
-
-    let total_needed = 5 * num_players as u32;
-    if pool.len() < total_needed && !state.destroyed_pile.is_empty() {
-        pool = pool.union(state.destroyed_pile);
-        state.destroyed_pile = UnorderedCards::new();
+    // Step 2: Draw 4 cards per player from draft_deck, restocking from destroyed_pile
+    // only when the deck runs out (mirrors initialize_draft ordering)
+    let mut dealt = [UnorderedCards::new(); MAX_PLAYERS];
+    for i in 0..num_players {
+        let deck_len = state.draft_deck.len();
+        if deck_len >= 4 {
+            dealt[i] = state.draft_deck.draw_multiple(4, rng);
+        } else {
+            // Take everything remaining from draft_deck
+            dealt[i] = state.draft_deck;
+            state.draft_deck = UnorderedCards::new();
+            let remaining = 4 - deck_len;
+            if remaining > 0 && !state.destroyed_pile.is_empty() {
+                // Restock draft_deck from destroyed_pile
+                state.draft_deck = state.destroyed_pile;
+                state.destroyed_pile = UnorderedCards::new();
+                let available = state.draft_deck.len().min(remaining);
+                if available > 0 {
+                    let drawn = state.draft_deck.draw_multiple(available, rng);
+                    dealt[i] = dealt[i].union(drawn);
+                }
+            }
+        }
     }
 
-    // Step 3: Check if enough cards for all players
-    if pool.len() < 4 * num_players as u32 {
-        state.destroyed_pile = state.destroyed_pile.union(pool);
+    // Step 3: If any player got 0 cards, return all dealt cards to destroyed_pile
+    if (0..num_players).any(|i| dealt[i].is_empty()) {
+        for i in 0..num_players {
+            state.destroyed_pile = state.destroyed_pile.union(dealt[i]);
+        }
+        state.destroyed_pile = state.destroyed_pile.union(state.draft_deck);
+        state.draft_deck = UnorderedCards::new();
         initialize_action_phase(state);
         return;
     }
 
-    // Step 4: Distribute 4 random cards per player to drafted_cards
+    // Step 4: Assign dealt cards as drafted_cards
     for i in 0..num_players {
-        let drawn = pool.draw_multiple(4, rng);
-        state.players[i].drafted_cards = drawn;
+        state.players[i].drafted_cards = dealt[i];
     }
 
-    // Step 5: Remaining cards go to destroyed_pile
-    state.destroyed_pile = state.destroyed_pile.union(pool);
+    // Step 5: Remaining draft_deck cards go to destroyed_pile
+    state.destroyed_pile = state.destroyed_pile.union(state.draft_deck);
+    state.draft_deck = UnorderedCards::new();
 
     // Step 6: Go directly to action phase
     initialize_action_phase(state);
