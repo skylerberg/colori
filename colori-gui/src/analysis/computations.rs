@@ -1,0 +1,1140 @@
+use std::collections::{BTreeMap, HashMap, HashSet};
+
+use colori_core::game_log::{LogChoice, PlayerVariant, StructuredGameLog};
+use colori_core::types::{BuyerCard, BuyerInstance, CardInstance, ALL_COLORS};
+
+use super::card_names::{buyer_display_name, card_display_name, get_draft_copies_by_name};
+use super::categories::CardCategory;
+
+// ── Types ──
+
+/// Maps log index (position in the slice) to filtered player indices.
+pub type PlayerFilter = HashMap<usize, HashSet<usize>>;
+
+pub struct WinRateEntry {
+    pub wins: f64,
+    pub games: f64,
+}
+
+pub struct CategoryStat {
+    pub label: String,
+    pub raw_total: f64,
+    pub total_copies: u32,
+    pub normalized_rate: f64,
+}
+
+pub struct WinRateCategoryStat {
+    pub label: String,
+    pub wins: f64,
+    pub games: f64,
+}
+
+pub struct DeckSizeStats {
+    pub mean: f64,
+    pub median: f64,
+    pub min: u32,
+    pub max: u32,
+}
+
+#[allow(dead_code)]
+pub struct GameLengthStats {
+    pub avg_rounds: f64,
+    pub avg_choices: f64,
+}
+
+#[allow(dead_code)]
+pub struct DurationStats {
+    pub avg_ms: f64,
+    pub median_ms: f64,
+    pub min_ms: u64,
+    pub max_ms: u64,
+}
+
+pub struct BuyerAcquisitions {
+    pub by_buyer: HashMap<String, usize>,
+    pub by_stars: HashMap<u32, usize>,
+    pub by_material: HashMap<String, usize>,
+}
+
+// ── Helper functions ──
+
+/// Build a map from card instance ID to CardInstance from a log's initial state.
+pub fn build_card_instance_map(log: &StructuredGameLog) -> HashMap<u32, CardInstance> {
+    let mut map = HashMap::new();
+    let state = &log.initial_state;
+
+    let add_cards = |map: &mut HashMap<u32, CardInstance>, cards: &[CardInstance]| {
+        for c in cards {
+            map.insert(c.instance_id, *c);
+        }
+    };
+
+    for p in &state.players {
+        add_cards(&mut map, &p.deck);
+        add_cards(&mut map, &p.discard);
+        add_cards(&mut map, &p.used_cards);
+        add_cards(&mut map, &p.workshop_cards);
+        add_cards(&mut map, &p.drafted_cards);
+    }
+    add_cards(&mut map, &state.draft_deck);
+    add_cards(&mut map, &state.destroyed_pile);
+
+    map
+}
+
+/// Build a map from buyer instance ID to BuyerInstance from a log's initial state.
+pub fn build_buyer_instance_map(log: &StructuredGameLog) -> HashMap<u32, BuyerInstance> {
+    let mut map = HashMap::new();
+    let state = &log.initial_state;
+
+    let add_buyers = |map: &mut HashMap<u32, BuyerInstance>, buyers: &[BuyerInstance]| {
+        for b in buyers {
+            map.insert(b.instance_id, *b);
+        }
+    };
+
+    for p in &state.players {
+        add_buyers(&mut map, &p.completed_buyers);
+    }
+    add_buyers(&mut map, &state.buyer_deck);
+    add_buyers(&mut map, &state.buyer_display);
+
+    map
+}
+
+/// Get the display name for a card.
+pub fn card_name_from_instance(card: colori_core::types::Card) -> String {
+    card_display_name(card).to_string()
+}
+
+/// Get the display name for a buyer card.
+pub fn buyer_name_from_instance(buyer: BuyerCard) -> String {
+    buyer_display_name(buyer)
+}
+
+/// Look up a card instance ID and return its display name.
+pub fn get_card_name(card_map: &HashMap<u32, CardInstance>, id: u32) -> String {
+    match card_map.get(&id) {
+        Some(inst) => card_name_from_instance(inst.card),
+        None => format!("Card #{}", id),
+    }
+}
+
+/// Look up a buyer instance ID and return its display name.
+pub fn get_buyer_name(buyer_map: &HashMap<u32, BuyerInstance>, id: u32) -> String {
+    match buyer_map.get(&id) {
+        Some(inst) => buyer_name_from_instance(inst.buyer),
+        None => format!("Buyer #{}", id),
+    }
+}
+
+// ── Player filtering ──
+
+/// Compute a player filter that selects only players matching a given variant label.
+pub fn compute_player_filter(
+    logs: &[StructuredGameLog],
+    variant_label: &str,
+) -> PlayerFilter {
+    let mut filter = PlayerFilter::new();
+    for (log_idx, log) in logs.iter().enumerate() {
+        if let Some(ref variants) = log.player_variants {
+            let mut indices = HashSet::new();
+            for (i, variant) in variants.iter().enumerate() {
+                if format_variant_label(variant, Some(variants)) == variant_label {
+                    indices.insert(i);
+                }
+            }
+            if !indices.is_empty() {
+                filter.insert(log_idx, indices);
+            }
+        }
+    }
+    filter
+}
+
+fn format_iterations_short(iters: u32) -> String {
+    if iters >= 1000 && iters % 1000 == 0 {
+        format!("{}k", iters / 1000)
+    } else {
+        format!("{}", iters)
+    }
+}
+
+/// Format a player variant as a human-readable label.
+pub fn format_variant_label(
+    variant: &PlayerVariant,
+    all_variants: Option<&[PlayerVariant]>,
+) -> String {
+    if let Some(ref name) = variant.name {
+        return name.clone();
+    }
+
+    let mut differing_iterations = false;
+    let mut differing_exploration = false;
+    let mut differing_rollout = false;
+
+    if let Some(all) = all_variants {
+        if all.len() > 1 {
+            let first = &all[0];
+            differing_iterations = all.iter().any(|v| v.iterations != first.iterations);
+            differing_exploration = all
+                .iter()
+                .any(|v| v.exploration_constant != first.exploration_constant);
+            differing_rollout = all
+                .iter()
+                .any(|v| v.max_rollout_steps != first.max_rollout_steps);
+        }
+    }
+
+    let mut parts = Vec::new();
+
+    if differing_iterations || (!differing_exploration && !differing_rollout) {
+        parts.push(format_iterations_short(variant.iterations));
+    }
+    if differing_exploration {
+        let c = variant.exploration_constant.unwrap_or(std::f64::consts::SQRT_2);
+        parts.push(format!("c={:.2}", c));
+    }
+    if differing_rollout {
+        let rollout = variant.max_rollout_steps.unwrap_or(1000);
+        parts.push(format!("rollout={}", rollout));
+    }
+
+    parts.join(", ")
+}
+
+// ── Format choice ──
+
+/// Format a log choice as a human-readable string.
+pub fn format_choice(
+    choice: &LogChoice,
+    card_map: &HashMap<u32, CardInstance>,
+    buyer_map: &HashMap<u32, BuyerInstance>,
+) -> String {
+    let card_name = |id: u32| get_card_name(card_map, id);
+    let buyer_name = |id: u32| get_buyer_name(buyer_map, id);
+    let card_names = |ids: &[u32]| {
+        ids.iter()
+            .map(|&id| card_name(id))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+
+    match choice {
+        LogChoice::DraftPick { card_instance_id } => {
+            format!("Drafted {}", card_name(*card_instance_id))
+        }
+        LogChoice::DestroyDraftedCard { card_instance_id } => {
+            format!("Destroyed {} from draft", card_name(*card_instance_id))
+        }
+        LogChoice::EndTurn => "Ended turn".to_string(),
+        LogChoice::Workshop { card_instance_ids } => {
+            if card_instance_ids.is_empty() {
+                "Workshopped nothing".to_string()
+            } else {
+                format!("Workshopped {}", card_names(card_instance_ids))
+            }
+        }
+        LogChoice::SkipWorkshop => "Skipped workshop".to_string(),
+        LogChoice::DestroyDrawnCards { card_instance_ids } => {
+            format!(
+                "Destroyed {} from workshop",
+                card_names(card_instance_ids)
+            )
+        }
+        LogChoice::SelectBuyer { buyer_instance_id } => {
+            format!("Sold to {}", buyer_name(*buyer_instance_id))
+        }
+        LogChoice::GainSecondary { color } => {
+            format!("Gained {:?} (secondary)", color)
+        }
+        LogChoice::GainPrimary { color } => {
+            format!("Gained {:?} (primary)", color)
+        }
+        LogChoice::MixAll { mixes } => {
+            if mixes.is_empty() {
+                "Skipped mixing".to_string()
+            } else {
+                let mix_strs: Vec<String> =
+                    mixes.iter().map(|(a, b)| format!("{:?}+{:?}", a, b)).collect();
+                format!("Mixed {}", mix_strs.join(", "))
+            }
+        }
+        LogChoice::SwapTertiary { lose, gain } => {
+            format!("Swapped {:?} for {:?}", lose, gain)
+        }
+        LogChoice::DestroyAndMixAll {
+            card_instance_id,
+            mixes,
+        } => {
+            if mixes.is_empty() {
+                format!(
+                    "Destroyed {} and skipped mixing",
+                    card_name(*card_instance_id)
+                )
+            } else {
+                let mix_strs: Vec<String> =
+                    mixes.iter().map(|(a, b)| format!("{:?}+{:?}", a, b)).collect();
+                format!(
+                    "Destroyed {} and mixed {}",
+                    card_name(*card_instance_id),
+                    mix_strs.join(", ")
+                )
+            }
+        }
+        LogChoice::DestroyAndSell {
+            card_instance_id,
+            buyer_instance_id,
+        } => {
+            format!(
+                "Destroyed {} and sold to {}",
+                card_name(*card_instance_id),
+                buyer_name(*buyer_instance_id)
+            )
+        }
+        LogChoice::KeepWorkshopCards { card_instance_ids } => {
+            if card_instance_ids.is_empty() {
+                "Kept nothing".to_string()
+            } else {
+                format!("Kept {} in workshop", card_names(card_instance_ids))
+            }
+        }
+    }
+}
+
+// ── Action analysis ──
+
+/// Count the frequency of each choice type across all log entries.
+pub fn compute_action_distribution(
+    logs: &[StructuredGameLog],
+    filter: Option<&PlayerFilter>,
+) -> HashMap<String, usize> {
+    let mut counts = HashMap::new();
+    for (log_idx, log) in logs.iter().enumerate() {
+        let allowed = filter.and_then(|f| f.get(&log_idx));
+        for entry in &log.entries {
+            if let Some(allowed) = allowed {
+                if !allowed.contains(&entry.player_index) {
+                    continue;
+                }
+            }
+            let type_name = choice_type_name(&entry.choice);
+            *counts.entry(type_name).or_insert(0) += 1;
+        }
+    }
+    counts
+}
+
+fn choice_type_name(choice: &LogChoice) -> String {
+    match choice {
+        LogChoice::DraftPick { .. } => "draftPick".to_string(),
+        LogChoice::DestroyDraftedCard { .. } => "destroyDraftedCard".to_string(),
+        LogChoice::EndTurn => "endTurn".to_string(),
+        LogChoice::Workshop { .. } => "workshop".to_string(),
+        LogChoice::SkipWorkshop => "skipWorkshop".to_string(),
+        LogChoice::DestroyDrawnCards { .. } => "destroyDrawnCards".to_string(),
+        LogChoice::SelectBuyer { .. } => "selectBuyer".to_string(),
+        LogChoice::GainSecondary { .. } => "gainSecondary".to_string(),
+        LogChoice::GainPrimary { .. } => "gainPrimary".to_string(),
+        LogChoice::MixAll { .. } => "mixAll".to_string(),
+        LogChoice::SwapTertiary { .. } => "swapTertiary".to_string(),
+        LogChoice::DestroyAndMixAll { .. } => "destroyAndMixAll".to_string(),
+        LogChoice::DestroyAndSell { .. } => "destroyAndSell".to_string(),
+        LogChoice::KeepWorkshopCards { .. } => "keepWorkshopCards".to_string(),
+    }
+}
+
+// ── Draft analysis ──
+
+/// Count how many times each card was drafted (by display name).
+pub fn compute_draft_frequency(
+    logs: &[StructuredGameLog],
+    filter: Option<&PlayerFilter>,
+) -> HashMap<String, usize> {
+    let mut counts = HashMap::new();
+    for (log_idx, log) in logs.iter().enumerate() {
+        let allowed = filter.and_then(|f| f.get(&log_idx));
+        let card_map = build_card_instance_map(log);
+        for entry in &log.entries {
+            if let Some(allowed) = allowed {
+                if !allowed.contains(&entry.player_index) {
+                    continue;
+                }
+            }
+            if let LogChoice::DraftPick { card_instance_id } = &entry.choice {
+                let name = get_card_name(&card_map, *card_instance_id);
+                *counts.entry(name).or_insert(0) += 1;
+            }
+        }
+    }
+    counts
+}
+
+/// Count cards that were drafted and not subsequently destroyed (added to final deck).
+pub fn compute_cards_added_to_deck(
+    logs: &[StructuredGameLog],
+    filter: Option<&PlayerFilter>,
+) -> HashMap<String, usize> {
+    let mut counts = HashMap::new();
+    for (log_idx, log) in logs.iter().enumerate() {
+        let allowed = filter.and_then(|f| f.get(&log_idx));
+        let card_map = build_card_instance_map(log);
+        let mut drafted: HashMap<u32, String> = HashMap::new();
+        let mut destroyed: HashSet<u32> = HashSet::new();
+
+        for entry in &log.entries {
+            if let Some(allowed) = allowed {
+                if !allowed.contains(&entry.player_index) {
+                    continue;
+                }
+            }
+            match &entry.choice {
+                LogChoice::DraftPick { card_instance_id } => {
+                    let name = get_card_name(&card_map, *card_instance_id);
+                    drafted.insert(*card_instance_id, name);
+                }
+                LogChoice::DestroyDraftedCard { card_instance_id }
+                | LogChoice::DestroyAndMixAll {
+                    card_instance_id, ..
+                }
+                | LogChoice::DestroyAndSell {
+                    card_instance_id, ..
+                } => {
+                    destroyed.insert(*card_instance_id);
+                }
+                _ => {}
+            }
+        }
+
+        for (id, name) in &drafted {
+            if !destroyed.contains(id) {
+                *counts.entry(name.clone()).or_insert(0) += 1;
+            }
+        }
+    }
+    counts
+}
+
+/// Normalize raw counts by draft copies for each card name.
+pub fn normalize_by_draft_copies(counts: &HashMap<String, usize>) -> HashMap<String, f64> {
+    let mut normalized = HashMap::new();
+    for (name, &count) in counts {
+        let copies = get_draft_copies_by_name(name);
+        normalized.insert(name.clone(), count as f64 / copies as f64);
+    }
+    normalized
+}
+
+/// Compute aggregate stats per category.
+pub fn compute_category_stats(
+    counts: &HashMap<String, usize>,
+    categories: &[CardCategory],
+) -> Vec<CategoryStat> {
+    categories
+        .iter()
+        .map(|cat| {
+            let mut raw_total = 0.0;
+            for name in &cat.card_names {
+                raw_total += *counts.get(*name).unwrap_or(&0) as f64;
+            }
+            let normalized_rate = if cat.total_copies > 0 {
+                raw_total / cat.total_copies as f64
+            } else {
+                0.0
+            };
+            CategoryStat {
+                label: cat.label.to_string(),
+                raw_total,
+                total_copies: cat.total_copies,
+                normalized_rate,
+            }
+        })
+        .collect()
+}
+
+// ── Destroy analysis ──
+
+/// Count cards destroyed from the draft phase (destroyDraftedCard, destroyAndMixAll, destroyAndSell).
+pub fn compute_destroyed_from_draft(
+    logs: &[StructuredGameLog],
+    filter: Option<&PlayerFilter>,
+) -> HashMap<String, usize> {
+    let mut counts = HashMap::new();
+    for (log_idx, log) in logs.iter().enumerate() {
+        let allowed = filter.and_then(|f| f.get(&log_idx));
+        let card_map = build_card_instance_map(log);
+        for entry in &log.entries {
+            if let Some(allowed) = allowed {
+                if !allowed.contains(&entry.player_index) {
+                    continue;
+                }
+            }
+            let card_instance_id = match &entry.choice {
+                LogChoice::DestroyDraftedCard { card_instance_id }
+                | LogChoice::DestroyAndMixAll {
+                    card_instance_id, ..
+                }
+                | LogChoice::DestroyAndSell {
+                    card_instance_id, ..
+                } => Some(*card_instance_id),
+                _ => None,
+            };
+            if let Some(id) = card_instance_id {
+                let name = get_card_name(&card_map, id);
+                *counts.entry(name).or_insert(0) += 1;
+            }
+        }
+    }
+    counts
+}
+
+/// Count cards destroyed from workshop (destroyDrawnCards).
+pub fn compute_destroyed_from_workshop(
+    logs: &[StructuredGameLog],
+    filter: Option<&PlayerFilter>,
+) -> HashMap<String, usize> {
+    let mut counts = HashMap::new();
+    for (log_idx, log) in logs.iter().enumerate() {
+        let allowed = filter.and_then(|f| f.get(&log_idx));
+        let card_map = build_card_instance_map(log);
+        for entry in &log.entries {
+            if let Some(allowed) = allowed {
+                if !allowed.contains(&entry.player_index) {
+                    continue;
+                }
+            }
+            if let LogChoice::DestroyDrawnCards { card_instance_ids } = &entry.choice {
+                for &id in card_instance_ids {
+                    let name = get_card_name(&card_map, id);
+                    *counts.entry(name).or_insert(0) += 1;
+                }
+            }
+        }
+    }
+    counts
+}
+
+/// Compute destroy rate: destroyed / drafted for each card name.
+pub fn compute_destroy_rate(
+    destroyed: &HashMap<String, usize>,
+    drafted: &HashMap<String, usize>,
+) -> HashMap<String, f64> {
+    let mut rates = HashMap::new();
+    for (name, &destroyed_count) in destroyed {
+        let drafted_count = *drafted.get(name).unwrap_or(&0);
+        let rate = if drafted_count > 0 {
+            destroyed_count as f64 / drafted_count as f64
+        } else {
+            0.0
+        };
+        rates.insert(name.clone(), rate);
+    }
+    rates
+}
+
+// ── Win rate analysis ──
+
+/// Compute win rate by card name (cards in final deck).
+pub fn compute_win_rate_by_card(
+    logs: &[StructuredGameLog],
+    filter: Option<&PlayerFilter>,
+) -> HashMap<String, WinRateEntry> {
+    let mut stats: HashMap<String, WinRateEntry> = HashMap::new();
+
+    for (log_idx, log) in logs.iter().enumerate() {
+        let final_scores = match &log.final_scores {
+            Some(fs) => fs,
+            None => continue,
+        };
+        let allowed = filter.and_then(|f| f.get(&log_idx));
+        let card_map = build_card_instance_map(log);
+
+        // Track per-player drafted and destroyed cards
+        let mut player_drafted: HashMap<usize, HashSet<u32>> = HashMap::new();
+        let mut player_destroyed: HashMap<usize, HashSet<u32>> = HashMap::new();
+
+        for entry in &log.entries {
+            if let Some(allowed) = allowed {
+                if !allowed.contains(&entry.player_index) {
+                    continue;
+                }
+            }
+            let pi = entry.player_index;
+            match &entry.choice {
+                LogChoice::DraftPick { card_instance_id } => {
+                    player_drafted
+                        .entry(pi)
+                        .or_default()
+                        .insert(*card_instance_id);
+                }
+                LogChoice::DestroyDraftedCard { card_instance_id }
+                | LogChoice::DestroyAndMixAll {
+                    card_instance_id, ..
+                }
+                | LogChoice::DestroyAndSell {
+                    card_instance_id, ..
+                } => {
+                    player_destroyed
+                        .entry(pi)
+                        .or_default()
+                        .insert(*card_instance_id);
+                }
+                _ => {}
+            }
+        }
+
+        // Compute winners
+        let max_score = final_scores.iter().map(|fs| fs.score).max().unwrap_or(0);
+        let num_winners = final_scores.iter().filter(|fs| fs.score == max_score).count();
+
+        // For each player, determine final deck cards and tally
+        for i in 0..log.player_names.len() {
+            if let Some(allowed) = allowed {
+                if !allowed.contains(&i) {
+                    continue;
+                }
+            }
+            let drafted = player_drafted.get(&i);
+            let destroyed = player_destroyed.get(&i);
+            let player_name = &log.player_names[i];
+            let is_winner = final_scores
+                .iter()
+                .any(|fs| &fs.name == player_name && fs.score == max_score);
+
+            let mut deck_card_names: HashSet<String> = HashSet::new();
+            if let Some(drafted) = drafted {
+                for &id in drafted {
+                    if destroyed.map_or(true, |d| !d.contains(&id)) {
+                        let name = get_card_name(&card_map, id);
+                        deck_card_names.insert(name);
+                    }
+                }
+            }
+
+            for name in &deck_card_names {
+                let entry = stats
+                    .entry(name.clone())
+                    .or_insert(WinRateEntry { wins: 0.0, games: 0.0 });
+                entry.games += 1.0;
+                if is_winner {
+                    entry.wins += 1.0 / num_winners as f64;
+                }
+            }
+        }
+    }
+
+    stats
+}
+
+/// Compute win rate by card name for cards that were drafted (regardless of whether they were destroyed).
+pub fn compute_win_rate_if_drafted(
+    logs: &[StructuredGameLog],
+    filter: Option<&PlayerFilter>,
+) -> HashMap<String, WinRateEntry> {
+    let mut stats: HashMap<String, WinRateEntry> = HashMap::new();
+
+    for (log_idx, log) in logs.iter().enumerate() {
+        let final_scores = match &log.final_scores {
+            Some(fs) => fs,
+            None => continue,
+        };
+        let allowed = filter.and_then(|f| f.get(&log_idx));
+        let card_map = build_card_instance_map(log);
+
+        // Track per-player drafted card names (no destruction filtering)
+        let mut player_drafted: HashMap<usize, HashSet<String>> = HashMap::new();
+
+        for entry in &log.entries {
+            if let Some(allowed) = allowed {
+                if !allowed.contains(&entry.player_index) {
+                    continue;
+                }
+            }
+            if let LogChoice::DraftPick { card_instance_id } = &entry.choice {
+                let name = get_card_name(&card_map, *card_instance_id);
+                player_drafted
+                    .entry(entry.player_index)
+                    .or_default()
+                    .insert(name);
+            }
+        }
+
+        // Compute winners
+        let max_score = final_scores.iter().map(|fs| fs.score).max().unwrap_or(0);
+        let num_winners = final_scores.iter().filter(|fs| fs.score == max_score).count();
+
+        // For each player, tally win rate by drafted card names
+        for i in 0..log.player_names.len() {
+            if let Some(allowed) = allowed {
+                if !allowed.contains(&i) {
+                    continue;
+                }
+            }
+            let drafted_names = player_drafted.get(&i);
+            let player_name = &log.player_names[i];
+            let is_winner = final_scores
+                .iter()
+                .any(|fs| &fs.name == player_name && fs.score == max_score);
+
+            if let Some(drafted_names) = drafted_names {
+                for name in drafted_names {
+                    let entry = stats
+                        .entry(name.clone())
+                        .or_insert(WinRateEntry { wins: 0.0, games: 0.0 });
+                    entry.games += 1.0;
+                    if is_winner {
+                        entry.wins += 1.0 / num_winners as f64;
+                    }
+                }
+            }
+        }
+    }
+
+    stats
+}
+
+/// Compute win rate by player position (seat index).
+pub fn compute_win_rate_by_position(
+    logs: &[StructuredGameLog],
+    filter: Option<&PlayerFilter>,
+) -> HashMap<usize, WinRateEntry> {
+    let mut stats: HashMap<usize, WinRateEntry> = HashMap::new();
+
+    for (log_idx, log) in logs.iter().enumerate() {
+        let final_scores = match &log.final_scores {
+            Some(fs) => fs,
+            None => continue,
+        };
+        let allowed = filter.and_then(|f| f.get(&log_idx));
+        let num_players = final_scores.len();
+
+        // Initialize positions
+        for i in 0..num_players {
+            if let Some(allowed) = allowed {
+                if !allowed.contains(&i) {
+                    continue;
+                }
+            }
+            stats
+                .entry(i)
+                .or_insert(WinRateEntry { wins: 0.0, games: 0.0 })
+                .games += 1.0;
+        }
+
+        // Find highest score
+        let max_score = final_scores.iter().map(|fs| fs.score).max().unwrap_or(0);
+        let num_winners = final_scores.iter().filter(|fs| fs.score == max_score).count();
+
+        // Match final scores back to player indices by name
+        for i in 0..log.player_names.len() {
+            if let Some(allowed) = allowed {
+                if !allowed.contains(&i) {
+                    continue;
+                }
+            }
+            let player_name = &log.player_names[i];
+            let is_winner = final_scores
+                .iter()
+                .any(|fs| &fs.name == player_name && fs.score == max_score);
+            if is_winner {
+                if let Some(entry) = stats.get_mut(&i) {
+                    entry.wins += 1.0 / num_winners as f64;
+                }
+            }
+        }
+    }
+
+    stats
+}
+
+/// Compute win rate by variant label. Returns None if no logs have player variants.
+pub fn compute_win_rate_by_variant(
+    logs: &[StructuredGameLog],
+) -> Option<HashMap<String, WinRateEntry>> {
+    let has_variants = logs.iter().any(|log| log.player_variants.is_some());
+    if !has_variants {
+        return None;
+    }
+
+    let mut stats: HashMap<String, WinRateEntry> = HashMap::new();
+
+    for log in logs {
+        let variants = match &log.player_variants {
+            Some(v) => v,
+            None => continue,
+        };
+        let final_scores = match &log.final_scores {
+            Some(fs) => fs,
+            None => continue,
+        };
+
+        // Find highest score
+        let max_score = final_scores.iter().map(|fs| fs.score).max().unwrap_or(0);
+        let num_winners = final_scores.iter().filter(|fs| fs.score == max_score).count();
+
+        for (i, variant) in variants.iter().enumerate() {
+            let label = format_variant_label(variant, Some(variants));
+            let entry = stats
+                .entry(label)
+                .or_insert(WinRateEntry { wins: 0.0, games: 0.0 });
+            entry.games += 1.0;
+
+            if i < log.player_names.len() {
+                let player_name = &log.player_names[i];
+                let is_winner = final_scores
+                    .iter()
+                    .any(|fs| &fs.name == player_name && fs.score == max_score);
+                if is_winner {
+                    entry.wins += 1.0 / num_winners as f64;
+                }
+            }
+        }
+    }
+
+    if stats.is_empty() {
+        None
+    } else {
+        Some(stats)
+    }
+}
+
+/// Compute aggregate win rate stats per category.
+pub fn compute_win_rate_category_stats(
+    win_rates: &HashMap<String, WinRateEntry>,
+    categories: &[CardCategory],
+) -> Vec<WinRateCategoryStat> {
+    categories
+        .iter()
+        .map(|cat| {
+            let mut wins = 0.0;
+            let mut games = 0.0;
+            for name in &cat.card_names {
+                if let Some(entry) = win_rates.get(*name) {
+                    wins += entry.wins;
+                    games += entry.games;
+                }
+            }
+            WinRateCategoryStat {
+                label: cat.label.to_string(),
+                wins,
+                games,
+            }
+        })
+        .collect()
+}
+
+// ── Score / game stats ──
+
+/// Compute score distribution across all players.
+pub fn compute_score_distribution(
+    logs: &[StructuredGameLog],
+    filter: Option<&PlayerFilter>,
+) -> BTreeMap<u32, usize> {
+    let mut counts = BTreeMap::new();
+    for (log_idx, log) in logs.iter().enumerate() {
+        if let Some(ref final_scores) = log.final_scores {
+            let allowed = filter.and_then(|f| f.get(&log_idx));
+            for i in 0..log.player_names.len() {
+                if let Some(allowed) = allowed {
+                    if !allowed.contains(&i) {
+                        continue;
+                    }
+                }
+                let player_name = &log.player_names[i];
+                if let Some(score_entry) = final_scores.iter().find(|fs| &fs.name == player_name) {
+                    *counts.entry(score_entry.score).or_insert(0) += 1;
+                }
+            }
+        }
+    }
+    counts
+}
+
+/// Compute the distribution of game round counts.
+pub fn compute_round_count_distribution(logs: &[StructuredGameLog]) -> BTreeMap<u32, usize> {
+    let mut counts = BTreeMap::new();
+    for log in logs {
+        let mut max_round: u32 = 0;
+        for entry in &log.entries {
+            if entry.round > max_round {
+                max_round = entry.round;
+            }
+        }
+        if max_round > 0 {
+            *counts.entry(max_round).or_insert(0) += 1;
+        }
+    }
+    counts
+}
+
+/// Compute deck size statistics across all players at end of game.
+pub fn compute_deck_size_stats(
+    logs: &[StructuredGameLog],
+    filter: Option<&PlayerFilter>,
+) -> DeckSizeStats {
+    let mut sizes: Vec<u32> = Vec::new();
+    for (log_idx, log) in logs.iter().enumerate() {
+        if let Some(ref final_player_stats) = log.final_player_stats {
+            let allowed = filter.and_then(|f| f.get(&log_idx));
+            for i in 0..log.player_names.len() {
+                if let Some(allowed) = allowed {
+                    if !allowed.contains(&i) {
+                        continue;
+                    }
+                }
+                let player_name = &log.player_names[i];
+                if let Some(ps) = final_player_stats.iter().find(|p| &p.name == player_name) {
+                    sizes.push(ps.deck_size as u32);
+                }
+            }
+        }
+    }
+
+    if sizes.is_empty() {
+        return DeckSizeStats {
+            mean: 0.0,
+            median: 0.0,
+            min: 0,
+            max: 0,
+        };
+    }
+
+    sizes.sort();
+    let sum: u32 = sizes.iter().sum();
+    let mean = sum as f64 / sizes.len() as f64;
+    let mid = sizes.len() / 2;
+    let median = if sizes.len() % 2 == 0 {
+        (sizes[mid - 1] as f64 + sizes[mid] as f64) / 2.0
+    } else {
+        sizes[mid] as f64
+    };
+
+    DeckSizeStats {
+        mean,
+        median,
+        min: sizes[0],
+        max: *sizes.last().unwrap(),
+    }
+}
+
+/// Compute average game length in rounds and choices.
+pub fn compute_average_game_length(logs: &[StructuredGameLog]) -> GameLengthStats {
+    if logs.is_empty() {
+        return GameLengthStats {
+            avg_rounds: 0.0,
+            avg_choices: 0.0,
+        };
+    }
+
+    let mut total_rounds: u32 = 0;
+    let mut total_choices: usize = 0;
+
+    for log in logs {
+        let mut max_round: u32 = 0;
+        for entry in &log.entries {
+            if entry.round > max_round {
+                max_round = entry.round;
+            }
+        }
+        total_rounds += max_round;
+        total_choices += log.entries.len();
+    }
+
+    GameLengthStats {
+        avg_rounds: total_rounds as f64 / logs.len() as f64,
+        avg_choices: total_choices as f64 / logs.len() as f64,
+    }
+}
+
+/// Compute duration statistics. Returns None if no logs have duration_ms.
+pub fn compute_duration_stats(logs: &[StructuredGameLog]) -> Option<DurationStats> {
+    let mut durations: Vec<u64> = Vec::new();
+    for log in logs {
+        if let Some(ms) = log.duration_ms {
+            durations.push(ms);
+        }
+    }
+
+    if durations.is_empty() {
+        return None;
+    }
+
+    durations.sort();
+    let sum: u64 = durations.iter().sum();
+    let avg_ms = sum as f64 / durations.len() as f64;
+    let mid = durations.len() / 2;
+    let median_ms = if durations.len() % 2 == 0 {
+        (durations[mid - 1] as f64 + durations[mid] as f64) / 2.0
+    } else {
+        durations[mid] as f64
+    };
+
+    Some(DurationStats {
+        avg_ms,
+        median_ms,
+        min_ms: durations[0],
+        max_ms: *durations.last().unwrap(),
+    })
+}
+
+/// Compute deck sizes at the end of the penultimate round.
+pub fn compute_penultimate_round_deck_sizes(
+    logs: &[StructuredGameLog],
+    filter: Option<&PlayerFilter>,
+) -> BTreeMap<u32, usize> {
+    let mut counts = BTreeMap::new();
+
+    for (log_idx, log) in logs.iter().enumerate() {
+        let mut max_round: u32 = 0;
+        for entry in &log.entries {
+            if entry.round > max_round {
+                max_round = entry.round;
+            }
+        }
+        if max_round < 2 {
+            continue;
+        }
+        let penultimate_round = max_round - 1;
+        let allowed = filter.and_then(|f| f.get(&log_idx));
+
+        let mut player_deck_sizes: Vec<i32> = log
+            .initial_state
+            .players
+            .iter()
+            .map(|p| {
+                (p.deck.len()
+                    + p.discard.len()
+                    + p.used_cards.len()
+                    + p.workshop_cards.len()
+                    + p.drafted_cards.len()) as i32
+            })
+            .collect();
+
+        for entry in &log.entries {
+            if entry.round > penultimate_round {
+                break;
+            }
+            let pi = entry.player_index;
+            match &entry.choice {
+                LogChoice::DraftPick { .. } => {
+                    player_deck_sizes[pi] += 1;
+                }
+                LogChoice::DestroyDraftedCard { .. }
+                | LogChoice::DestroyAndMixAll { .. }
+                | LogChoice::DestroyAndSell { .. } => {
+                    player_deck_sizes[pi] -= 1;
+                }
+                LogChoice::DestroyDrawnCards { card_instance_ids } => {
+                    player_deck_sizes[pi] -= card_instance_ids.len() as i32;
+                }
+                _ => {}
+            }
+        }
+
+        for (i, &size) in player_deck_sizes.iter().enumerate() {
+            if let Some(allowed) = allowed {
+                if !allowed.contains(&i) {
+                    continue;
+                }
+            }
+            let size = size.max(0) as u32;
+            *counts.entry(size).or_insert(0) += 1;
+        }
+    }
+
+    counts
+}
+
+// ── Buyer analysis ──
+
+/// Compute buyer acquisition counts by buyer name, star count, and material type.
+pub fn compute_buyer_acquisitions(
+    logs: &[StructuredGameLog],
+    filter: Option<&PlayerFilter>,
+) -> BuyerAcquisitions {
+    let mut by_buyer = HashMap::new();
+    let mut by_stars = HashMap::new();
+    let mut by_material = HashMap::new();
+
+    for (log_idx, log) in logs.iter().enumerate() {
+        let allowed = filter.and_then(|f| f.get(&log_idx));
+        let buyer_map = build_buyer_instance_map(log);
+
+        for entry in &log.entries {
+            if let Some(allowed) = allowed {
+                if !allowed.contains(&entry.player_index) {
+                    continue;
+                }
+            }
+            let buyer_instance_id = match &entry.choice {
+                LogChoice::SelectBuyer { buyer_instance_id } => Some(*buyer_instance_id),
+                LogChoice::DestroyAndSell {
+                    buyer_instance_id, ..
+                } => Some(*buyer_instance_id),
+                _ => None,
+            };
+            if let Some(buyer_id) = buyer_instance_id {
+                if let Some(inst) = buyer_map.get(&buyer_id) {
+                    let buyer = inst.buyer;
+                    let name = buyer_name_from_instance(buyer);
+                    *by_buyer.entry(name).or_insert(0) += 1;
+                    *by_stars.entry(buyer.stars()).or_insert(0) += 1;
+                    let material_name = format!("{:?}", buyer.required_material());
+                    *by_material.entry(material_name).or_insert(0) += 1;
+                }
+            }
+        }
+    }
+
+    BuyerAcquisitions {
+        by_buyer,
+        by_stars,
+        by_material,
+    }
+}
+
+// ── Color analysis ──
+
+/// Compute average color wheel values across all players.
+pub fn compute_color_wheel_stats(
+    logs: &[StructuredGameLog],
+    filter: Option<&PlayerFilter>,
+) -> HashMap<String, f64> {
+    let mut totals: HashMap<String, f64> = HashMap::new();
+    let mut player_count: usize = 0;
+
+    for (log_idx, log) in logs.iter().enumerate() {
+        let final_player_stats = match &log.final_player_stats {
+            Some(fps) => fps,
+            None => continue,
+        };
+        let allowed = filter.and_then(|f| f.get(&log_idx));
+        for i in 0..log.player_names.len() {
+            if let Some(allowed) = allowed {
+                if !allowed.contains(&i) {
+                    continue;
+                }
+            }
+            let player_name = &log.player_names[i];
+            let ps = match final_player_stats.iter().find(|p| &p.name == player_name) {
+                Some(ps) => ps,
+                None => continue,
+            };
+            player_count += 1;
+            for &color in &ALL_COLORS {
+                let color_name = format!("{:?}", color);
+                let count = ps.color_wheel.get(color);
+                *totals.entry(color_name).or_insert(0.0) += count as f64;
+            }
+        }
+    }
+
+    let mut averages = HashMap::new();
+    if player_count > 0 {
+        for (color, total) in &totals {
+            averages.insert(color.clone(), total / player_count as f64);
+        }
+    }
+
+    averages
+}

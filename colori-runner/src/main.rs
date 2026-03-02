@@ -1,5 +1,6 @@
 use colori_core::colori_game::apply_choice_to_state;
 use colori_core::draw_phase::execute_draw_phase;
+use colori_core::game_log::{FinalPlayerStats, FinalScore, PlayerVariant};
 use colori_core::ismcts::{ismcts, MctsConfig};
 use colori_core::scoring::calculate_score;
 use colori_core::setup::create_initial_game_state;
@@ -128,18 +129,6 @@ fn parse_args() -> Args {
 
 // ── Serialization types ──
 
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct PlayerVariant {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    name: Option<String>,
-    iterations: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    exploration_constant: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    max_rollout_steps: Option<u32>,
-}
-
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct StructuredGameLog {
@@ -160,24 +149,6 @@ struct StructuredGameLog {
     player_variants: Option<Vec<PlayerVariant>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     note: Option<String>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct FinalScore {
-    name: String,
-    score: u32,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct FinalPlayerStats {
-    name: String,
-    deck_size: usize,
-    completed_buyers: Vec<BuyerInstance>,
-    ducats: u32,
-    color_wheel: ColorWheel,
-    materials: Materials,
 }
 
 #[derive(Serialize)]
