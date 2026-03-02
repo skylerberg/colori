@@ -1,5 +1,4 @@
 use crate::apply_choice::apply_choice;
-use crate::draft_phase::confirm_pass;
 use crate::draw_phase::execute_draw_phase;
 use crate::types::*;
 use crate::unordered_cards::UnorderedCards;
@@ -14,13 +13,6 @@ pub use crate::rollout::apply_rollout_step;
 pub fn apply_choice_to_state<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R) {
     apply_choice(state, choice, rng);
 
-    if matches!(choice, Choice::DraftPick { .. }) {
-        if let GamePhase::Draft { ref mut draft_state } = state.phase {
-            if draft_state.waiting_for_pass {
-                confirm_pass(state);
-            }
-        }
-    }
     if matches!(choice, Choice::EndTurn) {
         if matches!(state.phase, GamePhase::Draw) {
             execute_draw_phase(state, rng);
@@ -56,11 +48,9 @@ pub fn get_game_status(state: &GameState, max_round: Option<u32>) -> GameStatus 
     }
 
     match &state.phase {
-        GamePhase::Draft { draft_state } if !draft_state.waiting_for_pass => {
-            GameStatus::AwaitingAction {
-                player_index: draft_state.current_player_index,
-            }
-        }
+        GamePhase::Draft { draft_state } => GameStatus::AwaitingAction {
+            player_index: draft_state.current_player_index,
+        },
         GamePhase::Action { action_state } => GameStatus::AwaitingAction {
             player_index: action_state.current_player_index,
         },
@@ -77,7 +67,7 @@ pub fn get_game_status(state: &GameState, max_round: Option<u32>) -> GameStatus 
                     .collect(),
             }
         }
-        _ => GameStatus::AwaitingAction { player_index: 0 },
+        GamePhase::Draw => GameStatus::AwaitingAction { player_index: 0 },
     }
 }
 

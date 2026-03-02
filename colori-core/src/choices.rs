@@ -203,9 +203,6 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
     choices.clear();
     match &state.phase {
         GamePhase::Draft { draft_state } => {
-            if draft_state.waiting_for_pass {
-                return;
-            }
             let hand = draft_state.hands[draft_state.current_player_index];
             let mut seen: u64 = 0;
             for id in hand.iter() {
@@ -348,9 +345,6 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
     match choice {
         Choice::DraftPick { card } => {
             if let GamePhase::Draft { ref draft_state } = state.phase {
-                if draft_state.waiting_for_pass {
-                    return false;
-                }
                 let hand = draft_state.hands[draft_state.current_player_index];
                 hand.iter().any(|id| state.card_lookup[id as usize] == *card)
             } else {

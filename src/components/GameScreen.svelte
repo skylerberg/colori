@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { GameState, CardInstance, Choice } from '../data/types';
-  import { executeDrawPhase, confirmPass, applyChoice, getChoiceLogMessage, cloneGameState } from '../engine/wasmEngine';
+  import { executeDrawPhase, applyChoice, getChoiceLogMessage, cloneGameState } from '../engine/wasmEngine';
   import { AIController, type PrecomputeRequest } from '../ai/aiController';
   import type { GameLogAccumulator } from '../gameLog';
   import { getActivePlayerIndex, isCurrentPlayerAI } from '../gameUtils';
@@ -112,9 +112,6 @@
     if (logMsg) addLog(logMsg);
     applyChoice(gameState, choice);
 
-    if (choice.type === 'draftPick' && gameState.phase.type === 'draft' && gameState.phase.draftState.waitingForPass) {
-      confirmPass(gameState);
-    }
     onGameUpdated(gameState, gameLog);
   }
 
@@ -125,7 +122,6 @@
       return;
     }
     const ds = gameState.phase.draftState;
-    if (ds.waitingForPass) return;
     if (aiThinking) return;
 
     const currentIdx = ds.currentPlayerIndex;
@@ -142,7 +138,6 @@
         const clone = cloneGameState(gameState);
         const cloneDs = (clone.phase as { type: 'draft'; draftState: typeof ds }).draftState;
         cloneDs.currentPlayerIndex = idx;
-        cloneDs.waitingForPass = false;
 
         // Build aiDraftKnowledge snapshot for the AI player
         const aiSeenHands = aiDraftKnowledge.has(idx)
@@ -174,16 +169,6 @@
     if (aiThinking) return;
     if (gameState.phase.type === 'gameOver') return;
     if (gameState.phase.type === 'draw') return;
-
-    // Handle draft waitingForPass for AI
-    if (gameState.phase.type === 'draft' && gameState.phase.draftState.waitingForPass) {
-      const nextPlayer = gameState.phase.draftState.currentPlayerIndex;
-      if (gameState.aiPlayers[nextPlayer]) {
-        confirmPass(gameState);
-        onGameUpdated(gameState, gameLog);
-      }
-      return;
-    }
 
     if (!isCurrentPlayerAI(gameState)) return;
 
@@ -226,7 +211,7 @@
 <GameLayout {gameState} {activePlayerIndex} {aiThinking} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} sidebarPlayer={selectedPlayer ?? null} {selectedPlayerIndex} onSelectPlayer={selectPlayer}>
   {#if gameState.phase.type === 'draft'}
     {#if isViewingActiveHuman}
-      <DraftPhaseView {gameState} onAction={handleAction} onGameUpdated={() => onGameUpdated(gameState, gameLog)} />
+      <DraftPhaseView {gameState} onAction={handleAction} />
     {:else}
       <div class="readonly-cards">
         <div class="section-box">

@@ -2,7 +2,7 @@ import type { GameState } from '../data/types';
 import type { Choice } from '../data/types';
 import type { NetworkManager } from './networkManager';
 import type { LobbyPlayer, GuestMessage } from './types';
-import { createInitialGameState, executeDrawPhase, confirmPass, simultaneousPick, advanceDraft, applyChoice, getChoiceLogMessage } from '../engine/wasmEngine';
+import { createInitialGameState, executeDrawPhase, simultaneousPick, advanceDraft, applyChoice, getChoiceLogMessage } from '../engine/wasmEngine';
 import { sanitizeGameState } from './sanitize';
 import type { StructuredGameLog } from '../data/types';
 import { GameLogAccumulator } from '../gameLog';
@@ -295,10 +295,6 @@ export class HostController {
     const newLogEntries: string[] = logMsg ? [logMsg] : [];
 
     applyChoice(this.gameState, choice);
-
-    if (choice.type === 'draftPick' && this.gameState.phase.type === 'draft' && this.gameState.phase.draftState.waitingForPass) {
-      confirmPass(this.gameState);
-    }
 
     this.gameLog.push(...newLogEntries);
     this.executeDrawIfNeeded();

@@ -1,6 +1,6 @@
 use colori_core::apply_choice::apply_choice;
 use colori_core::colori_game::enumerate_choices;
-use colori_core::draft_phase::{advance_draft, confirm_pass, simultaneous_pick};
+use colori_core::draft_phase::{advance_draft, simultaneous_pick};
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::ismcts::{ismcts, MctsConfig};
 use colori_core::scoring::calculate_score;
@@ -86,13 +86,6 @@ pub fn wasm_apply_choice(state_json: &str, choice_json: &str) -> String {
         serde_json::from_str(choice_json).expect("Failed to parse choice JSON");
     let mut rng = WyRand::from_rng(&mut rand::rng());
     apply_choice(&mut state, &choice, &mut rng);
-    serialize_state(&state)
-}
-
-#[wasm_bindgen]
-pub fn wasm_confirm_pass(state_json: &str) -> String {
-    let mut state = deserialize_state(state_json);
-    confirm_pass(&mut state);
     serialize_state(&state)
 }
 

@@ -222,9 +222,6 @@ fn handle_action_no_pending<R: Rng>(state: &mut GameState, player_index: usize, 
 pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
     // Fast path: complete entire draft in one step
     if matches!(&state.phase, GamePhase::Draft { .. }) {
-        if let GamePhase::Draft { ref mut draft_state } = state.phase {
-            draft_state.waiting_for_pass = false;
-        }
         loop {
             let card_id = {
                 if let GamePhase::Draft { ref draft_state } = state.phase {
@@ -235,9 +232,6 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                 }
             };
             player_pick(state, card_id);
-            if let GamePhase::Draft { ref mut draft_state } = state.phase {
-                draft_state.waiting_for_pass = false;
-            }
         }
         return;
     }

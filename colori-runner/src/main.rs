@@ -391,9 +391,6 @@ fn run_game(
     while !matches!(state.phase, GamePhase::GameOver) {
         let (player_index, phase_str) = match &state.phase {
             GamePhase::Draft { draft_state } => {
-                if draft_state.waiting_for_pass {
-                    break;
-                }
                 (draft_state.current_player_index, "draft")
             }
             GamePhase::Action { action_state } => {

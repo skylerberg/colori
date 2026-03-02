@@ -282,11 +282,6 @@ fn advance_past_opponent_draft_picks<R: Rng>(
             break;
         }
 
-        // Clear waiting_for_pass
-        if let GamePhase::Draft { ref mut draft_state } = state.phase {
-            draft_state.waiting_for_pass = false;
-        }
-
         let available = get_opponent_draft_choices(state);
         if available.is_empty() {
             break;
@@ -304,11 +299,6 @@ fn advance_past_opponent_draft_picks<R: Rng>(
         let card_id = find_card_id_for_choice(state, &choice);
         pick_log.push((pick_number, current_player, choice));
         player_pick(state, card_id);
-
-        // Clear waiting_for_pass (player_pick may set it)
-        if let GamePhase::Draft { ref mut draft_state } = state.phase {
-            draft_state.waiting_for_pass = false;
-        }
     }
 }
 
@@ -607,14 +597,7 @@ mod tests {
                     execute_draw_phase(&mut state, &mut rng);
                     continue;
                 }
-                GamePhase::Draft { draft_state } => {
-                    assert!(
-                        !draft_state.waiting_for_pass,
-                        "seed={seed}, players={num_players}, \
-                         step={step}, round={}: unexpected waiting_for_pass in Draft phase",
-                        state.round
-                    );
-                }
+                GamePhase::Draft { .. } => {}
                 _ => {}
             }
 

@@ -115,7 +115,6 @@ export interface DraftState {
   currentPlayerIndex: number;
   hands: CardInstance[][];
   passingDirection: 1 | -1;
-  waitingForPass: boolean;
 }
 
 export interface ActionState {

@@ -370,14 +370,7 @@ mod tests {
                     execute_draw_phase(&mut state, &mut rng);
                     continue;
                 }
-                GamePhase::Draft { draft_state } => {
-                    assert!(
-                        !draft_state.waiting_for_pass,
-                        "seed={seed}, players={num_players}, \
-                         step={step}, round={}: unexpected waiting_for_pass in Draft phase",
-                        state.round
-                    );
-                }
+                GamePhase::Draft { .. } => {}
                 _ => {}
             }
 

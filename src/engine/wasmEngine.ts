@@ -5,7 +5,6 @@ import init, {
   wasm_create_initial_game_state,
   wasm_execute_draw_phase,
   wasm_apply_choice,
-  wasm_confirm_pass,
   wasm_simultaneous_pick,
   wasm_advance_draft,
   wasm_calculate_scores,
@@ -44,12 +43,6 @@ export function executeDrawPhase(state: GameState): void {
 
 export function applyChoice(state: GameState, choice: Choice): void {
   const resultJson = wasm_apply_choice(JSON.stringify(state), JSON.stringify(choice));
-  const newState: GameState = JSON.parse(resultJson);
-  Object.assign(state, newState);
-}
-
-export function confirmPass(state: GameState): void {
-  const resultJson = wasm_confirm_pass(JSON.stringify(state));
   const newState: GameState = JSON.parse(resultJson);
   Object.assign(state, newState);
 }

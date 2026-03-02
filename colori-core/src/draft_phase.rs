@@ -44,7 +44,6 @@ pub fn initialize_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
         hands,
         num_hands: num_players,
         passing_direction: if state.round % 2 == 1 { 1 } else { -1 },
-        waiting_for_pass: false,
     };
 
     state.phase = GamePhase::Draft { draft_state };
@@ -73,8 +72,6 @@ pub fn player_pick(state: &mut GameState, card_instance_id: u32) {
 
     if next_player == starting_player {
         advance_draft(state);
-    } else if let GamePhase::Draft { ref mut draft_state } = state.phase {
-        draft_state.waiting_for_pass = true;
     }
 }
 
@@ -120,7 +117,6 @@ pub fn advance_draft(state: &mut GameState) {
     } else {
         if let GamePhase::Draft { ref mut draft_state } = state.phase {
             draft_state.current_player_index = ((round - 1) as usize) % num_players;
-            draft_state.waiting_for_pass = true;
         }
     }
 }
@@ -149,17 +145,8 @@ pub fn simultaneous_pick(state: &mut GameState, player_index: usize, card: crate
     state.players[player_index].drafted_cards.insert(id);
 }
 
-pub fn confirm_pass(state: &mut GameState) {
-    if let GamePhase::Draft { ref mut draft_state } = state.phase {
-        draft_state.waiting_for_pass = false;
-    } else {
-        panic!("Expected draft phase");
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::apply_choice::apply_choice;
     use crate::colori_game::enumerate_choices;
     use crate::draw_phase::execute_draw_phase;
@@ -213,11 +200,6 @@ mod tests {
             }
 
             let choices = enumerate_choices(&state);
-            if choices.is_empty() {
-                // waiting_for_pass - call confirm_pass
-                confirm_pass(&mut state);
-                continue;
-            }
             apply_choice(&mut state, &choices[0], &mut rng);
         }
 
@@ -241,7 +223,7 @@ mod tests {
         }
 
         // Simulate the frontend's WASM round-trip pattern for AI picks.
-        // The frontend does: serialize -> deserialize -> applyChoice -> serialize -> deserialize -> confirmPass
+        // The frontend does: serialize -> deserialize -> applyChoice -> serialize -> deserialize
         // for each AI pick.
 
         // AI player 1 picks
@@ -258,19 +240,15 @@ mod tests {
             assert_eq!(
                 draft_state.hands[0].len(),
                 5,
-                "Hand 0 should still have 5 cards after player 1's pick (before confirm_pass)"
+                "Hand 0 should still have 5 cards after player 1's pick (pick 1 done)"
             );
         }
-
-        // confirmPass round trip
-        confirm_pass(&mut state);
-        state = round_trip(&state);
 
         if let GamePhase::Draft { ref draft_state } = state.phase {
             assert_eq!(
                 draft_state.hands[0].len(),
                 5,
-                "Hand 0 should still have 5 cards after player 1's confirm_pass"
+                "Hand 0 should still have 5 cards after player 1's pick"
             );
         }
 
@@ -285,7 +263,7 @@ mod tests {
             assert_eq!(
                 draft_state.hands[0].len(),
                 5,
-                "Hand 0 should still have 5 cards after player 2's pick (before confirm_pass)"
+                "Hand 0 should still have 5 cards after player 2's pick"
             );
         }
 
@@ -295,12 +273,6 @@ mod tests {
         // After rotation, each hand should have 4 cards (since one was picked from each).
 
         // The human (player 0) should now pick. They should see their hand.
-        let choices = enumerate_choices(&state);
-        if choices.is_empty() {
-            // May need to confirm_pass first
-            confirm_pass(&mut state);
-            state = round_trip(&state);
-        }
         let choices = enumerate_choices(&state);
 
         // The human should have choices (may be fewer than hand size due to dedup of same card types)

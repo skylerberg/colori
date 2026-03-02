@@ -1,5 +1,5 @@
 import type { GameState } from '../data/types';
-import { createInitialGameState, executeDrawPhase, applyChoice, confirmPass } from '../engine/wasmEngine';
+import { createInitialGameState, executeDrawPhase, applyChoice } from '../engine/wasmEngine';
 
 export function setupDraftGame(numPlayers: number): GameState {
   const names = Array.from({ length: numPlayers }, (_, i) => `Player ${i + 1}`);
@@ -14,11 +14,6 @@ export function setupActionGame(numPlayers: number): GameState {
   // Play through the entire draft: each player picks 4 cards
   while (state.phase.type === 'draft') {
     const ds = state.phase.draftState;
-
-    if (ds.waitingForPass) {
-      confirmPass(state);
-      continue;
-    }
 
     const hand = ds.hands[ds.currentPlayerIndex];
     if (hand.length === 0) break;

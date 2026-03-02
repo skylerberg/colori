@@ -30,7 +30,6 @@ export function sanitizeGameState(
           i === forPlayerIndex ? [...hand] : []
         ),
         passingDirection: ds.passingDirection,
-        waitingForPass: ds.waitingForPass,
       },
     };
   } else if (fullState.phase.type === 'action') {

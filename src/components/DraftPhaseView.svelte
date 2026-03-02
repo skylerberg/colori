@@ -1,14 +1,11 @@
 <script lang="ts">
   import type { GameState, Choice } from '../data/types';
-  import { confirmPass } from '../engine/wasmEngine';
   import CardList from './CardList.svelte';
   import OpponentBoardPanel from './OpponentBoardPanel.svelte';
-  import PassScreen from './PassScreen.svelte';
 
-  let { gameState, onAction, onGameUpdated, playerIndex, selectable }: {
+  let { gameState, onAction, playerIndex, selectable }: {
     gameState: GameState;
     onAction: (choice: Choice) => void;
-    onGameUpdated?: () => void;
     playerIndex?: number;
     selectable?: boolean;
   } = $props();
@@ -39,19 +36,9 @@
     onAction({ type: 'draftPick', card: clickedCard.card });
   }
 
-  function handlePassReady() {
-    confirmPass(gameState);
-    onGameUpdated?.();
-  }
 </script>
 
 {#if draftState}
-  {#if draftState.waitingForPass && playerIndex === undefined}
-    <PassScreen
-      playerName={gameState.playerNames[draftState.currentPlayerIndex]}
-      onReady={handlePassReady}
-    />
-  {:else}
     <div class="draft-phase">
       <div class="draft-header">
         <h2>Draft Phase - Round {gameState.round}</h2>
@@ -91,7 +78,6 @@
         </div>
       </div>
     </div>
-  {/if}
 {/if}
 
 <style>
