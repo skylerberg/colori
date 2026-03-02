@@ -104,7 +104,7 @@ pub enum CardKind {
     Action,
 }
 
-// ── Card enum (48 variants) ──
+// ── Card enum (49 variants) ──
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Card {
@@ -167,6 +167,7 @@ pub enum Card {
     Potash,
     Vinegar,
     Argol,
+    Chalk,
 }
 
 struct CardProperties {
@@ -178,7 +179,7 @@ struct CardProperties {
     workshop_abilities: &'static [Ability],
 }
 
-const CARD_DATA: [CardProperties; 48] = [
+const CARD_DATA: [CardProperties; 49] = [
     // BasicRed
     CardProperties { name: "Basic Red", kind: CardKind::BasicDye, ability: Ability::Sell, pips: &[Color::Red], material_types: &[], workshop_abilities: &[] },
     // BasicYellow
@@ -273,8 +274,10 @@ const CARD_DATA: [CardProperties; 48] = [
     CardProperties { name: "Potash", kind: CardKind::Action, ability: Ability::DrawCards { count: 2 }, pips: &[], material_types: &[], workshop_abilities: &[Ability::Workshop { count: 3 }] },
     // Vinegar — temporarily removed from draft deck, will be added back
     CardProperties { name: "Vinegar", kind: CardKind::Action, ability: Ability::DestroyCards, pips: &[], material_types: &[], workshop_abilities: &[Ability::ChangeTertiary] },
-    // Argol
+    // Argol — not currently used
     CardProperties { name: "Argol", kind: CardKind::Action, ability: Ability::Sell, pips: &[], material_types: &[], workshop_abilities: &[Ability::DrawCards { count: 2 }] },
+    // Chalk
+    CardProperties { name: "Chalk", kind: CardKind::Action, ability: Ability::Sell, pips: &[], material_types: &[], workshop_abilities: &[Ability::GainPrimary] },
 ];
 
 impl Card {

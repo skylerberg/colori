@@ -12,8 +12,13 @@ pub fn starter_material_cards() -> [Card; 3] {
     [Card::StarterCeramics, Card::StarterPaintings, Card::StarterTextiles]
 }
 
+// argol_card — not currently used
 pub fn argol_card() -> Card {
     Card::Argol
+}
+
+pub fn chalk_card() -> Card {
+    Card::Chalk
 }
 
 pub fn dye_cards() -> [Card; 21] {
