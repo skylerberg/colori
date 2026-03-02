@@ -1,7 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use colori_core::unordered_cards::UnorderedCards;
+use rand::rngs::SmallRng;
 use rand::SeedableRng;
-use wyrand::WyRand;
 
 fn make_set_50() -> UnorderedCards {
     let mut set = UnorderedCards::new();
@@ -73,12 +73,12 @@ fn benchmarks(c: &mut Criterion) {
 
     c.bench_function("bench_pick_random", |b| {
         let set = make_set_50();
-        let mut rng = WyRand::seed_from_u64(42);
+        let mut rng = SmallRng::seed_from_u64(42);
         b.iter(|| black_box(set.pick_random(&mut rng)));
     });
 
     c.bench_function("bench_draw", |b| {
-        let mut rng = WyRand::seed_from_u64(42);
+        let mut rng = SmallRng::seed_from_u64(42);
         b.iter_batched(
             || make_set_50(),
             |mut set| {
@@ -89,7 +89,7 @@ fn benchmarks(c: &mut Criterion) {
     });
 
     c.bench_function("bench_draw_multiple_5_of_50", |b| {
-        let mut rng = WyRand::seed_from_u64(42);
+        let mut rng = SmallRng::seed_from_u64(42);
         b.iter_batched(
             || make_set_50(),
             |mut set| {
@@ -100,7 +100,7 @@ fn benchmarks(c: &mut Criterion) {
     });
 
     c.bench_function("bench_draw_multiple_9_of_50", |b| {
-        let mut rng = WyRand::seed_from_u64(42);
+        let mut rng = SmallRng::seed_from_u64(42);
         b.iter_batched(
             || make_set_50(),
             |mut set| {
@@ -111,7 +111,7 @@ fn benchmarks(c: &mut Criterion) {
     });
 
     c.bench_function("bench_draw_up_to_5_of_50", |b| {
-        let mut rng = WyRand::seed_from_u64(42);
+        let mut rng = SmallRng::seed_from_u64(42);
         b.iter_batched(
             || make_set_50(),
             |mut set| {

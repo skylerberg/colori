@@ -7,10 +7,10 @@ use colori_core::setup::create_initial_game_state;
 use colori_core::types::*;
 use colori_core::unordered_cards::{set_buyer_registry, set_card_registry};
 
+use rand::rngs::SmallRng;
 use rand::seq::SliceRandom;
-use rand::RngExt;
+use rand::Rng;
 use rand::SeedableRng;
-use wyrand::WyRand;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
@@ -244,7 +244,7 @@ fn run_game(
     _game_index: usize,
     player_variants: &[NamedVariant],
     note: Option<String>,
-    rng: &mut WyRand,
+    rng: &mut SmallRng,
 ) -> StructuredGameLog {
     let start = Instant::now();
     let num_players = player_variants.len();
@@ -400,7 +400,7 @@ fn run_game(
 
 fn generate_batch_id() -> String {
     const CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
-    let mut rng = WyRand::from_rng(&mut rand::rng());
+    let mut rng = SmallRng::from_os_rng();
     (0..6)
         .map(|_| CHARSET[rng.random_range(0..CHARSET.len())] as char)
         .collect()
@@ -459,7 +459,7 @@ fn main() {
             let completed = &completed;
 
             handles.push(s.spawn(move || {
-                let mut rng = WyRand::from_rng(&mut rand::rng());
+                let mut rng = SmallRng::from_os_rng();
                 for _i in 0..count {
                     let log = run_game(0, player_variants, note.clone(), &mut rng);
                     set_card_registry(&log.initial_state.card_lookup);
