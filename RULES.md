@@ -236,8 +236,8 @@ Each player's score = buyer stars + ducats. The player with the highest score wi
 | Name | Material Gain | Destroy Ability |
 |------|--------------|-----------------|
 | Ceramics | 1 Ceramics | Workshop ×3 |
-| Paintings | 1 Paintings | Workshop ×3 |
-| Textiles | 1 Textiles | Workshop ×3 |
+| Paintings | 1 Paintings | Workshop ×4 |
+| Textiles | 1 Textiles | Workshop ×2 |
 
 ### Draft Material Cards (15 unique in draft deck)
 
