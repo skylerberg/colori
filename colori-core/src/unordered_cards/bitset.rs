@@ -183,6 +183,18 @@ impl<T> BitSet<T> {
             self.0 = [0; 2];
             return BitSet(all, PhantomData);
         }
+        // For small draws from large sets, use repeated single draws.
+        // Each draw() call needs one random_range call, so drawing `count`
+        // elements costs `count` calls vs ~n calls for selection sampling.
+        if count <= 8 && count * 4 < n {
+            let mut selected = Self::new();
+            for _ in 0..count {
+                if let Some(id) = self.draw(rng) {
+                    selected.insert(id);
+                }
+            }
+            return selected;
+        }
         let mut remaining = n;
         let mut to_pick = count;
         let mut selected = [0u128; 2];
