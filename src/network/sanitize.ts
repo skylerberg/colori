@@ -29,7 +29,6 @@ export function sanitizeGameState(
         hands: ds.hands.map((hand, i) =>
           i === forPlayerIndex ? [...hand] : []
         ),
-        passingDirection: ds.passingDirection,
       },
     };
   } else if (fullState.phase.type === 'action') {

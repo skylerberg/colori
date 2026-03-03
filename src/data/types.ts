@@ -114,7 +114,6 @@ export interface DraftState {
   pickNumber: number;
   currentPlayerIndex: number;
   hands: CardInstance[][];
-  passingDirection: 1 | -1;
 }
 
 export interface ActionState {

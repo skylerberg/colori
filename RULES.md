@@ -83,7 +83,7 @@ Workshop cards are face-up and visible to all players.
 
 1. Deal 5 cards from the draft deck to each player as a draft hand (these are private — other players cannot see them).
 2. Each player simultaneously picks 1 card from their hand and places it face-down.
-3. Players pass their remaining cards to the next player. The direction alternates each round (left on odd rounds, right on even rounds).
+3. Players pass their remaining cards to the left.
 4. Repeat steps 2–3 until 4 cards have been picked.
 5. The 5th remaining card in each hand is destroyed (no ability triggers).
 6. All drafted cards are placed face-up in each player's drafted cards area.

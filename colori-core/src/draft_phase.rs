@@ -43,7 +43,6 @@ pub fn initialize_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
         current_player_index: ((state.round - 1) as usize) % num_players,
         hands,
         num_hands: num_players,
-        passing_direction: if state.round % 2 == 1 { 1 } else { -1 },
     };
 
     state.phase = GamePhase::Draft { draft_state };
@@ -86,19 +85,11 @@ pub fn advance_draft(state: &mut GameState) {
         };
 
         let n = draft_state.num_hands;
-        if draft_state.passing_direction == 1 {
-            let last = draft_state.hands[n - 1];
-            for i in (1..n).rev() {
-                draft_state.hands[i] = draft_state.hands[i - 1];
-            }
-            draft_state.hands[0] = last;
-        } else {
-            let first = draft_state.hands[0];
-            for i in 0..n - 1 {
-                draft_state.hands[i] = draft_state.hands[i + 1];
-            }
-            draft_state.hands[n - 1] = first;
+        let last = draft_state.hands[n - 1];
+        for i in (1..n).rev() {
+            draft_state.hands[i] = draft_state.hands[i - 1];
         }
+        draft_state.hands[0] = last;
 
         draft_state.pick_number += 1;
         (

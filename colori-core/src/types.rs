@@ -641,7 +641,6 @@ pub struct DraftState {
     )]
     pub hands: [UnorderedCards; MAX_PLAYERS],
     pub num_hands: usize,
-    pub passing_direction: i32,
 }
 
 fn serialize_hands<S: serde::Serializer>(
