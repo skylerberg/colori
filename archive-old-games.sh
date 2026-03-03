@@ -11,14 +11,14 @@ archive_dir="game-log-archive"
 
 # Find the most recent batch by getting the last file (highest timestamp) and extracting its suffix.
 latest_file=$(ls "$dir"/*.json | sort | tail -1)
-latest_batch=$(echo "$latest_file" | sed 's/.*-\([^.]*\)\.json/\1/')
+latest_batch=$(echo "$latest_file" | sed 's/.*game-[0-9]*-\([a-z0-9]\{6\}\)\(-[a-z0-9]\{4\}\)\{0,1\}\.json/\1/')
 
 echo "Most recent batch: $latest_batch"
 
 # Collect files that don't belong to the latest batch.
 files_to_move=()
 for f in "$dir"/*.json; do
-  batch=$(echo "$f" | sed 's/.*-\([^.]*\)\.json/\1/')
+  batch=$(echo "$f" | sed 's/.*game-[0-9]*-\([a-z0-9]\{6\}\)\(-[a-z0-9]\{4\}\)\{0,1\}\.json/\1/')
   if [ "$batch" != "$latest_batch" ]; then
     files_to_move+=("$f")
   fi

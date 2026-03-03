@@ -480,7 +480,13 @@ fn main() {
                     set_card_registry(&log.initial_state.card_lookup);
                     set_buyer_registry(&log.initial_state.buyer_lookup);
                     let epoch_millis = now_epoch_millis();
-                    let path = format!("{}/game-{}-{}.json", output_dir, epoch_millis, batch_id);
+                    let game_id: String = {
+                        const CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
+                        (0..4)
+                            .map(|_| CHARSET[rng.random_range(0..CHARSET.len())] as char)
+                            .collect()
+                    };
+                    let path = format!("{}/game-{}-{}-{}.json", output_dir, epoch_millis, batch_id, game_id);
                     let json = serde_json::to_string_pretty(&log).unwrap();
                     std::fs::write(&path, json).unwrap();
                     let done = completed.fetch_add(1, Ordering::Relaxed) + 1;

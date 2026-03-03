@@ -82,7 +82,7 @@ impl LogLoader {
 
 fn load_logs_from_dir(dir: &Path) -> Result<Vec<TaggedGameLog>, String> {
     let batch_re =
-        Regex::new(r"game-\d+-([a-z0-9]{6})\.json").map_err(|e| format!("Regex error: {}", e))?;
+        Regex::new(r"game-\d+-([a-z0-9]{6})(?:-[a-z0-9]{4})?\.json").map_err(|e| format!("Regex error: {}", e))?;
 
     let mut entries: Vec<(PathBuf, String)> = Vec::new();
 
