@@ -175,8 +175,6 @@ pub fn format_variant_label(
     let mut differing_iterations = false;
     let mut differing_exploration = false;
     let mut differing_rollout = false;
-    let mut differing_simultaneous_draft = false;
-
     if let Some(all) = all_variants {
         if all.len() > 1 {
             let first = &all[0];
@@ -188,9 +186,6 @@ pub fn format_variant_label(
             differing_rollout = all
                 .iter()
                 .any(|v| v.max_rollout_steps != first.max_rollout_steps);
-            differing_simultaneous_draft = all
-                .iter()
-                .any(|v| v.simultaneous_draft != first.simultaneous_draft);
         }
     }
 
@@ -199,7 +194,7 @@ pub fn format_variant_label(
     if differing_algorithm {
         parts.push(variant.algorithm.clone().unwrap_or_else(|| "ucb".to_string()));
     }
-    if differing_iterations || (!differing_algorithm && !differing_exploration && !differing_rollout && !differing_simultaneous_draft) {
+    if differing_iterations || (!differing_algorithm && !differing_exploration && !differing_rollout) {
         parts.push(format_iterations_short(variant.iterations));
     }
     if differing_exploration {
@@ -210,11 +205,6 @@ pub fn format_variant_label(
         let rollout = variant.max_rollout_steps.unwrap_or(1000);
         parts.push(format!("rollout={}", rollout));
     }
-    if differing_simultaneous_draft {
-        let sim = variant.simultaneous_draft.unwrap_or(false);
-        parts.push(if sim { "sim-draft" } else { "seq-draft" }.to_string());
-    }
-
     parts.join(", ")
 }
 

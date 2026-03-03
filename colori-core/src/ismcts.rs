@@ -16,7 +16,6 @@ pub struct MctsConfig {
     pub iterations: u32,
     pub exploration_constant: f64,
     pub max_rollout_steps: u32,
-    pub simultaneous_draft: bool,
 }
 
 impl Default for MctsConfig {
@@ -25,7 +24,6 @@ impl Default for MctsConfig {
             iterations: 100,
             exploration_constant: std::f64::consts::SQRT_2,
             max_rollout_steps: 1000,
-            simultaneous_draft: false,
         }
     }
 }
@@ -44,8 +42,6 @@ impl<'de> Deserialize<'de> for MctsConfig {
             exploration_constant: f64,
             #[serde(default = "default_max_rollout_steps")]
             max_rollout_steps: u32,
-            #[serde(default)]
-            simultaneous_draft: bool,
         }
 
         fn default_iterations() -> u32 { 100 }
@@ -57,7 +53,6 @@ impl<'de> Deserialize<'de> for MctsConfig {
             iterations: helper.iterations,
             exploration_constant: helper.exploration_constant,
             max_rollout_steps: helper.max_rollout_steps,
-            simultaneous_draft: helper.simultaneous_draft,
         })
     }
 }
@@ -147,7 +142,7 @@ fn upper_confidence_bound_with_ln(
     win_rate + c * (ln_total / visit_count as f64).sqrt()
 }
 
-// ── DUCT (Decoupled UCT) for simultaneous draft picks ──
+// ── DUCT (Decoupled UCT) for opponent draft modeling ──
 
 struct OpponentPickStat {
     choice: Choice,
@@ -327,31 +322,24 @@ pub fn ismcts<R: Rng>(
 
     let mut availability_buf: Vec<bool> = Vec::new();
 
-    if config.simultaneous_draft {
-        let mut opponent_stats = OpponentDraftStats::new();
-        let mut pick_log: Vec<(u32, usize, Choice)> = Vec::new();
+    let mut opponent_stats = OpponentDraftStats::new();
+    let mut pick_log: Vec<(u32, usize, Choice)> = Vec::new();
 
-        for _ in 0..config.iterations {
-            pick_log.clear();
-            determinize_in_place(&mut det_state, state, player_index, known_draft_hands, &cached_scores, rng);
-            advance_past_opponent_draft_picks(
-                &mut det_state, player_index, &mut opponent_stats,
-                &mut pick_log, config.exploration_constant, rng,
-            );
-            let scores = iteration_simultaneous(
-                &mut root, &mut det_state, player_index,
-                &mut opponent_stats, &mut pick_log,
-                max_rollout_round, config, &mut choices_buf, &mut availability_buf, rng,
-            );
-            for &(pick_round, player, ref choice) in &pick_log {
-                let reward = if player < scores.len() { scores[player] } else { 0.0 };
-                opponent_stats.record_outcome(pick_round as usize, player, choice, reward);
-            }
-        }
-    } else {
-        for _ in 0..config.iterations {
-            determinize_in_place(&mut det_state, state, player_index, known_draft_hands, &cached_scores, rng);
-            iteration(&mut root, &mut det_state, max_rollout_round, config, &mut choices_buf, &mut availability_buf, rng);
+    for _ in 0..config.iterations {
+        pick_log.clear();
+        determinize_in_place(&mut det_state, state, player_index, known_draft_hands, &cached_scores, rng);
+        advance_past_opponent_draft_picks(
+            &mut det_state, player_index, &mut opponent_stats,
+            &mut pick_log, config.exploration_constant, rng,
+        );
+        let scores = iteration_simultaneous(
+            &mut root, &mut det_state, player_index,
+            &mut opponent_stats, &mut pick_log,
+            max_rollout_round, config, &mut choices_buf, &mut availability_buf, rng,
+        );
+        for &(pick_round, player, ref choice) in &pick_log {
+            let reward = if player < scores.len() { scores[player] } else { 0.0 };
+            opponent_stats.record_outcome(pick_round as usize, player, choice, reward);
         }
     }
 
@@ -369,60 +357,6 @@ pub fn ismcts<R: Rng>(
     }
 
     best_child.unwrap().choice.clone().unwrap()
-}
-
-fn iteration<R: Rng>(
-    node: &mut MctsNode,
-    state: &mut GameState,
-    max_rollout_round: Option<u32>,
-    config: &MctsConfig,
-    choices_buf: &mut Vec<Choice>,
-    availability_buf: &mut Vec<bool>,
-    rng: &mut R,
-) -> SmallVec<[f64; 4]> {
-    let active_player = match get_game_status(state, max_rollout_round) {
-        GameStatus::Terminated { scores } => {
-            record_outcome(node, &scores);
-            return scores;
-        }
-        GameStatus::AwaitingAction { player_index } => player_index,
-    };
-
-    // Enumerate choices (needed for both expand and select)
-    enumerate_choices_into(state, choices_buf);
-
-    // Expand (also populates availability_buf)
-    node.expand(choices_buf, active_player, availability_buf, rng);
-
-    // Select
-    let best_idx =
-        match select(node, availability_buf, config.exploration_constant)
-        {
-            Some(idx) => idx,
-            None => {
-                let empty_scores = SmallVec::new();
-                record_outcome(node, &empty_scores);
-                return empty_scores;
-            }
-        };
-
-    // Apply selected child's choice
-    let choice = node.children[best_idx].choice.clone().unwrap();
-    apply_choice_to_state(state, &choice, rng);
-
-    let should_rollout = node.children[best_idx].visit_count == 0;
-
-    let scores = if should_rollout {
-        let scores = rollout(state, max_rollout_round, config.max_rollout_steps, rng);
-        record_outcome(&mut node.children[best_idx], &scores);
-        scores
-    } else {
-        let child = &mut node.children[best_idx];
-        iteration(child, state, max_rollout_round, config, choices_buf, availability_buf, rng)
-    };
-
-    record_outcome(node, &scores);
-    scores
 }
 
 fn iteration_simultaneous<R: Rng>(
