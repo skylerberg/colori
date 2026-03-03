@@ -3,6 +3,7 @@ use crate::colori_game::{
     determinize_in_place, enumerate_choices_into,
     get_game_status, GameStatus,
 };
+use crate::draw_phase::execute_draw_phase;
 use crate::draft_phase::player_pick;
 use crate::scoring::calculate_score;
 use crate::types::*;
@@ -16,6 +17,7 @@ pub struct MctsConfig {
     pub iterations: u32,
     pub exploration_constant: f64,
     pub max_rollout_steps: u32,
+    pub inner_iterations: Option<u32>,
 }
 
 impl Default for MctsConfig {
@@ -24,6 +26,7 @@ impl Default for MctsConfig {
             iterations: 100,
             exploration_constant: std::f64::consts::SQRT_2,
             max_rollout_steps: 1000,
+            inner_iterations: None,
         }
     }
 }
@@ -42,6 +45,8 @@ impl<'de> Deserialize<'de> for MctsConfig {
             exploration_constant: f64,
             #[serde(default = "default_max_rollout_steps")]
             max_rollout_steps: u32,
+            #[serde(default)]
+            inner_iterations: Option<u32>,
         }
 
         fn default_iterations() -> u32 { 100 }
@@ -53,6 +58,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
             iterations: helper.iterations,
             exploration_constant: helper.exploration_constant,
             max_rollout_steps: helper.max_rollout_steps,
+            inner_iterations: helper.inner_iterations,
         })
     }
 }
@@ -410,7 +416,17 @@ fn iteration_simultaneous<R: Rng>(
     let should_rollout = node.children[best_idx].visit_count == 0;
 
     let scores = if should_rollout {
-        let scores = rollout(state, max_rollout_round, config.max_rollout_steps, rng);
+        let scores = match config.inner_iterations {
+            Some(inner_iters) => {
+                let inner_config = MctsConfig {
+                    iterations: inner_iters,
+                    inner_iterations: None,
+                    ..config.clone()
+                };
+                recursive_rollout(state, max_rollout_round, config.max_rollout_steps, &inner_config, rng)
+            }
+            None => rollout(state, max_rollout_round, config.max_rollout_steps, rng),
+        };
         record_outcome(&mut node.children[best_idx], &scores);
         scores
     } else {
@@ -485,6 +501,34 @@ fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_ro
         return compute_terminal_scores(state);
     }
 
+    SmallVec::new()
+}
+
+fn recursive_rollout<R: Rng>(
+    state: &mut GameState,
+    max_rollout_round: Option<u32>,
+    max_rollout_steps: u32,
+    inner_config: &MctsConfig,
+    rng: &mut R,
+) -> SmallVec<[f64; 4]> {
+    for _ in 0..max_rollout_steps {
+        if is_terminal(state, max_rollout_round) {
+            return compute_terminal_scores(state);
+        }
+        if matches!(state.phase, GamePhase::Draw) {
+            execute_draw_phase(state, rng);
+            continue;
+        }
+        let player_index = match get_game_status(state, max_rollout_round) {
+            GameStatus::Terminated { scores } => return scores,
+            GameStatus::AwaitingAction { player_index } => player_index,
+        };
+        let choice = ismcts(state, player_index, inner_config, &None, max_rollout_round, rng);
+        apply_choice_to_state(state, &choice, rng);
+    }
+    if is_terminal(state, max_rollout_round) {
+        return compute_terminal_scores(state);
+    }
     SmallVec::new()
 }
 
@@ -586,6 +630,73 @@ mod tests {
     fn test_ismcts_valid_moves_4_players() {
         for seed in 0..5 {
             run_full_game_validating_choices(4, seed);
+        }
+    }
+
+    fn run_recursive_ismcts_game(num_players: usize, seed: u64) {
+        let mut rng = WyRand::seed_from_u64(seed);
+        let ai_players = vec![true; num_players];
+        let mut state = create_initial_game_state(num_players, &ai_players, &mut rng);
+
+        let config = MctsConfig {
+            iterations: 5,
+            inner_iterations: Some(5),
+            ..MctsConfig::default()
+        };
+
+        execute_draw_phase(&mut state, &mut rng);
+
+        let mut choices_buf: Vec<Choice> = Vec::new();
+        let max_steps = 5000;
+
+        for step in 0..max_steps {
+            match &state.phase {
+                GamePhase::GameOver => return,
+                GamePhase::Draw => {
+                    execute_draw_phase(&mut state, &mut rng);
+                    continue;
+                }
+                GamePhase::Draft { .. } => {}
+                _ => {}
+            }
+
+            let player_index = match get_game_status(&state, None) {
+                GameStatus::AwaitingAction { player_index } => player_index,
+                GameStatus::Terminated { .. } => return,
+            };
+
+            let choice = ismcts(&state, player_index, &config, &None, None, &mut rng);
+
+            enumerate_choices_into(&state, &mut choices_buf);
+            assert!(
+                choices_buf.contains(&choice),
+                "seed={seed}, players={num_players}, \
+                 step={step}, round={}, phase={:?}: recursive ISMCTS choice {choice:?} \
+                 not in enumerated choices",
+                state.round, state.phase
+            );
+
+            assert!(
+                check_choice_available(&state, &choice),
+                "seed={seed}, players={num_players}, \
+                 step={step}, round={}, phase={:?}: check_choice_available returned \
+                 false for {choice:?}",
+                state.round, state.phase
+            );
+
+            apply_choice_to_state(&mut state, &choice, &mut rng);
+        }
+
+        panic!(
+            "seed={seed}, players={num_players}: \
+             game did not finish within {max_steps} steps"
+        );
+    }
+
+    #[test]
+    fn test_recursive_ismcts_valid_moves() {
+        for seed in 0..3 {
+            run_recursive_ismcts_game(2, seed);
         }
     }
 }
