@@ -32,9 +32,9 @@ pub struct ColoriGuiApp {
     load_error: Option<String>,
 
     // Batch/variant filtering
-    selected_batch: String, // "all" or batch ID
+    selected_batches: HashSet<String>, // set of selected batch IDs; empty = all
     selected_variant: String, // "all" or variant label
-    previous_batch: String,
+    previous_batches: HashSet<String>,
 
     // Cached analysis
     cached_analysis: Option<CachedAnalysis>,
@@ -55,9 +55,9 @@ impl ColoriGuiApp {
             loader: LogLoader::new(),
             tagged_logs: Vec::new(),
             load_error: None,
-            selected_batch: "all".to_string(),
+            selected_batches: HashSet::new(),
             selected_variant: "all".to_string(),
-            previous_batch: "all".to_string(),
+            previous_batches: HashSet::new(),
             cached_analysis: None,
             cache_key: String::new(),
             game_viewer: GameViewerState::new(),
@@ -75,12 +75,12 @@ impl ColoriGuiApp {
     }
 
     fn filtered_logs(&self) -> Vec<&StructuredGameLog> {
-        if self.selected_batch == "all" {
+        if self.selected_batches.is_empty() {
             self.tagged_logs.iter().map(|t| &t.log).collect()
         } else {
             self.tagged_logs
                 .iter()
-                .filter(|t| t.batch_id == self.selected_batch)
+                .filter(|t| self.selected_batches.contains(&t.batch_id))
                 .map(|t| &t.log)
                 .collect()
         }
@@ -172,7 +172,9 @@ impl ColoriGuiApp {
         } else {
             Some(self.selected_variant.as_str())
         };
-        let key = format!("{}:{}:{}", self.selected_batch, self.selected_variant, self.tagged_logs.len());
+        let mut batch_key: Vec<&String> = self.selected_batches.iter().collect();
+        batch_key.sort();
+        let key = format!("{}:{}:{}", batch_key.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(","), self.selected_variant, self.tagged_logs.len());
         if self.cache_key != key {
             let filtered: Vec<StructuredGameLog> = self.filtered_logs().into_iter().cloned().collect();
             self.cached_analysis = Some(CachedAnalysis::compute(&filtered, None, variant_label));
@@ -190,9 +192,9 @@ impl eframe::App for ColoriGuiApp {
                 self.load_error = None;
                 let batches = self.available_batches();
                 if batches.len() > 1 {
-                    self.selected_batch = batches[0].clone();
+                    self.selected_batches = HashSet::from([batches[0].clone()]);
                 } else {
-                    self.selected_batch = "all".to_string();
+                    self.selected_batches.clear();
                 }
                 self.selected_variant = "all".to_string();
                 self.cache_key.clear();
@@ -268,26 +270,56 @@ impl eframe::App for ColoriGuiApp {
                             let batch_info = self.compute_batch_info();
                             ui.horizontal(|ui| {
                                 ui.label("Batch:");
-                                egui::ComboBox::from_id_salt("batch_filter")
-                                    .selected_text(if self.selected_batch == "all" {
-                                        "All batches".to_string()
-                                    } else {
-                                        self.batch_label(&self.selected_batch, &batch_info)
-                                    })
-                                    .show_ui(ui, |ui| {
-                                        ui.selectable_value(&mut self.selected_batch, "all".to_string(), "All batches");
-                                        for batch in &batches {
-                                            let label = self.batch_label(batch, &batch_info);
-                                            ui.selectable_value(&mut self.selected_batch, batch.clone(), label);
+                                let button_text = if self.selected_batches.is_empty() {
+                                    "All batches".to_string()
+                                } else if self.selected_batches.len() == 1 {
+                                    let batch_id = self.selected_batches.iter().next().unwrap();
+                                    self.batch_label(batch_id, &batch_info)
+                                } else {
+                                    format!("{} batches selected", self.selected_batches.len())
+                                };
+                                let button = ui.button(format!("{} ▾", button_text));
+                                egui::Popup::from_toggle_button_response(&button)
+                                    .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
+                                    .show(|ui| {
+                                    // "All batches" checkbox
+                                    let mut all_selected = self.selected_batches.is_empty();
+                                    if ui.checkbox(&mut all_selected, "All batches").changed() {
+                                        if all_selected {
+                                            self.selected_batches.clear();
+                                        } else {
+                                            // Deselecting "all" → select just the most recent batch
+                                            self.selected_batches = HashSet::from([batches[0].clone()]);
                                         }
-                                    });
+                                    }
+                                    ui.separator();
+                                    // Individual batch checkboxes
+                                    for batch in &batches {
+                                        let label = self.batch_label(batch, &batch_info);
+                                        let mut is_selected = self.selected_batches.contains(batch);
+                                        if ui.checkbox(&mut is_selected, label).changed() {
+                                            if is_selected {
+                                                self.selected_batches.insert(batch.clone());
+                                                // If all batches are now selected, clear to mean "all"
+                                                if self.selected_batches.len() == batches.len() {
+                                                    self.selected_batches.clear();
+                                                }
+                                            } else {
+                                                // Prevent empty selection
+                                                if self.selected_batches.len() > 1 {
+                                                    self.selected_batches.remove(batch);
+                                                }
+                                            }
+                                        }
+                                    }
+                                });
                             });
                         }
 
-                        // Reset variant when batch changes
-                        if self.selected_batch != self.previous_batch {
+                        // Reset variant when batch selection changes
+                        if self.selected_batches != self.previous_batches {
                             self.selected_variant = "all".to_string();
-                            self.previous_batch = self.selected_batch.clone();
+                            self.previous_batches = self.selected_batches.clone();
                         }
 
                         // Variant filter
@@ -311,22 +343,26 @@ impl eframe::App for ColoriGuiApp {
                         }
 
                         // Batch info display
-                        if self.selected_batch == "all" {
+                        if self.selected_batches.is_empty() {
                             ui.label(format!("{} games loaded", total_count));
                         } else {
-                            ui.label(format!("{} of {} games shown", filtered_count, total_count));
-                            let batch_info = self.compute_batch_info();
-                            if let Some(info) = batch_info.get(&self.selected_batch) {
-                                ui.horizontal(|ui| {
-                                    if let Some(ref variants) = info.variants {
-                                        ui.label(format!("Variants: {}", variants));
-                                    } else if let Some(iters) = info.iterations {
-                                        ui.label(format!("Iterations: {}", iters));
-                                    }
-                                    if let Some(ref note) = info.note {
-                                        ui.label(format!("Note: {}", note));
-                                    }
-                                });
+                            ui.label(format!("{} of {} games shown ({} {})", filtered_count, total_count, self.selected_batches.len(), if self.selected_batches.len() == 1 { "batch" } else { "batches" }));
+                            // Show per-batch detail only when a single batch is selected
+                            if self.selected_batches.len() == 1 {
+                                let batch_id = self.selected_batches.iter().next().unwrap();
+                                let batch_info = self.compute_batch_info();
+                                if let Some(info) = batch_info.get(batch_id) {
+                                    ui.horizontal(|ui| {
+                                        if let Some(ref variants) = info.variants {
+                                            ui.label(format!("Variants: {}", variants));
+                                        } else if let Some(iters) = info.iterations {
+                                            ui.label(format!("Iterations: {}", iters));
+                                        }
+                                        if let Some(ref note) = info.note {
+                                            ui.label(format!("Note: {}", note));
+                                        }
+                                    });
+                                }
                             }
                         }
 
