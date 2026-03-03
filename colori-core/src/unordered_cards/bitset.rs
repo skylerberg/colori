@@ -280,6 +280,24 @@ impl<T> BitSet<T> {
         if c == 0 {
             return Self::new();
         }
+        if c >= BINOM_CUM[0].len() {
+            // Table doesn't cover this c value. Fall back to per-element
+            // coin flips, which gives a uniform random subset when c >= n.
+            let mut selected = [0u128; 2];
+            for word in 0..2 {
+                let mut bits = self.0[word];
+                while bits != 0 {
+                    let pos = bits.trailing_zeros();
+                    bits &= bits - 1;
+                    if rng.random_range(0..2u32) == 0 {
+                        selected[word] |= 1u128 << pos;
+                    }
+                }
+            }
+            self.0[0] &= !selected[0];
+            self.0[1] &= !selected[1];
+            return BitSet(selected, PhantomData);
+        }
         let total = BINOM_CUM[n][c];
         let r = rng.random_range(0..total);
         // Find which size bucket using cumulative table
