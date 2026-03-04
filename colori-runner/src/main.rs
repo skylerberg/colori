@@ -306,9 +306,6 @@ fn run_game(
             GamePhase::Action { action_state } => {
                 (action_state.current_player_index, "action")
             }
-            GamePhase::Cleanup { cleanup_state } => {
-                (cleanup_state.current_player_index, "cleanup")
-            }
             GamePhase::Draw => {
                 break;
             }

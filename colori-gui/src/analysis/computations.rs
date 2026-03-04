@@ -322,13 +322,6 @@ pub fn format_choice(choice: &Choice) -> String {
                 ),
             }
         }
-        Choice::KeepWorkshopCards { card_types } => {
-            if card_types.is_empty() {
-                "Kept nothing".to_string()
-            } else {
-                format!("Kept {} in workshop", card_names(card_types))
-            }
-        }
     }
 }
 
@@ -372,7 +365,6 @@ fn choice_type_name(choice: &Choice) -> String {
         Choice::DestroyAndSell { .. } => "destroyAndSell".to_string(),
         Choice::DestroyAndWorkshop { .. } => "destroyAndWorkshop".to_string(),
         Choice::DestroyAndDestroyCards { .. } => "destroyAndDestroyCards".to_string(),
-        Choice::KeepWorkshopCards { .. } => "keepWorkshopCards".to_string(),
     }
 }
 

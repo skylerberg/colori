@@ -10,7 +10,6 @@
   import GameLayout from './GameLayout.svelte';
   import DraftPhaseView from './DraftPhaseView.svelte';
   import ActionPhaseView from './ActionPhaseView.svelte';
-  import CleanupPhaseView from './CleanupPhaseView.svelte';
   import CardList from './CardList.svelte';
   import OpponentBoardPanel from './OpponentBoardPanel.svelte';
 
@@ -240,21 +239,6 @@
       {/if}
     {:else if gameState.phase.type === 'action' && isMyTurn}
       <ActionPhaseView {gameState} onAction={handleAction} onUndo={() => {}} undoAvailable={false} />
-    {:else if gameState.phase.type === 'cleanup' && isMyTurn}
-      <CleanupPhaseView {gameState} onAction={handleAction} />
-    {:else if gameState.phase.type === 'cleanup' && !isMyTurn}
-      <div class="waiting-banner">
-        <div class="spinner"></div>
-        <p>Waiting for {gameState.playerNames[activePlayerIndex] ?? 'other player'} to finish cleanup...</p>
-      </div>
-      {#if myPlayer}
-        <div class="readonly-cards">
-          <div class="section">
-            <h3>Your Workshop</h3>
-            <CardList cards={myPlayer.workshopCards} />
-          </div>
-        </div>
-      {/if}
     {/if}
   </GameLayout>
 {/if}

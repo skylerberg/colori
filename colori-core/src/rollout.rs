@@ -4,7 +4,6 @@ use crate::action_phase::{
     resolve_destroy_cards, resolve_gain_primary, resolve_gain_secondary, resolve_select_buyer,
     resolve_workshop_choice, skip_workshop,
 };
-use crate::cleanup_phase::resolve_keep_workshop_cards;
 use crate::colors::{pay_cost, perform_mix_unchecked, PRIMARIES, SECONDARIES, TERTIARIES, VALID_MIX_PAIRS};
 use crate::deck_utils::draw_from_deck;
 use crate::draft_phase::player_pick;
@@ -18,20 +17,16 @@ use rand::RngExt;
 fn rollout_draw_and_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
     let num_players = state.players.len();
 
-    // Step 1: Draw up to 5 cards from each player's personal deck (same as execute_draw_phase)
+    // Step 1: Draw 5 cards from each player's personal deck
     for i in 0..num_players {
         let player = &mut state.players[i];
-        let current = player.workshop_cards.len() as usize;
-        let to_draw = if current >= 5 { 0 } else { 5 - current };
-        if to_draw > 0 {
-            draw_from_deck(
-                &mut player.deck,
-                &mut player.discard,
-                &mut player.workshop_cards,
-                to_draw,
-                rng,
-            );
-        }
+        draw_from_deck(
+            &mut player.deck,
+            &mut player.discard,
+            &mut player.workshop_cards,
+            5,
+            rng,
+        );
     }
 
     // Step 2: Draw 4 cards per player from draft_deck, restocking from destroyed_pile
@@ -147,17 +142,8 @@ fn handle_action_no_pending<R: Rng>(state: &mut GameState, player_index: usize, 
     let mut copy = state.players[player_index].drafted_cards;
     let sel = copy.draw_up_to(1, rng);
     if sel.is_empty() {
-        // No drafted cards left — end turn, handle cleanup, and advance to next round
+        // No drafted cards left — end turn and advance to next round
         end_player_turn(state, rng);
-        if matches!(state.phase, GamePhase::Cleanup { .. }) {
-            while matches!(state.phase, GamePhase::Cleanup { .. }) {
-                if let GamePhase::Cleanup { ref cleanup_state } = state.phase {
-                    let keep =
-                        state.players[cleanup_state.current_player_index].workshop_cards;
-                    resolve_keep_workshop_cards(state, keep, rng);
-                }
-            }
-        }
         if matches!(state.phase, GamePhase::Draw) {
             rollout_draw_and_draft(state, rng);
         }
@@ -322,14 +308,6 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                 }
                 // Instant abilities should never be on top waiting — they get processed immediately
                 Some(_) => panic!("Unexpected ability on stack top during rollout"),
-            }
-        }
-        GamePhase::Cleanup { cleanup_state } => {
-            let mut all_workshop_cards = state.players[cleanup_state.current_player_index].workshop_cards;
-            let selected = all_workshop_cards.draw_up_to(all_workshop_cards.len() as u8, rng);
-            resolve_keep_workshop_cards(state, selected, rng);
-            if matches!(state.phase, GamePhase::Draw) {
-                rollout_draw_and_draft(state, rng);
             }
         }
         _ => panic!("Cannot apply rollout step for current state"),

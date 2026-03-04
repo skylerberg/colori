@@ -143,12 +143,6 @@ export function getChoiceLogMessage(
       const targetName = (getAnyCardData(choice.target) as { name?: string })?.name ?? 'a card';
       return `${name} destroyed ${cardName} from drafted cards, destroyed ${targetName} from workshop`;
     }
-    case 'keepWorkshopCards': {
-      const player = state.players[playerIndex];
-      const count = choice.cardTypes.length;
-      const total = player.workshopCards.length;
-      return `${name} kept ${count} of ${total} workshop cards`;
-    }
     default:
       return assertNever(choice);
   }

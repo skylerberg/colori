@@ -40,13 +40,6 @@ export function sanitizeGameState(
         abilityStack: actionState.abilityStack.map(a => ({ ...a })),
       },
     };
-  } else if (fullState.phase.type === 'cleanup') {
-    phase = {
-      type: 'cleanup',
-      cleanupState: {
-        currentPlayerIndex: fullState.phase.cleanupState.currentPlayerIndex,
-      },
-    };
   } else if (fullState.phase.type === 'gameOver') {
     phase = { type: 'gameOver' };
   } else {

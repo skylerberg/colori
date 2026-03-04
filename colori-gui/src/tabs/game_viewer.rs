@@ -27,7 +27,6 @@ fn phase_name(phase: &str) -> &str {
         "draw" => "Draw",
         "draft" => "Draft",
         "action" => "Action",
-        "cleanup" => "Cleanup",
         _ => phase,
     }
 }

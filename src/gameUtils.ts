@@ -7,9 +7,6 @@ export function getActivePlayerIndex(gs: GameState): number {
   if (gs.phase.type === 'action') {
     return gs.phase.actionState.currentPlayerIndex;
   }
-  if (gs.phase.type === 'cleanup') {
-    return gs.phase.cleanupState.currentPlayerIndex;
-  }
   return -1;
 }
 

@@ -1,4 +1,3 @@
-use crate::cleanup_phase::initialize_cleanup_phase;
 use crate::colors::{can_pay_cost, pay_cost, perform_mix, perform_mix_unchecked, TERTIARIES};
 use crate::deck_utils::draw_from_deck;
 use crate::types::{
@@ -386,9 +385,10 @@ pub fn end_player_turn<R: Rng>(state: &mut GameState, rng: &mut R) {
     let player = &mut state.players[player_index];
 
     // Move remaining cards to discard
-    player.discard = player.discard.union(player.drafted_cards).union(player.workshopped_cards);
+    player.discard = player.discard.union(player.drafted_cards).union(player.workshopped_cards).union(player.workshop_cards);
     player.drafted_cards = UnorderedCards::new();
     player.workshopped_cards = UnorderedCards::new();
+    player.workshop_cards = UnorderedCards::new();
 
     let num_players = state.players.len();
     let starting_player = ((state.round - 1) as usize) % num_players;
@@ -402,7 +402,7 @@ pub fn end_player_turn<R: Rng>(state: &mut GameState, rng: &mut R) {
         if is_last_round {
             end_round(state, rng);
         } else {
-            initialize_cleanup_phase(state, rng);
+            end_round(state, rng);
         }
     } else {
         let action_state = get_action_state_mut(state);

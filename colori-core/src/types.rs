@@ -683,12 +683,6 @@ pub struct ActionState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CleanupState {
-    pub current_player_index: usize,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum GamePhase {
     #[serde(rename = "draw")]
@@ -702,11 +696,6 @@ pub enum GamePhase {
     Action {
         #[serde(rename = "actionState")]
         action_state: ActionState,
-    },
-    #[serde(rename = "cleanup")]
-    Cleanup {
-        #[serde(rename = "cleanupState")]
-        cleanup_state: CleanupState,
     },
     #[serde(rename = "gameOver")]
     GameOver,
@@ -791,10 +780,5 @@ pub enum Choice {
     DestroyAndDestroyCards {
         card: Card,
         target: Option<Card>,
-    },
-    #[serde(rename = "keepWorkshopCards")]
-    KeepWorkshopCards {
-        #[serde(rename = "cardTypes")]
-        card_types: SmallVec<[Card; 4]>,
     },
 }

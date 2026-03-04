@@ -297,24 +297,6 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                 Some(_) => {}
             }
         }
-        GamePhase::Cleanup { cleanup_state } => {
-            let player = &state.players[cleanup_state.current_player_index];
-            // Empty set (discard all)
-            choices.push(Choice::KeepWorkshopCards {
-                card_types: SmallVec::new(),
-            });
-            // All non-empty subsets via multiset enumeration
-            let (card_types, type_counts, len) = count_card_types(player.workshop_cards, &state.card_lookup);
-            let total = player.workshop_cards.len() as usize;
-            enumerate_multiset_subsets(
-                &card_types[..len],
-                &type_counts[..len],
-                total,
-                &mut SmallVec::new(),
-                choices,
-                &|card_types| Choice::KeepWorkshopCards { card_types },
-            );
-        }
         _ => {}
     }
 }
@@ -541,17 +523,6 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
                     }];
                     player.workshop_cards.iter().any(|id| state.card_lookup[id as usize] == *target_card)
                 }
-            }
-        }
-        Choice::KeepWorkshopCards { card_types } => {
-            if let GamePhase::Cleanup { ref cleanup_state } = state.phase {
-                if card_types.is_empty() {
-                    return true;
-                }
-                let player = &state.players[cleanup_state.current_player_index];
-                resolve_card_types_to_ids(card_types, &player.workshop_cards, &state.card_lookup).is_some()
-            } else {
-                false
             }
         }
     }

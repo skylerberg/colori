@@ -121,15 +121,10 @@ export interface ActionState {
   abilityStack: Ability[];
 }
 
-export interface CleanupState {
-  currentPlayerIndex: number;
-}
-
 export type GamePhase =
   | { type: 'draw' }
   | { type: 'draft'; draftState: DraftState }
   | { type: 'action'; actionState: ActionState }
-  | { type: 'cleanup'; cleanupState: CleanupState }
   | { type: 'gameOver' };
 
 export interface GameState {
@@ -159,8 +154,7 @@ export type Choice =
   | { type: 'destroyAndMix'; card: Card; mixes: [Color, Color][] }
   | { type: 'destroyAndSell'; card: Card; buyer: BuyerCard }
   | { type: 'destroyAndWorkshop'; card: Card; workshopCards: Card[] }
-  | { type: 'destroyAndDestroyCards'; card: Card; target: Card | null }
-  | { type: 'keepWorkshopCards'; cardTypes: Card[] };
+  | { type: 'destroyAndDestroyCards'; card: Card; target: Card | null };
 
 // ── Game Log Types ──
 

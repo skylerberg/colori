@@ -18,11 +18,6 @@ pub fn apply_choice_to_state<R: Rng>(state: &mut GameState, choice: &Choice, rng
             execute_draw_phase(state, rng);
         }
     }
-    if matches!(choice, Choice::KeepWorkshopCards { .. }) {
-        if matches!(state.phase, GamePhase::Draw) {
-            execute_draw_phase(state, rng);
-        }
-    }
 }
 
 // ── Game status ──
@@ -53,9 +48,6 @@ pub fn get_game_status(state: &GameState, max_round: Option<u32>) -> GameStatus 
         },
         GamePhase::Action { action_state } => GameStatus::AwaitingAction {
             player_index: action_state.current_player_index,
-        },
-        GamePhase::Cleanup { cleanup_state } => GameStatus::AwaitingAction {
-            player_index: cleanup_state.current_player_index,
         },
         GamePhase::GameOver => {
             let scores: SmallVec<[f64; 4]> = state.players.iter().map(|p| p.cached_score as f64).collect();

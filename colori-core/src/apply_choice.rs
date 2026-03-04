@@ -1,5 +1,4 @@
 use crate::action_phase::*;
-use crate::cleanup_phase::resolve_keep_workshop_cards;
 use crate::draft_phase::player_pick;
 use crate::types::{Ability, Card, Choice, GamePhase, GameState};
 use crate::unordered_cards::UnorderedCards;
@@ -192,17 +191,6 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
                 }
             }
             resolve_destroy_cards(state, selected, rng);
-        }
-        Choice::KeepWorkshopCards { card_types } => {
-            let workshop = match &state.phase {
-                GamePhase::Cleanup { cleanup_state } => {
-                    state.players[cleanup_state.current_player_index].workshop_cards
-                }
-                _ => panic!("Expected cleanup phase"),
-            };
-            let card_instance_ids = resolve_card_types_to_ids(card_types, &workshop, &state.card_lookup)
-                .expect("Card types not found in workshop");
-            resolve_keep_workshop_cards(state, card_instance_ids, rng);
         }
     }
 }

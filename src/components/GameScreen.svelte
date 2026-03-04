@@ -7,7 +7,6 @@
   import GameLayout from './GameLayout.svelte';
   import DraftPhaseView from './DraftPhaseView.svelte';
   import ActionPhaseView from './ActionPhaseView.svelte';
-  import CleanupPhaseView from './CleanupPhaseView.svelte';
   import CardList from './CardList.svelte';
 
   let { gameState, gameStartTime, onGameUpdated, initialGameLog, onLeaveGame, gameLogAccumulator, aiIterations }: {
@@ -243,17 +242,6 @@
             <CardList cards={selectedPlayer.completedBuyers} />
           </div>
         {/if}
-      </div>
-    {/if}
-  {:else if gameState.phase.type === 'cleanup'}
-    {#if isViewingActiveHuman}
-      <CleanupPhaseView {gameState} onAction={handleAction} />
-    {:else}
-      <div class="readonly-cards">
-        <div class="section-box">
-          <h3>Workshop</h3>
-          <CardList cards={selectedPlayer.workshopCards} />
-        </div>
       </div>
     {/if}
   {/if}

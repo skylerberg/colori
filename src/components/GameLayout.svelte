@@ -22,7 +22,7 @@
 
   let showSidebar = $derived(
     sidebarPlayer !== null &&
-    (gameState.phase.type === 'draft' || gameState.phase.type === 'action' || gameState.phase.type === 'cleanup')
+    (gameState.phase.type === 'draft' || gameState.phase.type === 'action')
   );
 
   function handleLeaveGame() {
