@@ -19,12 +19,10 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 struct Args {
     games: usize,
-    iterations: u32,
-    players: usize,
     threads: usize,
     output: String,
     note: Option<String>,
-    variants: Option<Vec<NamedVariant>>,
+    variants: Vec<NamedVariant>,
 }
 
 #[derive(Clone)]
@@ -61,15 +59,12 @@ impl VariantFileEntry {
 
 fn parse_args() -> Args {
     let args: Vec<String> = std::env::args().collect();
-    let mut games = 10usize;
-    let mut iterations = 100u32;
-    let mut players = 3usize;
-    let mut threads = std::thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(1);
+    let mut games = 10_000usize;
+    let mut threads = 10usize;
     let mut output = "game-logs".to_string();
     let mut note: Option<String> = None;
     let mut variants: Option<Vec<NamedVariant>> = None;
+    let mut variants_file = "variants.json".to_string();
 
     let mut i = 1;
     while i < args.len() {
@@ -77,14 +72,6 @@ fn parse_args() -> Args {
             "--games" => {
                 i += 1;
                 games = args[i].parse().expect("Invalid --games value");
-            }
-            "--iterations" => {
-                i += 1;
-                iterations = args[i].parse().expect("Invalid --iterations value");
-            }
-            "--players" => {
-                i += 1;
-                players = args[i].parse().expect("Invalid --players value");
             }
             "--threads" => {
                 i += 1;
@@ -115,16 +102,7 @@ fn parse_args() -> Args {
             }
             "--variants-file" => {
                 i += 1;
-                let contents = std::fs::read_to_string(&args[i])
-                    .expect("Failed to read variants file");
-                let entries: Vec<VariantFileEntry> = serde_json::from_str(&contents)
-                    .expect("Failed to parse variants file");
-                variants = Some(
-                    entries
-                        .into_iter()
-                        .map(|e| e.into_named_variant())
-                        .collect(),
-                );
+                variants_file = args[i].clone();
             }
             other => {
                 eprintln!("Unknown argument: {}", other);
@@ -134,10 +112,19 @@ fn parse_args() -> Args {
         i += 1;
     }
 
+    let variants = variants.unwrap_or_else(|| {
+        let contents = std::fs::read_to_string(&variants_file)
+            .unwrap_or_else(|_| panic!("Failed to read variants file: {}", variants_file));
+        let entries: Vec<VariantFileEntry> = serde_json::from_str(&contents)
+            .unwrap_or_else(|_| panic!("Failed to parse variants file: {}", variants_file));
+        entries
+            .into_iter()
+            .map(|e| e.into_named_variant())
+            .collect()
+    });
+
     Args {
         games,
-        iterations,
-        players,
         threads,
         output,
         note,
@@ -423,21 +410,11 @@ fn generate_batch_id() -> String {
 fn main() {
     let args = parse_args();
 
-    let player_variants: Vec<NamedVariant> = match &args.variants {
-        Some(v) => v.clone(),
-        None => vec![
-            NamedVariant {
-                name: None,
-                ai: MctsConfig { iterations: args.iterations, ..MctsConfig::default() },
-            };
-            args.players
-        ],
-    };
-
+    let player_variants = &args.variants;
     let num_players = player_variants.len();
 
-    if args.variants.is_some() {
-        let differing = compute_differing_fields(&player_variants);
+    if has_any_difference(player_variants) {
+        let differing = compute_differing_fields(player_variants);
         let labels: Vec<String> = player_variants.iter().map(|v| format_variant_label(v, &differing)).collect();
         eprintln!(
             "Running {} games with variants: {}, {} threads",
@@ -448,7 +425,7 @@ fn main() {
     } else {
         eprintln!(
             "Running {} games with {} players, {} ISMCTS iterations, {} threads",
-            args.games, num_players, args.iterations, args.threads
+            args.games, num_players, player_variants[0].ai.iterations, args.threads
         );
     }
 
