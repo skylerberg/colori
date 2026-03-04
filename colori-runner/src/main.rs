@@ -43,8 +43,6 @@ struct VariantFileEntry {
     exploration_constant: Option<f64>,
     #[serde(default)]
     max_rollout_steps: Option<u32>,
-    #[serde(default)]
-    inner_iterations: Option<u32>,
 }
 
 impl VariantFileEntry {
@@ -56,7 +54,6 @@ impl VariantFileEntry {
                 iterations: self.iterations.unwrap_or(defaults.iterations),
                 exploration_constant: self.exploration_constant.unwrap_or(defaults.exploration_constant),
                 max_rollout_steps: self.max_rollout_steps.unwrap_or(defaults.max_rollout_steps),
-                inner_iterations: self.inner_iterations,
             },
         }
     }
@@ -222,12 +219,6 @@ fn format_variant_label(variant: &NamedVariant, differing: &DifferingFields) -> 
     if differing.max_rollout_steps_differs {
         parts.push(format!("rollout={}", variant.ai.max_rollout_steps));
     }
-    if differing.inner_iterations_differs {
-        match variant.ai.inner_iterations {
-            Some(n) => parts.push(format!("inner={}", n)),
-            None => parts.push("inner=none".to_string()),
-        }
-    }
     if parts.is_empty() {
         parts.push(format_iterations(variant.ai.iterations));
     }
@@ -238,7 +229,6 @@ struct DifferingFields {
     iterations_differs: bool,
     exploration_constant_differs: bool,
     max_rollout_steps_differs: bool,
-    inner_iterations_differs: bool,
 }
 
 fn compute_differing_fields(variants: &[NamedVariant]) -> DifferingFields {
@@ -247,7 +237,6 @@ fn compute_differing_fields(variants: &[NamedVariant]) -> DifferingFields {
             iterations_differs: false,
             exploration_constant_differs: false,
             max_rollout_steps_differs: false,
-            inner_iterations_differs: false,
         };
     }
     let first = &variants[0].ai;
@@ -255,7 +244,6 @@ fn compute_differing_fields(variants: &[NamedVariant]) -> DifferingFields {
         iterations_differs: variants.iter().any(|v| v.ai.iterations != first.iterations),
         exploration_constant_differs: variants.iter().any(|v| v.ai.exploration_constant != first.exploration_constant),
         max_rollout_steps_differs: variants.iter().any(|v| v.ai.max_rollout_steps != first.max_rollout_steps),
-        inner_iterations_differs: variants.iter().any(|v| v.ai.inner_iterations != first.inner_iterations),
     }
 }
 
@@ -267,7 +255,7 @@ fn has_any_difference(variants: &[NamedVariant]) -> bool {
         return true;
     }
     let diff = compute_differing_fields(variants);
-    diff.iterations_differs || diff.exploration_constant_differs || diff.max_rollout_steps_differs || diff.inner_iterations_differs
+    diff.iterations_differs || diff.exploration_constant_differs || diff.max_rollout_steps_differs
 }
 
 // ── Game loop ──
@@ -398,7 +386,6 @@ fn run_game(
                         } else {
                             None
                         },
-                        inner_iterations: v.ai.inner_iterations,
                     })
                     .collect(),
             ),
