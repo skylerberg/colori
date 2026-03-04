@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use colori_core::game_log::{PlayerVariant, StructuredGameLog};
+use colori_core::game_log::{FinalScore, PlayerVariant, StructuredGameLog};
 use colori_core::types::{BuyerCard, BuyerInstance, CardInstance, Choice, ALL_COLORS};
 
 use super::card_names::{buyer_display_name, card_display_name, get_draft_copies_by_name};
@@ -128,6 +128,19 @@ pub fn get_buyer_name(buyer_map: &HashMap<u32, BuyerInstance>, id: u32) -> Strin
         Some(inst) => buyer_name_from_instance(inst.buyer),
         None => format!("Buyer #{}", id),
     }
+}
+
+pub fn final_score_ranking(fs: &FinalScore) -> (u32, u32, u32) {
+    (fs.score, fs.completed_buyers, fs.color_wheel_total)
+}
+
+fn compute_winners(final_scores: &[FinalScore]) -> (impl Fn(&str) -> bool + '_, usize) {
+    let best = final_scores.iter().map(|fs| final_score_ranking(fs)).max().unwrap_or((0, 0, 0));
+    let num_winners = final_scores.iter().filter(|fs| final_score_ranking(fs) == best).count();
+    let is_winner = move |name: &str| {
+        final_scores.iter().any(|fs| fs.name == name && final_score_ranking(fs) == best)
+    };
+    (is_winner, num_winners)
 }
 
 // ── Player filtering ──
@@ -602,8 +615,7 @@ pub fn compute_win_rate_by_card(
         }
 
         // Compute winners
-        let max_score = final_scores.iter().map(|fs| fs.score).max().unwrap_or(0);
-        let num_winners = final_scores.iter().filter(|fs| fs.score == max_score).count();
+        let (is_winner_fn, num_winners) = compute_winners(final_scores);
 
         // For each player, determine final deck cards and tally
         for i in 0..log.player_names.len() {
@@ -615,9 +627,7 @@ pub fn compute_win_rate_by_card(
             let drafted = player_drafted.get(&i);
             let destroyed = player_destroyed.get(&i);
             let player_name = &log.player_names[i];
-            let is_winner = final_scores
-                .iter()
-                .any(|fs| &fs.name == player_name && fs.score == max_score);
+            let is_winner = is_winner_fn(player_name);
 
             let mut deck_card_names: HashSet<String> = HashSet::new();
             if let Some(drafted) = drafted {
@@ -680,8 +690,7 @@ pub fn compute_win_rate_if_drafted(
         }
 
         // Compute winners
-        let max_score = final_scores.iter().map(|fs| fs.score).max().unwrap_or(0);
-        let num_winners = final_scores.iter().filter(|fs| fs.score == max_score).count();
+        let (is_winner_fn, num_winners) = compute_winners(final_scores);
 
         // For each player, tally win rate by drafted card names
         for i in 0..log.player_names.len() {
@@ -692,9 +701,7 @@ pub fn compute_win_rate_if_drafted(
             }
             let drafted_names = player_drafted.get(&i);
             let player_name = &log.player_names[i];
-            let is_winner = final_scores
-                .iter()
-                .any(|fs| &fs.name == player_name && fs.score == max_score);
+            let is_winner = is_winner_fn(player_name);
 
             if let Some(drafted_names) = drafted_names {
                 for name in drafted_names {
@@ -741,9 +748,8 @@ pub fn compute_win_rate_by_position(
                 .games += 1.0;
         }
 
-        // Find highest score
-        let max_score = final_scores.iter().map(|fs| fs.score).max().unwrap_or(0);
-        let num_winners = final_scores.iter().filter(|fs| fs.score == max_score).count();
+        // Find winners using tiebreaker ranking
+        let (is_winner_fn, num_winners) = compute_winners(final_scores);
 
         // Match final scores back to player indices by name
         for i in 0..log.player_names.len() {
@@ -753,9 +759,7 @@ pub fn compute_win_rate_by_position(
                 }
             }
             let player_name = &log.player_names[i];
-            let is_winner = final_scores
-                .iter()
-                .any(|fs| &fs.name == player_name && fs.score == max_score);
+            let is_winner = is_winner_fn(player_name);
             if is_winner {
                 if let Some(entry) = stats.get_mut(&i) {
                     entry.wins += 1.0 / num_winners as f64;
@@ -788,9 +792,8 @@ pub fn compute_win_rate_by_variant(
             None => continue,
         };
 
-        // Find highest score
-        let max_score = final_scores.iter().map(|fs| fs.score).max().unwrap_or(0);
-        let num_winners = final_scores.iter().filter(|fs| fs.score == max_score).count();
+        // Find winners using tiebreaker ranking
+        let (is_winner_fn, num_winners) = compute_winners(final_scores);
 
         for (i, variant) in variants.iter().enumerate() {
             let label = format_variant_label(variant, Some(variants));
@@ -801,10 +804,7 @@ pub fn compute_win_rate_by_variant(
 
             if i < log.player_names.len() {
                 let player_name = &log.player_names[i];
-                let is_winner = final_scores
-                    .iter()
-                    .any(|fs| &fs.name == player_name && fs.score == max_score);
-                if is_winner {
+                if is_winner_fn(player_name) {
                     entry.wins += 1.0 / num_winners as f64;
                 }
             }

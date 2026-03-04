@@ -148,10 +148,18 @@ export function getChoiceLogMessage(
   }
 }
 
-export function determineWinner(players: PlayerState[], playerNames: string[]): string {
-  const scores = calculateScores(players, playerNames);
-  scores.sort((a, b) => b.score - a.score);
-  return scores[0].name;
+export function determineWinners(players: PlayerState[], playerNames: string[]): string[] {
+  const ranked = players.map((p, i) => ({
+    name: playerNames[i],
+    score: calculateScores([p], [playerNames[i]])[0].score,
+    buyers: p.completedBuyers.length,
+    colors: Object.values(p.colorWheel).reduce((sum, c) => sum + (c as number), 0),
+  }));
+  ranked.sort((a, b) => b.score - a.score || b.buyers - a.buyers || b.colors - a.colors);
+  const best = ranked[0];
+  return ranked
+    .filter(r => r.score === best.score && r.buyers === best.buyers && r.colors === best.colors)
+    .map(r => r.name);
 }
 
 function canPayCost(wheel: Record<Color, number>, cost: Color[]): boolean {

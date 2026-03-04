@@ -339,6 +339,8 @@ fn run_game(
             .map(|(i, p)| FinalScore {
                 name: names[i].clone(),
                 score: calculate_score(p),
+                completed_buyers: p.completed_buyers.len() as u32,
+                color_wheel_total: p.color_wheel.counts.iter().sum(),
             })
             .collect(),
     );

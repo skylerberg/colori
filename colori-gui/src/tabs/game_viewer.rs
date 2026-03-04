@@ -6,7 +6,8 @@ use colori_core::game_log::{StructuredGameLog, StructuredLogEntry};
 use colori_core::types::{BuyerInstance, CardInstance, ALL_COLORS, ALL_MATERIAL_TYPES};
 
 use crate::analysis::computations::{
-    build_buyer_instance_map, build_card_instance_map, buyer_name_from_instance, format_choice,
+    build_buyer_instance_map, build_card_instance_map, buyer_name_from_instance,
+    final_score_ranking, format_choice,
 };
 
 const PLAYER_COLORS: [egui::Color32; 5] = [
@@ -154,10 +155,10 @@ fn render_summary(ui: &mut egui::Ui, game: &StructuredGameLog) {
 
         // Winner(s)
         if let Some(ref final_scores) = game.final_scores {
-            let max_score = final_scores.iter().map(|fs| fs.score).max().unwrap_or(0);
+            let best = final_scores.iter().map(|fs| final_score_ranking(fs)).max().unwrap_or((0, 0, 0));
             let winners: Vec<&str> = final_scores
                 .iter()
-                .filter(|fs| fs.score == max_score)
+                .filter(|fs| final_score_ranking(fs) == best)
                 .map(|fs| fs.name.as_str())
                 .collect();
             ui.label(format!("Winner: {}", winners.join(", ")));

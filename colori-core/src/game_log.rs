@@ -55,6 +55,10 @@ pub struct LogPlayerState {
 pub struct FinalScore {
     pub name: String,
     pub score: u32,
+    #[serde(default)]
+    pub completed_buyers: u32,
+    #[serde(default)]
+    pub color_wheel_total: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

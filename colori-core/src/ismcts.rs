@@ -4,7 +4,7 @@ use crate::colori_game::{
     get_game_status, GameStatus,
 };
 use crate::draft_phase::player_pick;
-use crate::scoring::calculate_score;
+use crate::scoring::{calculate_score, compute_terminal_rewards};
 use crate::types::*;
 use rand::Rng;
 use rand::RngExt;
@@ -467,10 +467,7 @@ fn is_terminal(state: &GameState, max_rollout_round: Option<u32>) -> bool {
 
 #[inline]
 fn compute_terminal_scores(state: &GameState) -> SmallVec<[f64; 4]> {
-    let scores: SmallVec<[f64; 4]> = state.players.iter().map(|p| p.cached_score as f64).collect();
-    let max_score = scores.iter().cloned().fold(0.0f64, f64::max);
-    let num_winners = scores.iter().filter(|&&s| s == max_score).count() as f64;
-    scores.iter().map(|&s| if s == max_score { 1.0 / num_winners } else { 0.0 }).collect()
+    compute_terminal_rewards(&state.players)
 }
 
 fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_rollout_steps: u32, rng: &mut R) -> SmallVec<[f64; 4]> {

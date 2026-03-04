@@ -1,5 +1,6 @@
 use crate::apply_choice::apply_choice;
 use crate::draw_phase::execute_draw_phase;
+use crate::scoring::compute_terminal_rewards;
 use crate::types::*;
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
@@ -31,13 +32,8 @@ pub enum GameStatus {
 pub fn get_game_status(state: &GameState, max_round: Option<u32>) -> GameStatus {
     if let Some(mr) = max_round {
         if state.round > mr {
-            let scores: SmallVec<[f64; 4]> = state.players.iter().map(|p| p.cached_score as f64).collect();
-            let max_score = scores.iter().cloned().fold(0.0f64, f64::max);
             return GameStatus::Terminated {
-                scores: scores
-                    .iter()
-                    .map(|&s| if s == max_score { 1.0 } else { 0.0 })
-                    .collect(),
+                scores: compute_terminal_rewards(&state.players),
             };
         }
     }
@@ -49,16 +45,9 @@ pub fn get_game_status(state: &GameState, max_round: Option<u32>) -> GameStatus 
         GamePhase::Action { action_state } => GameStatus::AwaitingAction {
             player_index: action_state.current_player_index,
         },
-        GamePhase::GameOver => {
-            let scores: SmallVec<[f64; 4]> = state.players.iter().map(|p| p.cached_score as f64).collect();
-            let max_score = scores.iter().cloned().fold(0.0f64, f64::max);
-            GameStatus::Terminated {
-                scores: scores
-                    .iter()
-                    .map(|&s| if s == max_score { 1.0 } else { 0.0 })
-                    .collect(),
-            }
-        }
+        GamePhase::GameOver => GameStatus::Terminated {
+            scores: compute_terminal_rewards(&state.players),
+        },
         GamePhase::Draw => GameStatus::AwaitingAction { player_index: 0 },
     }
 }

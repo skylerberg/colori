@@ -181,7 +181,7 @@ export interface StructuredGameLog {
   playerNames: string[];
   aiPlayers: boolean[];
   initialState: GameState;
-  finalScores: { name: string; score: number }[] | null;
+  finalScores: { name: string; score: number; completedBuyers?: number; colorWheelTotal?: number }[] | null;
   finalPlayerStats: FinalPlayerStats[] | null;
   entries: StructuredLogEntry[];
   durationMs?: number;

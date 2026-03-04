@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { GameState, StructuredGameLog } from '../data/types';
-  import { calculateScores, determineWinner } from '../engine/wasmEngine';
+  import { calculateScores, determineWinners } from '../engine/wasmEngine';
   import { downloadGameLog } from '../gameLog';
   import { formatTime } from '../gameUtils';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
@@ -19,8 +19,22 @@
 
   let rounds = $derived(gameState.round - 1);
   let scores = $derived(calculateScores(gameState.players, gameState.playerNames));
-  let winner = $derived(determineWinner(gameState.players, gameState.playerNames));
-  let sortedScores = $derived([...scores].sort((a, b) => b.score - a.score));
+  let winners = $derived(determineWinners(gameState.players, gameState.playerNames));
+  let winnerSet = $derived(new Set(winners));
+  let sortedScores = $derived(() => {
+    const playerMap = new Map(gameState.players.map((p, i) => [gameState.playerNames[i], p]));
+    return [...scores].sort((a, b) => {
+      if (a.score !== b.score) return b.score - a.score;
+      const pa = playerMap.get(a.name)!;
+      const pb = playerMap.get(b.name)!;
+      const buyersA = pa.completedBuyers.length;
+      const buyersB = pb.completedBuyers.length;
+      if (buyersA !== buyersB) return buyersB - buyersA;
+      const colorsA = Object.values(pa.colorWheel).reduce((sum, c) => sum + (c as number), 0);
+      const colorsB = Object.values(pb.colorWheel).reduce((sum, c) => sum + (c as number), 0);
+      return colorsB - colorsA;
+    });
+  });
 
   let expandedPlayers = $state(new Set<string>());
 
@@ -43,7 +57,11 @@
   <h2>Game Over!</h2>
 
   <div class="winner-banner">
-    {winner} wins!
+    {#if winners.length > 1}
+      It's a tie!
+    {:else}
+      {winners[0]} wins!
+    {/if}
   </div>
 
   <div class="game-time">
@@ -51,10 +69,10 @@
   </div>
 
   <div class="scores-list">
-    {#each sortedScores as entry, i}
+    {#each sortedScores() as entry, i}
       {@const player = getPlayer(entry.name)}
       {@const expanded = expandedPlayers.has(entry.name)}
-      <div class="score-entry" class:winner={entry.name === winner}>
+      <div class="score-entry" class:winner={winnerSet.has(entry.name)}>
         <button class="score-row" onclick={() => togglePlayer(entry.name)}>
           <span class="rank">#{i + 1}</span>
           <span class="name">{entry.name}</span>
