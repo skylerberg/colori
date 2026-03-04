@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use colori_core::game_log::{FinalScore, PlayerVariant, StructuredGameLog};
-use colori_core::types::{BuyerCard, BuyerInstance, CardInstance, Choice, ALL_COLORS};
+use colori_core::types::{BuyerCard, BuyerInstance, CardInstance, Choice, MaterialType, ALL_COLORS};
 
 use super::card_names::{buyer_display_name, card_display_name, get_draft_copies_by_name};
 use super::categories::CardCategory;
@@ -54,6 +54,14 @@ pub struct BuyerAcquisitions {
     pub by_buyer: HashMap<String, usize>,
     pub by_stars: HashMap<u32, usize>,
     pub by_material: HashMap<String, usize>,
+}
+
+#[allow(dead_code)]
+pub struct WinnerBuyerBreakdown {
+    pub avg_textiles: f64,
+    pub avg_ceramics: f64,
+    pub avg_paintings: f64,
+    pub num_games: usize,
 }
 
 // ── Helper functions ──
@@ -1112,6 +1120,79 @@ pub fn compute_buyer_acquisitions(
 }
 
 // ── Color analysis ──
+
+/// Compute average buyer breakdown (Textiles/Ceramics/Paintings) for game winners.
+pub fn compute_winner_buyer_breakdown(
+    logs: &[StructuredGameLog],
+    filter: Option<&PlayerFilter>,
+) -> WinnerBuyerBreakdown {
+    let mut total_textiles: f64 = 0.0;
+    let mut total_ceramics: f64 = 0.0;
+    let mut total_paintings: f64 = 0.0;
+    let mut num_games: usize = 0;
+
+    for (log_idx, log) in logs.iter().enumerate() {
+        let final_scores = match &log.final_scores {
+            Some(fs) => fs,
+            None => continue,
+        };
+
+        let (is_winner_fn, num_winners) = compute_winners(final_scores);
+        let weight = 1.0 / num_winners as f64;
+
+        // Track buyer acquisitions per player
+        let mut player_textiles: HashMap<usize, u32> = HashMap::new();
+        let mut player_ceramics: HashMap<usize, u32> = HashMap::new();
+        let mut player_paintings: HashMap<usize, u32> = HashMap::new();
+
+        let allowed = filter.and_then(|f| f.get(&log_idx));
+
+        for entry in &log.entries {
+            let buyer = match &entry.choice {
+                Choice::SelectBuyer { buyer } => Some(buyer),
+                Choice::DestroyAndSell { buyer, .. } => Some(buyer),
+                _ => None,
+            };
+            if let Some(buyer) = buyer {
+                match buyer.required_material() {
+                    MaterialType::Textiles => {
+                        *player_textiles.entry(entry.player_index).or_insert(0) += 1;
+                    }
+                    MaterialType::Ceramics => {
+                        *player_ceramics.entry(entry.player_index).or_insert(0) += 1;
+                    }
+                    MaterialType::Paintings => {
+                        *player_paintings.entry(entry.player_index).or_insert(0) += 1;
+                    }
+                }
+            }
+        }
+
+        num_games += 1;
+
+        for i in 0..log.player_names.len() {
+            if let Some(allowed) = allowed {
+                if !allowed.contains(&i) {
+                    continue;
+                }
+            }
+            let player_name = &log.player_names[i];
+            if is_winner_fn(player_name) {
+                total_textiles += *player_textiles.get(&i).unwrap_or(&0) as f64 * weight;
+                total_ceramics += *player_ceramics.get(&i).unwrap_or(&0) as f64 * weight;
+                total_paintings += *player_paintings.get(&i).unwrap_or(&0) as f64 * weight;
+            }
+        }
+    }
+
+    let divisor = if num_games > 0 { num_games as f64 } else { 1.0 };
+    WinnerBuyerBreakdown {
+        avg_textiles: total_textiles / divisor,
+        avg_ceramics: total_ceramics / divisor,
+        avg_paintings: total_paintings / divisor,
+        num_games,
+    }
+}
 
 /// Compute average color wheel values across all players.
 pub fn compute_color_wheel_stats(

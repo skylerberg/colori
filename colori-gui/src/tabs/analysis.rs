@@ -40,6 +40,7 @@ pub struct CachedAnalysis {
     pub destroy_rate: HashMap<String, f64>,
     pub destroy_rate_categories: Vec<CategoryStat>,
     pub destroy_rate_cat_normalized: Vec<CategoryStat>,
+    pub winner_buyer_breakdown: WinnerBuyerBreakdown,
 }
 
 impl CachedAnalysis {
@@ -70,6 +71,7 @@ impl CachedAnalysis {
         let round_count_dist = compute_round_count_distribution(logs);
         let card_win_rate = compute_win_rate_by_card(logs, filter_ref);
         let draft_win_rate = compute_win_rate_if_drafted(logs, filter_ref);
+        let winner_buyer_breakdown = compute_winner_buyer_breakdown(logs, filter_ref);
 
         let num_players = if !logs.is_empty() {
             logs[0].player_names.len()
@@ -141,6 +143,7 @@ impl CachedAnalysis {
             destroy_rate,
             destroy_rate_categories,
             destroy_rate_cat_normalized,
+            winner_buyer_breakdown,
         }
     }
 }
@@ -412,6 +415,31 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis, num_gam
             })
             .body(|ui| {
                 render_f64_hashmap_bar_rows(ui, &analysis.color_stats, "Average Count", 2);
+            });
+
+        // Winner Buyer Breakdown
+        let id = ui.make_persistent_id("winner_buyer_breakdown");
+        egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
+            .show_header(ui, |ui| {
+                ui.strong("Winner Buyer Breakdown");
+            })
+            .body(|ui| {
+                let wb = &analysis.winner_buyer_breakdown;
+                let cards = vec![
+                    StatCard {
+                        value: format!("{:.1}", wb.avg_textiles),
+                        label: "Avg Textiles".into(),
+                    },
+                    StatCard {
+                        value: format!("{:.1}", wb.avg_ceramics),
+                        label: "Avg Ceramics".into(),
+                    },
+                    StatCard {
+                        value: format!("{:.1}", wb.avg_paintings),
+                        label: "Avg Paintings".into(),
+                    },
+                ];
+                stat_grid(ui, &cards);
             });
     });
 }
