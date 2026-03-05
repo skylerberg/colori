@@ -20,10 +20,16 @@
     children: Snippet;
   } = $props();
 
+  let showLog = $state(false);
+
   function handleLeaveGame() {
     if (confirm('Are you sure you want to leave this game? Your progress will be lost.')) {
       onLeaveGame();
     }
+  }
+
+  function toggleLog() {
+    showLog = !showLog;
   }
 </script>
 
@@ -40,7 +46,12 @@
       <div class="top-bar-3d">
         <div class="top-bar-row-3d">
           <div class="round-indicator-3d">Round {gameState.round} &mdash; {formatTime(elapsedSeconds)}</div>
-          <button class="leave-btn-3d" onclick={handleLeaveGame}>Leave Game</button>
+          <div class="top-right-btns">
+            <button class="log-toggle-btn" onclick={toggleLog}>
+              {showLog ? 'Hide Log' : 'Log'}
+            </button>
+            <button class="leave-btn-3d" onclick={handleLeaveGame}>Leave</button>
+          </div>
         </div>
         <div class="player-bar-3d">
           {#each gameState.players as player, i}
@@ -50,17 +61,19 @@
       </div>
     </div>
 
-    <!-- Middle: phase-specific prompts -->
+    <!-- Middle: phase-specific prompts (ability prompts render here) -->
     <div class="overlay-middle">
       {@render children()}
     </div>
 
-    <!-- Bottom: game log -->
-    <div class="overlay-bottom">
-      {#if gameLog.length > 0}
-        <GameLog entries={gameLog} />
-      {/if}
-    </div>
+    <!-- Bottom: game log (toggleable) -->
+    {#if showLog}
+      <div class="overlay-bottom">
+        {#if gameLog.length > 0}
+          <GameLog entries={gameLog} />
+        {/if}
+      </div>
+    {/if}
   </div>
 </div>
 
@@ -112,9 +125,29 @@
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
   }
 
-  .leave-btn-3d {
+  .top-right-btns {
     position: absolute;
     right: 0;
+    display: flex;
+    gap: 6px;
+  }
+
+  .log-toggle-btn {
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    background: rgba(100, 100, 100, 0.7);
+    color: #ffe8cc;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+  }
+
+  .log-toggle-btn:hover {
+    background: rgba(100, 100, 100, 0.9);
+  }
+
+  .leave-btn-3d {
     padding: 4px 12px;
     font-size: 0.75rem;
     background: rgba(231, 76, 60, 0.85);

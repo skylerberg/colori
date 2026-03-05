@@ -16,7 +16,6 @@
   import AmbientDust from './particles/AmbientDust.svelte';
   import CandleSmoke from './particles/CandleSmoke.svelte';
   import Effects from './postprocessing/Effects.svelte';
-  import CardHand3D from './cards/CardHand3D.svelte';
   import BuyerDisplay3D from './cards/BuyerDisplay3D.svelte';
   import DraftZone3D from './cards/DraftZone3D.svelte';
   import ActionZone3D from './cards/ActionZone3D.svelte';
@@ -29,28 +28,44 @@
     onAction?: (choice: Choice) => void;
   } = $props();
 
-  // Camera idle sway
+  // Camera idle sway + smooth phase transitions
   let cameraRef: THREE.PerspectiveCamera | undefined = $state();
   let time = 0;
+
+  // Camera target positions for different phases
+  const DRAFT_CAMERA = { x: 0, y: 2.0, z: 4.5, targetY: 0.1 };
+  const ACTION_CAMERA = { x: 0, y: 2.2, z: 4.0, targetY: 0.0 };
+  const DEFAULT_CAMERA = { x: 0, y: 2.0, z: 4.5, targetY: 0.1 };
+
+  let targetCameraPos = $derived(
+    gameState.phase.type === 'draft' ? DRAFT_CAMERA :
+    gameState.phase.type === 'action' ? ACTION_CAMERA :
+    DEFAULT_CAMERA
+  );
+
+  // Smooth interpolation factor
+  const LERP_SPEED = 2.0;
 
   useTask((delta) => {
     time += delta;
     if (cameraRef) {
-      const baseX = 0;
-      const baseY = 2.0;
-      const baseZ = 4.5;
-      cameraRef.position.x = baseX + Math.sin(time * 0.15) * 0.03;
-      cameraRef.position.y = baseY + Math.sin(time * 0.2) * 0.015;
-      cameraRef.position.z = baseZ + Math.cos(time * 0.12) * 0.02;
+      // Smoothly lerp toward target position
+      const lerpFactor = 1 - Math.exp(-LERP_SPEED * delta);
+      const targetX = targetCameraPos.x + Math.sin(time * 0.15) * 0.03;
+      const targetY = targetCameraPos.y + Math.sin(time * 0.2) * 0.015;
+      const targetZ = targetCameraPos.z + Math.cos(time * 0.12) * 0.02;
+
+      cameraRef.position.x += (targetX - cameraRef.position.x) * lerpFactor;
+      cameraRef.position.y += (targetY - cameraRef.position.y) * lerpFactor;
+      cameraRef.position.z += (targetZ - cameraRef.position.z) * lerpFactor;
     }
   });
 
-  // Determine which player areas are opponents
-  let localPlayerIndex = $derived(
-    gameState.phase.type === 'draft' ? gameState.phase.draftState.currentPlayerIndex :
-    gameState.phase.type === 'action' ? gameState.phase.actionState.currentPlayerIndex :
-    0
-  );
+  // Local player is always index 0 in local games.
+  // For the 3D view, we always show from the perspective of player 0.
+  let localPlayerIndex = 0;
+
+  let localPlayer = $derived(gameState.players[localPlayerIndex]);
 
   let opponentIndices = $derived(
     gameState.players.map((_, i) => i).filter(i => i !== localPlayerIndex)
@@ -116,6 +131,14 @@
 
 <!-- Buyer display in center of table -->
 <BuyerDisplay3D buyers={gameState.buyerDisplay} {onAction} {gameState} />
+
+<!-- Local player area (bottom/near edge) -->
+{#if localPlayer}
+  <PlayerArea
+    player={localPlayer}
+    playerName={gameState.playerNames[localPlayerIndex]}
+  />
+{/if}
 
 <!-- Opponent areas -->
 {#each opponentIndices as oppIdx, i}

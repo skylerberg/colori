@@ -200,7 +200,7 @@
 </script>
 
 {#if gameState}
-  <GameLayout {gameState} {activePlayerIndex} {aiThinking} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} sidebarPlayer={myPlayer}>
+  <GameLayout {gameState} {activePlayerIndex} {aiThinking} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} sidebarPlayer={myPlayer} onAction={handleAction}>
     {#if !isMyTurn && !aiThinking && gameState.phase.type === 'action'}
       <div class="waiting-banner">
         <div class="spinner"></div>

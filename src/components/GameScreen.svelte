@@ -207,7 +207,7 @@
   });
 </script>
 
-<GameLayout {gameState} {activePlayerIndex} {aiThinking} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} sidebarPlayer={selectedPlayer ?? null} {selectedPlayerIndex} onSelectPlayer={selectPlayer}>
+<GameLayout {gameState} {activePlayerIndex} {aiThinking} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} sidebarPlayer={selectedPlayer ?? null} {selectedPlayerIndex} onSelectPlayer={selectPlayer} onAction={handleAction}>
   {#if gameState.phase.type === 'draft'}
     {#if isViewingActiveHuman}
       <DraftPhaseView {gameState} onAction={handleAction} />
