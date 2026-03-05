@@ -11,12 +11,12 @@
   } = $props();
 
   // Fan spread arc layout with natural curve
-  const ARC_RADIUS = 4.0;
+  const ARC_RADIUS = 3.0;
   const MAX_TOTAL_ANGLE = Math.PI / 3.5; // ~51 degrees (tighter)
   const CARD_TILT = Math.PI / 18;        // 10 degrees inward tilt
-  const BASE_Y = 0.15;                   // Table surface + offset
-  const BASE_Z = 1.5;                    // Near player edge
-  const VERTICAL_CURVE = 0.08;           // Cards curve down at edges
+  const BASE_Y = 0.3;                    // Raised above table for visibility
+  const BASE_Z = 1.2;                    // In front of tableau (local +z = toward camera)
+  const VERTICAL_CURVE = 0.06;           // Cards curve down at edges
 
   interface CardTransform {
     position: [number, number, number];

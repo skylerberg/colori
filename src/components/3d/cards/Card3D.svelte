@@ -3,7 +3,7 @@
   import * as THREE from 'three';
   import { spring } from 'svelte/motion';
   import type { Card, BuyerCard } from '../../../data/types';
-  import { getCardTexture, getBuyerTexture, getCardBackTexture } from '../textures/TextureManager';
+  import { getCardTexture, getBuyerTexture, getCardBackTexture, loadCardTexture, loadBuyerTexture } from '../textures/TextureManager';
 
   let { card, buyerCard, position = [0, 0, 0], rotation = [0, 0, 0], faceUp = true, interactive = false, selected = false, highlighted = false, scale: cardScale = 1, onclick }: {
     card?: Card;
@@ -44,14 +44,28 @@
     }
   });
 
-  // Get textures
-  let frontTexture = $derived(
-    card ? getCardTexture(card) :
-    buyerCard ? getBuyerTexture(buyerCard) :
-    null
-  );
-
+  // Get textures — use $state so async loads trigger re-render
+  let frontTexture = $state<THREE.Texture | null>(null);
+  let frontMaterialRef = $state<THREE.MeshStandardMaterial | undefined>();
   let backTexture = $derived(getCardBackTexture());
+
+  $effect(() => {
+    if (card) {
+      frontTexture = getCardTexture(card);
+      loadCardTexture(card).then(tex => { frontTexture = tex; });
+    } else if (buyerCard) {
+      frontTexture = getBuyerTexture(buyerCard);
+      loadBuyerTexture(buyerCard).then(tex => { frontTexture = tex; });
+    } else {
+      frontTexture = null;
+    }
+  });
+
+  // Force shader recompile whenever texture changes (Threlte doesn't do this)
+  $effect(() => {
+    const _tex = frontTexture;
+    if (frontMaterialRef) frontMaterialRef.needsUpdate = true;
+  });
 
   // Emissive for selection
   let emissiveColor = $derived(selected ? '#2a6bcf' : highlighted ? '#d4a017' : '#000000');
@@ -87,17 +101,33 @@
     return geom;
   });
 
+  // Normalize ShapeGeometry UVs from vertex coords to 0-1 range
+  function normalizeUVs(geom: THREE.ShapeGeometry, width: number, height: number) {
+    const uvAttr = geom.attributes.uv;
+    for (let i = 0; i < uvAttr.count; i++) {
+      // Vertices go from -width/2..width/2, -height/2..height/2
+      // Map to 0..1
+      uvAttr.setX(i, uvAttr.getX(i) / width + 0.5);
+      uvAttr.setY(i, uvAttr.getY(i) / height + 0.5);
+    }
+    uvAttr.needsUpdate = true;
+  }
+
   // Front face plane geometry (for art texture, slightly inset to prevent z-fighting)
+  const FRONT_W = CARD_WIDTH - 0.01;
+  const FRONT_H = CARD_HEIGHT - 0.01;
   let frontGeometry = $derived.by(() => {
-    const shape = createRoundedRectShape(CARD_WIDTH - 0.01, CARD_HEIGHT - 0.01, CORNER_RADIUS - 0.005);
+    const shape = createRoundedRectShape(FRONT_W, FRONT_H, CORNER_RADIUS - 0.005);
     const geom = new THREE.ShapeGeometry(shape, CORNER_SEGMENTS);
+    normalizeUVs(geom, FRONT_W, FRONT_H);
     return geom;
   });
 
   // Back face plane geometry
   let backGeometry = $derived.by(() => {
-    const shape = createRoundedRectShape(CARD_WIDTH - 0.01, CARD_HEIGHT - 0.01, CORNER_RADIUS - 0.005);
+    const shape = createRoundedRectShape(FRONT_W, FRONT_H, CORNER_RADIUS - 0.005);
     const geom = new THREE.ShapeGeometry(shape, CORNER_SEGMENTS);
+    normalizeUVs(geom, FRONT_W, FRONT_H);
     return geom;
   });
 
@@ -147,22 +177,15 @@
     onpointerleave={handlePointerLeave}
     onclick={handleClick}
   >
-    {#if frontTexture && faceUp}
-      <T.MeshStandardMaterial
-        map={frontTexture}
-        roughness={0.7}
-        metalness={0.05}
-        emissive={emissiveColor}
-        emissiveIntensity={emissiveIntensity}
-      />
-    {:else}
-      <T.MeshStandardMaterial
-        color="#3a2a1a"
-        roughness={0.7}
-        emissive={emissiveColor}
-        emissiveIntensity={emissiveIntensity}
-      />
-    {/if}
+    <T.MeshStandardMaterial
+      bind:ref={frontMaterialRef}
+      map={faceUp ? frontTexture : null}
+      color={frontTexture && faceUp ? '#ffffff' : '#3a2a1a'}
+      roughness={0.7}
+      metalness={0.05}
+      emissive={emissiveColor}
+      emissiveIntensity={emissiveIntensity}
+    />
   </T.Mesh>
 
   <!-- Card back face (Renaissance pattern) -->

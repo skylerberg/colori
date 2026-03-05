@@ -1,12 +1,8 @@
 <script lang="ts">
   import type { GameState, PlayerState, Choice } from '../data/types';
-  import type { Snippet } from 'svelte';
-  import { formatTime } from '../gameUtils';
-  import PlayerStatus from './PlayerStatus.svelte';
-  import GameLog from './GameLog.svelte';
   import Scene from './3d/Scene.svelte';
 
-  let { gameState, activePlayerIndex, aiThinking, elapsedSeconds, gameLog, onLeaveGame, sidebarPlayer, selectedPlayerIndex, onSelectPlayer, onAction, children }: {
+  let { gameState, activePlayerIndex, aiThinking, elapsedSeconds, gameLog, onLeaveGame, sidebarPlayer, selectedPlayerIndex, onSelectPlayer, onAction }: {
     gameState: GameState;
     activePlayerIndex: number;
     aiThinking: boolean;
@@ -17,71 +13,28 @@
     selectedPlayerIndex?: number;
     onSelectPlayer?: (index: number) => void;
     onAction?: (choice: Choice) => void;
-    children: Snippet;
   } = $props();
-
-  let showLog = $state(false);
 
   function handleLeaveGame() {
     if (confirm('Are you sure you want to leave this game? Your progress will be lost.')) {
       onLeaveGame();
     }
   }
-
-  function toggleLog() {
-    showLog = !showLog;
-  }
 </script>
 
 <div class="game-3d-container">
-  <!-- Layer 1: Threlte 3D Canvas -->
   <div class="canvas-layer">
-    <Scene {gameState} {activePlayerIndex} {onAction} />
+    <Scene {gameState} {activePlayerIndex} {onAction} {elapsedSeconds} />
   </div>
 
-  <!-- Layer 2: HTML Overlay -->
-  <div class="overlay-layer">
-    <!-- Top bar -->
-    <div class="overlay-top">
-      <div class="top-bar-3d">
-        <div class="top-bar-row-3d">
-          <div class="round-indicator-3d">Round {gameState.round} &mdash; {formatTime(elapsedSeconds)}</div>
-          <div class="top-right-btns">
-            <button class="log-toggle-btn" onclick={toggleLog}>
-              {showLog ? 'Hide Log' : 'Log'}
-            </button>
-            <button class="leave-btn-3d" onclick={handleLeaveGame}>Leave</button>
-          </div>
-        </div>
-        <div class="player-bar-3d">
-          {#each gameState.players as player, i}
-            <PlayerStatus {player} playerName={gameState.playerNames[i]} active={i === activePlayerIndex} selected={selectedPlayerIndex !== undefined && i === selectedPlayerIndex} isAI={gameState.aiPlayers[i]} thinking={aiThinking && i === activePlayerIndex} onclick={onSelectPlayer ? () => onSelectPlayer(i) : undefined} />
-          {/each}
-        </div>
-      </div>
-    </div>
-
-    <!-- Middle: phase-specific prompts (ability prompts render here) -->
-    <div class="overlay-middle">
-      {@render children()}
-    </div>
-
-    <!-- Bottom: game log (toggleable) -->
-    {#if showLog}
-      <div class="overlay-bottom">
-        {#if gameLog.length > 0}
-          <GameLog entries={gameLog} />
-        {/if}
-      </div>
-    {/if}
-  </div>
+  <button class="leave-btn-3d" onclick={handleLeaveGame}>Leave</button>
 </div>
 
 <style>
   .game-3d-container {
     position: fixed;
     inset: 0;
-    background: #1a1410;
+    background: #d8e4f0;
     z-index: 100;
   }
 
@@ -90,64 +43,10 @@
     inset: 0;
   }
 
-  .overlay-layer {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    pointer-events: none;
-    z-index: 1;
-  }
-
-  .overlay-top {
-    pointer-events: auto;
-    padding: 8px 12px;
-    background: linear-gradient(to bottom, rgba(26, 20, 16, 0.85), transparent);
-  }
-
-  .top-bar-3d {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .top-bar-row-3d {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-  }
-
-  .round-indicator-3d {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #ffe8cc;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-  }
-
-  .top-right-btns {
-    position: absolute;
-    right: 0;
-    display: flex;
-    gap: 6px;
-  }
-
-  .log-toggle-btn {
-    padding: 4px 10px;
-    font-size: 0.75rem;
-    background: rgba(100, 100, 100, 0.7);
-    color: #ffe8cc;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    backdrop-filter: blur(4px);
-  }
-
-  .log-toggle-btn:hover {
-    background: rgba(100, 100, 100, 0.9);
-  }
-
   .leave-btn-3d {
+    position: fixed;
+    top: 12px;
+    right: 12px;
     padding: 4px 12px;
     font-size: 0.75rem;
     background: rgba(231, 76, 60, 0.85);
@@ -156,36 +55,10 @@
     border-radius: 4px;
     cursor: pointer;
     backdrop-filter: blur(4px);
+    z-index: 10;
   }
 
   .leave-btn-3d:hover {
     background: #c0392b;
-  }
-
-  .player-bar-3d {
-    display: flex;
-    gap: 8px;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-
-  .overlay-middle {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none;
-  }
-
-  .overlay-middle > :global(*) {
-    pointer-events: auto;
-  }
-
-  .overlay-bottom {
-    pointer-events: auto;
-    padding: 0 12px 8px;
-    background: linear-gradient(to top, rgba(26, 20, 16, 0.85), transparent);
-    max-height: 200px;
-    overflow-y: auto;
   }
 </style>

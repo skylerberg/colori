@@ -1,6 +1,6 @@
 <script lang="ts">
   import { T } from '@threlte/core';
-  import { HTML } from '@threlte/extras';
+  import { Text } from '@threlte/extras';
   import type { GameState, Choice, CardInstance, Card as CardType } from '../../../data/types';
   import Card3D from './Card3D.svelte';
 
@@ -63,88 +63,97 @@
       default: return '';
     }
   });
+
+  // End turn button hover state
+  let endTurnHovered = $state(false);
 </script>
 
 {#if actionState}
-  <!-- Ability status indicator -->
+  <!-- Ability status indicator floating above tableau -->
   {#if abilityLabel}
-    <HTML position={[0, 0.9, 1.5]} transform sprite center>
-      <div style="
-        background: rgba(42, 30, 20, 0.88);
-        color: #ffe8cc;
-        padding: 4px 12px;
-        border-radius: 8px;
-        font-size: 12px;
-        font-weight: 600;
-        white-space: nowrap;
-        backdrop-filter: blur(4px);
-        border: 1px solid rgba(184, 134, 11, 0.3);
-      ">
-        {abilityLabel}
-      </div>
-    </HTML>
+    <Text
+      text={abilityLabel}
+      position={[0, 0.5, 0]}
+      fontSize={0.06}
+      color="#ffe8cc"
+      anchorX="center"
+      anchorY="middle"
+      outlineWidth={0.003}
+      outlineColor="#2a1e14"
+      fontWeight="bold"
+    />
   {/if}
 
-  <!-- Drafted cards on table (interactive for destroy) -->
-  {#each draftedCards as ci, i}
-    {@const isBeingDestroyed = destroyedCard === ci.card}
+  <!-- Workshop cards (positive z = player-facing side) -->
+  {#each workshopCards as ci, i}
+    {@const totalCards = workshopCards.length}
+    {@const startX = -(totalCards - 1) * 0.22 / 2}
     <Card3D
       card={ci.card}
-      position={[-1.5 + i * 0.5, 0.08, 0.6]}
+      position={[startX + i * 0.22, 0.04, 0.85]}
       rotation={[-Math.PI / 2, 0, 0]}
       faceUp={true}
+      scale={0.35}
+      interactive={currentAbility?.type === 'workshop'}
+      onclick={() => handleWorkshopCardClick(ci)}
+    />
+  {/each}
+
+  <!-- Drafted cards (negative z = toward table center, behind tableau) -->
+  {#each draftedCards as ci, i}
+    {@const isBeingDestroyed = destroyedCard === ci.card}
+    {@const totalCards = draftedCards.length}
+    {@const startX = -(totalCards - 1) * 0.22 / 2}
+    <Card3D
+      card={ci.card}
+      position={[startX + i * 0.22, 0.04, -0.85]}
+      rotation={[-Math.PI / 2, 0, 0]}
+      faceUp={true}
+      scale={0.35}
       interactive={canDestroyDrafted}
       highlighted={isBeingDestroyed}
       onclick={() => handleDraftedCardClick(ci)}
     />
   {/each}
 
-  <!-- Workshop cards -->
-  {#each workshopCards as ci, i}
-    <Card3D
-      card={ci.card}
-      position={[-1.5 + i * 0.5, 0.08, -0.8]}
-      rotation={[-Math.PI / 2, 0, 0]}
-      faceUp={true}
-      interactive={currentAbility?.type === 'workshop'}
-      onclick={() => handleWorkshopCardClick(ci)}
-    />
-  {/each}
-
-  <!-- Workshopped cards (already used this turn) -->
+  <!-- Workshopped cards (already used, stacked to the right) -->
   {#each workshoppedCards as ci, i}
     <Card3D
       card={ci.card}
-      position={[2.0 + i * 0.15, 0.08, -0.8]}
+      position={[1.1 + i * 0.12, 0.04, 0]}
       rotation={[-Math.PI / 2, 0, 0]}
       faceUp={true}
+      scale={0.3}
       highlighted={true}
     />
   {/each}
 
-  <!-- End turn button area -->
+  <!-- End turn button -->
   {#if !currentAbility}
-    <HTML position={[2.0, 0.3, 0.6]} transform sprite center>
-      <!-- svelte-ignore a11y_click_events_have_key_events -->
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div
-        style="
-          background: rgba(42, 107, 20, 0.85);
-          color: #fff;
-          padding: 6px 16px;
-          border-radius: 8px;
-          font-size: 13px;
-          font-weight: 700;
-          cursor: pointer;
-          white-space: nowrap;
-          backdrop-filter: blur(4px);
-          border: 1px solid rgba(100, 200, 50, 0.4);
-          user-select: none;
-        "
+    <T.Group position={[1.0, 0.15, 0.5]}>
+      <T.Mesh
         onclick={() => onAction?.({ type: 'endTurn' })}
+        onpointerenter={() => { endTurnHovered = true; document.body.style.cursor = 'pointer'; }}
+        onpointerleave={() => { endTurnHovered = false; document.body.style.cursor = 'auto'; }}
       >
-        End Turn
-      </div>
-    </HTML>
+        <T.BoxGeometry args={[0.4, 0.1, 0.15]} />
+        <T.MeshStandardMaterial
+          color={endTurnHovered ? '#3cb525' : '#2a6b14'}
+          roughness={0.5}
+          metalness={0.2}
+          emissive={endTurnHovered ? '#3cb525' : '#000000'}
+          emissiveIntensity={endTurnHovered ? 0.3 : 0}
+        />
+      </T.Mesh>
+      <Text
+        text="End Turn"
+        position={[0, 0.06, 0]}
+        fontSize={0.05}
+        color="#ffffff"
+        anchorX="center"
+        anchorY="middle"
+        fontWeight="bold"
+      />
+    </T.Group>
   {/if}
 {/if}

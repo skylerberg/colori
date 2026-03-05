@@ -33,6 +33,8 @@
     elapsedSeconds?: number;
   } = $props();
 
+  import { getPentagonEdges, getPlayerEdgeOrder, getPlayerPosition, type EdgeInfo } from './pentagonLayout';
+
   // Local player is always index 0 in local games.
   // For the 3D view, we always show from the perspective of player 0.
   let localPlayerIndex = 0;
@@ -43,15 +45,19 @@
     gameState.players.map((_, i) => i).filter(i => i !== localPlayerIndex)
   );
 
-  // Opponent seat positions around the table
-  function getOpponentPosition(opponentIndex: number, totalOpponents: number): [number, number, number] {
-    const positions: [number, number, number][] = [
-      [0, 0.07, -1.7],       // center-back (across)
-      [-2.5, 0.07, -1.3],    // left-back
-      [2.5, 0.07, -1.3],     // right-back
-      [-3, 0.07, 0],          // left-side
-    ];
-    return positions[opponentIndex % positions.length];
+  // Pentagon edge layout for all players
+  const pentagonEdges = getPentagonEdges();
+
+  // Get edge assignments: local player edge first, then opponent edges
+  let edgeOrder = $derived(getPlayerEdgeOrder(gameState.players.length));
+
+  // Local player's edge info
+  let localEdge = $derived(pentagonEdges[edgeOrder[0]]);
+
+  // Get opponent edge info by opponent index (0-based among opponents)
+  function getOpponentEdge(opponentIndex: number): EdgeInfo {
+    // opponentIndex 0 maps to edgeOrder[1], etc.
+    return pentagonEdges[edgeOrder[opponentIndex + 1]];
   }
 
   // Mix mode state for PlayerArea
@@ -133,7 +139,7 @@
 <!-- Camera -->
 <T.PerspectiveCamera
   makeDefault
-  position={[0, 2.0, 4.5]}
+  position={[0, 4.0, 5.0]}
   fov={55}
   near={0.1}
   far={50}
@@ -143,10 +149,10 @@
     enableZoom={true}
     enableRotate={true}
     minDistance={2}
-    maxDistance={10}
+    maxDistance={12}
     maxPolarAngle={Math.PI / 2.2}
     minPolarAngle={Math.PI / 6}
-    target={[0, 0.1, -0.5]}
+    target={[0, 0.0, 0.3]}
   />
 </T.PerspectiveCamera>
 
@@ -169,52 +175,59 @@
 <!-- Round info floating above table -->
 <RoundInfo3D round={gameState.round} {elapsedSeconds} />
 
-<!-- Game Objects -->
-{#if gameState.phase.type === 'draft'}
-  <DraftZone3D {gameState} {onAction} />
-{:else if gameState.phase.type === 'action'}
-  <ActionZone3D {gameState} {onAction} />
-  <!-- Ability prompts (3D) — but NOT mixColors since that uses the wheel -->
-  {#if topAbility && topAbility.type !== 'mixColors'}
-    <AbilityPrompt3D {gameState} onAction={onAction!} />
-  {/if}
-{/if}
-
 <!-- Buyer display in center of table -->
 <BuyerDisplay3D buyers={gameState.buyerDisplay} {onAction} {gameState} />
 
-<!-- Local player tableau (pigments + materials on the table center) -->
-{#if localPlayer}
-  <PlayerTableau3D
-    colorWheel={isMixMode && simulatedWheel ? simulatedWheel : localPlayer.colorWheel}
-    materials={localPlayer.materials}
-    position={[0, 0.07, 0]}
-    interactive={true}
-    mixMode={isMixMode}
-    onPigmentClick={isMixMode ? handleMixSegmentClick : undefined}
-    {selectedMixColors}
-  />
+<!-- Local player group (inset from edge so tableau sits on table surface) -->
+{#if localPlayer && localEdge}
+  {@const localPos = getPlayerPosition(localEdge)}
+  <T.Group position={localPos} rotation.y={localEdge.rotationY}>
+    <!-- Tableau (pigments, materials, buyers, deck) -->
+    <!-- Note: draftedCards/workshopCards omitted for local player since DraftZone3D/ActionZone3D handle them interactively -->
+    <PlayerTableau3D
+      colorWheel={isMixMode && simulatedWheel ? simulatedWheel : localPlayer.colorWheel}
+      materials={localPlayer.materials}
+      completedBuyers={localPlayer.completedBuyers}
+      deckSize={localPlayer.deck.length + localPlayer.discard.length}
+      position={[0, 0, 0]}
+      interactive={true}
+      mixMode={isMixMode}
+      onPigmentClick={isMixMode ? handleMixSegmentClick : undefined}
+      {selectedMixColors}
+    />
+
+    <!-- Draft/Action zone rendered in local player space -->
+    {#if gameState.phase.type === 'draft'}
+      <DraftZone3D {gameState} {onAction} />
+    {:else if gameState.phase.type === 'action'}
+      <ActionZone3D {gameState} {onAction} />
+      {#if topAbility && topAbility.type !== 'mixColors'}
+        <AbilityPrompt3D {gameState} onAction={onAction!} />
+      {/if}
+    {/if}
+
+    <!-- Player area (ducats, mix buttons) on the outer edge side -->
+    <PlayerArea
+      player={localPlayer}
+      playerName={gameState.playerNames[localPlayerIndex]}
+      position={[0, 0, 0.9]}
+      mixMode={isMixMode}
+      {plannedMixes}
+      onAction={onAction}
+      onUndo={handleUndoMix}
+      mixRemaining={topAbility?.type === 'mixColors' ? topAbility.count - plannedMixes.length : 0}
+    />
+  </T.Group>
 {/if}
 
-<!-- Local player area (ducats, completed buyers, mix buttons near edge) -->
-{#if localPlayer}
-  <PlayerArea
-    player={localPlayer}
-    playerName={gameState.playerNames[localPlayerIndex]}
-    mixMode={isMixMode}
-    {plannedMixes}
-    onAction={onAction}
-    onUndo={handleUndoMix}
-    mixRemaining={topAbility?.type === 'mixColors' ? topAbility.count - plannedMixes.length : 0}
-  />
-{/if}
-
-<!-- Opponent areas -->
+<!-- Opponent areas (also inset from edge) -->
 {#each opponentIndices as oppIdx, i}
+  {@const edge = getOpponentEdge(i)}
   <OpponentArea
     player={gameState.players[oppIdx]}
     playerName={gameState.playerNames[oppIdx]}
-    position={getOpponentPosition(i, opponentIndices.length)}
+    position={getPlayerPosition(edge)}
+    rotation={edge.rotationY}
     isAI={gameState.aiPlayers[oppIdx]}
   />
 {/each}

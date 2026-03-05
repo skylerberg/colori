@@ -40,9 +40,7 @@
 </script>
 
 {#if viewMode === '3d'}
-  <GameLayout3D {gameState} {activePlayerIndex} {aiThinking} {elapsedSeconds} {gameLog} {onLeaveGame} {sidebarPlayer} {selectedPlayerIndex} {onSelectPlayer} {onAction}>
-    {@render children()}
-  </GameLayout3D>
+  <GameLayout3D {gameState} {activePlayerIndex} {aiThinking} {elapsedSeconds} {gameLog} {onLeaveGame} {sidebarPlayer} {selectedPlayerIndex} {onSelectPlayer} {onAction} />
 {:else}
 <div class="game-screen">
   <div class="top-bar">

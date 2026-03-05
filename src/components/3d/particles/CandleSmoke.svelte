@@ -9,7 +9,7 @@
     [5, 2.25, -4],
   ];
 
-  const PARTICLES_PER_CANDLE = 5;
+  const PARTICLES_PER_CANDLE = 2;
   const COUNT = CANDLE_POSITIONS.length * PARTICLES_PER_CANDLE;
 
   interface SmokeParticle {
@@ -29,7 +29,7 @@
         x: cx, y: startY, z: cz,
         spawnX: cx, spawnY: cy, spawnZ: cz,
         vy: 0.015 + Math.random() * 0.01,
-        scale: 0.03 + Math.random() * 0.05,
+        scale: 0.05 + Math.random() * 0.07,
         phase: Math.random() * Math.PI * 2,
         maxRise: 1.2 + Math.random() * 0.5,
       });
@@ -71,10 +71,11 @@
 <T.InstancedMesh bind:ref={meshRef} args={[undefined, undefined, COUNT]}>
   <T.PlaneGeometry args={[1, 1]} />
   <T.MeshBasicMaterial
-    color="#888888"
+    color="#cc9966"
     transparent
-    opacity={0.06}
+    opacity={0.02}
     depthWrite={false}
     side={THREE.DoubleSide}
+    blending={THREE.AdditiveBlending}
   />
 </T.InstancedMesh>

@@ -1,44 +1,27 @@
 <script lang="ts">
   import { useThrelte } from '@threlte/core';
+  import * as THREE from 'three';
   import { onMount, onDestroy } from 'svelte';
-  import { EffectComposer, RenderPass, EffectPass, BloomEffect, VignetteEffect } from 'postprocessing';
 
-  const { renderer, scene, camera } = useThrelte();
+  const { renderer } = useThrelte();
 
-  let composer: EffectComposer | undefined;
-  let animationFrame: number;
+  // Apply color grading via renderer tone mapping instead of post-processing passes.
+  // This avoids extra render passes entirely — zero GPU overhead.
+  let previousToneMapping: THREE.ToneMapping | undefined;
+  let previousExposure: number | undefined;
 
   onMount(() => {
-    if (!renderer || !scene || !camera.current) return;
+    if (!renderer) return;
+    previousToneMapping = renderer.toneMapping;
+    previousExposure = renderer.toneMappingExposure;
 
-    composer = new EffectComposer(renderer);
-    composer.addPass(new RenderPass(scene, camera.current));
-
-    const bloomEffect = new BloomEffect({
-      intensity: 0.35,
-      luminanceThreshold: 0.7,
-      luminanceSmoothing: 0.9,
-      mipmapBlur: true,
-    });
-
-    const vignetteEffect = new VignetteEffect({
-      offset: 0.35,
-      darkness: 0.55,
-    });
-
-    composer.addPass(new EffectPass(camera.current, bloomEffect, vignetteEffect));
-
-    function render() {
-      if (composer && camera.current) {
-        composer.render();
-      }
-      animationFrame = requestAnimationFrame(render);
-    }
-    render();
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
   });
 
   onDestroy(() => {
-    if (animationFrame) cancelAnimationFrame(animationFrame);
-    composer?.dispose();
+    if (!renderer) return;
+    if (previousToneMapping !== undefined) renderer.toneMapping = previousToneMapping;
+    if (previousExposure !== undefined) renderer.toneMappingExposure = previousExposure;
   });
 </script>

@@ -1,8 +1,9 @@
 <script lang="ts">
   import { T } from '@threlte/core';
-  import { HTML } from '@threlte/extras';
+  import { Text } from '@threlte/extras';
   import type { GameState, BuyerInstance, Choice, Color } from '../../../data/types';
   import { getBuyerData } from '../../../data/cards';
+  import { colorToHex } from '../../../data/colors';
   import Card3D from './Card3D.svelte';
 
   let { buyers, onAction, gameState }: {
@@ -34,27 +35,8 @@
     return [x, 0.08, z];
   }
 
-  function colorToHex(color: Color): string {
-    const map: Record<Color, string> = {
-      Red: '#e63946',
-      Yellow: '#f4d35e',
-      Blue: '#457b9d',
-      Orange: '#e76f51',
-      Green: '#2d6a4f',
-      Purple: '#7b2d8b',
-      Vermilion: '#cc3314',
-      Amber: '#d4a017',
-      Chartreuse: '#7cb518',
-      Teal: '#2a9d8f',
-      Indigo: '#3f37c9',
-      Magenta: '#c9184a',
-    };
-    return map[color] ?? '#888';
-  }
-
   function getBuyerInfo(buyer: BuyerInstance) {
-    const data = getBuyerData(buyer.card);
-    return data;
+    return getBuyerData(buyer.card);
   }
 </script>
 
@@ -75,42 +57,38 @@
     }}
   />
 
-  <!-- Hover detail popup -->
+  <!-- Hover detail popup as 3D Text + colored spheres -->
   {#if hoveredBuyerIndex === i && info}
-    <HTML
-      position={[pos[0], pos[1] + 0.6, pos[2]]}
-      transform
-      sprite
-      center
-    >
-      <div style="
-        background: rgba(26, 20, 16, 0.92);
-        color: #ffe8cc;
-        padding: 6px 10px;
-        border-radius: 6px;
-        font-size: 11px;
-        white-space: nowrap;
-        backdrop-filter: blur(4px);
-        border: 1px solid rgba(184, 134, 11, 0.4);
-        pointer-events: none;
-      ">
-        <div style="font-weight: 600; margin-bottom: 3px;">
-          {info.stars} Stars - {info.requiredMaterial}
-        </div>
-        <div style="display: flex; gap: 3px; align-items: center;">
-          {#each info.colorCost as color}
-            <span style="
-              display: inline-block;
-              width: 10px;
-              height: 10px;
-              border-radius: 50%;
-              background: {colorToHex(color)};
-              border: 1px solid rgba(255,255,255,0.3);
-            "></span>
-          {/each}
-        </div>
-      </div>
-    </HTML>
+    <T.Group position={[pos[0], pos[1] + 0.6, pos[2]]}>
+      <!-- Stars and material label -->
+      <Text
+        text={`${info.stars} Stars - ${info.requiredMaterial}`}
+        position={[0, 0.08, 0]}
+        fontSize={0.05}
+        color="#ffe8cc"
+        anchorX="center"
+        anchorY="middle"
+        outlineWidth={0.003}
+        outlineColor="#1a1410"
+        fontWeight="bold"
+      />
+      <!-- Color cost as small spheres in a row -->
+      <T.Group position={[0, 0, 0]}>
+        {#each info.colorCost as color, ci}
+          {@const offsetX = (ci - (info.colorCost.length - 1) / 2) * 0.06}
+          <T.Mesh position={[offsetX, 0, 0]}>
+            <T.SphereGeometry args={[0.022, 12, 12]} />
+            <T.MeshStandardMaterial
+              color={colorToHex(color)}
+              roughness={0.4}
+              metalness={0.2}
+              emissive={colorToHex(color)}
+              emissiveIntensity={0.3}
+            />
+          </T.Mesh>
+        {/each}
+      </T.Group>
+    </T.Group>
   {/if}
 
   <!-- Invisible hover zone above card -->
