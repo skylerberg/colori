@@ -2,7 +2,7 @@
 
 ## Overview
 
-Colori is a deck-building game for 2–5 players about dyeing materials and selling to buyers. Players draft dye, material, and action cards, destroy them to store colors on a color wheel, mix colors, and sell to buyers worth stars. The game lasts up to 10 rounds, or until any player reaches 15 points. The player with the most points (buyer stars + ducats) wins.
+Colori is a deck-building game for 2–5 players about dyeing materials and selling to buyers. Players draft dye, material, and action cards, destroy them to store colors on a color wheel, mix colors, and sell to buyers worth stars. The game lasts up to 20 rounds, or until any player reaches 15 points. The player with the most points (buyer stars + ducats) wins.
 
 ## Components
 
@@ -40,22 +40,21 @@ Starting deck materials gain 1 material when workshopped. Draft material cards o
 **Action Cards** (4 unique in draft deck, 4 copies each, 16 total; plus Chalk as a starter card):
 Each action card has a destroy ability plus workshop abilities that trigger when the card is chosen during Workshop resolution. See the card reference below.
 
-**Buyer Cards** (51 total, single deck):
-Each buyer requires 2 of a specific material type and a set of colors as its cost. All 51 buyers are shuffled into a single deck. Each buyer is worth 2–4 stars.
+**Buyer Cards** (54 total, single deck):
+Each buyer requires 1 of a specific material type and a set of colors as its cost. All 54 buyers are shuffled into a single deck. Each buyer is worth 2–4 stars.
 
 ### Decks
 
 - **Draft Deck**: Contains 63 dye cards + 15 draft material cards + 16 action cards (94 total). When the draft deck runs out, shuffle all destroyed cards back in.
-- **Buyer Deck**: Contains all buyer cards. 6 buyers are displayed face-up at all times.
+- **Buyer Deck**: Contains all buyer cards. numPlayers + 1 buyers are displayed face-up at all times.
 - **Personal Deck**: Each player has their own deck that they draw from and build over the course of the game.
 
 ## Setup
 
 1. Each player receives a starting personal deck of 7 cards: 1 Basic Red, 1 Basic Yellow, 1 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles, 1 Chalk. Shuffle it.
 2. Each player starts with 1 Red, 1 Yellow, and 1 Blue already stored on their color wheel.
-3. Each player starts with 1 of each stored material (1 Ceramics, 1 Paintings, 1 Textiles).
-4. Place all dye cards (3 copies each), 15 unique draft material cards, and action cards (4 copies each) into the draft deck. Shuffle it.
-5. Shuffle the buyer deck and reveal 6 buyers face-up in the buyer display.
+3. Place all dye cards (3 copies each), 15 unique draft material cards, and action cards (4 copies each) into the draft deck. Shuffle it.
+4. Shuffle the buyer deck and reveal numPlayers + 1 buyers face-up in the buyer display.
 
 ## Player Area
 
@@ -71,7 +70,7 @@ Each player has:
 
 ## Round Structure
 
-The game is played over up to **10 rounds**. Each round has three phases. The starting player rotates each round: player `(round - 1) % numPlayers` goes first.
+The game is played over up to **20 rounds**. Each round has three phases. The starting player rotates each round: player `(round - 1) % numPlayers` goes first.
 
 ### 1. Draw Phase
 
@@ -146,8 +145,8 @@ Choose N cards from your **workshop** and destroy them. Each destroyed card's ab
 You **must** sell to a buyer if you are able to. If you cannot afford any buyer in the display, the ability fizzles (nothing happens).
 
 To sell to a buyer:
-1. Choose a buyer from the 6 face-up buyers in the display.
-2. Spend 2 stored materials of the required type.
+1. Choose a buyer from the face-up buyers in the display.
+2. Spend 1 stored material of the required type.
 3. Pay the color cost by removing the required colors from your color wheel.
 4. The buyer goes to your **completed buyers** area.
 5. Immediately refill the buyer display from the buyer deck.
@@ -172,7 +171,7 @@ Swap one tertiary color on your wheel for a different tertiary. First choose a t
 
 The game ends when either:
 - Any player reaches **15 or more points** after a complete round, OR
-- **Round 10** is completed.
+- **Round 20** is completed.
 
 Each player's score = buyer stars + ducats. The player with the highest score wins.
 
@@ -272,14 +271,14 @@ Their workshop abilities (triggered when chosen during Workshop resolution) are:
 | Potash | Draw Cards ×2 | Workshop ×3 | Draft deck |
 | Vinegar | Destroy Cards ×1 | Change Tertiary | Temporarily removed from draft deck |
 
-### Buyer Cards (51 total, single deck)
+### Buyer Cards (54 total, single deck)
 
-Buyers do not have names. Each buyer requires 2 of a specific material type and a set of colors as its cost.
+Buyers do not have names. Each buyer requires 1 of a specific material type and a set of colors as its cost.
 
 | Material | Stars | Requirement | Count |
 |----------|-------|-------------|-------|
-| Textiles | 2 | One tertiary OR one secondary + one primary | 15 |
+| Textiles | 2 | One tertiary, one secondary + one primary, or triple primary (3 of same primary color) | 18 |
 | Ceramics | 3 | One tertiary + one primary | 18 |
 | Paintings | 4 | One tertiary + one secondary | 18 |
 
-All 51 buyers are shuffled into a single deck. 6 buyers are displayed face-up at all times.
+All 54 buyers are shuffled into a single deck. numPlayers + 1 buyers are displayed face-up at all times.
