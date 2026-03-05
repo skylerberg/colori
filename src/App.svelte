@@ -35,7 +35,9 @@
   let hasSavedGame = $state(saved !== null && saved.gameState.phase.type !== 'gameOver');
 
   // Structured logging state
-  let gameLogAccumulator: GameLogAccumulator | null = $state(null);
+  let gameLogAccumulator: GameLogAccumulator | null = $state(
+    saved?.structuredLog ? GameLogAccumulator.fromLog(saved.structuredLog) : null
+  );
   let finalGameLog: StructuredGameLog | null = $state(null);
 
   // Online state
@@ -56,7 +58,7 @@
     savedGameLog = [];
     gameLogAccumulator = new GameLogAccumulator(state, iterations);
     finalGameLog = null;
-    saveGame(state, gameStartTime!, [], iterations);
+    saveGame(state, gameStartTime!, [], iterations, gameLogAccumulator!.getLog());
     screen = { type: 'localGame' };
   }
 
@@ -71,7 +73,7 @@
       }
       screen = { type: 'score' };
     } else {
-      saveGame(state, gameStartTime!, log, aiIterations ?? undefined);
+      saveGame(state, gameStartTime!, log, aiIterations ?? undefined, gameLogAccumulator?.getLog());
     }
   }
 
