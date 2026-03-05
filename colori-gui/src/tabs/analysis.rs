@@ -438,6 +438,10 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis, num_gam
                         value: format!("{:.1}", wb.avg_paintings),
                         label: "Avg Paintings".into(),
                     },
+                    StatCard {
+                        value: format!("{:.1}", wb.avg_ducats),
+                        label: "Avg Ducats".into(),
+                    },
                 ];
                 stat_grid(ui, &cards);
             });

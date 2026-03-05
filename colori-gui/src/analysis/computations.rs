@@ -61,6 +61,7 @@ pub struct WinnerBuyerBreakdown {
     pub avg_textiles: f64,
     pub avg_ceramics: f64,
     pub avg_paintings: f64,
+    pub avg_ducats: f64,
     pub num_games: usize,
 }
 
@@ -1129,6 +1130,7 @@ pub fn compute_winner_buyer_breakdown(
     let mut total_textiles: f64 = 0.0;
     let mut total_ceramics: f64 = 0.0;
     let mut total_paintings: f64 = 0.0;
+    let mut total_ducats: f64 = 0.0;
     let mut num_games: usize = 0;
 
     for (log_idx, log) in logs.iter().enumerate() {
@@ -1181,6 +1183,11 @@ pub fn compute_winner_buyer_breakdown(
                 total_textiles += *player_textiles.get(&i).unwrap_or(&0) as f64 * weight;
                 total_ceramics += *player_ceramics.get(&i).unwrap_or(&0) as f64 * weight;
                 total_paintings += *player_paintings.get(&i).unwrap_or(&0) as f64 * weight;
+                if let Some(ref final_player_stats) = log.final_player_stats {
+                    if let Some(stats) = final_player_stats.iter().find(|p| &p.name == player_name) {
+                        total_ducats += stats.ducats as f64 * weight;
+                    }
+                }
             }
         }
     }
@@ -1190,6 +1197,7 @@ pub fn compute_winner_buyer_breakdown(
         avg_textiles: total_textiles / divisor,
         avg_ceramics: total_ceramics / divisor,
         avg_paintings: total_paintings / divisor,
+        avg_ducats: total_ducats / divisor,
         num_games,
     }
 }
