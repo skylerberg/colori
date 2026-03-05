@@ -7,7 +7,7 @@
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import BuyerDisplay from './BuyerDisplay.svelte';
 
-  let { gameState, activePlayerIndex, aiThinking, elapsedSeconds, gameLog, onLeaveGame, sidebarPlayer, selectedPlayerIndex, onSelectPlayer, children }: {
+  let { gameState, activePlayerIndex, aiThinking, elapsedSeconds, gameLog, onLeaveGame, sidebarPlayer, selectedPlayerIndex, onSelectPlayer, aiError, onRetryAI, children }: {
     gameState: GameState;
     activePlayerIndex: number;
     aiThinking: boolean;
@@ -17,6 +17,8 @@
     sidebarPlayer: PlayerState | null;
     selectedPlayerIndex?: number;
     onSelectPlayer?: (index: number) => void;
+    aiError?: string | null;
+    onRetryAI?: () => void;
     children: Snippet;
   } = $props();
 
@@ -68,6 +70,16 @@
     {/if}
 
     <div class="main-column">
+      {#if aiError}
+        <div class="ai-error-banner">
+          <strong>AI encountered an error</strong>
+          <pre>{aiError}</pre>
+          {#if onRetryAI}
+            <button class="retry-btn" onclick={onRetryAI}>Retry</button>
+          {/if}
+        </div>
+      {/if}
+
       <div class="phase-content">
         {@render children()}
       </div>
@@ -203,5 +215,44 @@
     color: #d4a017;
     font-weight: 600;
     margin-top: 4px;
+  }
+
+  .ai-error-banner {
+    background: #fef2f2;
+    border: 1px solid #e74c3c;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 1rem;
+  }
+
+  .ai-error-banner strong {
+    color: #c0392b;
+    font-size: 0.9rem;
+  }
+
+  .ai-error-banner pre {
+    margin: 8px 0;
+    padding: 8px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    white-space: pre-wrap;
+    word-break: break-all;
+    user-select: all;
+  }
+
+  .retry-btn {
+    padding: 6px 16px;
+    font-size: 0.8rem;
+    background: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .retry-btn:hover {
+    background: #c0392b;
   }
 </style>
