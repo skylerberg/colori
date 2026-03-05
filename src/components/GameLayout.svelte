@@ -1,13 +1,15 @@
 <script lang="ts">
-  import type { GameState, PlayerState } from '../data/types';
+  import type { GameState, PlayerState, Choice } from '../data/types';
   import { formatTime } from '../gameUtils';
   import type { Snippet } from 'svelte';
   import PlayerStatus from './PlayerStatus.svelte';
   import GameLog from './GameLog.svelte';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import BuyerDisplay from './BuyerDisplay.svelte';
+  import GameLayout3D from './GameLayout3D.svelte';
+  import { getViewMode } from '../stores/viewMode.svelte';
 
-  let { gameState, activePlayerIndex, aiThinking, elapsedSeconds, gameLog, onLeaveGame, sidebarPlayer, selectedPlayerIndex, onSelectPlayer, children }: {
+  let { gameState, activePlayerIndex, aiThinking, elapsedSeconds, gameLog, onLeaveGame, sidebarPlayer, selectedPlayerIndex, onSelectPlayer, onAction, children }: {
     gameState: GameState;
     activePlayerIndex: number;
     aiThinking: boolean;
@@ -17,8 +19,11 @@
     sidebarPlayer: PlayerState | null;
     selectedPlayerIndex?: number;
     onSelectPlayer?: (index: number) => void;
+    onAction?: (choice: Choice) => void;
     children: Snippet;
   } = $props();
+
+  let viewMode = $derived(getViewMode());
 
   let showSidebar = $derived(
     sidebarPlayer !== null &&
@@ -32,6 +37,11 @@
   }
 </script>
 
+{#if viewMode === '3d'}
+  <GameLayout3D {gameState} {activePlayerIndex} {aiThinking} {elapsedSeconds} {gameLog} {onLeaveGame} {sidebarPlayer} {selectedPlayerIndex} {onSelectPlayer} {onAction}>
+    {@render children()}
+  </GameLayout3D>
+{:else}
 <div class="game-screen">
   <div class="top-bar">
     <div class="top-bar-row">
@@ -86,6 +96,7 @@
     {/if}
   </div>
 </div>
+{/if}
 
 <style>
   .game-screen {
