@@ -11,7 +11,6 @@ pub mod fixed_vec;
 pub mod ga;
 pub mod game_log;
 pub mod ismcts;
-pub mod rhea;
 pub(crate) mod rollout;
 pub mod rollout_policy;
 pub mod scoring;
