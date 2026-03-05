@@ -125,7 +125,7 @@ fn generate_random_individual<R: Rng>(
             apply_choice_to_state(det_state, &choice, rng);
             genes.push(Some(choice));
         } else {
-            apply_rollout_step(det_state, rng);
+            apply_rollout_step(det_state, None, rng);
         }
     }
 
@@ -181,7 +181,7 @@ fn evaluate<R: Rng>(
             apply_choice_to_state(det_state, &choice, rng);
             gene_idx += 1;
         } else {
-            apply_rollout_step(det_state, rng);
+            apply_rollout_step(det_state, None, rng);
         }
     }
 
@@ -190,7 +190,7 @@ fn evaluate<R: Rng>(
         if is_terminal(det_state, max_rollout_round) {
             break;
         }
-        apply_rollout_step(det_state, rng);
+        apply_rollout_step(det_state, None, rng);
     }
 
     if is_terminal(det_state, max_rollout_round) {

@@ -4,6 +4,7 @@ use crate::colori_game::{
     get_game_status, GameStatus,
 };
 use crate::draft_phase::player_pick;
+use crate::rollout_policy::RolloutPolicy;
 use crate::scoring::{calculate_score, compute_terminal_rewards};
 use crate::types::*;
 use rand::Rng;
@@ -16,6 +17,7 @@ pub struct MctsConfig {
     pub iterations: u32,
     pub exploration_constant: f64,
     pub max_rollout_steps: u32,
+    pub rollout_policy: Option<RolloutPolicy>,
 }
 
 impl Default for MctsConfig {
@@ -24,6 +26,7 @@ impl Default for MctsConfig {
             iterations: 100,
             exploration_constant: std::f64::consts::SQRT_2,
             max_rollout_steps: 1000,
+            rollout_policy: None,
         }
     }
 }
@@ -53,6 +56,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
             iterations: helper.iterations,
             exploration_constant: helper.exploration_constant,
             max_rollout_steps: helper.max_rollout_steps,
+            rollout_policy: None,
         })
     }
 }
@@ -410,7 +414,7 @@ fn iteration_simultaneous<R: Rng>(
     let should_rollout = node.children[best_idx].visit_count == 0;
 
     let scores = if should_rollout {
-        let scores = rollout(state, max_rollout_round, config.max_rollout_steps, rng);
+        let scores = rollout(state, max_rollout_round, config.max_rollout_steps, config.rollout_policy.as_ref(), rng);
         record_outcome(&mut node.children[best_idx], &scores);
         scores
     } else {
@@ -470,12 +474,12 @@ fn compute_terminal_scores(state: &GameState) -> SmallVec<[f64; 4]> {
     compute_terminal_rewards(&state.players)
 }
 
-fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_rollout_steps: u32, rng: &mut R) -> SmallVec<[f64; 4]> {
+fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_rollout_steps: u32, policy: Option<&RolloutPolicy>, rng: &mut R) -> SmallVec<[f64; 4]> {
     for _ in 0..max_rollout_steps {
         if is_terminal(state, max_rollout_round) {
             return compute_terminal_scores(state);
         }
-        apply_rollout_step(state, rng);
+        apply_rollout_step(state, policy, rng);
     }
 
     if is_terminal(state, max_rollout_round) {
