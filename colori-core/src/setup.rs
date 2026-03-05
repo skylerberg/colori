@@ -109,9 +109,9 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
         buyer_deck.insert(id);
     }
 
-    // Deal num_players + 1 buyers from buyer_deck to buyer_display
+    // Deal 6 buyers from buyer_deck to buyer_display
     let mut buyer_display: FixedVec<BuyerInstance, MAX_BUYER_DISPLAY> = FixedVec::new();
-    let drawn_buyers = buyer_deck.draw_multiple(num_players as u32 + 1, rng);
+    let drawn_buyers = buyer_deck.draw_multiple(6, rng);
     for id in drawn_buyers.iter() {
         buyer_display.push(BuyerInstance {
             instance_id: id as u32,

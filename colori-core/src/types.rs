@@ -7,7 +7,7 @@ use crate::unordered_cards::{UnorderedBuyers, UnorderedCards};
 pub type AbilityStack = SmallVec<[Ability; 4]>;
 
 pub const MAX_PLAYERS: usize = 4;
-pub const MAX_BUYER_DISPLAY: usize = MAX_PLAYERS + 1;
+pub const MAX_BUYER_DISPLAY: usize = 6;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Color {

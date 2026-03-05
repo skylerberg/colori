@@ -1,4 +1,5 @@
 import type { GameState, CardInstance, Choice } from '../data/types';
+import type { AIWorkerResponse } from './aiWorker';
 import AIWorkerModule from './aiWorker?worker';
 
 export interface PrecomputeRequest {
@@ -13,6 +14,7 @@ interface PrecomputeEntry {
   worker: Worker;
   result: Choice | null;
   resolve: ((choice: Choice) => void) | null;
+  reject: ((error: Error) => void) | null;
 }
 
 export class AIController {
@@ -31,9 +33,13 @@ export class AIController {
     iterations: number,
     aiDraftKnowledge?: CardInstance[][],
   ): Promise<Choice> {
-    return new Promise((resolve) => {
-      this.worker.onmessage = (event: MessageEvent<Choice>) => {
-        resolve(event.data);
+    return new Promise((resolve, reject) => {
+      this.worker.onmessage = (event: MessageEvent<AIWorkerResponse>) => {
+        if (event.data.type === 'error') {
+          reject(new Error(event.data.message));
+        } else {
+          resolve(event.data.choice as Choice);
+        }
       };
       const plain = JSON.parse(JSON.stringify({
         gameState,
@@ -52,14 +58,25 @@ export class AIController {
     for (const req of requests) {
       const key = `${req.playerIndex}:${req.pickNumber}`;
       const worker = new AIWorkerModule();
-      const entry: PrecomputeEntry = { worker, result: null, resolve: null };
+      const entry: PrecomputeEntry = { worker, result: null, resolve: null, reject: null };
 
-      worker.onmessage = (event: MessageEvent<Choice>) => {
+      worker.onmessage = (event: MessageEvent<AIWorkerResponse>) => {
         if (gen !== this.generationId) return;
-        entry.result = event.data;
-        if (entry.resolve) {
-          entry.resolve(event.data);
-          entry.resolve = null;
+        if (event.data.type === 'error') {
+          console.error(`AI precompute error for player ${req.playerIndex}:`, event.data.message);
+          entry.result = null;
+          if (entry.reject) {
+            entry.reject(new Error(event.data.message));
+            entry.reject = null;
+            entry.resolve = null;
+          }
+        } else {
+          const choice = event.data.choice as Choice;
+          entry.result = choice;
+          if (entry.resolve) {
+            entry.resolve(choice);
+            entry.resolve = null;
+          }
         }
       };
 
@@ -86,11 +103,16 @@ export class AIController {
       return Promise.resolve(choice);
     }
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       entry.resolve = (choice: Choice) => {
         entry.worker.terminate();
         this.precomputeMap.delete(key);
         resolve(choice);
+      };
+      entry.reject = (error: Error) => {
+        entry.worker.terminate();
+        this.precomputeMap.delete(key);
+        reject(error);
       };
     });
   }

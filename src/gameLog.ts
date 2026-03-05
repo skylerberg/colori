@@ -62,6 +62,13 @@ export class GameLogAccumulator {
   getLog(): StructuredGameLog {
     return this.log;
   }
+
+  static fromLog(log: StructuredGameLog): GameLogAccumulator {
+    const acc = Object.create(GameLogAccumulator.prototype) as GameLogAccumulator;
+    acc.log = log;
+    acc.seq = log.entries.length;
+    return acc;
+  }
 }
 
 export function downloadGameLog(log: StructuredGameLog) {

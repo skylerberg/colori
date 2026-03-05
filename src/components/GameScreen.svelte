@@ -32,6 +32,7 @@
 
   let drawExecutedForRound: number | null = $state(null);
   let aiThinking = $state(false);
+  let aiError: string | null = $state(null);
   let gameLog: string[] = $state(initialGameLog);
 
   let undoStack: { gameState: GameState; logLength: number }[] = $state([]);
@@ -192,6 +193,9 @@
         precomputed.then((choice) => {
           aiThinking = false;
           handleAction(choice);
+        }).catch((e) => {
+          aiThinking = false;
+          aiError = String(e);
         });
         return;
       }
@@ -203,11 +207,14 @@
     aiController.getAIChoice(gameState, playerIdx, aiIterations[playerIdx], playerSeenHands).then((choice) => {
       aiThinking = false;
       handleAction(choice);
+    }).catch((e) => {
+      aiThinking = false;
+      aiError = String(e);
     });
   });
 </script>
 
-<GameLayout {gameState} {activePlayerIndex} {aiThinking} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} sidebarPlayer={selectedPlayer ?? null} {selectedPlayerIndex} onSelectPlayer={selectPlayer} onAction={handleAction}>
+<GameLayout {gameState} {activePlayerIndex} {aiThinking} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} sidebarPlayer={selectedPlayer ?? null} {selectedPlayerIndex} onSelectPlayer={selectPlayer} onAction={handleAction} {aiError} onRetryAI={() => { aiError = null; }}>
   {#if gameState.phase.type === 'draft'}
     {#if isViewingActiveHuman}
       <DraftPhaseView {gameState} onAction={handleAction} />

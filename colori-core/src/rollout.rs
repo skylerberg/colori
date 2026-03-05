@@ -264,13 +264,21 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                     process_ability_stack(state, rng);
                 }
                 Some(Ability::Sell) => {
-                    let buyer_id = pick_random_affordable_buyer(
+                    match pick_random_affordable_buyer(
                         &state.players[player_index],
                         &state.buyer_display,
                         rng,
-                    )
-                    .unwrap();
-                    resolve_select_buyer(state, buyer_id, rng);
+                    ) {
+                        Some(buyer_id) => {
+                            resolve_select_buyer(state, buyer_id, rng);
+                        }
+                        None => {
+                            if let GamePhase::Action { ref mut action_state } = state.phase {
+                                action_state.ability_stack.pop();
+                            }
+                            process_ability_stack(state, rng);
+                        }
+                    }
                 }
                 Some(Ability::GainSecondary) => {
                     let color = SECONDARIES[rng.random_range(0..SECONDARIES.len())];
@@ -290,21 +298,28 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                             own_count += 1;
                         }
                     }
-                    let r = rng.random_range(0..own_count * 5);
-                    let lose_idx = r / 5;
-                    let gain_local_idx = r % 5;
-                    let lose_color = owned_tertiaries[lose_idx];
-                    let mut options = [Color::Red; 6];
-                    let mut opt_count = 0usize;
-                    for &c in &TERTIARIES {
-                        if c != lose_color {
-                            options[opt_count] = c;
-                            opt_count += 1;
+                    if own_count == 0 {
+                        if let GamePhase::Action { ref mut action_state } = state.phase {
+                            action_state.ability_stack.pop();
                         }
+                        process_ability_stack(state, rng);
+                    } else {
+                        let r = rng.random_range(0..own_count * 5);
+                        let lose_idx = r / 5;
+                        let gain_local_idx = r % 5;
+                        let lose_color = owned_tertiaries[lose_idx];
+                        let mut options = [Color::Red; 6];
+                        let mut opt_count = 0usize;
+                        for &c in &TERTIARIES {
+                            if c != lose_color {
+                                options[opt_count] = c;
+                                opt_count += 1;
+                            }
+                        }
+                        let gain_color = options[gain_local_idx];
+                        resolve_choose_tertiary_to_lose(state, lose_color);
+                        resolve_choose_tertiary_to_gain(state, gain_color, rng);
                     }
-                    let gain_color = options[gain_local_idx];
-                    resolve_choose_tertiary_to_lose(state, lose_color);
-                    resolve_choose_tertiary_to_gain(state, gain_color, rng);
                 }
                 // Instant abilities should never be on top waiting — they get processed immediately
                 Some(_) => panic!("Unexpected ability on stack top during rollout"),
