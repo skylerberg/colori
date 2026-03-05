@@ -2,6 +2,7 @@ use colori_core::colori_game::apply_choice_to_state;
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::game_log::{FinalPlayerStats, FinalScore, PlayerVariant};
 use colori_core::ismcts::{ismcts, MctsConfig};
+use colori_core::rhea::{rhea, RheaConfig};
 use colori_core::scoring::calculate_score;
 use colori_core::setup::create_initial_game_state;
 use colori_core::types::*;
@@ -26,9 +27,15 @@ struct Args {
 }
 
 #[derive(Clone)]
+enum AiConfig {
+    Mcts(MctsConfig),
+    Rhea(RheaConfig),
+}
+
+#[derive(Clone)]
 struct NamedVariant {
     name: Option<String>,
-    ai: MctsConfig,
+    ai: AiConfig,
 }
 
 #[derive(Deserialize)]
@@ -36,23 +43,59 @@ struct NamedVariant {
 struct VariantFileEntry {
     name: Option<String>,
     #[serde(default)]
+    algorithm: Option<String>,
+    // MCTS fields
+    #[serde(default)]
     iterations: Option<u32>,
     #[serde(default)]
     exploration_constant: Option<f64>,
     #[serde(default)]
     max_rollout_steps: Option<u32>,
+    // RHEA fields
+    #[serde(default)]
+    generations: Option<u32>,
+    #[serde(default)]
+    population_size: Option<u32>,
+    #[serde(default)]
+    horizon_length: Option<u32>,
+    #[serde(default)]
+    mutation_rate: Option<f64>,
+    #[serde(default)]
+    elitism_count: Option<u32>,
+    #[serde(default)]
+    tournament_size: Option<u32>,
 }
 
 impl VariantFileEntry {
     fn into_named_variant(self) -> NamedVariant {
-        let defaults = MctsConfig::default();
-        NamedVariant {
-            name: self.name,
-            ai: MctsConfig {
-                iterations: self.iterations.unwrap_or(defaults.iterations),
-                exploration_constant: self.exploration_constant.unwrap_or(defaults.exploration_constant),
-                max_rollout_steps: self.max_rollout_steps.unwrap_or(defaults.max_rollout_steps),
-            },
+        let algorithm = self.algorithm.as_deref().unwrap_or("mcts");
+        match algorithm {
+            "rhea" => {
+                let defaults = RheaConfig::default();
+                NamedVariant {
+                    name: self.name,
+                    ai: AiConfig::Rhea(RheaConfig {
+                        generations: self.generations.unwrap_or(defaults.generations),
+                        population_size: self.population_size.unwrap_or(defaults.population_size),
+                        horizon_length: self.horizon_length.unwrap_or(defaults.horizon_length),
+                        mutation_rate: self.mutation_rate.unwrap_or(defaults.mutation_rate),
+                        max_rollout_steps: self.max_rollout_steps.unwrap_or(defaults.max_rollout_steps),
+                        elitism_count: self.elitism_count.unwrap_or(defaults.elitism_count),
+                        tournament_size: self.tournament_size.unwrap_or(defaults.tournament_size),
+                    }),
+                }
+            }
+            _ => {
+                let defaults = MctsConfig::default();
+                NamedVariant {
+                    name: self.name,
+                    ai: AiConfig::Mcts(MctsConfig {
+                        iterations: self.iterations.unwrap_or(defaults.iterations),
+                        exploration_constant: self.exploration_constant.unwrap_or(defaults.exploration_constant),
+                        max_rollout_steps: self.max_rollout_steps.unwrap_or(defaults.max_rollout_steps),
+                    }),
+                }
+            }
         }
     }
 }
@@ -94,7 +137,7 @@ fn parse_args() -> Args {
                             let iters: u32 = s.trim().parse().expect("Invalid --variants value");
                             NamedVariant {
                                 name: None,
-                                ai: MctsConfig { iterations: iters, ..MctsConfig::default() },
+                                ai: AiConfig::Mcts(MctsConfig { iterations: iters, ..MctsConfig::default() }),
                             }
                         })
                         .collect(),
@@ -192,45 +235,13 @@ fn format_iterations(iters: u32) -> String {
     }
 }
 
-fn format_variant_label(variant: &NamedVariant, differing: &DifferingFields) -> String {
+fn format_variant_label(variant: &NamedVariant) -> String {
     if let Some(name) = &variant.name {
         return name.clone();
     }
-    let mut parts = Vec::new();
-    if differing.iterations_differs {
-        parts.push(format_iterations(variant.ai.iterations));
-    }
-    if differing.exploration_constant_differs {
-        parts.push(format!("c={:.2}", variant.ai.exploration_constant));
-    }
-    if differing.max_rollout_steps_differs {
-        parts.push(format!("rollout={}", variant.ai.max_rollout_steps));
-    }
-    if parts.is_empty() {
-        parts.push(format_iterations(variant.ai.iterations));
-    }
-    parts.join(", ")
-}
-
-struct DifferingFields {
-    iterations_differs: bool,
-    exploration_constant_differs: bool,
-    max_rollout_steps_differs: bool,
-}
-
-fn compute_differing_fields(variants: &[NamedVariant]) -> DifferingFields {
-    if variants.len() <= 1 {
-        return DifferingFields {
-            iterations_differs: false,
-            exploration_constant_differs: false,
-            max_rollout_steps_differs: false,
-        };
-    }
-    let first = &variants[0].ai;
-    DifferingFields {
-        iterations_differs: variants.iter().any(|v| v.ai.iterations != first.iterations),
-        exploration_constant_differs: variants.iter().any(|v| v.ai.exploration_constant != first.exploration_constant),
-        max_rollout_steps_differs: variants.iter().any(|v| v.ai.max_rollout_steps != first.max_rollout_steps),
+    match &variant.ai {
+        AiConfig::Mcts(config) => format!("MCTS-{}", format_iterations(config.iterations)),
+        AiConfig::Rhea(config) => format!("RHEA-{}", format_iterations(config.generations)),
     }
 }
 
@@ -241,8 +252,67 @@ fn has_any_difference(variants: &[NamedVariant]) -> bool {
     if variants.iter().any(|v| v.name.is_some()) {
         return true;
     }
-    let diff = compute_differing_fields(variants);
-    diff.iterations_differs || diff.exploration_constant_differs || diff.max_rollout_steps_differs
+    // Check if algorithms differ
+    let algorithms_differ = variants.windows(2).any(|w| {
+        std::mem::discriminant(&w[0].ai) != std::mem::discriminant(&w[1].ai)
+    });
+    if algorithms_differ {
+        return true;
+    }
+    // Check config differences within same algorithm type
+    match &variants[0].ai {
+        AiConfig::Mcts(first) => variants.iter().any(|v| {
+            if let AiConfig::Mcts(c) = &v.ai {
+                c.iterations != first.iterations
+                    || c.exploration_constant != first.exploration_constant
+                    || c.max_rollout_steps != first.max_rollout_steps
+            } else {
+                true
+            }
+        }),
+        AiConfig::Rhea(first) => variants.iter().any(|v| {
+            if let AiConfig::Rhea(c) = &v.ai {
+                c.generations != first.generations
+                    || c.population_size != first.population_size
+                    || c.horizon_length != first.horizon_length
+                    || c.mutation_rate != first.mutation_rate
+            } else {
+                true
+            }
+        }),
+    }
+}
+
+fn variant_to_player_variant(v: &NamedVariant) -> PlayerVariant {
+    let mcts_defaults = MctsConfig::default();
+    match &v.ai {
+        AiConfig::Mcts(config) => PlayerVariant {
+            name: v.name.clone(),
+            algorithm: Some("mcts".to_string()),
+            iterations: config.iterations,
+            exploration_constant: if config.exploration_constant != mcts_defaults.exploration_constant {
+                Some(config.exploration_constant)
+            } else {
+                None
+            },
+            max_rollout_steps: if config.max_rollout_steps != mcts_defaults.max_rollout_steps {
+                Some(config.max_rollout_steps)
+            } else {
+                None
+            },
+        },
+        AiConfig::Rhea(config) => PlayerVariant {
+            name: v.name.clone(),
+            algorithm: Some("rhea".to_string()),
+            iterations: config.generations,
+            exploration_constant: None,
+            max_rollout_steps: if config.max_rollout_steps != mcts_defaults.max_rollout_steps {
+                Some(config.max_rollout_steps)
+            } else {
+                None
+            },
+        },
+    }
 }
 
 // ── Game loop ──
@@ -261,11 +331,10 @@ fn run_game(
     shuffled_variants.shuffle(rng);
 
     let has_variants = has_any_difference(&shuffled_variants);
-    let differing = compute_differing_fields(&shuffled_variants);
     let names: Vec<String> = (1..=num_players)
         .map(|i| {
             if has_variants {
-                format!("Player {} ({})", i, format_variant_label(&shuffled_variants[i - 1], &differing))
+                format!("Player {} ({})", i, format_variant_label(&shuffled_variants[i - 1]))
             } else {
                 format!("Player {}", i)
             }
@@ -300,7 +369,10 @@ fn run_game(
         };
 
         let max_rollout_round = std::cmp::max(8, state.round + 2);
-        let choice = ismcts(&state, player_index, &shuffled_variants[player_index].ai, &None, Some(max_rollout_round), rng);
+        let choice = match &shuffled_variants[player_index].ai {
+            AiConfig::Mcts(config) => ismcts(&state, player_index, config, &None, Some(max_rollout_round), rng),
+            AiConfig::Rhea(config) => rhea(&state, player_index, config, &None, Some(max_rollout_round), rng),
+        };
 
         seq += 1;
         entries.push(StructuredLogEntry {
@@ -351,33 +423,22 @@ fn run_game(
 
     let duration_ms = Some(start.elapsed().as_millis() as u64);
 
-    let defaults = MctsConfig::default();
     let (log_iterations, log_player_variants) = if has_variants {
         (
             None,
             Some(
                 shuffled_variants
                     .iter()
-                    .map(|v| PlayerVariant {
-                        name: v.name.clone(),
-                        algorithm: Some("ucb".to_string()),
-                        iterations: v.ai.iterations,
-                        exploration_constant: if v.ai.exploration_constant != defaults.exploration_constant {
-                            Some(v.ai.exploration_constant)
-                        } else {
-                            None
-                        },
-                        max_rollout_steps: if v.ai.max_rollout_steps != defaults.max_rollout_steps {
-                            Some(v.ai.max_rollout_steps)
-                        } else {
-                            None
-                        },
-                    })
+                    .map(|v| variant_to_player_variant(v))
                     .collect(),
             ),
         )
     } else {
-        (Some(shuffled_variants[0].ai.iterations), None)
+        let iters = match &shuffled_variants[0].ai {
+            AiConfig::Mcts(c) => c.iterations,
+            AiConfig::Rhea(c) => c.generations,
+        };
+        (Some(iters), None)
     };
 
     GameRunOutput {
@@ -414,8 +475,7 @@ fn main() {
     let num_players = player_variants.len();
 
     if has_any_difference(player_variants) {
-        let differing = compute_differing_fields(player_variants);
-        let labels: Vec<String> = player_variants.iter().map(|v| format_variant_label(v, &differing)).collect();
+        let labels: Vec<String> = player_variants.iter().map(|v| format_variant_label(v)).collect();
         eprintln!(
             "Running {} games with variants: {}, {} threads",
             args.games,
@@ -423,9 +483,10 @@ fn main() {
             args.threads
         );
     } else {
+        let label = format_variant_label(&player_variants[0]);
         eprintln!(
-            "Running {} games with {} players, {} ISMCTS iterations, {} threads",
-            args.games, num_players, player_variants[0].ai.iterations, args.threads
+            "Running {} games with {} players, {}, {} threads",
+            args.games, num_players, label, args.threads
         );
     }
 
