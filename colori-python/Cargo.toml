@@ -1,0 +1,15 @@
+[package]
+name = "colori-python"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "colori_python"
+crate-type = ["cdylib"]
+
+[dependencies]
+colori-core = { path = "../colori-core" }
+pyo3 = { version = "0.28.2", features = ["extension-module"] }
+numpy = "0.28.0"
+rand = "0.10"
+wyrand = "0.4"
