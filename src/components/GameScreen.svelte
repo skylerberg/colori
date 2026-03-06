@@ -258,21 +258,23 @@
   .readonly-cards {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
-    margin-top: 1rem;
+    gap: 0.5rem;
   }
 
   .section-box {
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 10px 12px;
-    background: #fff;
+    border: 1px solid var(--border-gold, rgba(201, 168, 76, 0.3));
+    border-radius: 6px;
+    padding: 6px 8px;
+    background: var(--bg-panel, #ebe3d3);
     text-align: left;
   }
 
   .section-box h3 {
-    font-size: 0.85rem;
-    color: #4a3728;
-    margin-bottom: 6px;
+    font-family: var(--font-display, 'Cinzel', serif);
+    font-size: 0.75rem;
+    color: var(--text-primary, #2c1e12);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
   }
 </style>

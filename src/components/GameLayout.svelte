@@ -4,8 +4,8 @@
   import type { Snippet } from 'svelte';
   import PlayerStatus from './PlayerStatus.svelte';
   import GameLog from './GameLog.svelte';
-  import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import BuyerDisplay from './BuyerDisplay.svelte';
+  import PlayerTableau from './PlayerTableau.svelte';
 
   let { gameState, activePlayerIndex, aiThinking, elapsedSeconds, gameLog, onLeaveGame, sidebarPlayer, selectedPlayerIndex, onSelectPlayer, aiError, onRetryAI, children }: {
     gameState: GameState;
@@ -48,28 +48,7 @@
   </div>
 
   <div class="game-body">
-    {#if showSidebar && sidebarPlayer}
-      <aside class="left-sidebar">
-        <div class="sidebar-section">
-          <h3>Color Wheel</h3>
-          <ColorWheelDisplay wheel={sidebarPlayer.colorWheel} size={160} />
-        </div>
-
-        <div class="sidebar-section">
-          <h3>Stored Materials</h3>
-          <div class="material-counts">
-            {#each Object.entries(sidebarPlayer.materials) as [material, count]}
-              <span class="material-count">{material}: {count}</span>
-            {/each}
-          </div>
-          {#if sidebarPlayer.ducats > 0}
-            <div class="ducats-count">Ducats: {sidebarPlayer.ducats}</div>
-          {/if}
-        </div>
-      </aside>
-    {/if}
-
-    <div class="main-column">
+    <div class="main-area">
       {#if aiError}
         <div class="ai-error-banner">
           <strong>AI encountered an error</strong>
@@ -84,34 +63,43 @@
         {@render children()}
       </div>
 
-      {#if gameLog.length > 0}
-        <GameLog entries={gameLog} />
+      {#if showSidebar && sidebarPlayer}
+        <div class="tableau-wrapper">
+          <PlayerTableau
+            player={sidebarPlayer}
+            draftedCards={sidebarPlayer.draftedCards}
+            workshopCards={sidebarPlayer.workshopCards}
+            completedBuyers={sidebarPlayer.completedBuyers}
+          />
+        </div>
       {/if}
     </div>
 
     {#if showSidebar}
       <aside class="sidebar">
-        <div class="sidebar-section">
-          <BuyerDisplay buyers={gameState.buyerDisplay} />
-        </div>
+        <BuyerDisplay buyers={gameState.buyerDisplay} />
       </aside>
     {/if}
   </div>
+
+  {#if gameLog.length > 0}
+    <GameLog entries={gameLog} />
+  {/if}
 </div>
 
 <style>
   .game-screen {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.5rem;
   }
 
   .top-bar {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding-bottom: 8px;
-    border-bottom: 2px solid #e0d5c5;
+    gap: 4px;
+    padding-bottom: 4px;
+    border-bottom: 2px solid var(--border-gold, rgba(201, 168, 76, 0.3));
   }
 
   .top-bar-row {
@@ -122,31 +110,33 @@
   }
 
   .round-indicator {
-    font-size: 0.85rem;
+    font-family: var(--font-display, 'Cinzel', serif);
+    font-size: 0.8rem;
     font-weight: 600;
-    color: #4a3728;
+    color: var(--text-primary, #2c1e12);
     text-align: center;
   }
 
   .leave-btn {
     position: absolute;
     right: 0;
-    padding: 4px 12px;
-    font-size: 0.75rem;
-    background: #e74c3c;
-    color: white;
+    padding: 3px 10px;
+    font-size: 0.7rem;
+    font-family: var(--font-display, 'Cinzel', serif);
+    background: var(--accent-crimson, #8b2020);
+    color: var(--text-on-dark, #f5ede0);
     border: none;
     border-radius: 4px;
     cursor: pointer;
   }
 
   .leave-btn:hover {
-    background: #c0392b;
+    background: #6b1818;
   }
 
   .player-bar {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     overflow-x: auto;
     justify-content: center;
     flex-wrap: wrap;
@@ -154,67 +144,33 @@
 
   .game-body {
     display: flex;
-    gap: 1rem;
+    gap: 0.75rem;
   }
 
-  .main-column {
+  .main-area {
     flex: 1;
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    align-items: center;
+    gap: 0.5rem;
   }
 
   .phase-content {
-    min-height: 300px;
+    width: 100%;
   }
 
-  .left-sidebar {
-    width: 250px;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+  .tableau-wrapper {
+    width: 100%;
+    max-width: 700px;
+    padding: 80px 0 40px 0;
   }
 
   .sidebar {
-    width: 250px;
+    width: 220px;
     flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .sidebar-section {
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 10px 12px;
-    background: #fff;
-  }
-
-  .sidebar-section h3 {
-    font-size: 0.85rem;
-    color: #4a3728;
-    margin-bottom: 6px;
-  }
-
-  .material-counts {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.8rem;
-    color: #8b6914;
-  }
-
-  .material-count {
-    font-weight: 600;
-  }
-
-  .ducats-count {
-    font-size: 0.8rem;
-    color: #d4a017;
-    font-weight: 600;
-    margin-top: 4px;
+    border-left: 2px solid var(--border-gold, rgba(201, 168, 76, 0.3));
+    padding-left: 0.75rem;
   }
 
   .ai-error-banner {
@@ -222,7 +178,8 @@
     border: 1px solid #e74c3c;
     border-radius: 8px;
     padding: 12px 16px;
-    margin-bottom: 1rem;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .ai-error-banner strong {

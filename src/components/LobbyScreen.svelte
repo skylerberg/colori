@@ -161,18 +161,19 @@
     align-self: flex-start;
     padding: 6px 14px;
     font-size: 0.9rem;
-    background: #eee;
-    border: 1px solid #ccc;
+    background: var(--bg-panel, #ebe3d3);
+    border: 1px solid var(--border-gold, rgba(201, 168, 76, 0.3));
     border-radius: 6px;
     cursor: pointer;
   }
 
   .back-btn:hover {
-    background: #ddd;
+    background: #e0d6c3;
   }
 
   h2 {
-    color: #4a3728;
+    font-family: var(--font-display, 'Cinzel', serif);
+    color: var(--text-primary, #2c1e12);
     font-size: 1.5rem;
     text-align: center;
   }
@@ -180,28 +181,29 @@
   .room-code-section {
     text-align: center;
     padding: 16px;
-    border: 2px solid #d4a017;
+    border: 2px solid var(--accent-gold, #c9a84c);
     border-radius: 12px;
-    background: #fffde7;
+    background: rgba(201, 168, 76, 0.08);
   }
 
   .room-code-label {
     font-size: 0.9rem;
-    color: #666;
+    color: var(--text-secondary, #6b5744);
     display: block;
     margin-bottom: 4px;
   }
 
   .room-code {
+    font-family: var(--font-display, 'Cinzel', serif);
     font-size: 2.5rem;
     font-weight: 800;
-    color: #4a3728;
+    color: var(--text-primary, #2c1e12);
     letter-spacing: 6px;
   }
 
   .room-code-hint {
     font-size: 0.8rem;
-    color: #999;
+    color: var(--text-tertiary, #9a8775);
     margin-top: 4px;
   }
 
@@ -225,30 +227,32 @@
   .count-btn {
     width: 48px;
     height: 48px;
+    font-family: var(--font-display, 'Cinzel', serif);
     font-size: 1.2rem;
     font-weight: 700;
     border-radius: 50%;
-    border: 2px solid #999;
-    background: #fff;
+    border: 2px solid var(--border-gold, rgba(201, 168, 76, 0.3));
+    background: var(--bg-panel, #ebe3d3);
     cursor: pointer;
   }
 
   .count-btn.active {
-    border-color: #2a6bcf;
-    background: #2a6bcf;
-    color: #fff;
+    border-color: var(--accent-gold, #c9a84c);
+    background: var(--accent-gold, #c9a84c);
+    color: var(--bg-deep, #2c1e12);
   }
 
   .players-section {
-    border: 1px solid #ddd;
+    border: 1px solid var(--border-gold, rgba(201, 168, 76, 0.3));
     border-radius: 8px;
     padding: 12px;
-    background: #fff;
+    background: var(--bg-panel, #ebe3d3);
   }
 
   .players-section h3 {
-    font-size: 0.9rem;
-    color: #4a3728;
+    font-family: var(--font-display, 'Cinzel', serif);
+    font-size: 0.85rem;
+    color: var(--text-primary, #2c1e12);
     margin-bottom: 8px;
   }
 
@@ -263,9 +267,9 @@
     justify-content: space-between;
     align-items: center;
     padding: 8px 12px;
-    border: 1px solid #eee;
+    border: 1px solid var(--border-gold, rgba(201, 168, 76, 0.3));
     border-radius: 6px;
-    background: #fafafa;
+    background: rgba(255, 255, 255, 0.4);
   }
 
   .player-row.disconnected {
@@ -274,8 +278,8 @@
 
   .player-row.ai-slot {
     border-style: dashed;
-    border-color: #ccc;
-    background: #f5f5f5;
+    border-color: var(--border-gold, rgba(201, 168, 76, 0.3));
+    background: rgba(201, 168, 76, 0.04);
   }
 
   .player-name {
@@ -285,8 +289,8 @@
 
   .host-badge {
     font-size: 0.7rem;
-    background: #d4a017;
-    color: #fff;
+    background: var(--accent-gold, #c9a84c);
+    color: var(--bg-deep, #2c1e12);
     padding: 2px 6px;
     border-radius: 4px;
     margin-left: 6px;
@@ -295,8 +299,8 @@
 
   .ai-badge {
     font-size: 0.75rem;
-    background: #e67e22;
-    color: #fff;
+    background: var(--accent-crimson, #8b2020);
+    color: var(--text-on-dark, #f5ede0);
     padding: 2px 8px;
     border-radius: 4px;
     font-weight: 700;
@@ -308,30 +312,34 @@
   }
 
   .player-status.connected {
-    color: #27ae60;
+    color: var(--accent-green, #3a6b3a);
   }
 
   .player-row.disconnected .player-status {
-    color: #e74c3c;
+    color: var(--accent-crimson, #8b2020);
   }
 
   .start-btn {
     padding: 12px 24px;
-    font-size: 1.1rem;
-    font-weight: 700;
-    background: #2a6bcf;
-    color: #fff;
+    font-family: var(--font-display, 'Cinzel', serif);
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    background: var(--bg-deep, #2c1e12);
+    color: var(--text-on-dark, #f5ede0);
     border: none;
     border-radius: 8px;
     cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
   }
 
   .start-btn:hover:not(:disabled) {
-    background: #1e56a8;
+    background: #3a2a1e;
+    transform: translateY(-2px);
   }
 
   .start-btn:disabled {
-    background: #ccc;
+    opacity: 0.4;
     cursor: not-allowed;
   }
 
@@ -354,33 +362,37 @@
 
   .input-group input {
     padding: 10px 12px;
-    border: 2px solid #ccc;
+    border: 2px solid var(--border-gold, rgba(201, 168, 76, 0.3));
     border-radius: 6px;
     font-size: 1rem;
   }
 
   .input-group input:focus {
     outline: none;
-    border-color: #2a6bcf;
+    border-color: var(--accent-gold, #c9a84c);
   }
 
   .join-btn {
     padding: 12px 24px;
-    font-size: 1.1rem;
-    font-weight: 700;
-    background: #4a3728;
-    color: #fff;
+    font-family: var(--font-display, 'Cinzel', serif);
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    background: var(--bg-deep, #2c1e12);
+    color: var(--text-on-dark, #f5ede0);
     border: none;
     border-radius: 8px;
     cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
   }
 
   .join-btn:hover:not(:disabled) {
     background: #3a2a1e;
+    transform: translateY(-2px);
   }
 
   .join-btn:disabled {
-    background: #ccc;
+    opacity: 0.4;
     cursor: not-allowed;
   }
 
@@ -392,7 +404,7 @@
 
   .waiting-text {
     text-align: center;
-    color: #666;
+    color: var(--text-secondary, #6b5744);
     font-style: italic;
     font-size: 0.95rem;
   }

@@ -101,14 +101,15 @@
   }
 
   h3 {
-    font-size: 0.95rem;
-    color: #4a3728;
+    font-family: var(--font-display, 'Cinzel', serif);
+    font-size: 0.9rem;
+    color: var(--text-primary, #2c1e12);
     text-align: left;
   }
 
   .hint {
     font-size: 0.8rem;
-    color: #888;
+    color: var(--text-tertiary, #9a8775);
     font-style: italic;
     text-align: left;
   }
@@ -116,14 +117,14 @@
   .skip-btn {
     padding: 8px 16px;
     font-size: 0.85rem;
-    background: #eee;
-    border: 1px solid #ccc;
+    background: var(--bg-panel, #ebe3d3);
+    border: 1px solid var(--border-gold, rgba(201, 168, 76, 0.3));
     border-radius: 6px;
     align-self: flex-start;
   }
 
   .skip-btn:hover {
-    background: #ddd;
+    background: #e0d6c3;
   }
 
   .mix-actions {

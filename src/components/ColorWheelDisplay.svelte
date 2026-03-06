@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Color } from '../data/types';
   import { colorToHex, textColorForBackground } from '../data/colors';
+  import { WORKSHOP_WHEEL_REGIONS } from '../data/wheelPaths';
 
   interface WheelSegment {
     color: Color;
@@ -43,12 +44,13 @@
     outer: 0.045,
   };
 
-  let { wheel, interactive = false, onColorClick, selectedColors = [], size = 200 }: {
+  let { wheel, interactive = false, onColorClick, selectedColors = [], size = 200, hidden = false }: {
     wheel: Record<Color, number>;
     interactive?: boolean;
     onColorClick?: (color: Color) => void;
     selectedColors?: Color[];
     size?: number;
+    hidden?: boolean;
   } = $props();
 
   let half = $derived(size / 2);
@@ -104,57 +106,32 @@
   }
 </script>
 
-<div class="color-wheel-container">
-  <svg width={size} height={size} viewBox="0 0 {size} {size}">
-    {#each WHEEL_SEGMENTS as seg}
-      {@const pos = labelPos(seg)}
-      {@const fontSize = Math.round(size * FONT_SCALE[seg.ring])}
-      <path
-        d={segmentPath(seg)}
-        fill={colorToHex(seg.color)}
-        stroke={isSelected(seg.color) ? '#fff' : '#333'}
-        stroke-width={isSelected(seg.color) ? 3 : 0.5}
-        opacity={wheel[seg.color] > 0 ? 1 : 0.3}
-        class:clickable={interactive && wheel[seg.color] > 0}
-        onclick={() => handleClick(seg.color)}
-        role={interactive && wheel[seg.color] > 0 ? 'button' : undefined}
-        tabindex={interactive && wheel[seg.color] > 0 ? 0 : undefined}
-      />
-      {#if !seg.isExtension}
-        <text
-          x={pos.x}
-          y={pos.y}
-          text-anchor="middle"
-          dominant-baseline="central"
-          font-size={fontSize}
-          font-weight="bold"
-          fill={textColorForBackground(colorToHex(seg.color))}
-          pointer-events="none"
-        >
-          {seg.color[0]}
-        </text>
-        {#if wheel[seg.color] > 0 && size >= 140}
-          <text
-            x={pos.x}
-            y={pos.y + fontSize * 0.9}
-            text-anchor="middle"
-            dominant-baseline="central"
-            font-size={Math.round(fontSize * 0.75)}
-            font-weight="bold"
-            fill={textColorForBackground(colorToHex(seg.color))}
-            pointer-events="none"
-          >
-            {wheel[seg.color]}
-          </text>
-        {/if}
-      {/if}
-    {/each}
-  </svg>
+<div class="color-wheel-container" class:hidden>
+    <svg width={size} height={size} viewBox="0 0 256 256" fill="none">
+      <path d="M 127.68,6.41 C 60.93,6.41 6,60.96 6,128.42 C 6,195.61 60.69,250 127.44,250 C 194.69,250 249.72,195.45 249.72,128.42 C 249.72,61.23 195.29,6.41 127.68,6.41 Z" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
+      <path d="M 127.44,6.74 V 46.22" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
+      <path d="M 245.67,97.13 L 204.48,99.46" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
+      <path d="M 222.29,203.86 L 188.73,183.32" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
+      <path d="M 127.44,249.67 V 210.02" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
+      <path d="M 25.71,195.17 L 58.95,172.61" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
+      <path d="M 23.62,63.57 L 59.44,82.91" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
+      <path d="M 127.44,209.7 C 174.99,209.7 209.31,170.55 209.31,128.34 C 209.31,85.28 174.75,46.22 127.44,46.22 C 80.87,46.22 46.15,83.87 46.15,128.34 C 46.15,172.04 80.87,209.7 127.44,209.7 Z" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
+      <path d="M 175.23,61.43 C 167.13,77.91 163.95,92.81 167.29,109.96 C 172.12,129.99 186.94,142.29 206.61,147.99" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
+      <path d="M 92.68,53.92 C 103.93,75.85 104.97,92.97 92.28,108.76 C 80.07,121.06 66.13,124.41 46.15,126.82" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
+      <path d="M 92.28,108.76 L 127.36,129.67 L 167.61,112.1" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
+      <path d="M 127.36,129.67 L 128.4,173.81" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
+      <path d="M 86.81,198.76 C 98.54,182.04 111.47,173.81 127.36,173.81 C 143.41,173.81 156.42,185.38 165.72,200.2" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
+    </svg>
 </div>
 
 <style>
   .color-wheel-container {
     display: inline-block;
+    filter: drop-shadow(0 2px 6px rgba(44, 30, 18, 0.2));
+  }
+
+  .color-wheel-container.hidden {
+    filter: none;
   }
 
   path.clickable {

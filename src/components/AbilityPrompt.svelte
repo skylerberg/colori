@@ -48,9 +48,9 @@
 
 <style>
   .ability-prompt {
-    border: 2px solid #d4a017;
+    border: 2px solid var(--accent-gold, #c9a84c);
     border-radius: 10px;
-    padding: 16px;
-    background: #fffef0;
+    padding: 10px;
+    background: rgba(201, 168, 76, 0.06);
   }
 </style>

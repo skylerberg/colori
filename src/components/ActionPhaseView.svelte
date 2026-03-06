@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { GameState, Choice, Ability } from '../data/types';
-  import CardList from './CardList.svelte';
   import AbilityPrompt from './AbilityPrompt.svelte';
   import OpponentBoardPanel from './OpponentBoardPanel.svelte';
 
@@ -112,50 +111,6 @@
       <AbilityPrompt {gameState} {onAction} />
     {/if}
 
-    <div class="sections">
-      <div class="section">
-        <h3>Drafted Cards <span class="hint">(click to destroy and activate ability)</span></h3>
-        <CardList
-          cards={currentPlayer.draftedCards}
-          selectable={!hasPendingChoice}
-          onCardClick={handleDestroyDrafted}
-        />
-      </div>
-
-      <div class="section" class:active-choice={workshopPendingChoice}>
-        {#if topAbility?.type === 'workshop'}
-          <h3>Workshop — Select cards ({topAbility.count} available)</h3>
-          <CardList
-            cards={currentPlayer.workshopCards}
-            selectable={true}
-            selectedIds={selectedWorkshopIds}
-            onCardClick={toggleWorkshopCard}
-          />
-          <button class="confirm-btn" onclick={confirmWorkshop}>
-            Confirm Workshop ({selectedWorkshopIds.length} selected)
-          </button>
-          <button class="confirm-btn skip-btn" onclick={handleSkipWorkshop}>
-            Skip Workshop
-          </button>
-        {:else if topAbility?.type === 'destroyCards'}
-          <h3>Workshop — Select a card to destroy</h3>
-          <CardList
-            cards={currentPlayer.workshopCards}
-            selectable={true}
-            selectedIds={selectedDestroyIds}
-            onCardClick={toggleDestroyCard}
-          />
-          <button class="confirm-btn" onclick={confirmDestroy}>
-            Confirm Destroy ({selectedDestroyIds.length} selected)
-          </button>
-        {:else}
-          <h3>Workshop</h3>
-          <CardList cards={currentPlayer.workshopCards} />
-        {/if}
-      </div>
-
-    </div>
-
     <div class="opponents-section">
       <h3>Other Players</h3>
       <div class="opponents-list">
@@ -186,7 +141,7 @@
   .action-phase {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.5rem;
   }
 
   .action-header {
@@ -194,9 +149,10 @@
   }
 
   h2 {
-    color: #4a3728;
-    font-size: 1.3rem;
-    margin-bottom: 4px;
+    font-family: var(--font-display, 'Cinzel', serif);
+    color: var(--text-primary, #2c1e12);
+    font-size: 1.1rem;
+    margin-bottom: 2px;
   }
 
   .queue-status {
@@ -207,128 +163,81 @@
   }
 
   .queue-info {
-    color: #d4a017;
+    color: var(--accent-gold, #c9a84c);
     font-weight: 600;
   }
 
   .pending-info {
-    color: #e63946;
+    color: var(--accent-crimson, #8b2020);
     font-weight: 600;
-  }
-
-  .sections {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .section {
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 10px 12px;
-    background: #fff;
-    text-align: left;
-  }
-
-  .section h3 {
-    font-size: 0.85rem;
-    color: #4a3728;
-    margin-bottom: 6px;
-  }
-
-  .hint {
-    font-size: 0.7rem;
-    color: #999;
-    font-weight: 400;
-  }
-
-  .active-choice {
-    border-color: #d4a017;
-    border-width: 2px;
-    background: #fffef0;
-  }
-
-  .confirm-btn {
-    padding: 8px 20px;
-    font-weight: 600;
-    background: #2a6bcf;
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    align-self: flex-start;
-  }
-
-  .confirm-btn:hover {
-    background: #1e56a8;
-  }
-
-  .skip-btn {
-    background: #888;
-  }
-
-  .skip-btn:hover {
-    background: #666;
   }
 
   .action-footer {
     display: flex;
     justify-content: center;
     gap: 12px;
-    padding-top: 8px;
+    padding-top: 4px;
   }
 
   .undo-btn {
-    padding: 10px 24px;
-    font-size: 1.05rem;
-    font-weight: 700;
-    background: #888;
-    color: #fff;
-    border: none;
+    padding: 8px 20px;
+    font-family: var(--font-display, 'Cinzel', serif);
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    background: var(--bg-panel, #ebe3d3);
+    color: var(--text-secondary, #6b5744);
+    border: 2px solid var(--border-gold, rgba(201, 168, 76, 0.3));
     border-radius: 8px;
   }
 
   .undo-btn:hover:not(:disabled) {
-    background: #666;
+    background: #e0d6c3;
   }
 
   .undo-btn:disabled {
-    background: #ccc;
+    opacity: 0.4;
     cursor: not-allowed;
   }
 
   .end-turn-btn {
-    padding: 10px 32px;
-    font-size: 1.05rem;
-    font-weight: 700;
-    background: #c0392b;
-    color: #fff;
+    padding: 8px 28px;
+    font-family: var(--font-display, 'Cinzel', serif);
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    background: var(--accent-crimson, #8b2020);
+    color: var(--text-on-dark, #f5ede0);
     border: none;
     border-radius: 8px;
   }
 
   .end-turn-btn:hover:not(:disabled) {
-    background: #a93226;
+    background: #6b1818;
   }
 
   .end-turn-btn:disabled {
-    background: #ccc;
+    opacity: 0.4;
     cursor: not-allowed;
   }
 
   .opponents-section {
-    border-top: 2px solid #e0e0e0;
-    padding-top: 1rem;
+    border-top: 2px solid var(--border-gold, rgba(201, 168, 76, 0.3));
+    padding-top: 0.5rem;
   }
 
   .opponents-section h3 {
-    font-size: 0.85rem;
-    color: #888;
+    font-family: var(--font-display, 'Cinzel', serif);
+    font-size: 0.8rem;
+    color: var(--text-tertiary, #9a8775);
     margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
   }
 
   .opponents-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
   }
 </style>

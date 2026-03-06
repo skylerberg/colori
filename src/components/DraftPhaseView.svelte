@@ -18,10 +18,6 @@
     playerIndex !== undefined ? playerIndex : (draftState?.currentPlayerIndex ?? 0)
   );
 
-  let currentPlayer = $derived(
-    draftState ? gameState.players[viewingPlayerIndex] : null
-  );
-
   let currentHand = $derived(
     draftState ? draftState.hands[viewingPlayerIndex] : []
   );
@@ -52,16 +48,6 @@
         />
       </div>
 
-      <div class="section">
-        <h3>Drafted Cards</h3>
-        <CardList cards={currentPlayer?.draftedCards ?? []} />
-      </div>
-
-      <div class="section">
-        <h3>Workshop</h3>
-        <CardList cards={currentPlayer?.workshopCards ?? []} />
-      </div>
-
       <div class="opponents-section">
         <h3>Other Players</h3>
         <div class="opponents-list">
@@ -79,7 +65,7 @@
   .draft-phase {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.5rem;
   }
 
   .draft-header {
@@ -87,66 +73,60 @@
   }
 
   h2 {
-    color: #4a3728;
-    font-size: 1.3rem;
-    margin-bottom: 4px;
+    font-family: var(--font-display, 'Cinzel', serif);
+    color: var(--text-primary, #2c1e12);
+    font-size: 1.1rem;
+    margin-bottom: 2px;
   }
 
   .draft-info {
     display: flex;
-    gap: 1.5rem;
+    gap: 1rem;
     justify-content: center;
-    font-size: 0.85rem;
-    color: #666;
+    font-size: 0.8rem;
+    color: var(--text-secondary, #6b5744);
   }
 
   .pick-number {
+    font-family: var(--font-display, 'Cinzel', serif);
     font-weight: 600;
-    color: #2a6bcf;
+    color: var(--accent-gold, #c9a84c);
   }
 
   .current-player-section {
-    border: 2px solid #2a6bcf;
+    border: 2px solid var(--accent-gold, #c9a84c);
     border-radius: 10px;
-    padding: 12px;
-    background: #f8faff;
+    padding: 8px;
+    background: rgba(201, 168, 76, 0.06);
   }
 
   .current-player-section h3 {
-    font-size: 1rem;
-    color: #2a6bcf;
-    margin-bottom: 8px;
-    text-align: left;
-  }
-
-  .section {
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 10px 12px;
-    background: #fff;
-    text-align: left;
-  }
-
-  .section h3 {
+    font-family: var(--font-display, 'Cinzel', serif);
     font-size: 0.85rem;
-    color: #4a3728;
-    margin-bottom: 6px;
+    color: var(--accent-gold, #c9a84c);
+    margin-bottom: 4px;
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 1px;
   }
 
   .opponents-section {
-    border-top: 2px solid #e0e0e0;
-    padding-top: 1rem;
+    border-top: 2px solid var(--border-gold, rgba(201, 168, 76, 0.3));
+    padding-top: 0.5rem;
   }
 
   .opponents-section h3 {
-    font-size: 0.85rem;
-    color: #888;
+    font-family: var(--font-display, 'Cinzel', serif);
+    font-size: 0.8rem;
+    color: var(--text-tertiary, #9a8775);
     margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
   }
 
   .opponents-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
   }
 </style>

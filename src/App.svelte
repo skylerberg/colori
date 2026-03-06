@@ -7,6 +7,7 @@
   import MainMenu from './components/MainMenu.svelte';
   import LobbyScreen from './components/LobbyScreen.svelte';
   import OnlineGameScreen from './components/OnlineGameScreen.svelte';
+  import ZoneEditor from './components/ZoneEditor.svelte';
   import { saveGame, loadGame, clearSavedGame } from './persistence';
   import { NetworkManager } from './network/networkManager';
   import { HostController } from './network/hostController';
@@ -24,7 +25,8 @@
     | { type: 'lobby'; role: 'host' | 'guest' }
     | { type: 'onlineGame'; role: 'host' | 'guest' }
     | { type: 'localGame' }
-    | { type: 'score' };
+    | { type: 'score' }
+    | { type: 'zoneEditor' };
 
   const saved = loadGame();
   let screen: AppScreen = $state({ type: 'mainMenu' });
@@ -123,6 +125,10 @@
     screen = { type: 'mainMenu' };
   }
 
+  function goToZoneEditor() {
+    screen = { type: 'zoneEditor' };
+  }
+
   // -- Online game handlers --
 
   function hostOnlineGame() {
@@ -210,7 +216,12 @@
 </script>
 
 <main>
-  <h1>Colori</h1>
+  {#if screen.type !== 'localGame' && screen.type !== 'onlineGame'}
+    <h1 class="title">Colori</h1>
+    {#if screen.type === 'mainMenu'}
+      <p class="subtitle">Vendecolori di Venezia</p>
+    {/if}
+  {/if}
   {#if !engineReady}
     <p>Loading...</p>
   {:else if screen.type === 'mainMenu'}
@@ -220,6 +231,7 @@
       onJoinOnline={joinOnlineGame}
       {hasSavedGame}
       onResumeGame={resumeGame}
+      onZoneEditor={goToZoneEditor}
     />
   {:else if screen.type === 'localSetup'}
     <SetupScreen onGameStarted={handleGameStarted} />
@@ -249,6 +261,8 @@
     />
   {:else if screen.type === 'score' && gameState !== null}
     <ScoreScreen {gameState} {gameStartTime} onPlayAgain={handlePlayAgain} structuredLog={finalGameLog} />
+  {:else if screen.type === 'zoneEditor'}
+    <ZoneEditor onClose={goToMainMenu} />
   {/if}
 </main>
 
@@ -256,9 +270,23 @@
   main {
     text-align: center;
   }
-  h1 {
-    font-size: 2rem;
-    margin-bottom: 1rem;
-    color: #4a3728;
+  .title {
+    font-family: var(--font-display);
+    font-size: 2.5rem;
+    font-weight: 700;
+    letter-spacing: 4px;
+    margin-bottom: 0.25rem;
+    background: linear-gradient(135deg, #c9a84c, #e8d48b, #c9a84c);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .subtitle {
+    font-family: var(--font-body);
+    font-size: 1.1rem;
+    font-style: italic;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+    letter-spacing: 1px;
   }
 </style>

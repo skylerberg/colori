@@ -23,39 +23,40 @@
 
 <style>
   .game-log {
-    border: 1px solid #ddd;
+    border: 1px solid var(--border-gold, rgba(201, 168, 76, 0.3));
     border-radius: 8px;
-    background: #fff;
+    background: var(--bg-panel, #ebe3d3);
     overflow: hidden;
   }
 
   .log-header {
     width: 100%;
-    padding: 8px 12px;
-    font-size: 0.85rem;
+    padding: 5px 10px;
+    font-family: var(--font-display, 'Cinzel', serif);
+    font-size: 0.75rem;
     font-weight: 600;
-    color: #4a3728;
-    background: #faf8f5;
+    color: var(--text-primary, #2c1e12);
+    background: transparent;
     border: none;
     cursor: pointer;
     text-align: left;
   }
 
   .log-header:hover {
-    background: #f0ece6;
+    background: #e5daca;
   }
 
   .log-entries {
     max-height: 200px;
     overflow-y: auto;
-    border-top: 1px solid #eee;
+    border-top: 1px solid var(--border-gold, rgba(201, 168, 76, 0.3));
   }
 
   .log-entry {
     padding: 4px 12px;
     font-size: 0.8rem;
-    color: #555;
-    border-bottom: 1px solid #f5f5f5;
+    color: var(--text-secondary, #6b5744);
+    border-bottom: 1px solid rgba(201, 168, 76, 0.15);
   }
 
   .log-entry:last-child {

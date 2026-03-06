@@ -1,8 +1,44 @@
 :root {
-  font-family: system-ui, -apple-system, sans-serif;
+  /* Typography */
+  --font-display: 'Cinzel', serif;
+  --font-body: 'Cormorant Garamond', serif;
+
+  /* Backgrounds */
+  --bg-parchment: #f5ede0;
+  --bg-panel: #ebe3d3;
+  --bg-deep: #2c1e12;
+
+  /* Text */
+  --text-primary: #2c1e12;
+  --text-secondary: #6b5744;
+  --text-tertiary: #9a8775;
+  --text-on-dark: #f5ede0;
+
+  /* Accents */
+  --accent-gold: #c9a84c;
+  --accent-crimson: #8b2020;
+  --accent-blue: #2b4a7c;
+  --accent-green: #3a6b3a;
+
+  /* Borders */
+  --border-gold: rgba(201, 168, 76, 0.3);
+  --border-gold-medium: rgba(201, 168, 76, 0.5);
+  --border-gold-strong: rgba(201, 168, 76, 0.8);
+
+  /* Card dimensions (5:7 ratio) */
+  --card-width: 120px;
+  --card-height: 168px;
+
+  /* Shadows */
+  --shadow-card: 0 2px 8px rgba(44, 30, 18, 0.2);
+  --shadow-card-hover: 0 8px 20px rgba(44, 30, 18, 0.3);
+  --shadow-card-selected: 0 0 12px rgba(201, 168, 76, 0.6), 0 0 24px rgba(201, 168, 76, 0.3);
+  --shadow-panel: 0 2px 12px rgba(44, 30, 18, 0.1);
+
+  font-family: var(--font-body);
   line-height: 1.5;
-  color: #1a1a1a;
-  background-color: #f5f0e8;
+  color: var(--text-primary);
+  background-color: var(--bg-parchment);
 }
 
 * {
@@ -13,6 +49,8 @@
 
 body {
   min-height: 100vh;
+  background: var(--bg-parchment);
+  background-image: radial-gradient(ellipse at 50% 0%, rgba(201, 168, 76, 0.06) 0%, transparent 70%);
 }
 
 #app {
@@ -23,19 +61,62 @@ body {
 
 button {
   cursor: pointer;
-  border: 2px solid #333;
+  border: 2px solid var(--border-gold-medium);
   border-radius: 6px;
   padding: 0.5rem 1rem;
   font-size: 1rem;
-  background: #fff;
-  transition: background 0.15s;
+  font-family: var(--font-body);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
 }
 
 button:hover {
-  background: #e8e0d0;
+  background: #e0d6c3;
 }
 
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+input, select {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--text-primary);
+  border: 2px solid var(--border-gold);
+  border-radius: 6px;
+  padding: 6px 10px;
+  background: #fff;
+}
+
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--accent-gold);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-panel);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-gold-medium);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-gold);
 }

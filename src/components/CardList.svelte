@@ -25,20 +25,20 @@
 <style>
   .card-list {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     overflow-x: auto;
-    padding: 8px 4px;
+    padding: 4px 2px;
     min-height: 176px;
     align-items: flex-start;
   }
 
   .empty {
-    color: #999;
+    color: var(--text-tertiary, #9a8775);
     font-style: italic;
     display: flex;
     align-items: center;
     justify-content: center;
     width: 100%;
-    min-height: 160px;
+    min-height: 168px;
   }
 </style>

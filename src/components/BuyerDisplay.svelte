@@ -28,29 +28,37 @@
 
 <style>
   .buyer-display {
-    padding: 8px 0;
+    padding: 4px 0;
   }
 
   .section-title {
-    font-size: 0.85rem;
-    color: #4a3728;
+    font-family: var(--font-display, 'Cinzel', serif);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-primary, #2c1e12);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
     margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border-gold, rgba(201, 168, 76, 0.3));
     text-align: left;
   }
 
   .buyer-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    padding: 4px;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 2px;
   }
 
   .buyer-grid :global(.card) {
     width: auto;
+    aspect-ratio: 5 / 7;
+    height: auto;
   }
 
   .empty {
-    color: #999;
+    color: var(--text-tertiary, #9a8775);
     font-style: italic;
     padding: 20px;
   }
