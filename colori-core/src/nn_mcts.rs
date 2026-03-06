@@ -95,10 +95,11 @@ struct PuctNode {
     value_sum: f32,
     children: Vec<PuctNode>,
     is_expanded: bool,
+    player: usize,
 }
 
 impl PuctNode {
-    fn new(action: usize, prior: f32) -> Self {
+    fn new(action: usize, prior: f32, player: usize) -> Self {
         PuctNode {
             action,
             prior,
@@ -106,6 +107,7 @@ impl PuctNode {
             value_sum: 0.0,
             children: Vec::new(),
             is_expanded: false,
+            player,
         }
     }
 
@@ -144,6 +146,14 @@ fn best_legal_child_idx(
     best_idx
 }
 
+fn current_player_of(state: &GameState) -> usize {
+    match &state.phase {
+        GamePhase::Draft { draft_state } => draft_state.current_player_index,
+        GamePhase::Action { action_state } => action_state.current_player_index,
+        _ => 0,
+    }
+}
+
 /// Run neural network MCTS to select an action.
 /// Returns the chosen AtomicChoice.
 pub fn nn_mcts<R: Rng>(
@@ -154,7 +164,7 @@ pub fn nn_mcts<R: Rng>(
     known_draft_hands: &Option<Vec<Vec<CardInstance>>>,
     rng: &mut R,
 ) -> AtomicChoice {
-    let mut root = PuctNode::new(0, 1.0);
+    let mut root = PuctNode::new(0, 1.0, player_index);
 
     // Get initial policy from network
     let mut obs = [0.0f32; OBS_SIZE];
@@ -166,7 +176,7 @@ pub fn nn_mcts<R: Rng>(
 
     // Expand root
     let legal_actions = enumerate_atomic_choices(state);
-    expand_node(&mut root, &legal_actions, &policy);
+    expand_node(&mut root, &legal_actions, &policy, player_index);
 
     // Cache scores for determinization
     let mut cached_scores = [0u32; MAX_PLAYERS];
@@ -209,11 +219,7 @@ pub fn nn_mcts<R: Rng>(
             let rewards = crate::scoring::compute_terminal_rewards(&det_state.players);
             (rewards[player_index] * 2.0 - 1.0) as f32
         } else {
-            let current_player = match &det_state.phase {
-                GamePhase::Draft { draft_state } => draft_state.current_player_index,
-                GamePhase::Action { action_state } => action_state.current_player_index,
-                _ => 0,
-            };
+            let current_player = current_player_of(&det_state);
 
             let mut obs_leaf = [0.0f32; OBS_SIZE];
             let mut mask_leaf = [0.0f32; NUM_ATOMIC_ACTIONS];
@@ -222,9 +228,11 @@ pub fn nn_mcts<R: Rng>(
 
             let (leaf_policy, leaf_value) = model.predict(&obs_leaf, &mask_leaf);
 
-            // Expand
-            let leaf_actions = enumerate_atomic_choices(&det_state);
-            expand_node(current, &leaf_actions, &leaf_policy);
+            // Expand (guard against double expansion from different determinizations)
+            if !current.is_expanded {
+                let leaf_actions = enumerate_atomic_choices(&det_state);
+                expand_node(current, &leaf_actions, &leaf_policy, current_player);
+            }
 
             // Adjust value to searching player's perspective
             if current_player != player_index {
@@ -234,14 +242,14 @@ pub fn nn_mcts<R: Rng>(
             }
         };
 
-        // Backpropagate
+        // Backpropagate (negate value at opponent nodes)
         root.visit_count += 1;
-        root.value_sum += value;
+        root.value_sum += if root.player == player_index { value } else { -value };
         let mut node = &mut root;
         for &idx in &node_path {
             node = &mut node.children[idx];
             node.visit_count += 1;
-            node.value_sum += value;
+            node.value_sum += if node.player == player_index { value } else { -value };
         }
 
         // Reset determinized state for next simulation
@@ -265,6 +273,7 @@ fn expand_node(
     node: &mut PuctNode,
     legal_actions: &[AtomicChoice],
     policy: &[f32; NUM_ATOMIC_ACTIONS],
+    child_player: usize,
 ) {
     node.is_expanded = true;
     let total_prior: f32 = legal_actions
@@ -279,7 +288,7 @@ fn expand_node(
         } else {
             1.0 / legal_actions.len() as f32
         };
-        node.children.push(PuctNode::new(idx, prior));
+        node.children.push(PuctNode::new(idx, prior, child_player));
     }
 }
 
@@ -289,7 +298,7 @@ mod tests {
 
     #[test]
     fn test_puct_node_basics() {
-        let mut node = PuctNode::new(0, 0.5);
+        let mut node = PuctNode::new(0, 0.5, 0);
         assert_eq!(node.q_value(), 0.0);
         assert!(!node.is_expanded);
 
