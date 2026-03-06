@@ -28,9 +28,13 @@ def main():
     parser.add_argument("--epochs", type=int, default=NUM_EPOCHS)
     parser.add_argument("--checkpoint-dir", type=str, default=CHECKPOINT_DIR)
     parser.add_argument("--resume", type=str, default=None, help="Path to checkpoint to resume from")
+    parser.add_argument("--device", type=str, default=None, help="Device to use (cpu, cuda, mps). Auto-detects if not set.")
+    parser.add_argument("--workers", type=int, default=None, help="Number of parallel worker processes for CPU self-play. Defaults to cpu count. Use 0 to force batched mode.")
     args = parser.parse_args()
 
-    if torch.cuda.is_available():
+    if args.device:
+        device = torch.device(args.device)
+    elif torch.cuda.is_available():
         device = torch.device("cuda")
     elif torch.backends.mps.is_available():
         device = torch.device("mps")
@@ -58,7 +62,7 @@ def main():
         # Self-play (batched GPU inference)
         print(f"Generating {args.games} self-play games ({args.simulations} sims/move)...")
         model.eval()
-        samples = generate_games(model, device, args.games, args.simulations)
+        samples = generate_games(model, device, args.games, args.simulations, num_workers=args.workers)
         replay_buffer.add_batch(samples)
         print(f"  Generated {len(samples)} samples, buffer size: {len(replay_buffer)}")
 

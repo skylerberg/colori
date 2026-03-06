@@ -1,10 +1,101 @@
+import os
 import numpy as np
 import colori_python as cp
 from config import NUM_ACTIONS, NUM_PLAYERS, TEMPERATURE_THRESHOLD, CONCURRENT_GAMES
-from mcts import BatchedMCTS
+from mcts import MCTS, BatchedMCTS
+from multiprocessing import Pool
 
 
-def generate_games(model, device, num_games, num_simulations):
+_worker_mcts = None
+
+
+def _init_worker(model_state_dict, num_simulations):
+    """Initialize worker process with its own model instance."""
+    global _worker_mcts
+    import torch
+    torch.set_num_threads(1)
+    from model import ColoriNet
+    model = ColoriNet()
+    model.load_state_dict(model_state_dict)
+    model.eval()
+    _worker_mcts = MCTS(model, num_simulations, torch.device("cpu"))
+
+
+def _play_single_game_worker(seed):
+    """Play one game in a worker process. Returns list of training samples."""
+    game = cp.PyGameState(NUM_PLAYERS, int(seed))
+    game.advance_draw_phase()
+    trajectory = []
+    step = 0
+
+    while not game.is_terminal():
+        player = game.get_current_player()
+        visit_dist = _worker_mcts.search(game, player, add_noise=True)
+
+        obs = game.get_observation(player).copy()
+        legal_mask = game.get_legal_mask().copy()
+        trajectory.append((obs, legal_mask, visit_dist.copy(), player))
+
+        if step < TEMPERATURE_THRESHOLD:
+            total = visit_dist.sum()
+            if total > 0:
+                probs = visit_dist / total
+                action = np.random.choice(NUM_ACTIONS, p=probs)
+            else:
+                action = np.random.choice(game.get_legal_actions())
+        else:
+            action = int(np.argmax(visit_dist))
+
+        game.apply_action(action)
+        step += 1
+
+        if game.is_draw_phase():
+            game.advance_draw_phase()
+
+    rewards = game.get_rewards()
+    samples = []
+    for obs, legal_mask, policy, player_idx in trajectory:
+        value = rewards[player_idx] * 2 - 1
+        samples.append((obs, legal_mask, policy, value))
+
+    return samples
+
+
+def generate_games(model, device, num_games, num_simulations, num_workers=None):
+    """Generate self-play games.
+
+    Uses multiprocessing on CPU, batched inference on GPU.
+    """
+    if device.type == "cpu" and num_workers != 0:
+        return _generate_games_parallel(model, num_games, num_simulations, num_workers)
+    return _generate_games_batched(model, device, num_games, num_simulations)
+
+
+def _generate_games_parallel(model, num_games, num_simulations, num_workers=None):
+    """Generate self-play games using multiprocessing on CPU."""
+    from tqdm import tqdm
+
+    if num_workers is None:
+        num_workers = os.cpu_count() or 1
+
+    model_state_dict = model.state_dict()
+    seeds = [int(np.random.randint(0, 2**32)) for _ in range(num_games)]
+
+    all_samples = []
+    with Pool(
+        processes=num_workers,
+        initializer=_init_worker,
+        initargs=(model_state_dict, num_simulations),
+    ) as pool:
+        with tqdm(total=num_games, desc="Self-play", unit="game") as pbar:
+            for samples in pool.imap_unordered(_play_single_game_worker, seeds):
+                all_samples.extend(samples)
+                pbar.update(1)
+
+    return all_samples
+
+
+def _generate_games_batched(model, device, num_games, num_simulations):
     """Generate self-play games with batched GPU inference.
 
     Runs CONCURRENT_GAMES games simultaneously so leaf evaluations can be

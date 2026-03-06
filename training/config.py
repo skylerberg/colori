@@ -24,7 +24,7 @@ NUM_EPOCHS = 10
 REPLAY_BUFFER_SIZE = 100_000
 
 # Self-play
-GAMES_PER_ITERATION = 100
+GAMES_PER_ITERATION = 20
 NUM_ITERATIONS = 100
 CHECKPOINT_DIR = "checkpoints"
-CONCURRENT_GAMES = 128  # number of games to run in parallel for batched GPU inference
+CONCURRENT_GAMES = 1  # number of games to run in parallel for batched GPU inference
