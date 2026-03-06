@@ -1,6 +1,6 @@
 use crate::atomic::{
-    apply_atomic_choice, atomic_choice_to_index, enumerate_atomic_choices, index_to_atomic_choice,
-    AtomicChoice, NUM_ATOMIC_ACTIONS,
+    apply_atomic_choice, atomic_choice_to_index, enumerate_atomic_choices,
+    enumerate_atomic_legal_mask, index_to_atomic_choice, AtomicChoice, NUM_ATOMIC_ACTIONS,
 };
 use crate::colori_game::determinize_in_place;
 use crate::encoding::{encode_legal_mask, encode_observation, OBS_SIZE};
@@ -122,18 +122,26 @@ impl PuctNode {
             + c_puct * self.prior * (parent_visits as f32).sqrt() / (1 + self.visit_count) as f32
     }
 
-    fn best_child_idx(&self, c_puct: f32) -> usize {
-        let mut best_score = f32::NEG_INFINITY;
-        let mut best_idx = 0;
-        for (i, child) in self.children.iter().enumerate() {
-            let score = child.ucb_score(self.visit_count, c_puct);
-            if score > best_score {
-                best_score = score;
-                best_idx = i;
-            }
+}
+
+fn best_legal_child_idx(
+    node: &PuctNode,
+    legal_mask: &[bool; NUM_ATOMIC_ACTIONS],
+    c_puct: f32,
+) -> Option<usize> {
+    let mut best_score = f32::NEG_INFINITY;
+    let mut best_idx = None;
+    for (i, child) in node.children.iter().enumerate() {
+        if !legal_mask[child.action] {
+            continue;
         }
-        best_idx
+        let score = child.ucb_score(node.visit_count, c_puct);
+        if score > best_score {
+            best_score = score;
+            best_idx = Some(i);
+        }
     }
+    best_idx
 }
 
 /// Run neural network MCTS to select an action.
@@ -182,9 +190,13 @@ pub fn nn_mcts<R: Rng>(
         let mut node_path: Vec<usize> = Vec::new();
         let mut current = &mut root;
 
-        // Select
+        // Select (filter children by legality in this determinization)
         while current.is_expanded && !current.children.is_empty() {
-            let idx = current.best_child_idx(config.c_puct);
+            let legal_mask = enumerate_atomic_legal_mask(&det_state);
+            let idx = match best_legal_child_idx(current, &legal_mask, config.c_puct) {
+                Some(idx) => idx,
+                None => break, // No children legal in this determinization; treat as leaf
+            };
             node_path.push(idx);
             let action_idx = current.children[idx].action;
             let choice = index_to_atomic_choice(action_idx);
