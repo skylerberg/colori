@@ -108,6 +108,26 @@
 
 <div class="color-wheel-container" class:hidden>
     <svg width={size} height={size} viewBox="0 0 256 256" fill="none">
+      <!-- Filled color regions (behind strokes) -->
+      <!-- Inner ring: primaries -->
+      <path d="M 92.68 53.92 A 82 82 0 0 1 175.23 61.43 C 167.13 77.91 163.95 92.81 167.29 109.96 L 127.36 129.67 L 92.28 108.76 C 104.97 92.97 103.93 75.85 92.68 53.92 Z" fill="#e63946" />
+      <path d="M 127.36 129.67 L 167.29 109.96 C 172.12 129.99 186.94 142.29 206.61 147.99 A 82 82 0 0 1 165.72 200.2 C 156.42 185.38 143.41 173.81 127.36 173.81 Z" fill="#f2e205" />
+      <path d="M 127.36 129.67 L 127.36 173.81 C 111.47 173.81 98.54 182.04 86.81 198.76 A 82 82 0 0 1 46.15 126.82 C 66.13 124.41 80.07 121.06 92.28 108.76 Z" fill="#3b82f6" />
+      <!-- Secondary lobes: crescent shapes between curved dividers and inner circle -->
+      <!-- Orange: lobe between Red and Yellow (path 119 curve + circle arc back) -->
+      <path d="M 175.23 61.43 C 167.13 77.91 163.95 92.81 167.29 109.96 C 172.12 129.99 186.94 142.29 206.61 147.99 A 82 82 0 0 0 175.23 61.43 Z" fill="#f4a261" />
+      <!-- Purple: lobe between Red and Blue (path 120 curve + circle arc back) -->
+      <path d="M 92.68 53.92 C 103.93 75.85 104.97 92.97 92.28 108.76 C 80.07 121.06 66.13 124.41 46.15 126.82 A 82 82 0 0 1 92.68 53.92 Z" fill="#a855f7" />
+      <!-- Green: lobe between Yellow and Blue (path 123 curve + circle arc back) -->
+      <path d="M 86.81 198.76 C 98.54 182.04 111.47 173.81 127.36 173.81 C 143.41 173.81 156.42 185.38 165.72 200.2 A 82 82 0 0 1 86.81 198.76 Z" fill="#2ecc71" />
+      <!-- Outer ring: tertiaries -->
+      <path d="M 127.44 6.74 A 122 122 0 0 1 245.67 97.13 L 204.48 99.46 A 82 82 0 0 0 127.44 46.22 Z" fill="#e76f51" />
+      <path d="M 245.67 97.13 A 122 122 0 0 1 222.29 203.86 L 188.73 183.32 A 82 82 0 0 0 204.48 99.46 Z" fill="#e9c46a" />
+      <path d="M 222.29 203.86 A 122 122 0 0 1 127.44 249.67 L 127.44 210.02 A 82 82 0 0 0 188.73 183.32 Z" fill="#a7c957" />
+      <path d="M 127.44 249.67 A 122 122 0 0 1 25.71 195.17 L 58.95 172.61 A 82 82 0 0 0 127.44 210.02 Z" fill="#219ebc" />
+      <path d="M 25.71 195.17 A 122 122 0 0 1 23.62 63.57 L 59.44 82.91 A 82 82 0 0 0 58.95 172.61 Z" fill="#6366f1" />
+      <path d="M 23.62 63.57 A 122 122 0 0 1 127.44 6.74 L 127.44 46.22 A 82 82 0 0 0 59.44 82.91 Z" fill="#d63384" />
+      <!-- Stroke paths (hand-drawn lines) -->
       <path d="M 127.68,6.41 C 60.93,6.41 6,60.96 6,128.42 C 6,195.61 60.69,250 127.44,250 C 194.69,250 249.72,195.45 249.72,128.42 C 249.72,61.23 195.29,6.41 127.68,6.41 Z" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
       <path d="M 127.44,6.74 V 46.22" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
       <path d="M 245.67,97.13 L 204.48,99.46" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
