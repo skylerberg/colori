@@ -9,11 +9,12 @@ Colori is a strategic deck-building card game for 2-5 players about dyeing mater
 
 ## Project Structure
 
-Rust workspace with 3 crates plus a Svelte frontend:
+Rust workspace with 4 crates plus a Svelte frontend:
 
 - `colori-core/` — Core game engine library: game logic, phases, cards, colors, AI (MCTS)
 - `colori-wasm/` — WASM bindings exposing Rust engine to the browser via wasm-bindgen (JSON serialization for state passing)
 - `colori-runner/` — CLI tool for batch game simulation and benchmarking
+- `colori-gui/` — Desktop GUI for game log analysis (egui/eframe)
 - `src/` — Svelte 5 + TypeScript frontend
   - `src/components/` — UI components (game screen, draft/action views, card display, multiplayer screens)
   - `src/data/` — TypeScript type definitions and game data (mirrors Rust types)
@@ -38,7 +39,7 @@ Rust workspace with 3 crates plus a Svelte frontend:
 
 ## Architecture Notes
 
-- Game state flows through phases: Draw → Draft → Action → Cleanup (repeats up to 10 rounds or until a player reaches 15+ points)
+- Game state flows through phases: Draw → Draft → Action → Game Over (repeats up to 10 rounds or until a player reaches 15+ points)
 - All game logic lives in Rust (`colori-core`); other crates and the frontend consume it through bindings
 - AI uses Information Set MCTS (for imperfect information)
 - Frontend runs AI in Web Workers; draft picks are precomputed for responsiveness
