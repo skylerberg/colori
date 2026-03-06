@@ -10,6 +10,7 @@ use ort::session::Session;
 use rand::Rng;
 use std::path::Path;
 
+#[derive(Clone)]
 pub struct NnMctsConfig {
     pub simulations: u32,
     pub c_puct: f32,

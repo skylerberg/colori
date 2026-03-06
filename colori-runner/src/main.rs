@@ -7,6 +7,11 @@ use colori_core::setup::create_initial_game_state;
 use colori_core::types::*;
 use colori_core::unordered_cards::{set_buyer_registry, set_card_registry};
 
+#[cfg(feature = "nn-ai")]
+use colori_core::atomic::apply_atomic_choice;
+#[cfg(feature = "nn-ai")]
+use colori_core::nn_mcts::{nn_mcts, NnMctsConfig, NnModel};
+
 use rand::seq::SliceRandom;
 use rand::RngExt;
 use rand::SeedableRng;
@@ -26,33 +31,73 @@ struct Args {
 }
 
 #[derive(Clone)]
+enum AiConfig {
+    Ismcts(MctsConfig),
+    #[cfg(feature = "nn-ai")]
+    NnMcts(NnMctsConfig),
+}
+
+#[derive(Clone)]
 struct NamedVariant {
     name: Option<String>,
-    ai: MctsConfig,
+    ai: AiConfig,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 struct VariantFileEntry {
     name: Option<String>,
+    #[serde(default)]
+    algorithm: Option<String>,
     #[serde(default)]
     iterations: Option<u32>,
     #[serde(default)]
     exploration_constant: Option<f64>,
     #[serde(default)]
     max_rollout_steps: Option<u32>,
+    #[serde(default)]
+    model_path: Option<String>,
+    #[serde(default)]
+    simulations: Option<u32>,
+    #[serde(default)]
+    c_puct: Option<f64>,
 }
 
 impl VariantFileEntry {
     fn into_named_variant(self) -> NamedVariant {
-        let defaults = MctsConfig::default();
-        NamedVariant {
-            name: self.name,
-            ai: MctsConfig {
-                iterations: self.iterations.unwrap_or(defaults.iterations),
-                exploration_constant: self.exploration_constant.unwrap_or(defaults.exploration_constant),
-                max_rollout_steps: self.max_rollout_steps.unwrap_or(defaults.max_rollout_steps),
-            },
+        let algorithm = self.algorithm.as_deref().unwrap_or("ismcts");
+        match algorithm {
+            "nn-mcts" => {
+                #[cfg(feature = "nn-ai")]
+                {
+                    let defaults = NnMctsConfig::default();
+                    let model_path = self.model_path.expect("nn-mcts variant requires 'modelPath'");
+                    NamedVariant {
+                        name: self.name,
+                        ai: AiConfig::NnMcts(NnMctsConfig {
+                            simulations: self.simulations.unwrap_or(defaults.simulations),
+                            c_puct: self.c_puct.map(|v| v as f32).unwrap_or(defaults.c_puct),
+                            model_path,
+                        }),
+                    }
+                }
+                #[cfg(not(feature = "nn-ai"))]
+                {
+                    panic!("nn-mcts algorithm requires the 'nn-ai' feature. Build with: cargo build --features nn-ai");
+                }
+            }
+            _ => {
+                let defaults = MctsConfig::default();
+                NamedVariant {
+                    name: self.name,
+                    ai: AiConfig::Ismcts(MctsConfig {
+                        iterations: self.iterations.unwrap_or(defaults.iterations),
+                        exploration_constant: self.exploration_constant.unwrap_or(defaults.exploration_constant),
+                        max_rollout_steps: self.max_rollout_steps.unwrap_or(defaults.max_rollout_steps),
+                    }),
+                }
+            }
         }
     }
 }
@@ -94,7 +139,7 @@ fn parse_args() -> Args {
                             let iters: u32 = s.trim().parse().expect("Invalid --variants value");
                             NamedVariant {
                                 name: None,
-                                ai: MctsConfig { iterations: iters, ..MctsConfig::default() },
+                                ai: AiConfig::Ismcts(MctsConfig { iterations: iters, ..MctsConfig::default() }),
                             }
                         })
                         .collect(),
@@ -196,20 +241,32 @@ fn format_variant_label(variant: &NamedVariant, differing: &DifferingFields) -> 
     if let Some(name) = &variant.name {
         return name.clone();
     }
-    let mut parts = Vec::new();
-    if differing.iterations_differs {
-        parts.push(format_iterations(variant.ai.iterations));
+    match &variant.ai {
+        AiConfig::Ismcts(config) => {
+            let mut parts = Vec::new();
+            if differing.iterations_differs {
+                parts.push(format_iterations(config.iterations));
+            }
+            if differing.exploration_constant_differs {
+                parts.push(format!("c={:.2}", config.exploration_constant));
+            }
+            if differing.max_rollout_steps_differs {
+                parts.push(format!("rollout={}", config.max_rollout_steps));
+            }
+            if parts.is_empty() {
+                parts.push(format_iterations(config.iterations));
+            }
+            parts.join(", ")
+        }
+        #[cfg(feature = "nn-ai")]
+        AiConfig::NnMcts(config) => {
+            let model_name = std::path::Path::new(&config.model_path)
+                .file_name()
+                .map(|f| f.to_string_lossy().to_string())
+                .unwrap_or_else(|| config.model_path.clone());
+            format!("nn-mcts ({})", model_name)
+        }
     }
-    if differing.exploration_constant_differs {
-        parts.push(format!("c={:.2}", variant.ai.exploration_constant));
-    }
-    if differing.max_rollout_steps_differs {
-        parts.push(format!("rollout={}", variant.ai.max_rollout_steps));
-    }
-    if parts.is_empty() {
-        parts.push(format_iterations(variant.ai.iterations));
-    }
-    parts.join(", ")
 }
 
 struct DifferingFields {
@@ -226,11 +283,27 @@ fn compute_differing_fields(variants: &[NamedVariant]) -> DifferingFields {
             max_rollout_steps_differs: false,
         };
     }
-    let first = &variants[0].ai;
+    // Only compare ISMCTS variants among themselves
+    let ismcts_configs: Vec<&MctsConfig> = variants.iter().filter_map(|v| {
+        match &v.ai {
+            AiConfig::Ismcts(c) => Some(c),
+            #[cfg(feature = "nn-ai")]
+            AiConfig::NnMcts(_) => None,
+        }
+    }).collect();
+
+    if ismcts_configs.len() <= 1 {
+        return DifferingFields {
+            iterations_differs: false,
+            exploration_constant_differs: false,
+            max_rollout_steps_differs: false,
+        };
+    }
+    let first = ismcts_configs[0];
     DifferingFields {
-        iterations_differs: variants.iter().any(|v| v.ai.iterations != first.iterations),
-        exploration_constant_differs: variants.iter().any(|v| v.ai.exploration_constant != first.exploration_constant),
-        max_rollout_steps_differs: variants.iter().any(|v| v.ai.max_rollout_steps != first.max_rollout_steps),
+        iterations_differs: ismcts_configs.iter().any(|c| c.iterations != first.iterations),
+        exploration_constant_differs: ismcts_configs.iter().any(|c| c.exploration_constant != first.exploration_constant),
+        max_rollout_steps_differs: ismcts_configs.iter().any(|c| c.max_rollout_steps != first.max_rollout_steps),
     }
 }
 
@@ -241,8 +314,50 @@ fn has_any_difference(variants: &[NamedVariant]) -> bool {
     if variants.iter().any(|v| v.name.is_some()) {
         return true;
     }
+    // Different algorithm types means there's a difference
+    let has_ismcts = variants.iter().any(|v| matches!(&v.ai, AiConfig::Ismcts(_)));
+    #[cfg(feature = "nn-ai")]
+    let has_nn = variants.iter().any(|v| matches!(&v.ai, AiConfig::NnMcts(_)));
+    #[cfg(not(feature = "nn-ai"))]
+    let has_nn = false;
+    if has_ismcts && has_nn {
+        return true;
+    }
     let diff = compute_differing_fields(variants);
     diff.iterations_differs || diff.exploration_constant_differs || diff.max_rollout_steps_differs
+}
+
+fn variant_to_player_variant(variant: &NamedVariant) -> PlayerVariant {
+    let defaults = MctsConfig::default();
+    match &variant.ai {
+        AiConfig::Ismcts(config) => PlayerVariant {
+            name: variant.name.clone(),
+            algorithm: Some("ucb".to_string()),
+            iterations: config.iterations,
+            exploration_constant: if config.exploration_constant != defaults.exploration_constant {
+                Some(config.exploration_constant)
+            } else {
+                None
+            },
+            max_rollout_steps: if config.max_rollout_steps != defaults.max_rollout_steps {
+                Some(config.max_rollout_steps)
+            } else {
+                None
+            },
+            model_path: None,
+            c_puct: None,
+        },
+        #[cfg(feature = "nn-ai")]
+        AiConfig::NnMcts(config) => PlayerVariant {
+            name: variant.name.clone(),
+            algorithm: Some("nn-mcts".to_string()),
+            iterations: config.simulations,
+            exploration_constant: None,
+            max_rollout_steps: None,
+            model_path: Some(config.model_path.clone()),
+            c_puct: Some(config.c_puct as f64),
+        },
+    }
 }
 
 // ── Game loop ──
@@ -252,6 +367,7 @@ fn run_game(
     player_variants: &[NamedVariant],
     note: Option<String>,
     rng: &mut WyRand,
+    #[cfg(feature = "nn-ai")] nn_models: &mut std::collections::HashMap<String, NnModel>,
 ) -> GameRunOutput {
     let start = Instant::now();
     let num_players = player_variants.len();
@@ -284,6 +400,12 @@ fn run_game(
     let mut entries: Vec<StructuredLogEntry> = Vec::new();
     let mut seq: u32 = 0;
 
+    // Check if any variant uses NN-MCTS (skip per-move logging for those games)
+    #[cfg(feature = "nn-ai")]
+    let any_nn = shuffled_variants.iter().any(|v| matches!(&v.ai, AiConfig::NnMcts(_)));
+    #[cfg(not(feature = "nn-ai"))]
+    let any_nn = false;
+
     // Main game loop
     while !matches!(state.phase, GamePhase::GameOver) {
         let (player_index, phase_str) = match &state.phase {
@@ -299,20 +421,53 @@ fn run_game(
             GamePhase::GameOver => break,
         };
 
-        let max_rollout_round = std::cmp::max(8, state.round + 2);
-        let choice = ismcts(&state, player_index, &shuffled_variants[player_index].ai, &None, Some(max_rollout_round), rng);
+        match &shuffled_variants[player_index].ai {
+            AiConfig::Ismcts(config) => {
+                let max_rollout_round = std::cmp::max(8, state.round + 2);
+                let choice = ismcts(&state, player_index, config, &None, Some(max_rollout_round), rng);
 
-        seq += 1;
-        entries.push(StructuredLogEntry {
-            seq,
-            timestamp: now_epoch_millis(),
-            round: state.round,
-            phase: phase_str.to_string(),
-            player_index,
-            choice: choice.clone(),
-        });
+                if !any_nn {
+                    seq += 1;
+                    entries.push(StructuredLogEntry {
+                        seq,
+                        timestamp: now_epoch_millis(),
+                        round: state.round,
+                        phase: phase_str.to_string(),
+                        player_index,
+                        choice: choice.clone(),
+                    });
+                }
 
-        apply_choice_to_state(&mut state, &choice, rng);
+                apply_choice_to_state(&mut state, &choice, rng);
+            }
+            #[cfg(feature = "nn-ai")]
+            AiConfig::NnMcts(config) => {
+                let model = nn_models.get_mut(&config.model_path)
+                    .expect("NnModel not loaded for model_path");
+
+                // NN-MCTS returns one atomic choice at a time.
+                // Keep calling until the current player's turn ends.
+                loop {
+                    let choice = nn_mcts(&state, player_index, model, config, &None, rng);
+                    apply_atomic_choice(&mut state, &choice, rng);
+
+                    // Check if the current player's turn has ended
+                    match &state.phase {
+                        GamePhase::GameOver | GamePhase::Draw => break,
+                        GamePhase::Draft { draft_state } => {
+                            if draft_state.current_player_index != player_index {
+                                break;
+                            }
+                        }
+                        GamePhase::Action { action_state } => {
+                            if action_state.current_player_index != player_index {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     let game_ended_at = Some(now_epoch_secs_string());
@@ -351,33 +506,22 @@ fn run_game(
 
     let duration_ms = Some(start.elapsed().as_millis() as u64);
 
-    let defaults = MctsConfig::default();
     let (log_iterations, log_player_variants) = if has_variants {
         (
             None,
             Some(
                 shuffled_variants
                     .iter()
-                    .map(|v| PlayerVariant {
-                        name: v.name.clone(),
-                        algorithm: Some("ucb".to_string()),
-                        iterations: v.ai.iterations,
-                        exploration_constant: if v.ai.exploration_constant != defaults.exploration_constant {
-                            Some(v.ai.exploration_constant)
-                        } else {
-                            None
-                        },
-                        max_rollout_steps: if v.ai.max_rollout_steps != defaults.max_rollout_steps {
-                            Some(v.ai.max_rollout_steps)
-                        } else {
-                            None
-                        },
-                    })
+                    .map(|v| variant_to_player_variant(v))
                     .collect(),
             ),
         )
     } else {
-        (Some(shuffled_variants[0].ai.iterations), None)
+        match &shuffled_variants[0].ai {
+            AiConfig::Ismcts(config) => (Some(config.iterations), None),
+            #[cfg(feature = "nn-ai")]
+            AiConfig::NnMcts(config) => (Some(config.simulations), None),
+        }
     };
 
     GameRunOutput {
@@ -425,11 +569,31 @@ fn main() {
     } else {
         eprintln!(
             "Running {} games with {} players, {} ISMCTS iterations, {} threads",
-            args.games, num_players, player_variants[0].ai.iterations, args.threads
+            args.games, num_players,
+            match &player_variants[0].ai {
+                AiConfig::Ismcts(c) => c.iterations,
+                #[cfg(feature = "nn-ai")]
+                AiConfig::NnMcts(c) => c.simulations,
+            },
+            args.threads
         );
     }
 
     std::fs::create_dir_all(&args.output).expect("Failed to create output directory");
+
+    // Collect unique NN model paths that need loading
+    #[cfg(feature = "nn-ai")]
+    let nn_model_paths: Vec<String> = {
+        let mut paths = Vec::new();
+        for v in player_variants {
+            if let AiConfig::NnMcts(config) = &v.ai {
+                if !paths.contains(&config.model_path) {
+                    paths.push(config.model_path.clone());
+                }
+            }
+        }
+        paths
+    };
 
     let batch_id = generate_batch_id();
     let completed = AtomicUsize::new(0);
@@ -449,10 +613,33 @@ fn main() {
             let count = games_per_thread + if t < remainder { 1 } else { 0 };
             let completed = &completed;
 
+            #[cfg(feature = "nn-ai")]
+            let nn_model_paths = &nn_model_paths;
+
             handles.push(s.spawn(move || {
                 let mut rng = WyRand::from_rng(&mut rand::rng());
+
+                // Each thread loads its own NnModel instances (Session::run needs &mut self)
+                #[cfg(feature = "nn-ai")]
+                let mut nn_models: std::collections::HashMap<String, NnModel> = {
+                    let mut map = std::collections::HashMap::new();
+                    for path in nn_model_paths {
+                        let model = NnModel::load(std::path::Path::new(path))
+                            .unwrap_or_else(|e| panic!("Failed to load ONNX model {}: {}", path, e));
+                        map.insert(path.clone(), model);
+                    }
+                    map
+                };
+
                 for _i in 0..count {
-                    let log = run_game(0, player_variants, note.clone(), &mut rng);
+                    let log = run_game(
+                        0,
+                        player_variants,
+                        note.clone(),
+                        &mut rng,
+                        #[cfg(feature = "nn-ai")]
+                        &mut nn_models,
+                    );
                     set_card_registry(&log.initial_state.card_lookup);
                     set_buyer_registry(&log.initial_state.buyer_lookup);
                     let epoch_millis = now_epoch_millis();
