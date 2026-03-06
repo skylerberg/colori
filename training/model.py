@@ -69,7 +69,6 @@ class ColoriNet(nn.Module):
 
     def predict(self, obs, legal_mask):
         """Single-sample inference without gradients."""
-        self.eval()
         with torch.no_grad():
             if obs.dim() == 1:
                 obs = obs.unsqueeze(0)
@@ -77,4 +76,20 @@ class ColoriNet(nn.Module):
             log_policy, value = self(obs, legal_mask)
             policy = torch.exp(log_policy).squeeze(0)
             value = value.squeeze(0).item()
-        return policy.cpu().numpy(), value
+        return policy.numpy(), value
+
+    def predict_batch(self, obs_batch, mask_batch):
+        """Batched inference without gradients. Returns numpy arrays.
+
+        Args:
+            obs_batch: [N, OBS_SIZE] tensor on model's device
+            mask_batch: [N, NUM_ACTIONS] tensor on model's device
+        Returns:
+            policies: [N, NUM_ACTIONS] numpy array of probabilities
+            values: [N] numpy array of scalar values
+        """
+        with torch.no_grad():
+            log_policy, value = self(obs_batch, mask_batch)
+            policies = torch.exp(log_policy).cpu().numpy()
+            values = value.squeeze(-1).cpu().numpy()
+        return policies, values

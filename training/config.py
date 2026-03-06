@@ -9,7 +9,7 @@ HIDDEN_SIZE = 256
 NUM_RES_BLOCKS = 8
 
 # MCTS
-NUM_SIMULATIONS = 200
+NUM_SIMULATIONS = 1000
 C_PUCT = 1.5
 TEMPERATURE_THRESHOLD = 30  # steps after which temperature drops to near-zero
 DIRICHLET_ALPHA = 0.3
@@ -27,3 +27,4 @@ REPLAY_BUFFER_SIZE = 100_000
 GAMES_PER_ITERATION = 100
 NUM_ITERATIONS = 100
 CHECKPOINT_DIR = "checkpoints"
+CONCURRENT_GAMES = 128  # number of games to run in parallel for batched GPU inference

@@ -30,7 +30,12 @@ def main():
     parser.add_argument("--resume", type=str, default=None, help="Path to checkpoint to resume from")
     args = parser.parse_args()
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
     print(f"Using device: {device}")
 
     model = ColoriNet().to(device)
@@ -50,13 +55,15 @@ def main():
     for iteration in range(start_iteration, args.iterations):
         print(f"\n=== Iteration {iteration} ===")
 
-        # Self-play
+        # Self-play (batched GPU inference)
         print(f"Generating {args.games} self-play games ({args.simulations} sims/move)...")
+        model.eval()
         samples = generate_games(model, device, args.games, args.simulations)
         replay_buffer.add_batch(samples)
         print(f"  Generated {len(samples)} samples, buffer size: {len(replay_buffer)}")
 
-        # Training
+        # Training (on GPU)
+        model.train()
         print(f"Training for {args.epochs} epochs...")
         for epoch in range(args.epochs):
             policy_loss, value_loss = train_epoch(model, optimizer, replay_buffer, device)
