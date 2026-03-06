@@ -36,9 +36,9 @@
 
 <style>
   .card {
-    width: var(--card-width, 140px);
-    height: var(--card-height, 196px);
-    border: 2px solid var(--border-gold-medium, rgba(201, 168, 76, 0.5));
+    width: var(--card-width, 220px);
+    height: var(--card-height, 308px);
+    border: none;
     border-radius: 6px;
     padding: 0;
     background-color: #1a1a1a;

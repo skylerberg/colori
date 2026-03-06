@@ -26,8 +26,8 @@
   --border-gold-strong: rgba(201, 168, 76, 0.8);
 
   /* Card dimensions (5:7 ratio) */
-  --card-width: 120px;
-  --card-height: 168px;
+  --card-width: 125px;
+  --card-height: 175px;
 
   /* Shadows */
   --shadow-card: 0 2px 8px rgba(44, 30, 18, 0.2);

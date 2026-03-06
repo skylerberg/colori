@@ -12,7 +12,7 @@
 
 <div class="buyer-display">
   <h3 class="section-title">Buyer Display</h3>
-  <div class="buyer-grid">
+  <div class="buyer-row">
     {#each buyers as buyer (buyer.instanceId)}
       <CardDisplay
         card={buyer.card}
@@ -28,38 +28,34 @@
 
 <style>
   .buyer-display {
-    padding: 4px 0;
+    background: rgba(20, 15, 10, 0.75);
+    border: 1px solid rgba(201, 168, 76, 0.4);
+    border-radius: 8px;
+    padding: 0.75rem;
   }
 
   .section-title {
-    font-family: var(--font-display, 'Cinzel', serif);
-    font-size: 0.75rem;
+    font-family: 'Cinzel', serif;
+    font-size: 0.85rem;
     font-weight: 600;
-    color: var(--text-primary, #2c1e12);
+    color: #c9a84c;
     text-transform: uppercase;
-    letter-spacing: 1.5px;
-    margin-bottom: 6px;
-    padding-bottom: 4px;
-    border-bottom: 1px solid var(--border-gold, rgba(201, 168, 76, 0.3));
-    text-align: left;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.5rem;
   }
 
-  .buyer-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 6px;
+  .buyer-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
     padding: 2px;
-  }
-
-  .buyer-grid :global(.card) {
-    width: auto;
-    aspect-ratio: 5 / 7;
-    height: auto;
+    overflow-y: auto;
   }
 
   .empty {
-    color: var(--text-tertiary, #9a8775);
+    color: #9a8775;
     font-style: italic;
     padding: 20px;
+    text-align: center;
   }
 </style>

@@ -44,6 +44,31 @@
     outer: 0.045,
   };
 
+  // Compute label positions using polar coordinates from wheel center
+  const WC = 128; // wheel center in 256 viewBox
+  const LABEL_RADIUS = { primary: 48, secondary: 70, tertiary: 100 };
+  const COLOR_LABEL: Record<string, { angle: number; ring: 'primary' | 'secondary' | 'tertiary' }> = {
+    'Red': { angle: 0, ring: 'primary' },
+    'Yellow': { angle: 120, ring: 'primary' },
+    'Blue': { angle: 240, ring: 'primary' },
+    'Orange': { angle: 60, ring: 'secondary' },
+    'Green': { angle: 180, ring: 'secondary' },
+    'Purple': { angle: 300, ring: 'secondary' },
+    'Vermilion': { angle: 30, ring: 'tertiary' },
+    'Amber': { angle: 90, ring: 'tertiary' },
+    'Chartreuse': { angle: 150, ring: 'tertiary' },
+    'Teal': { angle: 210, ring: 'tertiary' },
+    'Indigo': { angle: 270, ring: 'tertiary' },
+    'Magenta': { angle: 330, ring: 'tertiary' },
+  };
+
+  function labelXY(color: string): [number, number] {
+    const info = COLOR_LABEL[color];
+    const r = LABEL_RADIUS[info.ring];
+    const rad = (info.angle * Math.PI) / 180;
+    return [WC + r * Math.sin(rad), WC - r * Math.cos(rad)];
+  }
+
   let { wheel, interactive = false, onColorClick, selectedColors = [], size = 200, hidden = false }: {
     wheel: Record<Color, number>;
     interactive?: boolean;
@@ -141,6 +166,38 @@
       <path d="M 92.28,108.76 L 127.36,129.67 L 167.61,112.1" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
       <path d="M 127.36,129.67 L 128.4,173.81" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
       <path d="M 86.81,198.76 C 98.54,182.04 111.47,173.81 127.36,173.81 C 143.41,173.81 156.42,185.38 165.72,200.2" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
+      <!-- Interactive hit targets (invisible, on top of strokes) -->
+      {#if interactive}
+        {#each WORKSHOP_WHEEL_REGIONS as region}
+          <path
+            d={region.path}
+            fill="transparent"
+            class:clickable={interactive && wheel[region.color] > 0}
+            class:selected={isSelected(region.color)}
+            onclick={() => handleClick(region.color)}
+          />
+        {/each}
+      {/if}
+      <!-- Color count labels -->
+      {#each WORKSHOP_WHEEL_REGIONS as region, i}
+        {@const count = wheel[region.color]}
+        {@const [cx, cy] = labelXY(region.color)}
+        {@const hex = colorToHex(region.color)}
+        {@const textColor = textColorForBackground(hex)}
+        {@const countSize = i < 3 ? 22 : i < 6 ? 14 : 13}
+        <text
+          x={cx}
+          y={cy}
+          text-anchor="middle"
+          dominant-baseline="central"
+          fill={textColor}
+          font-size={countSize}
+          font-weight="700"
+          font-family="Cinzel, serif"
+          opacity={count > 0 ? 1 : 0.25}
+          style="pointer-events: none;"
+        >{count}</text>
+      {/each}
     </svg>
 </div>
 
@@ -159,6 +216,10 @@
   }
 
   path.clickable:hover {
-    filter: brightness(1.2);
+    fill: rgba(255, 255, 255, 0.15);
+  }
+
+  path.selected {
+    fill: rgba(201, 168, 76, 0.3);
   }
 </style>

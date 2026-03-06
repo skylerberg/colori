@@ -10,8 +10,6 @@
   import GameLayout from './GameLayout.svelte';
   import DraftPhaseView from './DraftPhaseView.svelte';
   import ActionPhaseView from './ActionPhaseView.svelte';
-  import CardList from './CardList.svelte';
-  import OpponentBoardPanel from './OpponentBoardPanel.svelte';
 
   let { role, hostController, guestController, onGameOver, gameStartTime, onLeaveGame }: {
     role: 'host' | 'guest';
@@ -69,6 +67,19 @@
   );
 
   let isMyTurn = $derived(activePlayerIndex === myPlayerIndex);
+
+  let selectedPlayerIndex = $state(0);
+
+  // Initialize selectedPlayerIndex to myPlayerIndex when it becomes available
+  $effect(() => {
+    if (myPlayerIndex >= 0) {
+      selectedPlayerIndex = myPlayerIndex;
+    }
+  });
+
+  function selectPlayer(index: number) {
+    selectedPlayerIndex = index;
+  }
 
   let myPlayer = $derived(
     gameState && myPlayerIndex >= 0 ? gameState.players[myPlayerIndex] : null
@@ -200,34 +211,12 @@
 </script>
 
 {#if gameState}
-  <GameLayout {gameState} {activePlayerIndex} {aiThinking} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} sidebarPlayer={myPlayer}>
+  <GameLayout {gameState} {activePlayerIndex} {aiThinking} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} {selectedPlayerIndex} onSelectPlayer={selectPlayer}>
     {#if !isMyTurn && !aiThinking && gameState.phase.type === 'action'}
       <div class="waiting-banner">
         <div class="spinner"></div>
         <p>Waiting for {gameState.playerNames[activePlayerIndex] ?? 'other player'}...</p>
       </div>
-      {#if myPlayer}
-        <div class="readonly-cards">
-          <div class="section">
-            <h3>Your Workshop</h3>
-            <CardList cards={myPlayer.workshopCards} />
-          </div>
-          <div class="section">
-            <h3>Your Drafted Cards</h3>
-            <CardList cards={myPlayer.draftedCards} />
-          </div>
-        </div>
-        <div class="opponents-section">
-          <h3>Other Players</h3>
-          <div class="opponents-list">
-            {#each gameState.players as player, i}
-              {#if i !== myPlayerIndex}
-                <OpponentBoardPanel {player} playerName={gameState.playerNames[i]} />
-              {/if}
-            {/each}
-          </div>
-        </div>
-      {/if}
     {/if}
 
     {#if gameState.phase.type === 'draft'}
@@ -250,7 +239,7 @@
     gap: 12px;
     justify-content: center;
     padding: 12px;
-    color: #2a6bcf;
+    color: #c9a84c;
     font-weight: 600;
   }
 
@@ -259,48 +248,11 @@
     margin: 0;
   }
 
-  .readonly-cards {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .section {
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 10px 12px;
-    background: #fff;
-    text-align: left;
-  }
-
-  .section h3 {
-    font-size: 0.85rem;
-    color: #4a3728;
-    margin-bottom: 6px;
-  }
-
-  .opponents-section {
-    border-top: 2px solid #e0e0e0;
-    padding-top: 1rem;
-  }
-
-  .opponents-section h3 {
-    font-size: 0.85rem;
-    color: #888;
-    margin-bottom: 8px;
-  }
-
-  .opponents-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
   .spinner {
     width: 40px;
     height: 40px;
-    border: 4px solid #e0d5c5;
-    border-top-color: #e67e22;
+    border: 4px solid rgba(201, 168, 76, 0.3);
+    border-top-color: #c9a84c;
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
