@@ -776,6 +776,7 @@ dependencies = [
  "rand 0.10.0",
  "serde",
  "serde_json",
+ "smallvec",
  "wyrand",
 ]
 

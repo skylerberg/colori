@@ -8,9 +8,11 @@ use colori_core::types::*;
 use colori_core::unordered_cards::{set_buyer_registry, set_card_registry};
 
 #[cfg(feature = "nn-ai")]
-use colori_core::atomic::apply_atomic_choice;
+use colori_core::atomic::{apply_atomic_choice, AtomicChoice};
 #[cfg(feature = "nn-ai")]
 use colori_core::nn_mcts::{nn_mcts, NnMctsConfig, NnModel};
+#[cfg(feature = "nn-ai")]
+use smallvec::smallvec;
 
 use rand::seq::SliceRandom;
 use rand::RngExt;
@@ -400,12 +402,6 @@ fn run_game(
     let mut entries: Vec<StructuredLogEntry> = Vec::new();
     let mut seq: u32 = 0;
 
-    // Check if any variant uses NN-MCTS (skip per-move logging for those games)
-    #[cfg(feature = "nn-ai")]
-    let any_nn = shuffled_variants.iter().any(|v| matches!(&v.ai, AiConfig::NnMcts(_)));
-    #[cfg(not(feature = "nn-ai"))]
-    let any_nn = false;
-
     // Main game loop
     while !matches!(state.phase, GamePhase::GameOver) {
         let (player_index, phase_str) = match &state.phase {
@@ -426,17 +422,15 @@ fn run_game(
                 let max_rollout_round = std::cmp::max(8, state.round + 2);
                 let choice = ismcts(&state, player_index, config, &None, Some(max_rollout_round), rng);
 
-                if !any_nn {
-                    seq += 1;
-                    entries.push(StructuredLogEntry {
-                        seq,
-                        timestamp: now_epoch_millis(),
-                        round: state.round,
-                        phase: phase_str.to_string(),
-                        player_index,
-                        choice: choice.clone(),
-                    });
-                }
+                seq += 1;
+                entries.push(StructuredLogEntry {
+                    seq,
+                    timestamp: now_epoch_millis(),
+                    round: state.round,
+                    phase: phase_str.to_string(),
+                    player_index,
+                    choice: choice.clone(),
+                });
 
                 apply_choice_to_state(&mut state, &choice, rng);
             }
@@ -448,7 +442,40 @@ fn run_game(
                 // NN-MCTS returns one atomic choice at a time.
                 // Keep calling until the current player's turn ends.
                 loop {
+                    let phase_str = match &state.phase {
+                        GamePhase::Draft { .. } => "draft",
+                        GamePhase::Action { .. } => "action",
+                        _ => "other",
+                    };
                     let choice = nn_mcts(&state, player_index, model, config, &None, rng);
+
+                    let log_choice: Option<Choice> = match &choice {
+                        AtomicChoice::DraftPick(card) => Some(Choice::DraftPick { card: *card }),
+                        AtomicChoice::DestroyDraftedCard(card) => Some(Choice::DestroyDraftedCard { card: *card }),
+                        AtomicChoice::EndTurn => Some(Choice::EndTurn),
+                        AtomicChoice::SelectBuyer(buyer) => Some(Choice::SelectBuyer { buyer: *buyer }),
+                        AtomicChoice::MixPair(a, b) => Some(Choice::MixAll { mixes: smallvec![(*a, *b)] }),
+                        AtomicChoice::WorkshopCard(card) => Some(Choice::Workshop { card_types: smallvec![*card] }),
+                        AtomicChoice::SkipWorkshop => Some(Choice::SkipWorkshop),
+                        AtomicChoice::DestroyTarget(card) => Some(Choice::DestroyAndDestroyCards { card: *card, target: None }),
+                        AtomicChoice::GainSecondary(color) => Some(Choice::GainSecondary { color: *color }),
+                        AtomicChoice::GainPrimary(color) => Some(Choice::GainPrimary { color: *color }),
+                        AtomicChoice::SwapTertiary { lose, gain } => Some(Choice::SwapTertiary { lose: *lose, gain: *gain }),
+                        AtomicChoice::SkipMix | AtomicChoice::SkipDestroy | AtomicChoice::SkipSwap => None,
+                    };
+
+                    if let Some(choice) = log_choice {
+                        seq += 1;
+                        entries.push(StructuredLogEntry {
+                            seq,
+                            timestamp: now_epoch_millis(),
+                            round: state.round,
+                            phase: phase_str.to_string(),
+                            player_index,
+                            choice,
+                        });
+                    }
+
                     apply_atomic_choice(&mut state, &choice, rng);
 
                     // Check if the current player's turn has ended
