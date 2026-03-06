@@ -261,41 +261,23 @@
   });
 </script>
 
-<GameLayout {gameState} {activePlayerIndex} {aiThinking} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} sidebarPlayer={selectedPlayer ?? null} {selectedPlayerIndex} onSelectPlayer={selectPlayer} {aiError} onRetryAI={() => { aiError = null; }}>
+<GameLayout {gameState} {activePlayerIndex} {aiThinking} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} {selectedPlayerIndex} onSelectPlayer={selectPlayer} {aiError} onRetryAI={() => { aiError = null; }} hidePlayerCards={isViewingActiveHuman && gameState.phase.type === 'action'}>
   {#if gameState.phase.type === 'draft'}
     {#if isViewingActiveHuman}
       <DraftPhaseView {gameState} onAction={handleAction} playerIndex={humanPlayerIndex} selectable={!submittedDraftPicks.has(humanPlayerIndex)} />
     {:else}
-      <div class="readonly-cards">
-        <div class="section-box">
-          <h3>Drafted Cards</h3>
-          <CardList cards={selectedPlayer.draftedCards} />
-        </div>
-        <div class="section-box">
-          <h3>Workshop</h3>
-          <CardList cards={selectedPlayer.workshopCards} />
-        </div>
+      <div class="waiting-indicator">
+        <span class="waiting-spinner"></span>
+        <span class="waiting-text">Waiting...</span>
       </div>
     {/if}
   {:else if gameState.phase.type === 'action'}
     {#if isViewingActiveHuman}
       <ActionPhaseView {gameState} onAction={handleAction} onUndo={performUndo} undoAvailable={undoStack.length > 0} />
     {:else}
-      <div class="readonly-cards">
-        <div class="section-box">
-          <h3>Drafted Cards</h3>
-          <CardList cards={selectedPlayer.draftedCards} />
-        </div>
-        <div class="section-box">
-          <h3>Workshop</h3>
-          <CardList cards={selectedPlayer.workshopCards} />
-        </div>
-        {#if selectedPlayer.completedBuyers.length > 0}
-          <div class="section-box">
-            <h3>Completed Buyers</h3>
-            <CardList cards={selectedPlayer.completedBuyers} />
-          </div>
-        {/if}
+      <div class="waiting-indicator">
+        <span class="waiting-spinner"></span>
+        <span class="waiting-text">Waiting...</span>
       </div>
     {/if}
   {/if}
@@ -305,21 +287,52 @@
   .readonly-cards {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
-    margin-top: 1rem;
+    gap: 0.5rem;
   }
 
   .section-box {
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 10px 12px;
-    background: #fff;
+    border: 1px solid rgba(201, 168, 76, 0.4);
+    border-radius: 6px;
+    padding: 6px 8px;
+    background: rgba(20, 15, 10, 0.6);
     text-align: left;
   }
 
   .section-box h3 {
-    font-size: 0.85rem;
-    color: #4a3728;
-    margin-bottom: 6px;
+    font-family: var(--font-display, 'Cinzel', serif);
+    font-size: 0.75rem;
+    color: #c9a84c;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+
+  .waiting-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 2rem 0;
+  }
+
+  .waiting-text {
+    font-family: 'Cinzel', serif;
+    font-size: 1rem;
+    color: rgba(245, 237, 224, 0.6);
+    letter-spacing: 0.1em;
+  }
+
+  .waiting-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(201, 168, 76, 0.3);
+    border-top-color: #c9a84c;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
   }
 </style>

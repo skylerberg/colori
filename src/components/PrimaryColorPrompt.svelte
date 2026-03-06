@@ -31,8 +31,9 @@
   }
 
   h3 {
-    font-size: 0.95rem;
-    color: #4a3728;
+    font-family: var(--font-display, 'Cinzel', serif);
+    font-size: 0.9rem;
+    color: var(--text-primary, #2c1e12);
     text-align: left;
   }
 

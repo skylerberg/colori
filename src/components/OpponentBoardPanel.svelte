@@ -37,7 +37,7 @@
       <div class="compact-row">
         <div class="color-wheel-section">
           <h4>Color Wheel</h4>
-          <ColorWheelDisplay wheel={player.colorWheel} size={120} />
+          <ColorWheelDisplay wheel={player.colorWheel} size={150} />
         </div>
 
         <div class="materials-section">
@@ -75,9 +75,9 @@
 
 <style>
   .opponent-panel {
-    border: 1px solid #ccc;
+    border: 1px solid var(--border-gold, rgba(201, 168, 76, 0.3));
     border-radius: 8px;
-    background: #fafafa;
+    background: var(--bg-panel, #ebe3d3);
     overflow: hidden;
   }
 
@@ -86,27 +86,28 @@
     align-items: center;
     gap: 12px;
     width: 100%;
-    padding: 8px 12px;
+    padding: 6px 10px;
     background: none;
     border: none;
     cursor: pointer;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     text-align: left;
   }
 
   .panel-header:hover {
-    background: #f0f0f0;
+    background: #e5daca;
   }
 
   .player-name {
-    font-weight: 700;
-    color: #4a3728;
+    font-family: var(--font-display, 'Cinzel', serif);
+    font-weight: 600;
+    color: var(--text-primary, #2c1e12);
   }
 
   .header-stats {
     display: flex;
     gap: 10px;
-    color: #666;
+    color: var(--text-secondary, #6b5744);
     font-size: 0.75rem;
   }
 
@@ -116,7 +117,7 @@
     height: 0;
     border-left: 5px solid transparent;
     border-right: 5px solid transparent;
-    border-top: 5px solid #999;
+    border-top: 5px solid var(--text-tertiary, #9a8775);
     transition: transform 0.2s;
   }
 
@@ -125,11 +126,13 @@
   }
 
   .panel-content {
-    padding: 8px 12px 12px;
+    padding: 6px 10px 10px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    border-top: 1px solid #e0e0e0;
+    gap: 6px;
+    border-top: 1px solid var(--border-gold, rgba(201, 168, 76, 0.3));
+    --card-width: 80px;
+    --card-height: 112px;
   }
 
   .compact-row {
@@ -146,8 +149,11 @@
   }
 
   h4 {
-    font-size: 0.75rem;
-    color: #4a3728;
+    font-family: var(--font-display, 'Cinzel', serif);
+    font-size: 0.7rem;
+    color: var(--text-primary, #2c1e12);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
     margin: 0 0 4px;
   }
 
@@ -156,7 +162,7 @@
     flex-direction: column;
     gap: 2px;
     font-size: 0.75rem;
-    color: #8b6914;
+    color: var(--accent-gold, #c9a84c);
   }
 
   .material-count {
@@ -165,7 +171,7 @@
 
   .ducats-count {
     font-size: 0.75rem;
-    color: #d4a017;
+    color: var(--accent-gold, #c9a84c);
     font-weight: 600;
     margin-top: 4px;
   }

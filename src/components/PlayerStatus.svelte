@@ -37,12 +37,12 @@
   .player-status {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding: 8px 12px;
-    border: 2px solid #ccc;
-    border-radius: 8px;
-    background: #fff;
-    min-width: 140px;
+    gap: 1px;
+    padding: 5px 10px;
+    border: 2px solid var(--border-gold, rgba(201, 168, 76, 0.3));
+    border-radius: 6px;
+    background: var(--bg-panel, #ebe3d3);
+    min-width: 120px;
     cursor: pointer;
     text-align: left;
     font-family: inherit;
@@ -50,26 +50,27 @@
   }
 
   .player-status:hover {
-    border-color: #aaa;
-    background: #fafafa;
+    border-color: var(--border-gold-medium, rgba(201, 168, 76, 0.5));
+    background: #e5daca;
   }
 
   .player-status.selected {
-    border-color: #2a6bcf;
-    background: #eef3ff;
-    box-shadow: 0 0 8px rgba(42, 107, 207, 0.3);
+    border-color: var(--accent-gold, #c9a84c);
+    background: rgba(201, 168, 76, 0.1);
+    box-shadow: 0 0 8px rgba(201, 168, 76, 0.3);
   }
 
   .player-name {
-    font-weight: 700;
-    font-size: 0.9rem;
+    font-family: var(--font-display, 'Cinzel', serif);
+    font-weight: 600;
+    font-size: 0.8rem;
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
   }
 
   .active .player-name {
-    color: #2a6bcf;
+    color: var(--accent-gold, #c9a84c);
   }
 
   .turn-dot {
@@ -77,16 +78,16 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #2a6bcf;
+    background: var(--accent-gold, #c9a84c);
     flex-shrink: 0;
   }
 
   .stats {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    font-size: 0.7rem;
-    color: #666;
+    gap: 4px 6px;
+    font-size: 0.65rem;
+    color: var(--text-secondary, #6b5744);
   }
 
   .stat {
@@ -96,8 +97,8 @@
   .ai-badge {
     font-size: 0.65rem;
     font-weight: 700;
-    background: #e67e22;
-    color: #fff;
+    background: var(--accent-crimson, #8b2020);
+    color: var(--text-on-dark, #f5ede0);
     padding: 1px 5px;
     border-radius: 4px;
     vertical-align: middle;
@@ -107,8 +108,8 @@
     display: inline-block;
     width: 12px;
     height: 12px;
-    border: 2px solid #e0d5c5;
-    border-top-color: #e67e22;
+    border: 2px solid var(--bg-panel, #ebe3d3);
+    border-top-color: var(--accent-gold, #c9a84c);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
     flex-shrink: 0;

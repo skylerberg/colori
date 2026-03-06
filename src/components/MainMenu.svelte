@@ -1,10 +1,11 @@
 <script lang="ts">
-  let { onLocalGame, onHostOnline, onJoinOnline, hasSavedGame, onResumeGame }: {
+  let { onLocalGame, onHostOnline, onJoinOnline, hasSavedGame, onResumeGame, onZoneEditor }: {
     onLocalGame: () => void;
     onHostOnline: () => void;
     onJoinOnline: () => void;
     hasSavedGame: boolean;
     onResumeGame: () => void;
+    onZoneEditor: () => void;
   } = $props();
 </script>
 
@@ -16,6 +17,7 @@
     <button class="menu-btn local-btn" onclick={onLocalGame}>Local Game</button>
     <button class="menu-btn online-btn" onclick={onHostOnline}>Host Online Game</button>
     <button class="menu-btn online-btn" onclick={onJoinOnline}>Join Online Game</button>
+    <button class="menu-btn editor-btn" onclick={onZoneEditor}>Zone Editor</button>
   </div>
 </div>
 
@@ -38,26 +40,34 @@
 
   .menu-btn {
     padding: 14px 24px;
-    font-size: 1.1rem;
-    font-weight: 700;
+    font-family: var(--font-display, 'Cinzel', serif);
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: 1.5px;
     border: none;
     border-radius: 8px;
     cursor: pointer;
     width: 100%;
+    transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+  }
+
+  .menu-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(44, 30, 18, 0.2);
   }
 
   .local-btn {
-    background: #2a6bcf;
-    color: #fff;
+    background: var(--bg-deep, #2c1e12);
+    color: var(--text-on-dark, #f5ede0);
   }
 
   .local-btn:hover {
-    background: #1e56a8;
+    background: #3a2a1e;
   }
 
   .online-btn {
-    background: #4a3728;
-    color: #fff;
+    background: var(--bg-deep, #2c1e12);
+    color: var(--text-on-dark, #f5ede0);
   }
 
   .online-btn:hover {
@@ -65,12 +75,20 @@
   }
 
   .resume-btn {
-    background: #d4a017;
-    color: #fff;
+    background: linear-gradient(135deg, #c9a84c, #e8d48b);
+    color: var(--bg-deep, #2c1e12);
   }
 
   .resume-btn:hover {
-    background: #b8890f;
+    background: linear-gradient(135deg, #b8960f, #d4c070);
   }
 
+  .editor-btn {
+    background: var(--text-tertiary, #9a8775);
+    color: var(--text-on-dark, #f5ede0);
+  }
+
+  .editor-btn:hover {
+    background: #8a7765;
+  }
 </style>

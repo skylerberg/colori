@@ -85,7 +85,7 @@
             <div class="compact-row">
               <div class="detail-section">
                 <h4>Color Wheel</h4>
-                <ColorWheelDisplay wheel={player.colorWheel} size={120} />
+                <ColorWheelDisplay wheel={player.colorWheel} size={150} />
               </div>
 
               <div class="detail-section">
@@ -137,23 +137,26 @@
   }
 
   h2 {
-    color: #4a3728;
+    font-family: var(--font-display, 'Cinzel', serif);
+    color: var(--text-primary, #2c1e12);
     font-size: 1.8rem;
   }
 
   .winner-banner {
+    font-family: var(--font-display, 'Cinzel', serif);
     font-size: 1.4rem;
     font-weight: 700;
-    color: #d4a017;
+    color: var(--accent-gold, #c9a84c);
     padding: 12px 24px;
-    border: 3px solid #d4a017;
+    border: 3px solid var(--accent-gold, #c9a84c);
     border-radius: 12px;
-    background: #fffde7;
+    background: rgba(201, 168, 76, 0.08);
+    letter-spacing: 1px;
   }
 
   .game-time {
     font-size: 1rem;
-    color: #666;
+    color: var(--text-secondary, #6b5744);
   }
 
   .scores-list {
@@ -164,15 +167,15 @@
   }
 
   .score-entry {
-    border: 2px solid #ddd;
+    border: 2px solid var(--border-gold, rgba(201, 168, 76, 0.3));
     border-radius: 8px;
-    background: #fff;
+    background: var(--bg-panel, #ebe3d3);
     overflow: hidden;
   }
 
   .score-entry.winner {
-    border-color: #d4a017;
-    background: #fffde7;
+    border-color: var(--accent-gold, #c9a84c);
+    background: rgba(201, 168, 76, 0.1);
   }
 
   .score-row {
@@ -189,28 +192,31 @@
   }
 
   .score-row:hover {
-    background: rgba(0, 0, 0, 0.03);
+    background: rgba(201, 168, 76, 0.06);
   }
 
   .rank {
+    font-family: var(--font-display, 'Cinzel', serif);
     font-weight: 700;
     font-size: 1rem;
-    color: #888;
+    color: var(--text-tertiary, #9a8775);
     min-width: 30px;
   }
 
   .winner .rank {
-    color: #d4a017;
+    color: var(--accent-gold, #c9a84c);
   }
 
   .name {
+    font-family: var(--font-display, 'Cinzel', serif);
     font-weight: 600;
     flex: 1;
     text-align: left;
   }
 
   .score {
-    color: #d4a017;
+    font-family: var(--font-display, 'Cinzel', serif);
+    color: var(--accent-gold, #c9a84c);
     font-weight: 600;
   }
 
@@ -219,7 +225,7 @@
     height: 0;
     border-left: 5px solid transparent;
     border-right: 5px solid transparent;
-    border-top: 5px solid #999;
+    border-top: 5px solid var(--text-tertiary, #9a8775);
     transition: transform 0.2s;
   }
 
@@ -232,7 +238,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    border-top: 1px solid #e0e0e0;
+    border-top: 1px solid var(--border-gold, rgba(201, 168, 76, 0.3));
   }
 
   .compact-row {
@@ -248,8 +254,11 @@
   }
 
   h4 {
-    font-size: 0.75rem;
-    color: #4a3728;
+    font-family: var(--font-display, 'Cinzel', serif);
+    font-size: 0.7rem;
+    color: var(--text-primary, #2c1e12);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
     margin: 0 0 4px;
   }
 
@@ -258,7 +267,7 @@
     flex-direction: column;
     gap: 2px;
     font-size: 0.75rem;
-    color: #8b6914;
+    color: var(--accent-gold, #c9a84c);
   }
 
   .material-count {
@@ -267,7 +276,7 @@
 
   .ducats-count {
     font-size: 0.75rem;
-    color: #d4a017;
+    color: var(--accent-gold, #c9a84c);
     font-weight: 600;
     margin-top: 4px;
   }
@@ -289,30 +298,37 @@
 
   .play-again-btn {
     padding: 12px 32px;
-    font-size: 1.1rem;
-    font-weight: 700;
-    background: #2a6bcf;
-    color: #fff;
+    font-family: var(--font-display, 'Cinzel', serif);
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    background: var(--bg-deep, #2c1e12);
+    color: var(--text-on-dark, #f5ede0);
     border: none;
     border-radius: 8px;
+    transition: background 0.2s, transform 0.2s;
   }
 
   .play-again-btn:hover {
-    background: #1e56a8;
+    background: #3a2a1e;
+    transform: translateY(-2px);
   }
 
   .download-btn {
     padding: 12px 24px;
-    font-size: 1rem;
+    font-family: var(--font-display, 'Cinzel', serif);
+    font-size: 0.95rem;
     font-weight: 600;
-    background: #666;
-    color: #fff;
+    letter-spacing: 1px;
+    background: var(--text-secondary, #6b5744);
+    color: var(--text-on-dark, #f5ede0);
     border: none;
     border-radius: 8px;
     cursor: pointer;
+    transition: background 0.2s;
   }
 
   .download-btn:hover {
-    background: #555;
+    background: var(--text-primary, #2c1e12);
   }
 </style>

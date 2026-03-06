@@ -53,27 +53,30 @@
   }
 
   h3 {
-    font-size: 0.95rem;
-    color: #4a3728;
+    font-family: var(--font-display, 'Cinzel', serif);
+    font-size: 0.9rem;
+    color: var(--text-primary, #2c1e12);
     text-align: left;
   }
 
   .confirm-btn {
     padding: 8px 20px;
+    font-family: var(--font-display, 'Cinzel', serif);
     font-weight: 600;
-    background: #2a6bcf;
-    color: #fff;
+    letter-spacing: 1px;
+    background: var(--bg-deep, #2c1e12);
+    color: var(--text-on-dark, #f5ede0);
     border: none;
     border-radius: 6px;
     align-self: flex-start;
   }
 
   .confirm-btn:hover:not(:disabled) {
-    background: #1e56a8;
+    background: #3a2a1e;
   }
 
   .confirm-btn:disabled {
-    background: #aaa;
+    opacity: 0.4;
     cursor: not-allowed;
   }
 </style>

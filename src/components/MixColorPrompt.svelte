@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { Color, Choice } from '../data/types';
-  import { canMix, mixResult, ALL_COLORS } from '../data/colors';
-  import ColorWheelDisplay from './ColorWheelDisplay.svelte';
+  import { canMix, mixResult } from '../data/colors';
+  import { mixWheelState } from '../stores/mixWheelState.svelte';
+  import { onDestroy } from 'svelte';
 
   let { colorWheel, remaining, onAction }: {
     colorWheel: Record<Color, number>;
@@ -11,16 +12,24 @@
 
   let plannedMixes: [Color, Color][] = $state([]);
   let selectedMixColors: Color[] = $state([]);
-
-  let simulatedWheel: Record<Color, number> = $state(
-    Object.fromEntries(ALL_COLORS.map(c => [c, 0])) as Record<Color, number>
-  );
+  let simulatedWheel: Record<Color, number> = $state({} as Record<Color, number>);
 
   // Sync simulatedWheel when colorWheel changes
   $effect(() => {
     simulatedWheel = { ...colorWheel };
     plannedMixes = [];
     selectedMixColors = [];
+  });
+
+  // Push state to the shared store so GameLayout's wheel becomes interactive
+  $effect(() => {
+    mixWheelState.simulatedWheel = simulatedWheel;
+    mixWheelState.selectedColors = selectedMixColors;
+    mixWheelState.onColorClick = handleMixColorClick;
+  });
+
+  onDestroy(() => {
+    mixWheelState.clear();
   });
 
   let mixRemaining = $derived(remaining - plannedMixes.length);
@@ -45,6 +54,7 @@
 
         // Auto-submit if all mixes used
         if (plannedMixes.length === remaining) {
+          mixWheelState.clear();
           onAction({ type: 'mixAll', mixes: plannedMixes });
         }
       } else {
@@ -54,6 +64,7 @@
   }
 
   function handleSkipMix() {
+    mixWheelState.clear();
     onAction({ type: 'mixAll', mixes: plannedMixes });
   }
 
@@ -75,14 +86,8 @@
 </script>
 
 <div class="prompt-section">
-  <h3>Mix Colors: Select two adjacent colors to mix ({mixRemaining} remaining)</h3>
-  <p class="hint">Mix two primary colors, or a primary and an adjacent secondary. They must each have at least 1 stored.</p>
-  <ColorWheelDisplay
-    wheel={simulatedWheel}
-    interactive={true}
-    onColorClick={handleMixColorClick}
-    selectedColors={selectedMixColors}
-  />
+  <h3>Mix Colors: Select two adjacent colors on the wheel ({mixRemaining} remaining)</h3>
+  <p class="hint">Click colors on the wheel to mix. Two adjacent colors with at least 1 stored each.</p>
   <div class="mix-actions">
     <button class="skip-btn" onclick={handleSkipMix}>
       {plannedMixes.length > 0 ? 'Submit Mixes' : 'Skip Remaining Mixes'}
@@ -101,14 +106,15 @@
   }
 
   h3 {
-    font-size: 0.95rem;
-    color: #4a3728;
+    font-family: var(--font-display, 'Cinzel', serif);
+    font-size: 0.9rem;
+    color: var(--text-primary, #2c1e12);
     text-align: left;
   }
 
   .hint {
     font-size: 0.8rem;
-    color: #888;
+    color: var(--text-tertiary, #9a8775);
     font-style: italic;
     text-align: left;
   }
@@ -116,14 +122,14 @@
   .skip-btn {
     padding: 8px 16px;
     font-size: 0.85rem;
-    background: #eee;
-    border: 1px solid #ccc;
+    background: var(--bg-panel, #ebe3d3);
+    border: 1px solid var(--border-gold, rgba(201, 168, 76, 0.3));
     border-radius: 6px;
     align-self: flex-start;
   }
 
   .skip-btn:hover {
-    background: #ddd;
+    background: #e0d6c3;
   }
 
   .mix-actions {

@@ -119,7 +119,8 @@
   }
 
   h2 {
-    color: #4a3728;
+    font-family: var(--font-display, 'Cinzel', serif);
+    color: var(--text-primary, #2c1e12);
     font-size: 1.5rem;
   }
 
@@ -143,17 +144,18 @@
   .count-btn {
     width: 48px;
     height: 48px;
+    font-family: var(--font-display, 'Cinzel', serif);
     font-size: 1.2rem;
     font-weight: 700;
     border-radius: 50%;
-    border: 2px solid #999;
-    background: #fff;
+    border: 2px solid var(--border-gold, rgba(201, 168, 76, 0.3));
+    background: var(--bg-panel, #ebe3d3);
   }
 
   .count-btn.active {
-    border-color: #2a6bcf;
-    background: #2a6bcf;
-    color: #fff;
+    border-color: var(--accent-gold, #c9a84c);
+    background: var(--accent-gold, #c9a84c);
+    color: var(--bg-deep, #2c1e12);
   }
 
   .names-section {
@@ -177,37 +179,37 @@
   .name-input-row input {
     flex: 1;
     padding: 6px 10px;
-    border: 2px solid #ccc;
+    border: 2px solid var(--border-gold, rgba(201, 168, 76, 0.3));
     border-radius: 6px;
     font-size: 0.9rem;
   }
 
   .name-input-row input:focus {
     outline: none;
-    border-color: #2a6bcf;
+    border-color: var(--accent-gold, #c9a84c);
   }
 
   .ai-toggle {
     padding: 6px 12px;
     font-size: 0.8rem;
     font-weight: 600;
-    border: 2px solid #999;
+    border: 2px solid var(--border-gold, rgba(201, 168, 76, 0.3));
     border-radius: 6px;
-    background: #fff;
+    background: var(--bg-panel, #ebe3d3);
     min-width: 64px;
     cursor: pointer;
   }
 
   .ai-toggle.ai-active {
-    border-color: #e67e22;
-    background: #e67e22;
-    color: #fff;
+    border-color: var(--accent-crimson, #8b2020);
+    background: var(--accent-crimson, #8b2020);
+    color: var(--text-on-dark, #f5ede0);
   }
 
   .difficulty-select {
     padding: 6px 8px;
     font-size: 0.8rem;
-    border: 2px solid #e67e22;
+    border: 2px solid var(--accent-crimson, #8b2020);
     border-radius: 6px;
     background: #fff;
     cursor: pointer;
@@ -215,15 +217,19 @@
 
   .start-btn {
     padding: 12px 24px;
-    font-size: 1.1rem;
-    font-weight: 700;
-    background: #2a6bcf;
-    color: #fff;
+    font-family: var(--font-display, 'Cinzel', serif);
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    background: var(--bg-deep, #2c1e12);
+    color: var(--text-on-dark, #f5ede0);
     border: none;
     border-radius: 8px;
+    transition: background 0.2s, transform 0.2s;
   }
 
   .start-btn:hover {
-    background: #1e56a8;
+    background: #3a2a1e;
+    transform: translateY(-2px);
   }
 </style>

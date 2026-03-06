@@ -2,7 +2,6 @@
   import type { GameState, Choice, Ability } from '../data/types';
   import CardList from './CardList.svelte';
   import AbilityPrompt from './AbilityPrompt.svelte';
-  import OpponentBoardPanel from './OpponentBoardPanel.svelte';
 
   let { gameState, onAction, onUndo, undoAvailable }: {
     gameState: GameState;
@@ -96,16 +95,14 @@
 
 {#if actionState && currentPlayer}
   <div class="action-phase">
-    <div class="action-header">
-      <h2>Action Phase - {gameState.playerNames[actionState.currentPlayerIndex]}'s Turn</h2>
-      <div class="queue-status">
-        {#if hasAbilitiesQueued}
-          <span class="queue-info">Abilities queued: {actionState.abilityStack.length}</span>
-        {/if}
-        {#if hasPendingChoice}
-          <span class="pending-info">Awaiting your choice...</span>
-        {/if}
-      </div>
+    <h2 class="phase-title">Action Phase - {gameState.playerNames[actionState.currentPlayerIndex]}'s Turn</h2>
+    <div class="queue-status">
+      {#if hasAbilitiesQueued}
+        <span class="queue-info">Abilities queued: {actionState.abilityStack.length}</span>
+      {/if}
+      {#if hasPendingChoice}
+        <span class="pending-info">Awaiting your choice...</span>
+      {/if}
     </div>
 
     {#if hasPendingChoice && !workshopPendingChoice}
@@ -153,18 +150,6 @@
           <CardList cards={currentPlayer.workshopCards} />
         {/if}
       </div>
-
-    </div>
-
-    <div class="opponents-section">
-      <h3>Other Players</h3>
-      <div class="opponents-list">
-        {#each gameState.players as player, i}
-          {#if i !== actionState.currentPlayerIndex}
-            <OpponentBoardPanel {player} playerName={gameState.playerNames[i]} />
-          {/if}
-        {/each}
-      </div>
     </div>
 
     <div class="action-footer">
@@ -186,17 +171,17 @@
   .action-phase {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.5rem;
   }
 
-  .action-header {
+  .phase-title {
+    font-family: 'Cinzel', serif;
+    color: #c9a84c;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
     text-align: center;
-  }
-
-  h2 {
-    color: #4a3728;
-    font-size: 1.3rem;
-    margin-bottom: 4px;
+    margin: 0;
   }
 
   .queue-status {
@@ -207,128 +192,121 @@
   }
 
   .queue-info {
-    color: #d4a017;
+    color: #c9a84c;
     font-weight: 600;
   }
 
   .pending-info {
-    color: #e63946;
+    color: #8b2020;
     font-weight: 600;
   }
 
   .sections {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.75rem;
   }
 
   .section {
-    border: 1px solid #ddd;
+    border: 1px solid rgba(201, 168, 76, 0.4);
     border-radius: 8px;
     padding: 10px 12px;
-    background: #fff;
+    background: rgba(20, 15, 10, 0.6);
     text-align: left;
   }
 
   .section h3 {
+    font-family: 'Cinzel', serif;
     font-size: 0.85rem;
-    color: #4a3728;
+    color: #c9a84c;
     margin-bottom: 6px;
   }
 
   .hint {
     font-size: 0.7rem;
-    color: #999;
+    color: rgba(245, 237, 224, 0.4);
     font-weight: 400;
   }
 
   .active-choice {
-    border-color: #d4a017;
+    border-color: #c9a84c;
     border-width: 2px;
-    background: #fffef0;
+    background: rgba(201, 168, 76, 0.1);
   }
 
   .confirm-btn {
     padding: 8px 20px;
+    font-family: 'Cinzel', serif;
     font-weight: 600;
-    background: #2a6bcf;
-    color: #fff;
+    background: rgba(42, 107, 207, 0.8);
+    color: #f5ede0;
     border: none;
     border-radius: 6px;
-    align-self: flex-start;
+    cursor: pointer;
+    margin-top: 6px;
+    margin-right: 6px;
   }
 
   .confirm-btn:hover {
-    background: #1e56a8;
+    background: rgba(30, 86, 168, 0.9);
   }
 
   .skip-btn {
-    background: #888;
+    background: rgba(100, 100, 100, 0.6);
   }
 
   .skip-btn:hover {
-    background: #666;
+    background: rgba(80, 80, 80, 0.8);
   }
 
   .action-footer {
     display: flex;
     justify-content: center;
     gap: 12px;
-    padding-top: 8px;
+    padding-top: 4px;
   }
 
   .undo-btn {
-    padding: 10px 24px;
-    font-size: 1.05rem;
-    font-weight: 700;
-    background: #888;
-    color: #fff;
-    border: none;
+    padding: 8px 20px;
+    font-family: 'Cinzel', serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    background: rgba(20, 15, 10, 0.6);
+    color: #c9a84c;
+    border: 1px solid rgba(201, 168, 76, 0.4);
     border-radius: 8px;
+    cursor: pointer;
   }
 
   .undo-btn:hover:not(:disabled) {
-    background: #666;
+    background: rgba(40, 30, 20, 0.8);
   }
 
   .undo-btn:disabled {
-    background: #ccc;
+    opacity: 0.4;
     cursor: not-allowed;
   }
 
   .end-turn-btn {
-    padding: 10px 32px;
-    font-size: 1.05rem;
-    font-weight: 700;
-    background: #c0392b;
-    color: #fff;
+    padding: 8px 28px;
+    font-family: 'Cinzel', serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    background: #8b2020;
+    color: #f5ede0;
     border: none;
     border-radius: 8px;
+    cursor: pointer;
   }
 
   .end-turn-btn:hover:not(:disabled) {
-    background: #a93226;
+    background: #6b1818;
   }
 
   .end-turn-btn:disabled {
-    background: #ccc;
+    opacity: 0.4;
     cursor: not-allowed;
-  }
-
-  .opponents-section {
-    border-top: 2px solid #e0e0e0;
-    padding-top: 1rem;
-  }
-
-  .opponents-section h3 {
-    font-size: 0.85rem;
-    color: #888;
-    margin-bottom: 8px;
-  }
-
-  .opponents-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
   }
 </style>
