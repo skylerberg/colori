@@ -43,7 +43,7 @@ jobs:
           bucket-region: ${{ vars.S3_BUCKET_REGION }}
           dist-id: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
           invalidation: /
-          delete-removed: true
+          delete-removed: false
           no-cache: true
           private: true
           files-to-include: '{.*/**,**}'
