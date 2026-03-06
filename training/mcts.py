@@ -6,9 +6,9 @@ from config import NUM_ACTIONS, C_PUCT, DIRICHLET_ALPHA, DIRICHLET_EPSILON
 
 
 class MCTSNode:
-    __slots__ = ["parent", "action", "prior", "visit_count", "value_sum", "children", "is_expanded"]
+    __slots__ = ["parent", "action", "prior", "visit_count", "value_sum", "children", "is_expanded", "player"]
 
-    def __init__(self, parent=None, action=None, prior=0.0):
+    def __init__(self, parent=None, action=None, prior=0.0, player=-1):
         self.parent = parent
         self.action = action
         self.prior = prior
@@ -16,6 +16,7 @@ class MCTSNode:
         self.value_sum = 0.0
         self.children = []
         self.is_expanded = False
+        self.player = player
 
     @property
     def q_value(self):
@@ -38,19 +39,19 @@ def _select_child(node):
     return best_child
 
 
-def _expand(node, legal_actions, policy):
+def _expand(node, legal_actions, policy, current_player):
     node.is_expanded = True
     total_prior = sum(policy[a] for a in legal_actions)
     for action in legal_actions:
         prior = policy[action] / total_prior if total_prior > 0 else 1.0 / len(legal_actions)
-        child = MCTSNode(parent=node, action=action, prior=prior)
+        child = MCTSNode(parent=node, action=action, prior=prior, player=current_player)
         node.children.append(child)
 
 
-def _backpropagate(node, value):
+def _backpropagate(node, value, searching_player):
     while node is not None:
         node.visit_count += 1
-        node.value_sum += value
+        node.value_sum += value if node.player == searching_player else -value
         node = node.parent
 
 
@@ -64,7 +65,7 @@ class MCTS:
 
     def search(self, game, player_index, add_noise=True):
         """Run MCTS from current game state, return visit count distribution."""
-        root = MCTSNode()
+        root = MCTSNode(player=player_index)
 
         obs = game.get_observation(player_index)
         legal_mask = game.get_legal_mask()
@@ -74,7 +75,7 @@ class MCTS:
         policy, _ = self.model.predict(obs_tensor, mask_tensor)
 
         legal_actions = game.get_legal_actions()
-        _expand(root, legal_actions, policy)
+        _expand(root, legal_actions, policy, player_index)
 
         if add_noise and len(root.children) > 0:
             noise = np.random.dirichlet([DIRICHLET_ALPHA] * len(root.children))
@@ -104,12 +105,12 @@ class MCTS:
                 policy, value = self.model.predict(obs_tensor, mask_tensor)
 
                 legal_actions = game_copy.get_legal_actions()
-                _expand(node, legal_actions, policy)
+                _expand(node, legal_actions, policy, current_player)
 
                 if current_player != player_index:
                     value = -value
 
-            _backpropagate(node, value)
+            _backpropagate(node, value, player_index)
 
         action_visits = np.zeros(NUM_ACTIONS, dtype=np.float32)
         for child in root.children:
@@ -140,7 +141,7 @@ class BatchedMCTS:
             list of visit count distributions (one per game)
         """
         n = len(games)
-        roots = [MCTSNode() for _ in range(n)]
+        roots = [MCTSNode(player=player_indices[i]) for i in range(n)]
 
         # Batch-evaluate root nodes
         obs_list = []
@@ -156,7 +157,7 @@ class BatchedMCTS:
         # Expand roots and add noise
         for i in range(n):
             legal_actions = games[i].get_legal_actions()
-            _expand(roots[i], legal_actions, policies[i])
+            _expand(roots[i], legal_actions, policies[i], player_indices[i])
             if add_noise and len(roots[i].children) > 0:
                 noise = np.random.dirichlet([DIRICHLET_ALPHA] * len(roots[i].children))
                 for child, nv in zip(roots[i].children, noise):
@@ -186,7 +187,7 @@ class BatchedMCTS:
                     # Handle terminal immediately
                     rewards = game_copy.get_rewards()
                     value = rewards[player_indices[i]] * 2 - 1
-                    _backpropagate(node, value)
+                    _backpropagate(node, value, player_indices[i])
                     terminal_indices.append(i)
                 else:
                     leaf_nodes.append(node)
@@ -216,13 +217,13 @@ class BatchedMCTS:
                 value = float(values[j])
 
                 legal_actions = game_copy.get_legal_actions()
-                _expand(node, legal_actions, policy)
+                _expand(node, legal_actions, policy, leaf_current_players[j])
 
                 # Adjust value to searching player's perspective
                 if leaf_current_players[j] != leaf_players[j]:
                     value = -value
 
-                _backpropagate(node, value)
+                _backpropagate(node, value, leaf_players[j])
 
         # Build visit distributions
         results = []
