@@ -7,7 +7,6 @@ use crate::action_phase::{
 use crate::colors::{pay_cost, perform_mix_unchecked, PRIMARIES, SECONDARIES, TERTIARIES, VALID_MIX_PAIRS};
 use crate::deck_utils::draw_from_deck;
 use crate::draft_phase::player_pick;
-use crate::rollout_policy::RolloutPolicy;
 use crate::types::*;
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
@@ -15,7 +14,7 @@ use rand::RngExt;
 
 // ── Rollout draw+draft shortcut ──
 
-fn rollout_draw_and_draft<R: Rng>(state: &mut GameState, _policy: Option<&RolloutPolicy>, rng: &mut R) {
+fn rollout_draw_and_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
     let num_players = state.players.len();
 
     // Step 1: Draw 5 cards from each player's personal deck
@@ -139,54 +138,26 @@ fn pick_random_affordable_buyer<R: Rng>(
 }
 
 #[inline(always)]
-fn handle_action_no_pending<R: Rng>(state: &mut GameState, player_index: usize, policy: Option<&RolloutPolicy>, rng: &mut R) {
-    // Select which drafted card to play
-    let card_id = if let Some(p) = policy {
-        let drafted = state.players[player_index].drafted_cards;
-        if drafted.is_empty() {
-            end_player_turn(state, rng);
-            if matches!(state.phase, GamePhase::Draw) {
-                rollout_draw_and_draft(state, policy, rng);
-            }
-            return;
+fn handle_action_no_pending<R: Rng>(state: &mut GameState, player_index: usize, rng: &mut R) {
+    let mut copy = state.players[player_index].drafted_cards;
+    let sel = copy.draw_up_to(1, rng);
+    if sel.is_empty() {
+        // No drafted cards left — end turn and advance to next round
+        end_player_turn(state, rng);
+        if matches!(state.phase, GamePhase::Draw) {
+            rollout_draw_and_draft(state, rng);
         }
-        crate::rollout_policy::score_action_cards(
-            &drafted,
-            &state.players[player_index],
-            &state.buyer_display,
-            &state.card_lookup,
-            &p.weights,
-            p.temperature,
-            rng,
-        )
-    } else {
-        let mut copy = state.players[player_index].drafted_cards;
-        let sel = copy.draw_up_to(1, rng);
-        if sel.is_empty() {
-            end_player_turn(state, rng);
-            if matches!(state.phase, GamePhase::Draw) {
-                rollout_draw_and_draft(state, policy, rng);
-            }
-            return;
-        }
-        sel.lowest_bit().unwrap()
-    };
+        return;
+    }
 
+    let card_id = sel.lowest_bit().unwrap();
     let card = state.card_lookup[card_id as usize];
     match card.ability() {
         Ability::MixColors { count } => {
-            let (mixes, mix_count) = if let Some(p) = policy {
-                crate::rollout_policy::score_mixes(
-                    &state.players[player_index].color_wheel,
-                    count,
-                    &state.buyer_display,
-                    &p.weights,
-                    p.temperature,
-                    rng,
-                )
-            } else {
-                random_mix_seq(&state.players[player_index].color_wheel, count, rng)
-            };
+            // Fused: ability stack is guaranteed empty when stack is empty,
+            // so we can skip all process_ability_stack calls.
+            let (mixes, mix_count) =
+                random_mix_seq(&state.players[player_index].color_wheel, count, rng);
             state.players[player_index].drafted_cards.remove(card_id);
             state.destroyed_pile.insert(card_id);
             for i in 0..mix_count {
@@ -195,23 +166,14 @@ fn handle_action_no_pending<R: Rng>(state: &mut GameState, player_index: usize, 
             }
         }
         Ability::Sell => {
-            let buyer_result = if let Some(p) = policy {
-                crate::rollout_policy::score_buyers(
-                    &state.players[player_index],
-                    &state.buyer_display,
-                    &p.weights,
-                    p.temperature,
-                    rng,
-                )
-            } else {
-                pick_random_affordable_buyer(
-                    &state.players[player_index],
-                    &state.buyer_display,
-                    rng,
-                )
-            };
-            match buyer_result {
+            match pick_random_affordable_buyer(
+                &state.players[player_index],
+                &state.buyer_display,
+                rng,
+            ) {
                 Some(buyer_id) => {
+                    // Fused: ability stack is guaranteed empty when stack is empty,
+                    // so we can skip all process_ability_stack calls.
                     state.players[player_index].drafted_cards.remove(card_id);
                     state.destroyed_pile.insert(card_id);
                     let buyer_index = state
@@ -243,27 +205,14 @@ fn handle_action_no_pending<R: Rng>(state: &mut GameState, player_index: usize, 
     }
 }
 
-pub fn apply_rollout_step<R: Rng>(state: &mut GameState, policy: Option<&RolloutPolicy>, rng: &mut R) {
+pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
     // Fast path: complete entire draft in one step
     if matches!(&state.phase, GamePhase::Draft { .. }) {
         loop {
             let card_id = {
                 if let GamePhase::Draft { ref draft_state } = state.phase {
                     let hand = draft_state.hands[draft_state.current_player_index];
-                    if let Some(p) = policy {
-                        let player_index = draft_state.current_player_index;
-                        crate::rollout_policy::score_draft_picks(
-                            &hand,
-                            &state.players[player_index],
-                            &state.buyer_display,
-                            &state.card_lookup,
-                            &p.weights,
-                            p.temperature,
-                            rng,
-                        ) as u32
-                    } else {
-                        hand.pick_random(rng).unwrap() as u32
-                    }
+                    hand.pick_random(rng).unwrap() as u32
                 } else {
                     break;
                 }
@@ -278,7 +227,7 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, policy: Option<&Rollout
             let player_index = action_state.current_player_index;
             match action_state.ability_stack.last() {
                 None => {
-                    handle_action_no_pending(state, player_index, policy, rng);
+                    handle_action_no_pending(state, player_index, rng);
                 }
                 Some(Ability::Workshop { count }) => {
                     let count = *count;
@@ -296,19 +245,11 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, policy: Option<&Rollout
                     resolve_destroy_cards(state, selected, rng);
                 }
                 Some(Ability::MixColors { count }) => {
+                    // Fused: apply all mixes directly, then process_ability_stack once.
+                    // Ability stack may have more items below, so we must call process_ability_stack.
                     let remaining_mixes = *count;
-                    let (mixes, mix_count) = if let Some(p) = policy {
-                        crate::rollout_policy::score_mixes(
-                            &state.players[player_index].color_wheel,
-                            remaining_mixes,
-                            &state.buyer_display,
-                            &p.weights,
-                            p.temperature,
-                            rng,
-                        )
-                    } else {
-                        random_mix_seq(&state.players[player_index].color_wheel, remaining_mixes, rng)
-                    };
+                    let (mixes, mix_count) =
+                        random_mix_seq(&state.players[player_index].color_wheel, remaining_mixes, rng);
                     for i in 0..mix_count {
                         let (a, b) = mixes[i];
                         perform_mix_unchecked(
@@ -323,22 +264,11 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, policy: Option<&Rollout
                     process_ability_stack(state, rng);
                 }
                 Some(Ability::Sell) => {
-                    let buyer_result = if let Some(p) = policy {
-                        crate::rollout_policy::score_buyers(
-                            &state.players[player_index],
-                            &state.buyer_display,
-                            &p.weights,
-                            p.temperature,
-                            rng,
-                        )
-                    } else {
-                        pick_random_affordable_buyer(
-                            &state.players[player_index],
-                            &state.buyer_display,
-                            rng,
-                        )
-                    };
-                    match buyer_result {
+                    match pick_random_affordable_buyer(
+                        &state.players[player_index],
+                        &state.buyer_display,
+                        rng,
+                    ) {
                         Some(buyer_id) => {
                             resolve_select_buyer(state, buyer_id, rng);
                         }
@@ -351,31 +281,11 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, policy: Option<&Rollout
                     }
                 }
                 Some(Ability::GainSecondary) => {
-                    let color = if let Some(p) = policy {
-                        crate::rollout_policy::score_gain_color(
-                            &SECONDARIES,
-                            &state.buyer_display,
-                            &p.weights,
-                            p.temperature,
-                            rng,
-                        )
-                    } else {
-                        SECONDARIES[rng.random_range(0..SECONDARIES.len())]
-                    };
+                    let color = SECONDARIES[rng.random_range(0..SECONDARIES.len())];
                     resolve_gain_secondary(state, color, rng);
                 }
                 Some(Ability::GainPrimary) => {
-                    let color = if let Some(p) = policy {
-                        crate::rollout_policy::score_gain_color(
-                            &PRIMARIES,
-                            &state.buyer_display,
-                            &p.weights,
-                            p.temperature,
-                            rng,
-                        )
-                    } else {
-                        PRIMARIES[rng.random_range(0..PRIMARIES.len())]
-                    };
+                    let color = PRIMARIES[rng.random_range(0..PRIMARIES.len())];
                     resolve_gain_primary(state, color, rng);
                 }
                 Some(Ability::ChangeTertiary) => {

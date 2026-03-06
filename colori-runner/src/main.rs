@@ -1,16 +1,12 @@
-mod ga_training;
-
 use colori_core::colori_game::apply_choice_to_state;
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::game_log::{FinalPlayerStats, FinalScore, PlayerVariant};
 use colori_core::ismcts::{ismcts, MctsConfig};
-use colori_core::rollout_policy::RolloutPolicy;
 use colori_core::scoring::calculate_score;
 use colori_core::setup::create_initial_game_state;
 use colori_core::types::*;
 use colori_core::unordered_cards::{set_buyer_registry, set_card_registry};
 
-use ga_training::{run_ga_training, GATrainingConfig, OpponentMode};
 use rand::seq::SliceRandom;
 use rand::RngExt;
 use rand::SeedableRng;
@@ -21,29 +17,12 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 // ── CLI args ──
 
-enum RunMode {
-    Games(GameArgs),
-    TrainGA(GAArgs),
-}
-
-struct GameArgs {
+struct Args {
     games: usize,
     threads: usize,
     output: String,
     note: Option<String>,
     variants: Vec<NamedVariant>,
-}
-
-struct GAArgs {
-    population_size: usize,
-    generations: usize,
-    games_per_eval: usize,
-    mcts_iterations: u32,
-    opponent_mode: OpponentMode,
-    output: String,
-    threads: usize,
-    num_players: usize,
-    temperature: f64,
 }
 
 #[derive(Clone)]
@@ -62,39 +41,23 @@ struct VariantFileEntry {
     exploration_constant: Option<f64>,
     #[serde(default)]
     max_rollout_steps: Option<u32>,
-    #[serde(default)]
-    rollout_policy_path: Option<String>,
 }
 
 impl VariantFileEntry {
     fn into_named_variant(self) -> NamedVariant {
         let defaults = MctsConfig::default();
-        let rollout_policy = self.rollout_policy_path.map(|path| {
-            let contents = std::fs::read_to_string(&path)
-                .unwrap_or_else(|_| panic!("Failed to read rollout policy: {}", path));
-            serde_json::from_str::<RolloutPolicy>(&contents)
-                .unwrap_or_else(|_| panic!("Failed to parse rollout policy: {}", path))
-        });
         NamedVariant {
             name: self.name,
             ai: MctsConfig {
                 iterations: self.iterations.unwrap_or(defaults.iterations),
                 exploration_constant: self.exploration_constant.unwrap_or(defaults.exploration_constant),
                 max_rollout_steps: self.max_rollout_steps.unwrap_or(defaults.max_rollout_steps),
-                rollout_policy,
             },
         }
     }
 }
 
-fn load_rollout_policy(path: &str) -> RolloutPolicy {
-    let contents = std::fs::read_to_string(path)
-        .unwrap_or_else(|_| panic!("Failed to read rollout policy: {}", path));
-    serde_json::from_str(&contents)
-        .unwrap_or_else(|_| panic!("Failed to parse rollout policy: {}", path))
-}
-
-fn parse_args() -> RunMode {
+fn parse_args() -> Args {
     let args: Vec<String> = std::env::args().collect();
     let mut games = 10_000usize;
     let mut threads = 10usize;
@@ -102,16 +65,6 @@ fn parse_args() -> RunMode {
     let mut note: Option<String> = None;
     let mut variants: Option<Vec<NamedVariant>> = None;
     let mut variants_file = "variants.json".to_string();
-    let mut rollout_policy_path: Option<String> = None;
-    let mut train_ga = false;
-    let mut ga_population = 50usize;
-    let mut ga_generations = 50usize;
-    let mut ga_games_per_eval = 10usize;
-    let mut ga_mcts_iterations = 20u32;
-    let mut ga_opponent = OpponentMode::Random;
-    let mut ga_output = "rollout_policy.json".to_string();
-    let mut ga_num_players = 2usize;
-    let mut ga_temperature = 1.0f64;
 
     let mut i = 1;
     while i < args.len() {
@@ -151,49 +104,6 @@ fn parse_args() -> RunMode {
                 i += 1;
                 variants_file = args[i].clone();
             }
-            "--rollout-policy" => {
-                i += 1;
-                rollout_policy_path = Some(args[i].clone());
-            }
-            "--train-ga" => {
-                train_ga = true;
-            }
-            "--ga-population" => {
-                i += 1;
-                ga_population = args[i].parse().expect("Invalid --ga-population value");
-            }
-            "--ga-generations" => {
-                i += 1;
-                ga_generations = args[i].parse().expect("Invalid --ga-generations value");
-            }
-            "--ga-games-per-eval" => {
-                i += 1;
-                ga_games_per_eval = args[i].parse().expect("Invalid --ga-games-per-eval value");
-            }
-            "--ga-mcts-iterations" => {
-                i += 1;
-                ga_mcts_iterations = args[i].parse().expect("Invalid --ga-mcts-iterations value");
-            }
-            "--ga-opponent" => {
-                i += 1;
-                ga_opponent = match args[i].as_str() {
-                    "random" => OpponentMode::Random,
-                    "best" => OpponentMode::Best,
-                    other => panic!("Invalid --ga-opponent value: {} (expected 'random' or 'best')", other),
-                };
-            }
-            "--ga-output" => {
-                i += 1;
-                ga_output = args[i].clone();
-            }
-            "--ga-num-players" => {
-                i += 1;
-                ga_num_players = args[i].parse().expect("Invalid --ga-num-players value");
-            }
-            "--ga-temperature" => {
-                i += 1;
-                ga_temperature = args[i].parse().expect("Invalid --ga-temperature value");
-            }
             other => {
                 eprintln!("Unknown argument: {}", other);
                 std::process::exit(1);
@@ -201,23 +111,6 @@ fn parse_args() -> RunMode {
         }
         i += 1;
     }
-
-    if train_ga {
-        return RunMode::TrainGA(GAArgs {
-            population_size: ga_population,
-            generations: ga_generations,
-            games_per_eval: ga_games_per_eval,
-            mcts_iterations: ga_mcts_iterations,
-            opponent_mode: ga_opponent,
-            output: ga_output,
-            threads,
-            num_players: ga_num_players,
-            temperature: ga_temperature,
-        });
-    }
-
-    // Load rollout policy if specified
-    let shared_policy = rollout_policy_path.map(|p| load_rollout_policy(&p));
 
     let variants = variants.unwrap_or_else(|| {
         let contents = std::fs::read_to_string(&variants_file)
@@ -230,28 +123,13 @@ fn parse_args() -> RunMode {
             .collect()
     });
 
-    // Apply shared rollout policy to variants that don't have one
-    let variants = if let Some(policy) = shared_policy {
-        variants
-            .into_iter()
-            .map(|mut v| {
-                if v.ai.rollout_policy.is_none() {
-                    v.ai.rollout_policy = Some(policy.clone());
-                }
-                v
-            })
-            .collect()
-    } else {
-        variants
-    };
-
-    RunMode::Games(GameArgs {
+    Args {
         games,
         threads,
         output,
         note,
         variants,
-    })
+    }
 }
 
 // ── Serialization types ──
@@ -530,30 +408,8 @@ fn generate_batch_id() -> String {
 }
 
 fn main() {
-    let run_mode = parse_args();
+    let args = parse_args();
 
-    match run_mode {
-        RunMode::TrainGA(ga_args) => {
-            let config = GATrainingConfig {
-                population_size: ga_args.population_size,
-                generations: ga_args.generations,
-                games_per_eval: ga_args.games_per_eval,
-                mcts_iterations: ga_args.mcts_iterations,
-                num_players: ga_args.num_players,
-                temperature: ga_args.temperature,
-                num_threads: ga_args.threads,
-                opponent_mode: ga_args.opponent_mode,
-                ..GATrainingConfig::default()
-            };
-            run_ga_training(config, &ga_args.output);
-        }
-        RunMode::Games(args) => {
-            run_games(args);
-        }
-    }
-}
-
-fn run_games(args: GameArgs) {
     let player_variants = &args.variants;
     let num_players = player_variants.len();
 
