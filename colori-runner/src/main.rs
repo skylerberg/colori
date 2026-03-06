@@ -2,6 +2,7 @@ use colori_core::colori_game::apply_choice_to_state;
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::game_log::{FinalPlayerStats, FinalScore, PlayerVariant};
 use colori_core::ismcts::{ismcts, MctsConfig};
+use colori_core::minimax::{minimax, MinimaxConfig};
 use colori_core::scoring::calculate_score;
 use colori_core::setup::create_initial_game_state;
 use colori_core::types::*;
@@ -26,33 +27,63 @@ struct Args {
 }
 
 #[derive(Clone)]
+enum AiConfig {
+    Mcts(MctsConfig),
+    Minimax(MinimaxConfig),
+}
+
+#[derive(Clone)]
 struct NamedVariant {
     name: Option<String>,
-    ai: MctsConfig,
+    ai: AiConfig,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct VariantFileEntry {
     name: Option<String>,
+    #[serde(default = "default_algorithm")]
+    algorithm: String,
     #[serde(default)]
     iterations: Option<u32>,
     #[serde(default)]
     exploration_constant: Option<f64>,
     #[serde(default)]
     max_rollout_steps: Option<u32>,
+    #[serde(default)]
+    depth: Option<u32>,
+    #[serde(default)]
+    num_determinizations: Option<u32>,
+}
+
+fn default_algorithm() -> String {
+    "mcts".to_string()
 }
 
 impl VariantFileEntry {
     fn into_named_variant(self) -> NamedVariant {
-        let defaults = MctsConfig::default();
-        NamedVariant {
-            name: self.name,
-            ai: MctsConfig {
-                iterations: self.iterations.unwrap_or(defaults.iterations),
-                exploration_constant: self.exploration_constant.unwrap_or(defaults.exploration_constant),
-                max_rollout_steps: self.max_rollout_steps.unwrap_or(defaults.max_rollout_steps),
-            },
+        match self.algorithm.as_str() {
+            "minimax" => {
+                let defaults = MinimaxConfig::default();
+                NamedVariant {
+                    name: self.name,
+                    ai: AiConfig::Minimax(MinimaxConfig {
+                        depth: self.depth.unwrap_or(defaults.depth),
+                        num_determinizations: self.num_determinizations.unwrap_or(defaults.num_determinizations),
+                    }),
+                }
+            }
+            _ => {
+                let defaults = MctsConfig::default();
+                NamedVariant {
+                    name: self.name,
+                    ai: AiConfig::Mcts(MctsConfig {
+                        iterations: self.iterations.unwrap_or(defaults.iterations),
+                        exploration_constant: self.exploration_constant.unwrap_or(defaults.exploration_constant),
+                        max_rollout_steps: self.max_rollout_steps.unwrap_or(defaults.max_rollout_steps),
+                    }),
+                }
+            }
         }
     }
 }
@@ -94,7 +125,7 @@ fn parse_args() -> Args {
                             let iters: u32 = s.trim().parse().expect("Invalid --variants value");
                             NamedVariant {
                                 name: None,
-                                ai: MctsConfig { iterations: iters, ..MctsConfig::default() },
+                                ai: AiConfig::Mcts(MctsConfig { iterations: iters, ..MctsConfig::default() }),
                             }
                         })
                         .collect(),
@@ -196,41 +227,89 @@ fn format_variant_label(variant: &NamedVariant, differing: &DifferingFields) -> 
     if let Some(name) = &variant.name {
         return name.clone();
     }
-    let mut parts = Vec::new();
-    if differing.iterations_differs {
-        parts.push(format_iterations(variant.ai.iterations));
+    match &variant.ai {
+        AiConfig::Mcts(mcts) => {
+            let mut parts = Vec::new();
+            if differing.algorithm_differs {
+                parts.push("mcts".to_string());
+            }
+            if differing.iterations_differs {
+                parts.push(format_iterations(mcts.iterations));
+            }
+            if differing.exploration_constant_differs {
+                parts.push(format!("c={:.2}", mcts.exploration_constant));
+            }
+            if differing.max_rollout_steps_differs {
+                parts.push(format!("rollout={}", mcts.max_rollout_steps));
+            }
+            if parts.is_empty() {
+                parts.push(format_iterations(mcts.iterations));
+            }
+            parts.join(", ")
+        }
+        AiConfig::Minimax(mm) => {
+            let mut parts = vec!["minimax".to_string()];
+            if differing.depth_differs {
+                parts.push(format!("d={}", mm.depth));
+            }
+            if differing.num_determinizations_differs {
+                parts.push(format!("det={}", mm.num_determinizations));
+            }
+            parts.join(", ")
+        }
     }
-    if differing.exploration_constant_differs {
-        parts.push(format!("c={:.2}", variant.ai.exploration_constant));
-    }
-    if differing.max_rollout_steps_differs {
-        parts.push(format!("rollout={}", variant.ai.max_rollout_steps));
-    }
-    if parts.is_empty() {
-        parts.push(format_iterations(variant.ai.iterations));
-    }
-    parts.join(", ")
 }
 
 struct DifferingFields {
+    algorithm_differs: bool,
     iterations_differs: bool,
     exploration_constant_differs: bool,
     max_rollout_steps_differs: bool,
+    depth_differs: bool,
+    num_determinizations_differs: bool,
 }
 
 fn compute_differing_fields(variants: &[NamedVariant]) -> DifferingFields {
     if variants.len() <= 1 {
         return DifferingFields {
+            algorithm_differs: false,
             iterations_differs: false,
             exploration_constant_differs: false,
             max_rollout_steps_differs: false,
+            depth_differs: false,
+            num_determinizations_differs: false,
         };
     }
-    let first = &variants[0].ai;
+
+    let first_is_mcts = matches!(&variants[0].ai, AiConfig::Mcts(_));
+    let algorithm_differs = variants.iter().any(|v| matches!(&v.ai, AiConfig::Mcts(_)) != first_is_mcts);
+
+    let first_mcts = variants.iter().find_map(|v| match &v.ai { AiConfig::Mcts(c) => Some(c), _ => None });
+    let first_mm = variants.iter().find_map(|v| match &v.ai { AiConfig::Minimax(c) => Some(c), _ => None });
+
+    let iterations_differs = first_mcts.is_some() && variants.iter().any(|v| {
+        if let AiConfig::Mcts(c) = &v.ai { c.iterations != first_mcts.unwrap().iterations } else { false }
+    });
+    let exploration_constant_differs = first_mcts.is_some() && variants.iter().any(|v| {
+        if let AiConfig::Mcts(c) = &v.ai { c.exploration_constant != first_mcts.unwrap().exploration_constant } else { false }
+    });
+    let max_rollout_steps_differs = first_mcts.is_some() && variants.iter().any(|v| {
+        if let AiConfig::Mcts(c) = &v.ai { c.max_rollout_steps != first_mcts.unwrap().max_rollout_steps } else { false }
+    });
+    let depth_differs = first_mm.is_some() && variants.iter().any(|v| {
+        if let AiConfig::Minimax(c) = &v.ai { c.depth != first_mm.unwrap().depth } else { false }
+    });
+    let num_determinizations_differs = first_mm.is_some() && variants.iter().any(|v| {
+        if let AiConfig::Minimax(c) = &v.ai { c.num_determinizations != first_mm.unwrap().num_determinizations } else { false }
+    });
+
     DifferingFields {
-        iterations_differs: variants.iter().any(|v| v.ai.iterations != first.iterations),
-        exploration_constant_differs: variants.iter().any(|v| v.ai.exploration_constant != first.exploration_constant),
-        max_rollout_steps_differs: variants.iter().any(|v| v.ai.max_rollout_steps != first.max_rollout_steps),
+        algorithm_differs,
+        iterations_differs,
+        exploration_constant_differs,
+        max_rollout_steps_differs,
+        depth_differs,
+        num_determinizations_differs,
     }
 }
 
@@ -242,7 +321,12 @@ fn has_any_difference(variants: &[NamedVariant]) -> bool {
         return true;
     }
     let diff = compute_differing_fields(variants);
-    diff.iterations_differs || diff.exploration_constant_differs || diff.max_rollout_steps_differs
+    diff.algorithm_differs
+        || diff.iterations_differs
+        || diff.exploration_constant_differs
+        || diff.max_rollout_steps_differs
+        || diff.depth_differs
+        || diff.num_determinizations_differs
 }
 
 // ── Game loop ──
@@ -299,8 +383,15 @@ fn run_game(
             GamePhase::GameOver => break,
         };
 
-        let max_rollout_round = std::cmp::max(8, state.round + 2);
-        let choice = ismcts(&state, player_index, &shuffled_variants[player_index].ai, &None, Some(max_rollout_round), rng);
+        let choice = match &shuffled_variants[player_index].ai {
+            AiConfig::Mcts(mcts_config) => {
+                let max_rollout_round = std::cmp::max(8, state.round + 2);
+                ismcts(&state, player_index, mcts_config, &None, Some(max_rollout_round), rng)
+            }
+            AiConfig::Minimax(minimax_config) => {
+                minimax(&state, player_index, minimax_config, rng)
+            }
+        };
 
         seq += 1;
         entries.push(StructuredLogEntry {
@@ -351,33 +442,45 @@ fn run_game(
 
     let duration_ms = Some(start.elapsed().as_millis() as u64);
 
-    let defaults = MctsConfig::default();
+    let mcts_defaults = MctsConfig::default();
     let (log_iterations, log_player_variants) = if has_variants {
         (
             None,
             Some(
                 shuffled_variants
                     .iter()
-                    .map(|v| PlayerVariant {
-                        name: v.name.clone(),
-                        algorithm: Some("ucb".to_string()),
-                        iterations: v.ai.iterations,
-                        exploration_constant: if v.ai.exploration_constant != defaults.exploration_constant {
-                            Some(v.ai.exploration_constant)
-                        } else {
-                            None
+                    .map(|v| match &v.ai {
+                        AiConfig::Mcts(mcts) => PlayerVariant {
+                            name: v.name.clone(),
+                            algorithm: Some("ucb".to_string()),
+                            iterations: mcts.iterations,
+                            exploration_constant: if mcts.exploration_constant != mcts_defaults.exploration_constant {
+                                Some(mcts.exploration_constant)
+                            } else {
+                                None
+                            },
+                            max_rollout_steps: if mcts.max_rollout_steps != mcts_defaults.max_rollout_steps {
+                                Some(mcts.max_rollout_steps)
+                            } else {
+                                None
+                            },
                         },
-                        max_rollout_steps: if v.ai.max_rollout_steps != defaults.max_rollout_steps {
-                            Some(v.ai.max_rollout_steps)
-                        } else {
-                            None
+                        AiConfig::Minimax(mm) => PlayerVariant {
+                            name: v.name.clone(),
+                            algorithm: Some("minimax".to_string()),
+                            iterations: mm.depth,
+                            exploration_constant: None,
+                            max_rollout_steps: Some(mm.num_determinizations),
                         },
                     })
                     .collect(),
             ),
         )
     } else {
-        (Some(shuffled_variants[0].ai.iterations), None)
+        match &shuffled_variants[0].ai {
+            AiConfig::Mcts(mcts) => (Some(mcts.iterations), None),
+            AiConfig::Minimax(_) => (None, None),
+        }
     };
 
     GameRunOutput {
@@ -423,9 +526,13 @@ fn main() {
             args.threads
         );
     } else {
+        let algo_label = match &player_variants[0].ai {
+            AiConfig::Mcts(mcts) => format!("{} ISMCTS iterations", mcts.iterations),
+            AiConfig::Minimax(mm) => format!("minimax depth={}", mm.depth),
+        };
         eprintln!(
-            "Running {} games with {} players, {} ISMCTS iterations, {} threads",
-            args.games, num_players, player_variants[0].ai.iterations, args.threads
+            "Running {} games with {} players, {}, {} threads",
+            args.games, num_players, algo_label, args.threads
         );
     }
 
