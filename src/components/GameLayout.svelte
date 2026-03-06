@@ -513,12 +513,12 @@
   }
 
   .completed-buyers-content {
-    height: calc(var(--card-height, 175px) + 16px);
+    height: calc(var(--card-height, 175px) + 28px);
     overflow-y: auto;
   }
 
   .drafted-cards-content {
-    height: calc(var(--card-height, 175px) + 16px);
+    height: calc(var(--card-height, 175px) + 28px);
     overflow-y: auto;
   }
 

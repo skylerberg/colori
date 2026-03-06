@@ -12,17 +12,19 @@
 
 <div class="buyer-display">
   <h3 class="section-title">Buyer Display</h3>
-  <div class="buyer-row">
-    {#each buyers as buyer (buyer.instanceId)}
-      <CardDisplay
-        card={buyer.card}
-        selected={selectedId === buyer.instanceId}
-        onclick={selectable && onSelect ? () => onSelect!(buyer.instanceId) : undefined}
-      />
-    {/each}
-    {#if buyers.length === 0}
-      <div class="empty">No buyers available</div>
-    {/if}
+  <div class="buyer-scroll">
+    <div class="buyer-row">
+      {#each buyers as buyer (buyer.instanceId)}
+        <CardDisplay
+          card={buyer.card}
+          selected={selectedId === buyer.instanceId}
+          onclick={selectable && onSelect ? () => onSelect!(buyer.instanceId) : undefined}
+        />
+      {/each}
+      {#if buyers.length === 0}
+        <div class="empty">No buyers available</div>
+      {/if}
+    </div>
   </div>
 </div>
 
@@ -44,12 +46,22 @@
     margin-bottom: 0.5rem;
   }
 
+  .buyer-scroll {
+    overflow-x: auto;
+  }
+
   .buyer-row {
     display: flex;
-    flex-wrap: wrap;
     gap: 8px;
-    padding: 2px;
-    overflow-y: auto;
+    padding: 10px 2px;
+    flex-wrap: nowrap;
+    width: max-content;
+  }
+
+  .buyer-row :global(.card.clickable:hover) {
+    transform: none;
+    box-shadow: 0 0 12px rgba(201, 168, 76, 0.6), 0 0 24px rgba(201, 168, 76, 0.3);
+    border: 1px solid var(--accent-gold, #c9a84c);
   }
 
   .empty {

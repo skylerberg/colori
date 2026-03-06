@@ -27,7 +27,7 @@
     display: flex;
     gap: 6px;
     overflow-x: auto;
-    padding: 4px 2px;
+    padding: 10px 2px;
     min-height: 176px;
     align-items: flex-start;
   }
