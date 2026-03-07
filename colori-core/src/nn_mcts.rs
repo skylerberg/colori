@@ -24,7 +24,7 @@ impl Default for NnMctsConfig {
             simulations: 200,
             c_puct: 1.5,
             model_path: String::new(),
-            determinize_draft_deck: false,
+            determinize_draft_deck: true,
         }
     }
 }

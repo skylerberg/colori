@@ -25,7 +25,7 @@ impl Default for MctsConfig {
             iterations: 100,
             exploration_constant: std::f64::consts::SQRT_2,
             max_rollout_steps: 1000,
-            determinize_draft_deck: false,
+            determinize_draft_deck: true,
         }
     }
 }
