@@ -149,38 +149,31 @@ fn upper_confidence_bound_with_ln(
 
 // ── DUCT (Decoupled UCT) for opponent draft modeling ──
 
+const NUM_CARDS: usize = 46;
+
+#[derive(Clone, Copy, Default)]
 struct OpponentPickStat {
-    choice: Choice,
     visit_count: u32,
     cumulative_reward: f64,
     availability_count: u32,
 }
 
 struct OpponentDraftStats {
-    // [pick_round][player_index] -> list of per-choice stats
-    stats: [[Vec<OpponentPickStat>; MAX_PLAYERS]; 4],
+    // [pick_round][player_index][card as usize] -> per-card stats
+    stats: [[[OpponentPickStat; NUM_CARDS]; MAX_PLAYERS]; 4],
 }
 
 impl OpponentDraftStats {
     fn new() -> Self {
         OpponentDraftStats {
-            stats: Default::default(),
+            stats: [[[OpponentPickStat::default(); NUM_CARDS]; MAX_PLAYERS]; 4],
         }
     }
 
-    fn update_availability(&mut self, pick_round: usize, player: usize, available_choices: &[Choice]) {
+    fn update_availability(&mut self, pick_round: usize, player: usize, available_cards: &[Card]) {
         let slot = &mut self.stats[pick_round][player];
-        for choice in available_choices {
-            if let Some(stat) = slot.iter_mut().find(|s| s.choice == *choice) {
-                stat.availability_count += 1;
-            } else {
-                slot.push(OpponentPickStat {
-                    choice: choice.clone(),
-                    visit_count: 0,
-                    cumulative_reward: 0.0,
-                    availability_count: 1,
-                });
-            }
+        for &card in available_cards {
+            slot[card as usize].availability_count += 1;
         }
     }
 
@@ -188,52 +181,47 @@ impl OpponentDraftStats {
         &self,
         pick_round: usize,
         player: usize,
-        available_choices: &[Choice],
+        available_cards: &[Card],
         exploration_constant: f64,
         rng: &mut R,
-    ) -> Choice {
+    ) -> Card {
         let slot = &self.stats[pick_round][player];
 
-        let mut best_choice: Option<&Choice> = None;
+        let mut best_card: Option<Card> = None;
         let mut best_value = f64::NEG_INFINITY;
 
-        for choice in available_choices {
-            let value = if let Some(stat) = slot.iter().find(|s| s.choice == *choice) {
-                if stat.visit_count == 0 {
-                    f64::INFINITY
-                } else {
-                    let total = stat.availability_count.max(1);
-                    upper_confidence_bound(
-                        stat.cumulative_reward,
-                        stat.visit_count,
-                        total,
-                        exploration_constant,
-                    )
-                }
-            } else {
+        for &card in available_cards {
+            let stat = &slot[card as usize];
+            let value = if stat.availability_count == 0 || stat.visit_count == 0 {
                 f64::INFINITY
+            } else {
+                let total = stat.availability_count.max(1);
+                upper_confidence_bound(
+                    stat.cumulative_reward,
+                    stat.visit_count,
+                    total,
+                    exploration_constant,
+                )
             };
 
             if value > best_value || (value == best_value && value == f64::INFINITY && rng.random_bool(0.5)) {
                 best_value = value;
-                best_choice = Some(choice);
+                best_card = Some(card);
             }
         }
 
-        best_choice.unwrap().clone()
+        best_card.unwrap()
     }
 
-    fn record_outcome(&mut self, pick_round: usize, player: usize, choice: &Choice, reward: f64) {
-        let slot = &mut self.stats[pick_round][player];
-        if let Some(stat) = slot.iter_mut().find(|s| s.choice == *choice) {
-            stat.visit_count += 1;
-            stat.cumulative_reward += reward;
-        }
+    fn record_outcome(&mut self, pick_round: usize, player: usize, card: Card, reward: f64) {
+        let stat = &mut self.stats[pick_round][player][card as usize];
+        stat.visit_count += 1;
+        stat.cumulative_reward += reward;
     }
 }
 
-fn get_opponent_draft_choices(state: &GameState) -> SmallVec<[Choice; 8]> {
-    let mut choices = SmallVec::new();
+fn get_opponent_draft_cards(state: &GameState) -> SmallVec<[Card; 8]> {
+    let mut cards = SmallVec::new();
     if let GamePhase::Draft { ref draft_state } = state.phase {
         let hand = draft_state.hands[draft_state.current_player_index];
         let mut seen: u64 = 0;
@@ -242,20 +230,18 @@ fn get_opponent_draft_choices(state: &GameState) -> SmallVec<[Choice; 8]> {
             let bit = 1u64 << (card as u64);
             if seen & bit != 0 { continue; }
             seen |= bit;
-            choices.push(Choice::DraftPick { card });
+            cards.push(card);
         }
     }
-    choices
+    cards
 }
 
-fn find_card_id_for_choice(state: &GameState, choice: &Choice) -> u32 {
-    if let Choice::DraftPick { card } = choice {
-        if let GamePhase::Draft { ref draft_state } = state.phase {
-            let hand = draft_state.hands[draft_state.current_player_index];
-            for id in hand.iter() {
-                if state.card_lookup[id as usize] == *card {
-                    return id as u32;
-                }
+fn find_card_id(state: &GameState, card: Card) -> u32 {
+    if let GamePhase::Draft { ref draft_state } = state.phase {
+        let hand = draft_state.hands[draft_state.current_player_index];
+        for id in hand.iter() {
+            if state.card_lookup[id as usize] == card {
+                return id as u32;
             }
         }
     }
@@ -266,7 +252,7 @@ fn advance_past_opponent_draft_picks<R: Rng>(
     state: &mut GameState,
     perspective_player: usize,
     opponent_stats: &mut OpponentDraftStats,
-    pick_log: &mut Vec<(u32, usize, Choice)>,
+    pick_log: &mut Vec<(u32, usize, Card)>,
     exploration_constant: f64,
     rng: &mut R,
 ) {
@@ -282,13 +268,13 @@ fn advance_past_opponent_draft_picks<R: Rng>(
             break;
         }
 
-        let available = get_opponent_draft_choices(state);
+        let available = get_opponent_draft_cards(state);
         if available.is_empty() {
             break;
         }
 
         opponent_stats.update_availability(pick_number as usize, current_player, &available);
-        let choice = opponent_stats.select(
+        let card = opponent_stats.select(
             pick_number as usize,
             current_player,
             &available,
@@ -296,8 +282,8 @@ fn advance_past_opponent_draft_picks<R: Rng>(
             rng,
         );
 
-        let card_id = find_card_id_for_choice(state, &choice);
-        pick_log.push((pick_number, current_player, choice));
+        let card_id = find_card_id(state, card);
+        pick_log.push((pick_number, current_player, card));
         player_pick(state, card_id);
     }
 }
@@ -328,7 +314,7 @@ pub fn ismcts<R: Rng>(
     let mut availability_buf: Vec<bool> = Vec::new();
 
     let mut opponent_stats = OpponentDraftStats::new();
-    let mut pick_log: Vec<(u32, usize, Choice)> = Vec::new();
+    let mut pick_log: Vec<(u32, usize, Card)> = Vec::new();
 
     for _ in 0..config.iterations {
         pick_log.clear();
@@ -342,9 +328,9 @@ pub fn ismcts<R: Rng>(
             &mut opponent_stats, &mut pick_log,
             max_rollout_round, config, &mut choices_buf, &mut availability_buf, rng,
         );
-        for &(pick_round, player, ref choice) in &pick_log {
+        for &(pick_round, player, card) in &pick_log {
             let reward = if player < scores.len() { scores[player] } else { 0.0 };
-            opponent_stats.record_outcome(pick_round as usize, player, choice, reward);
+            opponent_stats.record_outcome(pick_round as usize, player, card, reward);
         }
     }
 
@@ -369,7 +355,7 @@ fn iteration_simultaneous<R: Rng>(
     state: &mut GameState,
     perspective_player: usize,
     opponent_stats: &mut OpponentDraftStats,
-    pick_log: &mut Vec<(u32, usize, Choice)>,
+    pick_log: &mut Vec<(u32, usize, Card)>,
     max_rollout_round: Option<u32>,
     config: &MctsConfig,
     choices_buf: &mut Vec<Choice>,
