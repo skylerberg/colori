@@ -1,11 +1,11 @@
 use crate::atomic::{enumerate_atomic_legal_mask, NUM_ATOMIC_ACTIONS};
 use crate::types::*;
 
-pub const OBS_SIZE: usize = 627;
+pub const OBS_SIZE: usize = 1109;
 
 /// Encode the game state from a specific player's perspective into a fixed-size f32 buffer.
 ///
-/// Layout (~627 floats):
+/// Layout (1109 floats):
 /// Current player block (301):
 ///   - Cards by type in deck: 46
 ///   - Cards by type in discard: 46
@@ -18,19 +18,30 @@ pub const OBS_SIZE: usize = 627;
 ///   - Score: 1
 ///   - Completed buyers by type: 54
 ///
-/// Per opponent block (x3, zero-padded, 70 each = 210):
+/// Per opponent block (x3, zero-padded, 211 each = 633):
 ///   - Score: 1
 ///   - Completed buyers by type: 54
 ///   - Materials: 3
 ///   - Color wheel: 12
+///   - Ducats: 1
+///   - Workshop cards by type: 46
+///   - Drafted cards by type: 46
+///   - Workshopped cards by type: 46
+///   - Deck size: 1
+///   - Discard size: 1
 ///
-/// Shared block (116):
+/// Shared block (175):
 ///   - Buyer display by type: 54 (binary)
 ///   - Round: 1 (normalized to 0..1)
 ///   - Phase: 4 (one-hot)
 ///   - Pick number: 1
 ///   - Ability stack top: 10 (one-hot for 9 types + empty; count as value)
+///   - Ability stack second: 10 (same encoding as top)
+///   - Stack depth: 1
 ///   - Draft hand by type: 46
+///   - Draft deck size: 1
+///   - Destroyed pile by card type: 46
+///   - Buyer deck size: 1
 pub fn encode_observation(state: &GameState, player_index: usize, buffer: &mut [f32; OBS_SIZE]) {
     buffer.fill(0.0);
     let mut offset = 0;
@@ -84,13 +95,13 @@ pub fn encode_observation(state: &GameState, player_index: usize, buffer: &mut [
     }
     offset += 54;
 
-    // --- Opponent blocks (3 x 70 = 210) ---
+    // --- Opponent blocks (3 x 211 = 633) ---
     let num_players = state.players.len();
     for opp_slot in 0..3 {
         let opp_idx = (player_index + 1 + opp_slot) % num_players;
         if opp_slot >= num_players - 1 {
             // Zero-pad for missing opponents
-            offset += 70;
+            offset += 211;
             continue;
         }
         let opp = &state.players[opp_idx];
@@ -116,6 +127,30 @@ pub fn encode_observation(state: &GameState, player_index: usize, buffer: &mut [
             buffer[offset + i] = opp.color_wheel.counts[i] as f32;
         }
         offset += 12;
+
+        // ducats (1)
+        buffer[offset] = opp.ducats as f32;
+        offset += 1;
+
+        // workshop cards by type (46)
+        write_card_type_counts(opp.workshop_cards, &state.card_lookup, &mut buffer[offset..offset + 46]);
+        offset += 46;
+
+        // drafted cards by type (46)
+        write_card_type_counts(opp.drafted_cards, &state.card_lookup, &mut buffer[offset..offset + 46]);
+        offset += 46;
+
+        // workshopped cards by type (46)
+        write_card_type_counts(opp.workshopped_cards, &state.card_lookup, &mut buffer[offset..offset + 46]);
+        offset += 46;
+
+        // deck size (1)
+        buffer[offset] = opp.deck.len() as f32;
+        offset += 1;
+
+        // discard size (1)
+        buffer[offset] = opp.discard.len() as f32;
+        offset += 1;
     }
 
     // --- Shared block (116) ---
@@ -167,12 +202,53 @@ pub fn encode_observation(state: &GameState, player_index: usize, buffer: &mut [
     }
     offset += 10;
 
+    // ability stack second (10): same encoding as top, for the second-to-top ability
+    if let GamePhase::Action { ref action_state } = state.phase {
+        if action_state.ability_stack.len() >= 2 {
+            let second = &action_state.ability_stack[action_state.ability_stack.len() - 2];
+            match second {
+                Ability::Workshop { count } => buffer[offset + 1] = *count as f32,
+                Ability::DrawCards { count } => buffer[offset + 2] = *count as f32,
+                Ability::MixColors { count } => buffer[offset + 3] = *count as f32,
+                Ability::DestroyCards => buffer[offset + 4] = 1.0,
+                Ability::Sell => buffer[offset + 5] = 1.0,
+                Ability::GainDucats { count } => buffer[offset + 6] = *count as f32,
+                Ability::GainSecondary => buffer[offset + 7] = 1.0,
+                Ability::GainPrimary => buffer[offset + 8] = 1.0,
+                Ability::ChangeTertiary => buffer[offset + 9] = 1.0,
+            }
+        } else {
+            buffer[offset] = 1.0; // empty second slot
+        }
+    } else {
+        buffer[offset] = 1.0;
+    }
+    offset += 10;
+
+    // stack depth (1)
+    if let GamePhase::Action { ref action_state } = state.phase {
+        buffer[offset] = action_state.ability_stack.len() as f32;
+    }
+    offset += 1;
+
     // draft hand by card type (46)
     if let GamePhase::Draft { ref draft_state } = state.phase {
         let hand = draft_state.hands[player_index];
         write_card_type_counts(hand, &state.card_lookup, &mut buffer[offset..offset + 46]);
     }
     offset += 46;
+
+    // draft deck size (1)
+    buffer[offset] = state.draft_deck.len() as f32;
+    offset += 1;
+
+    // destroyed pile by card type (46)
+    write_card_type_counts(state.destroyed_pile, &state.card_lookup, &mut buffer[offset..offset + 46]);
+    offset += 46;
+
+    // buyer deck size (1)
+    buffer[offset] = state.buyer_deck.len() as f32;
+    offset += 1;
 
     debug_assert_eq!(offset, OBS_SIZE);
 }
