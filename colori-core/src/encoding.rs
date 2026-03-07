@@ -1,13 +1,14 @@
 use crate::atomic::{enumerate_atomic_legal_mask, NUM_ATOMIC_ACTIONS};
 use crate::types::*;
 
-pub const OBS_SIZE: usize = 581;
+pub const OBS_SIZE: usize = 627;
 
 /// Encode the game state from a specific player's perspective into a fixed-size f32 buffer.
 ///
-/// Layout (~581 floats):
-/// Current player block (255):
-///   - Cards by type in deck+discard: 46
+/// Layout (~627 floats):
+/// Current player block (301):
+///   - Cards by type in deck: 46
+///   - Cards by type in discard: 46
 ///   - Cards by type in drafted: 46
 ///   - Cards by type in workshop: 46
 ///   - Cards by type in workshopped: 46
@@ -34,12 +35,15 @@ pub fn encode_observation(state: &GameState, player_index: usize, buffer: &mut [
     buffer.fill(0.0);
     let mut offset = 0;
 
-    // --- Current player block (255) ---
+    // --- Current player block (301) ---
     let player = &state.players[player_index];
 
-    // deck+discard by card type (46)
-    let deck_discard = player.deck.union(player.discard);
-    write_card_type_counts(deck_discard, &state.card_lookup, &mut buffer[offset..offset + 46]);
+    // deck by card type (46)
+    write_card_type_counts(player.deck, &state.card_lookup, &mut buffer[offset..offset + 46]);
+    offset += 46;
+
+    // discard by card type (46)
+    write_card_type_counts(player.discard, &state.card_lookup, &mut buffer[offset..offset + 46]);
     offset += 46;
 
     // drafted by card type (46)
