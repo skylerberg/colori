@@ -154,24 +154,6 @@ export const MATERIAL_CARDS: MaterialCardData[] = [
 export const DRAFT_MATERIAL_CARDS: MaterialCardData[] = [
   {
     kind: 'material',
-    name: 'Fine Ceramics',
-    materialTypes: ['Ceramics', 'Ceramics'],
-    ability: { type: 'sell' },
-  },
-  {
-    kind: 'material',
-    name: 'Fine Paintings',
-    materialTypes: ['Paintings', 'Paintings'],
-    ability: { type: 'sell' },
-  },
-  {
-    kind: 'material',
-    name: 'Fine Textiles',
-    materialTypes: ['Textiles', 'Textiles'],
-    ability: { type: 'sell' },
-  },
-  {
-    kind: 'material',
     name: 'Terra Cotta',
     materialTypes: ['Ceramics'],
     colorPip: 'Red',
@@ -401,21 +383,18 @@ CARD_LOOKUP['StarterCeramics'] = MATERIAL_CARDS[0];
 CARD_LOOKUP['StarterPaintings'] = MATERIAL_CARDS[1];
 CARD_LOOKUP['StarterTextiles'] = MATERIAL_CARDS[2];
 
-CARD_LOOKUP['FineCeramics'] = DRAFT_MATERIAL_CARDS[0];
-CARD_LOOKUP['FinePaintings'] = DRAFT_MATERIAL_CARDS[1];
-CARD_LOOKUP['FineTextiles'] = DRAFT_MATERIAL_CARDS[2];
-CARD_LOOKUP['TerraCotta'] = DRAFT_MATERIAL_CARDS[3];
-CARD_LOOKUP['OchreWare'] = DRAFT_MATERIAL_CARDS[4];
-CARD_LOOKUP['CobaltWare'] = DRAFT_MATERIAL_CARDS[5];
-CARD_LOOKUP['CinnabarCanvas'] = DRAFT_MATERIAL_CARDS[6];
-CARD_LOOKUP['OrpimentCanvas'] = DRAFT_MATERIAL_CARDS[7];
-CARD_LOOKUP['UltramarineCanvas'] = DRAFT_MATERIAL_CARDS[8];
-CARD_LOOKUP['AlizarinFabric'] = DRAFT_MATERIAL_CARDS[9];
-CARD_LOOKUP['FusticFabric'] = DRAFT_MATERIAL_CARDS[10];
-CARD_LOOKUP['PastelFabric'] = DRAFT_MATERIAL_CARDS[11];
-CARD_LOOKUP['ClayCanvas'] = DRAFT_MATERIAL_CARDS[12];
-CARD_LOOKUP['ClayFabric'] = DRAFT_MATERIAL_CARDS[13];
-CARD_LOOKUP['CanvasFabric'] = DRAFT_MATERIAL_CARDS[14];
+CARD_LOOKUP['TerraCotta'] = DRAFT_MATERIAL_CARDS[0];
+CARD_LOOKUP['OchreWare'] = DRAFT_MATERIAL_CARDS[1];
+CARD_LOOKUP['CobaltWare'] = DRAFT_MATERIAL_CARDS[2];
+CARD_LOOKUP['CinnabarCanvas'] = DRAFT_MATERIAL_CARDS[3];
+CARD_LOOKUP['OrpimentCanvas'] = DRAFT_MATERIAL_CARDS[4];
+CARD_LOOKUP['UltramarineCanvas'] = DRAFT_MATERIAL_CARDS[5];
+CARD_LOOKUP['AlizarinFabric'] = DRAFT_MATERIAL_CARDS[6];
+CARD_LOOKUP['FusticFabric'] = DRAFT_MATERIAL_CARDS[7];
+CARD_LOOKUP['PastelFabric'] = DRAFT_MATERIAL_CARDS[8];
+CARD_LOOKUP['ClayCanvas'] = DRAFT_MATERIAL_CARDS[9];
+CARD_LOOKUP['ClayFabric'] = DRAFT_MATERIAL_CARDS[10];
+CARD_LOOKUP['CanvasFabric'] = DRAFT_MATERIAL_CARDS[11];
 
 CARD_LOOKUP['Alum'] = ACTION_CARDS[0];
 CARD_LOOKUP['CreamOfTartar'] = ACTION_CARDS[1];
@@ -525,9 +504,6 @@ DRAFT_COPY_COUNTS['Persian Berries'] = 3;
 DRAFT_COPY_COUNTS['Azurite'] = 3;
 DRAFT_COPY_COUNTS['Indigo'] = 3;
 DRAFT_COPY_COUNTS['Cochineal'] = 3;
-DRAFT_COPY_COUNTS['Fine Ceramics'] = 1;
-DRAFT_COPY_COUNTS['Fine Paintings'] = 1;
-DRAFT_COPY_COUNTS['Fine Textiles'] = 1;
 DRAFT_COPY_COUNTS['Terra Cotta'] = 1;
 DRAFT_COPY_COUNTS['Ochre Ware'] = 1;
 DRAFT_COPY_COUNTS['Cobalt Ware'] = 1;
@@ -561,7 +537,7 @@ export const DRAFT_CARD_CATEGORIES: CardCategory[] = [
   { label: 'Secondary Dyes', cardNames: ['Madder', 'Turmeric', 'Dyer\'s Greenweed', 'Verdigris', 'Orchil', 'Logwood'], totalCopies: 18 },
   { label: 'Tertiary Dyes', cardNames: ['Vermilion', 'Saffron', 'Persian Berries', 'Azurite', 'Indigo', 'Cochineal'], totalCopies: 18 },
   { label: 'Action Cards', cardNames: ['Alum', 'Cream of Tartar', 'Gum Arabic', 'Potash'], totalCopies: 16 },
-  { label: 'Double Materials', cardNames: ['Fine Ceramics', 'Fine Paintings', 'Fine Textiles'], totalCopies: 3 },
+  { label: 'Double Materials', cardNames: [], totalCopies: 0 },
   { label: 'Material + Color', cardNames: ['Terra Cotta', 'Ochre Ware', 'Cobalt Ware', 'Cinnabar & Canvas', 'Orpiment & Canvas', 'Ultramarine & Canvas', 'Alizarin & Fabric', 'Fustic & Fabric', 'Pastel & Fabric'], totalCopies: 9 },
   { label: 'Dual Materials', cardNames: ['Clay & Canvas', 'Clay & Fabric', 'Canvas & Fabric'], totalCopies: 3 },
 ];

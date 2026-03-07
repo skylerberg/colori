@@ -1,16 +1,16 @@
 use crate::atomic::{enumerate_atomic_legal_mask, NUM_ATOMIC_ACTIONS};
 use crate::types::*;
 
-pub const OBS_SIZE: usize = 596;
+pub const OBS_SIZE: usize = 581;
 
 /// Encode the game state from a specific player's perspective into a fixed-size f32 buffer.
 ///
-/// Layout (~596 floats):
-/// Current player block (267):
-///   - Cards by type in deck+discard: 49
-///   - Cards by type in drafted: 49
-///   - Cards by type in workshop: 49
-///   - Cards by type in workshopped: 49
+/// Layout (~581 floats):
+/// Current player block (255):
+///   - Cards by type in deck+discard: 46
+///   - Cards by type in drafted: 46
+///   - Cards by type in workshop: 46
+///   - Cards by type in workshopped: 46
 ///   - Color wheel: 12
 ///   - Materials: 3
 ///   - Ducats: 1
@@ -23,36 +23,36 @@ pub const OBS_SIZE: usize = 596;
 ///   - Materials: 3
 ///   - Color wheel: 12
 ///
-/// Shared block (119):
+/// Shared block (116):
 ///   - Buyer display by type: 54 (binary)
 ///   - Round: 1 (normalized to 0..1)
 ///   - Phase: 4 (one-hot)
 ///   - Pick number: 1
 ///   - Ability stack top: 10 (one-hot for 9 types + empty; count as value)
-///   - Draft hand by type: 49
+///   - Draft hand by type: 46
 pub fn encode_observation(state: &GameState, player_index: usize, buffer: &mut [f32; OBS_SIZE]) {
     buffer.fill(0.0);
     let mut offset = 0;
 
-    // --- Current player block (267) ---
+    // --- Current player block (255) ---
     let player = &state.players[player_index];
 
-    // deck+discard by card type (49)
+    // deck+discard by card type (46)
     let deck_discard = player.deck.union(player.discard);
-    write_card_type_counts(deck_discard, &state.card_lookup, &mut buffer[offset..offset + 49]);
-    offset += 49;
+    write_card_type_counts(deck_discard, &state.card_lookup, &mut buffer[offset..offset + 46]);
+    offset += 46;
 
-    // drafted by card type (49)
-    write_card_type_counts(player.drafted_cards, &state.card_lookup, &mut buffer[offset..offset + 49]);
-    offset += 49;
+    // drafted by card type (46)
+    write_card_type_counts(player.drafted_cards, &state.card_lookup, &mut buffer[offset..offset + 46]);
+    offset += 46;
 
-    // workshop by card type (49)
-    write_card_type_counts(player.workshop_cards, &state.card_lookup, &mut buffer[offset..offset + 49]);
-    offset += 49;
+    // workshop by card type (46)
+    write_card_type_counts(player.workshop_cards, &state.card_lookup, &mut buffer[offset..offset + 46]);
+    offset += 46;
 
-    // workshopped by card type (49)
-    write_card_type_counts(player.workshopped_cards, &state.card_lookup, &mut buffer[offset..offset + 49]);
-    offset += 49;
+    // workshopped by card type (46)
+    write_card_type_counts(player.workshopped_cards, &state.card_lookup, &mut buffer[offset..offset + 46]);
+    offset += 46;
 
     // color wheel (12)
     for i in 0..12 {
@@ -114,7 +114,7 @@ pub fn encode_observation(state: &GameState, player_index: usize, buffer: &mut [
         offset += 12;
     }
 
-    // --- Shared block (119) ---
+    // --- Shared block (116) ---
 
     // buyer display by type (54) - binary
     for bi in state.buyer_display.iter() {
@@ -163,12 +163,12 @@ pub fn encode_observation(state: &GameState, player_index: usize, buffer: &mut [
     }
     offset += 10;
 
-    // draft hand by card type (49)
+    // draft hand by card type (46)
     if let GamePhase::Draft { ref draft_state } = state.phase {
         let hand = draft_state.hands[player_index];
-        write_card_type_counts(hand, &state.card_lookup, &mut buffer[offset..offset + 49]);
+        write_card_type_counts(hand, &state.card_lookup, &mut buffer[offset..offset + 46]);
     }
-    offset += 49;
+    offset += 46;
 
     debug_assert_eq!(offset, OBS_SIZE);
 }

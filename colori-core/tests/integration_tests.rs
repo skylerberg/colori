@@ -263,7 +263,6 @@ fn generate_invalid_choices(state: &GameState) -> Vec<Choice> {
                 Card::Madder, Card::Turmeric, Card::DyersGreenweed,
                 Card::VermilionDye, Card::Saffron, Card::PersianBerries,
                 Card::StarterCeramics, Card::StarterPaintings, Card::StarterTextiles,
-                Card::FineCeramics, Card::FinePaintings, Card::FineTextiles,
                 Card::Alum, Card::CreamOfTartar, Card::GumArabic,
                 Card::Potash, Card::Vinegar, Card::Argol, Card::Chalk,
             ];
@@ -922,8 +921,8 @@ fn test_draft_deck_card_count() {
     let state = create_initial_game_state(2, &[true, true], &mut rng);
     assert_eq!(
         state.draft_deck.len(),
-        94,
-        "Draft deck should have 94 cards (63 dye + 15 material + 16 action)"
+        91,
+        "Draft deck should have 91 cards (63 dye + 12 material + 16 action)"
     );
 }
 

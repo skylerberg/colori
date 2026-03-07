@@ -31,8 +31,8 @@ Each player has their own color wheel that tracks how many of each color they ha
 - 6 Secondary dyes — 2 pips of two adjacent primary/secondary colors | Destroy: Mix Colors ×2
 - 6 Tertiary dyes — 1 pip of a tertiary color | Destroy: Sell
 
-**Material Cards** (3 types in starting deck, 1 per player; 15 unique draft material cards in draft deck):
-Starting deck materials gain 1 material when workshopped. Draft material cards offer enhanced gains: double materials, material + color pip, or dual materials.
+**Material Cards** (3 types in starting deck, 1 per player; 12 unique draft material cards in draft deck):
+Starting deck materials gain 1 material when workshopped. Draft material cards offer enhanced gains: material + color pip, or dual materials.
 - Ceramics | Destroy: Workshop ×2
 - Paintings | Destroy: Sell
 - Textiles | Destroy: Draw Cards ×2
@@ -238,13 +238,10 @@ Each player's score = buyer stars + ducats. The player with the highest score wi
 | Paintings | 1 Paintings | Workshop ×4 |
 | Textiles | 1 Textiles | Workshop ×2 |
 
-### Draft Material Cards (15 unique in draft deck)
+### Draft Material Cards (12 unique in draft deck)
 
 | Name | Material Gain | Color Pip | Destroy Ability |
 |------|--------------|-----------|-----------------|
-| Fine Ceramics | 2x Ceramics | — | Sell |
-| Fine Paintings | 2x Paintings | — | Sell |
-| Fine Textiles | 2x Textiles | — | Sell |
 | Terra Cotta | 1 Ceramics | Red | Workshop ×2 |
 | Ochre Ware | 1 Ceramics | Yellow | Workshop ×2 |
 | Cobalt Ware | 1 Ceramics | Blue | Workshop ×2 |

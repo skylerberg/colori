@@ -1,8 +1,8 @@
 import colori_python as cp
 
 # Game constants (from Rust engine)
-NUM_ACTIONS = cp.NUM_ACTIONS  # 300
-OBS_SIZE = cp.OBS_SIZE  # 596
+NUM_ACTIONS = cp.NUM_ACTIONS  # 288
+OBS_SIZE = cp.OBS_SIZE  # 581
 
 # Network architecture
 HIDDEN_SIZE = 256

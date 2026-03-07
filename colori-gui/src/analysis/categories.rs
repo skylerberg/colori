@@ -53,11 +53,6 @@ pub fn draft_card_categories() -> Vec<CardCategory> {
             total_copies: 16,
         },
         CardCategory {
-            label: "Double Materials",
-            card_names: vec!["Fine Ceramics", "Fine Paintings", "Fine Textiles"],
-            total_copies: 3,
-        },
-        CardCategory {
             label: "Material + Color",
             card_names: vec![
                 "Terra Cotta",

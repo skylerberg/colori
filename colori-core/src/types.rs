@@ -104,7 +104,7 @@ pub enum CardKind {
     Action,
 }
 
-// ── Card enum (49 variants) ──
+// ── Card enum (46 variants) ──
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Card {
@@ -140,10 +140,6 @@ pub enum Card {
     StarterCeramics,
     StarterPaintings,
     StarterTextiles,
-    // Double materials (3)
-    FineCeramics,
-    FinePaintings,
-    FineTextiles,
     // Material+pip Ceramics (3)
     TerraCotta,
     OchreWare,
@@ -179,7 +175,7 @@ struct CardProperties {
     workshop_abilities: &'static [Ability],
 }
 
-const CARD_DATA: [CardProperties; 49] = [
+const CARD_DATA: [CardProperties; 46] = [
     // BasicRed
     CardProperties { name: "Basic Red", kind: CardKind::BasicDye, ability: Ability::Sell, pips: &[Color::Red], material_types: &[], workshop_abilities: &[] },
     // BasicYellow
@@ -234,12 +230,6 @@ const CARD_DATA: [CardProperties; 49] = [
     CardProperties { name: "Paintings", kind: CardKind::Material, ability: Ability::Workshop { count: 4 }, pips: &[], material_types: &[MaterialType::Paintings], workshop_abilities: &[] },
     // StarterTextiles
     CardProperties { name: "Textiles", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, pips: &[], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
-    // FineCeramics
-    CardProperties { name: "Fine Ceramics", kind: CardKind::Material, ability: Ability::Sell, pips: &[], material_types: &[MaterialType::Ceramics, MaterialType::Ceramics], workshop_abilities: &[] },
-    // FinePaintings
-    CardProperties { name: "Fine Paintings", kind: CardKind::Material, ability: Ability::Sell, pips: &[], material_types: &[MaterialType::Paintings, MaterialType::Paintings], workshop_abilities: &[] },
-    // FineTextiles
-    CardProperties { name: "Fine Textiles", kind: CardKind::Material, ability: Ability::Sell, pips: &[], material_types: &[MaterialType::Textiles, MaterialType::Textiles], workshop_abilities: &[] },
     // TerraCotta
     CardProperties { name: "Terra Cotta", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, pips: &[Color::Red], material_types: &[MaterialType::Ceramics], workshop_abilities: &[] },
     // OchreWare

@@ -11,39 +11,39 @@ use crate::types::*;
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
 
-pub const NUM_ATOMIC_ACTIONS: usize = 300;
+pub const NUM_ATOMIC_ACTIONS: usize = 288;
 
 
 // Index ranges:
-// DraftPick(Card)          0..49
-// DestroyDraftedCard(Card) 49..98
-// EndTurn                  98
-// SelectBuyer(BuyerCard)   99..153
-// MixPair(Color, Color)    153..162
-// SkipMix                  162
-// WorkshopCard(Card)       163..212
-// SkipWorkshop             212
-// DestroyTarget(Card)      213..262
-// SkipDestroy              262
-// GainSecondary(Color)     263..266
-// GainPrimary(Color)       266..269
-// SwapTertiary(lose, gain) 269..299
-// SkipSwap                 299
+// DraftPick(Card)          0..46
+// DestroyDraftedCard(Card) 46..92
+// EndTurn                  92
+// SelectBuyer(BuyerCard)   93..147
+// MixPair(Color, Color)    147..156
+// SkipMix                  156
+// WorkshopCard(Card)       157..203
+// SkipWorkshop             203
+// DestroyTarget(Card)      204..250
+// SkipDestroy              250
+// GainSecondary(Color)     251..254
+// GainPrimary(Color)       254..257
+// SwapTertiary(lose, gain) 257..287
+// SkipSwap                 287
 
 const DRAFT_PICK_START: usize = 0;
-const DESTROY_DRAFTED_START: usize = 49;
-const END_TURN_INDEX: usize = 98;
-const SELECT_BUYER_START: usize = 99;
-const MIX_PAIR_START: usize = 153;
-const SKIP_MIX_INDEX: usize = 162;
-const WORKSHOP_CARD_START: usize = 163;
-const SKIP_WORKSHOP_INDEX: usize = 212;
-const DESTROY_TARGET_START: usize = 213;
-const SKIP_DESTROY_INDEX: usize = 262;
-const GAIN_SECONDARY_START: usize = 263;
-const GAIN_PRIMARY_START: usize = 266;
-const SWAP_TERTIARY_START: usize = 269;
-const SKIP_SWAP_INDEX: usize = 299;
+const DESTROY_DRAFTED_START: usize = 46;
+const END_TURN_INDEX: usize = 92;
+const SELECT_BUYER_START: usize = 93;
+const MIX_PAIR_START: usize = 147;
+const SKIP_MIX_INDEX: usize = 156;
+const WORKSHOP_CARD_START: usize = 157;
+const SKIP_WORKSHOP_INDEX: usize = 203;
+const DESTROY_TARGET_START: usize = 204;
+const SKIP_DESTROY_INDEX: usize = 250;
+const GAIN_SECONDARY_START: usize = 251;
+const GAIN_PRIMARY_START: usize = 254;
+const SWAP_TERTIARY_START: usize = 257;
+const SKIP_SWAP_INDEX: usize = 287;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AtomicChoice {
@@ -63,7 +63,7 @@ pub enum AtomicChoice {
     SkipSwap,
 }
 
-const ALL_CARDS: [Card; 49] = [
+const ALL_CARDS: [Card; 46] = [
     Card::BasicRed, Card::BasicYellow, Card::BasicBlue,
     Card::Kermes, Card::Weld, Card::Woad,
     Card::Lac, Card::Brazilwood, Card::Pomegranate,
@@ -73,7 +73,6 @@ const ALL_CARDS: [Card; 49] = [
     Card::VermilionDye, Card::Saffron, Card::PersianBerries,
     Card::Azurite, Card::IndigoDye, Card::Cochineal,
     Card::StarterCeramics, Card::StarterPaintings, Card::StarterTextiles,
-    Card::FineCeramics, Card::FinePaintings, Card::FineTextiles,
     Card::TerraCotta, Card::OchreWare, Card::CobaltWare,
     Card::CinnabarCanvas, Card::OrpimentCanvas, Card::UltramarineCanvas,
     Card::AlizarinFabric, Card::FusticFabric, Card::PastelFabric,

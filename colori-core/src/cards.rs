@@ -33,9 +33,8 @@ pub fn dye_cards() -> [Card; 21] {
     ]
 }
 
-pub fn draft_material_cards() -> [Card; 15] {
+pub fn draft_material_cards() -> [Card; 12] {
     [
-        Card::FineCeramics, Card::FinePaintings, Card::FineTextiles,
         Card::TerraCotta, Card::OchreWare, Card::CobaltWare,
         Card::CinnabarCanvas, Card::OrpimentCanvas, Card::UltramarineCanvas,
         Card::AlizarinFabric, Card::FusticFabric, Card::PastelFabric,
