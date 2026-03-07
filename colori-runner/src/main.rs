@@ -64,6 +64,8 @@ struct VariantFileEntry {
     simulations: Option<u32>,
     #[serde(default)]
     c_puct: Option<f64>,
+    #[serde(default)]
+    determinize_draft_deck: Option<bool>,
 }
 
 impl VariantFileEntry {
@@ -81,6 +83,7 @@ impl VariantFileEntry {
                             simulations: self.simulations.unwrap_or(defaults.simulations),
                             c_puct: self.c_puct.map(|v| v as f32).unwrap_or(defaults.c_puct),
                             model_path,
+                            determinize_draft_deck: self.determinize_draft_deck.unwrap_or(defaults.determinize_draft_deck),
                         }),
                     }
                 }
@@ -97,6 +100,7 @@ impl VariantFileEntry {
                         iterations: self.iterations.unwrap_or(defaults.iterations),
                         exploration_constant: self.exploration_constant.unwrap_or(defaults.exploration_constant),
                         max_rollout_steps: self.max_rollout_steps.unwrap_or(defaults.max_rollout_steps),
+                        determinize_draft_deck: self.determinize_draft_deck.unwrap_or(defaults.determinize_draft_deck),
                     }),
                 }
             }

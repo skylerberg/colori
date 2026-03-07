@@ -60,6 +60,7 @@ pub fn determinize_in_place<R: Rng>(
     perspective_player: usize,
     known_draft_hands: &Option<Vec<Vec<CardInstance>>>,
     cached_scores: &[u32; MAX_PLAYERS],
+    determinize_draft_deck: bool,
     rng: &mut R,
 ) {
     det.clone_from(source);
@@ -158,10 +159,19 @@ pub fn determinize_in_place<R: Rng>(
         }
 
         if unknown_count > 0 {
+            if determinize_draft_deck {
+                pool = pool.union(det.draft_deck);
+                det.draft_deck = UnorderedCards::new();
+            }
+
             for k in 0..unknown_count {
                 let pi = unknown_players[k];
                 let size = hand_sizes[pi];
                 draft_state.hands[pi] = pool.draw_multiple(size, &mut *rng);
+            }
+
+            if determinize_draft_deck {
+                det.draft_deck = pool;
             }
         }
 
