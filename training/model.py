@@ -38,11 +38,11 @@ class ColoriNet(nn.Module):
             *[ResBlock(hidden_size) for _ in range(num_res_blocks)]
         )
         # Policy head
-        self.policy_fc1 = nn.Linear(hidden_size, 128)
-        self.policy_fc2 = nn.Linear(128, num_actions)
+        self.policy_fc1 = nn.Linear(hidden_size, hidden_size // 2)
+        self.policy_fc2 = nn.Linear(hidden_size // 2, num_actions)
         # Value head
-        self.value_fc1 = nn.Linear(hidden_size, 64)
-        self.value_fc2 = nn.Linear(64, 1)
+        self.value_fc1 = nn.Linear(hidden_size, hidden_size // 4)
+        self.value_fc2 = nn.Linear(hidden_size // 4, 1)
 
     def forward(self, obs, legal_mask):
         """
