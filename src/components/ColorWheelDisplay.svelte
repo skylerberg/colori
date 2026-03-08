@@ -2,40 +2,42 @@
   import type { Color } from '../data/types';
   import { colorToHex, textColorForBackground } from '../data/colors';
 
-  interface WheelSegment {
+  interface InnerSegment {
     color: Color;
-    ring: 'inner' | 'middle' | 'outer';
-    startAngleDeg: number;
-    spanDeg: number;
-    isExtension?: boolean;
+    startAngle: number;
+    endAngle: number;
+    bowStart: number;
+    bowEnd: number;
   }
 
-  const WHEEL_SEGMENTS: WheelSegment[] = [
-    // Inner ring - primaries (120° each)
-    { color: 'Red', ring: 'inner', startAngleDeg: 300, spanDeg: 120 },
-    { color: 'Yellow', ring: 'inner', startAngleDeg: 60, spanDeg: 120 },
-    { color: 'Blue', ring: 'inner', startAngleDeg: 180, spanDeg: 120 },
-    // Middle ring - primary extensions and secondaries (60° each)
-    { color: 'Red', ring: 'middle', startAngleDeg: 330, spanDeg: 60, isExtension: true },
-    { color: 'Orange', ring: 'middle', startAngleDeg: 30, spanDeg: 60 },
-    { color: 'Yellow', ring: 'middle', startAngleDeg: 90, spanDeg: 60, isExtension: true },
-    { color: 'Green', ring: 'middle', startAngleDeg: 150, spanDeg: 60 },
-    { color: 'Blue', ring: 'middle', startAngleDeg: 210, spanDeg: 60, isExtension: true },
-    { color: 'Purple', ring: 'middle', startAngleDeg: 270, spanDeg: 60 },
-    // Outer ring - tertiaries (60° each)
-    { color: 'Vermilion', ring: 'outer', startAngleDeg: 0, spanDeg: 60 },
-    { color: 'Amber', ring: 'outer', startAngleDeg: 60, spanDeg: 60 },
-    { color: 'Chartreuse', ring: 'outer', startAngleDeg: 120, spanDeg: 60 },
-    { color: 'Teal', ring: 'outer', startAngleDeg: 180, spanDeg: 60 },
-    { color: 'Indigo', ring: 'outer', startAngleDeg: 240, spanDeg: 60 },
-    { color: 'Magenta', ring: 'outer', startAngleDeg: 300, spanDeg: 60 },
+  interface OuterSegment {
+    color: Color;
+    startAngle: number;
+    endAngle: number;
+  }
+
+  const HALF = 128;
+  const INNER_R = 0.64 * HALF;   // ~82
+  const OUTER_R = 0.92 * HALF;   // ~118
+  const BOW_FACTOR = 0.45;
+
+  const INNER_SEGMENTS: InnerSegment[] = [
+    { color: 'Red',    startAngle: 330, endAngle: 30,  bowStart: 0,   bowEnd: 0 },
+    { color: 'Orange', startAngle: 30,  endAngle: 90,  bowStart: 0,   bowEnd: 120 },
+    { color: 'Yellow', startAngle: 90,  endAngle: 150, bowStart: 120, bowEnd: 120 },
+    { color: 'Green',  startAngle: 150, endAngle: 210, bowStart: 120, bowEnd: 240 },
+    { color: 'Blue',   startAngle: 210, endAngle: 270, bowStart: 240, bowEnd: 240 },
+    { color: 'Purple', startAngle: 270, endAngle: 330, bowStart: 240, bowEnd: 0 },
   ];
 
-  const RING_RADII: Record<string, { inner: number; outer: number }> = {
-    inner: { inner: 0.12, outer: 0.38 },
-    middle: { inner: 0.42, outer: 0.64 },
-    outer: { inner: 0.68, outer: 0.90 },
-  };
+  const OUTER_SEGMENTS: OuterSegment[] = [
+    { color: 'Vermilion',  startAngle: 0,   endAngle: 60 },
+    { color: 'Amber',      startAngle: 60,  endAngle: 120 },
+    { color: 'Chartreuse', startAngle: 120, endAngle: 180 },
+    { color: 'Teal',       startAngle: 180, endAngle: 240 },
+    { color: 'Indigo',     startAngle: 240, endAngle: 300 },
+    { color: 'Magenta',    startAngle: 300, endAngle: 360 },
+  ];
 
   let { wheel, interactive = false, onColorClick, selectedColors = [], size = 200, hidden = false }: {
     wheel: Record<Color, number>;
@@ -46,8 +48,6 @@
     hidden?: boolean;
   } = $props();
 
-  let half = $derived(size / 2);
-
   function toRad(deg: number): number {
     return (deg * Math.PI) / 180;
   }
@@ -55,38 +55,95 @@
   function pointAt(angleDeg: number, radius: number): { x: number; y: number } {
     const rad = toRad(angleDeg);
     return {
-      x: half + radius * Math.sin(rad),
-      y: half - radius * Math.cos(rad),
+      x: HALF + radius * Math.sin(rad),
+      y: HALF - radius * Math.cos(rad),
     };
   }
 
-  function segmentPath(seg: WheelSegment): string {
-    const radii = RING_RADII[seg.ring];
-    const rInner = half * radii.inner;
-    const rOuter = half * radii.outer;
-    const endDeg = seg.startAngleDeg + seg.spanDeg;
-    const largeArc = seg.spanDeg > 180 ? 1 : 0;
+  function controlPoint(dividerAngle: number, bowTowardAngle: number): { x: number; y: number } {
+    const r = BOW_FACTOR * INNER_R;
+    return pointAt(bowTowardAngle, r);
+  }
 
-    const p1 = pointAt(seg.startAngleDeg, rOuter);
-    const p2 = pointAt(endDeg, rOuter);
-    const p3 = pointAt(endDeg, rInner);
-    const p4 = pointAt(seg.startAngleDeg, rInner);
+  function innerSegmentPath(seg: InnerSegment): string {
+    const bStart = pointAt(seg.startAngle, INNER_R);
+    const bEnd = pointAt(seg.endAngle, INNER_R);
+    const cpStart = controlPoint(seg.startAngle, seg.bowStart);
+    const cpEnd = controlPoint(seg.endAngle, seg.bowEnd);
+
+    // Span in degrees (handle wrap-around)
+    let span = seg.endAngle - seg.startAngle;
+    if (span < 0) span += 360;
+    const largeArc = span > 180 ? 1 : 0;
 
     return [
-      `M ${p1.x} ${p1.y}`,
-      `A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${p2.x} ${p2.y}`,
-      `L ${p3.x} ${p3.y}`,
-      `A ${rInner} ${rInner} 0 ${largeArc} 0 ${p4.x} ${p4.y}`,
+      `M ${HALF} ${HALF}`,
+      `Q ${cpStart.x} ${cpStart.y}, ${bStart.x} ${bStart.y}`,
+      `A ${INNER_R} ${INNER_R} 0 ${largeArc} 1 ${bEnd.x} ${bEnd.y}`,
+      `Q ${cpEnd.x} ${cpEnd.y}, ${HALF} ${HALF}`,
       `Z`,
     ].join(' ');
   }
 
-  function labelPos(seg: WheelSegment): { x: number; y: number } {
-    const radii = RING_RADII[seg.ring];
-    const rMid = half * (radii.inner + radii.outer) / 2;
-    const midAngle = seg.startAngleDeg + seg.spanDeg / 2;
-    return pointAt(midAngle, rMid);
+  function outerSegmentPath(seg: OuterSegment): string {
+    const p1 = pointAt(seg.startAngle, OUTER_R);
+    const p2 = pointAt(seg.endAngle, OUTER_R);
+    const p3 = pointAt(seg.endAngle, INNER_R);
+    const p4 = pointAt(seg.startAngle, INNER_R);
+
+    let span = seg.endAngle - seg.startAngle;
+    if (span < 0) span += 360;
+    const largeArc = span > 180 ? 1 : 0;
+
+    return [
+      `M ${p1.x} ${p1.y}`,
+      `A ${OUTER_R} ${OUTER_R} 0 ${largeArc} 1 ${p2.x} ${p2.y}`,
+      `L ${p3.x} ${p3.y}`,
+      `A ${INNER_R} ${INNER_R} 0 ${largeArc} 0 ${p4.x} ${p4.y}`,
+      `Z`,
+    ].join(' ');
   }
+
+  // Label positions
+  const PRIMARY_LABEL_R = 38;
+  const SECONDARY_LABEL_R = 58;
+  const TERTIARY_LABEL_R = (INNER_R + OUTER_R) / 2;
+
+  interface LabelInfo {
+    color: Color;
+    x: number;
+    y: number;
+    letterSize: number;
+    countSize: number;
+    yOffset: number;
+  }
+
+  function centerAngle(startAngle: number, endAngle: number): number {
+    let span = endAngle - startAngle;
+    if (span < 0) span += 360;
+    return startAngle + span / 2;
+  }
+
+  const labels: LabelInfo[] = [
+    // Primaries
+    ...INNER_SEGMENTS.filter((_, i) => i % 2 === 0).map(seg => {
+      const angle = centerAngle(seg.startAngle, seg.endAngle);
+      const pos = pointAt(angle, PRIMARY_LABEL_R);
+      return { color: seg.color, x: pos.x, y: pos.y, letterSize: 18, countSize: 20, yOffset: 10 };
+    }),
+    // Secondaries
+    ...INNER_SEGMENTS.filter((_, i) => i % 2 === 1).map(seg => {
+      const angle = centerAngle(seg.startAngle, seg.endAngle);
+      const pos = pointAt(angle, SECONDARY_LABEL_R);
+      return { color: seg.color, x: pos.x, y: pos.y, letterSize: 12, countSize: 13, yOffset: 7 };
+    }),
+    // Tertiaries
+    ...OUTER_SEGMENTS.map(seg => {
+      const angle = centerAngle(seg.startAngle, seg.endAngle);
+      const pos = pointAt(angle, TERTIARY_LABEL_R);
+      return { color: seg.color, x: pos.x, y: pos.y, letterSize: 11, countSize: 12, yOffset: 7 };
+    }),
+  ];
 
   function handleClick(color: Color) {
     if (interactive && onColorClick && wheel[color] > 0) {
@@ -97,24 +154,40 @@
   function isSelected(color: Color): boolean {
     return selectedColors.includes(color);
   }
-
-  const LABEL_SEGMENTS = WHEEL_SEGMENTS.filter(s => !s.isExtension);
 </script>
 
 <div class="color-wheel-container" class:hidden>
-    <svg width={size} height={size} viewBox="0 0 {size} {size}" fill="none">
-      <!-- Filled color segments -->
-      {#each WHEEL_SEGMENTS as seg}
-        <path d={segmentPath(seg)} fill={colorToHex(seg.color)} />
+    <svg width={size} height={size} viewBox="0 0 256 256" fill="none">
+      <!-- Inner filled segments (primaries + secondaries) -->
+      {#each INNER_SEGMENTS as seg}
+        <path d={innerSegmentPath(seg)} fill={colorToHex(seg.color)} />
       {/each}
-      <!-- Segment outlines -->
-      {#each WHEEL_SEGMENTS as seg}
-        <path d={segmentPath(seg)} fill="none" stroke="black" stroke-width="1.7" />
+      <!-- Outer filled segments (tertiaries) -->
+      {#each OUTER_SEGMENTS as seg}
+        <path d={outerSegmentPath(seg)} fill={colorToHex(seg.color)} />
       {/each}
-      <!-- Interactive hit targets -->
-      {#each WHEEL_SEGMENTS as seg}
+      <!-- Inner segment outlines -->
+      {#each INNER_SEGMENTS as seg}
+        <path d={innerSegmentPath(seg)} fill="none" stroke="black" stroke-width="1.7" />
+      {/each}
+      <!-- Outer segment outlines -->
+      {#each OUTER_SEGMENTS as seg}
+        <path d={outerSegmentPath(seg)} fill="none" stroke="black" stroke-width="1.7" />
+      {/each}
+      <!-- Interactive hit targets - inner -->
+      {#each INNER_SEGMENTS as seg}
         <path
-          d={segmentPath(seg)}
+          d={innerSegmentPath(seg)}
+          fill="transparent"
+          class:clickable={interactive && wheel[seg.color] > 0}
+          class:selected={isSelected(seg.color)}
+          onclick={() => handleClick(seg.color)}
+        />
+      {/each}
+      <!-- Interactive hit targets - outer -->
+      {#each OUTER_SEGMENTS as seg}
+        <path
+          d={outerSegmentPath(seg)}
           fill="transparent"
           class:clickable={interactive && wheel[seg.color] > 0}
           class:selected={isSelected(seg.color)}
@@ -122,33 +195,29 @@
         />
       {/each}
       <!-- Color letter + count labels -->
-      {#each LABEL_SEGMENTS as seg}
-        {@const pos = labelPos(seg)}
-        {@const count = wheel[seg.color]}
-        {@const hex = colorToHex(seg.color)}
+      {#each labels as label}
+        {@const count = wheel[label.color]}
+        {@const hex = colorToHex(label.color)}
         {@const textColor = textColorForBackground(hex)}
-        {@const letterSize = seg.ring === 'inner' ? 18 : seg.ring === 'middle' ? 12 : 11}
-        {@const countSize = seg.ring === 'inner' ? 20 : seg.ring === 'middle' ? 13 : 12}
-        {@const yOffset = seg.ring === 'inner' ? 10 : 7}
         <text
-          x={pos.x}
-          y={pos.y - yOffset}
+          x={label.x}
+          y={label.y - label.yOffset}
           text-anchor="middle"
           dominant-baseline="central"
           fill={textColor}
-          font-size={letterSize}
+          font-size={label.letterSize}
           font-weight="700"
           font-family="Cinzel, serif"
           opacity={count > 0 ? 1 : 0.25}
           style="pointer-events: none;"
-        >{seg.color[0]}</text>
+        >{label.color[0]}</text>
         <text
-          x={pos.x}
-          y={pos.y + yOffset}
+          x={label.x}
+          y={label.y + label.yOffset}
           text-anchor="middle"
           dominant-baseline="central"
           fill={textColor}
-          font-size={countSize}
+          font-size={label.countSize}
           font-weight="700"
           font-family="Cinzel, serif"
           opacity={count > 0 ? 1 : 0.25}
