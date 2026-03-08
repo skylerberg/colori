@@ -1,4 +1,4 @@
-import type { GameState } from './data/types';
+import type { GameState, CardInstance } from './data/types';
 
 export function getActivePlayerIndex(gs: GameState): number {
   if (gs.phase.type === 'draft') {
@@ -13,6 +13,12 @@ export function getActivePlayerIndex(gs: GameState): number {
 export function isCurrentPlayerAI(gs: GameState): boolean {
   const idx = getActivePlayerIndex(gs);
   return idx >= 0 && gs.aiPlayers[idx];
+}
+
+export function orderByDraftOrder(cards: CardInstance[], draftOrder: number[]): CardInstance[] {
+  if (draftOrder.length === 0) return cards;
+  const byId = new Map(cards.map(c => [c.instanceId, c]));
+  return draftOrder.filter(id => byId.has(id)).map(id => byId.get(id)!);
 }
 
 export function formatTime(seconds: number): string {

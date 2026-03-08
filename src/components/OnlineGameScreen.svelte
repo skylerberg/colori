@@ -6,7 +6,7 @@
   import { sanitizedToGameState } from '../network/stateAdapter';
   import { AIController } from '../ai/aiController';
   import { cloneGameState } from '../engine/wasmEngine';
-  import { getActivePlayerIndex, isCurrentPlayerAI } from '../gameUtils';
+  import { getActivePlayerIndex, isCurrentPlayerAI, orderByDraftOrder } from '../gameUtils';
   import GameLayout from './GameLayout.svelte';
   import DraftPhaseView from './DraftPhaseView.svelte';
   import ActionPhaseView from './ActionPhaseView.svelte';
@@ -116,6 +116,37 @@
     };
   }
 
+  // Draft card order tracking
+  let draftCardOrder: number[][] = $state([]);
+
+  // Sync draftCardOrder when gameState changes (detect newly drafted cards)
+  let lastDraftedCounts: number[] = $state([]);
+  $effect(() => {
+    if (!gameState) return;
+    // Initialize if player count changed
+    if (draftCardOrder.length !== gameState.players.length) {
+      draftCardOrder = gameState.players.map(() => []);
+      lastDraftedCounts = gameState.players.map(p => p.draftedCards.length);
+      return;
+    }
+    // Detect newly added drafted cards for each player
+    for (let i = 0; i < gameState.players.length; i++) {
+      const currentCount = gameState.players[i].draftedCards.length;
+      if (currentCount > (lastDraftedCounts[i] ?? 0)) {
+        const knownIds = new Set(draftCardOrder[i]);
+        for (const c of gameState.players[i].draftedCards) {
+          if (!knownIds.has(c.instanceId)) {
+            draftCardOrder[i] = [...draftCardOrder[i], c.instanceId];
+          }
+        }
+      } else if (currentCount === 0 && draftCardOrder[i].length > 0) {
+        // New round — reset
+        draftCardOrder[i] = [];
+      }
+    }
+    lastDraftedCounts = gameState.players.map(p => p.draftedCards.length);
+  });
+
   // Simultaneous draft state
   let hasPicked = $state(false);
   let lastPickNumber: number | null = $state(null);
@@ -211,7 +242,7 @@
 </script>
 
 {#if gameState}
-  <GameLayout {gameState} {activePlayerIndex} {aiThinking} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} {selectedPlayerIndex} onSelectPlayer={selectPlayer}>
+  <GameLayout {gameState} {activePlayerIndex} {aiThinking} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} {selectedPlayerIndex} onSelectPlayer={selectPlayer} {draftCardOrder}>
     {#if !isMyTurn && !aiThinking && gameState.phase.type === 'action'}
       <div class="waiting-banner">
         <div class="spinner"></div>
@@ -227,7 +258,7 @@
         </div>
       {/if}
     {:else if gameState.phase.type === 'action' && isMyTurn}
-      <ActionPhaseView {gameState} onAction={handleAction} onUndo={() => {}} undoAvailable={false} />
+      <ActionPhaseView {gameState} onAction={handleAction} onUndo={() => {}} undoAvailable={false} {draftCardOrder} />
     {/if}
   </GameLayout>
 {/if}

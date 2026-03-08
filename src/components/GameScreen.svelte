@@ -3,7 +3,7 @@
   import { executeDrawPhase, applyChoice, simultaneousPick, advanceDraft, getChoiceLogMessage, cloneGameState } from '../engine/wasmEngine';
   import { AIController, type PrecomputeRequest } from '../ai/aiController';
   import type { GameLogAccumulator } from '../gameLog';
-  import { getActivePlayerIndex, isCurrentPlayerAI } from '../gameUtils';
+  import { getActivePlayerIndex, isCurrentPlayerAI, orderByDraftOrder } from '../gameUtils';
   import GameLayout from './GameLayout.svelte';
   import DraftPhaseView from './DraftPhaseView.svelte';
   import ActionPhaseView from './ActionPhaseView.svelte';
@@ -30,12 +30,13 @@
     return () => clearInterval(interval);
   });
 
+  let draftCardOrder: number[][] = $state(gameState.players.map(() => []));
   let drawExecutedForRound: number | null = $state(null);
   let aiThinking = $state(false);
   let aiError: string | null = $state(null);
   let gameLog: string[] = $state(initialGameLog);
 
-  let undoStack: { gameState: GameState; logLength: number }[] = $state([]);
+  let undoStack: { gameState: GameState; logLength: number; draftCardOrder: number[][] }[] = $state([]);
   let undoPlayerIndex: number | null = $state(null);
 
   function pushUndoSnapshot() {
@@ -48,6 +49,7 @@
     undoStack.push({
       gameState: cloneGameState(gameState),
       logLength: gameLog.length,
+      draftCardOrder: draftCardOrder.map(order => [...order]),
     });
   }
 
@@ -56,6 +58,7 @@
     const snapshot = undoStack.pop()!;
     gameState = snapshot.gameState;
     gameLog = gameLog.slice(0, snapshot.logLength);
+    draftCardOrder = snapshot.draftCardOrder;
     onGameUpdated(gameState, gameLog);
   }
 
@@ -88,6 +91,7 @@
       // Reset draft state for the new round
       aiDraftKnowledge = new Map();
       submittedDraftPicks = new Set();
+      draftCardOrder = gameState.players.map(() => []);
       onGameUpdated(gameState, gameLog);
     }
   });
@@ -136,6 +140,14 @@
     const logMsg = getChoiceLogMessage(gameState, choice, humanPlayerIndex);
     if (logMsg) addLog(logMsg);
     simultaneousPick(gameState, humanPlayerIndex, (choice as { type: 'draftPick'; card: any }).card);
+    // Track the newly drafted card's order
+    const knownIds = new Set(draftCardOrder[humanPlayerIndex]);
+    const newCard = gameState.players[humanPlayerIndex].draftedCards.find(
+      c => !knownIds.has(c.instanceId)
+    );
+    if (newCard) {
+      draftCardOrder[humanPlayerIndex] = [...draftCardOrder[humanPlayerIndex], newCard.instanceId];
+    }
     submittedDraftPicks.add(humanPlayerIndex);
     onGameUpdated(gameState, gameLog);
     resolveAIDraftPicks();
@@ -183,6 +195,14 @@
         const logMsg = getChoiceLogMessage(gameState, choice, playerIdx);
         if (logMsg) addLog(logMsg);
         simultaneousPick(gameState, playerIdx, (choice as { type: 'draftPick'; card: any }).card);
+        // Track the newly drafted card's order
+        const knownIds = new Set(draftCardOrder[playerIdx]);
+        const newCard = gameState.players[playerIdx].draftedCards.find(
+          c => !knownIds.has(c.instanceId)
+        );
+        if (newCard) {
+          draftCardOrder[playerIdx] = [...draftCardOrder[playerIdx], newCard.instanceId];
+        }
       }
 
       // Advance draft (rotate hands)
@@ -261,7 +281,7 @@
   });
 </script>
 
-<GameLayout {gameState} {activePlayerIndex} {aiThinking} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} {selectedPlayerIndex} onSelectPlayer={selectPlayer} {aiError} onRetryAI={() => { aiError = null; }} hidePlayerCards={isViewingActiveHuman && gameState.phase.type === 'action'}>
+<GameLayout {gameState} {activePlayerIndex} {aiThinking} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} {selectedPlayerIndex} onSelectPlayer={selectPlayer} {aiError} onRetryAI={() => { aiError = null; }} hidePlayerCards={isViewingActiveHuman && gameState.phase.type === 'action'} {draftCardOrder}>
   {#if gameState.phase.type === 'draft'}
     {#if isViewingActiveHuman}
       <DraftPhaseView {gameState} onAction={handleAction} playerIndex={humanPlayerIndex} selectable={!submittedDraftPicks.has(humanPlayerIndex)} />
@@ -273,7 +293,7 @@
     {/if}
   {:else if gameState.phase.type === 'action'}
     {#if isViewingActiveHuman}
-      <ActionPhaseView {gameState} onAction={handleAction} onUndo={performUndo} undoAvailable={undoStack.length > 0} />
+      <ActionPhaseView {gameState} onAction={handleAction} onUndo={performUndo} undoAvailable={undoStack.length > 0} {draftCardOrder} />
     {:else}
       <div class="waiting-indicator">
         <span class="waiting-spinner"></span>

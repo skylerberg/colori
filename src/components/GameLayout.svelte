@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { GameState } from '../data/types';
-  import { formatTime } from '../gameUtils';
+  import { formatTime, orderByDraftOrder } from '../gameUtils';
   import { getBuyerData } from '../data/cards';
   import type { Snippet } from 'svelte';
   import BuyerDisplay from './BuyerDisplay.svelte';
@@ -8,7 +8,7 @@
   import CardList from './CardList.svelte';
   import { mixWheelState } from '../stores/mixWheelState.svelte';
 
-  let { gameState, activePlayerIndex, aiThinking, elapsedSeconds, gameLog, onLeaveGame, selectedPlayerIndex = 0, onSelectPlayer, aiError, onRetryAI, hidePlayerCards = false, children }: {
+  let { gameState, activePlayerIndex, aiThinking, elapsedSeconds, gameLog, onLeaveGame, selectedPlayerIndex = 0, onSelectPlayer, aiError, onRetryAI, hidePlayerCards = false, draftCardOrder, children }: {
     gameState: GameState;
     activePlayerIndex: number;
     aiThinking: boolean;
@@ -20,6 +20,7 @@
     aiError?: string | null;
     onRetryAI?: () => void;
     hidePlayerCards?: boolean;
+    draftCardOrder?: number[][];
     children: Snippet;
   } = $props();
 
@@ -164,7 +165,7 @@
               <div class="section-title">Drafted Cards</div>
               <div class="drafted-cards-content">
                 {#if currentPlayer.draftedCards.length > 0}
-                  <CardList cards={currentPlayer.draftedCards} />
+                  <CardList cards={draftCardOrder ? orderByDraftOrder(currentPlayer.draftedCards, draftCardOrder[selectedPlayerIndex]) : currentPlayer.draftedCards} />
                 {:else}
                   <div class="empty-text">None yet</div>
                 {/if}

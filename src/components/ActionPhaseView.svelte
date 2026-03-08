@@ -1,13 +1,15 @@
 <script lang="ts">
   import type { GameState, Choice, Ability } from '../data/types';
+  import { orderByDraftOrder } from '../gameUtils';
   import CardList from './CardList.svelte';
   import AbilityPrompt from './AbilityPrompt.svelte';
 
-  let { gameState, onAction, onUndo, undoAvailable }: {
+  let { gameState, onAction, onUndo, undoAvailable, draftCardOrder }: {
     gameState: GameState;
     onAction: (choice: Choice) => void;
     onUndo: () => void;
     undoAvailable: boolean;
+    draftCardOrder?: number[][];
   } = $props();
 
   let actionState = $derived(
@@ -120,7 +122,7 @@
       <div class="section">
         <h3>Drafted Cards <span class="hint">(click to destroy and activate ability)</span></h3>
         <CardList
-          cards={currentPlayer.draftedCards}
+          cards={draftCardOrder && actionState ? orderByDraftOrder(currentPlayer.draftedCards, draftCardOrder[actionState.currentPlayerIndex]) : currentPlayer.draftedCards}
           selectable={!hasPendingChoice}
           onCardClick={handleDestroyDrafted}
         />
