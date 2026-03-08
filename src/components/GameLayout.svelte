@@ -35,7 +35,6 @@
 
   // Stats
   let score = $derived(currentPlayer.completedBuyers.reduce((sum, buyer) => sum + getBuyerData(buyer.card).stars, 0) + currentPlayer.ducats);
-  let totalMaterials = $derived(Object.values(currentPlayer.materials).reduce((sum, n) => sum + n, 0));
 
   let showLog = $state(false);
 
@@ -85,7 +84,9 @@
       <span class="stat-sep">|</span>
       <span class="stat">Ducats: {currentPlayer.ducats}</span>
       <span class="stat-sep">|</span>
-      <span class="stat">Materials: {totalMaterials}</span>
+      <span class="stat">Deck: {currentPlayer.deck.length}</span>
+      <span class="stat-sep">|</span>
+      <span class="stat">Discard: {currentPlayer.discard.length}</span>
     </div>
 
     {#if aiError}
