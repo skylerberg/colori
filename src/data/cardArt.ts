@@ -36,14 +36,14 @@ function pascalToKebab(s: string): string {
 
 export function getCardArtFilename(card: Card): string {
   const override = CARD_FILENAME_OVERRIDES[card];
-  if (override) return override + '.png';
-  return pascalToKebab(card) + '.png';
+  if (override) return override + '.webp';
+  return pascalToKebab(card) + '.webp';
 }
 
-// Buyer card mapping: "Textiles2Vermilion" -> "vermilion-textile.png"
-// "Ceramics3AmberRed" -> "amber-red-ceramic.png"
-// "Paintings4TealOrange" -> "teal-orange-painting.png"
-// "Textiles2RedRedRed" -> "red-red-red-textile.png"
+// Buyer card mapping: "Textiles2Vermilion" -> "vermilion-textile.webp"
+// "Ceramics3AmberRed" -> "amber-red-ceramic.webp"
+// "Paintings4TealOrange" -> "teal-orange-painting.webp"
+// "Textiles2RedRedRed" -> "red-red-red-textile.webp"
 const MATERIAL_SINGULAR: Record<string, string> = {
   Textiles: 'textile',
   Ceramics: 'ceramic',
@@ -52,12 +52,12 @@ const MATERIAL_SINGULAR: Record<string, string> = {
 
 export function getBuyerArtFilename(buyer: BuyerCard): string {
   const match = buyer.match(/^(Textiles|Ceramics|Paintings)(\d)(.+)$/);
-  if (!match) return 'basic-red.png'; // fallback
+  if (!match) return 'basic-red.webp'; // fallback
   const [, material, , colorPart] = match;
   // Split PascalCase color names: "AmberRed" -> ["Amber", "Red"], "RedRedRed" -> ["Red", "Red", "Red"]
   const colors = colorPart.match(/[A-Z][a-z]*/g) ?? [];
   const colorKebab = colors.map(c => c.toLowerCase()).join('-');
-  return colorKebab + '-' + MATERIAL_SINGULAR[material] + '.png';
+  return colorKebab + '-' + MATERIAL_SINGULAR[material] + '.webp';
 }
 
 export function getCardArtUrl(card: Card): string {

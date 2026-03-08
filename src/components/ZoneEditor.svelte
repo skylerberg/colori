@@ -296,7 +296,7 @@
     width: 100%;
     max-width: 800px;
     aspect-ratio: 1328 / 800;
-    background-image: url('/workshop.png');
+    background-image: url('/workshop.webp');
     background-size: 100% 100%;
     border: 2px solid #8b6914;
     border-radius: 6px;

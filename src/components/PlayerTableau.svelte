@@ -112,7 +112,7 @@
   .tableau {
     position: relative;
     aspect-ratio: 1328 / 800;
-    background-image: url('/workshop.png');
+    background-image: url('/workshop.webp');
     background-size: 100% 100%;
     overflow: visible;
     border-radius: 8px;

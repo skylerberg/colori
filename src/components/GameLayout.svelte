@@ -207,7 +207,7 @@
   .game-screen {
     position: fixed;
     inset: 0;
-    background-image: url('/new-background.png');
+    background-image: url('/new-background.webp');
     background-size: cover;
     background-position: center;
     overflow: hidden;
