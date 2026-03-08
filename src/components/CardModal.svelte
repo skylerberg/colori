@@ -59,13 +59,13 @@
     background: rgba(20, 15, 10, 0.95);
     border: 1px solid rgba(201, 168, 76, 0.5);
     border-radius: 10px;
-    width: 700px;
+    width: 900px;
     max-width: 90vw;
-    max-height: 80vh;
+    max-height: 85vh;
     display: flex;
     flex-direction: column;
-    --card-width: 100px;
-    --card-height: 140px;
+    --card-width: 175px;
+    --card-height: 245px;
   }
 
   .modal-header {
