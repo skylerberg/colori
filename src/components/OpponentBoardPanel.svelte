@@ -60,7 +60,7 @@
 
       <div class="card-section">
         <h4>Workshop</h4>
-        <CardList cards={player.workshopCards} />
+        <CardList cards={[...player.workshopCards, ...player.workshoppedCards]} rotatedIds={player.workshoppedCards.map(c => c.instanceId)} />
       </div>
 
       {#if player.completedBuyers.length > 0}
