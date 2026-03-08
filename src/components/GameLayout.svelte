@@ -7,6 +7,7 @@
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import CardList from './CardList.svelte';
   import { mixWheelState } from '../stores/mixWheelState.svelte';
+  import CardModal from './CardModal.svelte';
 
   let { gameState, activePlayerIndex, aiThinking, elapsedSeconds, gameLog, onLeaveGame, selectedPlayerIndex = 0, onSelectPlayer, aiError, onRetryAI, hidePlayerCards = false, draftCardOrder, children }: {
     gameState: GameState;
@@ -38,6 +39,8 @@
   let score = $derived(currentPlayer.completedBuyers.reduce((sum, buyer) => sum + getBuyerData(buyer.card).stars, 0) + currentPlayer.ducats);
 
   let showLog = $state(false);
+  let showDeckModal = $state(false);
+  let showDiscardModal = $state(false);
 
   function handleLeaveGame() {
     if (confirm('Are you sure you want to leave this game? Your progress will be lost.')) {
@@ -85,9 +88,9 @@
       <span class="stat-sep">|</span>
       <span class="stat">Ducats: {currentPlayer.ducats}</span>
       <span class="stat-sep">|</span>
-      <span class="stat">Deck: {currentPlayer.deck.length}</span>
+      <button class="stat stat-clickable" onclick={() => showDeckModal = true}>Deck: {currentPlayer.deck.length}</button>
       <span class="stat-sep">|</span>
-      <span class="stat">Discard: {currentPlayer.discard.length}</span>
+      <button class="stat stat-clickable" onclick={() => showDiscardModal = true}>Discard: {currentPlayer.discard.length}</button>
     </div>
 
     {#if aiError}
@@ -204,6 +207,13 @@
         </div>
       </div>
     </div>
+  {/if}
+
+  {#if showDeckModal}
+    <CardModal title="Deck" cards={currentPlayer.deck} onClose={() => showDeckModal = false} />
+  {/if}
+  {#if showDiscardModal}
+    <CardModal title="Discard Pile" cards={currentPlayer.discard} onClose={() => showDiscardModal = false} />
   {/if}
 </div>
 
@@ -431,6 +441,20 @@
     font-size: 1.3rem;
     color: rgba(245, 237, 224, 0.8);
     margin-top: 2px;
+  }
+
+  .stat-clickable {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    padding: 0;
+  }
+
+  .stat-clickable:hover {
+    color: #c9a84c;
+    text-decoration: underline;
   }
 
   .stat-sep {
