@@ -1,20 +1,23 @@
 <script lang="ts">
   import CardDisplay from './CardDisplay.svelte';
 
-  let { cards, selectable = false, selectedIds = [], onCardClick }: {
+  let { cards, selectable = false, selectedIds = [], rotatedIds = [], onCardClick }: {
     cards: { instanceId: number; card: string }[];
     selectable?: boolean;
     selectedIds?: number[];
+    rotatedIds?: number[];
     onCardClick?: (instanceId: number) => void;
   } = $props();
 </script>
 
 <div class="card-list">
   {#each cards as ci (ci.instanceId)}
+    {@const isRotated = rotatedIds.includes(ci.instanceId)}
     <CardDisplay
       card={ci.card}
       selected={selectedIds.includes(ci.instanceId)}
-      onclick={selectable && onCardClick ? () => onCardClick!(ci.instanceId) : undefined}
+      rotated={isRotated}
+      onclick={!isRotated && selectable && onCardClick ? () => onCardClick!(ci.instanceId) : undefined}
     />
   {/each}
   {#if cards.length === 0}

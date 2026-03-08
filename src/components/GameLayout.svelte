@@ -173,7 +173,10 @@
 
             <div class="section-panel workshop-section">
               <div class="section-title">Workshop</div>
-              <CardList cards={currentPlayer.workshopCards} />
+              <CardList
+                cards={[...currentPlayer.workshopCards, ...currentPlayer.workshoppedCards]}
+                rotatedIds={currentPlayer.workshoppedCards.map(c => c.instanceId)}
+              />
             </div>
           {/if}
         </div>

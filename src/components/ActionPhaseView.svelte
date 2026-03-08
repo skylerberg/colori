@@ -24,6 +24,13 @@
       : null
   );
   let hasPendingChoice = $derived(topAbility !== null);
+
+  let workshopAndWorkshopped = $derived(
+    currentPlayer ? [...currentPlayer.workshopCards, ...currentPlayer.workshoppedCards] : []
+  );
+  let workshoppedIds = $derived(
+    currentPlayer ? currentPlayer.workshoppedCards.map(c => c.instanceId) : []
+  );
   let hasAbilitiesQueued = $derived((actionState?.abilityStack.length ?? 0) > 0);
 
   let workshopPendingChoice = $derived(
@@ -123,9 +130,10 @@
         {#if topAbility?.type === 'workshop'}
           <h3>Workshop — Select cards ({topAbility.count} available)</h3>
           <CardList
-            cards={currentPlayer.workshopCards}
+            cards={workshopAndWorkshopped}
             selectable={true}
             selectedIds={selectedWorkshopIds}
+            rotatedIds={workshoppedIds}
             onCardClick={toggleWorkshopCard}
           />
           <button class="confirm-btn" onclick={confirmWorkshop}>
@@ -139,9 +147,10 @@
         {:else if topAbility?.type === 'destroyCards'}
           <h3>Workshop — Select a card to destroy</h3>
           <CardList
-            cards={currentPlayer.workshopCards}
+            cards={workshopAndWorkshopped}
             selectable={true}
             selectedIds={selectedDestroyIds}
+            rotatedIds={workshoppedIds}
             onCardClick={toggleDestroyCard}
           />
           <button class="confirm-btn" onclick={confirmDestroy}>
@@ -149,7 +158,7 @@
           </button>
         {:else}
           <h3>Workshop</h3>
-          <CardList cards={currentPlayer.workshopCards} />
+          <CardList cards={workshopAndWorkshopped} rotatedIds={workshoppedIds} />
         {/if}
       </div>
     </div>

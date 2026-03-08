@@ -3,9 +3,10 @@
   import { getAnyCardData } from '../data/cards';
   import { getCardArtUrl, getBuyerArtUrl } from '../data/cardArt';
 
-  let { card, selected = false, onclick }: {
+  let { card, selected = false, rotated = false, onclick }: {
     card: string;
     selected?: boolean;
+    rotated?: boolean;
     onclick?: () => void;
   } = $props();
 
@@ -25,11 +26,12 @@
 <button
   class="card"
   class:selected
-  class:clickable={!!onclick}
+  class:clickable={!!onclick && !rotated}
+  class:rotated
   style="background-image: url('{artUrl}')"
   title={cardLabel}
-  onclick={onclick}
-  disabled={!onclick}
+  onclick={rotated ? undefined : onclick}
+  disabled={rotated || !onclick}
 >
 </button>
 {/if}
@@ -71,5 +73,11 @@
   .card:disabled {
     opacity: 1;
     cursor: default;
+  }
+
+  .card.rotated {
+    transform: rotate(90deg);
+    margin: calc((var(--card-width, 220px) - var(--card-height, 308px)) / 2) 0;
+    opacity: 0.7;
   }
 </style>
