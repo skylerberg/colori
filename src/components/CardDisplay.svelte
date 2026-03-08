@@ -77,7 +77,7 @@
 
   .card.rotated {
     transform: rotate(90deg);
-    margin: calc((var(--card-width, 220px) - var(--card-height, 308px)) / 2) 0;
+    margin: calc((var(--card-width, 220px) - var(--card-height, 308px)) / 2) calc((var(--card-height, 308px) - var(--card-width, 220px)) / 2);
     opacity: 0.7;
   }
 </style>

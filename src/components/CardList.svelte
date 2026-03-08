@@ -32,7 +32,7 @@
     overflow-x: auto;
     padding: 10px 2px;
     min-height: 176px;
-    align-items: flex-start;
+    align-items: flex-end;
   }
 
   .empty {
