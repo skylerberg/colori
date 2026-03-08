@@ -4,6 +4,7 @@
 
   interface InnerSegment {
     color: Color;
+    type: 'primary' | 'secondary';
     startAngle: number;
     endAngle: number;
     bowStart: number;
@@ -20,15 +21,21 @@
   const INNER_R = 0.64 * HALF;   // ~82
   const OUTER_R = 0.92 * HALF;   // ~118
   const BOW_FACTOR = 0.45;
+  const SECONDARY_APEX_R = 0.2 * INNER_R;  // ~16 — how far from center the secondary tips reach
 
-  const INNER_SEGMENTS: InnerSegment[] = [
-    { color: 'Red',    startAngle: 330, endAngle: 30,  bowStart: 0,   bowEnd: 0 },
-    { color: 'Orange', startAngle: 30,  endAngle: 90,  bowStart: 0,   bowEnd: 120 },
-    { color: 'Yellow', startAngle: 90,  endAngle: 150, bowStart: 120, bowEnd: 120 },
-    { color: 'Green',  startAngle: 150, endAngle: 210, bowStart: 120, bowEnd: 240 },
-    { color: 'Blue',   startAngle: 210, endAngle: 270, bowStart: 240, bowEnd: 240 },
-    { color: 'Purple', startAngle: 270, endAngle: 330, bowStart: 240, bowEnd: 0 },
+  const PRIMARIES: InnerSegment[] = [
+    { color: 'Red',    type: 'primary',   startAngle: 330, endAngle: 30,  bowStart: 0,   bowEnd: 0 },
+    { color: 'Yellow', type: 'primary',   startAngle: 90,  endAngle: 150, bowStart: 120, bowEnd: 120 },
+    { color: 'Blue',   type: 'primary',   startAngle: 210, endAngle: 270, bowStart: 240, bowEnd: 240 },
   ];
+
+  const SECONDARIES: InnerSegment[] = [
+    { color: 'Orange', type: 'secondary', startAngle: 30,  endAngle: 90,  bowStart: 0,   bowEnd: 120 },
+    { color: 'Green',  type: 'secondary', startAngle: 150, endAngle: 210, bowStart: 120, bowEnd: 240 },
+    { color: 'Purple', type: 'secondary', startAngle: 270, endAngle: 330, bowStart: 240, bowEnd: 0 },
+  ];
+
+  const ALL_INNER = [...PRIMARIES, ...SECONDARIES];
 
   const OUTER_SEGMENTS: OuterSegment[] = [
     { color: 'Vermilion',  startAngle: 0,   endAngle: 60 },
@@ -60,9 +67,15 @@
     };
   }
 
-  function controlPoint(dividerAngle: number, bowTowardAngle: number): { x: number; y: number } {
+  function controlPoint(_dividerAngle: number, bowTowardAngle: number): { x: number; y: number } {
     const r = BOW_FACTOR * INNER_R;
     return pointAt(bowTowardAngle, r);
+  }
+
+  function segmentSpan(seg: InnerSegment): number {
+    let span = seg.endAngle - seg.startAngle;
+    if (span < 0) span += 360;
+    return span;
   }
 
   function innerSegmentPath(seg: InnerSegment): string {
@@ -71,18 +84,29 @@
     const cpStart = controlPoint(seg.startAngle, seg.bowStart);
     const cpEnd = controlPoint(seg.endAngle, seg.bowEnd);
 
-    // Span in degrees (handle wrap-around)
-    let span = seg.endAngle - seg.startAngle;
-    if (span < 0) span += 360;
+    const span = segmentSpan(seg);
     const largeArc = span > 180 ? 1 : 0;
 
-    return [
-      `M ${HALF} ${HALF}`,
-      `Q ${cpStart.x} ${cpStart.y}, ${bStart.x} ${bStart.y}`,
-      `A ${INNER_R} ${INNER_R} 0 ${largeArc} 1 ${bEnd.x} ${bEnd.y}`,
-      `Q ${cpEnd.x} ${cpEnd.y}, ${HALF} ${HALF}`,
-      `Z`,
-    ].join(' ');
+    if (seg.type === 'primary') {
+      return [
+        `M ${HALF} ${HALF}`,
+        `Q ${cpStart.x} ${cpStart.y}, ${bStart.x} ${bStart.y}`,
+        `A ${INNER_R} ${INNER_R} 0 ${largeArc} 1 ${bEnd.x} ${bEnd.y}`,
+        `Q ${cpEnd.x} ${cpEnd.y}, ${HALF} ${HALF}`,
+        `Z`,
+      ].join(' ');
+    } else {
+      // Secondary: crescent shape starting from apex point, not center
+      const midAngle = seg.startAngle + span / 2;
+      const apex = pointAt(midAngle, SECONDARY_APEX_R);
+      return [
+        `M ${apex.x} ${apex.y}`,
+        `Q ${cpStart.x} ${cpStart.y}, ${bStart.x} ${bStart.y}`,
+        `A ${INNER_R} ${INNER_R} 0 ${largeArc} 1 ${bEnd.x} ${bEnd.y}`,
+        `Q ${cpEnd.x} ${cpEnd.y}, ${apex.x} ${apex.y}`,
+        `Z`,
+      ].join(' ');
+    }
   }
 
   function outerSegmentPath(seg: OuterSegment): string {
@@ -126,13 +150,13 @@
 
   const labels: LabelInfo[] = [
     // Primaries
-    ...INNER_SEGMENTS.filter((_, i) => i % 2 === 0).map(seg => {
+    ...PRIMARIES.map(seg => {
       const angle = centerAngle(seg.startAngle, seg.endAngle);
       const pos = pointAt(angle, PRIMARY_LABEL_R);
       return { color: seg.color, x: pos.x, y: pos.y, letterSize: 18, countSize: 20, yOffset: 10 };
     }),
     // Secondaries
-    ...INNER_SEGMENTS.filter((_, i) => i % 2 === 1).map(seg => {
+    ...SECONDARIES.map(seg => {
       const angle = centerAngle(seg.startAngle, seg.endAngle);
       const pos = pointAt(angle, SECONDARY_LABEL_R);
       return { color: seg.color, x: pos.x, y: pos.y, letterSize: 12, countSize: 13, yOffset: 7 };
@@ -158,24 +182,26 @@
 
 <div class="color-wheel-container" class:hidden>
     <svg width={size} height={size} viewBox="0 0 256 256" fill="none">
-      <!-- Inner filled segments (primaries + secondaries) -->
-      {#each INNER_SEGMENTS as seg}
+      <!-- Inner filled segments: primaries first (background), then secondaries on top -->
+      {#each PRIMARIES as seg}
+        <path d={innerSegmentPath(seg)} fill={colorToHex(seg.color)} />
+      {/each}
+      {#each SECONDARIES as seg}
         <path d={innerSegmentPath(seg)} fill={colorToHex(seg.color)} />
       {/each}
       <!-- Outer filled segments (tertiaries) -->
       {#each OUTER_SEGMENTS as seg}
         <path d={outerSegmentPath(seg)} fill={colorToHex(seg.color)} />
       {/each}
-      <!-- Inner segment outlines -->
-      {#each INNER_SEGMENTS as seg}
+      <!-- Segment outlines -->
+      {#each ALL_INNER as seg}
         <path d={innerSegmentPath(seg)} fill="none" stroke="black" stroke-width="1.7" />
       {/each}
-      <!-- Outer segment outlines -->
       {#each OUTER_SEGMENTS as seg}
         <path d={outerSegmentPath(seg)} fill="none" stroke="black" stroke-width="1.7" />
       {/each}
-      <!-- Interactive hit targets - inner -->
-      {#each INNER_SEGMENTS as seg}
+      <!-- Interactive hit targets -->
+      {#each ALL_INNER as seg}
         <path
           d={innerSegmentPath(seg)}
           fill="transparent"
@@ -184,7 +210,6 @@
           onclick={() => handleClick(seg.color)}
         />
       {/each}
-      <!-- Interactive hit targets - outer -->
       {#each OUTER_SEGMENTS as seg}
         <path
           d={outerSegmentPath(seg)}
