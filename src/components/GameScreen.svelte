@@ -288,7 +288,7 @@
     {:else}
       <div class="waiting-indicator">
         <span class="waiting-spinner"></span>
-        <span class="waiting-text">Waiting...</span>
+        <span class="waiting-text">{aiThinking && selectedPlayerIndex === activePlayerIndex ? 'Thinking...' : 'Waiting...'}</span>
       </div>
     {/if}
   {:else if gameState.phase.type === 'action'}
@@ -297,7 +297,7 @@
     {:else}
       <div class="waiting-indicator">
         <span class="waiting-spinner"></span>
-        <span class="waiting-text">Waiting...</span>
+        <span class="waiting-text">{aiThinking && selectedPlayerIndex === activePlayerIndex ? 'Thinking...' : 'Waiting...'}</span>
       </div>
     {/if}
   {/if}
