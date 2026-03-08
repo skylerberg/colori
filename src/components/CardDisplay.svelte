@@ -63,6 +63,7 @@
   }
 
   .card.selected {
+    transform: translateY(-8px);
     border-color: var(--accent-gold, #c9a84c);
     box-shadow: var(--shadow-card-selected, 0 0 12px rgba(201, 168, 76, 0.6), 0 0 24px rgba(201, 168, 76, 0.3));
   }

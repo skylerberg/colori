@@ -131,9 +131,11 @@
           <button class="confirm-btn" onclick={confirmWorkshop}>
             Confirm Workshop ({selectedWorkshopIds.length} selected)
           </button>
-          <button class="confirm-btn skip-btn" onclick={handleSkipWorkshop}>
-            Skip Workshop
-          </button>
+          {#if selectedWorkshopIds.length === 0}
+            <button class="confirm-btn skip-btn" onclick={handleSkipWorkshop}>
+              Skip Workshop
+            </button>
+          {/if}
         {:else if topAbility?.type === 'destroyCards'}
           <h3>Workshop — Select a card to destroy</h3>
           <CardList
