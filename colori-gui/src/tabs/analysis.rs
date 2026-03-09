@@ -41,6 +41,8 @@ pub struct CachedAnalysis {
     pub destroy_rate_categories: Vec<CategoryStat>,
     pub destroy_rate_cat_normalized: Vec<CategoryStat>,
     pub winner_buyer_breakdown: WinnerBuyerBreakdown,
+    pub glass_acquisitions: Option<HashMap<String, usize>>,
+    pub glass_win_rate: Option<HashMap<String, WinRateEntry>>,
 }
 
 impl CachedAnalysis {
@@ -113,6 +115,11 @@ impl CachedAnalysis {
             })
             .collect();
 
+        let glass_acq = compute_glass_acquisitions(logs, filter_ref);
+        let glass_acquisitions = if glass_acq.is_empty() { None } else { Some(glass_acq) };
+        let glass_wr = compute_glass_win_rate(logs, filter_ref);
+        let glass_win_rate = if glass_wr.is_empty() { None } else { Some(glass_wr) };
+
         let filter_key = format!("{}:{}", "computed", variant_label.unwrap_or("all"));
 
         CachedAnalysis {
@@ -144,6 +151,8 @@ impl CachedAnalysis {
             destroy_rate_categories,
             destroy_rate_cat_normalized,
             winner_buyer_breakdown,
+            glass_acquisitions,
+            glass_win_rate,
         }
     }
 }
@@ -403,6 +412,56 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis, num_gam
                 ui.strong("By Material");
                 render_usize_hashmap_bar_rows(ui, &analysis.buyer_acq.by_material, "Count");
             });
+
+        // --- Glass Expansion ---
+        if let Some(ref glass_acq) = analysis.glass_acquisitions {
+            section_group_heading(ui, "Glass Expansion");
+
+            render_hashmap_bar_section(
+                ui,
+                "Glass Acquisitions",
+                "Glass Card",
+                "Count",
+                glass_acq,
+                false,
+            );
+
+            if let Some(ref glass_wr) = analysis.glass_win_rate {
+                let id = ui.make_persistent_id("glass_win_rate");
+                egui::collapsing_header::CollapsingState::load_with_default_open(
+                    ui.ctx(),
+                    id,
+                    false,
+                )
+                .show_header(ui, |ui| {
+                    ui.strong("Win Rate if Acquired");
+                })
+                .body(|ui| {
+                    let mut entries: Vec<_> = glass_wr.iter().collect();
+                    entries.sort_by(|a, b| {
+                        let rate_a = if a.1.games > 0.0 {
+                            a.1.wins / a.1.games
+                        } else {
+                            0.0
+                        };
+                        let rate_b = if b.1.games > 0.0 {
+                            b.1.wins / b.1.games
+                        } else {
+                            0.0
+                        };
+                        rate_b.partial_cmp(&rate_a).unwrap()
+                    });
+                    let rows: Vec<_> = entries
+                        .iter()
+                        .map(|(name, entry)| {
+                            let ci = wilson_confidence_interval(entry.wins, entry.games);
+                            (name.to_string(), entry.wins, entry.games, ci)
+                        })
+                        .collect();
+                    win_rate_table(ui, "Glass Card", "Times Acquired", &rows);
+                });
+            }
+        }
 
         // --- End State ---
         section_group_heading(ui, "End State");

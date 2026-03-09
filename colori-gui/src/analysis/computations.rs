@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use colori_core::game_log::{FinalScore, PlayerVariant, StructuredGameLog};
-use colori_core::types::{BuyerCard, BuyerInstance, CardInstance, Choice, MaterialType, ALL_COLORS};
+use colori_core::types::{BuyerCard, BuyerInstance, CardInstance, Choice, GlassCard, MaterialType, ALL_COLORS};
 
 use super::card_names::{buyer_display_name, card_display_name, get_draft_copies_by_name};
 use super::categories::CardCategory;
@@ -483,7 +483,8 @@ pub fn compute_cards_added_to_deck(
                 | Choice::DestroyAndMix { card, .. }
                 | Choice::DestroyAndSell { card, .. }
                 | Choice::DestroyAndWorkshop { card, .. }
-                | Choice::DestroyAndDestroyCards { card, .. } => {
+                | Choice::DestroyAndDestroyCards { card, .. }
+                | Choice::DestroyAndSelectGlass { card, .. } => {
                     let name = card_name_from_instance(*card);
                     *player_destroyed.entry(pi).or_default().entry(name).or_insert(0) += 1;
                 }
@@ -566,7 +567,8 @@ pub fn compute_destroyed_from_draft(
                 | Choice::DestroyAndMix { card, .. }
                 | Choice::DestroyAndSell { card, .. }
                 | Choice::DestroyAndWorkshop { card, .. }
-                | Choice::DestroyAndDestroyCards { card, .. } => Some(card),
+                | Choice::DestroyAndDestroyCards { card, .. }
+                | Choice::DestroyAndSelectGlass { card, .. } => Some(card),
                 _ => None,
             };
             if let Some(card) = card {
@@ -655,7 +657,8 @@ pub fn compute_win_rate_by_card(
                 | Choice::DestroyAndMix { card, .. }
                 | Choice::DestroyAndSell { card, .. }
                 | Choice::DestroyAndWorkshop { card, .. }
-                | Choice::DestroyAndDestroyCards { card, .. } => {
+                | Choice::DestroyAndDestroyCards { card, .. }
+                | Choice::DestroyAndSelectGlass { card, .. } => {
                     let name = card_name_from_instance(*card);
                     *player_destroyed.entry(pi).or_default().entry(name).or_insert(0) += 1;
                 }
@@ -1092,7 +1095,8 @@ pub fn compute_penultimate_round_deck_sizes(
                 | Choice::DestroyAndMix { .. }
                 | Choice::DestroyAndSell { .. }
                 | Choice::DestroyAndWorkshop { .. }
-                | Choice::DestroyAndDestroyCards { .. } => {
+                | Choice::DestroyAndDestroyCards { .. }
+                | Choice::DestroyAndSelectGlass { .. } => {
                     player_deck_sizes[pi] -= 1;
                 }
                 Choice::DestroyDrawnCards { card } => {
@@ -1284,4 +1288,98 @@ pub fn compute_color_wheel_stats(
     }
 
     averages
+}
+
+// ── Glass analysis ──
+
+fn extract_glass(choice: &Choice) -> Option<GlassCard> {
+    match choice {
+        Choice::SelectGlass { glass, .. } | Choice::DestroyAndSelectGlass { glass, .. } => {
+            Some(*glass)
+        }
+        _ => None,
+    }
+}
+
+/// Count how many times each glass card was acquired.
+pub fn compute_glass_acquisitions(
+    logs: &[StructuredGameLog],
+    filter: Option<&PlayerFilter>,
+) -> HashMap<String, usize> {
+    let mut counts = HashMap::new();
+    for (log_idx, log) in logs.iter().enumerate() {
+        let allowed = filter.and_then(|f| f.get(&log_idx));
+        for entry in &log.entries {
+            if let Some(allowed) = allowed {
+                if !allowed.contains(&entry.player_index) {
+                    continue;
+                }
+            }
+            if let Some(glass) = extract_glass(&entry.choice) {
+                *counts.entry(glass.name().to_string()).or_insert(0) += 1;
+            }
+        }
+    }
+    counts
+}
+
+/// Compute win rate for players who acquired each glass card.
+pub fn compute_glass_win_rate(
+    logs: &[StructuredGameLog],
+    filter: Option<&PlayerFilter>,
+) -> HashMap<String, WinRateEntry> {
+    let mut stats: HashMap<String, WinRateEntry> = HashMap::new();
+
+    for (log_idx, log) in logs.iter().enumerate() {
+        let final_scores = match &log.final_scores {
+            Some(fs) => fs,
+            None => continue,
+        };
+        let allowed = filter.and_then(|f| f.get(&log_idx));
+
+        // Track per-player glass card acquisitions (unique names)
+        let mut player_glass: HashMap<usize, HashSet<String>> = HashMap::new();
+
+        for entry in &log.entries {
+            if let Some(allowed) = allowed {
+                if !allowed.contains(&entry.player_index) {
+                    continue;
+                }
+            }
+            if let Some(glass) = extract_glass(&entry.choice) {
+                player_glass
+                    .entry(entry.player_index)
+                    .or_default()
+                    .insert(glass.name().to_string());
+            }
+        }
+
+        let (is_winner_fn, num_winners) = compute_winners(final_scores);
+
+        for i in 0..log.player_names.len() {
+            if let Some(allowed) = allowed {
+                if !allowed.contains(&i) {
+                    continue;
+                }
+            }
+            let glass_names = match player_glass.get(&i) {
+                Some(names) => names,
+                None => continue,
+            };
+            let player_name = &log.player_names[i];
+            let is_winner = is_winner_fn(player_name);
+
+            for name in glass_names {
+                let entry = stats
+                    .entry(name.clone())
+                    .or_insert(WinRateEntry { wins: 0.0, games: 0.0 });
+                entry.games += 1.0;
+                if is_winner {
+                    entry.wins += 1.0 / num_winners as f64;
+                }
+            }
+        }
+    }
+
+    stats
 }
