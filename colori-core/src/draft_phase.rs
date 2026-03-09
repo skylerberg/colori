@@ -303,4 +303,156 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn test_glass_keep_both_keeps_remaining_draft_cards() {
+        use crate::setup::create_initial_game_state_with_expansions;
+        let mut rng = WyRand::seed_from_u64(99);
+        let ai_players = vec![false, true];
+        let expansions = Expansions { glass: true };
+        let mut state = create_initial_game_state_with_expansions(2, &ai_players, expansions, &mut rng);
+
+        // Give player 0 the GlassKeepBoth card
+        state.players[0].completed_glass.push(GlassInstance {
+            instance_id: 255,
+            glass: GlassCard::GlassKeepBoth,
+        });
+
+        // Play through round 1 to reach the draft
+        execute_draw_phase(&mut state, &mut rng);
+        assert!(matches!(state.phase, GamePhase::Draft { .. }));
+
+        // Count initial drafted cards
+        let initial_drafted = state.players[0].drafted_cards.len();
+        let p1_initial_drafted = state.players[1].drafted_cards.len();
+
+        // Play through all draft picks using enumerate_choices + apply_choice
+        while matches!(state.phase, GamePhase::Draft { .. }) {
+            let choices = enumerate_choices(&state);
+            apply_choice(&mut state, &choices[0], &mut rng);
+        }
+
+        // After draft, should be in action phase
+        assert!(matches!(state.phase, GamePhase::Action { .. }),
+            "Expected action phase after draft, got {:?}", state.phase);
+
+        // Player 0 should have 5 drafted cards (4 picked + 1 kept from GlassKeepBoth)
+        let final_drafted = state.players[0].drafted_cards.len();
+        assert_eq!(
+            final_drafted - initial_drafted, 5,
+            "Player 0 with GlassKeepBoth should have 5 new drafted cards (4 picked + 1 kept), but got {}",
+            final_drafted - initial_drafted
+        );
+
+        // Player 1 should have only 4 drafted cards (no GlassKeepBoth)
+        let p1_drafted = state.players[1].drafted_cards.len();
+        assert_eq!(
+            p1_drafted - p1_initial_drafted, 4,
+            "Player 1 without GlassKeepBoth should have 4 drafted cards, but got {}",
+            p1_drafted - p1_initial_drafted
+        );
+    }
+
+    #[test]
+    fn test_glass_keep_both_survives_json_round_trip() {
+        use crate::setup::create_initial_game_state_with_expansions;
+        let mut rng = WyRand::seed_from_u64(99);
+        let ai_players = vec![false, true];
+        let expansions = Expansions { glass: true };
+        let mut state = create_initial_game_state_with_expansions(2, &ai_players, expansions, &mut rng);
+
+        // Give player 0 the GlassKeepBoth card
+        state.players[0].completed_glass.push(GlassInstance {
+            instance_id: 255,
+            glass: GlassCard::GlassKeepBoth,
+        });
+
+        execute_draw_phase(&mut state, &mut rng);
+        let initial_drafted = state.players[0].drafted_cards.len();
+
+        // Simulate frontend WASM round-trips: serialize -> deserialize -> pick -> serialize -> deserialize
+        while matches!(state.phase, GamePhase::Draft { .. }) {
+            // Round-trip before choice (simulates frontend passing state to WASM)
+            state = round_trip(&state);
+
+            let choices = enumerate_choices(&state);
+            apply_choice(&mut state, &choices[0], &mut rng);
+
+            // Round-trip after choice (simulates WASM returning state to frontend)
+            state = round_trip(&state);
+        }
+
+        assert!(matches!(state.phase, GamePhase::Action { .. }));
+        let final_drafted = state.players[0].drafted_cards.len();
+        assert_eq!(
+            final_drafted - initial_drafted, 5,
+            "GlassKeepBoth should survive JSON round-trips: expected 5 new drafted cards, got {}",
+            final_drafted - initial_drafted
+        );
+    }
+
+    #[test]
+    fn test_glass_keep_both_with_simultaneous_pick_and_advance() {
+        use crate::setup::create_initial_game_state_with_expansions;
+        use crate::draft_phase::{simultaneous_pick, advance_draft};
+        let mut rng = WyRand::seed_from_u64(99);
+        let ai_players = vec![false, true];
+        let expansions = Expansions { glass: true };
+        let mut state = create_initial_game_state_with_expansions(2, &ai_players, expansions, &mut rng);
+
+        // Give player 0 the GlassKeepBoth card
+        state.players[0].completed_glass.push(GlassInstance {
+            instance_id: 255,
+            glass: GlassCard::GlassKeepBoth,
+        });
+
+        execute_draw_phase(&mut state, &mut rng);
+        let initial_drafted_p0 = state.players[0].drafted_cards.len();
+        let initial_drafted_p1 = state.players[1].drafted_cards.len();
+
+        // Simulate the frontend pattern: simultaneousPick for each player, then advanceDraft
+        // with JSON round-trips between each call
+        for _pick_round in 0..4 {
+            assert!(matches!(state.phase, GamePhase::Draft { .. }));
+
+            // Round-trip (simulates frontend serialize -> WASM deserialize)
+            state = round_trip(&state);
+
+            // Each player picks the first card in their hand
+            for player_idx in 0..2 {
+                let card = if let GamePhase::Draft { ref draft_state } = state.phase {
+                    let hand = &draft_state.hands[player_idx];
+                    let first_id = hand.iter().next().unwrap();
+                    state.card_lookup[first_id as usize]
+                } else {
+                    panic!("Expected draft phase");
+                };
+                simultaneous_pick(&mut state, player_idx, card);
+                // Round-trip after each pick
+                state = round_trip(&state);
+            }
+
+            // Advance draft (rotate hands, or end draft)
+            advance_draft(&mut state);
+            state = round_trip(&state);
+        }
+
+        // After 4 pick rounds, should be in action phase
+        assert!(matches!(state.phase, GamePhase::Action { .. }),
+            "Expected action phase, got {:?}", state.phase);
+
+        let final_drafted_p0 = state.players[0].drafted_cards.len();
+        let final_drafted_p1 = state.players[1].drafted_cards.len();
+
+        assert_eq!(
+            final_drafted_p0 - initial_drafted_p0, 5,
+            "Player 0 with GlassKeepBoth should have 5 new drafted cards via simultaneous_pick, got {}",
+            final_drafted_p0 - initial_drafted_p0
+        );
+        assert_eq!(
+            final_drafted_p1 - initial_drafted_p1, 4,
+            "Player 1 without GlassKeepBoth should have 4 new drafted cards, got {}",
+            final_drafted_p1 - initial_drafted_p1
+        );
+    }
 }

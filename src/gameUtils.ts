@@ -18,7 +18,10 @@ export function isCurrentPlayerAI(gs: GameState): boolean {
 export function orderByDraftOrder(cards: CardInstance[], draftOrder: number[]): CardInstance[] {
   if (draftOrder.length === 0) return cards;
   const byId = new Map(cards.map(c => [c.instanceId, c]));
-  return draftOrder.filter(id => byId.has(id)).map(id => byId.get(id)!);
+  const ordered = draftOrder.filter(id => byId.has(id)).map(id => byId.get(id)!);
+  const orderedIds = new Set(draftOrder);
+  const remaining = cards.filter(c => !orderedIds.has(c.instanceId));
+  return [...ordered, ...remaining];
 }
 
 export function formatTime(seconds: number): string {
