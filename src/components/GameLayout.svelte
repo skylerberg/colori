@@ -145,11 +145,11 @@
               <div class="section-title">Color Wheel</div>
               <div class="wheel-container">
                 <ColorWheelDisplay
-                  wheel={mixWheelState.simulatedWheel ?? currentPlayer.colorWheel}
+                  wheel={selectedPlayerIndex === activePlayerIndex ? (mixWheelState.simulatedWheel ?? currentPlayer.colorWheel) : currentPlayer.colorWheel}
                   size={400}
-                  interactive={!!mixWheelState.onColorClick}
-                  onColorClick={mixWheelState.onColorClick ?? undefined}
-                  selectedColors={mixWheelState.selectedColors}
+                  interactive={selectedPlayerIndex === activePlayerIndex && !!mixWheelState.onColorClick}
+                  onColorClick={selectedPlayerIndex === activePlayerIndex ? (mixWheelState.onColorClick ?? undefined) : undefined}
+                  selectedColors={selectedPlayerIndex === activePlayerIndex ? mixWheelState.selectedColors : []}
                 />
               </div>
             </div>

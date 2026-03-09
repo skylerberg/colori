@@ -292,9 +292,10 @@
       </div>
     {/if}
   {:else if gameState.phase.type === 'action'}
-    {#if isViewingActiveHuman}
+    <div style:display={isViewingActiveHuman ? 'contents' : 'none'}>
       <ActionPhaseView {gameState} onAction={handleAction} onUndo={performUndo} undoAvailable={undoStack.length > 0} {draftCardOrder} />
-    {:else}
+    </div>
+    {#if !isViewingActiveHuman}
       <div class="waiting-indicator">
         <span class="waiting-spinner"></span>
         <span class="waiting-text">{aiThinking && selectedPlayerIndex === activePlayerIndex ? 'Thinking...' : 'Waiting...'}</span>
