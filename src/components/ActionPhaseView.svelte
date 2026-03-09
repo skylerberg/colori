@@ -189,7 +189,7 @@
 
   // Glass Unmix helpers
   const NON_PRIMARY_COLORS: Color[] = ['Vermilion', 'Orange', 'Amber', 'Chartreuse', 'Green', 'Teal', 'Indigo', 'Purple', 'Magenta'];
-  const TERTIARY_COLORS: Color[] = ['Orange', 'Green', 'Purple'];
+  const TERTIARY_COLORS: Color[] = ['Vermilion', 'Amber', 'Chartreuse', 'Teal', 'Indigo', 'Magenta'];
 
   let unmixableColors = $derived(
     currentPlayer
