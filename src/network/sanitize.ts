@@ -39,6 +39,7 @@ export function sanitizeGameState(
       actionState: {
         currentPlayerIndex: actionState.currentPlayerIndex,
         abilityStack: actionState.abilityStack.map(a => ({ ...a })),
+        usedGlass: actionState.usedGlass,
       },
     };
   } else if (fullState.phase.type === 'gameOver') {

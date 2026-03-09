@@ -1,6 +1,10 @@
 <script lang="ts">
-  import type { GameState, Choice, Ability } from '../data/types';
+  import type { GameState, Choice, Ability, GlassCard, Color, MaterialType } from '../data/types';
+  import { ALL_MATERIAL_TYPES } from '../data/types';
   import { orderByDraftOrder } from '../gameUtils';
+  import { getGlassCardData, GLASS_CARD_ORDER } from '../data/glassCards';
+  import { getAnyCardData } from '../data/cards';
+  import { colorToHex, textColorForBackground } from '../data/colors';
   import CardList from './CardList.svelte';
   import AbilityPrompt from './AbilityPrompt.svelte';
 
@@ -100,6 +104,112 @@
   function handleEndTurn() {
     onAction({ type: 'endTurn' });
   }
+
+  // ── Glass Abilities ──
+
+  function isGlassUsed(glass: GlassCard): boolean {
+    if (!actionState) return true;
+    const idx = GLASS_CARD_ORDER.indexOf(glass);
+    if (idx < 0) return true;
+    return (actionState.usedGlass & (1 << idx)) !== 0;
+  }
+
+  let availableGlass = $derived(
+    currentPlayer && actionState && gameState.expansions?.glass
+      ? (currentPlayer.completedGlass ?? []).filter(
+          g => g.card !== 'GlassKeepBoth' && !isGlassUsed(g.card)
+        )
+      : []
+  );
+
+  let activeGlassPrompt: GlassCard | null = $state(null);
+  let glassExchangeLose: MaterialType | undefined = $state(undefined);
+  let glassExchangeGain: MaterialType | undefined = $state(undefined);
+
+  $effect(() => {
+    // Reset glass prompt when ability stack changes
+    topAbility;
+    activeGlassPrompt = null;
+    glassExchangeLose = undefined;
+    glassExchangeGain = undefined;
+  });
+
+  function handleGlassClick(glass: GlassCard) {
+    // Simple activations (no parameters)
+    if (glass === 'GlassDraw') {
+      onAction({ type: 'activateGlassDraw' });
+      return;
+    }
+    if (glass === 'GlassMix') {
+      onAction({ type: 'activateGlassMix' });
+      return;
+    }
+    if (glass === 'GlassGainPrimary') {
+      onAction({ type: 'activateGlassGainPrimary' });
+      return;
+    }
+    if (glass === 'GlassWorkshop') {
+      onAction({ type: 'activateGlassWorkshop' });
+      return;
+    }
+
+    // Parameterized — toggle inline sub-selection
+    if (activeGlassPrompt === glass) {
+      activeGlassPrompt = null;
+    } else {
+      activeGlassPrompt = glass;
+      glassExchangeLose = undefined;
+      glassExchangeGain = undefined;
+    }
+  }
+
+  function cancelGlassPrompt() {
+    activeGlassPrompt = null;
+    glassExchangeLose = undefined;
+    glassExchangeGain = undefined;
+  }
+
+  // Glass Exchange helpers
+  let exchangeLoseOptions = $derived(
+    currentPlayer
+      ? ALL_MATERIAL_TYPES.filter(m => currentPlayer!.materials[m] >= 1)
+      : []
+  );
+
+  let exchangeGainOptions = $derived(
+    glassExchangeLose
+      ? ALL_MATERIAL_TYPES.filter(m => m !== glassExchangeLose)
+      : []
+  );
+
+  function confirmExchange() {
+    if (!glassExchangeLose || !glassExchangeGain) return;
+    onAction({ type: 'activateGlassExchange', lose: glassExchangeLose, gain: glassExchangeGain });
+  }
+
+  // Glass Unmix helpers
+  const NON_PRIMARY_COLORS: Color[] = ['Vermilion', 'Orange', 'Amber', 'Chartreuse', 'Green', 'Teal', 'Indigo', 'Purple', 'Magenta'];
+  const TERTIARY_COLORS: Color[] = ['Orange', 'Green', 'Purple'];
+
+  let unmixableColors = $derived(
+    currentPlayer
+      ? NON_PRIMARY_COLORS.filter(c => currentPlayer!.colorWheel[c] > 0)
+      : []
+  );
+
+  let tertiaryWithCount = $derived(
+    currentPlayer
+      ? TERTIARY_COLORS.filter(c => currentPlayer!.colorWheel[c] > 0)
+      : []
+  );
+
+  // Glass Reworkshop helpers (available during workshop ability too)
+  let glassReworkshopAvailable = $derived(
+    currentPlayer && actionState && gameState.expansions?.glass
+    && (currentPlayer.completedGlass ?? []).some(g => g.card === 'GlassReworkshop')
+    && !isGlassUsed('GlassReworkshop')
+    && currentPlayer.workshoppedCards.length > 0
+  );
 </script>
 
 {#if actionState && currentPlayer}
@@ -138,14 +248,32 @@
             rotatedIds={workshoppedIds}
             onCardClick={toggleWorkshopCard}
           />
-          <button class="confirm-btn" onclick={confirmWorkshop}>
-            Confirm Workshop ({selectedWorkshopIds.length} selected)
-          </button>
-          {#if selectedWorkshopIds.length === 0}
-            <button class="confirm-btn skip-btn" onclick={handleSkipWorkshop}>
-              Skip Workshop
+          <div class="workshop-actions">
+            <button class="confirm-btn" onclick={confirmWorkshop}>
+              Confirm Workshop ({selectedWorkshopIds.length} selected)
             </button>
-          {/if}
+            {#if selectedWorkshopIds.length === 0}
+              <button class="confirm-btn skip-btn" onclick={handleSkipWorkshop}>
+                Skip Workshop
+              </button>
+            {/if}
+            {#if glassReworkshopAvailable}
+              <div class="reworkshop-section">
+                <span class="reworkshop-label">Reworkshop (Glass):</span>
+                <div class="reworkshop-cards">
+                  {#each currentPlayer.workshoppedCards as card}
+                    {@const cardData = getAnyCardData(card.card)}
+                    <button
+                      class="glass-action-btn reworkshop-btn"
+                      onclick={() => onAction({ type: 'activateGlassReworkshop', card: card.card })}
+                    >
+                      {'name' in cardData ? cardData.name : card.card}
+                    </button>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+          </div>
         {:else if topAbility?.type === 'destroyCards'}
           <h3>Workshop — Select a card to destroy</h3>
           <CardList
@@ -163,6 +291,125 @@
           <CardList cards={workshopAndWorkshopped} rotatedIds={workshoppedIds} />
         {/if}
       </div>
+
+      {#if gameState.expansions?.glass && availableGlass.length > 0 && !hasPendingChoice}
+        <div class="section glass-section">
+          <h3>Glass Abilities</h3>
+          <div class="glass-buttons">
+            {#each availableGlass as glass}
+              {@const data = getGlassCardData(glass.card)}
+              <button
+                class="glass-action-btn"
+                class:active={activeGlassPrompt === glass.card}
+                onclick={() => handleGlassClick(glass.card)}
+              >
+                {data.name}
+              </button>
+            {/each}
+          </div>
+
+          {#if activeGlassPrompt === 'GlassExchange'}
+            <div class="glass-sub-selection">
+              <div class="sub-row">
+                <span class="sub-label">Lose:</span>
+                {#each exchangeLoseOptions as mat}
+                  <button
+                    class="sub-btn"
+                    class:selected={glassExchangeLose === mat}
+                    onclick={() => { glassExchangeLose = mat; glassExchangeGain = undefined; }}
+                  >{mat}</button>
+                {/each}
+              </div>
+              {#if glassExchangeLose}
+                <div class="sub-row">
+                  <span class="sub-label">Gain:</span>
+                  {#each exchangeGainOptions as mat}
+                    <button
+                      class="sub-btn"
+                      class:selected={glassExchangeGain === mat}
+                      onclick={() => glassExchangeGain = mat}
+                    >{mat}</button>
+                  {/each}
+                </div>
+              {/if}
+              <div class="sub-actions">
+                <button class="confirm-btn" disabled={!glassExchangeLose || !glassExchangeGain} onclick={confirmExchange}>Confirm</button>
+                <button class="confirm-btn skip-btn" onclick={cancelGlassPrompt}>Cancel</button>
+              </div>
+            </div>
+          {:else if activeGlassPrompt === 'GlassMoveDrafted'}
+            <div class="glass-sub-selection">
+              <span class="sub-label">Select a drafted card to move to workshop:</span>
+              <div class="sub-row">
+                {#each currentPlayer.draftedCards as card}
+                  {@const cardData = getAnyCardData(card.card)}
+                  <button
+                    class="sub-btn"
+                    onclick={() => onAction({ type: 'activateGlassMoveDrafted', card: card.card })}
+                  >{'name' in cardData ? cardData.name : card.card}</button>
+                {/each}
+              </div>
+              <button class="confirm-btn skip-btn" onclick={cancelGlassPrompt}>Cancel</button>
+            </div>
+          {:else if activeGlassPrompt === 'GlassUnmix'}
+            <div class="glass-sub-selection">
+              <span class="sub-label">Select a non-primary color to unmix:</span>
+              <div class="sub-row">
+                {#each unmixableColors as color}
+                  <button
+                    class="color-btn"
+                    style="background-color: {colorToHex(color)}; color: {textColorForBackground(colorToHex(color))}"
+                    onclick={() => onAction({ type: 'activateGlassUnmix', color })}
+                  >{color}</button>
+                {/each}
+              </div>
+              <button class="confirm-btn skip-btn" onclick={cancelGlassPrompt}>Cancel</button>
+            </div>
+          {:else if activeGlassPrompt === 'GlassTertiaryDucat'}
+            <div class="glass-sub-selection">
+              <span class="sub-label">Select a tertiary color to convert to 1 ducat:</span>
+              <div class="sub-row">
+                {#each tertiaryWithCount as color}
+                  <button
+                    class="color-btn"
+                    style="background-color: {colorToHex(color)}; color: {textColorForBackground(colorToHex(color))}"
+                    onclick={() => onAction({ type: 'activateGlassTertiaryDucat', color })}
+                  >{color}</button>
+                {/each}
+              </div>
+              <button class="confirm-btn skip-btn" onclick={cancelGlassPrompt}>Cancel</button>
+            </div>
+          {:else if activeGlassPrompt === 'GlassReworkshop'}
+            <div class="glass-sub-selection">
+              <span class="sub-label">Select a workshopped card to un-rotate:</span>
+              <div class="sub-row">
+                {#each currentPlayer.workshoppedCards as card}
+                  {@const cardData = getAnyCardData(card.card)}
+                  <button
+                    class="sub-btn"
+                    onclick={() => onAction({ type: 'activateGlassReworkshop', card: card.card })}
+                  >{'name' in cardData ? cardData.name : card.card}</button>
+                {/each}
+              </div>
+              <button class="confirm-btn skip-btn" onclick={cancelGlassPrompt}>Cancel</button>
+            </div>
+          {:else if activeGlassPrompt === 'GlassDestroyClean'}
+            <div class="glass-sub-selection">
+              <span class="sub-label">Select a workshop card to destroy (no ability triggered):</span>
+              <div class="sub-row">
+                {#each workshopAndWorkshopped as card}
+                  {@const cardData = getAnyCardData(card.card)}
+                  <button
+                    class="sub-btn"
+                    onclick={() => onAction({ type: 'activateGlassDestroyClean', card: card.card })}
+                  >{'name' in cardData ? cardData.name : card.card}</button>
+                {/each}
+              </div>
+              <button class="confirm-btn skip-btn" onclick={cancelGlassPrompt}>Cancel</button>
+            </div>
+          {/if}
+        </div>
+      {/if}
     </div>
 
     <div class="action-footer">
@@ -260,8 +507,13 @@
     margin-right: 6px;
   }
 
-  .confirm-btn:hover {
+  .confirm-btn:hover:not(:disabled) {
     background: rgba(30, 86, 168, 0.9);
+  }
+
+  .confirm-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 
   .skip-btn {
@@ -321,5 +573,128 @@
   .end-turn-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+
+  /* Glass Abilities */
+  .glass-section {
+    border-color: rgba(100, 160, 200, 0.5);
+  }
+
+  .glass-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .glass-action-btn {
+    padding: 6px 14px;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: rgba(100, 160, 200, 0.2);
+    color: rgba(245, 237, 224, 0.9);
+    border: 1px solid rgba(100, 160, 200, 0.5);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .glass-action-btn:hover {
+    background: rgba(100, 160, 200, 0.35);
+  }
+
+  .glass-action-btn.active {
+    border-color: #c9a84c;
+    background: rgba(201, 168, 76, 0.15);
+  }
+
+  .glass-sub-selection {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+    background: rgba(20, 15, 10, 0.5);
+    border-radius: 6px;
+  }
+
+  .sub-label {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.85rem;
+    color: rgba(245, 237, 224, 0.7);
+  }
+
+  .sub-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .sub-btn {
+    padding: 4px 12px;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.85rem;
+    background: rgba(100, 160, 200, 0.15);
+    color: rgba(245, 237, 224, 0.9);
+    border: 1px solid rgba(100, 160, 200, 0.4);
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .sub-btn:hover {
+    background: rgba(100, 160, 200, 0.3);
+  }
+
+  .sub-btn.selected {
+    border-color: #c9a84c;
+    background: rgba(201, 168, 76, 0.15);
+  }
+
+  .sub-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .color-btn {
+    padding: 6px 14px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    border: 2px solid rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .color-btn:hover {
+    opacity: 0.85;
+  }
+
+  .workshop-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .reworkshop-section {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 8px;
+  }
+
+  .reworkshop-label {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.8rem;
+    color: rgba(245, 237, 224, 0.6);
+  }
+
+  .reworkshop-cards {
+    display: flex;
+    gap: 4px;
+  }
+
+  .reworkshop-btn {
+    font-size: 0.75rem;
+    padding: 4px 10px;
   }
 </style>

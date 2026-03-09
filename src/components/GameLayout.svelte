@@ -2,6 +2,7 @@
   import type { GameState } from '../data/types';
   import { formatTime, orderByDraftOrder } from '../gameUtils';
   import { getBuyerData } from '../data/cards';
+  import { getGlassCardData, GLASS_CARD_ORDER } from '../data/glassCards';
   import type { Snippet } from 'svelte';
   import BuyerDisplay from './BuyerDisplay.svelte';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
@@ -115,7 +116,11 @@
               <div class="glass-cards">
                 {#if gameState.glassDisplay.length > 0}
                   {#each gameState.glassDisplay as glass}
-                    <div class="glass-card">{glass.card}</div>
+                    {@const data = getGlassCardData(glass.card)}
+                    <div class="glass-card" title={data.description}>
+                      <span class="glass-card-name">{data.name}</span>
+                      <span class="glass-card-desc">{data.description}</span>
+                    </div>
                   {/each}
                 {:else}
                   <div class="empty-text">No glass cards available</div>
@@ -143,7 +148,15 @@
                   <div class="glass-cards">
                     {#if currentPlayer.completedGlass && currentPlayer.completedGlass.length > 0}
                       {#each currentPlayer.completedGlass as glass}
-                        <div class="glass-card">{glass.card}</div>
+                        {@const data = getGlassCardData(glass.card)}
+                        {@const used = gameState.phase.type === 'action' && (() => {
+                          const idx = GLASS_CARD_ORDER.indexOf(glass.card);
+                          return idx >= 0 && (gameState.phase.actionState.usedGlass & (1 << idx)) !== 0;
+                        })()}
+                        <div class="glass-card" class:glass-used={used} title={data.description}>
+                          <span class="glass-card-name">{data.name}</span>
+                          <span class="glass-card-desc">{data.description}</span>
+                        </div>
                       {/each}
                     {:else}
                       <div class="empty-text">None yet</div>
@@ -628,13 +641,28 @@
   }
 
   .glass-card {
+    display: flex;
+    flex-direction: column;
     padding: 4px 10px;
     font-family: 'Cormorant Garamond', serif;
-    font-size: 0.8rem;
     color: rgba(245, 237, 224, 0.9);
     background: rgba(100, 160, 200, 0.25);
     border: 1px solid rgba(100, 160, 200, 0.5);
     border-radius: 4px;
+  }
+
+  .glass-card-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  .glass-card-desc {
+    font-size: 0.65rem;
+    color: rgba(245, 237, 224, 0.5);
+  }
+
+  .glass-used {
+    opacity: 0.4;
   }
 
   .empty-text {
