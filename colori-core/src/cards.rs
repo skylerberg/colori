@@ -1,4 +1,4 @@
-use crate::types::{Card, BuyerCard};
+use crate::types::{Card, BuyerCard, GlassCard};
 
 pub const DYE_COPIES: usize = 3;
 pub const ACTION_COPIES: usize = 4;
@@ -45,6 +45,22 @@ pub fn draft_material_cards() -> [Card; 12] {
 pub fn action_cards() -> [Card; 4] {
     // Vinegar is temporarily removed from the draft deck and will be added back
     [Card::Alum, Card::CreamOfTartar, Card::GumArabic, Card::Potash]
+}
+
+pub fn generate_all_glass() -> [GlassCard; 11] {
+    [
+        GlassCard::GlassWorkshop,
+        GlassCard::GlassDraw,
+        GlassCard::GlassMix,
+        GlassCard::GlassExchange,
+        GlassCard::GlassMoveDrafted,
+        GlassCard::GlassUnmix,
+        GlassCard::GlassTertiaryDucat,
+        GlassCard::GlassReworkshop,
+        GlassCard::GlassGainPrimary,
+        GlassCard::GlassDestroyClean,
+        GlassCard::GlassKeepBoth,
+    ]
 }
 
 pub fn generate_all_buyers() -> [BuyerCard; 54] {

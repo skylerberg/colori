@@ -8,6 +8,53 @@ pub type AbilityStack = SmallVec<[Ability; 4]>;
 
 pub const MAX_PLAYERS: usize = 4;
 pub const MAX_BUYER_DISPLAY: usize = 6;
+pub const MAX_GLASS_DISPLAY: usize = 3;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Expansions {
+    pub glass: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum GlassCard {
+    GlassWorkshop,
+    GlassDraw,
+    GlassMix,
+    GlassExchange,
+    GlassMoveDrafted,
+    GlassUnmix,
+    GlassTertiaryDucat,
+    GlassReworkshop,
+    GlassGainPrimary,
+    GlassDestroyClean,
+    GlassKeepBoth,
+}
+
+impl GlassCard {
+    pub fn name(&self) -> &'static str {
+        match self {
+            GlassCard::GlassWorkshop => "Glass Workshop",
+            GlassCard::GlassDraw => "Glass Draw",
+            GlassCard::GlassMix => "Glass Mix",
+            GlassCard::GlassExchange => "Glass Exchange",
+            GlassCard::GlassMoveDrafted => "Glass Move Drafted",
+            GlassCard::GlassUnmix => "Glass Unmix",
+            GlassCard::GlassTertiaryDucat => "Glass Tertiary Ducat",
+            GlassCard::GlassReworkshop => "Glass Reworkshop",
+            GlassCard::GlassGainPrimary => "Glass Gain Primary",
+            GlassCard::GlassDestroyClean => "Glass Destroy Clean",
+            GlassCard::GlassKeepBoth => "Glass Keep Both",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GlassInstance {
+    pub instance_id: u32,
+    #[serde(rename = "card")]
+    pub glass: GlassCard,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Color {
@@ -615,6 +662,8 @@ pub struct PlayerState {
     pub color_wheel: ColorWheel,
     pub materials: Materials,
     pub completed_buyers: SmallVec<[BuyerInstance; 12]>,
+    #[serde(default)]
+    pub completed_glass: SmallVec<[GlassInstance; 4]>,
     pub ducats: u32,
     #[serde(skip)]
     pub cached_score: u32,
@@ -670,6 +719,8 @@ fn deserialize_hands<'de, D: serde::Deserializer<'de>>(
 pub struct ActionState {
     pub current_player_index: usize,
     pub ability_stack: AbilityStack,
+    #[serde(default)]
+    pub used_glass: u16,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -699,6 +750,12 @@ pub struct GameState {
     pub destroyed_pile: UnorderedCards,
     pub buyer_deck: UnorderedBuyers,
     pub buyer_display: FixedVec<BuyerInstance, MAX_BUYER_DISPLAY>,
+    #[serde(default)]
+    pub expansions: Expansions,
+    #[serde(default)]
+    pub glass_deck: SmallVec<[GlassInstance; 11]>,
+    #[serde(default)]
+    pub glass_display: FixedVec<GlassInstance, MAX_GLASS_DISPLAY>,
     pub phase: GamePhase,
     pub round: u32,
     pub ai_players: FixedVec<bool, MAX_PLAYERS>,
@@ -770,5 +827,49 @@ pub enum Choice {
     DestroyAndDestroyCards {
         card: Card,
         target: Option<Card>,
+    },
+
+    // Glass card acquisition (during Sell)
+    #[serde(rename = "selectGlass")]
+    SelectGlass {
+        glass: GlassCard,
+        #[serde(rename = "payColor")]
+        pay_color: Color,
+    },
+
+    // Glass ability activations (parameterless - push onto ability stack)
+    #[serde(rename = "activateGlassWorkshop")]
+    ActivateGlassWorkshop,
+    #[serde(rename = "activateGlassDraw")]
+    ActivateGlassDraw,
+    #[serde(rename = "activateGlassMix")]
+    ActivateGlassMix,
+    #[serde(rename = "activateGlassGainPrimary")]
+    ActivateGlassGainPrimary,
+
+    // Glass ability activations (with parameters - resolve immediately)
+    #[serde(rename = "activateGlassExchange")]
+    ActivateGlassExchange {
+        lose: MaterialType,
+        gain: MaterialType,
+    },
+    #[serde(rename = "activateGlassMoveDrafted")]
+    ActivateGlassMoveDrafted { card: Card },
+    #[serde(rename = "activateGlassUnmix")]
+    ActivateGlassUnmix { color: Color },
+    #[serde(rename = "activateGlassTertiaryDucat")]
+    ActivateGlassTertiaryDucat { color: Color },
+    #[serde(rename = "activateGlassReworkshop")]
+    ActivateGlassReworkshop { card: Card },
+    #[serde(rename = "activateGlassDestroyClean")]
+    ActivateGlassDestroyClean { card: Card },
+
+    // Compound: destroy drafted card + select glass
+    #[serde(rename = "destroyAndSelectGlass")]
+    DestroyAndSelectGlass {
+        card: Card,
+        glass: GlassCard,
+        #[serde(rename = "payColor")]
+        pay_color: Color,
     },
 }

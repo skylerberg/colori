@@ -109,6 +109,21 @@
         <div class="left-col">
           <BuyerDisplay buyers={gameState.buyerDisplay} />
 
+          {#if gameState.expansions?.glass}
+            <div class="section-panel glass-display-panel">
+              <div class="section-title">Glass Display</div>
+              <div class="glass-cards">
+                {#if gameState.glassDisplay.length > 0}
+                  {#each gameState.glassDisplay as glass}
+                    <div class="glass-card">{glass.card}</div>
+                  {/each}
+                {:else}
+                  <div class="empty-text">No glass cards available</div>
+                {/if}
+              </div>
+            </div>
+          {/if}
+
           <div class="player-info-row">
             <div class="info-left-col">
               <div class="section-panel completed-buyers-panel">
@@ -121,6 +136,21 @@
                   {/if}
                 </div>
               </div>
+
+              {#if gameState.expansions?.glass}
+                <div class="section-panel completed-glass-panel">
+                  <div class="section-title">Completed Glass</div>
+                  <div class="glass-cards">
+                    {#if currentPlayer.completedGlass && currentPlayer.completedGlass.length > 0}
+                      {#each currentPlayer.completedGlass as glass}
+                        <div class="glass-card">{glass.card}</div>
+                      {/each}
+                    {:else}
+                      <div class="empty-text">None yet</div>
+                    {/if}
+                  </div>
+                </div>
+              {/if}
 
               <div class="section-panel materials-panel">
                 <div class="section-title">Materials</div>
@@ -589,6 +619,22 @@
     color: #c9a84c;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+  }
+
+  .glass-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .glass-card {
+    padding: 4px 10px;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.8rem;
+    color: rgba(245, 237, 224, 0.9);
+    background: rgba(100, 160, 200, 0.25);
+    border: 1px solid rgba(100, 160, 200, 0.5);
+    border-radius: 4px;
   }
 
   .empty-text {

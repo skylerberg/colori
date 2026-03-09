@@ -1,7 +1,8 @@
-use crate::colors::{can_pay_cost, pay_cost, perform_mix, perform_mix_unchecked, TERTIARIES};
+use crate::colors::{can_pay_cost, pay_cost, perform_mix, perform_mix_unchecked, PRIMARIES, TERTIARIES};
 use crate::deck_utils::draw_from_deck;
 use crate::types::{
-    Ability, ActionState, BuyerCard, BuyerInstance, Color, GamePhase, GameState, PlayerState,
+    Ability, ActionState, BuyerCard, BuyerInstance, Color, GamePhase, GameState, GlassCard,
+    PlayerState,
 };
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
@@ -11,6 +12,7 @@ pub fn initialize_action_phase(state: &mut GameState) {
     let action_state = ActionState {
         current_player_index: ((state.round - 1) as usize) % state.players.len(),
         ability_stack: SmallVec::new(),
+        used_glass: 0,
     };
     state.phase = GamePhase::Action { action_state };
 }
@@ -71,7 +73,7 @@ pub fn process_ability_stack<R: Rng>(state: &mut GameState, rng: &mut R) {
                 return; // always needs input
             }
             Ability::Sell => {
-                if can_sell_to_any_buyer(state) {
+                if can_sell_to_any_buyer(state) || can_sell_to_any_glass(state) {
                     return; // waiting for input
                 } else {
                     get_action_state_mut(state).ability_stack.pop();
@@ -112,6 +114,18 @@ pub fn can_sell_to_any_buyer(state: &GameState) -> bool {
         .buyer_display
         .iter()
         .any(|b| can_afford_buyer(player, &b.buyer))
+}
+
+pub fn can_afford_glass(player: &PlayerState) -> bool {
+    PRIMARIES.iter().any(|&c| player.color_wheel.get(c) >= 4)
+}
+
+pub fn can_sell_to_any_glass(state: &GameState) -> bool {
+    if !state.expansions.glass || state.glass_display.is_empty() {
+        return false;
+    }
+    let player_index = get_action_state(state).current_player_index;
+    can_afford_glass(&state.players[player_index])
 }
 
 pub fn resolve_workshop_choice<R: Rng>(
@@ -380,6 +394,48 @@ pub fn resolve_choose_tertiary_to_gain<R: Rng>(
     process_ability_stack(state, rng);
 }
 
+#[allow(dead_code)]
+pub(crate) fn glass_ability_available(state: &GameState, player_index: usize, glass: GlassCard) -> bool {
+    let action_state = get_action_state(state);
+    let bit = 1u16 << (glass as u16);
+    if action_state.used_glass & bit != 0 {
+        return false;
+    }
+    state.players[player_index].completed_glass.iter().any(|g| g.glass == glass)
+}
+
+pub(crate) fn mark_glass_used(state: &mut GameState, glass: GlassCard) {
+    let action_state = get_action_state_mut(state);
+    action_state.used_glass |= 1u16 << (glass as u16);
+}
+
+pub fn resolve_select_glass<R: Rng>(
+    state: &mut GameState,
+    glass_card: GlassCard,
+    pay_color: Color,
+    rng: &mut R,
+) {
+    let player_index = get_action_state(state).current_player_index;
+    get_action_state_mut(state).ability_stack.pop();
+
+    let glass_index = state.glass_display.iter()
+        .position(|g| g.glass == glass_card)
+        .expect("Glass card not found in display");
+    let glass_instance = state.glass_display.swap_remove(glass_index);
+
+    let player = &mut state.players[player_index];
+    for _ in 0..4 {
+        assert!(player.color_wheel.decrement(pay_color), "Not enough color to pay");
+    }
+    player.completed_glass.push(glass_instance);
+
+    if let Some(next) = state.glass_deck.pop() {
+        state.glass_display.push(next);
+    }
+
+    process_ability_stack(state, rng);
+}
+
 pub fn end_player_turn<R: Rng>(state: &mut GameState, rng: &mut R) {
     let player_index = get_action_state(state).current_player_index;
     let player = &mut state.players[player_index];
@@ -407,6 +463,7 @@ pub fn end_player_turn<R: Rng>(state: &mut GameState, rng: &mut R) {
     } else {
         let action_state = get_action_state_mut(state);
         action_state.ability_stack.clear();
+        action_state.used_glass = 0;
     }
 }
 
@@ -421,7 +478,7 @@ pub fn end_round<R: Rng>(state: &mut GameState, _rng: &mut R) {
 }
 
 #[inline]
-fn get_action_state(state: &GameState) -> &ActionState {
+pub(crate) fn get_action_state(state: &GameState) -> &ActionState {
     match &state.phase {
         GamePhase::Action { action_state } => action_state,
         _ => panic!("Expected action phase"),
@@ -429,7 +486,7 @@ fn get_action_state(state: &GameState) -> &ActionState {
 }
 
 #[inline]
-fn get_action_state_mut(state: &mut GameState) -> &mut ActionState {
+pub(crate) fn get_action_state_mut(state: &mut GameState) -> &mut ActionState {
     match &mut state.phase {
         GamePhase::Action { action_state } => action_state,
         _ => panic!("Expected action phase"),

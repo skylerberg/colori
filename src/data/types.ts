@@ -1,3 +1,7 @@
+export interface Expansions {
+    glass: boolean;
+}
+
 export type Color = 'Red' | 'Vermilion' | 'Orange' | 'Amber' | 'Yellow' |
   'Chartreuse' | 'Green' | 'Teal' | 'Blue' | 'Indigo' | 'Purple' | 'Magenta';
 
@@ -87,6 +91,24 @@ export interface BuyerCardData {
 
 export type AnyCardData = DyeCardData | BasicDyeCardData | MaterialCardData | ActionCardData | BuyerCardData;
 
+export type GlassCard =
+    | 'GlassWorkshop'
+    | 'GlassDraw'
+    | 'GlassMix'
+    | 'GlassExchange'
+    | 'GlassMoveDrafted'
+    | 'GlassUnmix'
+    | 'GlassTertiaryDucat'
+    | 'GlassReworkshop'
+    | 'GlassGainPrimary'
+    | 'GlassDestroyClean'
+    | 'GlassKeepBoth';
+
+export interface GlassInstance {
+    instanceId: number;
+    card: GlassCard;
+}
+
 export interface CardInstance {
   instanceId: number;
   card: Card;
@@ -106,6 +128,7 @@ export interface PlayerState {
   colorWheel: Record<Color, number>;
   materials: Record<MaterialType, number>;
   completedBuyers: BuyerInstance[];
+  completedGlass: GlassInstance[];
   ducats: number;
 }
 
@@ -118,6 +141,7 @@ export interface DraftState {
 export interface ActionState {
   currentPlayerIndex: number;
   abilityStack: Ability[];
+  usedGlass: number;
 }
 
 export type GamePhase =
@@ -133,6 +157,9 @@ export interface GameState {
   destroyedPile: CardInstance[];
   buyerDeck: BuyerInstance[];
   buyerDisplay: BuyerInstance[];
+  glassDeck: GlassInstance[];
+  glassDisplay: GlassInstance[];
+  expansions: Expansions;
   phase: GamePhase;
   round: number;
   aiPlayers: boolean[];
@@ -153,7 +180,19 @@ export type Choice =
   | { type: 'destroyAndMix'; card: Card; mixes: [Color, Color][] }
   | { type: 'destroyAndSell'; card: Card; buyer: BuyerCard }
   | { type: 'destroyAndWorkshop'; card: Card; workshopCards: Card[] }
-  | { type: 'destroyAndDestroyCards'; card: Card; target: Card | null };
+  | { type: 'destroyAndDestroyCards'; card: Card; target: Card | null }
+  | { type: 'selectGlass'; glass: GlassCard; payColor: Color }
+  | { type: 'activateGlassWorkshop' }
+  | { type: 'activateGlassDraw' }
+  | { type: 'activateGlassMix' }
+  | { type: 'activateGlassGainPrimary' }
+  | { type: 'activateGlassExchange'; lose: MaterialType; gain: MaterialType }
+  | { type: 'activateGlassMoveDrafted'; card: Card }
+  | { type: 'activateGlassUnmix'; color: Color }
+  | { type: 'activateGlassTertiaryDucat'; color: Color }
+  | { type: 'activateGlassReworkshop'; card: Card }
+  | { type: 'activateGlassDestroyClean'; card: Card }
+  | { type: 'destroyAndSelectGlass'; card: Card; glass: GlassCard; payColor: Color };
 
 // ── Game Log Types ──
 

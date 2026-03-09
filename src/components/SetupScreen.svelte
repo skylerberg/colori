@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { GameState } from '../data/types';
+  import type { GameState, Expansions } from '../data/types';
   import { createInitialGameState } from '../engine/wasmEngine';
 
   const DIFFICULTY_LEVELS: { label: string; iterations: number }[] = [
@@ -19,6 +19,7 @@
   let playerNames: string[] = $state(['Player 1', 'Player 2', 'Player 3', 'Player 4', 'Player 5']);
   let isAI: boolean[] = $state([false, false, false, false, false]);
   let aiIterations: number[] = $state([100000, 100000, 100000, 100000, 100000]);
+  let glassExpansion = $state(false);
 
   function updatePlayerCount(count: number) {
     playerCount = count;
@@ -49,7 +50,8 @@
   function startGame() {
     const names = playerNames.slice(0, playerCount).map((n, i) => n.trim() || `Player ${i + 1}`);
     const aiPlayers = isAI.slice(0, playerCount);
-    const state = createInitialGameState(names, aiPlayers);
+    const expansions: Expansions | undefined = glassExpansion ? { glass: true } : undefined;
+    const state = createInitialGameState(names, aiPlayers, expansions);
     onGameStarted(state, aiIterations.slice(0, playerCount));
   }
 </script>
@@ -104,6 +106,13 @@
         {/if}
       </div>
     {/each}
+  </div>
+
+  <div class="expansions-section">
+    <label class="expansion-toggle">
+      <input type="checkbox" bind:checked={glassExpansion} />
+      <span>Glass Expansion</span>
+    </label>
   </div>
 
   <button class="start-btn" onclick={startGame}>Start Game</button>
@@ -212,6 +221,32 @@
     border: 2px solid var(--accent-crimson, #8b2020);
     border-radius: 6px;
     background: #fff;
+    cursor: pointer;
+  }
+
+  .expansions-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 16px;
+    border: 2px solid var(--border-gold, rgba(201, 168, 76, 0.3));
+    border-radius: 8px;
+    background: var(--bg-panel, #ebe3d3);
+  }
+
+  .expansion-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .expansion-toggle input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent-gold, #c9a84c);
     cursor: pointer;
   }
 

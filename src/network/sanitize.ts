@@ -15,6 +15,7 @@ export function sanitizeGameState(
     colorWheel: { ...p.colorWheel },
     materials: { ...p.materials },
     completedBuyers: [...p.completedBuyers],
+    completedGlass: [...(p.completedGlass ?? [])],
     ducats: p.ducats,
   }));
 
@@ -53,6 +54,9 @@ export function sanitizeGameState(
     destroyedPile: [...fullState.destroyedPile],
     buyerDeckCount: fullState.buyerDeck.length,
     buyerDisplay: [...fullState.buyerDisplay],
+    glassDeckCount: (fullState.glassDeck ?? []).length,
+    glassDisplay: [...(fullState.glassDisplay ?? [])],
+    expansions: fullState.expansions ?? { glass: false },
     phase,
     round: fullState.round,
     aiPlayers: [...fullState.aiPlayers],

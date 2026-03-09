@@ -1,6 +1,7 @@
 use crate::action_phase::*;
+use crate::colors::perform_unmix;
 use crate::draft_phase::player_pick;
-use crate::types::{Ability, Card, Choice, GamePhase, GameState};
+use crate::types::{Ability, Card, Choice, GamePhase, GameState, GlassCard};
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
 
@@ -191,6 +192,75 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
                 }
             }
             resolve_destroy_cards(state, selected, rng);
+        }
+        Choice::SelectGlass { glass, pay_color } => {
+            resolve_select_glass(state, *glass, *pay_color, rng);
+        }
+        Choice::ActivateGlassWorkshop => {
+            mark_glass_used(state, GlassCard::GlassWorkshop);
+            get_action_state_mut(state).ability_stack.push(Ability::Workshop { count: 1 });
+            process_ability_stack(state, rng);
+        }
+        Choice::ActivateGlassDraw => {
+            mark_glass_used(state, GlassCard::GlassDraw);
+            get_action_state_mut(state).ability_stack.push(Ability::DrawCards { count: 1 });
+            process_ability_stack(state, rng);
+        }
+        Choice::ActivateGlassMix => {
+            mark_glass_used(state, GlassCard::GlassMix);
+            get_action_state_mut(state).ability_stack.push(Ability::MixColors { count: 1 });
+            process_ability_stack(state, rng);
+        }
+        Choice::ActivateGlassGainPrimary => {
+            mark_glass_used(state, GlassCard::GlassGainPrimary);
+            get_action_state_mut(state).ability_stack.push(Ability::GainPrimary);
+            process_ability_stack(state, rng);
+        }
+        Choice::ActivateGlassExchange { lose, gain } => {
+            mark_glass_used(state, GlassCard::GlassExchange);
+            let player_index = get_action_state(state).current_player_index;
+            let player = &mut state.players[player_index];
+            assert!(player.materials.decrement(*lose), "Not enough material to exchange");
+            player.materials.increment(*gain);
+        }
+        Choice::ActivateGlassMoveDrafted { card } => {
+            mark_glass_used(state, GlassCard::GlassMoveDrafted);
+            let player_index = get_action_state(state).current_player_index;
+            let id = find_card_instance(state, card, &state.players[player_index].drafted_cards);
+            state.players[player_index].drafted_cards.remove(id as u8);
+            state.players[player_index].workshop_cards.insert(id as u8);
+        }
+        Choice::ActivateGlassUnmix { color } => {
+            mark_glass_used(state, GlassCard::GlassUnmix);
+            let player_index = get_action_state(state).current_player_index;
+            assert!(perform_unmix(&mut state.players[player_index].color_wheel, *color), "Cannot unmix");
+        }
+        Choice::ActivateGlassTertiaryDucat { color } => {
+            mark_glass_used(state, GlassCard::GlassTertiaryDucat);
+            let player_index = get_action_state(state).current_player_index;
+            let player = &mut state.players[player_index];
+            assert!(player.color_wheel.decrement(*color), "Not enough tertiary color");
+            player.ducats += 1;
+            player.cached_score += 1;
+        }
+        Choice::ActivateGlassReworkshop { card } => {
+            mark_glass_used(state, GlassCard::GlassReworkshop);
+            let player_index = get_action_state(state).current_player_index;
+            let id = find_card_instance(state, card, &state.players[player_index].workshopped_cards);
+            state.players[player_index].workshopped_cards.remove(id as u8);
+            state.players[player_index].workshop_cards.insert(id as u8);
+        }
+        Choice::ActivateGlassDestroyClean { card } => {
+            mark_glass_used(state, GlassCard::GlassDestroyClean);
+            let player_index = get_action_state(state).current_player_index;
+            let id = find_card_instance(state, card, &state.players[player_index].workshop_cards);
+            state.players[player_index].workshop_cards.remove(id as u8);
+            state.destroyed_pile.insert(id as u8);
+        }
+        Choice::DestroyAndSelectGlass { card, glass, pay_color } => {
+            let card_instance_id = get_drafted_card_instance(state, card);
+            destroy_drafted_card(state, card_instance_id, rng);
+            resolve_select_glass(state, *glass, *pay_color, rng);
         }
     }
 }

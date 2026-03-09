@@ -1,5 +1,5 @@
 use crate::action_phase::initialize_action_phase;
-use crate::types::{DraftState, GamePhase, GameState, MAX_PLAYERS};
+use crate::types::{DraftState, GamePhase, GameState, GlassCard, MAX_PLAYERS};
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
 
@@ -101,7 +101,20 @@ pub fn advance_draft(state: &mut GameState) {
     if pick_number >= 4 || any_empty {
         if let GamePhase::Draft { ref draft_state } = state.phase {
             for i in 0..draft_state.num_hands {
-                state.destroyed_pile = state.destroyed_pile.union(draft_state.hands[i]);
+                // GlassKeepBoth: if the player at seat i has this glass card,
+                // add remaining hand cards to their drafted_cards
+                let player_for_hand = i;
+                let has_keep_both = state.players[player_for_hand]
+                    .completed_glass
+                    .iter()
+                    .any(|g| g.glass == GlassCard::GlassKeepBoth);
+                if has_keep_both {
+                    for id in draft_state.hands[i].iter() {
+                        state.players[player_for_hand].drafted_cards.insert(id);
+                    }
+                } else {
+                    state.destroyed_pile = state.destroyed_pile.union(draft_state.hands[i]);
+                }
             }
         }
         initialize_action_phase(state);

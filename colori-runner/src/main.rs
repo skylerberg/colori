@@ -3,7 +3,7 @@ use colori_core::draw_phase::execute_draw_phase;
 use colori_core::game_log::{FinalPlayerStats, FinalScore, PlayerVariant};
 use colori_core::ismcts::{ismcts, MctsConfig};
 use colori_core::scoring::calculate_score;
-use colori_core::setup::create_initial_game_state;
+use colori_core::setup::create_initial_game_state_with_expansions;
 use colori_core::types::*;
 use colori_core::unordered_cards::{set_buyer_registry, set_card_registry};
 
@@ -30,6 +30,7 @@ struct Args {
     output: String,
     note: Option<String>,
     variants: Vec<NamedVariant>,
+    glass: bool,
 }
 
 #[derive(Clone)]
@@ -116,6 +117,7 @@ fn parse_args() -> Args {
     let mut note: Option<String> = None;
     let mut variants: Option<Vec<NamedVariant>> = None;
     let mut variants_file = "variants.json".to_string();
+    let mut glass = false;
 
     let mut i = 1;
     while i < args.len() {
@@ -155,6 +157,11 @@ fn parse_args() -> Args {
                 i += 1;
                 variants_file = args[i].clone();
             }
+            "--glass" => {
+                glass = true;
+                i += 1;
+                continue;
+            }
             other => {
                 eprintln!("Unknown argument: {}", other);
                 std::process::exit(1);
@@ -180,6 +187,7 @@ fn parse_args() -> Args {
         output,
         note,
         variants,
+        glass,
     }
 }
 
@@ -372,6 +380,7 @@ fn run_game(
     _game_index: usize,
     player_variants: &[NamedVariant],
     note: Option<String>,
+    glass: bool,
     rng: &mut WyRand,
     #[cfg(feature = "nn-ai")] nn_models: &mut std::collections::HashMap<String, NnModel>,
 ) -> GameRunOutput {
@@ -395,7 +404,8 @@ fn run_game(
         .collect();
 
     let ai_players = vec![true; num_players];
-    let mut state = create_initial_game_state(num_players, &ai_players, rng);
+    let expansions = Expansions { glass };
+    let mut state = create_initial_game_state_with_expansions(num_players, &ai_players, expansions, rng);
     let initial_state = state.clone();
 
     let game_started_at = now_epoch_secs_string();
@@ -633,6 +643,7 @@ fn main() {
     let output_dir = &args.output;
     let batch_id = batch_id.as_str();
     let note = &args.note;
+    let glass = args.glass;
     let player_variants = player_variants.as_slice();
 
     std::thread::scope(|s| {
@@ -667,6 +678,7 @@ fn main() {
                         0,
                         player_variants,
                         note.clone(),
+                        glass,
                         &mut rng,
                         #[cfg(feature = "nn-ai")]
                         &mut nn_models,

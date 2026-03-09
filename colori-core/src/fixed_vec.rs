@@ -136,6 +136,12 @@ impl<T, const N: usize> Drop for FixedVec<T, N> {
     }
 }
 
+impl<T, const N: usize> Default for FixedVec<T, N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T, const N: usize> FromIterator<T> for FixedVec<T, N> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let mut fv = Self::new();

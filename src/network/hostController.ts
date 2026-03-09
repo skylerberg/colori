@@ -1,4 +1,4 @@
-import type { GameState } from '../data/types';
+import type { GameState, Expansions } from '../data/types';
 import type { Choice } from '../data/types';
 import type { NetworkManager } from './networkManager';
 import type { LobbyPlayer, GuestMessage } from './types';
@@ -202,7 +202,7 @@ export class HostController {
     this.onGameStateChanged?.(this.gameState);
   }
 
-  startGame() {
+  startGame(expansions?: Expansions) {
     this.submittedDraftPicks.clear();
     const playerNames: string[] = new Array(this.playerCount);
     const aiPlayers: boolean[] = new Array(this.playerCount).fill(true);
@@ -220,7 +220,7 @@ export class HostController {
       }
     }
 
-    this.gameState = createInitialGameState(playerNames, aiPlayers);
+    this.gameState = createInitialGameState(playerNames, aiPlayers, expansions);
     this.structuredLog = new GameLogAccumulator(this.gameState);
     this.gameLog = [];
     this.addLog('Game started');

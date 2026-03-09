@@ -344,6 +344,34 @@ pub fn format_choice(choice: &Choice) -> String {
                 ),
             }
         }
+        Choice::SelectGlass { glass, pay_color } => {
+            format!("Acquired {:?} (paid 4 {:?})", glass, pay_color)
+        }
+        Choice::ActivateGlassWorkshop => "Activated Glass Workshop".to_string(),
+        Choice::ActivateGlassDraw => "Activated Glass Draw".to_string(),
+        Choice::ActivateGlassMix => "Activated Glass Mix".to_string(),
+        Choice::ActivateGlassGainPrimary => "Activated Glass Gain Primary".to_string(),
+        Choice::ActivateGlassExchange { lose, gain } => {
+            format!("Activated Glass Exchange: {:?} for {:?}", lose, gain)
+        }
+        Choice::ActivateGlassMoveDrafted { card } => {
+            format!("Activated Glass Move Drafted: {}", card_name(card))
+        }
+        Choice::ActivateGlassUnmix { color } => {
+            format!("Activated Glass Unmix: {:?}", color)
+        }
+        Choice::ActivateGlassTertiaryDucat { color } => {
+            format!("Activated Glass Tertiary Ducat: {:?}", color)
+        }
+        Choice::ActivateGlassReworkshop { card } => {
+            format!("Activated Glass Reworkshop: {}", card_name(card))
+        }
+        Choice::ActivateGlassDestroyClean { card } => {
+            format!("Activated Glass Destroy Clean: {}", card_name(card))
+        }
+        Choice::DestroyAndSelectGlass { card, glass, pay_color } => {
+            format!("Destroyed {} and acquired {:?} (paid 4 {:?})", card_name(card), glass, pay_color)
+        }
     }
 }
 
@@ -387,6 +415,18 @@ fn choice_type_name(choice: &Choice) -> String {
         Choice::DestroyAndSell { .. } => "destroyAndSell".to_string(),
         Choice::DestroyAndWorkshop { .. } => "destroyAndWorkshop".to_string(),
         Choice::DestroyAndDestroyCards { .. } => "destroyAndDestroyCards".to_string(),
+        Choice::SelectGlass { .. } => "selectGlass".to_string(),
+        Choice::ActivateGlassWorkshop => "activateGlassWorkshop".to_string(),
+        Choice::ActivateGlassDraw => "activateGlassDraw".to_string(),
+        Choice::ActivateGlassMix => "activateGlassMix".to_string(),
+        Choice::ActivateGlassGainPrimary => "activateGlassGainPrimary".to_string(),
+        Choice::ActivateGlassExchange { .. } => "activateGlassExchange".to_string(),
+        Choice::ActivateGlassMoveDrafted { .. } => "activateGlassMoveDrafted".to_string(),
+        Choice::ActivateGlassUnmix { .. } => "activateGlassUnmix".to_string(),
+        Choice::ActivateGlassTertiaryDucat { .. } => "activateGlassTertiaryDucat".to_string(),
+        Choice::ActivateGlassReworkshop { .. } => "activateGlassReworkshop".to_string(),
+        Choice::ActivateGlassDestroyClean { .. } => "activateGlassDestroyClean".to_string(),
+        Choice::DestroyAndSelectGlass { .. } => "destroyAndSelectGlass".to_string(),
     }
 }
 

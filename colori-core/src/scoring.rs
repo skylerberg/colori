@@ -62,6 +62,7 @@ mod tests {
             color_wheel: ColorWheel { counts: color_counts },
             materials: Materials::new(),
             completed_buyers,
+            completed_glass: SmallVec::new(),
             ducats,
             cached_score: 0,
         };

@@ -1,10 +1,10 @@
 use crate::types::{Color, ColorWheel, NUM_COLORS};
 
-fn is_primary(idx: usize) -> bool {
+fn is_primary_idx(idx: usize) -> bool {
     idx == 0 || idx == 4 || idx == 8
 }
 
-fn is_secondary(idx: usize) -> bool {
+fn is_secondary_idx(idx: usize) -> bool {
     idx == 2 || idx == 6 || idx == 10
 }
 
@@ -14,12 +14,12 @@ pub fn can_mix(a: Color, b: Color) -> bool {
     let diff = if a_index > b_index { a_index - b_index } else { b_index - a_index };
     let distance = diff.min(NUM_COLORS - diff);
 
-    if is_primary(a_index) && is_primary(b_index) {
+    if is_primary_idx(a_index) && is_primary_idx(b_index) {
         return a_index != b_index;
     }
 
-    let one_is_primary = is_primary(a_index) || is_primary(b_index);
-    let one_is_secondary = is_secondary(a_index) || is_secondary(b_index);
+    let one_is_primary = is_primary_idx(a_index) || is_primary_idx(b_index);
+    let one_is_secondary = is_secondary_idx(a_index) || is_secondary_idx(b_index);
     one_is_primary && one_is_secondary && distance == 2
 }
 
@@ -62,6 +62,40 @@ pub const VALID_MIX_PAIRS: [(Color, Color); 9] = [
     (Color::Blue, Color::Purple),
     (Color::Red, Color::Purple),
 ];
+
+pub fn is_primary(color: Color) -> bool {
+    matches!(color, Color::Red | Color::Yellow | Color::Blue)
+}
+
+pub fn is_tertiary(color: Color) -> bool {
+    TERTIARIES.contains(&color)
+}
+
+pub fn unmix_components(color: Color) -> (Color, Color) {
+    match color {
+        Color::Orange => (Color::Red, Color::Yellow),
+        Color::Green => (Color::Yellow, Color::Blue),
+        Color::Purple => (Color::Red, Color::Blue),
+        Color::Vermilion => (Color::Red, Color::Orange),
+        Color::Amber => (Color::Yellow, Color::Orange),
+        Color::Chartreuse => (Color::Yellow, Color::Green),
+        Color::Teal => (Color::Blue, Color::Green),
+        Color::Indigo => (Color::Blue, Color::Purple),
+        Color::Magenta => (Color::Red, Color::Purple),
+        _ => panic!("Cannot unmix primary color {:?}", color),
+    }
+}
+
+pub fn perform_unmix(wheel: &mut ColorWheel, color: Color) -> bool {
+    if is_primary(color) || wheel.get(color) == 0 {
+        return false;
+    }
+    let (a, b) = unmix_components(color);
+    wheel.decrement(color);
+    wheel.increment(a);
+    wheel.increment(b);
+    true
+}
 
 #[inline]
 pub fn perform_mix(wheel: &mut ColorWheel, a: Color, b: Color) -> bool {
