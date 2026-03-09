@@ -134,6 +134,15 @@
     glassExchangeGain = undefined;
   });
 
+  // Clear sub-selection when the active glass ability is no longer available (e.g. just used)
+  $effect(() => {
+    if (activeGlassPrompt && !availableGlass.some(g => g.card === activeGlassPrompt)) {
+      activeGlassPrompt = null;
+      glassExchangeLose = undefined;
+      glassExchangeGain = undefined;
+    }
+  });
+
   function handleGlassClick(glass: GlassCard) {
     // Simple activations (no parameters)
     if (glass === 'GlassDraw') {
