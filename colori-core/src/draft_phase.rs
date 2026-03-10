@@ -53,7 +53,7 @@ pub fn player_pick(state: &mut GameState, card_instance_id: u32) {
     let starting_player = ((state.round - 1) as usize) % num_players;
     let id = card_instance_id as u8;
 
-    let (pi, next_player) = match &mut state.phase {
+    let (pi, should_advance) = match &mut state.phase {
         GamePhase::Draft { draft_state } => {
             let pi = draft_state.current_player_index;
             assert!(
@@ -61,15 +61,26 @@ pub fn player_pick(state: &mut GameState, card_instance_id: u32) {
                 "Card not found in player's draft hand"
             );
             draft_state.hands[pi].remove(id);
-            let next = (pi + 1) % num_players;
+            // Find next player, skipping players with empty hands
+            let mut next = (pi + 1) % num_players;
+            let mut crossed_start = false;
+            loop {
+                if next == starting_player {
+                    crossed_start = true;
+                }
+                if !draft_state.hands[next].is_empty() || crossed_start {
+                    break;
+                }
+                next = (next + 1) % num_players;
+            }
             draft_state.current_player_index = next;
-            (pi, next)
+            (pi, crossed_start)
         }
         _ => panic!("Expected draft phase"),
     };
     state.players[pi].drafted_cards.insert(id);
 
-    if next_player == starting_player {
+    if should_advance {
         advance_draft(state);
     }
 }
@@ -78,7 +89,7 @@ pub fn advance_draft(state: &mut GameState) {
     let num_players = state.players.len();
     let round = state.round;
 
-    let (pick_number, any_empty) = {
+    let (pick_number, n) = {
         let draft_state = match &mut state.phase {
             GamePhase::Draft { draft_state } => draft_state,
             _ => panic!("Expected draft phase"),
@@ -92,35 +103,64 @@ pub fn advance_draft(state: &mut GameState) {
         draft_state.hands[0] = last;
 
         draft_state.pick_number += 1;
-        (
-            draft_state.pick_number,
-            (0..n).any(|i| draft_state.hands[i].is_empty()),
-        )
+        (draft_state.pick_number, n)
     };
 
-    if pick_number >= 4 || any_empty {
+    // GlassKeepBoth: after pick 3, players with this glass keep both remaining cards
+    if pick_number == 3 {
+        let mut hands_to_clear = [false; MAX_PLAYERS];
         if let GamePhase::Draft { ref draft_state } = state.phase {
-            for i in 0..draft_state.num_hands {
-                // GlassKeepBoth: if the player at seat i has this glass card,
-                // add remaining hand cards to their drafted_cards
-                let player_for_hand = i;
-                let has_keep_both = state.players[player_for_hand]
+            for i in 0..num_players {
+                let has_keep_both = state.players[i]
                     .completed_glass
                     .iter()
                     .any(|g| g.glass == GlassCard::GlassKeepBoth);
                 if has_keep_both {
                     for id in draft_state.hands[i].iter() {
-                        state.players[player_for_hand].drafted_cards.insert(id);
+                        state.players[i].drafted_cards.insert(id);
                     }
-                } else {
-                    state.destroyed_pile = state.destroyed_pile.union(draft_state.hands[i]);
+                    hands_to_clear[i] = true;
                 }
+            }
+        }
+        if let GamePhase::Draft { ref mut draft_state } = state.phase {
+            for i in 0..num_players {
+                if hands_to_clear[i] {
+                    draft_state.hands[i] = UnorderedCards::new();
+                }
+            }
+        }
+    }
+
+    let all_hands_empty = if let GamePhase::Draft { ref draft_state } = state.phase {
+        (0..n).all(|i| draft_state.hands[i].is_empty())
+    } else {
+        false
+    };
+
+    if pick_number >= 4 || all_hands_empty {
+        // GlassKeepBoth was already handled at pick 3, so remaining cards go to destroyed pile
+        if let GamePhase::Draft { ref draft_state } = state.phase {
+            for i in 0..draft_state.num_hands {
+                state.destroyed_pile = state.destroyed_pile.union(draft_state.hands[i]);
             }
         }
         initialize_action_phase(state);
     } else {
         if let GamePhase::Draft { ref mut draft_state } = state.phase {
-            draft_state.current_player_index = ((round - 1) as usize) % num_players;
+            let mut start = ((round - 1) as usize) % num_players;
+            // Skip players with empty hands (e.g., GlassKeepBoth already took their cards)
+            let original_start = start;
+            loop {
+                if !draft_state.hands[start].is_empty() {
+                    break;
+                }
+                start = (start + 1) % num_players;
+                if start == original_start {
+                    break;
+                }
+            }
+            draft_state.current_player_index = start;
         }
     }
 }
@@ -182,6 +222,125 @@ mod tests {
     fn round_trip(state: &GameState) -> GameState {
         let json = test_serialize(state);
         test_deserialize(&json)
+    }
+
+    use smallvec::smallvec;
+
+    /// Helper: set up a 3-player game at draft phase with specified players having GlassKeepBoth.
+    fn setup_draft_with_glass_keep_both(
+        glass_players: &[usize],
+    ) -> (GameState, WyRand) {
+        let mut rng = WyRand::seed_from_u64(123);
+        let ai_players = vec![false, false, false];
+        let mut state = create_initial_game_state(3, &ai_players, &mut rng);
+
+        // Give specified players GlassKeepBoth
+        for &idx in glass_players {
+            state.players[idx].completed_glass = smallvec![GlassInstance {
+                instance_id: 1000 + idx as u32,
+                glass: GlassCard::GlassKeepBoth,
+            }];
+        }
+
+        // Execute draw phase to enter draft
+        execute_draw_phase(&mut state, &mut rng);
+        assert!(matches!(state.phase, GamePhase::Draft { .. }));
+
+        (state, rng)
+    }
+
+    #[test]
+    fn test_glass_keep_both_one_player() {
+        let (mut state, mut rng) = setup_draft_with_glass_keep_both(&[0]);
+
+        // Verify hands start with 5 cards each
+        if let GamePhase::Draft { ref draft_state } = state.phase {
+            for i in 0..3 {
+                assert_eq!(draft_state.hands[i].len(), 5);
+            }
+        }
+
+        // Do 3 rounds of picks (all players pick once per round)
+        for _pick_round in 0..3 {
+            assert!(matches!(state.phase, GamePhase::Draft { .. }));
+            // Each player picks one card
+            for _player in 0..3 {
+                let choices = enumerate_choices(&state);
+                assert!(!choices.is_empty());
+                apply_choice(&mut state, &choices[0], &mut rng);
+            }
+        }
+
+        // After 3 picks, player 0 (GlassKeepBoth) should have gotten both remaining cards
+        // and their hand should be empty. Others should still have 2-card hands.
+        assert!(matches!(state.phase, GamePhase::Draft { .. }));
+
+        // Player 0 should have 3 picked + 2 kept = 5 drafted cards
+        assert_eq!(
+            state.players[0].drafted_cards.len(),
+            5,
+            "GlassKeepBoth player should have 5 drafted cards (3 picked + 2 kept)"
+        );
+
+        if let GamePhase::Draft { ref draft_state } = state.phase {
+            // Player 0's hand should be empty
+            assert_eq!(draft_state.hands[0].len(), 0, "GlassKeepBoth player's hand should be empty");
+            // Other players should have 2 cards remaining
+            assert_eq!(draft_state.hands[1].len(), 2);
+            assert_eq!(draft_state.hands[2].len(), 2);
+            // pick_number should be 3
+            assert_eq!(draft_state.pick_number, 3);
+        }
+
+        // Do pick 4 for the remaining players (player 0 is skipped)
+        for _player in 0..2 {
+            assert!(matches!(state.phase, GamePhase::Draft { .. }));
+            let choices = enumerate_choices(&state);
+            assert!(!choices.is_empty());
+            apply_choice(&mut state, &choices[0], &mut rng);
+        }
+
+        // Draft should now be over, action phase started
+        assert!(
+            matches!(state.phase, GamePhase::Action { .. }),
+            "Draft should end after pick 4 for remaining players"
+        );
+
+        // Other players should have 4 drafted cards each (4 picks)
+        assert_eq!(state.players[1].drafted_cards.len(), 4);
+        assert_eq!(state.players[2].drafted_cards.len(), 4);
+    }
+
+    #[test]
+    fn test_glass_keep_both_all_players() {
+        let (mut state, mut rng) = setup_draft_with_glass_keep_both(&[0, 1, 2]);
+
+        // Do 3 rounds of picks
+        for _pick_round in 0..3 {
+            assert!(matches!(state.phase, GamePhase::Draft { .. }));
+            for _player in 0..3 {
+                let choices = enumerate_choices(&state);
+                assert!(!choices.is_empty());
+                apply_choice(&mut state, &choices[0], &mut rng);
+            }
+        }
+
+        // After 3 picks with all players having GlassKeepBoth,
+        // draft should end immediately (all hands empty)
+        assert!(
+            matches!(state.phase, GamePhase::Action { .. }),
+            "Draft should end after pick 3 when all players have GlassKeepBoth"
+        );
+
+        // All players should have 5 drafted cards (3 picked + 2 kept)
+        for i in 0..3 {
+            assert_eq!(
+                state.players[i].drafted_cards.len(),
+                5,
+                "Player {} should have 5 drafted cards",
+                i
+            );
+        }
     }
 
     #[test]
@@ -336,11 +495,11 @@ mod tests {
         assert!(matches!(state.phase, GamePhase::Action { .. }),
             "Expected action phase after draft, got {:?}", state.phase);
 
-        // Player 0 should have 5 drafted cards (4 picked + 1 kept from GlassKeepBoth)
+        // Player 0 should have 5 drafted cards (3 picked + 2 kept from GlassKeepBoth)
         let final_drafted = state.players[0].drafted_cards.len();
         assert_eq!(
             final_drafted - initial_drafted, 5,
-            "Player 0 with GlassKeepBoth should have 5 new drafted cards (4 picked + 1 kept), but got {}",
+            "Player 0 with GlassKeepBoth should have 5 new drafted cards (3 picked + 2 kept), but got {}",
             final_drafted - initial_drafted
         );
 
@@ -412,20 +571,21 @@ mod tests {
 
         // Simulate the frontend pattern: simultaneousPick for each player, then advanceDraft
         // with JSON round-trips between each call
-        for _pick_round in 0..4 {
-            assert!(matches!(state.phase, GamePhase::Draft { .. }));
-
+        while matches!(state.phase, GamePhase::Draft { .. }) {
             // Round-trip (simulates frontend serialize -> WASM deserialize)
             state = round_trip(&state);
 
-            // Each player picks the first card in their hand
+            // Each player with a non-empty hand picks the first card
             for player_idx in 0..2 {
                 let card = if let GamePhase::Draft { ref draft_state } = state.phase {
                     let hand = &draft_state.hands[player_idx];
+                    if hand.is_empty() {
+                        continue; // GlassKeepBoth player's hand was cleared
+                    }
                     let first_id = hand.iter().next().unwrap();
                     state.card_lookup[first_id as usize]
                 } else {
-                    panic!("Expected draft phase");
+                    break;
                 };
                 simultaneous_pick(&mut state, player_idx, card);
                 // Round-trip after each pick
@@ -433,11 +593,13 @@ mod tests {
             }
 
             // Advance draft (rotate hands, or end draft)
-            advance_draft(&mut state);
-            state = round_trip(&state);
+            if matches!(state.phase, GamePhase::Draft { .. }) {
+                advance_draft(&mut state);
+                state = round_trip(&state);
+            }
         }
 
-        // After 4 pick rounds, should be in action phase
+        // Should be in action phase
         assert!(matches!(state.phase, GamePhase::Action { .. }),
             "Expected action phase, got {:?}", state.phase);
 

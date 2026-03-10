@@ -268,8 +268,10 @@ export class HostController {
       this.broadcastGameState([]);
       this.onGameStateChanged?.(this.gameState);
 
-      // Check if all players have picked
-      if (this.submittedDraftPicks.size === this.gameState.players.length) {
+      // Check if all players with non-empty hands have picked
+      const ds = (this.gameState.phase as { type: 'draft'; draftState: { hands: any[] } }).draftState;
+      const playersNeedingPick = this.gameState.players.filter((_, idx) => ds.hands[idx].length > 0).length;
+      if (this.submittedDraftPicks.size >= playersNeedingPick) {
         advanceDraft(this.gameState);
         this.submittedDraftPicks.clear();
         this.executeDrawIfNeeded();

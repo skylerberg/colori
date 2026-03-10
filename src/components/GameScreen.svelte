@@ -162,7 +162,8 @@
       const aiIndices = gameState.aiPlayers
         .map((isAI, idx) => isAI ? idx : -1)
         .filter(idx => idx >= 0)
-        .filter(idx => !submittedDraftPicks.has(idx));
+        .filter(idx => !submittedDraftPicks.has(idx))
+        .filter(idx => ds.hands[idx].length > 0);
 
       // Record seen hands for AI draft knowledge
       for (const playerIdx of aiIndices) {
@@ -209,6 +210,16 @@
       advanceDraft(gameState);
       submittedDraftPicks = new Set();
       onGameUpdated(gameState, gameLog);
+
+      // If still in draft and human's hand is empty (GlassKeepBoth), auto-advance
+      if (gameState.phase.type === 'draft') {
+        const ds2 = gameState.phase.draftState;
+        if (ds2.hands[humanPlayerIndex].length === 0) {
+          submittedDraftPicks.add(humanPlayerIndex);
+          await resolveAIDraftPicks();
+          return;
+        }
+      }
     } catch (e) {
       aiError = String(e);
     } finally {
@@ -229,7 +240,7 @@
     const requests: PrecomputeRequest[] = [];
 
     for (let idx = 0; idx < gameState.players.length; idx++) {
-      if (gameState.aiPlayers[idx]) {
+      if (gameState.aiPlayers[idx] && ds.hands[idx].length > 0) {
         const clone = cloneGameState(gameState);
         const cloneDs = (clone.phase as { type: 'draft'; draftState: typeof ds }).draftState;
         cloneDs.currentPlayerIndex = idx;

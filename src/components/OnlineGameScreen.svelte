@@ -184,7 +184,8 @@
       const aiPlayerIndices = gameState.aiPlayers
         .map((isAI, idx) => isAI ? idx : -1)
         .filter(idx => idx >= 0)
-        .filter(idx => !hostController!['submittedDraftPicks'].has(idx));
+        .filter(idx => !hostController!['submittedDraftPicks'].has(idx))
+        .filter(idx => ds.hands[idx].length > 0);
 
       if (aiPlayerIndices.length === 0) return;
 

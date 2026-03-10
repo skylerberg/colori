@@ -212,7 +212,10 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
             let card_id = {
                 if let GamePhase::Draft { ref draft_state } = state.phase {
                     let hand = draft_state.hands[draft_state.current_player_index];
-                    hand.pick_random(rng).unwrap() as u32
+                    match hand.pick_random(rng) {
+                        Some(id) => id as u32,
+                        None => break, // Empty hand (e.g., GlassKeepBoth)
+                    }
                 } else {
                     break;
                 }
