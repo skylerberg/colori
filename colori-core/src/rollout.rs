@@ -1,10 +1,14 @@
 use crate::action_phase::{
-    can_afford_buyer, destroy_drafted_card, end_player_turn, initialize_action_phase,
+    can_afford_buyer, can_afford_glass, destroy_drafted_card, end_player_turn,
+    get_action_state_mut, glass_ability_available, initialize_action_phase, mark_glass_used,
     process_ability_stack, resolve_choose_tertiary_to_gain, resolve_choose_tertiary_to_lose,
     resolve_destroy_cards, resolve_gain_primary, resolve_gain_secondary, resolve_select_buyer,
-    resolve_workshop_choice, skip_workshop,
+    resolve_select_glass, resolve_workshop_choice, skip_workshop,
 };
-use crate::colors::{pay_cost, perform_mix_unchecked, PRIMARIES, SECONDARIES, TERTIARIES, VALID_MIX_PAIRS};
+use crate::colors::{
+    is_primary, pay_cost, perform_mix_unchecked, perform_unmix, PRIMARIES, SECONDARIES,
+    TERTIARIES, VALID_MIX_PAIRS,
+};
 use crate::deck_utils::draw_from_deck;
 use crate::draft_phase::player_pick;
 use crate::types::*;
@@ -137,8 +141,197 @@ fn pick_random_affordable_buyer<R: Rng>(
     }
 }
 
+// ── Glass ability helpers ──
+
+/// Check if a glass ability has valid targets for the given player state.
+#[inline(always)]
+fn glass_has_valid_targets(player: &PlayerState, glass: GlassCard) -> bool {
+    match glass {
+        GlassCard::GlassWorkshop => !player.workshop_cards.is_empty(),
+        GlassCard::GlassDraw => true,
+        GlassCard::GlassMix => VALID_MIX_PAIRS
+            .iter()
+            .any(|&(a, b)| player.color_wheel.get(a) > 0 && player.color_wheel.get(b) > 0),
+        GlassCard::GlassGainPrimary => true,
+        GlassCard::GlassExchange => ALL_MATERIAL_TYPES
+            .iter()
+            .any(|&m| player.materials.get(m) > 0),
+        GlassCard::GlassMoveDrafted => !player.drafted_cards.is_empty(),
+        GlassCard::GlassUnmix => ALL_COLORS
+            .iter()
+            .any(|&c| !is_primary(c) && player.color_wheel.get(c) > 0),
+        GlassCard::GlassTertiaryDucat => TERTIARIES
+            .iter()
+            .any(|&c| player.color_wheel.get(c) > 0),
+        GlassCard::GlassReworkshop => !player.workshopped_cards.is_empty(),
+        GlassCard::GlassDestroyClean => !player.workshop_cards.is_empty(),
+        GlassCard::GlassKeepBoth => false, // passive, no activation
+    }
+}
+
+/// Activate a glass ability during rollout. Handles both stack-pushing and immediate abilities.
+#[inline(always)]
+fn activate_glass_in_rollout<R: Rng>(
+    state: &mut GameState,
+    player_index: usize,
+    glass: GlassCard,
+    rng: &mut R,
+) {
+    mark_glass_used(state, glass);
+    match glass {
+        // Stack-pushing abilities
+        GlassCard::GlassWorkshop => {
+            get_action_state_mut(state)
+                .ability_stack
+                .push(Ability::Workshop { count: 1 });
+            process_ability_stack(state, rng);
+        }
+        GlassCard::GlassDraw => {
+            get_action_state_mut(state)
+                .ability_stack
+                .push(Ability::DrawCards { count: 1 });
+            process_ability_stack(state, rng);
+        }
+        GlassCard::GlassMix => {
+            get_action_state_mut(state)
+                .ability_stack
+                .push(Ability::MixColors { count: 1 });
+            process_ability_stack(state, rng);
+        }
+        GlassCard::GlassGainPrimary => {
+            get_action_state_mut(state)
+                .ability_stack
+                .push(Ability::GainPrimary);
+            process_ability_stack(state, rng);
+        }
+        // Immediate abilities
+        GlassCard::GlassExchange => {
+            let player = &state.players[player_index];
+            let mut owned = [MaterialType::Textiles; 3];
+            let mut own_count = 0usize;
+            for &m in &ALL_MATERIAL_TYPES {
+                if player.materials.get(m) > 0 {
+                    owned[own_count] = m;
+                    own_count += 1;
+                }
+            }
+            let lose = owned[rng.random_range(0..own_count)];
+            let mut gain_options = [MaterialType::Textiles; 2];
+            let mut gain_count = 0usize;
+            for &m in &ALL_MATERIAL_TYPES {
+                if m != lose {
+                    gain_options[gain_count] = m;
+                    gain_count += 1;
+                }
+            }
+            let gain = gain_options[rng.random_range(0..gain_count)];
+            let player = &mut state.players[player_index];
+            player.materials.decrement(lose);
+            player.materials.increment(gain);
+        }
+        GlassCard::GlassMoveDrafted => {
+            let player = &mut state.players[player_index];
+            let card_id = player.drafted_cards.pick_random(rng).unwrap();
+            player.drafted_cards.remove(card_id);
+            player.workshop_cards.insert(card_id);
+        }
+        GlassCard::GlassUnmix => {
+            let player = &state.players[player_index];
+            let mut unmixable = [Color::Red; 9];
+            let mut count = 0usize;
+            for &c in &ALL_COLORS {
+                if !is_primary(c) && player.color_wheel.get(c) > 0 {
+                    unmixable[count] = c;
+                    count += 1;
+                }
+            }
+            let color = unmixable[rng.random_range(0..count)];
+            perform_unmix(&mut state.players[player_index].color_wheel, color);
+        }
+        GlassCard::GlassTertiaryDucat => {
+            let player = &state.players[player_index];
+            let mut tertiaries = [Color::Red; 6];
+            let mut count = 0usize;
+            for &c in &TERTIARIES {
+                if player.color_wheel.get(c) > 0 {
+                    tertiaries[count] = c;
+                    count += 1;
+                }
+            }
+            let color = tertiaries[rng.random_range(0..count)];
+            let player = &mut state.players[player_index];
+            player.color_wheel.decrement(color);
+            player.ducats += 1;
+            player.cached_score += 1;
+        }
+        GlassCard::GlassReworkshop => {
+            let player = &mut state.players[player_index];
+            let card_id = player.workshopped_cards.pick_random(rng).unwrap();
+            player.workshopped_cards.remove(card_id);
+            player.workshop_cards.insert(card_id);
+        }
+        GlassCard::GlassDestroyClean => {
+            let player = &mut state.players[player_index];
+            let card_id = player.workshop_cards.pick_random(rng).unwrap();
+            player.workshop_cards.remove(card_id);
+            state.destroyed_pile.insert(card_id);
+        }
+        GlassCard::GlassKeepBoth => {} // passive, should never be activated
+    }
+}
+
+/// Try to randomly activate a glass ability. Returns true if one was activated.
+#[inline(always)]
+fn try_activate_random_glass<R: Rng>(
+    state: &mut GameState,
+    player_index: usize,
+    rng: &mut R,
+) -> bool {
+    if !state.expansions.glass {
+        return false;
+    }
+    // Collect available glass abilities
+    const ALL_ACTIVATABLE: [GlassCard; 10] = [
+        GlassCard::GlassWorkshop,
+        GlassCard::GlassDraw,
+        GlassCard::GlassMix,
+        GlassCard::GlassGainPrimary,
+        GlassCard::GlassExchange,
+        GlassCard::GlassMoveDrafted,
+        GlassCard::GlassUnmix,
+        GlassCard::GlassTertiaryDucat,
+        GlassCard::GlassReworkshop,
+        GlassCard::GlassDestroyClean,
+    ];
+    let mut available = [GlassCard::GlassWorkshop; 10];
+    let mut count = 0usize;
+    for &glass in &ALL_ACTIVATABLE {
+        if glass_ability_available(state, player_index, glass)
+            && glass_has_valid_targets(&state.players[player_index], glass)
+        {
+            available[count] = glass;
+            count += 1;
+        }
+    }
+    if count == 0 {
+        return false;
+    }
+    // Pick randomly including a "skip" option
+    let choice = rng.random_range(0..count + 1);
+    if choice == count {
+        return false; // skip
+    }
+    activate_glass_in_rollout(state, player_index, available[choice], rng);
+    true
+}
+
 #[inline(always)]
 fn handle_action_no_pending<R: Rng>(state: &mut GameState, player_index: usize, rng: &mut R) {
+    // Try activating a random glass ability before picking a drafted card
+    if try_activate_random_glass(state, player_index, rng) {
+        return;
+    }
+
     let mut copy = state.players[player_index].drafted_cards;
     let sel = copy.draw_up_to(1, rng);
     if sel.is_empty() {
@@ -166,35 +359,31 @@ fn handle_action_no_pending<R: Rng>(state: &mut GameState, player_index: usize, 
             }
         }
         Ability::Sell => {
-            match pick_random_affordable_buyer(
+            let buyer = pick_random_affordable_buyer(
                 &state.players[player_index],
                 &state.buyer_display,
                 rng,
-            ) {
-                Some(buyer_id) => {
-                    // Fused: ability stack is guaranteed empty when stack is empty,
-                    // so we can skip all process_ability_stack calls.
-                    state.players[player_index].drafted_cards.remove(card_id);
-                    state.destroyed_pile.insert(card_id);
-                    let buyer_index = state
-                        .buyer_display
-                        .iter()
-                        .position(|c| c.instance_id == buyer_id)
-                        .unwrap();
-                    let buyer = state.buyer_display.swap_remove(buyer_index);
-                    let player = &mut state.players[player_index];
-                    player.materials.decrement(buyer.buyer.required_material());
-                    pay_cost(&mut player.color_wheel, buyer.buyer.color_cost());
-                    player.cached_score += buyer.buyer.stars();
-                    player.completed_buyers.push(buyer);
-                    if let Some(id) = state.buyer_deck.draw(rng) {
-                        state.buyer_display.push(BuyerInstance {
-                            instance_id: id as u32,
-                            buyer: state.buyer_lookup[id as usize],
-                        });
+            );
+            let glass_available = state.expansions.glass
+                && !state.glass_display.is_empty()
+                && can_afford_glass(&state.players[player_index]);
+
+            match (buyer, glass_available) {
+                (Some(buyer_id), true) => {
+                    // Both buyer and glass available — randomly choose
+                    if rng.random_range(0..2u32) == 0 {
+                        fused_buy(state, player_index, card_id, buyer_id, rng);
+                    } else {
+                        fused_glass_acquire(state, player_index, card_id, rng);
                     }
                 }
-                None => {
+                (Some(buyer_id), false) => {
+                    fused_buy(state, player_index, card_id, buyer_id, rng);
+                }
+                (None, true) => {
+                    fused_glass_acquire(state, player_index, card_id, rng);
+                }
+                (None, false) => {
                     destroy_drafted_card(state, card_id as u32, rng);
                 }
             }
@@ -202,6 +391,75 @@ fn handle_action_no_pending<R: Rng>(state: &mut GameState, player_index: usize, 
         _ => {
             destroy_drafted_card(state, card_id as u32, rng);
         }
+    }
+}
+
+/// Fused buyer purchase (no ability stack involvement).
+#[inline(always)]
+fn fused_buy<R: Rng>(
+    state: &mut GameState,
+    player_index: usize,
+    card_id: u8,
+    buyer_id: u32,
+    rng: &mut R,
+) {
+    state.players[player_index].drafted_cards.remove(card_id);
+    state.destroyed_pile.insert(card_id);
+    let buyer_index = state
+        .buyer_display
+        .iter()
+        .position(|c| c.instance_id == buyer_id)
+        .unwrap();
+    let buyer = state.buyer_display.swap_remove(buyer_index);
+    let player = &mut state.players[player_index];
+    player.materials.decrement(buyer.buyer.required_material());
+    pay_cost(&mut player.color_wheel, buyer.buyer.color_cost());
+    player.cached_score += buyer.buyer.stars();
+    player.completed_buyers.push(buyer);
+    if let Some(id) = state.buyer_deck.draw(rng) {
+        state.buyer_display.push(BuyerInstance {
+            instance_id: id as u32,
+            buyer: state.buyer_lookup[id as usize],
+        });
+    }
+}
+
+/// Fused glass acquisition (no ability stack involvement).
+/// Destroys the drafted card, pays 4 of a random affordable primary, acquires a random glass.
+#[inline(always)]
+fn fused_glass_acquire<R: Rng>(
+    state: &mut GameState,
+    player_index: usize,
+    card_id: u8,
+    rng: &mut R,
+) {
+    state.players[player_index].drafted_cards.remove(card_id);
+    state.destroyed_pile.insert(card_id);
+
+    // Pick random glass from display
+    let glass_idx = rng.random_range(0..state.glass_display.len());
+    let glass_instance = state.glass_display.swap_remove(glass_idx);
+
+    // Pick random affordable primary color (>= 4)
+    let mut affordable_primaries = [Color::Red; 3];
+    let mut aff_count = 0usize;
+    for &c in &PRIMARIES {
+        if state.players[player_index].color_wheel.get(c) >= 4 {
+            affordable_primaries[aff_count] = c;
+            aff_count += 1;
+        }
+    }
+    let pay_color = affordable_primaries[rng.random_range(0..aff_count)];
+
+    let player = &mut state.players[player_index];
+    for _ in 0..4 {
+        player.color_wheel.decrement(pay_color);
+    }
+    player.completed_glass.push(glass_instance);
+
+    // Refill display from deck
+    if let Some(next) = state.glass_deck.pop() {
+        state.glass_display.push(next);
     }
 }
 
@@ -234,6 +492,20 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                 }
                 Some(Ability::Workshop { count }) => {
                     let count = *count;
+
+                    // Try activating GlassReworkshop before selecting workshop cards
+                    if state.expansions.glass
+                        && glass_ability_available(state, player_index, GlassCard::GlassReworkshop)
+                        && !state.players[player_index].workshopped_cards.is_empty()
+                        && rng.random_range(0..2u32) == 0
+                    {
+                        mark_glass_used(state, GlassCard::GlassReworkshop);
+                        let player = &mut state.players[player_index];
+                        let card_id = player.workshopped_cards.pick_random(rng).unwrap();
+                        player.workshopped_cards.remove(card_id);
+                        player.workshop_cards.insert(card_id);
+                    }
+
                     let mut copy = state.players[player_index].workshop_cards;
                     let selected = copy.draw_up_to(count as u8, rng);
                     if selected.is_empty() {
@@ -267,15 +539,55 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                     process_ability_stack(state, rng);
                 }
                 Some(Ability::Sell) => {
-                    match pick_random_affordable_buyer(
+                    let buyer = pick_random_affordable_buyer(
                         &state.players[player_index],
                         &state.buyer_display,
                         rng,
-                    ) {
-                        Some(buyer_id) => {
+                    );
+                    let glass_available = state.expansions.glass
+                        && !state.glass_display.is_empty()
+                        && can_afford_glass(&state.players[player_index]);
+
+                    match (buyer, glass_available) {
+                        (Some(buyer_id), true) => {
+                            if rng.random_range(0..2u32) == 0 {
+                                resolve_select_buyer(state, buyer_id, rng);
+                            } else {
+                                // Pick random glass and affordable primary
+                                let glass_idx = rng.random_range(0..state.glass_display.len());
+                                let glass_card = state.glass_display[glass_idx].glass;
+                                let mut affordable_primaries = [Color::Red; 3];
+                                let mut aff_count = 0usize;
+                                for &c in &PRIMARIES {
+                                    if state.players[player_index].color_wheel.get(c) >= 4 {
+                                        affordable_primaries[aff_count] = c;
+                                        aff_count += 1;
+                                    }
+                                }
+                                let pay_color =
+                                    affordable_primaries[rng.random_range(0..aff_count)];
+                                resolve_select_glass(state, glass_card, pay_color, rng);
+                            }
+                        }
+                        (Some(buyer_id), false) => {
                             resolve_select_buyer(state, buyer_id, rng);
                         }
-                        None => {
+                        (None, true) => {
+                            let glass_idx = rng.random_range(0..state.glass_display.len());
+                            let glass_card = state.glass_display[glass_idx].glass;
+                            let mut affordable_primaries = [Color::Red; 3];
+                            let mut aff_count = 0usize;
+                            for &c in &PRIMARIES {
+                                if state.players[player_index].color_wheel.get(c) >= 4 {
+                                    affordable_primaries[aff_count] = c;
+                                    aff_count += 1;
+                                }
+                            }
+                            let pay_color =
+                                affordable_primaries[rng.random_range(0..aff_count)];
+                            resolve_select_glass(state, glass_card, pay_color, rng);
+                        }
+                        (None, false) => {
                             if let GamePhase::Action { ref mut action_state } = state.phase {
                                 action_state.ability_stack.pop();
                             }
