@@ -610,7 +610,7 @@ pub fn end_player_turn<R: Rng>(state: &mut GameState, rng: &mut R) {
 
     if action_state.current_player_index == starting_player {
         let is_last_round = state.round >= 10
-            || state.players.iter().any(|p| p.cached_score >= 15);
+            || state.players.iter().any(|p| p.cached_score >= 16);
         if is_last_round {
             end_round(state, rng);
         } else {
@@ -625,7 +625,7 @@ pub fn end_player_turn<R: Rng>(state: &mut GameState, rng: &mut R) {
 
 pub fn end_round<R: Rng>(state: &mut GameState, _rng: &mut R) {
     state.round += 1;
-    let any_reached_15 = state.players.iter().any(|p| p.cached_score >= 15);
+    let any_reached_15 = state.players.iter().any(|p| p.cached_score >= 16);
     if any_reached_15 || state.round > 20 {
         state.phase = GamePhase::GameOver;
     } else {

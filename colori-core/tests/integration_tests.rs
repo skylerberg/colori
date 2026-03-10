@@ -663,9 +663,9 @@ fn test_game_terminates_properly() {
     for seed in 30..40 {
         for num_players in 2..=4 {
             let state = run_full_game_with_invariants(seed, num_players);
-            let any_reached_15 = state.players.iter().any(|p| p.cached_score >= 15);
+            let any_reached_16 = state.players.iter().any(|p| p.cached_score >= 16);
             assert!(
-                any_reached_15 || state.round > 20,
+                any_reached_16 || state.round > 20,
                 "Game ended without meeting termination condition (seed={}, players={}, round={})",
                 seed,
                 num_players,
@@ -700,9 +700,9 @@ fn test_random_choice_game_terminates() {
     for seed in 200..300 {
         for num_players in 2..=4 {
             let state = run_random_game_with_invariants(seed, num_players);
-            let any_reached_15 = state.players.iter().any(|p| p.cached_score >= 15);
+            let any_reached_16 = state.players.iter().any(|p| p.cached_score >= 16);
             assert!(
-                any_reached_15 || state.round > 20,
+                any_reached_16 || state.round > 20,
                 "Game ended without meeting termination condition (seed={}, players={}, round={})",
                 seed,
                 num_players,

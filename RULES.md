@@ -2,7 +2,7 @@
 
 ## Overview
 
-Colori is a deck-building game for 2–5 players about dyeing materials and selling to buyers. Players draft dye, material, and action cards, destroy them to store colors on a color wheel, mix colors, and sell to buyers worth stars. The game lasts up to 20 rounds, or until any player reaches 15 points. The player with the most points (buyer stars + ducats) wins.
+Colori is a deck-building game for 2–5 players about dyeing materials and selling to buyers. Players draft dye, material, and action cards, destroy them to store colors on a color wheel, mix colors, and sell to buyers worth stars. The game lasts up to 20 rounds, or until any player reaches 16 points. The player with the most points (buyer stars + ducats) wins.
 
 ## Components
 
@@ -170,7 +170,7 @@ Swap one tertiary color on your wheel for a different tertiary. First choose a t
 ## End of Game
 
 The game ends when either:
-- Any player reaches **15 or more points** after a complete round, OR
+- Any player reaches **16 or more points** after a complete round, OR
 - **Round 20** is completed.
 
 Each player's score = buyer stars + ducats. The player with the highest score wins.
