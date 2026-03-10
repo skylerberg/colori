@@ -872,4 +872,13 @@ pub enum Choice {
         #[serde(rename = "payColor")]
         pay_color: Color,
     },
+
+    // Compound: workshop a card twice using GlassReworkshop in between
+    #[serde(rename = "workshopWithReworkshop")]
+    WorkshopWithReworkshop {
+        #[serde(rename = "reworkshopCard")]
+        reworkshop_card: Card,
+        #[serde(rename = "otherCards")]
+        other_cards: SmallVec<[Card; 4]>,
+    },
 }

@@ -192,7 +192,8 @@ export type Choice =
   | { type: 'activateGlassTertiaryDucat'; color: Color }
   | { type: 'activateGlassReworkshop'; card: Card }
   | { type: 'activateGlassDestroyClean'; card: Card }
-  | { type: 'destroyAndSelectGlass'; card: Card; glass: GlassCard; payColor: Color };
+  | { type: 'destroyAndSelectGlass'; card: Card; glass: GlassCard; payColor: Color }
+  | { type: 'workshopWithReworkshop'; reworkshopCard: Card; otherCards: Card[] };
 
 // ── Game Log Types ──
 

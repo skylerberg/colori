@@ -46,30 +46,46 @@
 
   let selectedWorkshopIds: number[] = $state([]);
   let selectedDestroyIds: number[] = $state([]);
+  let reworkshopCardId: number | null = $state(null);
 
   $effect(() => {
     topAbility;
     selectedWorkshopIds = [];
     selectedDestroyIds = [];
+    reworkshopCardId = null;
   });
 
   function toggleWorkshopCard(instanceId: number) {
     if (!topAbility || topAbility.type !== 'workshop') return;
+    // Don't allow selecting the card that's marked for x2 reworkshop
+    if (instanceId === reworkshopCardId) return;
     const idx = selectedWorkshopIds.indexOf(instanceId);
+    const reworkshopSlots = reworkshopCardId !== null ? 2 : 0;
+    const maxOther = topAbility.count - reworkshopSlots;
     if (idx >= 0) {
       selectedWorkshopIds = selectedWorkshopIds.filter(id => id !== instanceId);
-    } else if (selectedWorkshopIds.length < topAbility.count) {
+    } else if (selectedWorkshopIds.length < maxOther) {
       selectedWorkshopIds = [...selectedWorkshopIds, instanceId];
     }
   }
 
   function confirmWorkshop() {
     if (!currentPlayer) return;
-    const cardTypes = selectedWorkshopIds.map(id => {
-      const ci = currentPlayer!.workshopCards.find(c => c.instanceId === id);
-      return ci!.card;
-    });
-    onAction({ type: 'workshop', cardTypes });
+    if (reworkshopCardId !== null) {
+      const reworkshopCard = currentPlayer.workshopCards.find(c => c.instanceId === reworkshopCardId);
+      if (!reworkshopCard) return;
+      const otherCards = selectedWorkshopIds.map(id => {
+        const ci = currentPlayer!.workshopCards.find(c => c.instanceId === id);
+        return ci!.card;
+      });
+      onAction({ type: 'workshopWithReworkshop', reworkshopCard: reworkshopCard.card, otherCards });
+    } else {
+      const cardTypes = selectedWorkshopIds.map(id => {
+        const ci = currentPlayer!.workshopCards.find(c => c.instanceId === id);
+        return ci!.card;
+      });
+      onAction({ type: 'workshop', cardTypes });
+    }
   }
 
   function handleSkipWorkshop() {
@@ -212,6 +228,15 @@
       : []
   );
 
+  let canUseReworkshopX2 = $derived(
+    topAbility?.type === 'workshop'
+    && topAbility.count >= 2
+    && gameState.expansions?.glass
+    && currentPlayer
+    && (currentPlayer.completedGlass ?? []).some(g => g.card === 'GlassReworkshop')
+    && !isGlassUsed('GlassReworkshop')
+  );
+
   // Glass Reworkshop helpers (available during workshop ability too)
   let glassReworkshopAvailable = $derived(
     currentPlayer && actionState && gameState.expansions?.glass
@@ -257,11 +282,35 @@
             rotatedIds={workshoppedIds}
             onCardClick={toggleWorkshopCard}
           />
+          {#if canUseReworkshopX2}
+            <div class="reworkshop-x2-section">
+              <span class="reworkshop-label">Use x2 w/ Glass Reworkshop:</span>
+              <div class="reworkshop-cards">
+                {#each currentPlayer.workshopCards as card}
+                  {@const cardData = getAnyCardData(card.card)}
+                  <button
+                    class="glass-action-btn reworkshop-btn"
+                    class:active={reworkshopCardId === card.instanceId}
+                    onclick={() => {
+                      if (reworkshopCardId === card.instanceId) {
+                        reworkshopCardId = null;
+                      } else {
+                        reworkshopCardId = card.instanceId;
+                        selectedWorkshopIds = selectedWorkshopIds.filter(id => id !== card.instanceId);
+                      }
+                    }}
+                  >
+                    {'name' in cardData ? cardData.name : card.card} x2
+                  </button>
+                {/each}
+              </div>
+            </div>
+          {/if}
           <div class="workshop-actions">
             <button class="confirm-btn" onclick={confirmWorkshop}>
-              Confirm Workshop ({selectedWorkshopIds.length} selected)
+              Confirm Workshop ({(reworkshopCardId !== null ? 2 : 0) + selectedWorkshopIds.length} selected{reworkshopCardId !== null ? ', incl. x2' : ''})
             </button>
-            {#if selectedWorkshopIds.length === 0}
+            {#if selectedWorkshopIds.length === 0 && reworkshopCardId === null}
               <button class="confirm-btn skip-btn" onclick={handleSkipWorkshop}>
                 Skip Workshop
               </button>
@@ -682,6 +731,13 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 6px;
+  }
+
+  .reworkshop-x2-section {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
   }
 
   .reworkshop-section {

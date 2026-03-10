@@ -245,6 +245,162 @@ pub fn resolve_workshop_choice<R: Rng>(
     process_ability_stack(state, rng);
 }
 
+/// Workshop cards including one card that gets workshopped twice via GlassReworkshop.
+/// The reworkshop_id card is processed with all others first, then un-rotated and processed again.
+pub fn resolve_workshop_with_reworkshop<R: Rng>(
+    state: &mut GameState,
+    selected_cards: UnorderedCards,
+    reworkshop_id: u8,
+    rng: &mut R,
+) {
+    let action_state = get_action_state(state);
+    let player_index = action_state.current_player_index;
+
+    // Pop the Workshop ability from the stack
+    get_action_state_mut(state).ability_stack.pop();
+
+    // Partition selected cards into action and non-action
+    let mut action_ids = [0u8; 16];
+    let mut action_count = 0usize;
+    let mut non_action_ids = [0u8; 16];
+    let mut non_action_count = 0usize;
+    for id in selected_cards.iter() {
+        let card = state.card_lookup[id as usize];
+        if card.is_action() {
+            action_ids[action_count] = id;
+            action_count += 1;
+        } else {
+            non_action_ids[non_action_count] = id;
+            non_action_count += 1;
+        }
+    }
+
+    // Process non-action cards: extract materials/colors, move to workshopped
+    let player = &mut state.players[player_index];
+    for i in 0..non_action_count {
+        let id = non_action_ids[i];
+        let card = state.card_lookup[id as usize];
+        player.workshop_cards.remove(id);
+        for mt in card.material_types() {
+            player.materials.increment(*mt);
+        }
+        for pip in card.pips() {
+            player.color_wheel.increment(*pip);
+        }
+        player.workshopped_cards.insert(id);
+    }
+
+    // Process action cards: move to workshopped, collect abilities
+    let mut regular_abilities = [Ability::Sell; 8];
+    let mut regular_abilities_count = 0usize;
+    let mut draw_card_abilities = [Ability::Sell; 8];
+    let mut draw_card_abilities_count = 0usize;
+    let mut change_tertiary_abilities = [Ability::Sell; 8];
+    let mut change_tertiary_abilities_count = 0usize;
+    let mut potash_base_count: Option<u32> = None;
+    let mut has_draw_cards = false;
+
+    for i in 0..action_count {
+        let id = action_ids[i];
+        let card = state.card_lookup[id as usize];
+        player.workshop_cards.remove(id);
+
+        for &ability in card.workshop_abilities() {
+            match ability {
+                Ability::ChangeTertiary => {
+                    change_tertiary_abilities[change_tertiary_abilities_count] = ability;
+                    change_tertiary_abilities_count += 1;
+                }
+                Ability::Workshop { count: c } => {
+                    potash_base_count = Some(potash_base_count.unwrap_or(0) + c);
+                }
+                Ability::DrawCards { .. } => {
+                    has_draw_cards = true;
+                    draw_card_abilities[draw_card_abilities_count] = ability;
+                    draw_card_abilities_count += 1;
+                }
+                _ => {
+                    regular_abilities[regular_abilities_count] = ability;
+                    regular_abilities_count += 1;
+                }
+            }
+        }
+
+        player.workshopped_cards.insert(id);
+    }
+
+    // Now un-rotate the reworkshop card and process it a second time
+    let player = &mut state.players[player_index];
+    player.workshopped_cards.remove(reworkshop_id);
+    player.workshop_cards.insert(reworkshop_id);
+
+    let reworkshop_card = state.card_lookup[reworkshop_id as usize];
+    let player = &mut state.players[player_index];
+    player.workshop_cards.remove(reworkshop_id);
+    if reworkshop_card.is_action() {
+        for &ability in reworkshop_card.workshop_abilities() {
+            match ability {
+                Ability::ChangeTertiary => {
+                    change_tertiary_abilities[change_tertiary_abilities_count] = ability;
+                    change_tertiary_abilities_count += 1;
+                }
+                Ability::Workshop { count: c } => {
+                    potash_base_count = Some(potash_base_count.unwrap_or(0) + c);
+                }
+                Ability::DrawCards { .. } => {
+                    has_draw_cards = true;
+                    draw_card_abilities[draw_card_abilities_count] = ability;
+                    draw_card_abilities_count += 1;
+                }
+                _ => {
+                    regular_abilities[regular_abilities_count] = ability;
+                    regular_abilities_count += 1;
+                }
+            }
+        }
+    } else {
+        for mt in reworkshop_card.material_types() {
+            player.materials.increment(*mt);
+        }
+        for pip in reworkshop_card.pips() {
+            player.color_wheel.increment(*pip);
+        }
+    }
+    player.workshopped_cards.insert(reworkshop_id);
+
+    // The reworkshop card used 2 slots, other cards used 1 each.
+    // Total slots used = 2 + other_cards.len() = selected_cards.len() + 1
+    // remaining = count - total = already accounted for by the caller's Workshop count
+    // We don't have the original count here, but we don't need remaining for the ability stack
+    // since the Workshop was already popped.
+
+    // Push abilities onto LIFO stack in reverse resolution order
+    let stack = &mut get_action_state_mut(state).ability_stack;
+
+    if let Some(base) = potash_base_count {
+        let potash_count = if has_draw_cards {
+            base
+        } else {
+            base
+        };
+        stack.push(Ability::Workshop { count: potash_count });
+    }
+
+    for i in 0..change_tertiary_abilities_count {
+        stack.push(change_tertiary_abilities[i]);
+    }
+
+    for i in 0..draw_card_abilities_count {
+        stack.push(draw_card_abilities[i]);
+    }
+
+    for i in 0..regular_abilities_count {
+        stack.push(regular_abilities[i]);
+    }
+
+    process_ability_stack(state, rng);
+}
+
 pub fn skip_workshop<R: Rng>(state: &mut GameState, rng: &mut R) {
     get_action_state_mut(state).ability_stack.pop();
     process_ability_stack(state, rng);

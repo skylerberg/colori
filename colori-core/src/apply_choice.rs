@@ -262,5 +262,37 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
             destroy_drafted_card(state, card_instance_id, rng);
             resolve_select_glass(state, *glass, *pay_color, rng);
         }
+        Choice::WorkshopWithReworkshop { reworkshop_card, other_cards } => {
+            mark_glass_used(state, GlassCard::GlassReworkshop);
+
+            let workshop = match &state.phase {
+                GamePhase::Action { action_state } => {
+                    state.players[action_state.current_player_index].workshop_cards
+                }
+                _ => panic!("Expected action phase"),
+            };
+
+            // Find instance ID for the reworkshop card
+            let reworkshop_id = find_card_instance(state, reworkshop_card, &workshop);
+
+            // Find instance IDs for other cards (excluding the reworkshop instance)
+            let mut used = UnorderedCards::new();
+            used.insert(reworkshop_id as u8);
+            let mut other_ids = UnorderedCards::new();
+            for &ct in other_cards.iter() {
+                for id in workshop.iter() {
+                    if !used.contains(id) && state.card_lookup[id as usize] == ct {
+                        other_ids.insert(id);
+                        used.insert(id);
+                        break;
+                    }
+                }
+            }
+
+            // Combine: reworkshop card + other cards
+            let mut all_cards = other_ids;
+            all_cards.insert(reworkshop_id as u8);
+            resolve_workshop_with_reworkshop(state, all_cards, reworkshop_id as u8, rng);
+        }
     }
 }

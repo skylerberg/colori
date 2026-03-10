@@ -185,6 +185,12 @@ export function getChoiceLogMessage(
       const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
       return `${name} destroyed ${cardName} from drafted cards, selected glass ${choice.glass} (paid ${choice.payColor})`;
     }
+    case 'workshopWithReworkshop': {
+      const reworkshopName = (getAnyCardData(choice.reworkshopCard) as { name?: string })?.name ?? 'a card';
+      const otherNames = choice.otherCards.map(c => (getAnyCardData(c) as { name?: string })?.name ?? 'a card');
+      const all = [reworkshopName + ' x2', ...otherNames];
+      return `${name} workshopped ${all.join(', ')} (used Glass Reworkshop)`;
+    }
     default:
       return assertNever(choice);
   }

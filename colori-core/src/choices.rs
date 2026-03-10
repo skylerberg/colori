@@ -373,6 +373,36 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                             seen |= bit;
                             choices.push(Choice::ActivateGlassReworkshop { card });
                         }
+
+                        // WorkshopWithReworkshop: workshop a card x2 via GlassReworkshop
+                        if *count >= 2 {
+                            let (card_types, type_counts, len) = count_card_types(player.workshop_cards, &state.card_lookup);
+                            for i in 0..len {
+                                let reworkshop_card = card_types[i];
+                                // Size-0 case: just the reworkshop card x2 (uses 2 workshop slots)
+                                choices.push(Choice::WorkshopWithReworkshop {
+                                    reworkshop_card,
+                                    other_cards: SmallVec::new(),
+                                });
+                                let remaining_slots = (*count as usize) - 2;
+                                if remaining_slots > 0 {
+                                    // Build reduced pool: same cards minus one instance of reworkshop_card
+                                    let mut reduced_counts = type_counts;
+                                    reduced_counts[i] -= 1;
+                                    enumerate_multiset_subsets(
+                                        &card_types[..len],
+                                        &reduced_counts[..len],
+                                        remaining_slots,
+                                        &mut SmallVec::new(),
+                                        choices,
+                                        &|other_cards| Choice::WorkshopWithReworkshop {
+                                            reworkshop_card,
+                                            other_cards,
+                                        },
+                                    );
+                                }
+                            }
+                        }
                     }
                 }
                 Some(Ability::DestroyCards) => {
@@ -788,6 +818,44 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
                 let player = &state.players[action_state.current_player_index];
                 glass_ability_available_ext(state, player, GlassCard::GlassDestroyClean)
                     && player.workshop_cards.iter().any(|id| state.card_lookup[id as usize] == *card)
+            } else {
+                false
+            }
+        }
+        Choice::WorkshopWithReworkshop { reworkshop_card, other_cards } => {
+            if let GamePhase::Action { ref action_state } = state.phase {
+                let count = match action_state.ability_stack.last() {
+                    Some(Ability::Workshop { count }) => *count as usize,
+                    _ => return false,
+                };
+                let total = 2 + other_cards.len();
+                if total > count { return false; }
+                let player = &state.players[action_state.current_player_index];
+                if !glass_ability_available_ext(state, player, GlassCard::GlassReworkshop) { return false; }
+                // Verify reworkshop_card exists in workshop_cards
+                if !player.workshop_cards.iter().any(|id| state.card_lookup[id as usize] == *reworkshop_card) {
+                    return false;
+                }
+                // Verify other_cards can all be resolved from workshop_cards minus one instance of reworkshop_card
+                let mut used = UnorderedCards::new();
+                for id in player.workshop_cards.iter() {
+                    if state.card_lookup[id as usize] == *reworkshop_card {
+                        used.insert(id);
+                        break;
+                    }
+                }
+                for &ct in other_cards.iter() {
+                    let mut found = false;
+                    for id in player.workshop_cards.iter() {
+                        if !used.contains(id) && state.card_lookup[id as usize] == ct {
+                            used.insert(id);
+                            found = true;
+                            break;
+                        }
+                    }
+                    if !found { return false; }
+                }
+                true
             } else {
                 false
             }

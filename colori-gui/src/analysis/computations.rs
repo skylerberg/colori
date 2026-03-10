@@ -372,6 +372,17 @@ pub fn format_choice(choice: &Choice) -> String {
         Choice::DestroyAndSelectGlass { card, glass, pay_color } => {
             format!("Destroyed {} and acquired {:?} (paid 4 {:?})", card_name(card), glass, pay_color)
         }
+        Choice::WorkshopWithReworkshop { reworkshop_card, other_cards } => {
+            if other_cards.is_empty() {
+                format!("Workshopped {} x2 (Glass Reworkshop)", card_name(reworkshop_card))
+            } else {
+                format!(
+                    "Workshopped {} x2, {} (Glass Reworkshop)",
+                    card_name(reworkshop_card),
+                    card_names(other_cards)
+                )
+            }
+        }
     }
 }
 
@@ -427,6 +438,7 @@ fn choice_type_name(choice: &Choice) -> String {
         Choice::ActivateGlassReworkshop { .. } => "activateGlassReworkshop".to_string(),
         Choice::ActivateGlassDestroyClean { .. } => "activateGlassDestroyClean".to_string(),
         Choice::DestroyAndSelectGlass { .. } => "destroyAndSelectGlass".to_string(),
+        Choice::WorkshopWithReworkshop { .. } => "workshopWithReworkshop".to_string(),
     }
 }
 
