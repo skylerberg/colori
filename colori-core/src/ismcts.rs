@@ -493,7 +493,8 @@ mod tests {
         apply_choice_to_state, check_choice_available, enumerate_choices_into,
     };
     use crate::draw_phase::execute_draw_phase;
-    use crate::setup::create_initial_game_state;
+    use crate::setup::{create_initial_game_state, create_initial_game_state_with_expansions};
+    use crate::types::Expansions;
     use rand::SeedableRng;
     use wyrand::WyRand;
 
@@ -574,6 +575,91 @@ mod tests {
     fn test_ismcts_valid_moves_4_players() {
         for seed in 0..5 {
             run_full_game_validating_choices(4, seed);
+        }
+    }
+
+    fn run_full_game_validating_choices_with_glass(num_players: usize, seed: u64) {
+        let mut rng = WyRand::seed_from_u64(seed);
+        let ai_players = vec![true; num_players];
+        let mut state = create_initial_game_state_with_expansions(
+            num_players,
+            &ai_players,
+            Expansions { glass: true },
+            &mut rng,
+        );
+
+        let config = MctsConfig {
+            iterations: 10,
+            ..MctsConfig::default()
+        };
+
+        execute_draw_phase(&mut state, &mut rng);
+
+        let mut choices_buf: Vec<Choice> = Vec::new();
+        let max_steps = 5000;
+
+        for step in 0..max_steps {
+            match &state.phase {
+                GamePhase::GameOver => return,
+                GamePhase::Draw => {
+                    execute_draw_phase(&mut state, &mut rng);
+                    continue;
+                }
+                GamePhase::Draft { .. } => {}
+                _ => {}
+            }
+
+            let player_index = match get_game_status(&state, None) {
+                GameStatus::AwaitingAction { player_index } => player_index,
+                GameStatus::Terminated { .. } => return,
+            };
+
+            let choice = ismcts(&state, player_index, &config, &None, None, &mut rng);
+
+            enumerate_choices_into(&state, &mut choices_buf);
+            assert!(
+                choices_buf.contains(&choice),
+                "seed={seed}, players={num_players}, \
+                 step={step}, round={}, phase={:?}: ISMCTS choice {choice:?} \
+                 not in enumerated choices",
+                state.round, state.phase
+            );
+
+            assert!(
+                check_choice_available(&state, &choice),
+                "seed={seed}, players={num_players}, \
+                 step={step}, round={}, phase={:?}: check_choice_available returned \
+                 false for {choice:?}",
+                state.round, state.phase
+            );
+
+            apply_choice_to_state(&mut state, &choice, &mut rng);
+        }
+
+        panic!(
+            "seed={seed}, players={num_players}: \
+             game did not finish within {max_steps} steps"
+        );
+    }
+
+    #[test]
+    fn test_ismcts_valid_moves_2_players_glass() {
+        for seed in 0..5 {
+            run_full_game_validating_choices_with_glass(2, seed);
+        }
+    }
+
+    #[test]
+    fn test_ismcts_valid_moves_3_players_glass() {
+        for seed in 0..5 {
+            run_full_game_validating_choices_with_glass(3, seed);
+        }
+    }
+
+    #[test]
+    fn test_ismcts_valid_moves_4_players_glass() {
+        for seed in 0..5 {
+            run_full_game_validating_choices_with_glass(4, seed);
         }
     }
 }

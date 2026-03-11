@@ -3,7 +3,8 @@ use crate::action_phase::{
     get_action_state_mut, glass_ability_available, initialize_action_phase, mark_glass_used,
     process_ability_stack, resolve_choose_tertiary_to_gain, resolve_choose_tertiary_to_lose,
     resolve_destroy_cards, resolve_gain_primary, resolve_gain_secondary, resolve_select_buyer,
-    resolve_select_glass, resolve_workshop_choice, skip_workshop,
+    resolve_select_glass, resolve_workshop_choice, resolve_workshop_with_reworkshop,
+    skip_workshop,
 };
 use crate::colors::{
     is_primary, pay_cost, perform_mix_unchecked, perform_unmix, PRIMARIES, SECONDARIES,
@@ -493,25 +494,31 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                 Some(Ability::Workshop { count }) => {
                     let count = *count;
 
-                    // Try activating GlassReworkshop before selecting workshop cards
-                    if state.expansions.glass
+                    let use_reworkshop = state.expansions.glass
                         && glass_ability_available(state, player_index, GlassCard::GlassReworkshop)
-                        && !state.players[player_index].workshopped_cards.is_empty()
-                        && rng.random_range(0..2u32) == 0
-                    {
-                        mark_glass_used(state, GlassCard::GlassReworkshop);
-                        let player = &mut state.players[player_index];
-                        let card_id = player.workshopped_cards.pick_random(rng).unwrap();
-                        player.workshopped_cards.remove(card_id);
-                        player.workshop_cards.insert(card_id);
-                    }
+                        && count >= 2
+                        && !state.players[player_index].workshop_cards.is_empty()
+                        && rng.random_range(0..2u32) == 0;
 
-                    let mut copy = state.players[player_index].workshop_cards;
-                    let selected = copy.draw_up_to(count as u8, rng);
-                    if selected.is_empty() {
-                        skip_workshop(state, rng);
+                    if use_reworkshop {
+                        // Reserve 1 slot for the reworkshop extra workshop
+                        let mut copy = state.players[player_index].workshop_cards;
+                        let selected = copy.draw_up_to((count - 1) as u8, rng);
+                        if selected.is_empty() {
+                            skip_workshop(state, rng);
+                        } else {
+                            let reworkshop_id = selected.pick_random(rng).unwrap();
+                            mark_glass_used(state, GlassCard::GlassReworkshop);
+                            resolve_workshop_with_reworkshop(state, selected, reworkshop_id, rng);
+                        }
                     } else {
-                        resolve_workshop_choice(state, selected, rng);
+                        let mut copy = state.players[player_index].workshop_cards;
+                        let selected = copy.draw_up_to(count as u8, rng);
+                        if selected.is_empty() {
+                            skip_workshop(state, rng);
+                        } else {
+                            resolve_workshop_choice(state, selected, rng);
+                        }
                     }
                 }
                 Some(Ability::DestroyCards) => {
