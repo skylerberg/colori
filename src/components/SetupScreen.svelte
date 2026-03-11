@@ -16,8 +16,8 @@
   } = $props();
 
   let playerCount = $state(2);
-  let playerNames: string[] = $state(['Player 1', 'Player 2', 'Player 3', 'Player 4', 'Player 5']);
-  let isAI: boolean[] = $state([false, false, false, false, false]);
+  let playerNames: string[] = $state(['Player 1', 'AI Player 2', 'AI Player 3', 'AI Player 4', 'AI Player 5']);
+  let isAI: boolean[] = $state([false, true, true, true, true]);
   let aiIterations: number[] = $state([100000, 100000, 100000, 100000, 100000]);
   let glassExpansion = $state(false);
 
