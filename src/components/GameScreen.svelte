@@ -236,6 +236,7 @@
         }
       }
     } catch (e) {
+      console.error('AI draft error:', e);
       aiError = String(e);
     } finally {
       aiThinking = false;
@@ -301,6 +302,7 @@
       aiThinking = false;
       handleAction(choice);
     }).catch((e) => {
+      console.error('AI action error:', e);
       aiThinking = false;
       aiError = String(e);
     });
