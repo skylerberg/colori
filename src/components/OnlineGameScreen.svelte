@@ -216,6 +216,9 @@
         for (const { playerIdx, choice } of results) {
           hostController?.applyAction(choice, playerIdx);
         }
+      }).catch((e) => {
+        console.error('AI draft error:', e);
+        aiThinking = false;
       });
       return;
     }
@@ -230,6 +233,9 @@
     aiController!.getAIChoice(gameState, playerIdx, 100000, playerSeenHands).then((choice) => {
       aiThinking = false;
       hostController?.applyAction(choice, playerIdx);
+    }).catch((e) => {
+      console.error('AI action error:', e);
+      aiThinking = false;
     });
   });
 
