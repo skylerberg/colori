@@ -1,10 +1,11 @@
 <script lang="ts">
-  let { onLocalGame, onHostOnline, onJoinOnline, hasSavedGame, onResumeGame }: {
+  let { onLocalGame, onHostOnline, onJoinOnline, hasSavedGame, onResumeGame, onHowToPlay }: {
     onLocalGame: () => void;
     onHostOnline: () => void;
     onJoinOnline: () => void;
     hasSavedGame: boolean;
     onResumeGame: () => void;
+    onHowToPlay: () => void;
   } = $props();
 </script>
 
@@ -16,6 +17,7 @@
     <button class="menu-btn local-btn" onclick={onLocalGame}>Local Game</button>
     <button class="menu-btn online-btn" onclick={onHostOnline}>Host Online Game</button>
     <button class="menu-btn online-btn" onclick={onJoinOnline}>Join Online Game</button>
+    <button class="menu-btn tutorial-btn" onclick={onHowToPlay}>How to Play</button>
   </div>
 </div>
 
@@ -90,6 +92,15 @@
 
   .resume-btn:hover {
     background: linear-gradient(135deg, #b8960f, #d4c070);
+  }
+
+  .tutorial-btn {
+    background: var(--bg-deep, #2c1e12);
+    color: var(--text-on-dark, #f5ede0);
+  }
+
+  .tutorial-btn:hover {
+    background: #3a2a1e;
   }
 
 </style>

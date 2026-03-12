@@ -29,6 +29,7 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
+    "shepherd.js": "^15.2.2",
     "trystero": "^0.22.0"
   }
 }

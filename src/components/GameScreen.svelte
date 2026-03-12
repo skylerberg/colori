@@ -8,6 +8,7 @@
   import DraftPhaseView from './DraftPhaseView.svelte';
   import ActionPhaseView from './ActionPhaseView.svelte';
   import CardList from './CardList.svelte';
+  import { startTutorial, cancelTutorial } from '../tutorial/tutorial';
 
   let { gameState, gameStartTime, onGameUpdated, initialGameLog, onLeaveGame, gameLogAccumulator, aiIterations }: {
     gameState: GameState;
@@ -67,6 +68,20 @@
       undoStack = [];
       undoPlayerIndex = null;
     }
+  });
+
+  // Start tutorial on first mount (checks localStorage internally)
+  let tutorialStarted = false;
+  $effect(() => {
+    if (!tutorialStarted && gameState.phase.type === 'draft') {
+      tutorialStarted = true;
+      startTutorial();
+    }
+  });
+
+  // Clean up tutorial on unmount
+  $effect(() => {
+    return () => cancelTutorial();
   });
 
   function addLog(entry: string) {
