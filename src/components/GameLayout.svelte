@@ -49,6 +49,13 @@
     }
   }
 
+  $effect(() => {
+    document.body.classList.add('game-active');
+    return () => {
+      document.body.classList.remove('game-active');
+    };
+  });
+
 </script>
 
 <div class="game-screen">
@@ -287,11 +294,11 @@
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
-    height: 100vh;
-    height: 100dvh;
+    height: 100%;
     box-sizing: border-box;
     overflow-y: auto;
     overflow-x: hidden;
+    overscroll-behavior: none;
   }
 
   /* Top info bar */
@@ -358,10 +365,8 @@
     border-radius: 0;
     width: 100%;
     max-width: 100%;
-    max-height: 100vh;
-    max-height: 100dvh;
-    height: 100vh;
-    height: 100dvh;
+    max-height: 100%;
+    height: 100%;
     display: flex;
     flex-direction: column;
   }
@@ -405,6 +410,7 @@
   .log-entries {
     overflow-y: auto;
     padding: 0.5rem 0;
+    overscroll-behavior: none;
   }
 
   .log-entry {
@@ -569,6 +575,7 @@
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
+    overscroll-behavior: none;
   }
 
   .left-col {

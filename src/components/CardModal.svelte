@@ -59,10 +59,10 @@
     background: rgba(20, 15, 10, 0.98);
     border: none;
     border-radius: 0;
-    width: 100vw;
-    height: 100vh;
-    max-width: 100vw;
-    max-height: 100vh;
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
     display: flex;
     flex-direction: column;
     --card-width: 90px;
@@ -109,6 +109,7 @@
     overflow-y: auto;
     padding: 0.75rem;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none;
   }
 
   .card-grid {
