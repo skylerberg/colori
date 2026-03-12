@@ -63,9 +63,6 @@ body {
 
 body.game-active {
   overflow: hidden;
-  position: fixed;
-  width: 100%;
-  height: 100%;
 }
 
 #app {
