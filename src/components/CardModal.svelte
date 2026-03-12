@@ -56,16 +56,17 @@
   }
 
   .modal-box {
-    background: rgba(20, 15, 10, 0.95);
-    border: 1px solid rgba(201, 168, 76, 0.5);
-    border-radius: 10px;
-    width: 900px;
-    max-width: 90vw;
-    max-height: 85vh;
+    background: rgba(20, 15, 10, 0.98);
+    border: none;
+    border-radius: 0;
+    width: 100vw;
+    height: 100vh;
+    max-width: 100vw;
+    max-height: 100vh;
     display: flex;
     flex-direction: column;
-    --card-width: 175px;
-    --card-height: 245px;
+    --card-width: 90px;
+    --card-height: 126px;
   }
 
   .modal-header {
@@ -78,7 +79,7 @@
 
   .modal-title {
     font-family: 'Cinzel', serif;
-    font-size: 1rem;
+    font-size: 0.9rem;
     font-weight: 600;
     color: #c9a84c;
     text-transform: uppercase;
@@ -89,10 +90,15 @@
     background: none;
     border: none;
     color: rgba(245, 237, 224, 0.6);
-    font-size: 1.4rem;
+    font-size: 1.6rem;
     cursor: pointer;
-    padding: 0 4px;
+    padding: 0;
     line-height: 1;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .close-btn:hover {
@@ -101,13 +107,14 @@
 
   .modal-body {
     overflow-y: auto;
-    padding: 1rem;
+    padding: 0.75rem;
+    -webkit-overflow-scrolling: touch;
   }
 
   .card-grid {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
     justify-content: center;
   }
 
@@ -118,5 +125,38 @@
     font-size: 0.85rem;
     text-align: center;
     padding: 2rem 0;
+  }
+
+  @media (min-width: 768px) {
+    .modal-box {
+      background: rgba(20, 15, 10, 0.95);
+      border: 1px solid rgba(201, 168, 76, 0.5);
+      border-radius: 10px;
+      width: 900px;
+      height: auto;
+      max-width: 90vw;
+      max-height: 85vh;
+      --card-width: 130px;
+      --card-height: 182px;
+    }
+
+    .modal-title {
+      font-size: 1rem;
+    }
+
+    .modal-body {
+      padding: 1rem;
+    }
+
+    .card-grid {
+      gap: 8px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .modal-box {
+      --card-width: 175px;
+      --card-height: 245px;
+    }
   }
 </style>

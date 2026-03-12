@@ -44,15 +44,26 @@
   }
 
   .color-btn {
-    padding: 10px 18px;
+    padding: 12px 20px;
     font-weight: 600;
-    font-size: 0.9rem;
+    font-size: 1rem;
     border: 2px solid rgba(0, 0, 0, 0.2);
     border-radius: 8px;
     cursor: pointer;
+    min-height: 44px;
+    min-width: 44px;
+    flex: 1 1 0;
   }
 
   .color-btn:hover {
     opacity: 0.85;
+  }
+
+  @media (min-width: 640px) {
+    .color-btn {
+      flex: 0 1 auto;
+      padding: 10px 18px;
+      font-size: 0.9rem;
+    }
   }
 </style>

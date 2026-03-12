@@ -8,6 +8,7 @@
   import LobbyScreen from './components/LobbyScreen.svelte';
   import OnlineGameScreen from './components/OnlineGameScreen.svelte';
   import ZoneEditor from './components/ZoneEditor.svelte';
+  import CardPreview from './components/CardPreview.svelte';
   import { saveGame, loadGame, clearSavedGame } from './persistence';
   import { NetworkManager } from './network/networkManager';
   import { HostController } from './network/hostController';
@@ -266,15 +267,17 @@
   {/if}
 </main>
 
+<CardPreview />
+
 <style>
   main {
     text-align: center;
   }
   .title {
     font-family: var(--font-display);
-    font-size: 2.5rem;
+    font-size: clamp(1.8rem, 5vw, 2.5rem);
     font-weight: 700;
-    letter-spacing: 4px;
+    letter-spacing: clamp(2px, 0.5vw, 4px);
     margin-bottom: 0.25rem;
     background: linear-gradient(135deg, #c9a84c, #e8d48b, #c9a84c);
     -webkit-background-clip: text;
@@ -283,7 +286,7 @@
   }
   .subtitle {
     font-family: var(--font-body);
-    font-size: 1.1rem;
+    font-size: clamp(0.95rem, 2.5vw, 1.1rem);
     font-style: italic;
     color: var(--text-secondary);
     margin-bottom: 0.5rem;

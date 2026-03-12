@@ -38,11 +38,12 @@
     display: flex;
     flex-direction: column;
     gap: 1px;
-    padding: 5px 10px;
+    padding: 6px 8px;
     border: 2px solid var(--border-gold, rgba(201, 168, 76, 0.3));
     border-radius: 6px;
     background: var(--bg-panel, #ebe3d3);
-    min-width: 120px;
+    min-width: 100px;
+    min-height: 44px;
     cursor: pointer;
     text-align: left;
     font-family: inherit;
@@ -50,6 +51,11 @@
   }
 
   .player-status:hover {
+    border-color: var(--border-gold-medium, rgba(201, 168, 76, 0.5));
+    background: #e5daca;
+  }
+
+  .player-status:active {
     border-color: var(--border-gold-medium, rgba(201, 168, 76, 0.5));
     background: #e5daca;
   }
@@ -63,7 +69,7 @@
   .player-name {
     font-family: var(--font-display, 'Cinzel', serif);
     font-weight: 600;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     display: flex;
     align-items: center;
     gap: 4px;
@@ -75,8 +81,8 @@
 
   .turn-dot {
     display: inline-block;
-    width: 8px;
-    height: 8px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
     background: var(--accent-gold, #c9a84c);
     flex-shrink: 0;
@@ -85,8 +91,8 @@
   .stats {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px 6px;
-    font-size: 0.65rem;
+    gap: 3px 5px;
+    font-size: 0.6rem;
     color: var(--text-secondary, #6b5744);
   }
 
@@ -95,19 +101,19 @@
   }
 
   .ai-badge {
-    font-size: 0.65rem;
+    font-size: 0.6rem;
     font-weight: 700;
     background: var(--accent-crimson, #8b2020);
     color: var(--text-on-dark, #f5ede0);
-    padding: 1px 5px;
+    padding: 1px 4px;
     border-radius: 4px;
     vertical-align: middle;
   }
 
   .thinking-spinner {
     display: inline-block;
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
     border: 2px solid var(--bg-panel, #ebe3d3);
     border-top-color: var(--accent-gold, #c9a84c);
     border-radius: 50%;
@@ -117,5 +123,36 @@
 
   @keyframes spin {
     to { transform: rotate(360deg); }
+  }
+
+  @media (min-width: 768px) {
+    .player-status {
+      padding: 5px 10px;
+      min-width: 120px;
+    }
+
+    .player-name {
+      font-size: 0.8rem;
+    }
+
+    .turn-dot {
+      width: 8px;
+      height: 8px;
+    }
+
+    .stats {
+      gap: 4px 6px;
+      font-size: 0.65rem;
+    }
+
+    .ai-badge {
+      font-size: 0.65rem;
+      padding: 1px 5px;
+    }
+
+    .thinking-spinner {
+      width: 12px;
+      height: 12px;
+    }
   }
 </style>

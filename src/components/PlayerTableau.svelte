@@ -180,17 +180,48 @@
 
   .material-count {
     font-family: var(--font-display, 'Cinzel', serif);
-    font-size: 1.4rem;
+    font-size: 1rem;
     font-weight: bold;
     color: var(--accent-gold, #c9a84c);
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
   }
 
   .material-label {
-    font-size: 0.6rem;
+    font-size: 0.5rem;
     color: #c4956a;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  }
+
+  .tableau {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .workshop-zone {
+    gap: 3px;
+  }
+
+  /* ===== RESPONSIVE OVERRIDES (mobile-first) ===== */
+
+  @media (min-width: 768px) {
+    .material-count {
+      font-size: 1.2rem;
+    }
+
+    .material-label {
+      font-size: 0.6rem;
+    }
+
+    .workshop-zone {
+      gap: 6px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .material-count {
+      font-size: 1.4rem;
+    }
   }
 </style>

@@ -120,17 +120,19 @@
 
 <style>
   .setup-screen {
+    width: 100%;
     max-width: 400px;
-    margin: 2rem auto;
+    margin: 1.5rem auto;
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
+    padding: 0 1rem;
   }
 
   h2 {
     font-family: var(--font-display, 'Cinzel', serif);
     color: var(--text-primary, #2c1e12);
-    font-size: 1.5rem;
+    font-size: clamp(1.3rem, 3.5vw, 1.5rem);
   }
 
   .player-count-section {
@@ -147,7 +149,7 @@
 
   .count-buttons {
     display: flex;
-    gap: 8px;
+    gap: 10px;
   }
 
   .count-btn {
@@ -170,11 +172,12 @@
   .names-section {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
   }
 
   .name-input-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
   }
@@ -182,15 +185,17 @@
   .name-input-row label {
     font-size: 0.85rem;
     min-width: 70px;
-    text-align: right;
+    text-align: left;
   }
 
   .name-input-row input {
     flex: 1;
-    padding: 6px 10px;
+    min-width: 0;
+    padding: 8px 10px;
     border: 2px solid var(--border-gold, rgba(201, 168, 76, 0.3));
     border-radius: 6px;
     font-size: 0.9rem;
+    min-height: 44px;
   }
 
   .name-input-row input:focus {
@@ -199,13 +204,14 @@
   }
 
   .ai-toggle {
-    padding: 6px 12px;
+    padding: 8px 12px;
     font-size: 0.8rem;
     font-weight: 600;
     border: 2px solid var(--border-gold, rgba(201, 168, 76, 0.3));
     border-radius: 6px;
     background: var(--bg-panel, #ebe3d3);
     min-width: 64px;
+    min-height: 44px;
     cursor: pointer;
   }
 
@@ -216,12 +222,14 @@
   }
 
   .difficulty-select {
-    padding: 6px 8px;
+    padding: 8px 8px;
     font-size: 0.8rem;
     border: 2px solid var(--accent-crimson, #8b2020);
     border-radius: 6px;
     background: #fff;
     cursor: pointer;
+    min-height: 44px;
+    width: auto;
   }
 
   .expansions-section {
@@ -241,17 +249,18 @@
     font-size: 0.95rem;
     font-weight: 600;
     cursor: pointer;
+    min-height: 44px;
   }
 
   .expansion-toggle input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
+    width: 22px;
+    height: 22px;
     accent-color: var(--accent-gold, #c9a84c);
     cursor: pointer;
   }
 
   .start-btn {
-    padding: 12px 24px;
+    padding: 14px 24px;
     font-family: var(--font-display, 'Cinzel', serif);
     font-size: 1.05rem;
     font-weight: 600;
@@ -260,11 +269,23 @@
     color: var(--text-on-dark, #f5ede0);
     border: none;
     border-radius: 8px;
+    min-height: 48px;
     transition: background 0.2s, transform 0.2s;
   }
 
   .start-btn:hover {
     background: #3a2a1e;
     transform: translateY(-2px);
+  }
+
+  @media (min-width: 768px) {
+    .setup-screen {
+      margin: 2rem auto;
+      padding: 0;
+    }
+
+    .name-input-row label {
+      text-align: right;
+    }
   }
 </style>

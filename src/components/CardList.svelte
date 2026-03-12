@@ -28,11 +28,13 @@
 <style>
   .card-list {
     display: flex;
-    gap: 6px;
+    gap: 4px;
     overflow-x: auto;
-    padding: 10px 2px;
-    min-height: 176px;
+    padding: 0.5rem 2px;
+    min-height: calc(var(--card-height, 126px) + 1.25rem);
     align-items: flex-end;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
   }
 
   .empty {
@@ -42,6 +44,19 @@
     align-items: center;
     justify-content: center;
     width: 100%;
-    min-height: 168px;
+    min-height: calc(var(--card-height, 126px) + 0.5rem);
+  }
+
+  @media (min-width: 768px) {
+    .card-list {
+      gap: 6px;
+      padding: 10px 2px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .card-list {
+      gap: 8px;
+    }
   }
 </style>

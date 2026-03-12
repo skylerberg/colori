@@ -204,7 +204,13 @@
 <style>
   .color-wheel-container {
     display: inline-block;
+    max-width: 100%;
     filter: drop-shadow(0 2px 6px rgba(44, 30, 18, 0.2));
+  }
+
+  .color-wheel-container :global(svg) {
+    max-width: 100%;
+    height: auto;
   }
 
   .color-wheel-container.hidden {
@@ -217,6 +223,11 @@
 
   path.clickable:hover {
     fill: rgba(255, 255, 255, 0.15);
+  }
+
+  /* Touch feedback for interactive segments */
+  path.clickable:active {
+    fill: rgba(255, 255, 255, 0.2);
   }
 
   path.selected {

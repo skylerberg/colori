@@ -71,12 +71,13 @@
   }
 
   .skip-btn {
-    padding: 8px 16px;
-    font-size: 0.85rem;
+    padding: 10px 16px;
+    font-size: 0.9rem;
     background: var(--bg-panel, #ebe3d3);
     border: 1px solid var(--border-gold, rgba(201, 168, 76, 0.3));
     border-radius: 6px;
     align-self: flex-start;
+    min-height: 44px;
   }
 
   .skip-btn:hover {
@@ -90,15 +91,31 @@
   }
 
   .color-btn {
-    padding: 10px 18px;
+    padding: 12px 16px;
     font-weight: 600;
     font-size: 0.9rem;
     border: 2px solid rgba(0, 0, 0, 0.2);
     border-radius: 8px;
     cursor: pointer;
+    min-height: 44px;
+    min-width: 44px;
+    flex: 1 1 calc(33% - 8px);
   }
 
   .color-btn:hover {
     opacity: 0.85;
+  }
+
+  @media (min-width: 640px) {
+    .skip-btn {
+      padding: 8px 16px;
+      font-size: 0.85rem;
+      min-height: unset;
+    }
+
+    .color-btn {
+      flex: 0 1 auto;
+      padding: 10px 18px;
+    }
   }
 </style>

@@ -120,12 +120,13 @@
   }
 
   .skip-btn {
-    padding: 8px 16px;
-    font-size: 0.85rem;
+    padding: 10px 16px;
+    font-size: 0.9rem;
     background: var(--bg-panel, #ebe3d3);
     border: 1px solid var(--border-gold, rgba(201, 168, 76, 0.3));
     border-radius: 6px;
     align-self: flex-start;
+    min-height: 44px;
   }
 
   .skip-btn:hover {
@@ -134,6 +135,19 @@
 
   .mix-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
+  }
+
+  @media (min-width: 640px) {
+    h3 {
+      font-size: 0.9rem;
+    }
+
+    .skip-btn {
+      padding: 8px 16px;
+      font-size: 0.85rem;
+      min-height: unset;
+    }
   }
 </style>
