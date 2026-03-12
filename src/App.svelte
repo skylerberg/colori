@@ -232,7 +232,6 @@
       onJoinOnline={joinOnlineGame}
       {hasSavedGame}
       onResumeGame={resumeGame}
-      onZoneEditor={goToZoneEditor}
     />
   {:else if screen.type === 'localSetup'}
     <SetupScreen onGameStarted={handleGameStarted} />

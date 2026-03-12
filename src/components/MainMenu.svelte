@@ -1,11 +1,10 @@
 <script lang="ts">
-  let { onLocalGame, onHostOnline, onJoinOnline, hasSavedGame, onResumeGame, onZoneEditor }: {
+  let { onLocalGame, onHostOnline, onJoinOnline, hasSavedGame, onResumeGame }: {
     onLocalGame: () => void;
     onHostOnline: () => void;
     onJoinOnline: () => void;
     hasSavedGame: boolean;
     onResumeGame: () => void;
-    onZoneEditor: () => void;
   } = $props();
 </script>
 
@@ -17,7 +16,6 @@
     <button class="menu-btn local-btn" onclick={onLocalGame}>Local Game</button>
     <button class="menu-btn online-btn" onclick={onHostOnline}>Host Online Game</button>
     <button class="menu-btn online-btn" onclick={onJoinOnline}>Join Online Game</button>
-    <button class="menu-btn editor-btn" onclick={onZoneEditor}>Zone Editor</button>
   </div>
 </div>
 
@@ -94,12 +92,4 @@
     background: linear-gradient(135deg, #b8960f, #d4c070);
   }
 
-  .editor-btn {
-    background: var(--text-tertiary, #9a8775);
-    color: var(--text-on-dark, #f5ede0);
-  }
-
-  .editor-btn:hover {
-    background: #8a7765;
-  }
 </style>

@@ -699,7 +699,12 @@
     gap: 6px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
     padding-bottom: 4px;
+  }
+
+  .glass-cards::-webkit-scrollbar {
+    display: none;
   }
 
   .glass-card {
