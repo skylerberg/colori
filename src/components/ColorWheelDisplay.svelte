@@ -163,7 +163,7 @@
       <path d="M 127.44,209.7 C 174.99,209.7 209.31,170.55 209.31,128.34 C 209.31,85.28 174.75,46.22 127.44,46.22 C 80.87,46.22 46.15,83.87 46.15,128.34 C 46.15,172.04 80.87,209.7 127.44,209.7 Z" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
       <path d="M 175.23,61.43 C 167.13,77.91 163.95,92.81 167.29,109.96 C 172.12,129.99 186.94,142.29 206.61,147.99" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
       <path d="M 92.68,53.92 C 103.93,75.85 104.97,92.97 92.28,108.76 C 80.07,121.06 66.13,124.41 46.15,126.82" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
-      <path d="M 92.28,108.76 L 127.36,129.67 L 167.61,112.1" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
+      <path d="M 92.28,108.76 L 127.36,129.67 L 167.29,109.96" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
       <path d="M 127.36,129.67 L 128.4,173.81" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
       <path d="M 86.81,198.76 C 98.54,182.04 111.47,173.81 127.36,173.81 C 143.41,173.81 156.42,185.38 165.72,200.2" stroke="black" stroke-width="1.7" stroke-miterlimit="10"/>
       <!-- Interactive hit targets (invisible, on top of strokes) -->
