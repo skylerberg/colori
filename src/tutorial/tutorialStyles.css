@@ -1,0 +1,147 @@
+/* Shepherd.js modal overlay */
+.shepherd-modal-overlay-container {
+  fill: rgba(10, 8, 5, 0.75) !important;
+}
+
+/* Main step element */
+.shepherd-element.colori-shepherd-step {
+  background: rgba(20, 15, 10, 0.95);
+  border: 1px solid rgba(201, 168, 76, 0.5);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(201, 168, 76, 0.2);
+  max-width: 380px;
+  z-index: 10001;
+  font-family: 'Cormorant Garamond', serif;
+}
+
+/* Arrow */
+.shepherd-element.colori-shepherd-step .shepherd-arrow:before {
+  background: rgba(20, 15, 10, 0.95);
+  border: 1px solid rgba(201, 168, 76, 0.5);
+}
+
+/* Header */
+.shepherd-element.colori-shepherd-step .shepherd-header {
+  background: transparent;
+  padding: 1rem 1rem 0 1rem;
+}
+
+.shepherd-element.colori-shepherd-step .shepherd-title {
+  font-family: 'Cinzel', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #c9a84c;
+  letter-spacing: 0.05em;
+}
+
+/* Cancel icon (X button) */
+.shepherd-element.colori-shepherd-step .shepherd-cancel-icon {
+  color: rgba(245, 237, 224, 0.5);
+  font-size: 1.5rem;
+  font-weight: 400;
+  transition: color 0.15s;
+}
+
+.shepherd-element.colori-shepherd-step .shepherd-cancel-icon:hover {
+  color: #f5ede0;
+}
+
+/* Text / body */
+.shepherd-element.colori-shepherd-step .shepherd-text {
+  padding: 0.75rem 1rem;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: rgba(245, 237, 224, 0.9);
+}
+
+/* Footer */
+.shepherd-element.colori-shepherd-step .shepherd-footer {
+  padding: 0 1rem 1rem 1rem;
+  border-top: none;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Primary button (Next / Start Playing) */
+.shepherd-element.colori-shepherd-step .shepherd-button-primary {
+  background: linear-gradient(135deg, #c9a84c, #e8d48b);
+  color: #1a1410;
+  font-family: 'Cinzel', serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 18px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  min-height: 36px;
+}
+
+.shepherd-element.colori-shepherd-step .shepherd-button-primary:hover {
+  background: linear-gradient(135deg, #b8960f, #d4c070);
+  transform: translateY(-1px);
+}
+
+/* Secondary button (Back) */
+.shepherd-element.colori-shepherd-step .shepherd-button-secondary {
+  background: rgba(30, 22, 14, 0.9);
+  color: #c9a84c;
+  font-family: 'Cinzel', serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  border: 1px solid rgba(201, 168, 76, 0.4);
+  border-radius: 6px;
+  padding: 8px 18px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  min-height: 36px;
+}
+
+.shepherd-element.colori-shepherd-step .shepherd-button-secondary:hover {
+  background: rgba(40, 30, 18, 0.9);
+  border-color: rgba(201, 168, 76, 0.7);
+}
+
+/* Skip button */
+.shepherd-element.colori-shepherd-step .shepherd-button-skip {
+  background: transparent;
+  color: rgba(245, 237, 224, 0.45);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.85rem;
+  font-weight: 400;
+  border: none;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: color 0.15s;
+  min-height: 36px;
+  margin-right: auto;
+}
+
+.shepherd-element.colori-shepherd-step .shepherd-button-skip:hover {
+  color: rgba(245, 237, 224, 0.7);
+}
+
+/* Ensure modal overlay is above the game's fixed positioning */
+.shepherd-modal-overlay-container {
+  z-index: 10000 !important;
+}
+
+.shepherd-element {
+  z-index: 10001 !important;
+}
+
+/* Mobile adjustments */
+@media (max-width: 480px) {
+  .shepherd-element.colori-shepherd-step {
+    max-width: calc(100vw - 32px);
+    margin: 0 16px;
+  }
+
+  .shepherd-element.colori-shepherd-step .shepherd-text {
+    font-size: 0.95rem;
+  }
+}
