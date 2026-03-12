@@ -95,8 +95,4 @@ pub struct PlayerVariant {
     pub exploration_constant: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_rollout_steps: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub model_path: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub c_puct: Option<f64>,
 }
