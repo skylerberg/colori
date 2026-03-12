@@ -52,6 +52,67 @@
   let lobbyPlayerCount = $state(2);
   let hostName = $state('');
 
+  // -- History helpers --
+
+  function pushScreen(newScreen: AppScreen) {
+    history.pushState({ screen: newScreen }, '');
+    screen = newScreen;
+  }
+
+  function replaceScreen(newScreen: AppScreen) {
+    history.replaceState({ screen: newScreen }, '');
+    screen = newScreen;
+  }
+
+  function backToMainMenu() {
+    screen = { type: 'mainMenu' };
+    history.back();
+  }
+
+  // Initialize history state and popstate handler
+  $effect(() => {
+    history.replaceState({ screen: { type: 'mainMenu' } }, '');
+
+    function handlePopState(event: PopStateEvent) {
+      const currentScreen = screen;
+
+      // Clean up network if leaving lobby or online game
+      if (currentScreen.type === 'lobby' || currentScreen.type === 'onlineGame') {
+        cleanupNetwork();
+        gameState = null;
+        gameStartTime = null;
+      }
+
+      // Determine target screen from event state
+      const targetScreen: AppScreen = event.state?.screen ?? { type: 'mainMenu' };
+
+      // Validate the target screen can be displayed
+      if (targetScreen.type === 'localGame' && gameState === null) {
+        replaceScreen({ type: 'mainMenu' });
+        return;
+      }
+      if (targetScreen.type === 'onlineGame') {
+        // Online games can't be resumed via history
+        replaceScreen({ type: 'mainMenu' });
+        return;
+      }
+      if (targetScreen.type === 'lobby') {
+        // Lobby can't be resumed via history
+        replaceScreen({ type: 'mainMenu' });
+        return;
+      }
+      if (targetScreen.type === 'score' && gameState === null) {
+        replaceScreen({ type: 'mainMenu' });
+        return;
+      }
+
+      screen = targetScreen;
+    }
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  });
+
   // -- Local game handlers --
 
   function handleGameStarted(state: GameState, iterations: number[]) {
@@ -62,7 +123,7 @@
     gameLogAccumulator = new GameLogAccumulator(state, iterations);
     finalGameLog = null;
     saveGame(state, gameStartTime!, [], iterations, gameLogAccumulator!.getLog());
-    screen = { type: 'localGame' };
+    replaceScreen({ type: 'localGame' });
   }
 
   function handleGameUpdated(state: GameState, log: string[]) {
@@ -74,7 +135,7 @@
         gameLogAccumulator.finalize(state);
         finalGameLog = gameLogAccumulator.getLog();
       }
-      screen = { type: 'score' };
+      replaceScreen({ type: 'score' });
     } else {
       saveGame(state, gameStartTime!, log, aiIterations ?? undefined, gameLogAccumulator?.getLog());
     }
@@ -89,7 +150,7 @@
     finalGameLog = null;
     clearSavedGame();
     hasSavedGame = false;
-    screen = { type: 'mainMenu' };
+    backToMainMenu();
   }
 
   function handleLeaveGame() {
@@ -101,33 +162,33 @@
     gameLogAccumulator = null;
     finalGameLog = null;
     hasSavedGame = false;
-    screen = { type: 'mainMenu' };
+    backToMainMenu();
   }
 
   function handleLeaveOnlineGame() {
     cleanupNetwork();
     gameState = null;
     gameStartTime = null;
-    screen = { type: 'mainMenu' };
+    backToMainMenu();
   }
 
   // -- Navigation --
 
   function goToLocalSetup() {
-    screen = { type: 'localSetup' };
+    pushScreen({ type: 'localSetup' });
   }
 
   function resumeGame() {
-    screen = { type: 'localGame' };
+    pushScreen({ type: 'localGame' });
   }
 
   function goToMainMenu() {
     cleanupNetwork();
-    screen = { type: 'mainMenu' };
+    backToMainMenu();
   }
 
   function goToZoneEditor() {
-    screen = { type: 'zoneEditor' };
+    pushScreen({ type: 'zoneEditor' });
   }
 
   // -- Online game handlers --
@@ -143,7 +204,7 @@
 
     lobbyPlayers = [...hostController.getLobbyPlayers()];
     lobbyPlayerCount = hostController.getPlayerCount();
-    screen = { type: 'lobby', role: 'host' };
+    pushScreen({ type: 'lobby', role: 'host' });
   }
 
   function joinOnlineGame() {
@@ -158,7 +219,7 @@
     guestController.onGameStarted = (state: SanitizedGameState) => {
       gameState = sanitizedToGameState(state);
       gameStartTime = Date.now();
-      screen = { type: 'onlineGame', role: 'guest' };
+      replaceScreen({ type: 'onlineGame', role: 'guest' });
     };
 
     guestController.onError = (message: string) => {
@@ -170,7 +231,7 @@
       goToMainMenu();
     };
 
-    screen = { type: 'lobby', role: 'guest' };
+    pushScreen({ type: 'lobby', role: 'guest' });
   }
 
   function handleGuestJoin(name: string, code: string) {
@@ -194,14 +255,14 @@
     hostController.startGame(expansions);
     gameState = hostController.getGameState();
     gameStartTime = Date.now();
-    screen = { type: 'onlineGame', role: 'host' };
+    replaceScreen({ type: 'onlineGame', role: 'host' });
   }
 
   function handleOnlineGameOver(finalState: GameState, structuredLog?: StructuredGameLog) {
     cleanupNetwork();
     gameState = finalState;
     finalGameLog = structuredLog ?? null;
-    screen = { type: 'score' };
+    replaceScreen({ type: 'score' });
   }
 
   function cleanupNetwork() {
