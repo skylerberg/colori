@@ -1,10 +1,9 @@
 use crate::colori_game::{
     apply_choice_to_state, apply_rollout_step,
     determinize_in_place, enumerate_choices_into,
-    get_game_status, GameStatus,
 };
 use crate::draft_phase::player_pick;
-use crate::scoring::{calculate_score, compute_terminal_rewards};
+use crate::scoring::{calculate_score, compute_heuristic_rewards, compute_terminal_rewards};
 use crate::types::*;
 use rand::Rng;
 use rand::RngExt;
@@ -16,6 +15,7 @@ pub struct MctsConfig {
     pub iterations: u32,
     pub exploration_constant: f64,
     pub max_rollout_steps: u32,
+    pub use_heuristic_eval: bool,
 }
 
 impl Default for MctsConfig {
@@ -24,6 +24,7 @@ impl Default for MctsConfig {
             iterations: 100,
             exploration_constant: std::f64::consts::SQRT_2,
             max_rollout_steps: 1000,
+            use_heuristic_eval: true,
         }
     }
 }
@@ -42,17 +43,21 @@ impl<'de> Deserialize<'de> for MctsConfig {
             exploration_constant: f64,
             #[serde(default = "default_max_rollout_steps")]
             max_rollout_steps: u32,
+            #[serde(default = "default_use_heuristic_eval")]
+            use_heuristic_eval: bool,
         }
 
         fn default_iterations() -> u32 { 100 }
         fn default_exploration_constant() -> f64 { std::f64::consts::SQRT_2 }
         fn default_max_rollout_steps() -> u32 { 1000 }
+        fn default_use_heuristic_eval() -> bool { true }
 
         let helper = MctsConfigHelper::deserialize(deserializer)?;
         Ok(MctsConfig {
             iterations: helper.iterations,
             exploration_constant: helper.exploration_constant,
             max_rollout_steps: helper.max_rollout_steps,
+            use_heuristic_eval: helper.use_heuristic_eval,
         })
     }
 }
@@ -311,6 +316,14 @@ pub fn ismcts<R: Rng>(
     let mut opponent_stats = OpponentDraftStats::new();
     let mut pick_log: Vec<(u32, usize, Card)> = Vec::new();
 
+    let (effective_max_rollout_round, use_heuristic) = if config.use_heuristic_eval && state.round <= 3 {
+        let heuristic_round = state.round + 3;
+        let effective = max_rollout_round.map_or(heuristic_round, |mr| mr.min(heuristic_round));
+        (Some(effective), true)
+    } else {
+        (max_rollout_round, false)
+    };
+
     for _ in 0..config.iterations {
         pick_log.clear();
         determinize_in_place(&mut det_state, state, player_index, known_draft_hands, &cached_scores, rng);
@@ -321,7 +334,7 @@ pub fn ismcts<R: Rng>(
         let scores = iteration_simultaneous(
             &mut root, &mut det_state, player_index,
             &mut opponent_stats, &mut pick_log,
-            max_rollout_round, config, &mut choices_buf, &mut availability_buf, rng,
+            effective_max_rollout_round, use_heuristic, config, &mut choices_buf, &mut availability_buf, rng,
         );
         for &(pick_round, player, card) in &pick_log {
             let reward = if player < scores.len() { scores[player] } else { 0.0 };
@@ -345,6 +358,14 @@ pub fn ismcts<R: Rng>(
     best_child.unwrap().choice.clone().unwrap()
 }
 
+fn eval_scores(state: &GameState, use_heuristic: bool) -> SmallVec<[f64; 4]> {
+    if use_heuristic {
+        compute_heuristic_rewards(&state.players, &state.buyer_display, &state.card_lookup)
+    } else {
+        compute_terminal_rewards(&state.players)
+    }
+}
+
 fn iteration_simultaneous<R: Rng>(
     node: &mut MctsNode,
     state: &mut GameState,
@@ -352,17 +373,27 @@ fn iteration_simultaneous<R: Rng>(
     opponent_stats: &mut OpponentDraftStats,
     pick_log: &mut Vec<(u32, usize, Card)>,
     max_rollout_round: Option<u32>,
+    use_heuristic: bool,
     config: &MctsConfig,
     choices_buf: &mut Vec<Choice>,
     availability_buf: &mut Vec<bool>,
     rng: &mut R,
 ) -> SmallVec<[f64; 4]> {
-    let active_player = match get_game_status(state, max_rollout_round) {
-        GameStatus::Terminated { scores } => {
-            record_outcome(node, &scores);
-            return scores;
+    let active_player = if matches!(state.phase, GamePhase::GameOver) {
+        let scores = compute_terminal_rewards(&state.players);
+        record_outcome(node, &scores);
+        return scores;
+    } else if max_rollout_round.is_some_and(|mr| state.round > mr) {
+        let scores = eval_scores(state, use_heuristic);
+        record_outcome(node, &scores);
+        return scores;
+    } else {
+        match &state.phase {
+            GamePhase::Draft { draft_state } => draft_state.current_player_index,
+            GamePhase::Action { action_state } => action_state.current_player_index,
+            GamePhase::Draw => 0,
+            _ => unreachable!(),
         }
-        GameStatus::AwaitingAction { player_index } => player_index,
     };
 
     // Enumerate choices (needed for both expand and select)
@@ -396,7 +427,7 @@ fn iteration_simultaneous<R: Rng>(
     let should_rollout = node.children[best_idx].visit_count == 0;
 
     let scores = if should_rollout {
-        let scores = rollout(state, max_rollout_round, config.max_rollout_steps, rng);
+        let scores = rollout(state, max_rollout_round, config.max_rollout_steps, use_heuristic, rng);
         record_outcome(&mut node.children[best_idx], &scores);
         scores
     } else {
@@ -404,7 +435,7 @@ fn iteration_simultaneous<R: Rng>(
         iteration_simultaneous(
             child, state, perspective_player,
             opponent_stats, pick_log,
-            max_rollout_round, config, choices_buf, availability_buf, rng,
+            max_rollout_round, use_heuristic, config, choices_buf, availability_buf, rng,
         )
     };
 
@@ -445,27 +476,22 @@ fn select(
     best_idx
 }
 
-#[inline]
-fn is_terminal(state: &GameState, max_rollout_round: Option<u32>) -> bool {
-    matches!(state.phase, GamePhase::GameOver)
-        || max_rollout_round.is_some_and(|mr| state.round > mr)
-}
-
-#[inline]
-fn compute_terminal_scores(state: &GameState) -> SmallVec<[f64; 4]> {
-    compute_terminal_rewards(&state.players)
-}
-
-fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_rollout_steps: u32, rng: &mut R) -> SmallVec<[f64; 4]> {
+fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_rollout_steps: u32, use_heuristic: bool, rng: &mut R) -> SmallVec<[f64; 4]> {
     for _ in 0..max_rollout_steps {
-        if is_terminal(state, max_rollout_round) {
-            return compute_terminal_scores(state);
+        if matches!(state.phase, GamePhase::GameOver) {
+            return compute_terminal_rewards(&state.players);
+        }
+        if max_rollout_round.is_some_and(|mr| state.round > mr) {
+            return eval_scores(state, use_heuristic);
         }
         apply_rollout_step(state, rng);
     }
 
-    if is_terminal(state, max_rollout_round) {
-        return compute_terminal_scores(state);
+    if matches!(state.phase, GamePhase::GameOver) {
+        return compute_terminal_rewards(&state.players);
+    }
+    if max_rollout_round.is_some_and(|mr| state.round > mr) {
+        return eval_scores(state, use_heuristic);
     }
 
     SmallVec::new()
@@ -486,6 +512,7 @@ mod tests {
     use super::*;
     use crate::colori_game::{
         apply_choice_to_state, check_choice_available, enumerate_choices_into,
+        get_game_status, GameStatus,
     };
     use crate::draw_phase::execute_draw_phase;
     use crate::setup::{create_initial_game_state, create_initial_game_state_with_expansions};
