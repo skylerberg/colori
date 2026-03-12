@@ -343,21 +343,21 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    padding: 2rem 0;
+    gap: 8px;
+    padding: 1rem 0;
   }
 
   .waiting-text {
     font-family: 'Cinzel', serif;
-    font-size: 1rem;
+    font-size: 0.85rem;
     color: rgba(245, 237, 224, 0.6);
     letter-spacing: 0.1em;
   }
 
   .waiting-spinner {
     display: inline-block;
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     border: 2px solid rgba(201, 168, 76, 0.3);
     border-top-color: #c9a84c;
     border-radius: 50%;
@@ -366,5 +366,31 @@
 
   @keyframes spin {
     to { transform: rotate(360deg); }
+  }
+
+  /* ===== RESPONSIVE OVERRIDES (mobile-first) ===== */
+
+  @media (min-width: 768px) {
+    .waiting-indicator {
+      padding: 2rem 0;
+      gap: 10px;
+    }
+
+    .waiting-text {
+      font-size: 1rem;
+    }
+
+    .waiting-spinner {
+      width: 16px;
+      height: 16px;
+    }
+
+    .section-box {
+      padding: 6px 8px;
+    }
+
+    .section-box h3 {
+      font-size: 0.75rem;
+    }
   }
 </style>

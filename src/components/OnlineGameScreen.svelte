@@ -268,22 +268,24 @@
   .waiting-banner {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     justify-content: center;
-    padding: 12px;
+    padding: 8px;
     color: #c9a84c;
     font-weight: 600;
+    flex-wrap: wrap;
   }
 
   .waiting-banner p {
-    font-size: 1rem;
+    font-size: 0.85rem;
     margin: 0;
+    text-align: center;
   }
 
   .spinner {
-    width: 40px;
-    height: 40px;
-    border: 4px solid rgba(201, 168, 76, 0.3);
+    width: 28px;
+    height: 28px;
+    border: 3px solid rgba(201, 168, 76, 0.3);
     border-top-color: #c9a84c;
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
@@ -291,5 +293,26 @@
 
   @keyframes spin {
     to { transform: rotate(360deg); }
+  }
+
+  /* ===== RESPONSIVE OVERRIDES (mobile-first) ===== */
+
+  @media (min-width: 768px) {
+    .waiting-banner {
+      padding: 12px;
+      gap: 12px;
+      flex-wrap: nowrap;
+    }
+
+    .waiting-banner p {
+      font-size: 1rem;
+      text-align: left;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border-width: 4px;
+    }
   }
 </style>

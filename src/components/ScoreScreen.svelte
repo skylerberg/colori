@@ -128,34 +128,39 @@
 
 <style>
   .score-screen {
+    width: 100%;
     max-width: 700px;
-    margin: 2rem auto;
+    margin: 1.5rem auto;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1rem;
     align-items: center;
+    padding: 0 0.75rem;
   }
 
   h2 {
     font-family: var(--font-display, 'Cinzel', serif);
     color: var(--text-primary, #2c1e12);
-    font-size: 1.8rem;
+    font-size: clamp(1.4rem, 4vw, 1.8rem);
   }
 
   .winner-banner {
     font-family: var(--font-display, 'Cinzel', serif);
-    font-size: 1.4rem;
+    font-size: clamp(1.1rem, 3.5vw, 1.4rem);
     font-weight: 700;
     color: var(--accent-gold, #c9a84c);
-    padding: 12px 24px;
+    padding: 10px 16px;
     border: 3px solid var(--accent-gold, #c9a84c);
     border-radius: 12px;
     background: rgba(201, 168, 76, 0.08);
     letter-spacing: 1px;
+    text-align: center;
+    max-width: 100%;
+    word-break: break-word;
   }
 
   .game-time {
-    font-size: 1rem;
+    font-size: clamp(0.875rem, 2.5vw, 1rem);
     color: var(--text-secondary, #6b5744);
   }
 
@@ -181,14 +186,15 @@
   .score-row {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 16px;
+    gap: 8px;
+    padding: 10px 12px;
     width: 100%;
     background: none;
     border: none;
     cursor: pointer;
     font: inherit;
     text-align: left;
+    min-height: 48px;
   }
 
   .score-row:hover {
@@ -200,7 +206,8 @@
     font-weight: 700;
     font-size: 1rem;
     color: var(--text-tertiary, #9a8775);
-    min-width: 30px;
+    min-width: 28px;
+    flex-shrink: 0;
   }
 
   .winner .rank {
@@ -212,12 +219,19 @@
     font-weight: 600;
     flex: 1;
     text-align: left;
+    font-size: clamp(0.85rem, 2.5vw, 1rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
   }
 
   .score {
     font-family: var(--font-display, 'Cinzel', serif);
     color: var(--accent-gold, #c9a84c);
     font-weight: 600;
+    font-size: clamp(0.8rem, 2.5vw, 1rem);
+    flex-shrink: 0;
   }
 
   .chevron {
@@ -227,6 +241,7 @@
     border-right: 5px solid transparent;
     border-top: 5px solid var(--text-tertiary, #9a8775);
     transition: transform 0.2s;
+    flex-shrink: 0;
   }
 
   .chevron.open {
@@ -234,7 +249,7 @@
   }
 
   .player-details {
-    padding: 8px 16px 16px;
+    padding: 8px 12px 16px;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -245,6 +260,7 @@
     display: flex;
     gap: 1rem;
     flex-wrap: wrap;
+    justify-content: center;
   }
 
   .detail-section {
@@ -283,6 +299,7 @@
 
   .card-section {
     text-align: left;
+    overflow-x: auto;
   }
 
   .card-section :global(.card-list) {
@@ -291,13 +308,15 @@
 
   .button-row {
     display: flex;
+    flex-direction: column;
     gap: 12px;
-    align-items: center;
+    align-items: stretch;
+    width: 100%;
     margin-top: 1rem;
   }
 
   .play-again-btn {
-    padding: 12px 32px;
+    padding: 14px 32px;
     font-family: var(--font-display, 'Cinzel', serif);
     font-size: 1.05rem;
     font-weight: 600;
@@ -306,6 +325,7 @@
     color: var(--text-on-dark, #f5ede0);
     border: none;
     border-radius: 8px;
+    min-height: 48px;
     transition: background 0.2s, transform 0.2s;
   }
 
@@ -315,7 +335,7 @@
   }
 
   .download-btn {
-    padding: 12px 24px;
+    padding: 14px 24px;
     font-family: var(--font-display, 'Cinzel', serif);
     font-size: 0.95rem;
     font-weight: 600;
@@ -325,10 +345,41 @@
     border: none;
     border-radius: 8px;
     cursor: pointer;
+    min-height: 48px;
     transition: background 0.2s;
   }
 
   .download-btn:hover {
     background: var(--text-primary, #2c1e12);
+  }
+
+  @media (min-width: 640px) {
+    .button-row {
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      width: auto;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .score-screen {
+      margin: 2rem auto;
+      gap: 1.5rem;
+      padding: 0;
+    }
+
+    .winner-banner {
+      padding: 12px 24px;
+    }
+
+    .score-row {
+      gap: 12px;
+      padding: 10px 16px;
+    }
+
+    .player-details {
+      padding: 8px 16px 16px;
+    }
   }
 </style>

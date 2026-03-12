@@ -66,20 +66,28 @@
     background: rgba(20, 15, 10, 0.6);
     border: 1px solid rgba(201, 168, 76, 0.4);
     color: #c9a84c;
-    font-size: 3rem;
+    font-size: 2rem;
     line-height: 1;
-    width: 40px;
-    height: 60px;
+    width: 44px;
+    height: 56px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     transition: background 0.2s, color 0.2s, border-color 0.2s;
     padding: 0;
+    min-width: 44px;
+    min-height: 44px;
   }
 
   .chevron:hover {
     background: rgba(201, 168, 76, 0.25);
+    color: #e0c060;
+    border-color: rgba(201, 168, 76, 0.7);
+  }
+
+  .chevron:active {
+    background: rgba(201, 168, 76, 0.3);
     color: #e0c060;
     border-color: rgba(201, 168, 76, 0.7);
   }
@@ -96,23 +104,24 @@
 
   .player-info {
     position: fixed;
-    bottom: 1rem;
+    bottom: 0.5rem;
     left: 50%;
     transform: translateX(-50%);
     z-index: 100;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.25rem;
-    background: rgba(20, 15, 10, 0.8);
+    gap: 0.15rem;
+    background: rgba(20, 15, 10, 0.85);
     border: 1px solid rgba(201, 168, 76, 0.4);
     border-radius: 8px;
-    padding: 0.5rem 1.25rem;
+    padding: 0.375rem 0.75rem;
+    max-width: calc(100vw - 100px);
   }
 
   .player-name {
     font-family: 'Cinzel', serif;
-    font-size: 1.1rem;
+    font-size: 0.9rem;
     font-weight: 700;
     color: #c9a84c;
     text-transform: uppercase;
@@ -121,13 +130,41 @@
 
   .player-stats {
     display: flex;
-    gap: 0.75rem;
-    font-size: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.375rem 0.5rem;
+    font-size: 0.65rem;
     color: #d4c4a0;
   }
 
   .stat {
     font-family: 'Cinzel', serif;
     letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  @media (min-width: 768px) {
+    .chevron {
+      font-size: 3rem;
+      width: 44px;
+      height: 60px;
+    }
+
+    .player-info {
+      bottom: 1rem;
+      gap: 0.25rem;
+      padding: 0.5rem 1.25rem;
+      max-width: none;
+    }
+
+    .player-name {
+      font-size: 1.1rem;
+    }
+
+    .player-stats {
+      gap: 0.75rem;
+      font-size: 0.75rem;
+      flex-wrap: nowrap;
+    }
   }
 </style>

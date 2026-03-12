@@ -33,27 +33,29 @@
     background: rgba(20, 15, 10, 0.75);
     border: 1px solid rgba(201, 168, 76, 0.4);
     border-radius: 8px;
-    padding: 0.75rem;
+    padding: 0.5rem;
   }
 
   .section-title {
     font-family: 'Cinzel', serif;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: 600;
     color: #c9a84c;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.375rem;
   }
 
   .buyer-scroll {
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
   }
 
   .buyer-row {
     display: flex;
-    gap: 8px;
-    padding: 10px 2px;
+    gap: 6px;
+    padding: 0.5rem 2px;
     flex-wrap: nowrap;
     width: max-content;
   }
@@ -67,7 +69,28 @@
   .empty {
     color: #9a8775;
     font-style: italic;
-    padding: 20px;
+    padding: 1rem;
     text-align: center;
+    font-size: 0.85rem;
+  }
+
+  @media (min-width: 768px) {
+    .buyer-display {
+      padding: 0.75rem;
+    }
+
+    .section-title {
+      font-size: 0.85rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .buyer-row {
+      gap: 8px;
+      padding: 10px 2px;
+    }
+
+    .empty {
+      padding: 20px;
+    }
   }
 </style>

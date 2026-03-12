@@ -154,7 +154,8 @@
 
   .side-by-side {
     display: flex;
-    gap: 16px;
+    flex-direction: column;
+    gap: 12px;
   }
 
   .buyer-side {
@@ -166,7 +167,6 @@
 
   .glass-side {
     flex: 0 0 auto;
-    min-width: 200px;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -199,12 +199,13 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    padding: 6px 10px;
+    padding: 10px 12px;
     background: rgba(100, 160, 200, 0.15);
     border: 1px solid rgba(100, 160, 200, 0.4);
     border-radius: 6px;
     cursor: pointer;
     text-align: left;
+    min-height: 44px;
   }
 
   .glass-option:hover {
@@ -231,6 +232,7 @@
 
   .pay-color-section {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
   }
@@ -243,16 +245,19 @@
 
   .color-buttons {
     display: flex;
+    flex-wrap: wrap;
     gap: 6px;
   }
 
   .color-btn {
-    padding: 4px 12px;
+    padding: 10px 14px;
     font-weight: 600;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     border: 2px solid rgba(0, 0, 0, 0.2);
     border-radius: 6px;
     cursor: pointer;
+    min-height: 44px;
+    min-width: 44px;
   }
 
   .color-btn.selected {
@@ -265,7 +270,7 @@
   }
 
   .confirm-btn {
-    padding: 8px 20px;
+    padding: 10px 20px;
     font-family: var(--font-display, 'Cinzel', serif);
     font-weight: 600;
     letter-spacing: 1px;
@@ -273,8 +278,10 @@
     color: var(--text-on-dark, #f5ede0);
     border: none;
     border-radius: 6px;
-    align-self: flex-start;
+    align-self: stretch;
     cursor: pointer;
+    min-height: 44px;
+    font-size: 0.9rem;
   }
 
   .confirm-btn:hover:not(:disabled) {
@@ -284,5 +291,35 @@
   .confirm-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+
+  @media (min-width: 640px) {
+    .side-by-side {
+      flex-direction: row;
+      gap: 16px;
+    }
+
+    .glass-side {
+      min-width: 200px;
+    }
+
+    .glass-option {
+      padding: 6px 10px;
+      min-height: unset;
+    }
+
+    .color-btn {
+      padding: 4px 12px;
+      font-size: 0.8rem;
+      min-height: unset;
+      min-width: unset;
+    }
+
+    .confirm-btn {
+      padding: 8px 20px;
+      align-self: flex-start;
+      min-height: unset;
+      font-size: inherit;
+    }
   }
 </style>

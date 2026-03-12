@@ -25,9 +25,13 @@
   --border-gold-medium: rgba(201, 168, 76, 0.5);
   --border-gold-strong: rgba(201, 168, 76, 0.8);
 
-  /* Card dimensions (5:7 ratio) */
-  --card-width: 125px;
-  --card-height: 175px;
+  /* Card dimensions (5:7 ratio) — mobile-first */
+  --card-width: 90px;
+  --card-height: 126px;
+
+  /* Small card dimensions for compact contexts (modals, opponent panels) */
+  --card-width-sm: 70px;
+  --card-height-sm: 98px;
 
   /* Shadows */
   --shadow-card: 0 2px 8px rgba(44, 30, 18, 0.2);
@@ -56,7 +60,13 @@ body {
 #app {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 0.5rem;
+  padding: 1rem;
+}
+
+@media (min-width: 1024px) {
+  #app {
+    padding: 0.5rem;
+  }
 }
 
 button {
@@ -69,6 +79,7 @@ button {
   background: var(--bg-panel);
   color: var(--text-primary);
   transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+  min-height: 44px;
 }
 
 button:hover {
@@ -92,8 +103,10 @@ input, select {
   color: var(--text-primary);
   border: 2px solid var(--border-gold);
   border-radius: 6px;
-  padding: 6px 10px;
+  padding: 10px 12px;
   background: #fff;
+  min-height: 44px;
+  width: 100%;
 }
 
 input:focus, select:focus {
@@ -119,4 +132,23 @@ input:focus, select:focus {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent-gold);
+}
+
+/* Responsive card dimensions */
+@media (min-width: 768px) {
+  :root {
+    --card-width: 110px;
+    --card-height: 154px;
+    --card-width-sm: 80px;
+    --card-height-sm: 112px;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --card-width: 125px;
+    --card-height: 175px;
+    --card-width-sm: 90px;
+    --card-height-sm: 126px;
+  }
 }
