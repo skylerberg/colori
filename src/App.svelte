@@ -16,6 +16,7 @@
   import { sanitizedToGameState } from './network/stateAdapter';
   import { GameLogAccumulator } from './gameLog';
   import { initEngine } from './engine/wasmEngine';
+  import { resetTutorial } from './tutorial/tutorial';
 
   let engineReady = $state(false);
   initEngine().then(() => { engineReady = true; });
@@ -191,6 +192,11 @@
     pushScreen({ type: 'zoneEditor' });
   }
 
+  function handleHowToPlay() {
+    resetTutorial();
+    goToLocalSetup();
+  }
+
   // -- Online game handlers --
 
   function hostOnlineGame() {
@@ -293,6 +299,7 @@
       onJoinOnline={joinOnlineGame}
       {hasSavedGame}
       onResumeGame={resumeGame}
+      onHowToPlay={handleHowToPlay}
     />
   {:else if screen.type === 'localSetup'}
     <SetupScreen onGameStarted={handleGameStarted} />
