@@ -94,9 +94,6 @@
     position: relative;
     box-shadow: var(--shadow-card, 0 2px 8px rgba(44, 30, 18, 0.2));
     transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
   }
 
   .card.clickable {
