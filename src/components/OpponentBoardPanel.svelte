@@ -84,17 +84,22 @@
   .panel-header {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     width: 100%;
-    padding: 6px 10px;
+    padding: 8px 10px;
     background: none;
     border: none;
     cursor: pointer;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     text-align: left;
+    min-height: 44px;
   }
 
   .panel-header:hover {
+    background: #e5daca;
+  }
+
+  .panel-header:active {
     background: #e5daca;
   }
 
@@ -102,13 +107,15 @@
     font-family: var(--font-display, 'Cinzel', serif);
     font-weight: 600;
     color: var(--text-primary, #2c1e12);
+    flex-shrink: 0;
   }
 
   .header-stats {
     display: flex;
-    gap: 10px;
+    flex-wrap: wrap;
+    gap: 4px 8px;
     color: var(--text-secondary, #6b5744);
-    font-size: 0.75rem;
+    font-size: 0.65rem;
   }
 
   .chevron {
@@ -119,6 +126,7 @@
     border-right: 5px solid transparent;
     border-top: 5px solid var(--text-tertiary, #9a8775);
     transition: transform 0.2s;
+    flex-shrink: 0;
   }
 
   .chevron.open {
@@ -126,18 +134,18 @@
   }
 
   .panel-content {
-    padding: 6px 10px 10px;
+    padding: 6px 8px 8px;
     display: flex;
     flex-direction: column;
     gap: 6px;
     border-top: 1px solid var(--border-gold, rgba(201, 168, 76, 0.3));
-    --card-width: 80px;
-    --card-height: 112px;
+    --card-width: var(--card-width-sm, 70px);
+    --card-height: var(--card-height-sm, 98px);
   }
 
   .compact-row {
     display: flex;
-    gap: 1rem;
+    gap: 0.75rem;
     flex-wrap: wrap;
   }
 
@@ -150,7 +158,7 @@
 
   h4 {
     font-family: var(--font-display, 'Cinzel', serif);
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: var(--text-primary, #2c1e12);
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -161,7 +169,7 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--accent-gold, #c9a84c);
   }
 
@@ -170,7 +178,7 @@
   }
 
   .ducats-count {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--accent-gold, #c9a84c);
     font-weight: 600;
     margin-top: 4px;
@@ -182,5 +190,39 @@
 
   .card-section :global(.card-list) {
     min-height: auto;
+  }
+
+  @media (min-width: 768px) {
+    .panel-header {
+      gap: 12px;
+      padding: 6px 10px;
+      font-size: 0.8rem;
+    }
+
+    .header-stats {
+      gap: 10px;
+      font-size: 0.75rem;
+      flex-wrap: nowrap;
+    }
+
+    .panel-content {
+      padding: 6px 10px 10px;
+    }
+
+    .compact-row {
+      gap: 1rem;
+    }
+
+    h4 {
+      font-size: 0.7rem;
+    }
+
+    .material-counts {
+      font-size: 0.75rem;
+    }
+
+    .ducats-count {
+      font-size: 0.75rem;
+    }
   }
 </style>

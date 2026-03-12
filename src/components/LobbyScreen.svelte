@@ -159,21 +159,24 @@
 
 <style>
   .lobby-screen {
+    width: 100%;
     max-width: 450px;
     margin: 1rem auto;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1.25rem;
+    padding: 0 1rem;
   }
 
   .back-btn {
     align-self: flex-start;
-    padding: 6px 14px;
+    padding: 8px 14px;
     font-size: 0.9rem;
     background: var(--bg-panel, #ebe3d3);
     border: 1px solid var(--border-gold, rgba(201, 168, 76, 0.3));
     border-radius: 6px;
     cursor: pointer;
+    min-height: 44px;
   }
 
   .back-btn:hover {
@@ -183,13 +186,13 @@
   h2 {
     font-family: var(--font-display, 'Cinzel', serif);
     color: var(--text-primary, #2c1e12);
-    font-size: 1.5rem;
+    font-size: clamp(1.3rem, 3.5vw, 1.5rem);
     text-align: center;
   }
 
   .room-code-section {
     text-align: center;
-    padding: 16px;
+    padding: 12px;
     border: 2px solid var(--accent-gold, #c9a84c);
     border-radius: 12px;
     background: rgba(201, 168, 76, 0.08);
@@ -204,10 +207,11 @@
 
   .room-code {
     font-family: var(--font-display, 'Cinzel', serif);
-    font-size: 2.5rem;
+    font-size: clamp(1.8rem, 6vw, 2.5rem);
     font-weight: 800;
     color: var(--text-primary, #2c1e12);
-    letter-spacing: 6px;
+    letter-spacing: clamp(4px, 1.5vw, 6px);
+    word-break: break-all;
   }
 
   .room-code-hint {
@@ -230,7 +234,7 @@
 
   .count-buttons {
     display: flex;
-    gap: 8px;
+    gap: 10px;
   }
 
   .count-btn {
@@ -268,11 +272,12 @@
     font-size: 0.95rem;
     font-weight: 600;
     cursor: pointer;
+    min-height: 44px;
   }
 
   .expansion-toggle input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
+    width: 22px;
+    height: 22px;
     accent-color: var(--accent-gold, #c9a84c);
     cursor: pointer;
   }
@@ -301,10 +306,11 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 12px;
+    padding: 10px 12px;
     border: 1px solid var(--border-gold, rgba(201, 168, 76, 0.3));
     border-radius: 6px;
     background: rgba(255, 255, 255, 0.4);
+    min-height: 44px;
   }
 
   .player-row.disconnected {
@@ -320,6 +326,10 @@
   .player-name {
     font-weight: 600;
     font-size: 0.9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
   }
 
   .host-badge {
@@ -330,6 +340,7 @@
     border-radius: 4px;
     margin-left: 6px;
     font-weight: 700;
+    flex-shrink: 0;
   }
 
   .ai-badge {
@@ -339,11 +350,13 @@
     padding: 2px 8px;
     border-radius: 4px;
     font-weight: 700;
+    flex-shrink: 0;
   }
 
   .player-status {
     font-size: 0.8rem;
     font-weight: 600;
+    flex-shrink: 0;
   }
 
   .player-status.connected {
@@ -355,7 +368,7 @@
   }
 
   .start-btn {
-    padding: 12px 24px;
+    padding: 14px 24px;
     font-family: var(--font-display, 'Cinzel', serif);
     font-size: 1.05rem;
     font-weight: 600;
@@ -365,6 +378,7 @@
     border: none;
     border-radius: 8px;
     cursor: pointer;
+    min-height: 48px;
     transition: background 0.2s, transform 0.2s;
   }
 
@@ -400,6 +414,8 @@
     border: 2px solid var(--border-gold, rgba(201, 168, 76, 0.3));
     border-radius: 6px;
     font-size: 1rem;
+    min-height: 44px;
+    width: 100%;
   }
 
   .input-group input:focus {
@@ -408,7 +424,7 @@
   }
 
   .join-btn {
-    padding: 12px 24px;
+    padding: 14px 24px;
     font-family: var(--font-display, 'Cinzel', serif);
     font-size: 1.05rem;
     font-weight: 600;
@@ -418,6 +434,7 @@
     border: none;
     border-radius: 8px;
     cursor: pointer;
+    min-height: 48px;
     transition: background 0.2s, transform 0.2s;
   }
 
@@ -442,5 +459,16 @@
     color: var(--text-secondary, #6b5744);
     font-style: italic;
     font-size: 0.95rem;
+  }
+
+  @media (min-width: 768px) {
+    .lobby-screen {
+      padding: 0;
+      gap: 1.5rem;
+    }
+
+    .room-code-section {
+      padding: 16px;
+    }
   }
 </style>

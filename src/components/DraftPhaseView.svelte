@@ -49,29 +49,46 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+    padding: 0 0.25rem;
   }
 
   .phase-title {
     font-family: 'Cinzel', serif;
     color: #c9a84c;
-    font-size: 1rem;
+    font-size: 0.875rem;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.05em;
     text-align: center;
     margin: 0;
   }
 
   .section-label {
     font-family: 'Cinzel', serif;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: #c9a84c;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.05em;
     margin-bottom: 4px;
     text-align: left;
   }
 
   .draft-cards {
     padding: 4px;
+  }
+
+  @media (min-width: 640px) {
+    .draft-phase {
+      padding: 0;
+    }
+
+    .phase-title {
+      font-size: 1rem;
+      letter-spacing: 0.1em;
+    }
+
+    .section-label {
+      font-size: 0.85rem;
+      letter-spacing: 0.1em;
+    }
   }
 </style>

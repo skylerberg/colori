@@ -49,8 +49,23 @@
 <style>
   .ability-prompt {
     border: 2px solid var(--accent-gold, #c9a84c);
-    border-radius: 10px;
-    padding: 10px;
+    border-radius: 8px;
+    padding: 0.5rem;
     background: rgba(201, 168, 76, 0.06);
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  @media (min-width: 640px) {
+    .ability-prompt {
+      padding: 0.625rem;
+      border-radius: 10px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .ability-prompt {
+      padding: 0.75rem;
+    }
   }
 </style>

@@ -256,7 +256,7 @@
   .editor-page {
     max-width: 1400px;
     margin: 0 auto;
-    padding: 1rem;
+    padding: 0.5rem;
   }
 
   .editor-header {
@@ -266,17 +266,18 @@
 
   .editor-header h2 {
     color: #4a3728;
-    font-size: 1.3rem;
+    font-size: 1rem;
     margin-bottom: 4px;
   }
 
   .editor-header p {
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     color: #888;
   }
 
   .editor-body {
     display: flex;
+    flex-direction: column;
     gap: 1rem;
     align-items: flex-start;
   }
@@ -284,17 +285,18 @@
   /* Outer wrapper provides space for overhanging zones */
   .canvas-wrapper {
     flex: 1;
-    padding: 80px 20px;
+    padding: 40px 10px;
     background: #e8e0d5;
     border-radius: 10px;
     display: flex;
     justify-content: center;
+    width: 100%;
   }
 
   /* The actual tableau image, maintains exact aspect ratio */
   .tableau-canvas {
     width: 100%;
-    max-width: 800px;
+    max-width: 100%;
     aspect-ratio: 1328 / 800;
     background-image: url('/workshop.webp');
     background-size: 100% 100%;
@@ -357,28 +359,28 @@
 
   .handle {
     position: absolute;
-    width: 10px;
-    height: 10px;
+    width: 16px;
+    height: 16px;
     border: 1px solid #fff;
     z-index: 11;
     border-radius: 2px;
   }
 
-  .handle-tl { top: -5px; left: -5px; cursor: nwse-resize; }
-  .handle-tr { top: -5px; right: -5px; cursor: nesw-resize; }
-  .handle-bl { bottom: -5px; left: -5px; cursor: nesw-resize; }
-  .handle-br { bottom: -5px; right: -5px; cursor: nwse-resize; }
+  .handle-tl { top: -8px; left: -8px; cursor: nwse-resize; }
+  .handle-tr { top: -8px; right: -8px; cursor: nesw-resize; }
+  .handle-bl { bottom: -8px; left: -8px; cursor: nesw-resize; }
+  .handle-br { bottom: -8px; right: -8px; cursor: nwse-resize; }
 
   .control-panel {
-    width: 300px;
+    width: 100%;
     flex-shrink: 0;
     background: #f8f6f2;
     border: 1px solid #ddd;
     border-radius: 8px;
     padding: 12px;
     font-size: 12px;
-    max-height: calc(100vh - 120px);
-    overflow-y: auto;
+    max-height: none;
+    overflow-y: visible;
   }
 
   .grid-toggle {
@@ -387,8 +389,14 @@
     gap: 6px;
     margin-bottom: 10px;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 13px;
     color: #4a3728;
+    min-height: 44px;
+  }
+
+  .grid-toggle input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
   }
 
   .zone-list {
@@ -415,7 +423,7 @@
   }
 
   .zone-item {
-    padding: 4px 6px;
+    padding: 8px;
     background: #fff;
     border-radius: 4px;
     cursor: pointer;
@@ -430,31 +438,33 @@
   .zone-item-label {
     font-weight: 600;
     margin-bottom: 2px;
-    font-size: 11px;
+    font-size: 13px;
     color: #4a3728;
   }
 
   .zone-fields {
     display: flex;
-    gap: 4px;
+    flex-wrap: wrap;
+    gap: 6px;
   }
 
   .zone-fields label {
     display: flex;
     align-items: center;
     gap: 2px;
-    font-size: 10px;
+    font-size: 11px;
     color: #888;
   }
 
   .zone-fields input {
-    width: 42px;
-    padding: 2px 4px;
-    font-size: 10px;
+    width: 52px;
+    padding: 4px 6px;
+    font-size: 12px;
     background: #fff;
     border: 1px solid #ddd;
     border-radius: 3px;
     color: #333;
+    min-height: 36px;
   }
 
   .panel-buttons {
@@ -464,12 +474,13 @@
   }
 
   .btn {
-    padding: 6px 12px;
-    font-size: 11px;
+    padding: 10px 16px;
+    font-size: 13px;
     font-weight: 600;
     border: none;
     border-radius: 4px;
     cursor: pointer;
+    min-height: 44px;
   }
 
   .btn-save { background: #2ecc71; color: #fff; }
@@ -480,4 +491,104 @@
   .btn-reset:hover { background: #c0392b; }
   .btn-close { background: #7f8c8d; color: #fff; }
   .btn-close:hover { background: #6c7a7b; }
+
+  /* ===== RESPONSIVE OVERRIDES (mobile-first) ===== */
+
+  /* Tablet (768px+): side-by-side layout */
+  @media (min-width: 768px) {
+    .editor-page {
+      padding: 1rem;
+    }
+
+    .editor-header h2 {
+      font-size: 1.3rem;
+    }
+
+    .editor-header p {
+      font-size: 0.85rem;
+    }
+
+    .editor-body {
+      flex-direction: row;
+    }
+
+    .canvas-wrapper {
+      padding: 60px 15px;
+    }
+
+    .tableau-canvas {
+      max-width: 800px;
+    }
+
+    .control-panel {
+      width: 240px;
+      max-height: calc(100vh - 120px);
+      overflow-y: auto;
+    }
+
+    .zone-fields {
+      flex-wrap: nowrap;
+      gap: 4px;
+    }
+
+    .zone-fields input {
+      width: 40px;
+      min-height: unset;
+      font-size: 10px;
+      padding: 2px 4px;
+    }
+
+    .zone-fields label {
+      font-size: 10px;
+    }
+
+    .btn {
+      padding: 6px 12px;
+      font-size: 11px;
+      min-height: unset;
+    }
+
+    .zone-item {
+      padding: 4px 6px;
+    }
+
+    .zone-item-label {
+      font-size: 11px;
+    }
+
+    .grid-toggle {
+      font-size: 12px;
+      min-height: unset;
+    }
+
+    .grid-toggle input[type="checkbox"] {
+      width: auto;
+      height: auto;
+    }
+
+    .handle {
+      width: 10px;
+      height: 10px;
+    }
+
+    .handle-tl { top: -5px; left: -5px; }
+    .handle-tr { top: -5px; right: -5px; }
+    .handle-bl { bottom: -5px; left: -5px; }
+    .handle-br { bottom: -5px; right: -5px; }
+  }
+
+  /* Desktop (1024px+) */
+  @media (min-width: 1024px) {
+    .canvas-wrapper {
+      padding: 80px 20px;
+    }
+
+    .control-panel {
+      width: 300px;
+    }
+
+    .zone-fields input {
+      width: 42px;
+    }
+  }
 </style>

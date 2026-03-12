@@ -490,21 +490,23 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+    padding: 0 0.25rem;
   }
 
   .phase-title {
     font-family: 'Cinzel', serif;
     color: #c9a84c;
-    font-size: 1rem;
+    font-size: 0.8rem;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.05em;
     text-align: center;
     margin: 0;
   }
 
   .queue-status {
     display: flex;
-    gap: 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
     justify-content: center;
     font-size: 0.8rem;
   }
@@ -522,26 +524,26 @@
   .sections {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
 
   .section {
     border: 1px solid rgba(201, 168, 76, 0.4);
     border-radius: 8px;
-    padding: 10px 12px;
+    padding: 8px;
     background: rgba(20, 15, 10, 0.6);
     text-align: left;
   }
 
   .section h3 {
     font-family: 'Cinzel', serif;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     color: #c9a84c;
     margin-bottom: 6px;
   }
 
   .hint {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: rgba(245, 237, 224, 0.4);
     font-weight: 400;
   }
@@ -553,16 +555,19 @@
   }
 
   .confirm-btn {
-    padding: 8px 20px;
+    padding: 10px 16px;
     font-family: 'Cinzel', serif;
     font-weight: 600;
+    font-size: 0.85rem;
     background: rgba(42, 107, 207, 0.8);
     color: #f5ede0;
     border: none;
     border-radius: 6px;
     cursor: pointer;
     margin-top: 6px;
-    margin-right: 6px;
+    margin-right: 0;
+    min-height: 44px;
+    width: 100%;
   }
 
   .confirm-btn:hover:not(:disabled) {
@@ -584,15 +589,14 @@
 
   .action-footer {
     display: flex;
-    justify-content: center;
-    gap: 12px;
+    gap: 8px;
     padding-top: 4px;
   }
 
   .undo-btn {
-    padding: 8px 20px;
+    padding: 10px 16px;
     font-family: 'Cinzel', serif;
-    font-size: 0.95rem;
+    font-size: 0.85rem;
     font-weight: 600;
     letter-spacing: 1px;
     background: rgba(20, 15, 10, 0.6);
@@ -600,6 +604,8 @@
     border: 1px solid rgba(201, 168, 76, 0.4);
     border-radius: 8px;
     cursor: pointer;
+    min-height: 44px;
+    flex: 1;
   }
 
   .undo-btn:hover:not(:disabled) {
@@ -612,9 +618,9 @@
   }
 
   .end-turn-btn {
-    padding: 8px 28px;
+    padding: 10px 16px;
     font-family: 'Cinzel', serif;
-    font-size: 0.95rem;
+    font-size: 0.85rem;
     font-weight: 600;
     letter-spacing: 1px;
     background: #8b2020;
@@ -622,6 +628,8 @@
     border: none;
     border-radius: 8px;
     cursor: pointer;
+    min-height: 44px;
+    flex: 1;
   }
 
   .end-turn-btn:hover:not(:disabled) {
@@ -646,7 +654,7 @@
   }
 
   .glass-action-btn {
-    padding: 6px 14px;
+    padding: 10px 14px;
     font-family: 'Cormorant Garamond', serif;
     font-size: 0.85rem;
     font-weight: 600;
@@ -655,6 +663,7 @@
     border: 1px solid rgba(100, 160, 200, 0.5);
     border-radius: 6px;
     cursor: pointer;
+    min-height: 44px;
   }
 
   .glass-action-btn:hover {
@@ -689,7 +698,7 @@
   }
 
   .sub-btn {
-    padding: 4px 12px;
+    padding: 10px 12px;
     font-family: 'Cormorant Garamond', serif;
     font-size: 0.85rem;
     background: rgba(100, 160, 200, 0.15);
@@ -697,6 +706,7 @@
     border: 1px solid rgba(100, 160, 200, 0.4);
     border-radius: 4px;
     cursor: pointer;
+    min-height: 44px;
   }
 
   .sub-btn:hover {
@@ -710,16 +720,19 @@
 
   .sub-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 6px;
   }
 
   .color-btn {
-    padding: 6px 14px;
+    padding: 10px 14px;
     font-weight: 600;
     font-size: 0.85rem;
     border: 2px solid rgba(0, 0, 0, 0.2);
     border-radius: 6px;
     cursor: pointer;
+    min-height: 44px;
+    min-width: 44px;
   }
 
   .color-btn:hover {
@@ -728,13 +741,13 @@
 
   .workshop-actions {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
+    flex-direction: column;
     gap: 6px;
   }
 
   .reworkshop-x2-section {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 6px;
     margin-bottom: 6px;
@@ -742,9 +755,10 @@
 
   .reworkshop-section {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 6px;
-    margin-left: 8px;
+    margin-left: 0;
   }
 
   .reworkshop-label {
@@ -755,11 +769,114 @@
 
   .reworkshop-cards {
     display: flex;
+    flex-wrap: wrap;
     gap: 4px;
   }
 
   .reworkshop-btn {
-    font-size: 0.75rem;
-    padding: 4px 10px;
+    font-size: 0.8rem;
+    padding: 8px 10px;
+    min-height: 44px;
+  }
+
+  /* ── Responsive: sm (640px) ── */
+  @media (min-width: 640px) {
+    .action-phase {
+      padding: 0;
+    }
+
+    .phase-title {
+      font-size: 0.9rem;
+      letter-spacing: 0.08em;
+    }
+
+    .section {
+      padding: 10px 12px;
+    }
+
+    .section h3 {
+      font-size: 0.8rem;
+    }
+
+    .hint {
+      font-size: 0.7rem;
+    }
+
+    .confirm-btn {
+      width: auto;
+      padding: 8px 20px;
+      margin-right: 6px;
+      min-height: unset;
+      font-size: inherit;
+    }
+
+    .action-footer {
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .undo-btn,
+    .end-turn-btn {
+      flex: 0 1 auto;
+      min-height: unset;
+    }
+
+    .undo-btn {
+      padding: 8px 20px;
+      font-size: 0.95rem;
+    }
+
+    .end-turn-btn {
+      padding: 8px 28px;
+      font-size: 0.95rem;
+    }
+
+    .glass-action-btn {
+      padding: 6px 14px;
+      min-height: unset;
+    }
+
+    .sub-btn {
+      padding: 4px 12px;
+      min-height: unset;
+    }
+
+    .color-btn {
+      padding: 6px 14px;
+      min-height: unset;
+      min-width: unset;
+    }
+
+    .workshop-actions {
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .reworkshop-section {
+      margin-left: 8px;
+    }
+
+    .reworkshop-btn {
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      min-height: unset;
+    }
+  }
+
+  /* ── Responsive: md (768px) ── */
+  @media (min-width: 768px) {
+    .phase-title {
+      font-size: 1rem;
+      letter-spacing: 0.1em;
+    }
+
+    .sections {
+      gap: 0.75rem;
+    }
+
+    .section h3 {
+      font-size: 0.85rem;
+    }
   }
 </style>

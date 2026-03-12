@@ -283,13 +283,15 @@
     z-index: 1;
     width: 100%;
     max-width: none;
-    padding: 0.5rem 0.75rem;
+    padding: 0.35rem 0.5rem;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.35rem;
     height: 100vh;
+    height: 100dvh;
     box-sizing: border-box;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   /* Top info bar */
@@ -298,11 +300,13 @@
     align-items: center;
     justify-content: center;
     position: relative;
+    flex-wrap: wrap;
+    gap: 0.25rem;
   }
 
   .round-indicator {
     font-family: 'Cinzel', serif;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: #c9a84c;
     text-transform: uppercase;
@@ -310,19 +314,20 @@
   }
 
   .top-bar-actions {
-    position: absolute;
-    right: 0;
+    position: static;
+    flex-shrink: 0;
     display: flex;
     gap: 6px;
   }
 
   .top-btn {
-    padding: 4px 12px;
-    font-size: 0.7rem;
+    padding: 6px 10px;
+    font-size: 0.65rem;
     font-family: 'Cinzel', serif;
     color: #f5ede0;
     border-radius: 4px;
     cursor: pointer;
+    min-height: 36px;
   }
 
   .log-btn,
@@ -349,11 +354,14 @@
 
   .log-modal {
     background: rgba(20, 15, 10, 0.95);
-    border: 1px solid rgba(201, 168, 76, 0.5);
-    border-radius: 10px;
-    width: 500px;
-    max-width: 90vw;
-    max-height: 70vh;
+    border: none;
+    border-radius: 0;
+    width: 100%;
+    max-width: 100%;
+    max-height: 100vh;
+    max-height: 100dvh;
+    height: 100vh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
   }
@@ -379,10 +387,15 @@
     background: none;
     border: none;
     color: rgba(245, 237, 224, 0.6);
-    font-size: 1.4rem;
+    font-size: 1.6rem;
     cursor: pointer;
-    padding: 0 4px;
+    padding: 4px 8px;
     line-height: 1;
+    min-height: 44px;
+    min-width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .log-close-btn:hover {
@@ -409,17 +422,27 @@
   /* Player tabs */
   .player-tabs {
     display: flex;
-    justify-content: center;
-    gap: 24px;
+    justify-content: flex-start;
+    gap: 4px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+  }
+
+  .player-tabs::-webkit-scrollbar {
+    display: none;
   }
 
   .player-tab {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 4px 2px;
+    padding: 8px 8px;
     font-family: 'Cinzel', serif;
-    font-size: 0.95rem;
+    font-size: 0.8rem;
     font-weight: 600;
     color: rgba(245, 237, 224, 0.4);
     background: none;
@@ -429,6 +452,9 @@
     transition: color 0.15s, border-color 0.15s;
     outline: none;
     border-radius: 0;
+    min-height: 44px;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .player-tab:hover {
@@ -479,9 +505,10 @@
   .player-stats {
     display: flex;
     justify-content: center;
-    gap: 12px;
+    flex-wrap: wrap;
+    gap: 4px 10px;
     font-family: 'Cormorant Garamond', serif;
-    font-size: 1.3rem;
+    font-size: 1.05rem;
     color: rgba(245, 237, 224, 0.8);
     margin-top: 2px;
   }
@@ -492,7 +519,17 @@
     cursor: pointer;
     font: inherit;
     color: inherit;
-    padding: 0;
+    padding: 2px 6px;
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .stat {
+    padding: 2px 6px;
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
   }
 
   .stat-clickable:hover {
@@ -502,6 +539,7 @@
 
   .stat-sep {
     color: rgba(201, 168, 76, 0.4);
+    display: none;
   }
 
   /* Section panels */
@@ -509,39 +547,44 @@
     background: rgba(20, 15, 10, 0.75);
     border: 1px solid rgba(201, 168, 76, 0.4);
     border-radius: 8px;
-    padding: 0.75rem;
+    padding: 0.5rem;
   }
 
   .section-title {
     font-family: 'Cinzel', serif;
     color: #c9a84c;
     text-transform: uppercase;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     letter-spacing: 0.1em;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.35rem;
     font-weight: 600;
   }
 
-  /* Two-column layout */
+  /* Two-column layout — mobile-first: single column stacked */
   .main-columns {
     display: flex;
+    flex-direction: column;
     gap: 0.75rem;
     flex: 1;
     min-height: 0;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   .left-col {
-    flex: 0 0 50%;
+    flex: none;
+    width: 100%;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
     min-height: 0;
-    overflow-y: auto;
+    overflow-y: visible;
+    overflow-x: hidden;
   }
 
   .player-info-row {
     display: flex;
+    flex-direction: column;
     gap: 0.5rem;
   }
 
@@ -550,20 +593,23 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    min-width: 0;
+    min-width: 120px;
   }
 
   .player-info-row > .color-wheel-panel {
-    flex: 0 0 auto;
+    flex: none;
+    width: 100%;
   }
 
   .right-col {
-    flex: 1;
+    flex: none;
+    width: 100%;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
     min-height: 0;
-    overflow-y: auto;
+    overflow-y: visible;
+    overflow-x: hidden;
   }
 
   /* Draft / prompt section */
@@ -582,15 +628,25 @@
     justify-content: center;
     align-items: center;
     flex: 1;
+    max-width: 220px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .wheel-container :global(svg) {
+    width: 100%;
+    height: auto;
   }
 
   .completed-buyers-content {
-    height: calc(var(--card-height, 175px) + 28px);
+    height: auto;
+    max-height: calc(var(--card-height, 126px) + 32px);
     overflow-y: auto;
   }
 
   .drafted-cards-content {
-    height: calc(var(--card-height, 175px) + 28px);
+    height: auto;
+    max-height: calc(var(--card-height, 126px) + 32px);
     overflow-y: auto;
   }
 
@@ -602,8 +658,9 @@
   /* Materials */
   .materials-grid {
     display: flex;
-    flex-direction: column;
-    gap: 12px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
     padding: 8px 0;
   }
 
@@ -611,14 +668,16 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 6px 12px;
+    padding: 4px 8px;
     background: rgba(40, 28, 16, 0.5);
     border-radius: 6px;
+    flex: 1 1 auto;
+    min-width: 80px;
   }
 
   .material-count {
     font-family: 'Cinzel', serif;
-    font-size: 1.4rem;
+    font-size: 1.1rem;
     font-weight: bold;
     color: #c9a84c;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
@@ -628,7 +687,7 @@
 
   .material-label {
     font-family: 'Cormorant Garamond', serif;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     color: #c9a84c;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -636,8 +695,16 @@
 
   .glass-cards {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 6px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+
+  .glass-cards::-webkit-scrollbar {
+    display: none;
   }
 
   .glass-card {
@@ -649,6 +716,7 @@
     background: rgba(100, 160, 200, 0.25);
     border: 1px solid rgba(100, 160, 200, 0.5);
     border-radius: 4px;
+    flex-shrink: 0;
   }
 
   .glass-card-name {
@@ -704,13 +772,14 @@
   }
 
   .retry-btn {
-    padding: 6px 16px;
+    padding: 8px 20px;
     font-size: 0.8rem;
     background: #e74c3c;
     color: white;
     border: none;
     border-radius: 4px;
     cursor: pointer;
+    min-height: 44px;
   }
 
   .retry-btn:hover {
@@ -742,5 +811,180 @@
 
   @keyframes spin {
     to { transform: rotate(360deg); }
+  }
+
+  /* ===== RESPONSIVE OVERRIDES (mobile-first) ===== */
+
+  /* Tablet (768px+) */
+  @media (min-width: 768px) {
+    .game-content {
+      padding: 0.5rem 0.75rem;
+      gap: 0.5rem;
+    }
+
+    .top-info-bar {
+      flex-wrap: nowrap;
+    }
+
+    .top-bar-actions {
+      position: absolute;
+      right: 0;
+    }
+
+    .top-btn {
+      padding: 4px 12px;
+      font-size: 0.7rem;
+      min-height: unset;
+    }
+
+    .round-indicator {
+      font-size: 0.85rem;
+    }
+
+    .player-tabs {
+      gap: 12px;
+      justify-content: center;
+      overflow-x: visible;
+    }
+
+    .player-tab {
+      font-size: 0.95rem;
+      padding: 6px 4px;
+    }
+
+    .player-stats {
+      gap: 12px;
+      font-size: 1.3rem;
+    }
+
+    .stat-sep {
+      display: inline;
+    }
+
+    .stat, .stat-clickable {
+      padding: 0;
+      min-height: unset;
+      display: inline;
+    }
+
+    .section-panel {
+      padding: 0.75rem;
+    }
+
+    .section-title {
+      font-size: 0.85rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .player-info-row {
+      flex-direction: row;
+    }
+
+    .player-info-row > .color-wheel-panel {
+      flex: 1 1 0;
+    }
+
+    .info-left-col {
+      flex: 1 1 0;
+    }
+
+    .wheel-container {
+      max-width: 250px;
+    }
+
+    .materials-grid {
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .material-item {
+      flex: unset;
+      min-width: unset;
+      padding: 6px 12px;
+    }
+
+    .material-count {
+      font-size: 1.4rem;
+    }
+
+    .material-label {
+      font-size: 0.85rem;
+    }
+
+    .glass-cards {
+      flex-wrap: wrap;
+      overflow-x: visible;
+    }
+
+    .completed-buyers-content {
+      height: calc(var(--card-height, 154px) + 28px);
+      max-height: none;
+    }
+
+    .drafted-cards-content {
+      height: calc(var(--card-height, 154px) + 28px);
+      max-height: none;
+    }
+
+    .log-modal {
+      background: rgba(20, 15, 10, 0.95);
+      border: 1px solid rgba(201, 168, 76, 0.5);
+      border-radius: 10px;
+      width: 600px;
+      max-width: 90vw;
+      max-height: 70vh;
+      height: auto;
+    }
+
+    .log-close-btn {
+      font-size: 1.4rem;
+      padding: 0 4px;
+      min-height: unset;
+      min-width: unset;
+      display: inline;
+    }
+
+    .ai-error-banner {
+      padding: 12px 16px;
+    }
+
+    .retry-btn {
+      min-height: unset;
+      padding: 6px 16px;
+    }
+  }
+
+  /* Desktop (1024px+): restore two-column layout */
+  @media (min-width: 1024px) {
+    .game-content {
+      overflow: hidden;
+    }
+
+    .main-columns {
+      flex-direction: row;
+      overflow: hidden;
+    }
+
+    .left-col {
+      flex: 0 0 50%;
+      overflow-y: auto;
+    }
+
+    .right-col {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .wheel-container {
+      max-width: 320px;
+    }
+
+    .completed-buyers-content {
+      height: calc(var(--card-height, 175px) + 28px);
+    }
+
+    .drafted-cards-content {
+      height: calc(var(--card-height, 175px) + 28px);
+    }
   }
 </style>
