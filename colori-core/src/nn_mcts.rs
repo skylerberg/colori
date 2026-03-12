@@ -15,7 +15,6 @@ pub struct NnMctsConfig {
     pub simulations: u32,
     pub c_puct: f32,
     pub model_path: String,
-    pub determinize_draft_deck: bool,
 }
 
 impl Default for NnMctsConfig {
@@ -24,7 +23,6 @@ impl Default for NnMctsConfig {
             simulations: 200,
             c_puct: 1.5,
             model_path: String::new(),
-            determinize_draft_deck: true,
         }
     }
 }
@@ -196,7 +194,6 @@ pub fn nn_mcts<R: Rng>(
             player_index,
             known_draft_hands,
             &cached_scores,
-            config.determinize_draft_deck,
             rng,
         );
 

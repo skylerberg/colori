@@ -16,7 +16,6 @@ pub struct MctsConfig {
     pub iterations: u32,
     pub exploration_constant: f64,
     pub max_rollout_steps: u32,
-    pub determinize_draft_deck: bool,
 }
 
 impl Default for MctsConfig {
@@ -25,7 +24,6 @@ impl Default for MctsConfig {
             iterations: 100,
             exploration_constant: std::f64::consts::SQRT_2,
             max_rollout_steps: 1000,
-            determinize_draft_deck: true,
         }
     }
 }
@@ -44,8 +42,6 @@ impl<'de> Deserialize<'de> for MctsConfig {
             exploration_constant: f64,
             #[serde(default = "default_max_rollout_steps")]
             max_rollout_steps: u32,
-            #[serde(default)]
-            determinize_draft_deck: bool,
         }
 
         fn default_iterations() -> u32 { 100 }
@@ -57,7 +53,6 @@ impl<'de> Deserialize<'de> for MctsConfig {
             iterations: helper.iterations,
             exploration_constant: helper.exploration_constant,
             max_rollout_steps: helper.max_rollout_steps,
-            determinize_draft_deck: helper.determinize_draft_deck,
         })
     }
 }
@@ -318,7 +313,7 @@ pub fn ismcts<R: Rng>(
 
     for _ in 0..config.iterations {
         pick_log.clear();
-        determinize_in_place(&mut det_state, state, player_index, known_draft_hands, &cached_scores, config.determinize_draft_deck, rng);
+        determinize_in_place(&mut det_state, state, player_index, known_draft_hands, &cached_scores, rng);
         advance_past_opponent_draft_picks(
             &mut det_state, player_index, &mut opponent_stats,
             &mut pick_log, config.exploration_constant, rng,
