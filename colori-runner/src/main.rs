@@ -42,6 +42,8 @@ struct VariantFileEntry {
     exploration_constant: Option<f64>,
     #[serde(default)]
     max_rollout_steps: Option<u32>,
+    #[serde(default)]
+    use_heuristic_eval: Option<bool>,
 }
 
 impl VariantFileEntry {
@@ -53,6 +55,7 @@ impl VariantFileEntry {
                 iterations: self.iterations.unwrap_or(defaults.iterations),
                 exploration_constant: self.exploration_constant.unwrap_or(defaults.exploration_constant),
                 max_rollout_steps: self.max_rollout_steps.unwrap_or(defaults.max_rollout_steps),
+                use_heuristic_eval: self.use_heuristic_eval.unwrap_or(defaults.use_heuristic_eval),
             },
         }
     }
