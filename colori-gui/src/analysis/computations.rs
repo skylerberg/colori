@@ -367,7 +367,7 @@ pub fn format_choice(choice: &Choice) -> String {
             format!("Activated Glass Reworkshop: {}", card_name(card))
         }
         Choice::ActivateGlassDestroyClean { card } => {
-            format!("Activated Glass Destroy Clean: {}", card_name(card))
+            format!("Activated Glass Destroy: {}", card_name(card))
         }
         Choice::DestroyAndSelectGlass { card, glass, pay_color } => {
             format!("Destroyed {} and acquired {:?} (paid 4 {:?})", card_name(card), glass, pay_color)

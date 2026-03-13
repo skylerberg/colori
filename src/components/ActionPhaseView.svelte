@@ -453,7 +453,7 @@
             </div>
           {:else if activeGlassPrompt === 'GlassDestroyClean'}
             <div class="glass-sub-selection">
-              <span class="sub-label">Select a workshop card to destroy (no ability triggered):</span>
+              <span class="sub-label">Select a workshop card to destroy:</span>
               <div class="sub-row">
                 {#each workshopAndWorkshopped as card}
                   {@const cardData = getAnyCardData(card.card)}

@@ -179,7 +179,7 @@ export function getChoiceLogMessage(
     }
     case 'activateGlassDestroyClean': {
       const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
-      return `${name} destroyed ${cardName} (clean)`;
+      return `${name} destroyed ${cardName}`;
     }
     case 'destroyAndSelectGlass': {
       const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';

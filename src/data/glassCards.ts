@@ -15,7 +15,7 @@ const DATA: Record<GlassCard, GlassCardData> = {
   GlassTertiaryDucat: { name: 'Glass Ducat', description: 'Convert a tertiary color to 1 ducat' },
   GlassReworkshop: { name: 'Glass Reworkshop', description: 'Un-rotate a workshopped card' },
   GlassGainPrimary: { name: 'Glass Primary', description: 'Gain 1 primary color' },
-  GlassDestroyClean: { name: 'Glass Destroy', description: 'Destroy a workshop card without triggering its ability' },
+  GlassDestroyClean: { name: 'Glass Destroy', description: 'Destroy a workshop card' },
   GlassKeepBoth: { name: 'Glass Keep Both', description: 'Keep all remaining draft cards (passive)' },
 };
 
