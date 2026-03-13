@@ -34,6 +34,7 @@ struct GeneticArgs {
     mutation_rate: f64,
     mutation_scale: f64,
     eval_iterations: u32,
+    seed_params: Option<HeuristicParams>,
 }
 
 #[derive(Clone)]
@@ -102,7 +103,8 @@ fn parse_args() -> Args {
     let mut games_per_eval = 100usize;
     let mut mutation_rate = 0.15f64;
     let mut mutation_scale = 0.25f64;
-    let mut eval_iterations = 1000u32;
+    let mut eval_iterations = 10_000u32;
+    let mut seed_params_file: Option<String> = None;
 
     let mut i = 1;
     while i < args.len() {
@@ -176,6 +178,10 @@ fn parse_args() -> Args {
                 i += 1;
                 eval_iterations = args[i].parse().expect("Invalid --eval-iterations value");
             }
+            "--seed-params" => {
+                i += 1;
+                seed_params_file = Some(args[i].clone());
+            }
             other => {
                 eprintln!("Unknown argument: {}", other);
                 std::process::exit(1);
@@ -189,6 +195,12 @@ fn parse_args() -> Args {
         if output == "game-logs" {
             output = "genetic-algorithm".to_string();
         }
+        let seed_params = seed_params_file.map(|path| {
+            let contents = std::fs::read_to_string(&path)
+                .unwrap_or_else(|_| panic!("Failed to read seed params file: {}", path));
+            serde_json::from_str::<HeuristicParams>(&contents)
+                .unwrap_or_else(|_| panic!("Failed to parse seed params file: {}", path))
+        });
         Some(GeneticArgs {
             population,
             generations,
@@ -196,6 +208,7 @@ fn parse_args() -> Args {
             mutation_rate,
             mutation_scale,
             eval_iterations,
+            seed_params,
         })
     } else {
         None
@@ -637,15 +650,28 @@ fn run_genetic_algorithm(args: &Args, ga: &GeneticArgs) {
 
     // Initialize population
     let mut population: Vec<Vec<f64>> = Vec::with_capacity(ga.population);
-    let default_genes = heuristic_params_to_vec(&HeuristicParams::default());
+    let default_params = HeuristicParams::default();
+    let seed = ga.seed_params.as_ref().unwrap_or(&default_params);
+    let seed_genes = heuristic_params_to_vec(seed);
 
-    // First individual is the default
-    population.push(default_genes.clone());
+    if ga.seed_params.is_some() {
+        eprintln!("Seeding population from provided params file");
+    }
 
-    // Rest are randomly perturbed
+    // First individual is the seed (or default)
+    population.push(seed_genes.clone());
+
+    // glass_weight index — skip when glass expansion is disabled
+    const GLASS_WEIGHT_IDX: usize = 13;
+    let glass = args.glass;
+
+    // Rest are randomly perturbed from seed
     for _ in 1..ga.population {
-        let mut genes = default_genes.clone();
-        for g in &mut genes {
+        let mut genes = seed_genes.clone();
+        for (i, g) in genes.iter_mut().enumerate() {
+            if i == GLASS_WEIGHT_IDX && !glass {
+                continue;
+            }
             let factor = 0.5 + rng.random::<f64>() * 1.5; // [0.5, 2.0)
             *g *= factor;
             if *g < 0.0 {
@@ -658,24 +684,15 @@ fn run_genetic_algorithm(args: &Args, ga: &GeneticArgs) {
         population.push(genes);
     }
 
+    let baseline_params = HeuristicParams::default();
+
     for gen in 0..ga.generations {
         let gen_start = Instant::now();
         let pop_size = population.len();
 
-        // Build all pairs for round-robin
-        let mut pairs: Vec<(usize, usize)> = Vec::new();
-        for i in 0..pop_size {
-            for j in (i + 1)..pop_size {
-                pairs.push((i, j));
-            }
-        }
-
-        // Evaluate: run games for all pairs, parallelized across threads
+        // Evaluate each individual against the baseline (default params)
         let wins: Vec<std::sync::atomic::AtomicU64> = (0..pop_size)
             .map(|_| std::sync::atomic::AtomicU64::new(0))
-            .collect();
-        let total_games_per_individual: Vec<AtomicUsize> = (0..pop_size)
-            .map(|_| AtomicUsize::new(0))
             .collect();
 
         let population_params: Vec<HeuristicParams> = population
@@ -683,62 +700,59 @@ fn run_genetic_algorithm(args: &Args, ga: &GeneticArgs) {
             .map(|g| vec_to_heuristic_params(g))
             .collect();
 
-        let pairs_ref = &pairs;
-        let wins_ref = &wins;
-        let total_ref = &total_games_per_individual;
-        let pop_params_ref = &population_params;
+        let baseline_ref = &baseline_params;
         let eval_iterations = ga.eval_iterations;
         let games_per_eval = ga.games_per_eval;
         let glass = args.glass;
 
-        std::thread::scope(|s| {
-            let num_threads = args.threads;
-            let pairs_per_thread = pairs_ref.len() / num_threads;
-            let remainder = pairs_ref.len() % num_threads;
-            let mut offset = 0;
+        // Evaluate one individual at a time, all threads cooperating on its games
+        let num_threads = args.threads;
 
-            let mut handles = Vec::new();
-            for t in 0..num_threads {
-                let count = pairs_per_thread + if t < remainder { 1 } else { 0 };
-                let thread_pairs = &pairs_ref[offset..offset + count];
-                offset += count;
+        for i in 0..pop_size {
+            let params = &population_params[i];
+            let wins_for_individual = std::sync::atomic::AtomicU64::new(0);
+            let wins_ind_ref = &wins_for_individual;
 
-                handles.push(s.spawn(move || {
-                    let mut rng = WyRand::from_rng(&mut rand::rng());
+            std::thread::scope(|s| {
+                let games_per_thread = games_per_eval / num_threads;
+                let remainder = games_per_eval % num_threads;
+                let mut handles = Vec::new();
 
-                    for &(i, j) in thread_pairs {
-                        let params_i = &pop_params_ref[i];
-                        let params_j = &pop_params_ref[j];
+                for t in 0..num_threads {
+                    let count = games_per_thread + if t < remainder { 1 } else { 0 };
 
-                        let mut wins_i = 0.0f64;
-                        let mut wins_j = 0.0f64;
+                    handles.push(s.spawn(move || {
+                        let mut rng = WyRand::from_rng(&mut rand::rng());
+                        let mut thread_wins = 0.0f64;
 
-                        for _ in 0..games_per_eval {
-                            let (wi, wj) = run_ga_game(params_i, params_j, eval_iterations, glass, &mut rng);
-                            wins_i += wi;
-                            wins_j += wj;
+                        for _ in 0..count {
+                            let (w, _) = run_ga_game(params, baseline_ref, eval_iterations, glass, &mut rng);
+                            thread_wins += w;
                         }
 
-                        // Store wins as u64 bits (multiply by 1000 for precision)
-                        wins_ref[i].fetch_add((wins_i * 1000.0) as u64, Ordering::Relaxed);
-                        wins_ref[j].fetch_add((wins_j * 1000.0) as u64, Ordering::Relaxed);
-                        total_ref[i].fetch_add(games_per_eval, Ordering::Relaxed);
-                        total_ref[j].fetch_add(games_per_eval, Ordering::Relaxed);
-                    }
-                }));
-            }
+                        wins_ind_ref.fetch_add((thread_wins * 1000.0) as u64, Ordering::Relaxed);
+                    }));
+                }
 
-            for h in handles {
-                h.join().unwrap();
-            }
-        });
+                for h in handles {
+                    h.join().unwrap();
+                }
+            });
 
-        // Compute fitness (average win rate)
+            let total_wins = wins_for_individual.load(Ordering::Relaxed) as f64 / 1000.0;
+            wins[i].store((total_wins * 1000.0) as u64, Ordering::Relaxed);
+            let wr = total_wins / games_per_eval as f64;
+            eprintln!(
+                "  Gen {} [{}/{}] individual {}: win_rate={:.4}",
+                gen + 1, i + 1, pop_size, i, wr
+            );
+        }
+
+        // Compute fitness (win rate vs baseline)
         let mut fitness: Vec<(usize, f64)> = (0..pop_size)
             .map(|i| {
                 let w = wins[i].load(Ordering::Relaxed) as f64 / 1000.0;
-                let t = total_games_per_individual[i].load(Ordering::Relaxed) as f64;
-                let wr = if t > 0.0 { w / t } else { 0.0 };
+                let wr = w / games_per_eval as f64;
                 (i, wr)
             })
             .collect();
@@ -793,7 +807,10 @@ fn run_genetic_algorithm(args: &Args, ga: &GeneticArgs) {
             }
 
             // Mutation
-            for g in &mut child {
+            for (i, g) in child.iter_mut().enumerate() {
+                if i == GLASS_WEIGHT_IDX && !glass {
+                    continue;
+                }
                 if rng.random::<f64>() < ga.mutation_rate {
                     let perturbation = sample_normal(&mut rng, ga.mutation_scale);
                     *g *= 1.0 + perturbation;
