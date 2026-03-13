@@ -1,10 +1,10 @@
 <script lang="ts">
   import type { GameState } from '../data/types';
   import { formatTime, orderByDraftOrder } from '../gameUtils';
-  import { getBuyerData } from '../data/cards';
+  import { getSellCardData } from '../data/cards';
   import { getGlassCardData, GLASS_CARD_ORDER } from '../data/glassCards';
   import type { Snippet } from 'svelte';
-  import BuyerDisplay from './BuyerDisplay.svelte';
+  import SellCardDisplay from './SellCardDisplay.svelte';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import CardList from './CardList.svelte';
   import { mixWheelState } from '../stores/mixWheelState.svelte';
@@ -37,7 +37,7 @@
   let isActive = $derived(selectedPlayerIndex === activePlayerIndex);
 
   // Stats
-  let score = $derived(currentPlayer.completedBuyers.reduce((sum, buyer) => sum + getBuyerData(buyer.card).stars, 0) + currentPlayer.ducats);
+  let score = $derived(currentPlayer.completedSellCards.reduce((sum, sellCard) => sum + getSellCardData(sellCard.card).stars, 0) + currentPlayer.ducats);
 
   let showLog = $state(false);
   let showDeckModal = $state(false);
@@ -113,9 +113,9 @@
 
     {#if showContent}
       <div class="main-columns">
-        <!-- Left half: buyer display + player info row -->
+        <!-- Left half: sell card display + player info row -->
         <div class="left-col">
-          <BuyerDisplay buyers={gameState.buyerDisplay} />
+          <SellCardDisplay sellCards={gameState.sellCardDisplay} />
 
           {#if gameState.expansions?.glass}
             <div class="section-panel glass-display-panel">
@@ -138,11 +138,11 @@
 
           <div class="player-info-row">
             <div class="info-left-col">
-              <div class="section-panel completed-buyers-panel">
-                <div class="section-title">Completed Buyers</div>
-                <div class="completed-buyers-content">
-                  {#if currentPlayer.completedBuyers.length > 0}
-                    <CardList cards={currentPlayer.completedBuyers} />
+              <div class="section-panel completed-sell-cards-panel">
+                <div class="section-title">Completed Sell Cards</div>
+                <div class="completed-sell-cards-content">
+                  {#if currentPlayer.completedSellCards.length > 0}
+                    <CardList cards={currentPlayer.completedSellCards} />
                   {:else}
                     <div class="empty-text">None yet</div>
                   {/if}
@@ -645,7 +645,7 @@
     height: auto;
   }
 
-  .completed-buyers-content {
+  .completed-sell-cards-content {
     height: auto;
     max-height: calc(var(--card-height, 126px) + 32px);
     overflow-y: auto;
@@ -657,7 +657,7 @@
     overflow-y: auto;
   }
 
-  .completed-buyers-panel :global(.card-list) {
+  .completed-sell-cards-panel :global(.card-list) {
     min-height: auto;
     flex-wrap: wrap;
   }
@@ -923,7 +923,7 @@
       overflow-x: visible;
     }
 
-    .completed-buyers-content {
+    .completed-sell-cards-content {
       height: calc(var(--card-height, 154px) + 28px);
       max-height: none;
     }
@@ -986,7 +986,7 @@
       max-width: 320px;
     }
 
-    .completed-buyers-content {
+    .completed-sell-cards-content {
       height: calc(var(--card-height, 175px) + 28px);
     }
 

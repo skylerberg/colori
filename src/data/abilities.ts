@@ -15,6 +15,6 @@ export function formatSingleAbility(a: Ability): string {
 }
 
 export function formatAbility(c: AnyCardData): string {
-  if (c.kind === 'buyer') return '';
+  if (c.kind === 'sellCard') return '';
   return formatSingleAbility(c.ability);
 }

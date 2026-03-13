@@ -4,16 +4,16 @@ use crate::types::*;
 use smallvec::SmallVec;
 
 pub fn calculate_score(player: &PlayerState) -> u32 {
-    let buyer_stars: u32 = player.completed_buyers.iter().map(|bi| bi.buyer.stars()).sum();
-    buyer_stars + player.ducats
+    let sell_card_stars: u32 = player.completed_sell_cards.iter().map(|bi| bi.sell_card.stars()).sum();
+    sell_card_stars + player.ducats
 }
 
-/// Returns a comparable ranking tuple: (score, completed_buyers_count, color_wheel_total).
+/// Returns a comparable ranking tuple: (score, completed_sell_cards_count, color_wheel_total).
 /// Rust tuples compare lexicographically, giving correct tiebreak order.
 pub fn player_ranking(player: &PlayerState) -> (u32, usize, u32) {
     (
         calculate_score(player),
-        player.completed_buyers.len(),
+        player.completed_sell_cards.len(),
         player.color_wheel.counts.iter().sum(),
     )
 }
@@ -26,7 +26,7 @@ pub fn compute_terminal_rewards(players: &FixedVec<PlayerState, MAX_PLAYERS>) ->
         .map(|p| {
             (
                 p.cached_score,
-                p.completed_buyers.len(),
+                p.completed_sell_cards.len(),
                 p.color_wheel.counts.iter().sum(),
             )
         })
@@ -48,12 +48,12 @@ fn card_quality(card: Card) -> f64 {
         CardKind::Dye => 1.00,
         CardKind::BasicDye => 0.10,
         CardKind::Material => {
-            let pips = card.pips();
+            let colors = card.colors();
             let mat_types = card.material_types();
-            if pips.is_empty() && mat_types.len() == 1 {
+            if colors.is_empty() && mat_types.len() == 1 {
                 0.20 // starter material
-            } else if !pips.is_empty() {
-                0.5 // draft material with pip
+            } else if !colors.is_empty() {
+                0.5 // draft material with color
             } else {
                 0.60 // dual material
             }
@@ -63,12 +63,12 @@ fn card_quality(card: Card) -> f64 {
 
 fn heuristic_score(
     player: &PlayerState,
-    buyer_display: &FixedVec<BuyerInstance, MAX_BUYER_DISPLAY>,
+    sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
     card_lookup: &[Card; 256],
 ) -> f64 {
     let points = player.cached_score as f64;
 
-    // Color wheel score: primary 0.10, secondary 0.20, tertiary 0.30 per pip
+    // Color wheel score: primary 0.10, secondary 0.20, tertiary 0.30 per color
     let mut color_score = 0.0;
     for &c in &PRIMARIES {
         color_score += 0.10 * player.color_wheel.get(c) as f64;
@@ -98,20 +98,20 @@ fn heuristic_score(
         0.0
     };
 
-    // Buyer alignment: max across visible buyers
+    // Sell card alignment: max across visible sell cards
     let mut best_alignment = 0.0f64;
-    for bi in buyer_display.iter() {
-        let buyer = bi.buyer;
-        let stars = buyer.stars() as f64;
+    for bi in sell_card_display.iter() {
+        let sell_card = bi.sell_card;
+        let stars = sell_card.stars() as f64;
         let mut alignment = 0.0;
 
         // Has required material type?
-        if player.materials.get(buyer.required_material()) > 0 {
+        if player.materials.get(sell_card.required_material()) > 0 {
             alignment += 0.5 * stars;
         }
 
         // Color progress
-        let cost = buyer.color_cost();
+        let cost = sell_card.color_cost();
         let cost_len = cost.len() as f64;
         for &color in cost {
             if player.color_wheel.get(color) > 0 {
@@ -132,12 +132,12 @@ fn heuristic_score(
 /// Highest heuristic score gets 1.0, others get 0.0. Ties split evenly.
 pub fn compute_heuristic_rewards(
     players: &FixedVec<PlayerState, MAX_PLAYERS>,
-    buyer_display: &FixedVec<BuyerInstance, MAX_BUYER_DISPLAY>,
+    sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
     card_lookup: &[Card; 256],
 ) -> SmallVec<[f64; 4]> {
     let scores: SmallVec<[f64; 4]> = players
         .iter()
-        .map(|p| heuristic_score(p, buyer_display, card_lookup))
+        .map(|p| heuristic_score(p, sell_card_display, card_lookup))
         .collect();
 
     // Use integer comparison via bits for exact tie detection
@@ -152,16 +152,16 @@ pub fn compute_heuristic_rewards(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{BuyerCard, BuyerInstance, ColorWheel, Materials, PlayerState};
+    use crate::types::{SellCard, SellCardInstance, ColorWheel, Materials, PlayerState};
     use crate::unordered_cards::UnorderedCards;
 
-    fn make_player(ducats: u32, buyers: &[BuyerCard], color_counts: [u32; 12]) -> PlayerState {
-        let completed_buyers: SmallVec<[BuyerInstance; 12]> = buyers
+    fn make_player(ducats: u32, sell_cards: &[SellCard], color_counts: [u32; 12]) -> PlayerState {
+        let completed_sell_cards: SmallVec<[SellCardInstance; 12]> = sell_cards
             .iter()
             .enumerate()
-            .map(|(i, &buyer)| BuyerInstance {
+            .map(|(i, &sell_card)| SellCardInstance {
                 instance_id: i as u32,
-                buyer,
+                sell_card,
             })
             .collect();
         let mut p = PlayerState {
@@ -172,7 +172,7 @@ mod tests {
             drafted_cards: UnorderedCards::new(),
             color_wheel: ColorWheel { counts: color_counts },
             materials: Materials::new(),
-            completed_buyers,
+            completed_sell_cards,
             completed_glass: SmallVec::new(),
             ducats,
             cached_score: 0,
@@ -194,24 +194,24 @@ mod tests {
     }
 
     #[test]
-    fn test_tie_broken_by_buyers() {
-        // p1: 2 three-star buyers = 6 points, 2 buyers
-        // p2: 1 three-star buyer + 3 ducats = 6 points, 1 buyer
-        let p1 = make_player(0, &[BuyerCard::Ceramics3VermilionRed, BuyerCard::Ceramics3AmberRed], [0; 12]);
-        let p2 = make_player(3, &[BuyerCard::Ceramics3VermilionRed], [0; 12]);
+    fn test_tie_broken_by_sell_cards() {
+        // p1: 2 three-star sell cards = 6 points, 2 sell cards
+        // p2: 1 three-star sell card + 3 ducats = 6 points, 1 sell card
+        let p1 = make_player(0, &[SellCard::Ceramics3VermilionRed, SellCard::Ceramics3AmberRed], [0; 12]);
+        let p2 = make_player(3, &[SellCard::Ceramics3VermilionRed], [0; 12]);
         assert_eq!(p1.cached_score, 6);
         assert_eq!(p2.cached_score, 6);
         let mut players = FixedVec::new();
         players.push(p1);
         players.push(p2);
         let rewards = compute_terminal_rewards(&players);
-        assert_eq!(rewards[0], 1.0); // p1 wins on buyer count
+        assert_eq!(rewards[0], 1.0); // p1 wins on sell card count
         assert_eq!(rewards[1], 0.0);
     }
 
     #[test]
     fn test_tie_broken_by_colors() {
-        // Same score, same buyer count, different color wheel totals
+        // Same score, same sell card count, different color wheel totals
         let p1 = make_player(3, &[], [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // total=3
         let p2 = make_player(3, &[], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // total=1
         let mut players = FixedVec::new();
@@ -224,7 +224,7 @@ mod tests {
 
     #[test]
     fn test_true_tie() {
-        // Same score, same buyer count, same color wheel total
+        // Same score, same sell card count, same color wheel total
         let p1 = make_player(3, &[], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
         let p2 = make_player(3, &[], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
         let mut players = FixedVec::new();

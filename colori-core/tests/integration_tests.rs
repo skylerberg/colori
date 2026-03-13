@@ -2,9 +2,9 @@ use colori_core::colori_game::{apply_choice_to_state, check_choice_available, en
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::scoring::calculate_score;
 use colori_core::setup::create_initial_game_state;
-use colori_core::types::{Ability, BuyerCard, Card, Choice, Color, GamePhase, GameState};
+use colori_core::types::{Ability, SellCard, Card, Choice, Color, GamePhase, GameState};
 use colori_core::unordered_cards::{
-    get_buyer_registry, get_card_registry, set_buyer_registry, set_card_registry,
+    get_sell_card_registry, get_card_registry, set_sell_card_registry, set_card_registry,
 };
 use rand::RngExt;
 use rand::SeedableRng;
@@ -36,14 +36,14 @@ fn count_all_cards(state: &GameState) -> u32 {
     total
 }
 
-fn count_all_buyers(state: &GameState) -> u32 {
+fn count_all_sell_cards(state: &GameState) -> u32 {
     let mut total = 0u32;
 
-    total += state.buyer_deck.len();
-    total += state.buyer_display.len() as u32;
+    total += state.sell_card_deck.len();
+    total += state.sell_card_display.len() as u32;
 
     for player in state.players.iter() {
-        total += player.completed_buyers.len() as u32;
+        total += player.completed_sell_cards.len() as u32;
     }
 
     total
@@ -74,7 +74,7 @@ fn run_full_game_with_invariants(seed: u64, num_players: usize) -> GameState {
     let mut state = create_initial_game_state(num_players, &ai_players, &mut rng);
 
     let initial_cards = count_all_cards(&state);
-    let initial_buyers = count_all_buyers(&state);
+    let initial_sell_cards = count_all_sell_cards(&state);
 
     execute_draw_phase(&mut state, &mut rng);
 
@@ -90,9 +90,9 @@ fn run_full_game_with_invariants(seed: u64, num_players: usize) -> GameState {
             num_players
         );
         assert_eq!(
-            count_all_buyers(&state),
-            initial_buyers,
-            "Buyer conservation violated at step {} (seed={}, players={})",
+            count_all_sell_cards(&state),
+            initial_sell_cards,
+            "Sell card conservation violated at step {} (seed={}, players={})",
             step,
             seed,
             num_players
@@ -157,7 +157,7 @@ fn run_random_game_with_invariants(seed: u64, num_players: usize) -> GameState {
     let mut state = create_initial_game_state(num_players, &ai_players, &mut rng);
 
     let initial_cards = count_all_cards(&state);
-    let initial_buyers = count_all_buyers(&state);
+    let initial_sell_cards = count_all_sell_cards(&state);
 
     execute_draw_phase(&mut state, &mut rng);
 
@@ -172,9 +172,9 @@ fn run_random_game_with_invariants(seed: u64, num_players: usize) -> GameState {
             num_players
         );
         assert_eq!(
-            count_all_buyers(&state),
-            initial_buyers,
-            "Buyer conservation violated at step {} (seed={}, players={})",
+            count_all_sell_cards(&state),
+            initial_sell_cards,
+            "Sell card conservation violated at step {} (seed={}, players={})",
             step,
             seed,
             num_players
@@ -242,8 +242,8 @@ fn generate_invalid_choices(state: &GameState) -> Vec<Choice> {
             // Wrong-phase choices
             invalid.push(Choice::EndTurn);
             invalid.push(Choice::SkipWorkshop);
-            invalid.push(Choice::SelectBuyer {
-                buyer: BuyerCard::Textiles2Vermilion,
+            invalid.push(Choice::SelectSellCard {
+                sell_card: SellCard::Textiles2Vermilion,
             });
             invalid.push(Choice::GainSecondary {
                 color: Color::Orange,
@@ -283,8 +283,8 @@ fn generate_invalid_choices(state: &GameState) -> Vec<Choice> {
             if action_state.ability_stack.is_empty() {
                 // Empty stack: these require specific abilities on stack
                 invalid.push(Choice::SkipWorkshop);
-                invalid.push(Choice::SelectBuyer {
-                    buyer: BuyerCard::Textiles2Vermilion,
+                invalid.push(Choice::SelectSellCard {
+                    sell_card: SellCard::Textiles2Vermilion,
                 });
                 invalid.push(Choice::GainSecondary {
                     color: Color::Orange,
@@ -305,8 +305,8 @@ fn generate_invalid_choices(state: &GameState) -> Vec<Choice> {
                 match top {
                     Ability::Workshop { .. } => {
                         invalid.push(Choice::EndTurn);
-                        invalid.push(Choice::SelectBuyer {
-                            buyer: BuyerCard::Textiles2Vermilion,
+                        invalid.push(Choice::SelectSellCard {
+                            sell_card: SellCard::Textiles2Vermilion,
                         });
                         invalid.push(Choice::GainSecondary {
                             color: Color::Orange,
@@ -404,14 +404,14 @@ fn generate_invalid_choices(state: &GameState) -> Vec<Choice> {
 
 fn serialize_state(state: &GameState) -> String {
     set_card_registry(&state.card_lookup);
-    set_buyer_registry(&state.buyer_lookup);
+    set_sell_card_registry(&state.sell_card_lookup);
     serde_json::to_string(state).unwrap()
 }
 
 fn deserialize_state(json: &str) -> GameState {
     let mut state: GameState = serde_json::from_str(json).unwrap();
     state.card_lookup = get_card_registry();
-    state.buyer_lookup = get_buyer_registry();
+    state.sell_card_lookup = get_sell_card_registry();
     for p in state.players.iter_mut() {
         p.cached_score = calculate_score(p);
     }
@@ -480,25 +480,25 @@ fn assert_states_match(a: &GameState, b: &GameState, context: &str) {
             pi, context
         );
         assert_eq!(
-            pa.completed_buyers.len(),
-            pb.completed_buyers.len(),
-            "player {} completed_buyers length mismatch: {}",
+            pa.completed_sell_cards.len(),
+            pb.completed_sell_cards.len(),
+            "player {} completed_sell_cards length mismatch: {}",
             pi, context
         );
         for (bi, (ba, bb)) in pa
-            .completed_buyers
+            .completed_sell_cards
             .iter()
-            .zip(pb.completed_buyers.iter())
+            .zip(pb.completed_sell_cards.iter())
             .enumerate()
         {
             assert_eq!(
                 ba.instance_id, bb.instance_id,
-                "player {} buyer {} instance_id mismatch: {}",
+                "player {} sell_card {} instance_id mismatch: {}",
                 pi, bi, context
             );
             assert_eq!(
-                ba.buyer, bb.buyer,
-                "player {} buyer {} card mismatch: {}",
+                ba.sell_card, bb.sell_card,
+                "player {} sell_card {} card mismatch: {}",
                 pi, bi, context
             );
         }
@@ -516,30 +516,30 @@ fn assert_states_match(a: &GameState, b: &GameState, context: &str) {
         context
     );
     assert_eq!(
-        a.buyer_deck, b.buyer_deck,
-        "buyer_deck mismatch: {}",
+        a.sell_card_deck, b.sell_card_deck,
+        "sell_card_deck mismatch: {}",
         context
     );
     assert_eq!(
-        a.buyer_display.len(),
-        b.buyer_display.len(),
-        "buyer_display length mismatch: {}",
+        a.sell_card_display.len(),
+        b.sell_card_display.len(),
+        "sell_card_display length mismatch: {}",
         context
     );
     for (i, (ba, bb)) in a
-        .buyer_display
+        .sell_card_display
         .iter()
-        .zip(b.buyer_display.iter())
+        .zip(b.sell_card_display.iter())
         .enumerate()
     {
         assert_eq!(
             ba.instance_id, bb.instance_id,
-            "buyer_display {} instance_id mismatch: {}",
+            "sell_card_display {} instance_id mismatch: {}",
             i, context
         );
         assert_eq!(
-            ba.buyer, bb.buyer,
-            "buyer_display {} card mismatch: {}",
+            ba.sell_card, bb.sell_card,
+            "sell_card_display {} card mismatch: {}",
             i, context
         );
     }
@@ -632,7 +632,7 @@ fn test_card_conservation() {
 }
 
 #[test]
-fn test_buyer_conservation() {
+fn test_sell_card_conservation() {
     for seed in 0..10 {
         for num_players in 2..=4 {
             run_full_game_with_invariants(seed, num_players);
@@ -927,15 +927,15 @@ fn test_draft_deck_card_count() {
 }
 
 #[test]
-fn test_buyer_deck_card_count() {
+fn test_sell_card_deck_card_count() {
     for num_players in 2..=4 {
         let mut rng = WyRand::seed_from_u64(0);
         let ai_players = vec![true; num_players];
         let state = create_initial_game_state(num_players, &ai_players, &mut rng);
-        let total_buyers = state.buyer_deck.len() + state.buyer_display.len() as u32;
+        let total_sell_cards = state.sell_card_deck.len() + state.sell_card_display.len() as u32;
         assert_eq!(
-            total_buyers, 54,
-            "Total buyers should be 54 (players={})",
+            total_sell_cards, 54,
+            "Total sell cards should be 54 (players={})",
             num_players
         );
     }
@@ -1014,9 +1014,9 @@ fn test_score_is_stars_plus_ducats() {
             let state = run_full_game_with_invariants(seed, num_players);
             for (i, player) in state.players.iter().enumerate() {
                 let stars: u32 = player
-                    .completed_buyers
+                    .completed_sell_cards
                     .iter()
-                    .map(|bi| bi.buyer.stars())
+                    .map(|bi| bi.sell_card.stars())
                     .sum();
                 let expected = stars + player.ducats;
                 assert_eq!(

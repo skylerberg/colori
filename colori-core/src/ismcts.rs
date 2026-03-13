@@ -360,7 +360,7 @@ pub fn ismcts<R: Rng>(
 
 fn eval_scores(state: &GameState, use_heuristic: bool) -> SmallVec<[f64; 4]> {
     if use_heuristic {
-        compute_heuristic_rewards(&state.players, &state.buyer_display, &state.card_lookup)
+        compute_heuristic_rewards(&state.players, &state.sell_card_display, &state.card_lookup)
     } else {
         compute_terminal_rewards(&state.players)
     }

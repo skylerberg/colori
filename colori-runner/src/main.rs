@@ -5,7 +5,7 @@ use colori_core::ismcts::{ismcts, MctsConfig};
 use colori_core::scoring::calculate_score;
 use colori_core::setup::create_initial_game_state_with_expansions;
 use colori_core::types::*;
-use colori_core::unordered_cards::{set_buyer_registry, set_card_registry};
+use colori_core::unordered_cards::{set_sell_card_registry, set_card_registry};
 
 use rand::seq::SliceRandom;
 use rand::RngExt;
@@ -361,7 +361,7 @@ fn run_game(
             .map(|(i, p)| FinalScore {
                 name: names[i].clone(),
                 score: calculate_score(p),
-                completed_buyers: p.completed_buyers.len() as u32,
+                completed_sell_cards: p.completed_sell_cards.len() as u32,
                 color_wheel_total: p.color_wheel.counts.iter().sum(),
             })
             .collect(),
@@ -376,7 +376,7 @@ fn run_game(
             .map(|(i, p)| FinalPlayerStats {
                 name: names[i].clone(),
                 deck_size: (p.deck.len() + p.discard.len() + p.workshop_cards.len() + p.workshopped_cards.len()) as usize,
-                completed_buyers: p.completed_buyers.to_vec(),
+                completed_sell_cards: p.completed_sell_cards.to_vec(),
                 ducats: p.ducats,
                 color_wheel: p.color_wheel.clone(),
                 materials: p.materials.clone(),
@@ -484,7 +484,7 @@ fn main() {
                         &mut rng,
                     );
                     set_card_registry(&log.initial_state.card_lookup);
-                    set_buyer_registry(&log.initial_state.buyer_lookup);
+                    set_sell_card_registry(&log.initial_state.sell_card_lookup);
                     let epoch_millis = now_epoch_millis();
                     let game_id: String = {
                         const CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";

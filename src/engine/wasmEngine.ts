@@ -1,6 +1,6 @@
 import type { GameState, Choice, PlayerState, Color, Card, Expansions } from '../data/types';
 import { mixResult } from '../data/colors';
-import { getCardData, getBuyerData, getAnyCardData } from '../data/cards';
+import { getCardData, getSellCardData, getAnyCardData } from '../data/cards';
 import init, {
   wasm_create_initial_game_state,
   wasm_create_initial_game_state_with_expansions,
@@ -110,8 +110,8 @@ export function getChoiceLogMessage(
       const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
       return `${name} destroyed ${cardName} from workshop`;
     }
-    case 'selectBuyer': {
-      return `${name} sold to a ${getBuyerData(choice.buyer).stars}-star buyer`;
+    case 'selectSellCard': {
+      return `${name} sold to a ${getSellCardData(choice.sellCard).stars}-star sell card`;
     }
     case 'gainSecondary':
       return `${name} gained ${choice.color}`;
@@ -135,7 +135,7 @@ export function getChoiceLogMessage(
     }
     case 'destroyAndSell': {
       const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
-      return `${name} destroyed ${cardName} from drafted cards, sold to a ${getBuyerData(choice.buyer).stars}-star buyer`;
+      return `${name} destroyed ${cardName} from drafted cards, sold to a ${getSellCardData(choice.sellCard).stars}-star sell card`;
     }
     case 'destroyAndWorkshop': {
       const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
@@ -200,13 +200,13 @@ export function determineWinners(players: PlayerState[], playerNames: string[]):
   const ranked = players.map((p, i) => ({
     name: playerNames[i],
     score: calculateScores([p], [playerNames[i]])[0].score,
-    buyers: p.completedBuyers.length,
+    sellCards: p.completedSellCards.length,
     colors: Object.values(p.colorWheel).reduce((sum, c) => sum + (c as number), 0),
   }));
-  ranked.sort((a, b) => b.score - a.score || b.buyers - a.buyers || b.colors - a.colors);
+  ranked.sort((a, b) => b.score - a.score || b.sellCards - a.sellCards || b.colors - a.colors);
   const best = ranked[0];
   return ranked
-    .filter(r => r.score === best.score && r.buyers === best.buyers && r.colors === best.colors)
+    .filter(r => r.score === best.score && r.sellCards === best.sellCards && r.colors === best.colors)
     .map(r => r.name);
 }
 
@@ -220,12 +220,12 @@ function canPayCost(wheel: Record<Color, number>, cost: Color[]): boolean {
   return true;
 }
 
-export function canSell(state: GameState, buyerInstanceId: number): boolean {
+export function canSell(state: GameState, sellCardInstanceId: number): boolean {
   if (state.phase.type !== 'action') return false;
   const player = state.players[state.phase.actionState.currentPlayerIndex];
-  const buyerInstance = state.buyerDisplay.find(g => g.instanceId === buyerInstanceId);
-  if (!buyerInstance) return false;
-  const buyer = getBuyerData(buyerInstance.card);
-  if (player.materials[buyer.requiredMaterial] < 1) return false;
-  return canPayCost(player.colorWheel, buyer.colorCost);
+  const sellCardInstance = state.sellCardDisplay.find(g => g.instanceId === sellCardInstanceId);
+  if (!sellCardInstance) return false;
+  const sellCard = getSellCardData(sellCardInstance.card);
+  if (player.materials[sellCard.requiredMaterial] < 1) return false;
+  return canPayCost(player.colorWheel, sellCard.colorCost);
 }

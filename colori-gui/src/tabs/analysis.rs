@@ -20,7 +20,7 @@ pub struct CachedAnalysis {
     pub cards_added_normalized: HashMap<String, f64>,
     pub destroyed_draft: HashMap<String, usize>,
     pub destroyed_workshop: HashMap<String, usize>,
-    pub buyer_acq: BuyerAcquisitions,
+    pub sell_card_acq: SellCardAcquisitions,
     pub deck_stats: DeckSizeStats,
     pub score_dist: std::collections::BTreeMap<u32, usize>,
     pub win_rate_position: HashMap<usize, WinRateEntry>,
@@ -40,7 +40,7 @@ pub struct CachedAnalysis {
     pub destroy_rate: HashMap<String, f64>,
     pub destroy_rate_categories: Vec<CategoryStat>,
     pub destroy_rate_cat_normalized: Vec<CategoryStat>,
-    pub winner_buyer_breakdown: WinnerBuyerBreakdown,
+    pub winner_sell_card_breakdown: WinnerSellCardBreakdown,
     pub glass_acquisitions: Option<HashMap<String, usize>>,
     pub glass_win_rate: Option<HashMap<String, WinRateEntry>>,
 }
@@ -61,7 +61,7 @@ impl CachedAnalysis {
         let cards_added_normalized = normalize_by_draft_copies(&cards_added);
         let destroyed_draft = compute_destroyed_from_draft(logs, filter_ref);
         let destroyed_workshop = compute_destroyed_from_workshop(logs, filter_ref);
-        let buyer_acq = compute_buyer_acquisitions(logs, filter_ref);
+        let sell_card_acq = compute_sell_card_acquisitions(logs, filter_ref);
         let deck_stats = compute_deck_size_stats(logs, filter_ref);
         let score_dist = compute_score_distribution(logs, filter_ref);
         let win_rate_position = compute_win_rate_by_position(logs, filter_ref);
@@ -73,7 +73,7 @@ impl CachedAnalysis {
         let round_count_dist = compute_round_count_distribution(logs);
         let card_win_rate = compute_win_rate_by_card(logs, filter_ref);
         let draft_win_rate = compute_win_rate_if_drafted(logs, filter_ref);
-        let winner_buyer_breakdown = compute_winner_buyer_breakdown(logs, filter_ref);
+        let winner_sell_card_breakdown = compute_winner_sell_card_breakdown(logs, filter_ref);
 
         let num_players = if !logs.is_empty() {
             logs[0].player_names.len()
@@ -131,7 +131,7 @@ impl CachedAnalysis {
             cards_added_normalized,
             destroyed_draft,
             destroyed_workshop,
-            buyer_acq,
+            sell_card_acq,
             deck_stats,
             score_dist,
             win_rate_position,
@@ -150,7 +150,7 @@ impl CachedAnalysis {
             destroy_rate,
             destroy_rate_categories,
             destroy_rate_cat_normalized,
-            winner_buyer_breakdown,
+            winner_sell_card_breakdown,
             glass_acquisitions,
             glass_win_rate,
         }
@@ -351,8 +351,8 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis, num_gam
             &analysis.draft_win_rate_categories,
         );
 
-        // --- Actions & Buyers ---
-        section_group_heading(ui, "Actions & Buyers");
+        // --- Actions & Sell Cards ---
+        section_group_heading(ui, "Actions & Sell Cards");
 
         render_hashmap_bar_section(
             ui,
@@ -391,26 +391,26 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis, num_gam
             false,
         );
 
-        // 14. Buyer Acquisitions
-        let id = ui.make_persistent_id("buyer_acquisitions");
+        // 14. Sell Card Acquisitions
+        let id = ui.make_persistent_id("sell_card_acquisitions");
         egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
             .show_header(ui, |ui| {
-                ui.strong("Buyer Acquisitions");
+                ui.strong("Sell Card Acquisitions");
             })
             .body(|ui| {
-                ui.strong("By Buyer");
-                render_usize_hashmap_bar_rows(ui, &analysis.buyer_acq.by_buyer, "Count");
+                ui.strong("By Sell Card");
+                render_usize_hashmap_bar_rows(ui, &analysis.sell_card_acq.by_sell_card, "Count");
                 ui.add_space(8.0);
                 ui.strong("By Stars");
                 render_u32_hashmap_bar_rows(
                     ui,
-                    &analysis.buyer_acq.by_stars,
+                    &analysis.sell_card_acq.by_stars,
                     "Stars",
                     "Count",
                 );
                 ui.add_space(8.0);
                 ui.strong("By Material");
-                render_usize_hashmap_bar_rows(ui, &analysis.buyer_acq.by_material, "Count");
+                render_usize_hashmap_bar_rows(ui, &analysis.sell_card_acq.by_material, "Count");
             });
 
         // --- Glass Expansion ---
@@ -476,14 +476,14 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis, num_gam
                 render_f64_hashmap_bar_rows(ui, &analysis.color_stats, "Average Count", 2);
             });
 
-        // Winner Buyer Breakdown
-        let id = ui.make_persistent_id("winner_buyer_breakdown");
+        // Winner Sell Card Breakdown
+        let id = ui.make_persistent_id("winner_sell_card_breakdown");
         egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
             .show_header(ui, |ui| {
-                ui.strong("Winner Buyer Breakdown");
+                ui.strong("Winner Sell Card Breakdown");
             })
             .body(|ui| {
-                let wb = &analysis.winner_buyer_breakdown;
+                let wb = &analysis.winner_sell_card_breakdown;
                 let cards = vec![
                     StatCard {
                         value: format!("{:.1}", wb.avg_textiles),

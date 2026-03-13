@@ -46,13 +46,13 @@ export class GameLogAccumulator {
     this.log.gameEndedAt = new Date().toISOString();
     this.log.finalScores = calculateScores(state.players, state.playerNames).map((s, i) => ({
       ...s,
-      completedBuyers: state.players[i].completedBuyers.length,
+      completedSellCards: state.players[i].completedSellCards.length,
       colorWheelTotal: Object.values(state.players[i].colorWheel).reduce((sum, c) => sum + (c as number), 0),
     }));
     this.log.finalPlayerStats = state.players.map((p, i) => ({
       name: state.playerNames[i],
       deckSize: p.deck.length + p.discard.length + p.workshopCards.length + p.draftedCards.length + p.workshoppedCards.length,
-      completedBuyers: p.completedBuyers,
+      completedSellCards: p.completedSellCards,
       ducats: p.ducats,
       colorWheel: { ...p.colorWheel },
       materials: { ...p.materials },

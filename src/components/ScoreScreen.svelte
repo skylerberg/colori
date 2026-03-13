@@ -27,9 +27,9 @@
       if (a.score !== b.score) return b.score - a.score;
       const pa = playerMap.get(a.name)!;
       const pb = playerMap.get(b.name)!;
-      const buyersA = pa.completedBuyers.length;
-      const buyersB = pb.completedBuyers.length;
-      if (buyersA !== buyersB) return buyersB - buyersA;
+      const sellCardsA = pa.completedSellCards.length;
+      const sellCardsB = pb.completedSellCards.length;
+      if (sellCardsA !== sellCardsB) return sellCardsB - sellCardsA;
       const colorsA = Object.values(pa.colorWheel).reduce((sum, c) => sum + (c as number), 0);
       const colorsB = Object.values(pb.colorWheel).reduce((sum, c) => sum + (c as number), 0);
       return colorsB - colorsA;
@@ -106,10 +106,10 @@
               <CardList cards={[...player.deck, ...player.discard, ...player.workshoppedCards]} />
             </div>
 
-            {#if player.completedBuyers.length > 0}
+            {#if player.completedSellCards.length > 0}
               <div class="card-section">
-                <h4>Completed Buyers</h4>
-                <CardList cards={player.completedBuyers} />
+                <h4>Completed Sell Cards</h4>
+                <CardList cards={player.completedSellCards} />
               </div>
             {/if}
           </div>

@@ -1,4 +1,4 @@
-use crate::types::{Card, BuyerCard, GlassCard};
+use crate::types::{Card, SellCard, GlassCard};
 
 pub const DYE_COPIES: usize = 3;
 pub const ACTION_COPIES: usize = 4;
@@ -63,30 +63,30 @@ pub fn generate_all_glass() -> [GlassCard; 11] {
     ]
 }
 
-pub fn generate_all_buyers() -> [BuyerCard; 54] {
+pub fn generate_all_sell_cards() -> [SellCard; 54] {
     [
         // Textiles 2-star, single tertiary (6)
-        BuyerCard::Textiles2Vermilion, BuyerCard::Textiles2Amber, BuyerCard::Textiles2Chartreuse,
-        BuyerCard::Textiles2Teal, BuyerCard::Textiles2Indigo, BuyerCard::Textiles2Magenta,
+        SellCard::Textiles2Vermilion, SellCard::Textiles2Amber, SellCard::Textiles2Chartreuse,
+        SellCard::Textiles2Teal, SellCard::Textiles2Indigo, SellCard::Textiles2Magenta,
         // Textiles 2-star, secondary+primary (9)
-        BuyerCard::Textiles2OrangeRed, BuyerCard::Textiles2OrangeYellow, BuyerCard::Textiles2OrangeBlue,
-        BuyerCard::Textiles2GreenRed, BuyerCard::Textiles2GreenYellow, BuyerCard::Textiles2GreenBlue,
-        BuyerCard::Textiles2PurpleRed, BuyerCard::Textiles2PurpleYellow, BuyerCard::Textiles2PurpleBlue,
+        SellCard::Textiles2OrangeRed, SellCard::Textiles2OrangeYellow, SellCard::Textiles2OrangeBlue,
+        SellCard::Textiles2GreenRed, SellCard::Textiles2GreenYellow, SellCard::Textiles2GreenBlue,
+        SellCard::Textiles2PurpleRed, SellCard::Textiles2PurpleYellow, SellCard::Textiles2PurpleBlue,
         // Textiles 2-star, triple primary (3)
-        BuyerCard::Textiles2RedRedRed, BuyerCard::Textiles2YellowYellowYellow, BuyerCard::Textiles2BlueBlueBlue,
+        SellCard::Textiles2RedRedRed, SellCard::Textiles2YellowYellowYellow, SellCard::Textiles2BlueBlueBlue,
         // Ceramics 3-star, tertiary+primary (18)
-        BuyerCard::Ceramics3VermilionRed, BuyerCard::Ceramics3VermilionYellow, BuyerCard::Ceramics3VermilionBlue,
-        BuyerCard::Ceramics3AmberRed, BuyerCard::Ceramics3AmberYellow, BuyerCard::Ceramics3AmberBlue,
-        BuyerCard::Ceramics3ChartreuseRed, BuyerCard::Ceramics3ChartreuseYellow, BuyerCard::Ceramics3ChartreuseBlue,
-        BuyerCard::Ceramics3TealRed, BuyerCard::Ceramics3TealYellow, BuyerCard::Ceramics3TealBlue,
-        BuyerCard::Ceramics3IndigoRed, BuyerCard::Ceramics3IndigoYellow, BuyerCard::Ceramics3IndigoBlue,
-        BuyerCard::Ceramics3MagentaRed, BuyerCard::Ceramics3MagentaYellow, BuyerCard::Ceramics3MagentaBlue,
+        SellCard::Ceramics3VermilionRed, SellCard::Ceramics3VermilionYellow, SellCard::Ceramics3VermilionBlue,
+        SellCard::Ceramics3AmberRed, SellCard::Ceramics3AmberYellow, SellCard::Ceramics3AmberBlue,
+        SellCard::Ceramics3ChartreuseRed, SellCard::Ceramics3ChartreuseYellow, SellCard::Ceramics3ChartreuseBlue,
+        SellCard::Ceramics3TealRed, SellCard::Ceramics3TealYellow, SellCard::Ceramics3TealBlue,
+        SellCard::Ceramics3IndigoRed, SellCard::Ceramics3IndigoYellow, SellCard::Ceramics3IndigoBlue,
+        SellCard::Ceramics3MagentaRed, SellCard::Ceramics3MagentaYellow, SellCard::Ceramics3MagentaBlue,
         // Paintings 4-star, tertiary+secondary (18)
-        BuyerCard::Paintings4VermilionOrange, BuyerCard::Paintings4VermilionGreen, BuyerCard::Paintings4VermilionPurple,
-        BuyerCard::Paintings4AmberOrange, BuyerCard::Paintings4AmberGreen, BuyerCard::Paintings4AmberPurple,
-        BuyerCard::Paintings4ChartreuseOrange, BuyerCard::Paintings4ChartreuseGreen, BuyerCard::Paintings4ChartreusePurple,
-        BuyerCard::Paintings4TealOrange, BuyerCard::Paintings4TealGreen, BuyerCard::Paintings4TealPurple,
-        BuyerCard::Paintings4IndigoOrange, BuyerCard::Paintings4IndigoGreen, BuyerCard::Paintings4IndigoPurple,
-        BuyerCard::Paintings4MagentaOrange, BuyerCard::Paintings4MagentaGreen, BuyerCard::Paintings4MagentaPurple,
+        SellCard::Paintings4VermilionOrange, SellCard::Paintings4VermilionGreen, SellCard::Paintings4VermilionPurple,
+        SellCard::Paintings4AmberOrange, SellCard::Paintings4AmberGreen, SellCard::Paintings4AmberPurple,
+        SellCard::Paintings4ChartreuseOrange, SellCard::Paintings4ChartreuseGreen, SellCard::Paintings4ChartreusePurple,
+        SellCard::Paintings4TealOrange, SellCard::Paintings4TealGreen, SellCard::Paintings4TealPurple,
+        SellCard::Paintings4IndigoOrange, SellCard::Paintings4IndigoGreen, SellCard::Paintings4IndigoPurple,
+        SellCard::Paintings4MagentaOrange, SellCard::Paintings4MagentaGreen, SellCard::Paintings4MagentaPurple,
     ]
 }

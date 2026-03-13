@@ -3,10 +3,10 @@ use std::collections::HashMap;
 use eframe::egui;
 
 use colori_core::game_log::{StructuredGameLog, StructuredLogEntry};
-use colori_core::types::{BuyerInstance, CardInstance, ALL_COLORS, ALL_MATERIAL_TYPES};
+use colori_core::types::{SellCardInstance, CardInstance, ALL_COLORS, ALL_MATERIAL_TYPES};
 
 use crate::analysis::computations::{
-    build_buyer_instance_map, build_card_instance_map, buyer_name_from_instance,
+    build_sell_card_instance_map, build_card_instance_map, sell_card_name_from_instance,
     final_score_ranking, format_choice,
 };
 
@@ -37,7 +37,7 @@ pub struct GameViewerState {
     pub error: Option<String>,
     pub selected_player: Option<usize>,
     card_map: Option<HashMap<u32, CardInstance>>,
-    buyer_map: Option<HashMap<u32, BuyerInstance>>,
+    sell_card_map: Option<HashMap<u32, SellCardInstance>>,
 }
 
 impl GameViewerState {
@@ -47,7 +47,7 @@ impl GameViewerState {
             error: None,
             selected_player: None,
             card_map: None,
-            buyer_map: None,
+            sell_card_map: None,
         }
     }
 
@@ -56,9 +56,9 @@ impl GameViewerState {
             Ok(contents) => match serde_json::from_str::<StructuredGameLog>(&contents) {
                 Ok(game) => {
                     let card_map = build_card_instance_map(&game);
-                    let buyer_map = build_buyer_instance_map(&game);
+                    let sell_card_map = build_sell_card_instance_map(&game);
                     self.card_map = Some(card_map);
-                    self.buyer_map = Some(buyer_map);
+                    self.sell_card_map = Some(sell_card_map);
                     self.game = Some(game);
                     self.error = None;
                     self.selected_player = None;
@@ -67,14 +67,14 @@ impl GameViewerState {
                     self.error = Some(format!("Failed to parse game log: {}", e));
                     self.game = None;
                     self.card_map = None;
-                    self.buyer_map = None;
+                    self.sell_card_map = None;
                 }
             },
             Err(e) => {
                 self.error = Some(format!("Failed to read file: {}", e));
                 self.game = None;
                 self.card_map = None;
-                self.buyer_map = None;
+                self.sell_card_map = None;
             }
         }
     }
@@ -97,9 +97,9 @@ impl GameViewerState {
             // Reborrow fields individually to avoid borrowing self while game is borrowed.
             let game = self.game.as_ref().unwrap();
             let card_map = self.card_map.as_ref().unwrap();
-            let buyer_map = self.buyer_map.as_ref().unwrap();
+            let sell_card_map = self.sell_card_map.as_ref().unwrap();
             let selected_player = &mut self.selected_player;
-            render_game(ui, game, card_map, buyer_map, selected_player);
+            render_game(ui, game, card_map, sell_card_map, selected_player);
         }
     }
 }
@@ -108,7 +108,7 @@ fn render_game(
     ui: &mut egui::Ui,
     game: &StructuredGameLog,
     card_map: &HashMap<u32, CardInstance>,
-    buyer_map: &HashMap<u32, BuyerInstance>,
+    sell_card_map: &HashMap<u32, SellCardInstance>,
     selected_player: &mut Option<usize>,
 ) {
     egui::ScrollArea::vertical().show(ui, |ui| {
@@ -128,7 +128,7 @@ fn render_game(
         ui.add_space(8.0);
 
         // 4. Round-by-round timeline
-        render_timeline(ui, game, card_map, buyer_map, *selected_player);
+        render_timeline(ui, game, card_map, sell_card_map, *selected_player);
     });
 }
 
@@ -250,11 +250,11 @@ fn render_final_state(
                         }
                     }
 
-                    // Completed buyers
-                    if !stats.completed_buyers.is_empty() {
-                        ui.label("Completed buyers:");
-                        for buyer in &stats.completed_buyers {
-                            ui.label(format!("  {}", buyer_name_from_instance(buyer.buyer)));
+                    // Completed sell cards
+                    if !stats.completed_sell_cards.is_empty() {
+                        ui.label("Completed sell cards:");
+                        for sell_card in &stats.completed_sell_cards {
+                            ui.label(format!("  {}", sell_card_name_from_instance(sell_card.sell_card)));
                         }
                     }
                 });
@@ -306,7 +306,7 @@ fn render_timeline(
     ui: &mut egui::Ui,
     game: &StructuredGameLog,
     _card_map: &HashMap<u32, CardInstance>,
-    _buyer_map: &HashMap<u32, BuyerInstance>,
+    _sell_card_map: &HashMap<u32, SellCardInstance>,
     selected_player: Option<usize>,
 ) {
     let round_groups = build_round_groups(&game.entries, selected_player);

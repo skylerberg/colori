@@ -1,4 +1,4 @@
-import type { Card, BuyerCard } from './types';
+import type { Card, SellCard } from './types';
 
 const CARD_ART_BASE_PATH = '/cards/';
 
@@ -40,7 +40,7 @@ export function getCardArtFilename(card: Card): string {
   return pascalToKebab(card) + '.webp';
 }
 
-// Buyer card mapping: "Textiles2Vermilion" -> "vermilion-textile.webp"
+// Sell card mapping: "Textiles2Vermilion" -> "vermilion-textile.webp"
 // "Ceramics3AmberRed" -> "amber-red-ceramic.webp"
 // "Paintings4TealOrange" -> "teal-orange-painting.webp"
 // "Textiles2RedRedRed" -> "red-red-red-textile.webp"
@@ -50,8 +50,8 @@ const MATERIAL_SINGULAR: Record<string, string> = {
   Paintings: 'painting',
 };
 
-export function getBuyerArtFilename(buyer: BuyerCard): string {
-  const match = buyer.match(/^(Textiles|Ceramics|Paintings)(\d)(.+)$/);
+export function getSellCardArtFilename(sellCard: SellCard): string {
+  const match = sellCard.match(/^(Textiles|Ceramics|Paintings)(\d)(.+)$/);
   if (!match) return 'basic-red.webp'; // fallback
   const [, material, , colorPart] = match;
   // Split PascalCase color names: "AmberRed" -> ["Amber", "Red"], "RedRedRed" -> ["Red", "Red", "Red"]
@@ -64,6 +64,6 @@ export function getCardArtUrl(card: Card): string {
   return CARD_ART_BASE_PATH + getCardArtFilename(card);
 }
 
-export function getBuyerArtUrl(buyer: BuyerCard): string {
-  return CARD_ART_BASE_PATH + getBuyerArtFilename(buyer);
+export function getSellCardArtUrl(sellCard: SellCard): string {
+  return CARD_ART_BASE_PATH + getSellCardArtFilename(sellCard);
 }

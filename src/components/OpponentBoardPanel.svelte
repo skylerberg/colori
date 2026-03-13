@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { PlayerState } from '../data/types';
-  import { getBuyerData } from '../data/cards';
+  import { getSellCardData } from '../data/cards';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import CardList from './CardList.svelte';
 
@@ -11,8 +11,8 @@
 
   let expanded = $state(false);
 
-  let score = $derived(player.completedBuyers.reduce((sum, buyer) => sum + getBuyerData(buyer.card).stars, 0) + player.ducats);
-  let buyerCount = $derived(player.completedBuyers.length);
+  let score = $derived(player.completedSellCards.reduce((sum, sellCard) => sum + getSellCardData(sellCard.card).stars, 0) + player.ducats);
+  let sellCardCount = $derived(player.completedSellCards.length);
   let totalMaterials = $derived(Object.values(player.materials).reduce((sum, n) => sum + n, 0));
 
   function toggle() {
@@ -25,7 +25,7 @@
     <span class="player-name">{playerName}</span>
     <span class="header-stats">
       <span>* {score}</span>
-      <span>Buyers: {buyerCount}</span>
+      <span>Sell Cards: {sellCardCount}</span>
       <span>Materials: {totalMaterials}</span>
       {#if player.ducats > 0}<span>Ducats: {player.ducats}</span>{/if}
     </span>
@@ -63,10 +63,10 @@
         <CardList cards={[...player.workshopCards, ...player.workshoppedCards]} rotatedIds={player.workshoppedCards.map(c => c.instanceId)} />
       </div>
 
-      {#if player.completedBuyers.length > 0}
+      {#if player.completedSellCards.length > 0}
         <div class="card-section">
-          <h4>Completed Buyers</h4>
-          <CardList cards={player.completedBuyers} />
+          <h4>Completed Sell Cards</h4>
+          <CardList cards={player.completedSellCards} />
         </div>
       {/if}
     </div>

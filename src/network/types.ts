@@ -1,4 +1,4 @@
-import type { CardInstance, BuyerInstance, GlassInstance, Color, MaterialType, Ability, Expansions } from '../data/types';
+import type { CardInstance, SellCardInstance, GlassInstance, Color, MaterialType, Ability, Expansions } from '../data/types';
 import type { Choice } from '../data/types';
 
 export interface SanitizedPlayerState {
@@ -9,7 +9,7 @@ export interface SanitizedPlayerState {
   draftedCards: CardInstance[];
   colorWheel: Record<Color, number>;
   materials: Record<MaterialType, number>;
-  completedBuyers: BuyerInstance[];
+  completedSellCards: SellCardInstance[];
   completedGlass: GlassInstance[];
   ducats: number;
 }
@@ -37,8 +37,8 @@ export interface SanitizedGameState {
   players: SanitizedPlayerState[];
   draftDeckCount: number;
   destroyedPile: CardInstance[];
-  buyerDeckCount: number;
-  buyerDisplay: BuyerInstance[];
+  sellCardDeckCount: number;
+  sellCardDisplay: SellCardInstance[];
   glassDeckCount: number;
   glassDisplay: GlassInstance[];
   expansions: Expansions;

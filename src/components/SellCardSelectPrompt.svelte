@@ -4,14 +4,14 @@
   import { getGlassCardData } from '../data/glassCards';
   import { colorToHex, textColorForBackground } from '../data/colors';
   import { PRIMARIES } from '../data/cards';
-  import BuyerDisplay from './BuyerDisplay.svelte';
+  import SellCardDisplay from './SellCardDisplay.svelte';
 
   let { gameState, onAction }: {
     gameState: GameState;
     onAction: (choice: Choice) => void;
   } = $props();
 
-  let selectedBuyerId: number | undefined = $state(undefined);
+  let selectedSellCardId: number | undefined = $state(undefined);
   let selectedGlassId: number | undefined = $state(undefined);
   let selectedPayColor: Color | undefined = $state(undefined);
 
@@ -35,19 +35,19 @@
   // Reset when gameState changes
   $effect(() => {
     const _gs = gameState;
-    selectedBuyerId = undefined;
+    selectedSellCardId = undefined;
     selectedGlassId = undefined;
     selectedPayColor = undefined;
   });
 
-  function toggleBuyerSelect(buyerInstanceId: number) {
+  function toggleSellCardSelect(sellCardInstanceId: number) {
     selectedGlassId = undefined;
     selectedPayColor = undefined;
-    selectedBuyerId = selectedBuyerId === buyerInstanceId ? undefined : buyerInstanceId;
+    selectedSellCardId = selectedSellCardId === sellCardInstanceId ? undefined : sellCardInstanceId;
   }
 
   function toggleGlassSelect(glassInstanceId: number) {
-    selectedBuyerId = undefined;
+    selectedSellCardId = undefined;
     if (selectedGlassId === glassInstanceId) {
       selectedGlassId = undefined;
       selectedPayColor = undefined;
@@ -57,11 +57,11 @@
     }
   }
 
-  function confirmBuyer() {
-    if (selectedBuyerId === undefined) return;
-    const buyerInstance = gameState.buyerDisplay.find(b => b.instanceId === selectedBuyerId);
-    if (!buyerInstance) return;
-    onAction({ type: 'selectBuyer', buyer: buyerInstance.card });
+  function confirmSellCard() {
+    if (selectedSellCardId === undefined) return;
+    const sellCardInstance = gameState.sellCardDisplay.find(b => b.instanceId === selectedSellCardId);
+    if (!sellCardInstance) return;
+    onAction({ type: 'selectSellCard', sellCard: sellCardInstance.card });
   }
 
   function confirmGlass() {
@@ -73,21 +73,21 @@
 </script>
 
 <div class="prompt-section">
-  <h3>Choose a Buyer{#if glassEnabled} or Glass Card{/if}</h3>
+  <h3>Choose a Sell Card{#if glassEnabled} or Glass Card{/if}</h3>
   <div class="side-by-side">
-    <div class="buyer-side">
-      <BuyerDisplay
-        buyers={gameState.buyerDisplay.filter(g => canSell(gameState, g.instanceId))}
+    <div class="sell-card-side">
+      <SellCardDisplay
+        sellCards={gameState.sellCardDisplay.filter(g => canSell(gameState, g.instanceId))}
         selectable={true}
-        selectedId={selectedBuyerId}
-        onSelect={toggleBuyerSelect}
+        selectedId={selectedSellCardId}
+        onSelect={toggleSellCardSelect}
       />
       <button
         class="confirm-btn"
-        disabled={selectedBuyerId === undefined}
-        onclick={confirmBuyer}
+        disabled={selectedSellCardId === undefined}
+        onclick={confirmSellCard}
       >
-        Confirm Buyer
+        Confirm Sell Card
       </button>
     </div>
 
@@ -158,7 +158,7 @@
     gap: 12px;
   }
 
-  .buyer-side {
+  .sell-card-side {
     flex: 1;
     display: flex;
     flex-direction: column;

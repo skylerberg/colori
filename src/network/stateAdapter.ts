@@ -1,4 +1,4 @@
-import type { GameState, PlayerState, GamePhase, CardInstance, BuyerInstance, GlassInstance } from '../data/types';
+import type { GameState, PlayerState, GamePhase, CardInstance, SellCardInstance, GlassInstance } from '../data/types';
 import type { SanitizedGameState } from './types';
 
 export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
@@ -10,7 +10,7 @@ export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
     draftedCards: sp.draftedCards,
     colorWheel: sp.colorWheel,
     materials: sp.materials,
-    completedBuyers: sp.completedBuyers,
+    completedSellCards: sp.completedSellCards,
     completedGlass: sp.completedGlass ?? [],
     ducats: sp.ducats,
   }));
@@ -37,8 +37,8 @@ export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
     players,
     draftDeck: new Array(sanitized.draftDeckCount) as CardInstance[],
     destroyedPile: sanitized.destroyedPile,
-    buyerDeck: new Array(sanitized.buyerDeckCount) as BuyerInstance[],
-    buyerDisplay: sanitized.buyerDisplay,
+    sellCardDeck: new Array(sanitized.sellCardDeckCount) as SellCardInstance[],
+    sellCardDisplay: sanitized.sellCardDisplay,
     glassDeck: new Array(sanitized.glassDeckCount ?? 0) as GlassInstance[],
     glassDisplay: sanitized.glassDisplay ?? [],
     expansions: sanitized.expansions ?? { glass: false },

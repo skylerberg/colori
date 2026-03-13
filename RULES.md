@@ -2,7 +2,7 @@
 
 ## Overview
 
-Colori is a deck-building game for 2–5 players about dyeing materials and selling to buyers. Players draft dye, material, and action cards, destroy them to store colors on a color wheel, mix colors, and sell to buyers worth stars. The game lasts up to 20 rounds, or until any player reaches 16 points. The player with the most points (buyer stars + ducats) wins.
+Colori is a deck-building game for 2–5 players about dyeing materials and selling to sell cards. Players draft dye, material, and action cards, destroy them to store colors on a color wheel, mix colors, and sell to sell cards worth stars. The game lasts up to 20 rounds, or until any player reaches 16 points. The player with the most points (sell card stars + ducats) wins.
 
 ## Components
 
@@ -21,18 +21,18 @@ Each player has their own color wheel that tracks how many of each color they ha
 ### Cards
 
 **Basic Dye Cards** (3 types, 1 per player in starting decks only):
-- Basic Red — 1 Red pip | Destroy: Sell
-- Basic Yellow — 1 Yellow pip | Destroy: Sell
-- Basic Blue — 1 Blue pip | Destroy: Sell
+- Basic Red — 1 Red color | Destroy: Sell
+- Basic Yellow — 1 Yellow color | Destroy: Sell
+- Basic Blue — 1 Blue color | Destroy: Sell
 
 **Dye Cards** (21 unique, 3 copies each, 63 total in draft deck):
-- 3 Pure primary dyes — 3 pips of one primary color | Destroy: Mix Colors ×3
-- 6 Primary dyes — 2 pips of one primary + 1 pip of a different primary | Destroy: Workshop ×3
-- 6 Secondary dyes — 2 pips of two adjacent primary/secondary colors | Destroy: Mix Colors ×2
-- 6 Tertiary dyes — 1 pip of a tertiary color | Destroy: Sell
+- 3 Pure primary dyes — 3 colors of one primary color | Destroy: Mix Colors ×3
+- 6 Primary dyes — 2 colors of one primary + 1 color of a different primary | Destroy: Workshop ×3
+- 6 Secondary dyes — 2 colors of two adjacent primary/secondary colors | Destroy: Mix Colors ×2
+- 6 Tertiary dyes — 1 color of a tertiary color | Destroy: Sell
 
 **Material Cards** (3 types in starting deck, 1 per player; 12 unique draft material cards in draft deck):
-Starting deck materials gain 1 material when workshopped. Draft material cards offer enhanced gains: material + color pip, or dual materials.
+Starting deck materials gain 1 material when workshopped. Draft material cards offer enhanced gains: material + color, or dual materials.
 - Ceramics | Destroy: Workshop ×2
 - Paintings | Destroy: Sell
 - Textiles | Destroy: Draw Cards ×2
@@ -40,13 +40,13 @@ Starting deck materials gain 1 material when workshopped. Draft material cards o
 **Action Cards** (4 unique in draft deck, 4 copies each, 16 total; plus Chalk as a starter card):
 Each action card has a destroy ability plus workshop abilities that trigger when the card is chosen during Workshop resolution. See the card reference below.
 
-**Buyer Cards** (54 total, single deck):
-Each buyer requires 1 of a specific material type and a set of colors as its cost. All 54 buyers are shuffled into a single deck. Each buyer is worth 2–4 stars.
+**Sell Cards** (54 total, single deck):
+Each sell card requires 1 of a specific material type and a set of colors as its cost. All 54 sell cards are shuffled into a single deck. Each sell card is worth 2–4 stars.
 
 ### Decks
 
 - **Draft Deck**: Contains 63 dye cards + 15 draft material cards + 16 action cards (94 total). When the draft deck runs out, shuffle all destroyed cards back in.
-- **Buyer Deck**: Contains all buyer cards. numPlayers + 1 buyers are displayed face-up at all times.
+- **Sell Card Deck**: Contains all sell cards. numPlayers + 1 sell cards are displayed face-up at all times.
 - **Personal Deck**: Each player has their own deck that they draw from and build over the course of the game.
 
 ## Setup
@@ -54,7 +54,7 @@ Each buyer requires 1 of a specific material type and a set of colors as its cos
 1. Each player receives a starting personal deck of 7 cards: 1 Basic Red, 1 Basic Yellow, 1 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles, 1 Chalk. Shuffle it.
 2. Each player starts with 1 Red, 1 Yellow, and 1 Blue already stored on their color wheel.
 3. Place all dye cards (3 copies each), 15 unique draft material cards, and action cards (4 copies each) into the draft deck. Shuffle it.
-4. Shuffle the buyer deck and reveal numPlayers + 1 buyers face-up in the buyer display.
+4. Shuffle the sell card deck and reveal numPlayers + 1 sell cards face-up in the sell card display.
 
 ## Player Area
 
@@ -66,7 +66,7 @@ Each player has:
 - **Color Wheel** (tracks stored colors)
 - **Stored Materials** (tracks Textiles, Ceramics, and Paintings counts)
 - **Ducats** (count toward final score)
-- **Completed Buyers** (scored buyers, kept in a separate area)
+- **Completed Sell Cards** (scored sell cards, kept in a separate area)
 
 ## Round Structure
 
@@ -108,8 +108,8 @@ When a card is destroyed, its destroy ability triggers. Abilities are resolved u
 Choose up to N cards from your **workshop**. You may skip Workshop entirely (choosing 0 cards).
 
 For each chosen card:
-- **Material card**: Store all materials listed on the card (e.g., 2x Ceramics, or 1 Ceramics + 1 Paintings). If the card has a color pip, also store that color on your color wheel. The card is discarded.
-- **Dye or basic dye card**: Store ALL of its color pips on your color wheel. The card is discarded.
+- **Material card**: Store all materials listed on the card (e.g., 2x Ceramics, or 1 Ceramics + 1 Paintings). If the card has a color, also store that color on your color wheel. The card is discarded.
+- **Dye or basic dye card**: Store ALL of its colors on your color wheel. The card is discarded.
 - **Action card**: Consumes 1 pick. The action card's workshop abilities are pushed onto the ability stack, and any remaining Workshop picks carry over (pushed below the workshop abilities on the stack). The card is discarded.
 
 ### Draw Cards ×N
@@ -142,14 +142,14 @@ Choose N cards from your **workshop** and destroy them. Each destroyed card's ab
 
 ### Sell
 
-You **must** sell to a buyer if you are able to. If you cannot afford any buyer in the display, the ability fizzles (nothing happens).
+You **must** sell to a sell card if you are able to. If you cannot afford any sell card in the display, the ability fizzles (nothing happens).
 
-To sell to a buyer:
-1. Choose a buyer from the face-up buyers in the display.
+To sell to a sell card:
+1. Choose a sell card from the face-up sell cards in the display.
 2. Spend 1 stored material of the required type.
 3. Pay the color cost by removing the required colors from your color wheel.
-4. The buyer goes to your **completed buyers** area.
-5. Immediately refill the buyer display from the buyer deck.
+4. The sell card goes to your **completed sell cards** area.
+5. Immediately refill the sell card display from the sell card deck.
 
 ### Gain Ducats ×N
 
@@ -173,7 +173,7 @@ The game ends when either:
 - Any player reaches **16 or more points** after a complete round, OR
 - **Round 20** is completed.
 
-Each player's score = buyer stars + ducats. The player with the highest score wins.
+Each player's score = sell card stars + ducats. The player with the highest score wins.
 
 ---
 
@@ -189,7 +189,7 @@ Each player's score = buyer stars + ducats. The player with the highest score wi
 
 ### Dye Cards (21 unique, 3 copies each in draft deck)
 
-**Pure Primary Dyes** (3 pips of one primary color):
+**Pure Primary Dyes** (3 colors of one primary color):
 
 | Name | Colors | Destroy Ability |
 |------|--------|-----------------|
@@ -197,7 +197,7 @@ Each player's score = buyer stars + ducats. The player with the highest score wi
 | Weld | 3 Yellow | Destroy Cards ×1 |
 | Woad | 3 Blue | Destroy Cards ×1 |
 
-**Primary Dyes** (2 pips of one primary + 1 pip of a different primary):
+**Primary Dyes** (2 colors of one primary + 1 color of a different primary):
 
 | Name | Colors | Destroy Ability |
 |------|--------|-----------------|
@@ -208,7 +208,7 @@ Each player's score = buyer stars + ducats. The player with the highest score wi
 | Elderberry | 2 Blue, 1 Red | Workshop ×3 |
 | Turnsole | 2 Blue, 1 Yellow | Workshop ×3 |
 
-**Secondary Dyes** (2 pips of adjacent colors):
+**Secondary Dyes** (2 colors of adjacent colors):
 
 | Name | Colors | Destroy Ability |
 |------|--------|-----------------|
@@ -219,7 +219,7 @@ Each player's score = buyer stars + ducats. The player with the highest score wi
 | Orchil | 1 Purple, 1 Red | Mix Colors ×2 |
 | Logwood | 1 Purple, 1 Blue | Mix Colors ×2 |
 
-**Tertiary Dyes** (1 pip of a tertiary color):
+**Tertiary Dyes** (1 color of a tertiary color):
 
 | Name | Colors | Destroy Ability |
 |------|--------|-----------------|
@@ -240,8 +240,8 @@ Each player's score = buyer stars + ducats. The player with the highest score wi
 
 ### Draft Material Cards (12 unique in draft deck)
 
-| Name | Material Gain | Color Pip | Destroy Ability |
-|------|--------------|-----------|-----------------|
+| Name | Material Gain | Color | Destroy Ability |
+|------|--------------|-------|-----------------|
 | Terra Cotta | 1 Ceramics | Red | Workshop ×2 |
 | Ochre Ware | 1 Ceramics | Yellow | Workshop ×2 |
 | Cobalt Ware | 1 Ceramics | Blue | Workshop ×2 |
@@ -268,9 +268,9 @@ Their workshop abilities (triggered when chosen during Workshop resolution) are:
 | Potash | Draw Cards ×2 | Workshop ×3 | Draft deck |
 | Vinegar | Destroy Cards ×1 | Change Tertiary | Temporarily removed from draft deck |
 
-### Buyer Cards (54 total, single deck)
+### Sell Cards (54 total, single deck)
 
-Buyers do not have names. Each buyer requires 1 of a specific material type and a set of colors as its cost.
+Sell cards do not have names. Each sell card requires 1 of a specific material type and a set of colors as its cost.
 
 | Material | Stars | Requirement | Count |
 |----------|-------|-------------|-------|
@@ -278,4 +278,4 @@ Buyers do not have names. Each buyer requires 1 of a specific material type and 
 | Ceramics | 3 | One tertiary + one primary | 18 |
 | Paintings | 4 | One tertiary + one secondary | 18 |
 
-All 54 buyers are shuffled into a single deck. numPlayers + 1 buyers are displayed face-up at all times.
+All 54 sell cards are shuffled into a single deck. numPlayers + 1 sell cards are displayed face-up at all times.

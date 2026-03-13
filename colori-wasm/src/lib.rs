@@ -7,7 +7,7 @@ use colori_core::scoring::calculate_score;
 use colori_core::setup::{create_initial_game_state, create_initial_game_state_with_expansions};
 use colori_core::types::{Card, CardInstance, Choice, Expansions, GameState, PlayerState};
 use colori_core::unordered_cards::{
-    get_buyer_registry, get_card_registry, set_buyer_registry, set_card_registry,
+    get_card_registry, get_sell_card_registry, set_card_registry, set_sell_card_registry,
 };
 use rand::SeedableRng;
 use wyrand::WyRand;
@@ -17,7 +17,7 @@ fn deserialize_state(json: &str) -> GameState {
     let mut state: GameState =
         serde_json::from_str(json).expect("Failed to parse game state JSON");
     state.card_lookup = get_card_registry();
-    state.buyer_lookup = get_buyer_registry();
+    state.sell_card_lookup = get_sell_card_registry();
     for p in state.players.iter_mut() {
         p.cached_score = calculate_score(p);
     }
@@ -26,7 +26,7 @@ fn deserialize_state(json: &str) -> GameState {
 
 fn serialize_state(state: &GameState) -> String {
     set_card_registry(&state.card_lookup);
-    set_buyer_registry(&state.buyer_lookup);
+    set_sell_card_registry(&state.sell_card_lookup);
     serde_json::to_string(state).expect("Failed to serialize game state")
 }
 

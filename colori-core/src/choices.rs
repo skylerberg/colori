@@ -1,4 +1,4 @@
-use crate::action_phase::{can_afford_buyer, can_sell_to_any_buyer};
+use crate::action_phase::{can_afford_sell_card, can_sell_to_any_sell_card};
 use crate::apply_choice::resolve_card_types_to_ids;
 use crate::colors::{can_mix, is_primary, is_tertiary, perform_mix_unchecked, PRIMARIES, SECONDARIES, TERTIARIES, VALID_MIX_PAIRS};
 use crate::types::*;
@@ -133,13 +133,13 @@ fn enumerate_destroy_choices(
             );
         }
         Ability::Sell => {
-            let mut has_buyer = false;
-            for buyer in state.buyer_display.iter() {
-                if can_afford_buyer(player, &buyer.buyer) {
-                    has_buyer = true;
+            let mut has_sell_card = false;
+            for sell_card in state.sell_card_display.iter() {
+                if can_afford_sell_card(player, &sell_card.sell_card) {
+                    has_sell_card = true;
                     choices.push(Choice::DestroyAndSell {
                         card,
-                        buyer: buyer.buyer,
+                        sell_card: sell_card.sell_card,
                     });
                 }
             }
@@ -148,7 +148,7 @@ fn enumerate_destroy_choices(
                 for gi in state.glass_display.iter() {
                     for &color in &PRIMARIES {
                         if player.color_wheel.get(color) >= 4 {
-                            has_buyer = true;
+                            has_sell_card = true;
                             choices.push(Choice::DestroyAndSelectGlass {
                                 card,
                                 glass: gi.glass,
@@ -158,7 +158,7 @@ fn enumerate_destroy_choices(
                     }
                 }
             }
-            if !has_buyer {
+            if !has_sell_card {
                 choices.push(Choice::DestroyDraftedCard { card });
             }
         }
@@ -428,10 +428,10 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                     );
                 }
                 Some(Ability::Sell) => {
-                    for buyer in state.buyer_display.iter() {
-                        if can_afford_buyer(player, &buyer.buyer) {
-                            choices.push(Choice::SelectBuyer {
-                                buyer: buyer.buyer,
+                    for sell_card in state.sell_card_display.iter() {
+                        if can_afford_sell_card(player, &sell_card.sell_card) {
+                            choices.push(Choice::SelectSellCard {
+                                sell_card: sell_card.sell_card,
                             });
                         }
                     }
@@ -517,7 +517,7 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
                 return false;
             }
             match card.ability() {
-                Ability::Sell => !can_sell_to_any_buyer(state),
+                Ability::Sell => !can_sell_to_any_sell_card(state),
                 Ability::MixColors { .. } => false,
                 Ability::Workshop { .. } => false,
                 Ability::DestroyCards => false,
@@ -573,12 +573,12 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
                 false
             }
         }
-        Choice::SelectBuyer { buyer } => {
+        Choice::SelectSellCard { sell_card } => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 match action_state.ability_stack.last() {
                     Some(Ability::Sell) => {
                         let player = &state.players[action_state.current_player_index];
-                        state.buyer_display.iter().any(|b| b.buyer == *buyer && can_afford_buyer(player, &b.buyer))
+                        state.sell_card_display.iter().any(|b| b.sell_card == *sell_card && can_afford_sell_card(player, &b.sell_card))
                     }
                     _ => false,
                 }
@@ -666,7 +666,7 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
             }
             true
         }
-        Choice::DestroyAndSell { card, buyer } => {
+        Choice::DestroyAndSell { card, sell_card } => {
             if !check_destroy_preconditions(state, card) {
                 return false;
             }
@@ -674,7 +674,7 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
                 GamePhase::Action { action_state } => action_state.current_player_index,
                 _ => return false,
             }];
-            state.buyer_display.iter().any(|b| b.buyer == *buyer && can_afford_buyer(player, &b.buyer))
+            state.sell_card_display.iter().any(|b| b.sell_card == *sell_card && can_afford_sell_card(player, &b.sell_card))
         }
         Choice::DestroyAndWorkshop { card, workshop_cards } => {
             if !check_destroy_preconditions(state, card) {

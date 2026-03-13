@@ -1,6 +1,6 @@
 # Colori
 
-Colori is a strategic deck-building card game for 2-5 players about dyeing materials and selling to buyers. Complete game rules are in `RULES.md`.
+Colori is a strategic deck-building card game for 2-5 players about dyeing materials and selling to sell cards. Complete game rules are in `RULES.md`.
 
 ## Tech Stack
 
@@ -45,7 +45,7 @@ Rust workspace with 4 crates plus a Svelte frontend:
 - Frontend runs AI in Web Workers; draft picks are precomputed for responsiveness
 - Online multiplayer is peer-to-peer via trystero (WebRTC); opponent hands are sanitized before sending
 - Cross-language FFI: Rust ↔ WASM (JSON) ↔ TypeScript
-- Card instance IDs (`cardInstanceId`) and buyer instance IDs (`buyerInstanceId`) use separate counters both starting from 0. In game logs, look up card IDs in `draftDeck` and player decks; look up buyer IDs in `buyerDeck` and `buyerDisplay`.
+- Card instance IDs (`cardInstanceId`) and sell card instance IDs (`sellCardInstanceId`) use separate counters both starting from 0. In game logs, look up card IDs in `draftDeck` and player decks; look up sell card IDs in `sellCardDeck` and `sellCardDisplay`.
 
 ## Testing
 
