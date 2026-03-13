@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use eframe::egui;
 use colori_core::cards::{
     action_cards, argol_card, basic_dye_cards, draft_material_cards, dye_cards,
-    generate_all_buyers, starter_material_cards, ACTION_COPIES, DYE_COPIES, MATERIAL_COPIES,
+    generate_all_sell_cards, starter_material_cards, ACTION_COPIES, DYE_COPIES, MATERIAL_COPIES,
 };
 use colori_core::types::{Card, CardKind, Color, MaterialType};
 
@@ -16,13 +16,13 @@ pub fn render_card_reference_tab(ui: &mut egui::Ui) {
         ui.add_space(8.0);
         render_ability_distribution(ui);
         ui.add_space(8.0);
-        render_buyer_summary(ui);
+        render_sell_card_summary(ui);
         ui.add_space(8.0);
         render_category_details(ui);
         ui.add_space(8.0);
         render_starter_cards(ui);
         ui.add_space(8.0);
-        render_buyers_by_stars(ui);
+        render_sell_cards_by_stars(ui);
     });
 }
 
@@ -113,13 +113,13 @@ fn render_ability_distribution(ui: &mut egui::Ui) {
         });
 }
 
-fn render_buyer_summary(ui: &mut egui::Ui) {
-    let id = ui.make_persistent_id("buyer_summary");
-    egui::CollapsingHeader::new("Buyer Summary")
+fn render_sell_card_summary(ui: &mut egui::Ui) {
+    let id = ui.make_persistent_id("sell_card_summary");
+    egui::CollapsingHeader::new("Sell Card Summary")
         .id_salt(id)
         .default_open(true)
         .show(ui, |ui| {
-            let buyers = generate_all_buyers();
+            let sell_cards = generate_all_sell_cards();
 
             // Count by groups
             let mut tertiary_1_count = 0u32;
@@ -128,10 +128,10 @@ fn render_buyer_summary(ui: &mut egui::Ui) {
             let mut ceramics_3_count = 0u32;
             let mut paintings_4_count = 0u32;
 
-            for buyer in &buyers {
-                match buyer.stars() {
+            for sell_card in &sell_cards {
+                match sell_card.stars() {
                     2 => {
-                        let num_colors = buyer.color_cost().len();
+                        let num_colors = sell_card.color_cost().len();
                         match num_colors {
                             1 => tertiary_1_count += 1,
                             2 => secondary_primary_count += 1,
@@ -145,7 +145,7 @@ fn render_buyer_summary(ui: &mut egui::Ui) {
                 }
             }
 
-            egui::Grid::new("buyer_summary_grid")
+            egui::Grid::new("sell_card_summary_grid")
                 .striped(true)
                 .show(ui, |ui| {
                     ui.strong("Stars");
@@ -234,8 +234,8 @@ fn format_color(color: &Color) -> &'static str {
     }
 }
 
-fn format_pips(pips: &[Color]) -> String {
-    pips.iter()
+fn format_colors(colors: &[Color]) -> String {
+    colors.iter()
         .map(|c| format_color(c))
         .collect::<Vec<_>>()
         .join(", ")
@@ -285,7 +285,7 @@ fn render_category_details(ui: &mut egui::Ui) {
                         match kind {
                             Some(CardKind::Dye) => {
                                 ui.strong("Name");
-                                ui.strong("Color Pips");
+                                ui.strong("Colors");
                                 ui.strong("Ability");
                                 ui.strong("Copies");
                                 ui.end_row();
@@ -293,7 +293,7 @@ fn render_category_details(ui: &mut egui::Ui) {
                                 for name in &cat.card_names {
                                     if let Some(card) = find_card_by_name(name) {
                                         ui.label(card.name());
-                                        ui.label(format_pips(card.pips()));
+                                        ui.label(format_colors(card.colors()));
                                         ui.label(format_ability(&card.ability()));
                                         ui.label(copies_for_kind(card.kind()).to_string());
                                         ui.end_row();
@@ -303,7 +303,7 @@ fn render_category_details(ui: &mut egui::Ui) {
                             Some(CardKind::Material) => {
                                 ui.strong("Name");
                                 ui.strong("Material Types");
-                                ui.strong("Color Pip");
+                                ui.strong("Color");
                                 ui.strong("Ability");
                                 ui.strong("Copies");
                                 ui.end_row();
@@ -312,10 +312,10 @@ fn render_category_details(ui: &mut egui::Ui) {
                                     if let Some(card) = find_card_by_name(name) {
                                         ui.label(card.name());
                                         ui.label(format_material_types(card.material_types()));
-                                        let pip_str = if card.pips().is_empty() {
+                                        let pip_str = if card.colors().is_empty() {
                                             "--".to_string()
                                         } else {
-                                            format_pips(card.pips())
+                                            format_colors(card.colors())
                                         };
                                         ui.label(pip_str);
                                         ui.label(format_ability(&card.ability()));
@@ -381,7 +381,7 @@ fn render_starter_cards(ui: &mut egui::Ui) {
                     for card in basic_dye_cards() {
                         ui.label(card.name());
                         ui.label("Basic Dye");
-                        ui.label(format_pips(card.pips()));
+                        ui.label(format_colors(card.colors()));
                         ui.label(format_ability(&card.ability()));
                         ui.end_row();
                     }
@@ -417,19 +417,19 @@ fn render_starter_cards(ui: &mut egui::Ui) {
         });
 }
 
-fn render_buyers_by_stars(ui: &mut egui::Ui) {
-    let id = ui.make_persistent_id("buyers_by_stars");
-    egui::CollapsingHeader::new("Buyers by Star Rating")
+fn render_sell_cards_by_stars(ui: &mut egui::Ui) {
+    let id = ui.make_persistent_id("sell_cards_by_stars");
+    egui::CollapsingHeader::new("Sell Cards by Star Rating")
         .id_salt(id)
         .default_open(false)
         .show(ui, |ui| {
-            let buyers = generate_all_buyers();
+            let sell_cards = generate_all_sell_cards();
 
             for star_level in [2u32, 3, 4] {
-                ui.heading(format!("{}-Star Buyers", star_level));
+                ui.heading(format!("{}-Star Sell Cards", star_level));
                 ui.add_space(4.0);
 
-                let grid_id = format!("buyers_{}star_grid", star_level);
+                let grid_id = format!("sell_cards_{}star_grid", star_level);
                 egui::Grid::new(grid_id)
                     .striped(true)
                     .show(ui, |ui| {
@@ -437,10 +437,10 @@ fn render_buyers_by_stars(ui: &mut egui::Ui) {
                         ui.strong("Color Cost");
                         ui.end_row();
 
-                        for buyer in &buyers {
-                            if buyer.stars() == star_level {
-                                ui.label(format!("{:?}", buyer.required_material()));
-                                ui.label(format_pips(buyer.color_cost()));
+                        for sell_card in &sell_cards {
+                            if sell_card.stars() == star_level {
+                                ui.label(format!("{:?}", sell_card.required_material()));
+                                ui.label(format_colors(sell_card.color_cost()));
                                 ui.end_row();
                             }
                         }

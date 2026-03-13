@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { GameState, Choice, Ability } from '../data/types';
   import MixColorPrompt from './MixColorPrompt.svelte';
-  import BuyerSelectPrompt from './BuyerSelectPrompt.svelte';
+  import SellCardSelectPrompt from './SellCardSelectPrompt.svelte';
   import PrimaryColorPrompt from './PrimaryColorPrompt.svelte';
   import SecondaryColorPrompt from './SecondaryColorPrompt.svelte';
   import TertiarySwapPrompt from './TertiarySwapPrompt.svelte';
@@ -35,7 +35,7 @@
         {onAction}
       />
     {:else if topAbility.type === 'sell'}
-      <BuyerSelectPrompt {gameState} {onAction} />
+      <SellCardSelectPrompt {gameState} {onAction} />
     {:else if topAbility.type === 'gainPrimary'}
       <PrimaryColorPrompt {onAction} />
     {:else if topAbility.type === 'gainSecondary'}

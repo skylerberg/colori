@@ -1,9 +1,9 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use colori_core::game_log::{FinalScore, PlayerVariant, StructuredGameLog};
-use colori_core::types::{BuyerCard, BuyerInstance, CardInstance, Choice, GlassCard, MaterialType, ALL_COLORS};
+use colori_core::types::{SellCard, SellCardInstance, CardInstance, Choice, GlassCard, MaterialType, ALL_COLORS};
 
-use super::card_names::{buyer_display_name, card_display_name, get_draft_copies_by_name};
+use super::card_names::{sell_card_display_name, card_display_name, get_draft_copies_by_name};
 use super::categories::CardCategory;
 
 // ── Types ──
@@ -50,14 +50,14 @@ pub struct DurationStats {
     pub max_ms: u64,
 }
 
-pub struct BuyerAcquisitions {
-    pub by_buyer: HashMap<String, usize>,
+pub struct SellCardAcquisitions {
+    pub by_sell_card: HashMap<String, usize>,
     pub by_stars: HashMap<u32, usize>,
     pub by_material: HashMap<String, usize>,
 }
 
 #[allow(dead_code)]
-pub struct WinnerBuyerBreakdown {
+pub struct WinnerSellCardBreakdown {
     pub avg_textiles: f64,
     pub avg_ceramics: f64,
     pub avg_paintings: f64,
@@ -91,22 +91,22 @@ pub fn build_card_instance_map(log: &StructuredGameLog) -> HashMap<u32, CardInst
     map
 }
 
-/// Build a map from buyer instance ID to BuyerInstance from a log's initial state.
-pub fn build_buyer_instance_map(log: &StructuredGameLog) -> HashMap<u32, BuyerInstance> {
+/// Build a map from sell card instance ID to SellCardInstance from a log's initial state.
+pub fn build_sell_card_instance_map(log: &StructuredGameLog) -> HashMap<u32, SellCardInstance> {
     let mut map = HashMap::new();
     let state = &log.initial_state;
 
-    let add_buyers = |map: &mut HashMap<u32, BuyerInstance>, buyers: &[BuyerInstance]| {
-        for b in buyers {
+    let add_sell_cards = |map: &mut HashMap<u32, SellCardInstance>, sell_cards: &[SellCardInstance]| {
+        for b in sell_cards {
             map.insert(b.instance_id, *b);
         }
     };
 
     for p in &state.players {
-        add_buyers(&mut map, &p.completed_buyers);
+        add_sell_cards(&mut map, &p.completed_sell_cards);
     }
-    add_buyers(&mut map, &state.buyer_deck);
-    add_buyers(&mut map, &state.buyer_display);
+    add_sell_cards(&mut map, &state.sell_card_deck);
+    add_sell_cards(&mut map, &state.sell_card_display);
 
     map
 }
@@ -116,9 +116,9 @@ pub fn card_name_from_instance(card: colori_core::types::Card) -> String {
     card_display_name(card).to_string()
 }
 
-/// Get the display name for a buyer card.
-pub fn buyer_name_from_instance(buyer: BuyerCard) -> String {
-    buyer_display_name(buyer)
+/// Get the display name for a sell card.
+pub fn sell_card_name_from_instance(sell_card: SellCard) -> String {
+    sell_card_display_name(sell_card)
 }
 
 /// Look up a card instance ID and return its display name.
@@ -130,17 +130,17 @@ pub fn get_card_name(card_map: &HashMap<u32, CardInstance>, id: u32) -> String {
     }
 }
 
-/// Look up a buyer instance ID and return its display name.
+/// Look up a sell card instance ID and return its display name.
 #[allow(dead_code)]
-pub fn get_buyer_name(buyer_map: &HashMap<u32, BuyerInstance>, id: u32) -> String {
-    match buyer_map.get(&id) {
-        Some(inst) => buyer_name_from_instance(inst.buyer),
-        None => format!("Buyer #{}", id),
+pub fn get_sell_card_name(sell_card_map: &HashMap<u32, SellCardInstance>, id: u32) -> String {
+    match sell_card_map.get(&id) {
+        Some(inst) => sell_card_name_from_instance(inst.sell_card),
+        None => format!("Sell Card #{}", id),
     }
 }
 
 pub fn final_score_ranking(fs: &FinalScore) -> (u32, u32, u32) {
-    (fs.score, fs.completed_buyers, fs.color_wheel_total)
+    (fs.score, fs.completed_sell_cards, fs.color_wheel_total)
 }
 
 fn compute_winners(final_scores: &[FinalScore]) -> (impl Fn(&str) -> bool + '_, usize) {
@@ -235,7 +235,7 @@ pub fn format_variant_label(
 /// Format a choice as a human-readable string.
 pub fn format_choice(choice: &Choice) -> String {
     let card_name = |card: &colori_core::types::Card| card_name_from_instance(*card);
-    let buyer_name = |buyer: &BuyerCard| buyer_name_from_instance(*buyer);
+    let sell_card_name = |sell_card: &SellCard| sell_card_name_from_instance(*sell_card);
     let card_names = |cards: &[colori_core::types::Card]| {
         cards
             .iter()
@@ -264,8 +264,8 @@ pub fn format_choice(choice: &Choice) -> String {
             Some(c) => format!("Destroyed {} from workshop", card_name(c)),
             None => "Destroyed nothing from workshop".to_string(),
         }
-        Choice::SelectBuyer { buyer } => {
-            format!("Sold to {}", buyer_name(buyer))
+        Choice::SelectSellCard { sell_card } => {
+            format!("Sold to {}", sell_card_name(sell_card))
         }
         Choice::GainSecondary { color } => {
             format!("Gained {:?} (secondary)", color)
@@ -306,12 +306,12 @@ pub fn format_choice(choice: &Choice) -> String {
         }
         Choice::DestroyAndSell {
             card,
-            buyer,
+            sell_card,
         } => {
             format!(
                 "Destroyed {} and sold to {}",
                 card_name(card),
-                buyer_name(buyer)
+                sell_card_name(sell_card)
             )
         }
         Choice::DestroyAndWorkshop {
@@ -417,7 +417,7 @@ fn choice_type_name(choice: &Choice) -> String {
         Choice::Workshop { .. } => "workshop".to_string(),
         Choice::SkipWorkshop => "skipWorkshop".to_string(),
         Choice::DestroyDrawnCards { .. } => "destroyDrawnCards".to_string(),
-        Choice::SelectBuyer { .. } => "selectBuyer".to_string(),
+        Choice::SelectSellCard { .. } => "selectSellCard".to_string(),
         Choice::GainSecondary { .. } => "gainSecondary".to_string(),
         Choice::GainPrimary { .. } => "gainPrimary".to_string(),
         Choice::MixAll { .. } => "mixAll".to_string(),
@@ -1134,14 +1134,14 @@ pub fn compute_penultimate_round_deck_sizes(
     counts
 }
 
-// ── Buyer analysis ──
+// ── Sell card analysis ──
 
-/// Compute buyer acquisition counts by buyer name, star count, and material type.
-pub fn compute_buyer_acquisitions(
+/// Compute sell card acquisition counts by sell card name, star count, and material type.
+pub fn compute_sell_card_acquisitions(
     logs: &[StructuredGameLog],
     filter: Option<&PlayerFilter>,
-) -> BuyerAcquisitions {
-    let mut by_buyer = HashMap::new();
+) -> SellCardAcquisitions {
+    let mut by_sell_card = HashMap::new();
     let mut by_stars = HashMap::new();
     let mut by_material = HashMap::new();
 
@@ -1154,23 +1154,23 @@ pub fn compute_buyer_acquisitions(
                     continue;
                 }
             }
-            let buyer = match &entry.choice {
-                Choice::SelectBuyer { buyer } => Some(buyer),
-                Choice::DestroyAndSell { buyer, .. } => Some(buyer),
+            let sell_card = match &entry.choice {
+                Choice::SelectSellCard { sell_card } => Some(sell_card),
+                Choice::DestroyAndSell { sell_card, .. } => Some(sell_card),
                 _ => None,
             };
-            if let Some(buyer) = buyer {
-                let name = buyer_name_from_instance(*buyer);
-                *by_buyer.entry(name).or_insert(0) += 1;
-                *by_stars.entry(buyer.stars()).or_insert(0) += 1;
-                let material_name = format!("{:?}", buyer.required_material());
+            if let Some(sell_card) = sell_card {
+                let name = sell_card_name_from_instance(*sell_card);
+                *by_sell_card.entry(name).or_insert(0) += 1;
+                *by_stars.entry(sell_card.stars()).or_insert(0) += 1;
+                let material_name = format!("{:?}", sell_card.required_material());
                 *by_material.entry(material_name).or_insert(0) += 1;
             }
         }
     }
 
-    BuyerAcquisitions {
-        by_buyer,
+    SellCardAcquisitions {
+        by_sell_card,
         by_stars,
         by_material,
     }
@@ -1178,11 +1178,11 @@ pub fn compute_buyer_acquisitions(
 
 // ── Color analysis ──
 
-/// Compute average buyer breakdown (Textiles/Ceramics/Paintings) for game winners.
-pub fn compute_winner_buyer_breakdown(
+/// Compute average sell card breakdown (Textiles/Ceramics/Paintings) for game winners.
+pub fn compute_winner_sell_card_breakdown(
     logs: &[StructuredGameLog],
     filter: Option<&PlayerFilter>,
-) -> WinnerBuyerBreakdown {
+) -> WinnerSellCardBreakdown {
     let mut total_textiles: f64 = 0.0;
     let mut total_ceramics: f64 = 0.0;
     let mut total_paintings: f64 = 0.0;
@@ -1198,7 +1198,7 @@ pub fn compute_winner_buyer_breakdown(
         let (is_winner_fn, num_winners) = compute_winners(final_scores);
         let weight = 1.0 / num_winners as f64;
 
-        // Track buyer acquisitions per player
+        // Track sell card acquisitions per player
         let mut player_textiles: HashMap<usize, u32> = HashMap::new();
         let mut player_ceramics: HashMap<usize, u32> = HashMap::new();
         let mut player_paintings: HashMap<usize, u32> = HashMap::new();
@@ -1206,13 +1206,13 @@ pub fn compute_winner_buyer_breakdown(
         let allowed = filter.and_then(|f| f.get(&log_idx));
 
         for entry in &log.entries {
-            let buyer = match &entry.choice {
-                Choice::SelectBuyer { buyer } => Some(buyer),
-                Choice::DestroyAndSell { buyer, .. } => Some(buyer),
+            let sell_card = match &entry.choice {
+                Choice::SelectSellCard { sell_card } => Some(sell_card),
+                Choice::DestroyAndSell { sell_card, .. } => Some(sell_card),
                 _ => None,
             };
-            if let Some(buyer) = buyer {
-                match buyer.required_material() {
+            if let Some(sell_card) = sell_card {
+                match sell_card.required_material() {
                     MaterialType::Textiles => {
                         *player_textiles.entry(entry.player_index).or_insert(0) += 1;
                     }
@@ -1249,7 +1249,7 @@ pub fn compute_winner_buyer_breakdown(
     }
 
     let divisor = if num_games > 0 { num_games as f64 } else { 1.0 };
-    WinnerBuyerBreakdown {
+    WinnerSellCardBreakdown {
         avg_textiles: total_textiles / divisor,
         avg_ceramics: total_ceramics / divisor,
         avg_paintings: total_paintings / divisor,

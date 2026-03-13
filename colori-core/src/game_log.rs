@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::types::{BuyerInstance, CardInstance, Choice, ColorWheel, Materials};
+use crate::types::{SellCardInstance, CardInstance, Choice, ColorWheel, Materials};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,8 +30,8 @@ pub struct LogGameState {
     pub players: Vec<LogPlayerState>,
     pub draft_deck: Vec<CardInstance>,
     pub destroyed_pile: Vec<CardInstance>,
-    pub buyer_deck: Vec<BuyerInstance>,
-    pub buyer_display: Vec<BuyerInstance>,
+    pub sell_card_deck: Vec<SellCardInstance>,
+    pub sell_card_display: Vec<SellCardInstance>,
     pub round: u32,
 }
 
@@ -46,7 +46,7 @@ pub struct LogPlayerState {
     pub drafted_cards: Vec<CardInstance>,
     pub color_wheel: ColorWheel,
     pub materials: Materials,
-    pub completed_buyers: Vec<BuyerInstance>,
+    pub completed_sell_cards: Vec<SellCardInstance>,
     pub ducats: u32,
 }
 
@@ -56,7 +56,7 @@ pub struct FinalScore {
     pub name: String,
     pub score: u32,
     #[serde(default)]
-    pub completed_buyers: u32,
+    pub completed_sell_cards: u32,
     #[serde(default)]
     pub color_wheel_total: u32,
 }
@@ -66,7 +66,7 @@ pub struct FinalScore {
 pub struct FinalPlayerStats {
     pub name: String,
     pub deck_size: usize,
-    pub completed_buyers: Vec<BuyerInstance>,
+    pub completed_sell_cards: Vec<SellCardInstance>,
     pub ducats: u32,
     pub color_wheel: ColorWheel,
     pub materials: Materials,

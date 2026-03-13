@@ -1,35 +1,35 @@
 <script lang="ts">
-  import type { BuyerInstance } from '../data/types';
+  import type { SellCardInstance } from '../data/types';
   import CardDisplay from './CardDisplay.svelte';
 
-  let { buyers, selectable = false, selectedId, onSelect }: {
-    buyers: BuyerInstance[];
+  let { sellCards, selectable = false, selectedId, onSelect }: {
+    sellCards: SellCardInstance[];
     selectable?: boolean;
     selectedId?: number;
     onSelect?: (instanceId: number) => void;
   } = $props();
 </script>
 
-<div class="buyer-display">
-  <h3 class="section-title">Buyer Display</h3>
-  <div class="buyer-scroll">
-    <div class="buyer-row">
-      {#each buyers as buyer (buyer.instanceId)}
+<div class="sell-card-display">
+  <h3 class="section-title">Sell Card Display</h3>
+  <div class="sell-card-scroll">
+    <div class="sell-card-row">
+      {#each sellCards as sellCard (sellCard.instanceId)}
         <CardDisplay
-          card={buyer.card}
-          selected={selectedId === buyer.instanceId}
-          onclick={selectable && onSelect ? () => onSelect!(buyer.instanceId) : undefined}
+          card={sellCard.card}
+          selected={selectedId === sellCard.instanceId}
+          onclick={selectable && onSelect ? () => onSelect!(sellCard.instanceId) : undefined}
         />
       {/each}
-      {#if buyers.length === 0}
-        <div class="empty">No buyers available</div>
+      {#if sellCards.length === 0}
+        <div class="empty">No sell cards available</div>
       {/if}
     </div>
   </div>
 </div>
 
 <style>
-  .buyer-display {
+  .sell-card-display {
     background: rgba(20, 15, 10, 0.75);
     border: 1px solid rgba(201, 168, 76, 0.4);
     border-radius: 8px;
@@ -46,13 +46,13 @@
     margin-bottom: 0.375rem;
   }
 
-  .buyer-scroll {
+  .sell-card-scroll {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
   }
 
-  .buyer-row {
+  .sell-card-row {
     display: flex;
     gap: 6px;
     padding: 0.5rem 2px;
@@ -60,7 +60,7 @@
     width: max-content;
   }
 
-  .buyer-row :global(.card.clickable:hover) {
+  .sell-card-row :global(.card.clickable:hover) {
     transform: none;
     box-shadow: 0 0 12px rgba(201, 168, 76, 0.6), 0 0 24px rgba(201, 168, 76, 0.3);
     border: 1px solid var(--accent-gold, #c9a84c);
@@ -75,7 +75,7 @@
   }
 
   @media (min-width: 768px) {
-    .buyer-display {
+    .sell-card-display {
       padding: 0.75rem;
     }
 
@@ -84,7 +84,7 @@
       margin-bottom: 0.5rem;
     }
 
-    .buyer-row {
+    .sell-card-row {
       gap: 8px;
       padding: 10px 2px;
     }

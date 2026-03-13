@@ -11,7 +11,7 @@ export interface ZoneConfig {
 // Negative y = hanging above the tableau, y > 100 = hanging below
 export const DEFAULT_ZONES: ZoneConfig[] = [
   { id: 'colorWheel', label: 'Color Wheel', x: 27.2, y: 14.8, width: 41.2, height: 67.7 },
-  { id: 'buyers', label: 'Completed Buyers', x: 2.5, y: 23.1, width: 20.4, height: 48.6 },
+  { id: 'sellCards', label: 'Completed Sell Cards', x: 2.5, y: 23.1, width: 20.4, height: 48.6 },
   { id: 'draft1', label: 'Draft Slot 1', x: 1.8, y: -41.4, width: 21.5, height: 48.3 },
   { id: 'draft2', label: 'Draft Slot 2', x: 26.4, y: -41.2, width: 22.1, height: 48.1 },
   { id: 'draft3', label: 'Draft Slot 3', x: 51.4, y: -41.2, width: 22, height: 48.1 },

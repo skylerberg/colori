@@ -172,6 +172,6 @@ pub fn determinize_in_place<R: Rng>(
 
         // No shuffle calls needed - bitset draw is already uniform random
     }
-    // No shuffle calls needed for player decks, buyer_deck, or draft_deck
+    // No shuffle calls needed for player decks, sell_card_deck, or draft_deck
     // because draw() from bitsets is inherently random
 }

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { Card, BuyerCard } from '../data/types';
+  import type { Card, SellCard } from '../data/types';
   import { getAnyCardData } from '../data/cards';
-  import { getCardArtUrl, getBuyerArtUrl } from '../data/cardArt';
+  import { getCardArtUrl, getSellCardArtUrl } from '../data/cardArt';
   import { cardPreviewState } from '../stores/cardPreviewState.svelte';
 
   let { card, selected = false, rotated = false, onclick }: {
@@ -16,8 +16,8 @@
 
   let artUrl = $derived(
     data
-      ? data.kind === 'buyer'
-        ? getBuyerArtUrl(card as BuyerCard)
+      ? data.kind === 'sellCard'
+        ? getSellCardArtUrl(card as SellCard)
         : getCardArtUrl(card as Card)
       : ''
   );

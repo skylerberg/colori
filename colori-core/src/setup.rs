@@ -1,7 +1,7 @@
 use crate::cards::*;
 use crate::fixed_vec::FixedVec;
 use crate::types::*;
-use crate::unordered_cards::{set_buyer_registry, set_card_registry, UnorderedBuyers, UnorderedCards};
+use crate::unordered_cards::{set_sell_card_registry, set_card_registry, UnorderedSellCards, UnorderedCards};
 use rand::Rng;
 use rand::seq::SliceRandom;
 use smallvec::SmallVec;
@@ -9,7 +9,7 @@ use std::cell::Cell;
 
 thread_local! {
     static NEXT_CARD_ID: Cell<u32> = const { Cell::new(0) };
-    static NEXT_BUYER_ID: Cell<u32> = const { Cell::new(0) };
+    static NEXT_SELL_CARD_ID: Cell<u32> = const { Cell::new(0) };
     static NEXT_GLASS_ID: Cell<u32> = const { Cell::new(0) };
 }
 
@@ -21,8 +21,8 @@ fn next_card_id() -> u8 {
     })
 }
 
-fn next_buyer_id() -> u8 {
-    NEXT_BUYER_ID.with(|c| {
+fn next_sell_card_id() -> u8 {
+    NEXT_SELL_CARD_ID.with(|c| {
         let id = c.get();
         c.set(id + 1);
         id as u8
@@ -39,7 +39,7 @@ fn next_glass_id() -> u32 {
 
 fn reset_id_counters() {
     NEXT_CARD_ID.with(|c| c.set(0));
-    NEXT_BUYER_ID.with(|c| c.set(0));
+    NEXT_SELL_CARD_ID.with(|c| c.set(0));
     NEXT_GLASS_ID.with(|c| c.set(0));
 }
 
@@ -51,7 +51,7 @@ pub fn create_initial_game_state_with_expansions<R: Rng>(num_players: usize, ai_
     reset_id_counters();
 
     let mut card_lookup = [Card::BasicRed; 256];
-    let mut buyer_lookup = [BuyerCard::Textiles2Vermilion; 256];
+    let mut sell_card_lookup = [SellCard::Textiles2Vermilion; 256];
 
     // Build each player's starting state
     let players: FixedVec<PlayerState, MAX_PLAYERS> = (0..num_players)
@@ -82,7 +82,7 @@ pub fn create_initial_game_state_with_expansions<R: Rng>(num_players: usize, ai_
                 drafted_cards: UnorderedCards::new(),
                 color_wheel,
                 materials: Materials::new(),
-                completed_buyers: SmallVec::new(),
+                completed_sell_cards: SmallVec::new(),
                 completed_glass: SmallVec::new(),
                 ducats: 0,
                 cached_score: 0,
@@ -117,21 +117,21 @@ pub fn create_initial_game_state_with_expansions<R: Rng>(num_players: usize, ai_
         }
     }
 
-    // Build buyer deck
-    let mut buyer_deck = UnorderedBuyers::new();
-    for &buyer in &generate_all_buyers() {
-        let id = next_buyer_id();
-        buyer_lookup[id as usize] = buyer;
-        buyer_deck.insert(id);
+    // Build sell card deck
+    let mut sell_card_deck = UnorderedSellCards::new();
+    for &sell_card in &generate_all_sell_cards() {
+        let id = next_sell_card_id();
+        sell_card_lookup[id as usize] = sell_card;
+        sell_card_deck.insert(id);
     }
 
-    // Deal 6 buyers from buyer_deck to buyer_display
-    let mut buyer_display: FixedVec<BuyerInstance, MAX_BUYER_DISPLAY> = FixedVec::new();
-    let drawn_buyers = buyer_deck.draw_multiple(6, rng);
-    for id in drawn_buyers.iter() {
-        buyer_display.push(BuyerInstance {
+    // Deal 6 sell cards from sell_card_deck to sell_card_display
+    let mut sell_card_display: FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY> = FixedVec::new();
+    let drawn_sell_cards = sell_card_deck.draw_multiple(6, rng);
+    for id in drawn_sell_cards.iter() {
+        sell_card_display.push(SellCardInstance {
             instance_id: id as u32,
-            buyer: buyer_lookup[id as usize],
+            sell_card: sell_card_lookup[id as usize],
         });
     }
 
@@ -158,14 +158,14 @@ pub fn create_initial_game_state_with_expansions<R: Rng>(num_players: usize, ai_
     }
 
     set_card_registry(&card_lookup);
-    set_buyer_registry(&buyer_lookup);
+    set_sell_card_registry(&sell_card_lookup);
 
     GameState {
         players,
         draft_deck,
         destroyed_pile: UnorderedCards::new(),
-        buyer_deck,
-        buyer_display,
+        sell_card_deck,
+        sell_card_display,
         expansions,
         glass_deck,
         glass_display,
@@ -173,6 +173,6 @@ pub fn create_initial_game_state_with_expansions<R: Rng>(num_players: usize, ai_
         round: 1,
         ai_players: FixedVec::from_slice(ai_players),
         card_lookup,
-        buyer_lookup,
+        sell_card_lookup,
     }
 }

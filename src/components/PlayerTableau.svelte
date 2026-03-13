@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { PlayerState, CardInstance, BuyerInstance } from '../data/types';
+  import type { PlayerState, CardInstance, SellCardInstance } from '../data/types';
   import { DEFAULT_ZONES, getZone, type ZoneConfig } from '../data/zoneConfig';
   import CardDisplay from './CardDisplay.svelte';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
@@ -8,7 +8,7 @@
     player,
     draftedCards = [],
     workshopCards = [],
-    completedBuyers = [],
+    completedSellCards = [],
     onDraftedCardClick,
     onWorkshopCardClick,
     selectedWorkshopIds = [],
@@ -17,7 +17,7 @@
     player: PlayerState;
     draftedCards?: CardInstance[];
     workshopCards?: CardInstance[];
-    completedBuyers?: BuyerInstance[];
+    completedSellCards?: SellCardInstance[];
     onDraftedCardClick?: (instanceId: number) => void;
     onWorkshopCardClick?: (instanceId: number) => void;
     selectedWorkshopIds?: number[];
@@ -28,7 +28,7 @@
   const draftSlots = ['draft1', 'draft2', 'draft3', 'draft4'] as const;
 
   const cwZone = getZone(zones, 'colorWheel');
-  const buyersZone = getZone(zones, 'buyers');
+  const sellCardsZone = getZone(zones, 'buyers');
   const wsZone = getZone(zones, 'workshop');
   const textilesZone = getZone(zones, 'materialTextiles');
   const ceramicsZone = getZone(zones, 'materialCeramics');
@@ -74,12 +74,12 @@
     </div>
   {/if}
 
-  <!-- Completed Buyers -->
-  {#if buyersZone && completedBuyers.length > 0}
-    <div class="zone buyers-zone" style="left:{buyersZone.x}%;top:{buyersZone.y}%;width:{buyersZone.width}%;height:{buyersZone.height}%;">
-      {#each completedBuyers as buyer, i}
-        <div class="buyer-stack-item" style="top:{i * 30}px;">
-          <CardDisplay card={buyer.card} />
+  <!-- Completed Sell Cards -->
+  {#if sellCardsZone && completedSellCards.length > 0}
+    <div class="zone sell-cards-zone" style="left:{sellCardsZone.x}%;top:{sellCardsZone.y}%;width:{sellCardsZone.width}%;height:{sellCardsZone.height}%;">
+      {#each completedSellCards as sellCard, i}
+        <div class="sell-card-stack-item" style="top:{i * 30}px;">
+          <CardDisplay card={sellCard.card} />
         </div>
       {/each}
     </div>
@@ -159,12 +159,12 @@
     overflow-y: hidden;
   }
 
-  .buyers-zone {
+  .sell-cards-zone {
     position: absolute;
     overflow: hidden;
   }
 
-  .buyer-stack-item {
+  .sell-card-stack-item {
     position: absolute;
     left: 0;
   }

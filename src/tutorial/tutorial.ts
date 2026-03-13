@@ -49,15 +49,15 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'welcome',
     title: 'Welcome to Colori!',
-    text: 'You are a Venetian dye trader competing to score the most points by dyeing materials and selling them to buyers.',
+    text: 'You are a Venetian dye trader competing to score the most points by dyeing materials and completing sell cards.',
     buttons: [skipButton, nextButton],
   });
 
   newTour.addStep({
-    id: 'buyer-display',
-    title: 'Buyers',
-    text: 'These are the available buyers. Each buyer requires a specific material (Textiles, Ceramics, or Paintings) and a set of colors. Selling to a buyer earns you points.',
-    attachTo: { element: '.buyer-display', on: 'bottom' },
+    id: 'sell-card-display',
+    title: 'Sell Cards',
+    text: 'These are the available sell cards. Each sell card requires a specific material (Textiles, Ceramics, or Paintings) and a set of colors. Selling to a sell card earns you points.',
+    attachTo: { element: '.sell-card-display', on: 'bottom' },
     buttons: [backButton, nextButton],
   });
 
@@ -72,7 +72,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'materials',
     title: 'Materials',
-    text: 'These are your stored materials. To sell to a buyer, you need both the right material AND the right colors. Gain materials by workshopping material cards.',
+    text: 'These are your stored materials. To sell to a sell card, you need both the right material AND the right colors. Gain materials by workshopping material cards.',
     attachTo: { element: '.materials-panel', on: 'top' },
     buttons: [backButton, nextButton],
   });
@@ -120,15 +120,15 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'action-phase-concept',
     title: 'Action Phase',
-    text: 'After drafting, each player takes a turn. On your turn, destroy drafted cards one at a time to trigger abilities like Workshop (store colors/materials), Mix Colors (combine two adjacent colors into one), Sell (complete a buyer), Draw Cards, or Destroy Cards (chain reactions). When done, remaining drafted and workshop cards go to your discard pile.',
+    text: 'After drafting, each player takes a turn. On your turn, destroy drafted cards one at a time to trigger abilities like Workshop (store colors/materials), Mix Colors (combine two adjacent colors into one), Sell (complete a sell card), Draw Cards, or Destroy Cards (chain reactions). When done, remaining drafted and workshop cards go to your discard pile.',
     buttons: [backButton, nextButton],
   });
 
   newTour.addStep({
     id: 'selling-explained',
-    title: 'Selling to Buyers',
-    text: 'To sell: choose a buyer, spend 1 stored material of the required type, and pay the color cost from your wheel. The buyer goes to your completed buyers, earning you points.',
-    attachTo: { element: '.buyer-display', on: 'bottom' },
+    title: 'Selling',
+    text: 'To sell: choose a sell card, spend 1 stored material of the required type, and pay the color cost from your wheel. The sell card goes to your completed sell cards, earning you points.',
+    attachTo: { element: '.sell-card-display', on: 'bottom' },
     buttons: [backButton, nextButton],
   });
 
@@ -183,7 +183,7 @@ export async function startTutorial(force = false): Promise<void> {
   }
 
   // Wait for key game elements to be in the DOM
-  await waitForElement('.buyer-display');
+  await waitForElement('.sell-card-display');
 
   tour = createTour();
   tour.start();

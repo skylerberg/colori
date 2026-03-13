@@ -33,7 +33,7 @@ export type Card = 'BasicRed' | 'BasicYellow' | 'BasicBlue'
   | 'ClayCanvas' | 'ClayFabric' | 'CanvasFabric'
   | 'Alum' | 'CreamOfTartar' | 'GumArabic' | 'Potash' | 'Vinegar' | 'Argol' | 'Chalk';
 
-export type BuyerCard = 'Textiles2Vermilion' | 'Textiles2Amber' | 'Textiles2Chartreuse'
+export type SellCard = 'Textiles2Vermilion' | 'Textiles2Amber' | 'Textiles2Chartreuse'
   | 'Textiles2Teal' | 'Textiles2Indigo' | 'Textiles2Magenta'
   | 'Textiles2OrangeRed' | 'Textiles2OrangeYellow' | 'Textiles2OrangeBlue'
   | 'Textiles2GreenRed' | 'Textiles2GreenYellow' | 'Textiles2GreenBlue'
@@ -71,7 +71,7 @@ export interface MaterialCardData {
   kind: 'material';
   name: string;
   materialTypes: MaterialType[];
-  colorPip?: Color;
+  color?: Color;
   ability: Ability;
 }
 
@@ -82,14 +82,14 @@ export interface ActionCardData {
   workshopAbilities: Ability[];
 }
 
-export interface BuyerCardData {
-  kind: 'buyer';
+export interface SellCardData {
+  kind: 'sellCard';
   stars: number;
   requiredMaterial: MaterialType;
   colorCost: Color[];
 }
 
-export type AnyCardData = DyeCardData | BasicDyeCardData | MaterialCardData | ActionCardData | BuyerCardData;
+export type AnyCardData = DyeCardData | BasicDyeCardData | MaterialCardData | ActionCardData | SellCardData;
 
 export type GlassCard =
     | 'GlassWorkshop'
@@ -114,9 +114,9 @@ export interface CardInstance {
   card: Card;
 }
 
-export interface BuyerInstance {
+export interface SellCardInstance {
   instanceId: number;
-  card: BuyerCard;
+  card: SellCard;
 }
 
 export interface PlayerState {
@@ -127,7 +127,7 @@ export interface PlayerState {
   draftedCards: CardInstance[];
   colorWheel: Record<Color, number>;
   materials: Record<MaterialType, number>;
-  completedBuyers: BuyerInstance[];
+  completedSellCards: SellCardInstance[];
   completedGlass: GlassInstance[];
   ducats: number;
 }
@@ -155,8 +155,8 @@ export interface GameState {
   players: PlayerState[];
   draftDeck: CardInstance[];
   destroyedPile: CardInstance[];
-  buyerDeck: BuyerInstance[];
-  buyerDisplay: BuyerInstance[];
+  sellCardDeck: SellCardInstance[];
+  sellCardDisplay: SellCardInstance[];
   glassDeck: GlassInstance[];
   glassDisplay: GlassInstance[];
   expansions: Expansions;
@@ -172,13 +172,13 @@ export type Choice =
   | { type: 'workshop'; cardTypes: Card[] }
   | { type: 'skipWorkshop' }
   | { type: 'destroyDrawnCards'; card: Card | null }
-  | { type: 'selectBuyer'; buyer: BuyerCard }
+  | { type: 'selectSellCard'; sellCard: SellCard }
   | { type: 'gainSecondary'; color: Color }
   | { type: 'gainPrimary'; color: Color }
   | { type: 'mixAll'; mixes: [Color, Color][] }
   | { type: 'swapTertiary'; loseColor: Color; gainColor: Color }
   | { type: 'destroyAndMix'; card: Card; mixes: [Color, Color][] }
-  | { type: 'destroyAndSell'; card: Card; buyer: BuyerCard }
+  | { type: 'destroyAndSell'; card: Card; sellCard: SellCard }
   | { type: 'destroyAndWorkshop'; card: Card; workshopCards: Card[] }
   | { type: 'destroyAndDestroyCards'; card: Card; target: Card | null }
   | { type: 'selectGlass'; glass: GlassCard; payColor: Color }
@@ -220,7 +220,7 @@ export interface StructuredGameLog {
   playerNames: string[];
   aiPlayers: boolean[];
   initialState: GameState;
-  finalScores: { name: string; score: number; completedBuyers?: number; colorWheelTotal?: number }[] | null;
+  finalScores: { name: string; score: number; completedSellCards?: number; colorWheelTotal?: number }[] | null;
   finalPlayerStats: FinalPlayerStats[] | null;
   entries: StructuredLogEntry[];
   durationMs?: number;
@@ -232,7 +232,7 @@ export interface StructuredGameLog {
 export interface FinalPlayerStats {
   name: string;
   deckSize: number;
-  completedBuyers: BuyerInstance[];
+  completedSellCards: SellCardInstance[];
   ducats: number;
   colorWheel: Record<Color, number>;
   materials: Record<MaterialType, number>;

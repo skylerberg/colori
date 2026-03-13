@@ -198,21 +198,21 @@ mod tests {
     use crate::setup::create_initial_game_state;
     use crate::types::*;
     use crate::unordered_cards::{
-        get_buyer_registry, get_card_registry, set_buyer_registry, set_card_registry,
+        get_sell_card_registry, get_card_registry, set_sell_card_registry, set_card_registry,
     };
     use rand::SeedableRng;
     use wyrand::WyRand;
 
     fn test_serialize(state: &GameState) -> String {
         set_card_registry(&state.card_lookup);
-        set_buyer_registry(&state.buyer_lookup);
+        set_sell_card_registry(&state.sell_card_lookup);
         serde_json::to_string(state).unwrap()
     }
 
     fn test_deserialize(json: &str) -> GameState {
         let mut state: GameState = serde_json::from_str(json).unwrap();
         state.card_lookup = get_card_registry();
-        state.buyer_lookup = get_buyer_registry();
+        state.sell_card_lookup = get_sell_card_registry();
         for p in state.players.iter_mut() {
             p.cached_score = calculate_score(p);
         }

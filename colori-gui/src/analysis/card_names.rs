@@ -1,17 +1,17 @@
 use colori_core::cards::{
     action_cards, dye_cards, draft_material_cards, ACTION_COPIES, DYE_COPIES, MATERIAL_COPIES,
 };
-use colori_core::types::{Ability, BuyerCard, Card};
+use colori_core::types::{Ability, SellCard, Card};
 
 /// Get human-readable display name for a card.
 pub fn card_display_name(card: Card) -> &'static str {
     card.name()
 }
 
-/// Get human-readable display name for a buyer card.
+/// Get human-readable display name for a sell card.
 /// Format: "2-star Textiles [Vermilion]" or "3-star Ceramics [Amber, Red]"
-pub fn buyer_display_name(buyer: BuyerCard) -> String {
-    let colors = buyer
+pub fn sell_card_display_name(sell_card: SellCard) -> String {
+    let colors = sell_card
         .color_cost()
         .iter()
         .map(|c| format!("{:?}", c))
@@ -19,8 +19,8 @@ pub fn buyer_display_name(buyer: BuyerCard) -> String {
         .join(", ");
     format!(
         "{}-star {:?} [{}]",
-        buyer.stars(),
-        buyer.required_material(),
+        sell_card.stars(),
+        sell_card.required_material(),
         colors
     )
 }

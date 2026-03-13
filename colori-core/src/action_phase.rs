@@ -1,8 +1,8 @@
 use crate::colors::{can_pay_cost, pay_cost, perform_mix, perform_mix_unchecked, PRIMARIES, TERTIARIES};
 use crate::deck_utils::draw_from_deck;
 use crate::types::{
-    Ability, ActionState, BuyerCard, BuyerInstance, Color, GamePhase, GameState, GlassCard,
-    PlayerState,
+    Ability, ActionState, Color, GamePhase, GameState, GlassCard,
+    PlayerState, SellCard, SellCardInstance,
 };
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
@@ -73,7 +73,7 @@ pub fn process_ability_stack<R: Rng>(state: &mut GameState, rng: &mut R) {
                 return; // always needs input
             }
             Ability::Sell => {
-                if can_sell_to_any_buyer(state) || can_sell_to_any_glass(state) {
+                if can_sell_to_any_sell_card(state) || can_sell_to_any_glass(state) {
                     return; // waiting for input
                 } else {
                     get_action_state_mut(state).ability_stack.pop();
@@ -101,19 +101,19 @@ pub fn process_ability_stack<R: Rng>(state: &mut GameState, rng: &mut R) {
 }
 
 #[inline]
-pub(crate) fn can_afford_buyer(player: &PlayerState, buyer: &BuyerCard) -> bool {
-    player.materials.get(buyer.required_material()) >= 1
-        && can_pay_cost(&player.color_wheel, buyer.color_cost())
+pub(crate) fn can_afford_sell_card(player: &PlayerState, sell_card: &SellCard) -> bool {
+    player.materials.get(sell_card.required_material()) >= 1
+        && can_pay_cost(&player.color_wheel, sell_card.color_cost())
 }
 
 #[inline]
-pub fn can_sell_to_any_buyer(state: &GameState) -> bool {
+pub fn can_sell_to_any_sell_card(state: &GameState) -> bool {
     let action_state = get_action_state(state);
     let player = &state.players[action_state.current_player_index];
     state
-        .buyer_display
+        .sell_card_display
         .iter()
-        .any(|b| can_afford_buyer(player, &b.buyer))
+        .any(|b| can_afford_sell_card(player, &b.sell_card))
 }
 
 pub fn can_afford_glass(player: &PlayerState) -> bool {
@@ -169,8 +169,8 @@ pub fn resolve_workshop_choice<R: Rng>(
         for mt in card.material_types() {
             player.materials.increment(*mt);
         }
-        for pip in card.pips() {
-            player.color_wheel.increment(*pip);
+        for color in card.colors() {
+            player.color_wheel.increment(*color);
         }
         player.workshopped_cards.insert(id);
     }
@@ -284,8 +284,8 @@ pub fn resolve_workshop_with_reworkshop<R: Rng>(
         for mt in card.material_types() {
             player.materials.increment(*mt);
         }
-        for pip in card.pips() {
-            player.color_wheel.increment(*pip);
+        for color in card.colors() {
+            player.color_wheel.increment(*color);
         }
         player.workshopped_cards.insert(id);
     }
@@ -362,8 +362,8 @@ pub fn resolve_workshop_with_reworkshop<R: Rng>(
         for mt in reworkshop_card.material_types() {
             player.materials.increment(*mt);
         }
-        for pip in reworkshop_card.pips() {
-            player.color_wheel.increment(*pip);
+        for color in reworkshop_card.colors() {
+            player.color_wheel.increment(*color);
         }
     }
     player.workshopped_cards.insert(reworkshop_id);
@@ -479,9 +479,9 @@ pub fn resolve_destroy_cards<R: Rng>(
     process_ability_stack(state, rng);
 }
 
-pub fn resolve_select_buyer<R: Rng>(
+pub fn resolve_select_sell_card<R: Rng>(
     state: &mut GameState,
-    buyer_instance_id: u32,
+    sell_card_instance_id: u32,
     rng: &mut R,
 ) {
     let player_index = get_action_state(state).current_player_index;
@@ -489,30 +489,30 @@ pub fn resolve_select_buyer<R: Rng>(
     // Pop the Sell ability from the stack
     get_action_state_mut(state).ability_stack.pop();
 
-    let buyer_index = state
-        .buyer_display
+    let sell_card_index = state
+        .sell_card_display
         .iter()
-        .position(|c| c.instance_id == buyer_instance_id)
-        .expect("Buyer not found in buyer display");
+        .position(|c| c.instance_id == sell_card_instance_id)
+        .expect("Sell card not found in sell card display");
 
-    let buyer = state.buyer_display.swap_remove(buyer_index);
+    let sell_card_instance = state.sell_card_display.swap_remove(sell_card_index);
 
     let player = &mut state.players[player_index];
-    if !player.materials.decrement(buyer.buyer.required_material()) {
+    if !player.materials.decrement(sell_card_instance.sell_card.required_material()) {
         panic!("Not enough stored material");
     }
-    let success = pay_cost(&mut player.color_wheel, buyer.buyer.color_cost());
+    let success = pay_cost(&mut player.color_wheel, sell_card_instance.sell_card.color_cost());
     if !success {
-        panic!("Cannot pay buyer color cost");
+        panic!("Cannot pay sell card color cost");
     }
-    player.cached_score += buyer.buyer.stars();
-    player.completed_buyers.push(buyer);
+    player.cached_score += sell_card_instance.sell_card.stars();
+    player.completed_sell_cards.push(sell_card_instance);
 
-    // Refill buyer display from buyer_deck
-    if let Some(id) = state.buyer_deck.draw(rng) {
-        state.buyer_display.push(BuyerInstance {
+    // Refill sell card display from sell_card_deck
+    if let Some(id) = state.sell_card_deck.draw(rng) {
+        state.sell_card_display.push(SellCardInstance {
             instance_id: id as u32,
-            buyer: state.buyer_lookup[id as usize],
+            sell_card: state.sell_card_lookup[id as usize],
         });
     }
 

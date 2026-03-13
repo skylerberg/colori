@@ -1,7 +1,7 @@
 use crate::action_phase::*;
 use crate::colors::perform_unmix;
 use crate::draft_phase::player_pick;
-use crate::types::{Ability, Card, Choice, GamePhase, GameState, GlassCard};
+use crate::types::{Ability, Card, Choice, GamePhase, GameState, GlassCard, SellCard};
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
 
@@ -26,14 +26,14 @@ fn get_drafted_card_instance(state: &GameState, card: &Card) -> u32 {
     find_card_instance(state, card, &drafted)
 }
 
-/// Find the first buyer instance ID matching a buyer type in the buyer display.
-fn find_buyer_instance(state: &GameState, buyer: &crate::types::BuyerCard) -> u32 {
-    for buyer_instance in state.buyer_display.iter() {
-        if buyer_instance.buyer == *buyer {
-            return buyer_instance.instance_id;
+/// Find the first sell card instance ID matching a sell card type in the sell card display.
+fn find_sell_card_instance(state: &GameState, sell_card: &SellCard) -> u32 {
+    for sell_card_instance in state.sell_card_display.iter() {
+        if sell_card_instance.sell_card == *sell_card {
+            return sell_card_instance.instance_id;
         }
     }
-    panic!("Buyer type {:?} not found in buyer display", buyer);
+    panic!("Sell card type {:?} not found in sell card display", sell_card);
 }
 
 /// Resolve a list of card types to instance IDs from a card set, tracking used IDs
@@ -113,9 +113,9 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
             }
             resolve_destroy_cards(state, selected, rng);
         }
-        Choice::SelectBuyer { buyer } => {
-            let buyer_instance_id = find_buyer_instance(state, buyer);
-            resolve_select_buyer(state, buyer_instance_id, rng);
+        Choice::SelectSellCard { sell_card } => {
+            let sell_card_instance_id = find_sell_card_instance(state, sell_card);
+            resolve_select_sell_card(state, sell_card_instance_id, rng);
         }
         Choice::GainSecondary { color } => {
             resolve_gain_secondary(state, *color, rng);
@@ -150,11 +150,11 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
                 }
             }
         }
-        Choice::DestroyAndSell { card, buyer } => {
+        Choice::DestroyAndSell { card, sell_card } => {
             let card_instance_id = get_drafted_card_instance(state, card);
-            let buyer_instance_id = find_buyer_instance(state, buyer);
+            let sell_card_instance_id = find_sell_card_instance(state, sell_card);
             destroy_drafted_card(state, card_instance_id, rng);
-            resolve_select_buyer(state, buyer_instance_id, rng);
+            resolve_select_sell_card(state, sell_card_instance_id, rng);
         }
         Choice::DestroyAndWorkshop { card, workshop_cards } => {
             let card_instance_id = get_drafted_card_instance(state, card);

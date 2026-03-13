@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use super::bitset::{UnorderedBuyers, UnorderedCards};
-use super::registry::{BUYER_REGISTRY, CARD_REGISTRY};
-use crate::types::{BuyerInstance, CardInstance};
+use super::bitset::{UnorderedSellCards, UnorderedCards};
+use super::registry::{SELL_CARD_REGISTRY, CARD_REGISTRY};
+use crate::types::{SellCardInstance, CardInstance};
 
 // Serde for UnorderedCards: serialize as Vec<CardInstance>, deserialize and rebuild bitset
 impl Serialize for UnorderedCards {
@@ -36,31 +36,31 @@ impl<'de> Deserialize<'de> for UnorderedCards {
     }
 }
 
-// Serde for UnorderedBuyers: serialize as Vec<BuyerInstance>, deserialize and rebuild bitset
-impl Serialize for UnorderedBuyers {
+// Serde for UnorderedSellCards: serialize as Vec<SellCardInstance>, deserialize and rebuild bitset
+impl Serialize for UnorderedSellCards {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let buyers: Vec<BuyerInstance> = BUYER_REGISTRY.with(|r| {
+        let sell_cards: Vec<SellCardInstance> = SELL_CARD_REGISTRY.with(|r| {
             let reg = r.borrow();
             self.iter()
-                .map(|id| BuyerInstance {
+                .map(|id| SellCardInstance {
                     instance_id: id as u32,
-                    buyer: reg[id as usize],
+                    sell_card: reg[id as usize],
                 })
                 .collect()
         });
-        buyers.serialize(serializer)
+        sell_cards.serialize(serializer)
     }
 }
 
-impl<'de> Deserialize<'de> for UnorderedBuyers {
+impl<'de> Deserialize<'de> for UnorderedSellCards {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let buyers = Vec::<BuyerInstance>::deserialize(deserializer)?;
-        let mut bitset = UnorderedBuyers::new();
-        BUYER_REGISTRY.with(|r| {
+        let sell_cards = Vec::<SellCardInstance>::deserialize(deserializer)?;
+        let mut bitset = UnorderedSellCards::new();
+        SELL_CARD_REGISTRY.with(|r| {
             let mut reg = r.borrow_mut();
-            for b in &buyers {
+            for b in &sell_cards {
                 let id = b.instance_id as u8;
-                reg[id as usize] = b.buyer;
+                reg[id as usize] = b.sell_card;
                 bitset.insert(id);
             }
         });
@@ -71,8 +71,8 @@ impl<'de> Deserialize<'de> for UnorderedBuyers {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::super::registry::{set_buyer_registry, set_card_registry};
-    use crate::types::{BuyerCard, Card};
+    use super::super::registry::{set_sell_card_registry, set_card_registry};
+    use crate::types::{SellCard, Card};
 
     #[test]
     fn test_serde_roundtrip_cards() {
@@ -103,20 +103,20 @@ mod tests {
     }
 
     #[test]
-    fn test_serde_roundtrip_buyers() {
-        let mut registry = [BuyerCard::Textiles2Vermilion; 256];
-        registry[0] = BuyerCard::Textiles2Vermilion;
-        registry[3] = BuyerCard::Textiles2Amber;
-        registry[7] = BuyerCard::Textiles2Chartreuse;
-        set_buyer_registry(&registry);
+    fn test_serde_roundtrip_sell_cards() {
+        let mut registry = [SellCard::Textiles2Vermilion; 256];
+        registry[0] = SellCard::Textiles2Vermilion;
+        registry[3] = SellCard::Textiles2Amber;
+        registry[7] = SellCard::Textiles2Chartreuse;
+        set_sell_card_registry(&registry);
 
-        let mut s = UnorderedBuyers::new();
+        let mut s = UnorderedSellCards::new();
         s.insert(0);
         s.insert(3);
         s.insert(7);
 
         let json = serde_json::to_string(&s).unwrap();
-        let deserialized: UnorderedBuyers = serde_json::from_str(&json).unwrap();
+        let deserialized: UnorderedSellCards = serde_json::from_str(&json).unwrap();
         assert_eq!(s, deserialized);
     }
 }

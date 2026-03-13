@@ -1,8 +1,8 @@
 use crate::action_phase::{
-    can_afford_buyer, can_afford_glass, destroy_drafted_card, end_player_turn,
+    can_afford_glass, can_afford_sell_card, destroy_drafted_card, end_player_turn,
     get_action_state_mut, glass_ability_available, initialize_action_phase, mark_glass_used,
     process_ability_stack, resolve_choose_tertiary_to_gain, resolve_choose_tertiary_to_lose,
-    resolve_destroy_cards, resolve_gain_primary, resolve_gain_secondary, resolve_select_buyer,
+    resolve_destroy_cards, resolve_gain_primary, resolve_gain_secondary, resolve_select_sell_card,
     resolve_select_glass, resolve_workshop_choice, resolve_workshop_with_reworkshop,
     skip_workshop,
 };
@@ -122,16 +122,16 @@ fn random_mix_seq<R: Rng>(
 }
 
 #[inline(always)]
-fn pick_random_affordable_buyer<R: Rng>(
+fn pick_random_affordable_sell_card<R: Rng>(
     player: &PlayerState,
-    buyer_display: &[BuyerInstance],
+    sell_card_display: &[SellCardInstance],
     rng: &mut R,
 ) -> Option<u32> {
-    let mut affordable = [0u32; MAX_BUYER_DISPLAY];
+    let mut affordable = [0u32; MAX_SELL_CARD_DISPLAY];
     let mut count = 0usize;
-    for buyer in buyer_display {
-        if can_afford_buyer(player, &buyer.buyer) {
-            affordable[count] = buyer.instance_id;
+    for sell_card in sell_card_display {
+        if can_afford_sell_card(player, &sell_card.sell_card) {
+            affordable[count] = sell_card.instance_id;
             count += 1;
         }
     }
@@ -360,26 +360,26 @@ fn handle_action_no_pending<R: Rng>(state: &mut GameState, player_index: usize, 
             }
         }
         Ability::Sell => {
-            let buyer = pick_random_affordable_buyer(
+            let sell_card = pick_random_affordable_sell_card(
                 &state.players[player_index],
-                &state.buyer_display,
+                &state.sell_card_display,
                 rng,
             );
             let glass_available = state.expansions.glass
                 && !state.glass_display.is_empty()
                 && can_afford_glass(&state.players[player_index]);
 
-            match (buyer, glass_available) {
-                (Some(buyer_id), true) => {
-                    // Both buyer and glass available — randomly choose
+            match (sell_card, glass_available) {
+                (Some(sell_card_id), true) => {
+                    // Both sell card and glass available — randomly choose
                     if rng.random_range(0..2u32) == 0 {
-                        fused_buy(state, player_index, card_id, buyer_id, rng);
+                        fused_buy(state, player_index, card_id, sell_card_id, rng);
                     } else {
                         fused_glass_acquire(state, player_index, card_id, rng);
                     }
                 }
-                (Some(buyer_id), false) => {
-                    fused_buy(state, player_index, card_id, buyer_id, rng);
+                (Some(sell_card_id), false) => {
+                    fused_buy(state, player_index, card_id, sell_card_id, rng);
                 }
                 (None, true) => {
                     fused_glass_acquire(state, player_index, card_id, rng);
@@ -395,32 +395,32 @@ fn handle_action_no_pending<R: Rng>(state: &mut GameState, player_index: usize, 
     }
 }
 
-/// Fused buyer purchase (no ability stack involvement).
+/// Fused sell card purchase (no ability stack involvement).
 #[inline(always)]
 fn fused_buy<R: Rng>(
     state: &mut GameState,
     player_index: usize,
     card_id: u8,
-    buyer_id: u32,
+    sell_card_id: u32,
     rng: &mut R,
 ) {
     state.players[player_index].drafted_cards.remove(card_id);
     state.destroyed_pile.insert(card_id);
-    let buyer_index = state
-        .buyer_display
+    let sell_card_index = state
+        .sell_card_display
         .iter()
-        .position(|c| c.instance_id == buyer_id)
+        .position(|c| c.instance_id == sell_card_id)
         .unwrap();
-    let buyer = state.buyer_display.swap_remove(buyer_index);
+    let sell_card = state.sell_card_display.swap_remove(sell_card_index);
     let player = &mut state.players[player_index];
-    player.materials.decrement(buyer.buyer.required_material());
-    pay_cost(&mut player.color_wheel, buyer.buyer.color_cost());
-    player.cached_score += buyer.buyer.stars();
-    player.completed_buyers.push(buyer);
-    if let Some(id) = state.buyer_deck.draw(rng) {
-        state.buyer_display.push(BuyerInstance {
+    player.materials.decrement(sell_card.sell_card.required_material());
+    pay_cost(&mut player.color_wheel, sell_card.sell_card.color_cost());
+    player.cached_score += sell_card.sell_card.stars();
+    player.completed_sell_cards.push(sell_card);
+    if let Some(id) = state.sell_card_deck.draw(rng) {
+        state.sell_card_display.push(SellCardInstance {
             instance_id: id as u32,
-            buyer: state.buyer_lookup[id as usize],
+            sell_card: state.sell_card_lookup[id as usize],
         });
     }
 }
@@ -546,19 +546,19 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                     process_ability_stack(state, rng);
                 }
                 Some(Ability::Sell) => {
-                    let buyer = pick_random_affordable_buyer(
+                    let sell_card = pick_random_affordable_sell_card(
                         &state.players[player_index],
-                        &state.buyer_display,
+                        &state.sell_card_display,
                         rng,
                     );
                     let glass_available = state.expansions.glass
                         && !state.glass_display.is_empty()
                         && can_afford_glass(&state.players[player_index]);
 
-                    match (buyer, glass_available) {
-                        (Some(buyer_id), true) => {
+                    match (sell_card, glass_available) {
+                        (Some(sell_card_id), true) => {
                             if rng.random_range(0..2u32) == 0 {
-                                resolve_select_buyer(state, buyer_id, rng);
+                                resolve_select_sell_card(state, sell_card_id, rng);
                             } else {
                                 // Pick random glass and affordable primary
                                 let glass_idx = rng.random_range(0..state.glass_display.len());
@@ -576,8 +576,8 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                                 resolve_select_glass(state, glass_card, pay_color, rng);
                             }
                         }
-                        (Some(buyer_id), false) => {
-                            resolve_select_buyer(state, buyer_id, rng);
+                        (Some(sell_card_id), false) => {
+                            resolve_select_sell_card(state, sell_card_id, rng);
                         }
                         (None, true) => {
                             let glass_idx = rng.random_range(0..state.glass_display.len());
