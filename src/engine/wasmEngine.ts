@@ -111,7 +111,7 @@ export function getChoiceLogMessage(
       return `${name} destroyed ${cardName} from workshop`;
     }
     case 'selectSellCard': {
-      return `${name} sold to a ${getSellCardData(choice.sellCard).stars}-star sell card`;
+      return `${name} sold to a ${getSellCardData(choice.sellCard).ducats}-ducat sell card`;
     }
     case 'gainSecondary':
       return `${name} gained ${choice.color}`;
@@ -135,7 +135,7 @@ export function getChoiceLogMessage(
     }
     case 'destroyAndSell': {
       const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
-      return `${name} destroyed ${cardName} from drafted cards, sold to a ${getSellCardData(choice.sellCard).stars}-star sell card`;
+      return `${name} destroyed ${cardName} from drafted cards, sold to a ${getSellCardData(choice.sellCard).ducats}-ducat sell card`;
     }
     case 'destroyAndWorkshop': {
       const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';

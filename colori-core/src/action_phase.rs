@@ -505,7 +505,7 @@ pub fn resolve_select_sell_card<R: Rng>(
     if !success {
         panic!("Cannot pay sell card color cost");
     }
-    player.cached_score += sell_card_instance.sell_card.stars();
+    player.cached_score += sell_card_instance.sell_card.ducats();
     player.completed_sell_cards.push(sell_card_instance);
 
     // Refill sell card display from sell_card_deck

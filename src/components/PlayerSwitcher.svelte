@@ -14,7 +14,7 @@
 
   let score = $derived(
     currentPlayer
-      ? currentPlayer.completedSellCards.reduce((sum, sellCard) => sum + getSellCardData(sellCard.card).stars, 0) + currentPlayer.ducats
+      ? currentPlayer.completedSellCards.reduce((sum, sellCard) => sum + getSellCardData(sellCard.card).ducats, 0) + currentPlayer.ducats
       : 0
   );
 

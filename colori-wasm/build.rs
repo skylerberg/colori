@@ -256,8 +256,8 @@ fn main() {
             .collect();
         write!(
             out,
-            "  {{ kind: 'sellCard', stars: {}, requiredMaterial: '{}', colorCost: [{}] }},\n",
-            sell_card.stars(),
+            "  {{ kind: 'sellCard', ducats: {}, requiredMaterial: '{}', colorCost: [{}] }},\n",
+            sell_card.ducats(),
             format_material_type(&sell_card.required_material()),
             colors.join(", "),
         )

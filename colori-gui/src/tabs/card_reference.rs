@@ -22,7 +22,7 @@ pub fn render_card_reference_tab(ui: &mut egui::Ui) {
         ui.add_space(8.0);
         render_starter_cards(ui);
         ui.add_space(8.0);
-        render_sell_cards_by_stars(ui);
+        render_sell_cards_by_ducats(ui);
     });
 }
 
@@ -129,7 +129,7 @@ fn render_sell_card_summary(ui: &mut egui::Ui) {
             let mut paintings_4_count = 0u32;
 
             for sell_card in &sell_cards {
-                match sell_card.stars() {
+                match sell_card.ducats() {
                     2 => {
                         let num_colors = sell_card.color_cost().len();
                         match num_colors {
@@ -148,7 +148,7 @@ fn render_sell_card_summary(ui: &mut egui::Ui) {
             egui::Grid::new("sell_card_summary_grid")
                 .striped(true)
                 .show(ui, |ui| {
-                    ui.strong("Stars");
+                    ui.strong("Ducats");
                     ui.strong("Material");
                     ui.strong("Color Pattern");
                     ui.strong("Count");
@@ -417,19 +417,19 @@ fn render_starter_cards(ui: &mut egui::Ui) {
         });
 }
 
-fn render_sell_cards_by_stars(ui: &mut egui::Ui) {
-    let id = ui.make_persistent_id("sell_cards_by_stars");
-    egui::CollapsingHeader::new("Sell Cards by Star Rating")
+fn render_sell_cards_by_ducats(ui: &mut egui::Ui) {
+    let id = ui.make_persistent_id("sell_cards_by_ducats");
+    egui::CollapsingHeader::new("Sell Cards by Ducat Value")
         .id_salt(id)
         .default_open(false)
         .show(ui, |ui| {
             let sell_cards = generate_all_sell_cards();
 
-            for star_level in [2u32, 3, 4] {
-                ui.heading(format!("{}-Star Sell Cards", star_level));
+            for ducat_level in [2u32, 3, 4] {
+                ui.heading(format!("{}-Ducat Sell Cards", ducat_level));
                 ui.add_space(4.0);
 
-                let grid_id = format!("sell_cards_{}star_grid", star_level);
+                let grid_id = format!("sell_cards_{}ducat_grid", ducat_level);
                 egui::Grid::new(grid_id)
                     .striped(true)
                     .show(ui, |ui| {
@@ -438,7 +438,7 @@ fn render_sell_cards_by_stars(ui: &mut egui::Ui) {
                         ui.end_row();
 
                         for sell_card in &sell_cards {
-                            if sell_card.stars() == star_level {
+                            if sell_card.ducats() == ducat_level {
                                 ui.label(format!("{:?}", sell_card.required_material()));
                                 ui.label(format_colors(sell_card.color_cost()));
                                 ui.end_row();

@@ -363,14 +363,14 @@ impl Card {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum SellCard {
-    // Textiles 2-star, single tertiary (6)
+    // Textiles 2-ducat, single tertiary (6)
     Textiles2Vermilion,
     Textiles2Amber,
     Textiles2Chartreuse,
     Textiles2Teal,
     Textiles2Indigo,
     Textiles2Magenta,
-    // Textiles 2-star, secondary+primary (9)
+    // Textiles 2-ducat, secondary+primary (9)
     Textiles2OrangeRed,
     Textiles2OrangeYellow,
     Textiles2OrangeBlue,
@@ -380,11 +380,11 @@ pub enum SellCard {
     Textiles2PurpleRed,
     Textiles2PurpleYellow,
     Textiles2PurpleBlue,
-    // Textiles 2-star, triple primary (3)
+    // Textiles 2-ducat, triple primary (3)
     Textiles2RedRedRed,
     Textiles2YellowYellowYellow,
     Textiles2BlueBlueBlue,
-    // Ceramics 3-star, tertiary+primary (18)
+    // Ceramics 3-ducat, tertiary+primary (18)
     Ceramics3VermilionRed,
     Ceramics3VermilionYellow,
     Ceramics3VermilionBlue,
@@ -403,7 +403,7 @@ pub enum SellCard {
     Ceramics3MagentaRed,
     Ceramics3MagentaYellow,
     Ceramics3MagentaBlue,
-    // Paintings 4-star, tertiary+secondary (18)
+    // Paintings 4-ducat, tertiary+secondary (18)
     Paintings4VermilionOrange,
     Paintings4VermilionGreen,
     Paintings4VermilionPurple,
@@ -425,71 +425,71 @@ pub enum SellCard {
 }
 
 struct SellCardProperties {
-    stars: u32,
+    ducats: u32,
     required_material: MaterialType,
     color_cost: &'static [Color],
 }
 
 const SELL_CARD_DATA: [SellCardProperties; 54] = [
-    // Textiles 2-star, single tertiary (6)
-    SellCardProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Vermilion] },
-    SellCardProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Amber] },
-    SellCardProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Chartreuse] },
-    SellCardProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Teal] },
-    SellCardProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Indigo] },
-    SellCardProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Magenta] },
-    // Textiles 2-star, secondary+primary (9)
-    SellCardProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Orange, Color::Red] },
-    SellCardProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Orange, Color::Yellow] },
-    SellCardProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Orange, Color::Blue] },
-    SellCardProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Green, Color::Red] },
-    SellCardProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Green, Color::Yellow] },
-    SellCardProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Green, Color::Blue] },
-    SellCardProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Purple, Color::Red] },
-    SellCardProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Purple, Color::Yellow] },
-    SellCardProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Purple, Color::Blue] },
-    // Textiles 2-star, triple primary (3)
-    SellCardProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Red, Color::Red, Color::Red] },
-    SellCardProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Yellow, Color::Yellow, Color::Yellow] },
-    SellCardProperties { stars: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Blue, Color::Blue, Color::Blue] },
-    // Ceramics 3-star, tertiary+primary (18)
-    SellCardProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Vermilion, Color::Red] },
-    SellCardProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Vermilion, Color::Yellow] },
-    SellCardProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Vermilion, Color::Blue] },
-    SellCardProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Amber, Color::Red] },
-    SellCardProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Amber, Color::Yellow] },
-    SellCardProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Amber, Color::Blue] },
-    SellCardProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Chartreuse, Color::Red] },
-    SellCardProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Chartreuse, Color::Yellow] },
-    SellCardProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Chartreuse, Color::Blue] },
-    SellCardProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Teal, Color::Red] },
-    SellCardProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Teal, Color::Yellow] },
-    SellCardProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Teal, Color::Blue] },
-    SellCardProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Indigo, Color::Red] },
-    SellCardProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Indigo, Color::Yellow] },
-    SellCardProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Indigo, Color::Blue] },
-    SellCardProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Magenta, Color::Red] },
-    SellCardProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Magenta, Color::Yellow] },
-    SellCardProperties { stars: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Magenta, Color::Blue] },
-    // Paintings 4-star, tertiary+secondary (18)
-    SellCardProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Vermilion, Color::Orange] },
-    SellCardProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Vermilion, Color::Green] },
-    SellCardProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Vermilion, Color::Purple] },
-    SellCardProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Amber, Color::Orange] },
-    SellCardProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Amber, Color::Green] },
-    SellCardProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Amber, Color::Purple] },
-    SellCardProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Chartreuse, Color::Orange] },
-    SellCardProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Chartreuse, Color::Green] },
-    SellCardProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Chartreuse, Color::Purple] },
-    SellCardProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Teal, Color::Orange] },
-    SellCardProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Teal, Color::Green] },
-    SellCardProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Teal, Color::Purple] },
-    SellCardProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Indigo, Color::Orange] },
-    SellCardProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Indigo, Color::Green] },
-    SellCardProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Indigo, Color::Purple] },
-    SellCardProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Magenta, Color::Orange] },
-    SellCardProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Magenta, Color::Green] },
-    SellCardProperties { stars: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Magenta, Color::Purple] },
+    // Textiles 2-ducat, single tertiary (6)
+    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Vermilion] },
+    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Amber] },
+    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Chartreuse] },
+    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Teal] },
+    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Indigo] },
+    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Magenta] },
+    // Textiles 2-ducat, secondary+primary (9)
+    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Orange, Color::Red] },
+    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Orange, Color::Yellow] },
+    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Orange, Color::Blue] },
+    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Green, Color::Red] },
+    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Green, Color::Yellow] },
+    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Green, Color::Blue] },
+    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Purple, Color::Red] },
+    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Purple, Color::Yellow] },
+    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Purple, Color::Blue] },
+    // Textiles 2-ducat, triple primary (3)
+    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Red, Color::Red, Color::Red] },
+    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Yellow, Color::Yellow, Color::Yellow] },
+    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Blue, Color::Blue, Color::Blue] },
+    // Ceramics 3-ducat, tertiary+primary (18)
+    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Vermilion, Color::Red] },
+    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Vermilion, Color::Yellow] },
+    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Vermilion, Color::Blue] },
+    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Amber, Color::Red] },
+    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Amber, Color::Yellow] },
+    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Amber, Color::Blue] },
+    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Chartreuse, Color::Red] },
+    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Chartreuse, Color::Yellow] },
+    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Chartreuse, Color::Blue] },
+    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Teal, Color::Red] },
+    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Teal, Color::Yellow] },
+    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Teal, Color::Blue] },
+    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Indigo, Color::Red] },
+    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Indigo, Color::Yellow] },
+    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Indigo, Color::Blue] },
+    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Magenta, Color::Red] },
+    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Magenta, Color::Yellow] },
+    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Magenta, Color::Blue] },
+    // Paintings 4-ducat, tertiary+secondary (18)
+    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Vermilion, Color::Orange] },
+    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Vermilion, Color::Green] },
+    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Vermilion, Color::Purple] },
+    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Amber, Color::Orange] },
+    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Amber, Color::Green] },
+    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Amber, Color::Purple] },
+    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Chartreuse, Color::Orange] },
+    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Chartreuse, Color::Green] },
+    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Chartreuse, Color::Purple] },
+    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Teal, Color::Orange] },
+    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Teal, Color::Green] },
+    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Teal, Color::Purple] },
+    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Indigo, Color::Orange] },
+    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Indigo, Color::Green] },
+    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Indigo, Color::Purple] },
+    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Magenta, Color::Orange] },
+    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Magenta, Color::Green] },
+    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Magenta, Color::Purple] },
 ];
 
 impl SellCard {
@@ -499,8 +499,8 @@ impl SellCard {
     }
 
     #[inline]
-    pub fn stars(&self) -> u32 {
-        self.props().stars
+    pub fn ducats(&self) -> u32 {
+        self.props().ducats
     }
 
     #[inline]

@@ -363,7 +363,7 @@
 
 # BUYER CARDS
 
-*Buyers are how players score points. Each buyer requires the listed color cost plus 1 fabric card of the indicated type. Buyers have no Destroy action.*
+*Buyers are how players earn ducats. Each buyer requires the listed color cost plus 1 fabric card of the indicated type. Buyers have no Destroy action.*
 
 *Cost = double the associated dye's color output + 1 fabric.*
 
@@ -377,7 +377,7 @@
 - **Fabric:** 🪱 Silk
 - **Cost:** 🔴 Red ×6 + 🪱 Silk
 - **Art Description:** A magnificent floor-length robe in deep, pure crimson silk. The fabric falls in heavy folds, the color so saturated it seems to pulse. Gold thread edges the collar. A cardinal or senator would wear this.
-- **Points:** ★★★★★
+- **Ducats:** ★★★★★
 
 ### 2. Cochineal Magenta Gown
 
@@ -385,7 +385,7 @@
 - **Fabric:** 🪱 Silk
 - **Cost:** 🔴 Red ×4, 💜 Magenta ×2 + 🪱 Silk
 - **Art Description:** An elegant gown in rich carmine silk with a cool pink-red shimmer. The bodice is fitted and the skirt full, the color shifting between red and magenta as the wearer moves. Pearl buttons line the front.
-- **Points:** ★★★★
+- **Ducats:** ★★★★
 
 ### 3. Madder Red Doublet
 
@@ -393,7 +393,7 @@
 - **Fabric:** 🐑 Wool
 - **Cost:** 🔴 Red ×4, 🟠 Vermilion ×2 + 🐑 Wool
 - **Art Description:** A sturdy wool doublet in warm brick-red with orange undertones. Practical but handsome, with brass buttons and slashed sleeves revealing a white linen shirt beneath. A merchant or skilled artisan's garment.
-- **Points:** ★★★
+- **Ducats:** ★★★
 
 ### 4. Brazilwood Rose Cloak
 
@@ -401,7 +401,7 @@
 - **Fabric:** 🐑 Wool
 - **Cost:** 🔴 Red ×4 + 🐑 Wool
 - **Art Description:** A hooded wool cloak in a soft rose-red that has faded slightly at the shoulders from sun exposure — a nod to brazilwood's impermanence. Lined with undyed linen. Functional and modest.
-- **Points:** ★★
+- **Ducats:** ★★
 
 ### 5. Lac Crimson Sash
 
@@ -409,7 +409,7 @@
 - **Fabric:** 🪱 Silk
 - **Cost:** 🔴 Red ×4, 💜 Magenta ×2 + 🪱 Silk
 - **Art Description:** A wide silk sash in deep ruby-crimson with a cool magenta sheen, worn draped across the chest or tied at the waist. Tasseled ends are finished with small glass beads. An accessory of status.
-- **Points:** ★★★★
+- **Ducats:** ★★★★
 
 ### 6. Safflower Pink Veil
 
@@ -417,7 +417,7 @@
 - **Fabric:** 🪱 Silk
 - **Cost:** 🔴 Red ×2, 💜 Magenta ×2 + 🪱 Silk
 - **Art Description:** A delicate translucent silk veil in soft rose-pink, barely there, like a blush. The edges are finished with tiny hemstitching. Worn over the hair or shoulders by a noblewoman.
-- **Points:** ★★
+- **Ducats:** ★★
 
 ### 7. Alkanet Violet Bodice
 
@@ -425,7 +425,7 @@
 - **Fabric:** 🌾 Linen
 - **Cost:** 🔴 Red ×2, 🟣 Purple ×2 + 🌾 Linen
 - **Art Description:** A fitted linen bodice in a dusty reddish-violet, laced up the front with dark cord. The color is rich but muted, somewhere between plum and wine. Practical elegance for a dyer's wife.
-- **Points:** ★★
+- **Ducats:** ★★
 
 ### 8. Dragon's Blood Scarlet Cape
 
@@ -433,7 +433,7 @@
 - **Fabric:** 🐑 Wool
 - **Cost:** 🔴 Red ×4, 🟠 Vermilion ×2 + 🐑 Wool
 - **Art Description:** A short shoulder cape in vivid blood-scarlet wool, clasped at the throat with a bronze dragon-head brooch. The color is intense and almost otherworldly. Worn by a man who wants to be noticed.
-- **Points:** ★★★
+- **Ducats:** ★★★
 
 ### 9. Venetian Earth Russet Tunic
 
@@ -441,7 +441,7 @@
 - **Fabric:** 🌾 Linen
 - **Cost:** 🔴 Red ×2, 🟠 Vermilion ×2, 🟡 Amber ×2 + 🌾 Linen
 - **Art Description:** A simple linen tunic in warm russet-brown with red undertones, belted at the waist with a leather strap. The color of Venetian bricks and earth. A working person's daily wear, honest and warm.
-- **Points:** ★★★
+- **Ducats:** ★★★
 
 ### 10. Vermilion Ceremonial Stole
 
@@ -449,7 +449,7 @@
 - **Fabric:** 🪱 Silk
 - **Cost:** 🔴 Red ×2, 🟠 Vermilion ×4 + 🪱 Silk
 - **Art Description:** A brilliant orange-red silk stole draped over the shoulders, almost painfully vivid. The color is unnaturally bright — the mark of costly mineral pigment. Worn for ceremonies and processions.
-- **Points:** ★★★★
+- **Ducats:** ★★★★
 
 ---
 
@@ -461,7 +461,7 @@
 - **Fabric:** 🌾 Linen
 - **Cost:** 🔵 Blue ×4 + 🌾 Linen
 - **Art Description:** A long linen apron in solid medium blue, stained darker at the pockets and hem from years of use. Leather ties wrap around the back. The uniform of a Venetian dyer — worn with pride.
-- **Points:** ★★
+- **Ducats:** ★★
 
 ### 12. Indigo Merchant's Coat
 
@@ -469,7 +469,7 @@
 - **Fabric:** 🐑 Wool
 - **Cost:** 🔵 Blue ×4, 💙 Indigo ×2 + 🐑 Wool
 - **Art Description:** A long wool coat in deep, saturated indigo blue, almost black in shadow but revealing its true blue in sunlight. Silver buttons and a high collar. A prosperous merchant's winter garment.
-- **Points:** ★★★★
+- **Ducats:** ★★★★
 
 ### 13. Smalt Blue Brocade Vest
 
@@ -477,7 +477,7 @@
 - **Fabric:** 🪱 Silk
 - **Cost:** 🔵 Blue ×4, 💙 Indigo ×2 + 🪱 Silk
 - **Art Description:** A silk vest in rich cobalt blue with a subtle brocade pattern woven through it, catching the light like crushed glass. The color has a slight dusty quality unique to smalt. A Murano glassmaker's finest dress.
-- **Points:** ★★★★
+- **Ducats:** ★★★★
 
 ### 14. Azurite Sky-Blue Mantle
 
@@ -485,7 +485,7 @@
 - **Fabric:** 🐑 Wool
 - **Cost:** 🔵 Blue ×4, 🩵 Teal ×2 + 🐑 Wool
 - **Art Description:** A sweeping wool mantle in vivid sky blue with a faint greenish shimmer at the folds. Clasped with a copper pin that has turned the same blue-green as the dye. Striking against Venetian stone.
-- **Points:** ★★★
+- **Ducats:** ★★★
 
 ### 15. Logwood Twilight Cassock
 
@@ -493,7 +493,7 @@
 - **Fabric:** 🐑 Wool
 - **Cost:** 🔵 Blue ×2, 💙 Indigo ×2, 🟣 Purple ×2 + 🐑 Wool
 - **Art Description:** A long wool cassock in deep blue-violet, the color of twilight sky. The hue shifts between blue and purple depending on the light. Simple cut with covered buttons. A scholar or cleric's garment.
-- **Points:** ★★★★
+- **Ducats:** ★★★★
 
 ---
 
@@ -505,7 +505,7 @@
 - **Fabric:** 🌾 Linen
 - **Cost:** 🟡 Yellow ×6 + 🌾 Linen
 - **Art Description:** A bright golden-yellow linen dress with full gathered skirts, vivid as a sunflower field. Ribbon trim at the neckline and sleeves. Worn for festivals and celebrations — impossible to miss in a crowd.
-- **Points:** ★★★★★
+- **Ducats:** ★★★★★
 
 ### 17. Saffron Gold Silk Turban
 
@@ -513,7 +513,7 @@
 - **Fabric:** 🪱 Silk
 - **Cost:** 🟡 Yellow ×4, 🟡 Amber ×2 + 🪱 Silk
 - **Art Description:** A luxuriously wound silk turban in rich saffron gold, the fabric catching light like liquid honey. A jeweled pin holds the folds in place. An Eastern merchant's statement piece, signaling wealth and taste.
-- **Points:** ★★★★
+- **Ducats:** ★★★★
 
 ### 18. Turmeric Amber Headscarf
 
@@ -521,7 +521,7 @@
 - **Fabric:** 🌿 Cotton
 - **Cost:** 🟡 Yellow ×2, 🟡 Amber ×2, 🟠 Orange ×2 + 🌿 Cotton
 - **Art Description:** A cotton headscarf in warm yellow-orange, slightly uneven in color where the turmeric dye took differently — a charming imperfection. Tied loosely over the hair with ends trailing. A market woman's everyday accessory.
-- **Points:** ★★★
+- **Ducats:** ★★★
 
 ### 19. Dyer's Broom Yellow Kirtle
 
@@ -529,7 +529,7 @@
 - **Fabric:** 🐑 Wool
 - **Cost:** 🟡 Yellow ×4 + 🐑 Wool
 - **Art Description:** A simple wool kirtle in clean primary yellow, worn over a white chemise. The color is bright but not garish — cheerful and practical. Laced at the sides. Common wear for a tradesman's daughter.
-- **Points:** ★★
+- **Ducats:** ★★
 
 ### 20. Spanish Broom Sunlight Shawl
 
@@ -537,7 +537,7 @@
 - **Fabric:** 🐑 Wool
 - **Cost:** 🟡 Yellow ×4 + 🐑 Wool
 - **Art Description:** A large rectangular wool shawl in warm yellow, draped over the shoulders and pinned at the chest. Fringed edges sway as the wearer walks. The color of Mediterranean sunlight on limestone.
-- **Points:** ★★
+- **Ducats:** ★★
 
 ### 21. Old Fustic Amber Jerkin
 
@@ -545,7 +545,7 @@
 - **Fabric:** 🐑 Wool
 - **Cost:** 🟡 Yellow ×4, 🟡 Amber ×2 + 🐑 Wool
 - **Art Description:** A sleeveless wool jerkin in deep amber-yellow, worn over a dark shirt. The color is warm like aged honey. Leather lacing up the front and reinforced shoulders. A craftsman's working garment.
-- **Points:** ★★★
+- **Ducats:** ★★★
 
 ### 22. Venetian Sumac Harvest Skirt
 
@@ -553,7 +553,7 @@
 - **Fabric:** 🌾 Linen
 - **Cost:** 🟡 Yellow ×2, 🟡 Amber ×2, 🟠 Orange ×2 + 🌾 Linen
 - **Art Description:** A full linen skirt in warm amber-orange, the color of autumn leaves. The fabric is gathered at the waist with a woven belt. It sways heavily, dyed deep with the local sumac. A country woman's harvest-time best.
-- **Points:** ★★★
+- **Ducats:** ★★★
 
 ### 23. Persian Berry Chartreuse Sleeve
 
@@ -561,7 +561,7 @@
 - **Fabric:** 🪱 Silk
 - **Cost:** 🟡 Yellow ×2, 🟢 Chartreuse ×2 + 🪱 Silk
 - **Art Description:** A pair of detachable silk sleeves in vivid yellow-green, laced onto a darker bodice. The unusual chartreuse color catches the eye — fashionable and daring. Slashed to show white silk lining beneath.
-- **Points:** ★★★
+- **Ducats:** ★★★
 
 ---
 
@@ -573,7 +573,7 @@
 - **Fabric:** 🪱 Silk
 - **Cost:** 🟣 Purple ×4, 💜 Magenta ×2 + 🪱 Silk
 - **Art Description:** A voluminous silk robe in the legendary Tyrian purple — a deep reddish-violet that seems to deepen rather than fade in sunlight. Gold embroidery at the hem. The most expensive garment imaginable. Worn by a Doge or visiting emperor.
-- **Points:** ★★★★★
+- **Ducats:** ★★★★★
 
 ### 25. Orchil Plum Petticoat
 
@@ -581,7 +581,7 @@
 - **Fabric:** 🐑 Wool
 - **Cost:** 🟣 Purple ×2, 💜 Magenta ×2, 🔴 Red ×2 + 🐑 Wool
 - **Art Description:** A wool petticoat in rich plum-purple with reddish undertones, peeking out beneath an outer skirt. The color is warm and complex. Sturdy construction with a deep hem. An affordable taste of purple for the aspiring class.
-- **Points:** ★★★
+- **Ducats:** ★★★
 
 ### 26. Turnsole Violet Hood
 
@@ -589,7 +589,7 @@
 - **Fabric:** 🐑 Wool
 - **Cost:** 🟣 Purple ×4 + 🐑 Wool
 - **Art Description:** A deep pointed hood in true violet wool, draping down the back in a long liripipe tail. The clean purple color marks the wearer as educated — a university scholar or minor cleric. Simple but dignified.
-- **Points:** ★★
+- **Ducats:** ★★
 
 ### 27. Elderberry Dusk Stockings
 
@@ -597,7 +597,7 @@
 - **Fabric:** 🐑 Wool
 - **Cost:** 🟣 Purple ×2, 💙 Indigo ×2 + 🐑 Wool
 - **Art Description:** Knitted wool stockings in dusky blue-violet, pulled up to the knee and tied with ribbon garters. The elderberry color is cool and subdued, like the sky just after sunset. A gentleman's finishing touch.
-- **Points:** ★★★
+- **Ducats:** ★★★
 
 ---
 
@@ -609,7 +609,7 @@
 - **Fabric:** 🌾 Linen
 - **Cost:** 🟢 Green ×4, 🩵 Teal ×2 + 🌾 Linen
 - **Art Description:** A sleeveless linen surcoat in vivid blue-green, the color of oxidized copper. Worn over a darker under-tunic, it catches light with an almost metallic quality. Embroidered with a simple geometric border at the hem.
-- **Points:** ★★★
+- **Ducats:** ★★★
 
 ### 29. Lincoln Green Huntsman's Coat
 
@@ -617,7 +617,7 @@
 - **Fabric:** 🐑 Wool
 - **Cost:** 🟢 Green ×2, 🩵 Teal ×2, 🔵 Blue ×2 + 🐑 Wool
 - **Art Description:** A fitted wool coat in deep forest green with blue undertones, designed for movement. The cut is practical with deep pockets and a high collar. The legendary color of English archers, here worn by a Venetian hunter.
-- **Points:** ★★★★
+- **Ducats:** ★★★★
 
 ### 30. Saxon Green Emerald Gown
 
@@ -625,7 +625,7 @@
 - **Fabric:** 🪱 Silk
 - **Cost:** 🟢 Green ×4, 🟢 Chartreuse ×2 + 🪱 Silk
 - **Art Description:** A stunning silk gown in bright emerald green with warm yellow highlights in the folds. The most vivid green achievable — a triumph of the dyer's art. Fitted bodice with flowing sleeves. A noblewoman's showpiece.
-- **Points:** ★★★★★
+- **Ducats:** ★★★★★
 
 ---
 
@@ -637,7 +637,7 @@
 - **Fabric:** 🌾 Linen
 - **Cost:** 🟡 Yellow ×2, 🟡 Amber ×2 + 🌾 Linen
 - **Art Description:** Simple linen breeches in light tawny-brown, gathered at the knee with ties. Practical and unassuming — the garment of a working man. A few small stains suggest honest labor. Sturdy and comfortable.
-- **Points:** ★
+- **Ducats:** ★
 
 ### 32. Walnut Brown Traveler's Cloak
 
@@ -645,7 +645,7 @@
 - **Fabric:** 🐑 Wool
 - **Cost:** 🟠 Vermilion ×2, 🟡 Amber ×2, 🟠 Orange ×2 + 🐑 Wool
 - **Art Description:** A heavy wool traveling cloak in rich warm brown with reddish undertones, clasped with a simple iron ring. The hood is deep enough to shield from rain. Road-worn but dignified. The garment of a pilgrim or wandering merchant.
-- **Points:** ★★★
+- **Ducats:** ★★★
 
 ### 33. Oak Bark Tawny Coif
 
@@ -653,7 +653,7 @@
 - **Fabric:** 🌾 Linen
 - **Cost:** 🟡 Yellow ×2, 🟡 Amber ×2 + 🌾 Linen
 - **Art Description:** A close-fitting linen cap in light tan-brown that ties under the chin. Worn by men and women alike beneath hats or hoods. The oak bark color is subtle and natural, like parchment left in the sun.
-- **Points:** ★
+- **Ducats:** ★
 
 ### 34. Catechu Cinnamon Gloves
 
@@ -661,7 +661,7 @@
 - **Fabric:** 🐑 Wool
 - **Cost:** 🔴 Red ×2, 🟡 Amber ×2, 🟠 Orange ×2 + 🐑 Wool
 - **Art Description:** Fine wool gloves in warm cinnamon red-brown, fitted to the hand with tiny buttons at the wrist. The color is rich and warm, imported elegance. Lined with undyed linen for comfort. A spice merchant's signature.
-- **Points:** ★★★
+- **Ducats:** ★★★
 
 ### 35. Chestnut Autumn Vest
 
@@ -669,7 +669,7 @@
 - **Fabric:** 🌿 Cotton
 - **Cost:** 🟡 Amber ×2, 🟠 Orange ×2 + 🌿 Cotton
 - **Art Description:** A short cotton vest in warm chestnut brown, buttoned up the front over a cream shirt. The color is cozy and autumnal. Simple stitching and no adornment — practical warmth for a cool morning at the market.
-- **Points:** ★★
+- **Ducats:** ★★
 
 ### 36. Alder Bark Russet Apron
 
@@ -677,7 +677,7 @@
 - **Fabric:** 🌾 Linen
 - **Cost:** 🔴 Red ×2, 🟡 Amber ×2 + 🌾 Linen
 - **Art Description:** A long linen work apron in red-toned brown, stained and well-worn. Pockets bulge with tools. The alder bark color has a warmth to it, distinguishing it from common undyed cloth. A tanner or leatherworker's daily armor.
-- **Points:** ★★
+- **Ducats:** ★★
 
 ---
 
@@ -689,7 +689,7 @@
 - **Fabric:** 🐑 Wool
 - **Cost:** 🔵 Blue ×2, 🟣 Purple ×2, 💙 Indigo ×2 + 🐑 Wool
 - **Art Description:** A heavy wool mantle in deep, true black — the most difficult and prestigious color to achieve. The fabric absorbs all light. Lined with dark silk. Wide shoulders and a sweeping cut. Worn by judges, magistrates, and the most powerful citizens.
-- **Points:** ★★★★★
+- **Ducats:** ★★★★★
 
 ---
 
@@ -701,7 +701,7 @@
 - **Fabric:** 🌿 Cotton
 - **Cost:** 🟠 Orange ×2, 🟡 Amber ×2, 🟡 Yellow ×2 + 🌿 Cotton
 - **Art Description:** A cotton bandana in warm sunset orange-yellow, folded and tied at the neck or head. The vivid color speaks of New World trade. The edges are simply hemmed. A sailor or dock worker's practical flair.
-- **Points:** ★★★
+- **Ducats:** ★★★
 
 ### 39. Henna Terra Cotta Sash
 
@@ -709,7 +709,7 @@
 - **Fabric:** 🌿 Cotton
 - **Cost:** 🟠 Orange ×2, 🟠 Vermilion ×2 + 🌿 Cotton
 - **Art Description:** A wide cotton sash in warm terra cotta orange with red undertones, wrapped several times around the waist and knotted at the hip. The henna color is earthy and warm. An Eastern influence in Venetian dress.
-- **Points:** ★★
+- **Ducats:** ★★
 
 ---
 
@@ -732,9 +732,9 @@
 | 🌾 Linen | Alkanet, Venetian Red Earth, Woad, Weld, Venetian Sumac, Verdigris, Gall Nuts, Oak Bark, Alder Bark | 9 |
 | 🌿 Cotton | Turmeric, Chestnut, Annatto, Henna | 4 |
 
-## Point Distribution
+## Ducat Distribution
 
-| Points | Count | Examples |
+| Ducats | Count | Examples |
 |--------|-------|---------|
 | ★ | 2 | Gall Nut Breeches, Oak Bark Coif |
 | ★★ | 9 | Brazilwood Cloak, Safflower Veil, Woad Apron, etc. |

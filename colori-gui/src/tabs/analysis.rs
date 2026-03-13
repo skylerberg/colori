@@ -401,11 +401,11 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis, num_gam
                 ui.strong("By Sell Card");
                 render_usize_hashmap_bar_rows(ui, &analysis.sell_card_acq.by_sell_card, "Count");
                 ui.add_space(8.0);
-                ui.strong("By Stars");
+                ui.strong("By Ducats");
                 render_u32_hashmap_bar_rows(
                     ui,
-                    &analysis.sell_card_acq.by_stars,
-                    "Stars",
+                    &analysis.sell_card_acq.by_ducats,
+                    "Ducats",
                     "Count",
                 );
                 ui.add_space(8.0);

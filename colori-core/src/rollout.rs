@@ -415,7 +415,7 @@ fn fused_buy<R: Rng>(
     let player = &mut state.players[player_index];
     player.materials.decrement(sell_card.sell_card.required_material());
     pay_cost(&mut player.color_wheel, sell_card.sell_card.color_cost());
-    player.cached_score += sell_card.sell_card.stars();
+    player.cached_score += sell_card.sell_card.ducats();
     player.completed_sell_cards.push(sell_card);
     if let Some(id) = state.sell_card_deck.draw(rng) {
         state.sell_card_display.push(SellCardInstance {

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Colori is a deck-building game for 2–5 players about dyeing materials and selling to sell cards. Players draft dye, material, and action cards, destroy them to store colors on a color wheel, mix colors, and sell to sell cards worth stars. The game lasts up to 20 rounds, or until any player reaches 16 points. The player with the most points (sell card stars + ducats) wins.
+Colori is a deck-building game for 2–5 players about dyeing materials and selling to sell cards. Players draft dye, material, and action cards, destroy them to store colors on a color wheel, mix colors, and sell to sell cards worth ducats. The game lasts up to 20 rounds, or until any player reaches 16 ducats. The player with the most ducats wins.
 
 ## Components
 
@@ -41,7 +41,7 @@ Starting deck materials gain 1 material when workshopped. Draft material cards o
 Each action card has a destroy ability plus workshop abilities that trigger when the card is chosen during Workshop resolution. See the card reference below.
 
 **Sell Cards** (54 total, single deck):
-Each sell card requires 1 of a specific material type and a set of colors as its cost. All 54 sell cards are shuffled into a single deck. Each sell card is worth 2–4 stars.
+Each sell card requires 1 of a specific material type and a set of colors as its cost. All 54 sell cards are shuffled into a single deck. Each sell card is worth 2–4 ducats.
 
 ### Decks
 
@@ -170,10 +170,10 @@ Swap one tertiary color on your wheel for a different tertiary. First choose a t
 ## End of Game
 
 The game ends when either:
-- Any player reaches **16 or more points** after a complete round, OR
+- Any player reaches **16 or more ducats** after a complete round, OR
 - **Round 20** is completed.
 
-Each player's score = sell card stars + ducats. The player with the highest score wins.
+Each player's score = total ducats (from sell cards + Gain Ducats ability). The player with the most ducats wins.
 
 ---
 
@@ -272,8 +272,8 @@ Their workshop abilities (triggered when chosen during Workshop resolution) are:
 
 Sell cards do not have names. Each sell card requires 1 of a specific material type and a set of colors as its cost.
 
-| Material | Stars | Requirement | Count |
-|----------|-------|-------------|-------|
+| Material | Ducats | Requirement | Count |
+|----------|--------|-------------|-------|
 | Textiles | 2 | One tertiary, one secondary + one primary, or triple primary (3 of same primary color) | 18 |
 | Ceramics | 3 | One tertiary + one primary | 18 |
 | Paintings | 4 | One tertiary + one secondary | 18 |
