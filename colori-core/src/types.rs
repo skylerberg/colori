@@ -795,7 +795,7 @@ pub enum Choice {
     DestroyDrawnCards { card: Option<Card> },
     #[serde(rename = "selectSellCard")]
     SelectSellCard {
-        #[serde(rename = "sellCard")]
+        #[serde(rename = "sellCard", alias = "sell_card")]
         sell_card: SellCard,
     },
     #[serde(rename = "gainSecondary")]
@@ -821,7 +821,7 @@ pub enum Choice {
     #[serde(rename = "destroyAndSell")]
     DestroyAndSell {
         card: Card,
-        #[serde(rename = "sellCard")]
+        #[serde(rename = "sellCard", alias = "sell_card")]
         sell_card: SellCard,
     },
     #[serde(rename = "destroyAndWorkshop")]

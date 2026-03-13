@@ -3,12 +3,12 @@
   import { createInitialGameState } from '../engine/wasmEngine';
 
   const DIFFICULTY_LEVELS: { label: string; iterations: number }[] = [
-    { label: 'Easy', iterations: 10000 },
-    { label: 'Medium', iterations: 50000 },
-    { label: 'Hard', iterations: 100000 },
-    { label: 'Very Hard', iterations: 200000 },
-    { label: 'Insane', iterations: 400000 },
-    { label: 'Godly', iterations: 1000000 },
+    { label: 'Easy', iterations: 1000 },
+    { label: 'Medium', iterations: 10000 },
+    { label: 'Hard', iterations: 50000 },
+    { label: 'Very Hard', iterations: 100000 },
+    { label: 'Insane', iterations: 200000 },
+    { label: 'Godly', iterations: 500000 },
   ];
 
   let { onGameStarted }: {
