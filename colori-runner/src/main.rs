@@ -2,7 +2,7 @@ use colori_core::colori_game::apply_choice_to_state;
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::game_log::{FinalPlayerStats, FinalScore, PlayerVariant};
 use colori_core::ismcts::{ismcts, MctsConfig};
-use colori_core::scoring::calculate_score;
+use colori_core::scoring::{calculate_score, HeuristicParams};
 use colori_core::setup::create_initial_game_state_with_expansions;
 use colori_core::types::*;
 use colori_core::unordered_cards::{set_sell_card_registry, set_card_registry};
@@ -24,6 +24,16 @@ struct Args {
     note: Option<String>,
     variants: Vec<NamedVariant>,
     glass: bool,
+    genetic: Option<GeneticArgs>,
+}
+
+struct GeneticArgs {
+    population: usize,
+    generations: usize,
+    games_per_eval: usize,
+    mutation_rate: f64,
+    mutation_scale: f64,
+    eval_iterations: u32,
 }
 
 #[derive(Clone)]
@@ -44,11 +54,25 @@ struct VariantFileEntry {
     max_rollout_steps: Option<u32>,
     #[serde(default)]
     use_heuristic_eval: Option<bool>,
+    #[serde(default)]
+    heuristic_params: Option<HeuristicParams>,
+    #[serde(default)]
+    heuristic_params_file: Option<String>,
 }
 
 impl VariantFileEntry {
     fn into_named_variant(self) -> NamedVariant {
         let defaults = MctsConfig::default();
+        let heuristic_params = if let Some(params) = self.heuristic_params {
+            params
+        } else if let Some(path) = &self.heuristic_params_file {
+            let contents = std::fs::read_to_string(path)
+                .unwrap_or_else(|_| panic!("Failed to read heuristic params file: {}", path));
+            serde_json::from_str(&contents)
+                .unwrap_or_else(|_| panic!("Failed to parse heuristic params file: {}", path))
+        } else {
+            HeuristicParams::default()
+        };
         NamedVariant {
             name: self.name,
             ai: MctsConfig {
@@ -56,6 +80,7 @@ impl VariantFileEntry {
                 exploration_constant: self.exploration_constant.unwrap_or(defaults.exploration_constant),
                 max_rollout_steps: self.max_rollout_steps.unwrap_or(defaults.max_rollout_steps),
                 use_heuristic_eval: self.use_heuristic_eval.unwrap_or(defaults.use_heuristic_eval),
+                heuristic_params,
             },
         }
     }
@@ -70,6 +95,14 @@ fn parse_args() -> Args {
     let mut variants: Option<Vec<NamedVariant>> = None;
     let mut variants_file = "variants.json".to_string();
     let mut glass = false;
+
+    let mut genetic = false;
+    let mut population = 20usize;
+    let mut generations = 50usize;
+    let mut games_per_eval = 100usize;
+    let mut mutation_rate = 0.15f64;
+    let mut mutation_scale = 0.25f64;
+    let mut eval_iterations = 1000u32;
 
     let mut i = 1;
     while i < args.len() {
@@ -114,6 +147,35 @@ fn parse_args() -> Args {
                 i += 1;
                 continue;
             }
+            "--genetic" => {
+                genetic = true;
+                i += 1;
+                continue;
+            }
+            "--population" => {
+                i += 1;
+                population = args[i].parse().expect("Invalid --population value");
+            }
+            "--generations" => {
+                i += 1;
+                generations = args[i].parse().expect("Invalid --generations value");
+            }
+            "--games-per-eval" => {
+                i += 1;
+                games_per_eval = args[i].parse().expect("Invalid --games-per-eval value");
+            }
+            "--mutation-rate" => {
+                i += 1;
+                mutation_rate = args[i].parse().expect("Invalid --mutation-rate value");
+            }
+            "--mutation-scale" => {
+                i += 1;
+                mutation_scale = args[i].parse().expect("Invalid --mutation-scale value");
+            }
+            "--eval-iterations" => {
+                i += 1;
+                eval_iterations = args[i].parse().expect("Invalid --eval-iterations value");
+            }
             other => {
                 eprintln!("Unknown argument: {}", other);
                 std::process::exit(1);
@@ -122,15 +184,37 @@ fn parse_args() -> Args {
         i += 1;
     }
 
+    let genetic_args = if genetic {
+        // In genetic mode, default output to "genetic-algorithm"
+        if output == "game-logs" {
+            output = "genetic-algorithm".to_string();
+        }
+        Some(GeneticArgs {
+            population,
+            generations,
+            games_per_eval,
+            mutation_rate,
+            mutation_scale,
+            eval_iterations,
+        })
+    } else {
+        None
+    };
+
     let variants = variants.unwrap_or_else(|| {
-        let contents = std::fs::read_to_string(&variants_file)
-            .unwrap_or_else(|_| panic!("Failed to read variants file: {}", variants_file));
-        let entries: Vec<VariantFileEntry> = serde_json::from_str(&contents)
-            .unwrap_or_else(|_| panic!("Failed to parse variants file: {}", variants_file));
-        entries
-            .into_iter()
-            .map(|e| e.into_named_variant())
-            .collect()
+        if genetic {
+            // In genetic mode, variants file is not required
+            vec![NamedVariant { name: None, ai: MctsConfig::default() }; 2]
+        } else {
+            let contents = std::fs::read_to_string(&variants_file)
+                .unwrap_or_else(|_| panic!("Failed to read variants file: {}", variants_file));
+            let entries: Vec<VariantFileEntry> = serde_json::from_str(&contents)
+                .unwrap_or_else(|_| panic!("Failed to parse variants file: {}", variants_file));
+            entries
+                .into_iter()
+                .map(|e| e.into_named_variant())
+                .collect()
+        }
     });
 
     Args {
@@ -140,6 +224,7 @@ fn parse_args() -> Args {
         note,
         variants,
         glass,
+        genetic: genetic_args,
     }
 }
 
@@ -257,6 +342,13 @@ fn has_any_difference(variants: &[NamedVariant]) -> bool {
     diff.iterations_differs || diff.exploration_constant_differs || diff.max_rollout_steps_differs
 }
 
+fn is_default_heuristic_params(params: &HeuristicParams) -> bool {
+    let d = HeuristicParams::default();
+    let json_params = serde_json::to_string(params).unwrap_or_default();
+    let json_default = serde_json::to_string(&d).unwrap_or_default();
+    json_params == json_default
+}
+
 fn variant_to_player_variant(variant: &NamedVariant) -> PlayerVariant {
     let defaults = MctsConfig::default();
     let config = &variant.ai;
@@ -271,6 +363,11 @@ fn variant_to_player_variant(variant: &NamedVariant) -> PlayerVariant {
         },
         max_rollout_steps: if config.max_rollout_steps != defaults.max_rollout_steps {
             Some(config.max_rollout_steps)
+        } else {
+            None
+        },
+        heuristic_params: if !is_default_heuristic_params(&config.heuristic_params) {
+            Some(config.heuristic_params.clone())
         } else {
             None
         },
@@ -417,6 +514,327 @@ fn run_game(
     }
 }
 
+// ── Genetic Algorithm ──
+
+/// Box-Muller transform: generate a sample from N(0, std_dev)
+fn sample_normal(rng: &mut WyRand, std_dev: f64) -> f64 {
+    let u1: f64 = rng.random::<f64>();
+    let u2: f64 = rng.random::<f64>();
+    let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
+    z * std_dev
+}
+
+fn heuristic_params_to_vec(params: &HeuristicParams) -> Vec<f64> {
+    vec![
+        params.primary_pip_weight,
+        params.secondary_pip_weight,
+        params.tertiary_pip_weight,
+        params.stored_material_weight,
+        params.chalk_quality,
+        params.action_quality,
+        params.dye_quality,
+        params.basic_dye_quality,
+        params.starter_material_quality,
+        params.draft_material_quality,
+        params.dual_material_quality,
+        params.buyer_material_weight,
+        params.buyer_color_weight,
+        params.glass_weight,
+        params.heuristic_round_threshold as f64,
+        params.heuristic_lookahead as f64,
+    ]
+}
+
+fn vec_to_heuristic_params(v: &[f64]) -> HeuristicParams {
+    HeuristicParams {
+        primary_pip_weight: v[0],
+        secondary_pip_weight: v[1],
+        tertiary_pip_weight: v[2],
+        stored_material_weight: v[3],
+        chalk_quality: v[4],
+        action_quality: v[5],
+        dye_quality: v[6],
+        basic_dye_quality: v[7],
+        starter_material_quality: v[8],
+        draft_material_quality: v[9],
+        dual_material_quality: v[10],
+        buyer_material_weight: v[11],
+        buyer_color_weight: v[12],
+        glass_weight: v[13],
+        heuristic_round_threshold: (v[14].round() as u32).max(1),
+        heuristic_lookahead: (v[15].round() as u32).max(1),
+    }
+}
+
+fn run_ga_game(
+    params_a: &HeuristicParams,
+    params_b: &HeuristicParams,
+    eval_iterations: u32,
+    glass: bool,
+    rng: &mut WyRand,
+) -> (f64, f64) {
+    let num_players = 2;
+    let ai_players = vec![true; num_players];
+    let expansions = Expansions { glass };
+    let mut state = create_initial_game_state_with_expansions(num_players, &ai_players, expansions, rng);
+
+    let configs = [
+        MctsConfig {
+            iterations: eval_iterations,
+            use_heuristic_eval: true,
+            heuristic_params: params_a.clone(),
+            ..MctsConfig::default()
+        },
+        MctsConfig {
+            iterations: eval_iterations,
+            use_heuristic_eval: true,
+            heuristic_params: params_b.clone(),
+            ..MctsConfig::default()
+        },
+    ];
+
+    execute_draw_phase(&mut state, rng);
+
+    while !matches!(state.phase, GamePhase::GameOver) {
+        let player_index = match &state.phase {
+            GamePhase::Draft { draft_state } => draft_state.current_player_index,
+            GamePhase::Action { action_state } => action_state.current_player_index,
+            GamePhase::Draw => {
+                break;
+            }
+            GamePhase::GameOver => break,
+        };
+
+        let config = &configs[player_index];
+        let max_rollout_round = std::cmp::max(8, state.round + 2);
+        let choice = ismcts(&state, player_index, config, &None, Some(max_rollout_round), rng);
+        apply_choice_to_state(&mut state, &choice, rng);
+    }
+
+    let score_a = calculate_score(&state.players[0]);
+    let score_b = calculate_score(&state.players[1]);
+    if score_a > score_b {
+        (1.0, 0.0)
+    } else if score_b > score_a {
+        (0.0, 1.0)
+    } else {
+        (0.5, 0.5)
+    }
+}
+
+fn run_genetic_algorithm(args: &Args, ga: &GeneticArgs) {
+    let batch_id = generate_batch_id();
+    let num_genes = 16;
+
+    eprintln!(
+        "Genetic Algorithm: population={}, generations={}, games_per_eval={}, eval_iterations={}, threads={}",
+        ga.population, ga.generations, ga.games_per_eval, ga.eval_iterations, args.threads
+    );
+
+    std::fs::create_dir_all(&args.output).expect("Failed to create output directory");
+
+    let mut rng = WyRand::from_rng(&mut rand::rng());
+
+    // Initialize population
+    let mut population: Vec<Vec<f64>> = Vec::with_capacity(ga.population);
+    let default_genes = heuristic_params_to_vec(&HeuristicParams::default());
+
+    // First individual is the default
+    population.push(default_genes.clone());
+
+    // Rest are randomly perturbed
+    for _ in 1..ga.population {
+        let mut genes = default_genes.clone();
+        for g in &mut genes {
+            let factor = 0.5 + rng.random::<f64>() * 1.5; // [0.5, 2.0)
+            *g *= factor;
+            if *g < 0.0 {
+                *g = 0.0;
+            }
+        }
+        // Clamp u32 fields
+        genes[14] = (genes[14].round()).max(1.0);
+        genes[15] = (genes[15].round()).max(1.0);
+        population.push(genes);
+    }
+
+    for gen in 0..ga.generations {
+        let gen_start = Instant::now();
+        let pop_size = population.len();
+
+        // Build all pairs for round-robin
+        let mut pairs: Vec<(usize, usize)> = Vec::new();
+        for i in 0..pop_size {
+            for j in (i + 1)..pop_size {
+                pairs.push((i, j));
+            }
+        }
+
+        // Evaluate: run games for all pairs, parallelized across threads
+        let wins: Vec<std::sync::atomic::AtomicU64> = (0..pop_size)
+            .map(|_| std::sync::atomic::AtomicU64::new(0))
+            .collect();
+        let total_games_per_individual: Vec<AtomicUsize> = (0..pop_size)
+            .map(|_| AtomicUsize::new(0))
+            .collect();
+
+        let population_params: Vec<HeuristicParams> = population
+            .iter()
+            .map(|g| vec_to_heuristic_params(g))
+            .collect();
+
+        let pairs_ref = &pairs;
+        let wins_ref = &wins;
+        let total_ref = &total_games_per_individual;
+        let pop_params_ref = &population_params;
+        let eval_iterations = ga.eval_iterations;
+        let games_per_eval = ga.games_per_eval;
+        let glass = args.glass;
+
+        std::thread::scope(|s| {
+            let num_threads = args.threads;
+            let pairs_per_thread = pairs_ref.len() / num_threads;
+            let remainder = pairs_ref.len() % num_threads;
+            let mut offset = 0;
+
+            let mut handles = Vec::new();
+            for t in 0..num_threads {
+                let count = pairs_per_thread + if t < remainder { 1 } else { 0 };
+                let thread_pairs = &pairs_ref[offset..offset + count];
+                offset += count;
+
+                handles.push(s.spawn(move || {
+                    let mut rng = WyRand::from_rng(&mut rand::rng());
+
+                    for &(i, j) in thread_pairs {
+                        let params_i = &pop_params_ref[i];
+                        let params_j = &pop_params_ref[j];
+
+                        let mut wins_i = 0.0f64;
+                        let mut wins_j = 0.0f64;
+
+                        for _ in 0..games_per_eval {
+                            let (wi, wj) = run_ga_game(params_i, params_j, eval_iterations, glass, &mut rng);
+                            wins_i += wi;
+                            wins_j += wj;
+                        }
+
+                        // Store wins as u64 bits (multiply by 1000 for precision)
+                        wins_ref[i].fetch_add((wins_i * 1000.0) as u64, Ordering::Relaxed);
+                        wins_ref[j].fetch_add((wins_j * 1000.0) as u64, Ordering::Relaxed);
+                        total_ref[i].fetch_add(games_per_eval, Ordering::Relaxed);
+                        total_ref[j].fetch_add(games_per_eval, Ordering::Relaxed);
+                    }
+                }));
+            }
+
+            for h in handles {
+                h.join().unwrap();
+            }
+        });
+
+        // Compute fitness (average win rate)
+        let mut fitness: Vec<(usize, f64)> = (0..pop_size)
+            .map(|i| {
+                let w = wins[i].load(Ordering::Relaxed) as f64 / 1000.0;
+                let t = total_games_per_individual[i].load(Ordering::Relaxed) as f64;
+                let wr = if t > 0.0 { w / t } else { 0.0 };
+                (i, wr)
+            })
+            .collect();
+
+        fitness.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+        let best_idx = fitness[0].0;
+        let best_fitness = fitness[0].1;
+        let best_params = vec_to_heuristic_params(&population[best_idx]);
+
+        // Save best individual
+        let output_path = format!("{}/batch-{}-gen-{}.json", args.output, batch_id, gen);
+        let json = serde_json::to_string_pretty(&best_params).unwrap();
+        std::fs::write(&output_path, json).unwrap();
+
+        let elapsed = gen_start.elapsed();
+        eprintln!(
+            "Gen {}/{}: best_fitness={:.4}, worst_fitness={:.4}, elapsed={:.1}s, saved {}",
+            gen + 1,
+            ga.generations,
+            best_fitness,
+            fitness.last().unwrap().1,
+            elapsed.as_secs_f64(),
+            output_path,
+        );
+
+        // If this is the last generation, we're done
+        if gen + 1 >= ga.generations {
+            break;
+        }
+
+        // Selection, crossover, mutation to create next generation
+        let mut new_population: Vec<Vec<f64>> = Vec::with_capacity(ga.population);
+
+        // Elitism: top 2 survive
+        new_population.push(population[fitness[0].0].clone());
+        new_population.push(population[fitness[1].0].clone());
+
+        while new_population.len() < ga.population {
+            // Tournament selection (size 3) for two parents
+            let parent_a = tournament_select(&fitness, 3, &mut rng);
+            let parent_b = tournament_select(&fitness, 3, &mut rng);
+
+            // Uniform crossover
+            let mut child = Vec::with_capacity(num_genes);
+            for g in 0..num_genes {
+                if rng.random_bool(0.5) {
+                    child.push(population[parent_a][g]);
+                } else {
+                    child.push(population[parent_b][g]);
+                }
+            }
+
+            // Mutation
+            for g in &mut child {
+                if rng.random::<f64>() < ga.mutation_rate {
+                    let perturbation = sample_normal(&mut rng, ga.mutation_scale);
+                    *g *= 1.0 + perturbation;
+                    if *g < 0.0 {
+                        *g = 0.0;
+                    }
+                }
+            }
+
+            // Clamp u32 fields
+            child[14] = (child[14].round()).max(1.0);
+            child[15] = (child[15].round()).max(1.0);
+
+            new_population.push(child);
+        }
+
+        population = new_population;
+    }
+
+    eprintln!("Genetic algorithm complete. Results in {}/", args.output);
+}
+
+fn tournament_select(
+    fitness: &[(usize, f64)],
+    tournament_size: usize,
+    rng: &mut WyRand,
+) -> usize {
+    let mut best_idx = rng.random_range(0..fitness.len());
+    let mut best_fitness = fitness[best_idx].1;
+
+    for _ in 1..tournament_size {
+        let idx = rng.random_range(0..fitness.len());
+        if fitness[idx].1 > best_fitness {
+            best_fitness = fitness[idx].1;
+            best_idx = idx;
+        }
+    }
+
+    fitness[best_idx].0
+}
+
 // ── Main ──
 
 fn generate_batch_id() -> String {
@@ -429,6 +847,11 @@ fn generate_batch_id() -> String {
 
 fn main() {
     let args = parse_args();
+
+    if let Some(ref ga) = args.genetic {
+        run_genetic_algorithm(&args, ga);
+        return;
+    }
 
     let player_variants = &args.variants;
     let num_players = player_variants.len();

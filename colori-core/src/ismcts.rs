@@ -3,7 +3,7 @@ use crate::colori_game::{
     determinize_in_place, enumerate_choices_into,
 };
 use crate::draft_phase::player_pick;
-use crate::scoring::{calculate_score, compute_heuristic_rewards, compute_terminal_rewards};
+use crate::scoring::{calculate_score, compute_heuristic_rewards, compute_terminal_rewards, HeuristicParams};
 use crate::types::*;
 use rand::Rng;
 use rand::RngExt;
@@ -16,6 +16,7 @@ pub struct MctsConfig {
     pub exploration_constant: f64,
     pub max_rollout_steps: u32,
     pub use_heuristic_eval: bool,
+    pub heuristic_params: HeuristicParams,
 }
 
 impl Default for MctsConfig {
@@ -25,6 +26,7 @@ impl Default for MctsConfig {
             exploration_constant: std::f64::consts::SQRT_2,
             max_rollout_steps: 1000,
             use_heuristic_eval: true,
+            heuristic_params: HeuristicParams::default(),
         }
     }
 }
@@ -45,6 +47,8 @@ impl<'de> Deserialize<'de> for MctsConfig {
             max_rollout_steps: u32,
             #[serde(default = "default_use_heuristic_eval")]
             use_heuristic_eval: bool,
+            #[serde(default)]
+            heuristic_params: HeuristicParams,
         }
 
         fn default_iterations() -> u32 { 100 }
@@ -58,6 +62,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
             exploration_constant: helper.exploration_constant,
             max_rollout_steps: helper.max_rollout_steps,
             use_heuristic_eval: helper.use_heuristic_eval,
+            heuristic_params: helper.heuristic_params,
         })
     }
 }
@@ -316,8 +321,10 @@ pub fn ismcts<R: Rng>(
     let mut opponent_stats = OpponentDraftStats::new();
     let mut pick_log: Vec<(u32, usize, Card)> = Vec::new();
 
-    let (effective_max_rollout_round, use_heuristic) = if config.use_heuristic_eval && state.round <= 3 {
-        let heuristic_round = state.round + 3;
+    let (effective_max_rollout_round, use_heuristic) = if config.use_heuristic_eval
+        && state.round <= config.heuristic_params.heuristic_round_threshold
+    {
+        let heuristic_round = state.round + config.heuristic_params.heuristic_lookahead;
         let effective = max_rollout_round.map_or(heuristic_round, |mr| mr.min(heuristic_round));
         (Some(effective), true)
     } else {
@@ -358,9 +365,9 @@ pub fn ismcts<R: Rng>(
     best_child.unwrap().choice.clone().unwrap()
 }
 
-fn eval_scores(state: &GameState, use_heuristic: bool) -> SmallVec<[f64; 4]> {
+fn eval_scores(state: &GameState, use_heuristic: bool, params: &HeuristicParams) -> SmallVec<[f64; 4]> {
     if use_heuristic {
-        compute_heuristic_rewards(&state.players, &state.sell_card_display, &state.card_lookup)
+        compute_heuristic_rewards(&state.players, &state.sell_card_display, &state.card_lookup, params)
     } else {
         compute_terminal_rewards(&state.players)
     }
@@ -384,7 +391,7 @@ fn iteration_simultaneous<R: Rng>(
         record_outcome(node, &scores);
         return scores;
     } else if max_rollout_round.is_some_and(|mr| state.round > mr) {
-        let scores = eval_scores(state, use_heuristic);
+        let scores = eval_scores(state, use_heuristic, &config.heuristic_params);
         record_outcome(node, &scores);
         return scores;
     } else {
@@ -427,7 +434,7 @@ fn iteration_simultaneous<R: Rng>(
     let should_rollout = node.children[best_idx].visit_count == 0;
 
     let scores = if should_rollout {
-        let scores = rollout(state, max_rollout_round, config.max_rollout_steps, use_heuristic, rng);
+        let scores = rollout(state, max_rollout_round, config.max_rollout_steps, use_heuristic, &config.heuristic_params, rng);
         record_outcome(&mut node.children[best_idx], &scores);
         scores
     } else {
@@ -476,13 +483,13 @@ fn select(
     best_idx
 }
 
-fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_rollout_steps: u32, use_heuristic: bool, rng: &mut R) -> SmallVec<[f64; 4]> {
+fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_rollout_steps: u32, use_heuristic: bool, params: &HeuristicParams, rng: &mut R) -> SmallVec<[f64; 4]> {
     for _ in 0..max_rollout_steps {
         if matches!(state.phase, GamePhase::GameOver) {
             return compute_terminal_rewards(&state.players);
         }
         if max_rollout_round.is_some_and(|mr| state.round > mr) {
-            return eval_scores(state, use_heuristic);
+            return eval_scores(state, use_heuristic, params);
         }
         apply_rollout_step(state, rng);
     }
@@ -491,7 +498,7 @@ fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_ro
         return compute_terminal_rewards(&state.players);
     }
     if max_rollout_round.is_some_and(|mr| state.round > mr) {
-        return eval_scores(state, use_heuristic);
+        return eval_scores(state, use_heuristic, params);
     }
 
     SmallVec::new()
