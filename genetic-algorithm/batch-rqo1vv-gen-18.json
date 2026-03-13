@@ -1,0 +1,18 @@
+{
+  "primaryPipWeight": 0.058344015021050195,
+  "secondaryPipWeight": 0.16009515188384604,
+  "tertiaryPipWeight": 0.039995983373095643,
+  "storedMaterialWeight": 0.0852665976284885,
+  "chalkQuality": 0.3252105643620574,
+  "actionQuality": 2.128632339864752,
+  "dyeQuality": 1.6849083982631334,
+  "basicDyeQuality": 0.03440411806299383,
+  "starterMaterialQuality": 0.35646705410956914,
+  "draftMaterialQuality": 0.22841758712894503,
+  "dualMaterialQuality": 0.42737233013877646,
+  "buyerMaterialWeight": 0.5103003108821427,
+  "buyerColorWeight": 1.5172566875413194,
+  "glassWeight": 1.0,
+  "heuristicRoundThreshold": 6,
+  "heuristicLookahead": 9
+}

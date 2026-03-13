@@ -125,6 +125,7 @@ fn main() {
     println!("cargo:rerun-if-changed=../colori-core/src/types.rs");
     println!("cargo:rerun-if-changed=../colori-core/src/cards.rs");
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=../genetic-algorithm/batch-rqo1vv-gen-18.json");
 
     let mut out = String::new();
 

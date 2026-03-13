@@ -3,7 +3,7 @@ use colori_core::colori_game::enumerate_choices;
 use colori_core::draft_phase::{advance_draft, simultaneous_pick};
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::ismcts::{ismcts, MctsConfig};
-use colori_core::scoring::calculate_score;
+use colori_core::scoring::{calculate_score, HeuristicParams};
 use colori_core::setup::{create_initial_game_state, create_initial_game_state_with_expansions};
 use colori_core::types::{Card, CardInstance, Choice, Expansions, GameState, PlayerState};
 use colori_core::unordered_cards::{
@@ -12,6 +12,8 @@ use colori_core::unordered_cards::{
 use rand::SeedableRng;
 use wyrand::WyRand;
 use wasm_bindgen::prelude::*;
+
+const TRAINED_PARAMS_JSON: &str = include_str!("../../genetic-algorithm/batch-rqo1vv-gen-18.json");
 
 fn deserialize_state(json: &str) -> GameState {
     let mut state: GameState =
@@ -49,7 +51,9 @@ pub fn wasm_run_ismcts(
 
     let mut rng = WyRand::from_rng(&mut rand::rng());
 
-    let config = MctsConfig { iterations, ..MctsConfig::default() };
+    let heuristic_params: HeuristicParams = serde_json::from_str(TRAINED_PARAMS_JSON)
+        .expect("Failed to parse trained heuristic params");
+    let config = MctsConfig { iterations, heuristic_params, ..MctsConfig::default() };
     let choice: Choice = ismcts(
         &game_state,
         player_index as usize,
