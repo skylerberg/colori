@@ -12,7 +12,7 @@
     onclick?: () => void;
   } = $props();
 
-  let score = $derived(player.completedSellCards.reduce((sum, sellCard) => sum + getSellCardData(sellCard.card).stars, 0) + player.ducats);
+  let score = $derived(player.completedSellCards.reduce((sum, sellCard) => sum + getSellCardData(sellCard.card).ducats, 0) + player.ducats);
   let sellCardCount = $derived(player.completedSellCards.length);
   let totalMaterials = $derived(Object.values(player.materials).reduce((sum, n) => sum + n, 0));
   let ducats = $derived(player.ducats);
@@ -24,7 +24,7 @@
     {playerName}{#if isAI} <span class="ai-badge">AI</span>{/if}{#if thinking}<span class="thinking-spinner"></span>{/if}
   </div>
   <div class="stats">
-    <span class="stat" title="Score (stars)">{'*'} {score}</span>
+    <span class="stat" title="Ducats">{'*'} {score}</span>
     <span class="stat" title="Completed sell cards">Sell Cards: {sellCardCount}</span>
     <span class="stat" title="Stored materials">Materials: {totalMaterials}</span>
     {#if ducats > 0}<span class="stat" title="Ducats">Ducats: {ducats}</span>{/if}

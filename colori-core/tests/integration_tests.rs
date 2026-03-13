@@ -1008,25 +1008,25 @@ fn test_starting_color_wheel() {
 }
 
 #[test]
-fn test_score_is_stars_plus_ducats() {
+fn test_score_is_ducats() {
     for seed in 50..60 {
         for num_players in 2..=4 {
             let state = run_full_game_with_invariants(seed, num_players);
             for (i, player) in state.players.iter().enumerate() {
-                let stars: u32 = player
+                let sell_card_ducats: u32 = player
                     .completed_sell_cards
                     .iter()
-                    .map(|bi| bi.sell_card.stars())
+                    .map(|bi| bi.sell_card.ducats())
                     .sum();
-                let expected = stars + player.ducats;
+                let expected = sell_card_ducats + player.ducats;
                 assert_eq!(
                     calculate_score(player),
                     expected,
-                    "Score mismatch for player {} (seed={}, players={}): stars={}, ducats={}",
+                    "Score mismatch for player {} (seed={}, players={}): sell_card_ducats={}, ability_ducats={}",
                     i,
                     seed,
                     num_players,
-                    stars,
+                    sell_card_ducats,
                     player.ducats
                 );
             }

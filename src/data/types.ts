@@ -84,7 +84,7 @@ export interface ActionCardData {
 
 export interface SellCardData {
   kind: 'sellCard';
-  stars: number;
+  ducats: number;
   requiredMaterial: MaterialType;
   colorCost: Color[];
 }

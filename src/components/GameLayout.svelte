@@ -37,7 +37,7 @@
   let isActive = $derived(selectedPlayerIndex === activePlayerIndex);
 
   // Stats
-  let score = $derived(currentPlayer.completedSellCards.reduce((sum, sellCard) => sum + getSellCardData(sellCard.card).stars, 0) + currentPlayer.ducats);
+  let score = $derived(currentPlayer.completedSellCards.reduce((sum, sellCard) => sum + getSellCardData(sellCard.card).ducats, 0) + currentPlayer.ducats);
 
   let showLog = $state(false);
   let showDeckModal = $state(false);

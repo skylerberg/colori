@@ -49,8 +49,8 @@ impl Default for HeuristicParams {
 }
 
 pub fn calculate_score(player: &PlayerState) -> u32 {
-    let sell_card_stars: u32 = player.completed_sell_cards.iter().map(|bi| bi.sell_card.stars()).sum();
-    sell_card_stars + player.ducats
+    let sell_card_ducats: u32 = player.completed_sell_cards.iter().map(|bi| bi.sell_card.ducats()).sum();
+    sell_card_ducats + player.ducats
 }
 
 /// Returns a comparable ranking tuple: (score, completed_sell_cards_count, color_wheel_total).
@@ -112,7 +112,7 @@ fn heuristic_score(
     card_lookup: &[Card; 256],
     params: &HeuristicParams,
 ) -> f64 {
-    let points = player.cached_score as f64;
+    let score = player.cached_score as f64;
 
     let mut color_score = 0.0;
     for &c in &PRIMARIES {
@@ -144,18 +144,18 @@ fn heuristic_score(
     let mut best_alignment = 0.0f64;
     for bi in sell_card_display.iter() {
         let sell_card = bi.sell_card;
-        let stars = sell_card.stars() as f64;
+        let ducats = sell_card.ducats() as f64;
         let mut alignment = 0.0;
 
         if player.materials.get(sell_card.required_material()) > 0 {
-            alignment += params.buyer_material_weight * stars;
+            alignment += params.buyer_material_weight * ducats;
         }
 
         let cost = sell_card.color_cost();
         let cost_len = cost.len() as f64;
         for &color in cost {
             if player.color_wheel.get(color) > 0 {
-                alignment += (params.buyer_color_weight / cost_len) * stars;
+                alignment += (params.buyer_color_weight / cost_len) * ducats;
             }
         }
 
@@ -164,7 +164,7 @@ fn heuristic_score(
 
     let glass_score = params.glass_weight * player.completed_glass.len() as f64;
 
-    points + color_score + material_score + deck_quality + best_alignment + glass_score
+    score + color_score + material_score + deck_quality + best_alignment + glass_score
 }
 
 /// Compute heuristic rewards for truncated early-game rollouts.
@@ -235,8 +235,8 @@ mod tests {
 
     #[test]
     fn test_tie_broken_by_sell_cards() {
-        // p1: 2 three-star sell cards = 6 points, 2 sell cards
-        // p2: 1 three-star sell card + 3 ducats = 6 points, 1 sell card
+        // p1: 2 3-ducat sell cards = 6 ducats, 2 sell cards
+        // p2: 1 3-ducat sell card + 3 ducats = 6 ducats, 1 sell card
         let p1 = make_player(0, &[SellCard::Ceramics3VermilionRed, SellCard::Ceramics3AmberRed], [0; 12]);
         let p2 = make_player(3, &[SellCard::Ceramics3VermilionRed], [0; 12]);
         assert_eq!(p1.cached_score, 6);

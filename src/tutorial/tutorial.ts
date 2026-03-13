@@ -49,14 +49,14 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'welcome',
     title: 'Welcome to Colori!',
-    text: 'You are a Venetian dye trader competing to score the most points by dyeing materials and completing sell cards.',
+    text: 'You are a Venetian dye trader competing to earn the most ducats (gold coins) by getting pigments and materials then completing sell cards.',
     buttons: [skipButton, nextButton],
   });
 
   newTour.addStep({
     id: 'sell-card-display',
     title: 'Sell Cards',
-    text: 'These are the available sell cards. Each sell card requires a specific material (Textiles, Ceramics, or Paintings) and a set of colors. Selling to a sell card earns you points.',
+    text: 'These are the available sell cards. Each sell card requires a specific material (Textiles, Ceramics, or Paintings) and a set of colors. Completing a sell card earns you ducats.',
     attachTo: { element: '.sell-card-display', on: 'bottom' },
     buttons: [backButton, nextButton],
   });
@@ -80,7 +80,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'player-stats',
     title: 'Player Stats',
-    text: 'Track your score (points + ducats), and your personal deck and discard pile here. Tap on Deck or Discard to see their contents.',
+    text: 'Track your ducats, and your personal deck and discard pile here. Tap on Deck or Discard to see their contents.',
     attachTo: { element: '.player-stats', on: 'bottom' },
     buttons: [backButton, nextButton],
   });
@@ -96,7 +96,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'draft-phase',
     title: 'Draft Phase',
-    text: "During the Draft Phase, you're dealt 5 cards from a shared draft deck. Pick 1 card, then pass your remaining cards to the left. You'll make 4 picks — the 5th card is destroyed.",
+    text: "During the Draft Phase, you're dealt 5 cards from a shared draft deck. Pick 1 card, then pass your remaining cards to the left. You'll make 4 picks — the 5th card is destroyed without triggering its ability.",
     attachTo: { element: '.draft-section', on: 'bottom' },
     buttons: [backButton, nextButton],
   });
@@ -127,7 +127,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'selling-explained',
     title: 'Selling',
-    text: 'To sell: choose a sell card, spend 1 stored material of the required type, and pay the color cost from your wheel. The sell card goes to your completed sell cards, earning you points.',
+    text: 'To sell: choose a sell card, spend 1 stored material of the required type, and pay the color cost from your wheel. The sell card goes to your completed sell cards, earning you ducats.',
     attachTo: { element: '.sell-card-display', on: 'bottom' },
     buttons: [backButton, nextButton],
   });
@@ -135,7 +135,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'end-game',
     title: 'Good Luck!',
-    text: 'The game ends after 20 rounds, or after completing a round where any player reaches 16 points. Highest score (points + ducats) wins. Good luck, vendecolori!',
+    text: 'The game ends after 20 rounds, or after completing a round where any player reaches 16 ducats. Most ducats wins. Good luck, vendecolori!',
     buttons: [
       backButton,
       {

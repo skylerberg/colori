@@ -18,8 +18,8 @@ pub fn sell_card_display_name(sell_card: SellCard) -> String {
         .collect::<Vec<_>>()
         .join(", ");
     format!(
-        "{}-star {:?} [{}]",
-        sell_card.stars(),
+        "{}-ducat {:?} [{}]",
+        sell_card.ducats(),
         sell_card.required_material(),
         colors
     )

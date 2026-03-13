@@ -33,8 +33,8 @@
 
 ## Material Key
 
-| Material | Stars | Used For |
-|----------|-------|----------|
+| Material | Ducats | Used For |
+|----------|--------|----------|
 | Glass | 1★ | Simplest projects |
 | Textiles | 2★ | Intermediate projects |
 | Ceramics | 3★ | Advanced projects |
@@ -340,7 +340,7 @@ Colors are arranged on a 12-color wheel. Valid mixes are:
 
 ## Project Distribution
 
-| Material | Stars | Count | Pattern |
+| Material | Ducats | Count | Pattern |
 |----------|-------|-------|---------|
 | Glass | 1★ | 9 | 6 (two primaries) + 3 (one secondary) |
 | Textiles | 2★ | 15 | 6 (one tertiary) + 9 (secondary + primary) |

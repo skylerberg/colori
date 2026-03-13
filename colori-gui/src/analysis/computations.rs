@@ -52,7 +52,7 @@ pub struct DurationStats {
 
 pub struct SellCardAcquisitions {
     pub by_sell_card: HashMap<String, usize>,
-    pub by_stars: HashMap<u32, usize>,
+    pub by_ducats: HashMap<u32, usize>,
     pub by_material: HashMap<String, usize>,
 }
 
@@ -1142,7 +1142,7 @@ pub fn compute_sell_card_acquisitions(
     filter: Option<&PlayerFilter>,
 ) -> SellCardAcquisitions {
     let mut by_sell_card = HashMap::new();
-    let mut by_stars = HashMap::new();
+    let mut by_ducats = HashMap::new();
     let mut by_material = HashMap::new();
 
     for (log_idx, log) in logs.iter().enumerate() {
@@ -1162,7 +1162,7 @@ pub fn compute_sell_card_acquisitions(
             if let Some(sell_card) = sell_card {
                 let name = sell_card_name_from_instance(*sell_card);
                 *by_sell_card.entry(name).or_insert(0) += 1;
-                *by_stars.entry(sell_card.stars()).or_insert(0) += 1;
+                *by_ducats.entry(sell_card.ducats()).or_insert(0) += 1;
                 let material_name = format!("{:?}", sell_card.required_material());
                 *by_material.entry(material_name).or_insert(0) += 1;
             }
@@ -1171,7 +1171,7 @@ pub fn compute_sell_card_acquisitions(
 
     SellCardAcquisitions {
         by_sell_card,
-        by_stars,
+        by_ducats,
         by_material,
     }
 }
