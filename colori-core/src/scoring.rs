@@ -44,18 +44,18 @@ fn card_quality(card: Card) -> f64 {
         return 0.20;
     }
     match card.kind() {
-        CardKind::Action => 0.50,
-        CardKind::Dye => 0.50,
-        CardKind::BasicDye => 0.05,
+        CardKind::Action => 1.00,
+        CardKind::Dye => 1.00,
+        CardKind::BasicDye => 0.10,
         CardKind::Material => {
             let pips = card.pips();
             let mat_types = card.material_types();
             if pips.is_empty() && mat_types.len() == 1 {
-                0.10 // starter material
+                0.20 // starter material
             } else if !pips.is_empty() {
-                0.25 // draft material with pip
+                0.5 // draft material with pip
             } else {
-                0.30 // dual material
+                0.60 // dual material
             }
         }
     }
@@ -122,8 +122,8 @@ fn heuristic_score(
         best_alignment = best_alignment.max(alignment);
     }
 
-    // Glass cards: 2.0 each
-    let glass_score = 2.0 * player.completed_glass.len() as f64;
+    // Glass cards: 1.0 each
+    let glass_score = 1.0 * player.completed_glass.len() as f64;
 
     points + color_score + material_score + deck_quality + best_alignment + glass_score
 }
