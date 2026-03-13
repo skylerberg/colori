@@ -794,7 +794,10 @@ pub enum Choice {
     #[serde(rename = "destroyDrawnCards")]
     DestroyDrawnCards { card: Option<Card> },
     #[serde(rename = "selectSellCard")]
-    SelectSellCard { sell_card: SellCard },
+    SelectSellCard {
+        #[serde(rename = "sellCard")]
+        sell_card: SellCard,
+    },
     #[serde(rename = "gainSecondary")]
     GainSecondary { color: Color },
     #[serde(rename = "gainPrimary")]
