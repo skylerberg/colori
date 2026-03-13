@@ -256,6 +256,10 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
             let id = find_card_instance(state, card, &state.players[player_index].workshop_cards);
             state.players[player_index].workshop_cards.remove(id as u8);
             state.destroyed_pile.insert(id as u8);
+            let card_type = state.card_lookup[id as usize];
+            let ability = card_type.ability();
+            get_action_state_mut(state).ability_stack.push(ability);
+            process_ability_stack(state, rng);
         }
         Choice::DestroyAndSelectGlass { card, glass, pay_color } => {
             let card_instance_id = get_drafted_card_instance(state, card);

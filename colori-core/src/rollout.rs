@@ -272,10 +272,13 @@ fn activate_glass_in_rollout<R: Rng>(
             player.workshop_cards.insert(card_id);
         }
         GlassCard::GlassDestroyClean => {
-            let player = &mut state.players[player_index];
-            let card_id = player.workshop_cards.pick_random(rng).unwrap();
-            player.workshop_cards.remove(card_id);
+            let card_id = state.players[player_index].workshop_cards.pick_random(rng).unwrap();
+            state.players[player_index].workshop_cards.remove(card_id);
             state.destroyed_pile.insert(card_id);
+            let card = state.card_lookup[card_id as usize];
+            let ability = card.ability();
+            get_action_state_mut(state).ability_stack.push(ability);
+            process_ability_stack(state, rng);
         }
         GlassCard::GlassKeepBoth => {} // passive, should never be activated
     }

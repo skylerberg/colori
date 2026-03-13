@@ -42,7 +42,7 @@ impl GlassCard {
             GlassCard::GlassTertiaryDucat => "Glass Tertiary Ducat",
             GlassCard::GlassReworkshop => "Glass Reworkshop",
             GlassCard::GlassGainPrimary => "Glass Gain Primary",
-            GlassCard::GlassDestroyClean => "Glass Destroy Clean",
+            GlassCard::GlassDestroyClean => "Glass Destroy",
             GlassCard::GlassKeepBoth => "Glass Keep Both",
         }
     }
