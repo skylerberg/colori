@@ -1226,7 +1226,7 @@ pub fn compute_winner_sell_card_breakdown(
             }
         }
 
-        num_games += 1;
+        let mut found_filtered_winner = false;
 
         for i in 0..log.player_names.len() {
             if let Some(allowed) = allowed {
@@ -1236,6 +1236,7 @@ pub fn compute_winner_sell_card_breakdown(
             }
             let player_name = &log.player_names[i];
             if is_winner_fn(player_name) {
+                found_filtered_winner = true;
                 total_textiles += *player_textiles.get(&i).unwrap_or(&0) as f64 * weight;
                 total_ceramics += *player_ceramics.get(&i).unwrap_or(&0) as f64 * weight;
                 total_paintings += *player_paintings.get(&i).unwrap_or(&0) as f64 * weight;
@@ -1245,6 +1246,10 @@ pub fn compute_winner_sell_card_breakdown(
                     }
                 }
             }
+        }
+
+        if found_filtered_winner {
+            num_games += 1;
         }
     }
 
