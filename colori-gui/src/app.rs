@@ -10,6 +10,7 @@ use crate::tabs::genetic_algorithm::GeneticAlgorithmState;
 use colori_core::game_log::StructuredGameLog;
 
 use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Tab {
@@ -30,6 +31,7 @@ struct BatchInfo {
 pub struct ColoriGuiApp {
     active_tab: Tab,
     loader: LogLoader,
+    game_logs_path: Option<PathBuf>,
     tagged_logs: Vec<TaggedGameLog>,
     load_error: Option<String>,
 
@@ -58,6 +60,7 @@ impl ColoriGuiApp {
         let mut app = Self {
             active_tab: Tab::Analysis,
             loader: LogLoader::new(),
+            game_logs_path: None,
             tagged_logs: Vec::new(),
             load_error: None,
             selected_batches: HashSet::new(),
@@ -73,6 +76,7 @@ impl ColoriGuiApp {
             let game_logs_path = cwd.join("game-logs");
             if game_logs_path.is_dir() {
                 app.loader.start_loading(&game_logs_path);
+                app.game_logs_path = Some(game_logs_path);
             }
             let ga_path = cwd.join("genetic-algorithm");
             if ga_path.is_dir() {
@@ -245,12 +249,17 @@ impl eframe::App for ColoriGuiApp {
 
             match self.active_tab {
                 Tab::Analysis => {
-                    if self.loader.is_loading() {
-                        ui.horizontal(|ui| {
+                    ui.horizontal(|ui| {
+                        if let Some(ref path) = self.game_logs_path {
+                            if ui.button("Refresh").clicked() && !self.loader.is_loading() {
+                                self.loader.start_loading(path);
+                            }
+                        }
+                        if self.loader.is_loading() {
                             ui.spinner();
                             ui.label("Loading...");
-                        });
-                    }
+                        }
+                    });
 
                     if let Some(ref error) = self.load_error {
                         ui.colored_label(egui::Color32::RED, error);

@@ -31,6 +31,7 @@ struct BatchRun {
 pub struct GeneticAlgorithmState {
     batches: Vec<BatchRun>,
     selected_batches: HashSet<String>, // empty = all
+    loaded_path: Option<std::path::PathBuf>,
     error: Option<String>,
 }
 
@@ -116,6 +117,7 @@ impl GeneticAlgorithmState {
         Self {
             batches: Vec::new(),
             selected_batches: HashSet::new(),
+            loaded_path: None,
             error: None,
         }
     }
@@ -196,6 +198,7 @@ impl GeneticAlgorithmState {
 
         self.batches = batches;
         self.selected_batches.clear();
+        self.loaded_path = Some(dir.to_path_buf());
         if errors.is_empty() {
             self.error = None;
         } else {
@@ -215,6 +218,12 @@ impl GeneticAlgorithmState {
     }
 
     pub fn render(&mut self, ui: &mut egui::Ui) {
+        if let Some(path) = self.loaded_path.clone() {
+            if ui.button("Refresh").clicked() {
+                self.load_folder(&path);
+            }
+        }
+
         if let Some(ref error) = self.error {
             ui.colored_label(egui::Color32::RED, error);
         }
