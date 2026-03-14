@@ -917,9 +917,14 @@ fn run_genetic_algorithm(args: &Args, ga: &GeneticArgs) {
                         let mut rng = WyRand::from_rng(&mut rand::rng());
                         let mut thread_wins = 0.0f64;
 
-                        for _ in 0..count {
-                            let (w, _) = run_ga_game(params, baseline_ref, eval_iterations, glass, &mut rng);
-                            thread_wins += w;
+                        for game_idx in 0..count {
+                            if game_idx % 2 == 0 {
+                                let (w, _) = run_ga_game(params, baseline_ref, eval_iterations, glass, &mut rng);
+                                thread_wins += w;
+                            } else {
+                                let (_, w) = run_ga_game(baseline_ref, params, eval_iterations, glass, &mut rng);
+                                thread_wins += w;
+                            }
                         }
 
                         wins_ind_ref.fetch_add((thread_wins * 1000.0) as u64, Ordering::Relaxed);
