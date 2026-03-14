@@ -1,7 +1,7 @@
 use eframe::egui;
 use egui_plot::{Legend, Line, Plot, PlotPoints};
 use regex::Regex;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use colori_core::scoring::HeuristicParams;
@@ -29,6 +29,7 @@ struct BatchRun {
 
 pub struct GeneticAlgorithmState {
     batches: Vec<BatchRun>,
+    selected_batches: HashSet<String>, // empty = all
     error: Option<String>,
 }
 
@@ -113,6 +114,7 @@ impl GeneticAlgorithmState {
     pub fn new() -> Self {
         Self {
             batches: Vec::new(),
+            selected_batches: HashSet::new(),
             error: None,
         }
     }
@@ -179,6 +181,7 @@ impl GeneticAlgorithmState {
         batches.sort_by(|a, b| a.batch_id.cmp(&b.batch_id));
 
         self.batches = batches;
+        self.selected_batches.clear();
         if errors.is_empty() {
             self.error = None;
         } else {
@@ -186,37 +189,89 @@ impl GeneticAlgorithmState {
         }
     }
 
-    pub fn render(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            if ui.button("Load GA Batches...").clicked() {
-                if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                    self.load_folder(&path);
-                }
-            }
-        });
+    fn filtered_batches(&self) -> Vec<&BatchRun> {
+        if self.selected_batches.is_empty() {
+            self.batches.iter().collect()
+        } else {
+            self.batches
+                .iter()
+                .filter(|b| self.selected_batches.contains(&b.batch_id))
+                .collect()
+        }
+    }
 
+    pub fn render(&mut self, ui: &mut egui::Ui) {
         if let Some(ref error) = self.error {
             ui.colored_label(egui::Color32::RED, error);
         }
 
         if self.batches.is_empty() {
             if self.error.is_none() {
-                ui.label("No GA batches loaded. Click 'Load GA Batches...' to select a folder.");
+                ui.label("No GA batch files found in genetic-algorithm/ directory.");
             }
             return;
         }
 
-        // Summary
-        ui.label(format!(
-            "{} batch(es) loaded: {}",
-            self.batches.len(),
-            self.batches
-                .iter()
-                .map(|b| format!("{} ({} gens)", b.batch_id, b.generations.len()))
-                .collect::<Vec<_>>()
-                .join(", ")
-        ));
+        // Batch filter
+        if self.batches.len() > 1 {
+            ui.horizontal(|ui| {
+                ui.label("Batch:");
+                let button_text = if self.selected_batches.is_empty() {
+                    "All batches".to_string()
+                } else if self.selected_batches.len() == 1 {
+                    let batch_id = self.selected_batches.iter().next().unwrap();
+                    format!("{} ({} gens)", batch_id, self.batches.iter().find(|b| &b.batch_id == batch_id).map_or(0, |b| b.generations.len()))
+                } else {
+                    format!("{} batches selected", self.selected_batches.len())
+                };
+                let batch_ids: Vec<String> = self.batches.iter().map(|b| b.batch_id.clone()).collect();
+                let batch_labels: Vec<String> = self.batches.iter().map(|b| format!("{} ({} gens)", b.batch_id, b.generations.len())).collect();
+                let button = ui.button(format!("{} ▾", button_text));
+                egui::Popup::from_toggle_button_response(&button)
+                    .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
+                    .show(|ui| {
+                        let mut all_selected = self.selected_batches.is_empty();
+                        if ui.checkbox(&mut all_selected, "All batches").changed() {
+                            if all_selected {
+                                self.selected_batches.clear();
+                            } else {
+                                self.selected_batches = HashSet::from([batch_ids[0].clone()]);
+                            }
+                        }
+                        ui.separator();
+                        for (batch_id, label) in batch_ids.iter().zip(batch_labels.iter()) {
+                            let mut is_selected = self.selected_batches.contains(batch_id);
+                            if ui.checkbox(&mut is_selected, label).changed() {
+                                if is_selected {
+                                    self.selected_batches.insert(batch_id.clone());
+                                    if self.selected_batches.len() == self.batches.len() {
+                                        self.selected_batches.clear();
+                                    }
+                                } else {
+                                    self.selected_batches.remove(batch_id);
+                                }
+                            }
+                        }
+                    });
+            });
+        }
+
+        let filtered = self.filtered_batches();
+        let batch_count = filtered.len();
+        let total_count = self.batches.len();
+        if self.selected_batches.is_empty() {
+            ui.label(format!("{} batch(es) loaded", total_count));
+        } else {
+            ui.label(format!("{} of {} batch(es) shown", batch_count, total_count));
+        }
         ui.separator();
+
+        if filtered.is_empty() {
+            return;
+        }
+
+        // Build a stable color map: batch_id -> color index based on position in all batches
+        let color_map: HashMap<&str, usize> = self.batches.iter().enumerate().map(|(i, b)| (b.batch_id.as_str(), i)).collect();
 
         // Parameter graphs
         egui::ScrollArea::vertical().show(ui, |ui| {
@@ -232,7 +287,7 @@ impl GeneticAlgorithmState {
                                 .x_axis_label("Generation")
                                 .y_axis_label(param_display_name(param_name));
                             plot.show(ui, |plot_ui| {
-                                for (batch_idx, batch) in self.batches.iter().enumerate() {
+                                for batch in &filtered {
                                     let points: Vec<[f64; 2]> = batch
                                         .generations
                                         .iter()
@@ -242,6 +297,7 @@ impl GeneticAlgorithmState {
                                         })
                                         .collect();
                                     if !points.is_empty() {
+                                        let batch_idx = color_map.get(batch.batch_id.as_str()).copied().unwrap_or(0);
                                         let color =
                                             BATCH_COLORS[batch_idx % BATCH_COLORS.len()];
                                         let line = Line::new(

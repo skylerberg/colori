@@ -55,7 +55,7 @@ impl ColoriGuiApp {
         visuals.override_text_color = Some(egui::Color32::WHITE);
         cc.egui_ctx.set_visuals(visuals);
 
-        Self {
+        let mut app = Self {
             active_tab: Tab::Analysis,
             loader: LogLoader::new(),
             tagged_logs: Vec::new(),
@@ -67,7 +67,20 @@ impl ColoriGuiApp {
             cache_key: String::new(),
             game_viewer: GameViewerState::new(),
             ga_state: GeneticAlgorithmState::new(),
+        };
+
+        if let Ok(cwd) = std::env::current_dir() {
+            let game_logs_path = cwd.join("game-logs");
+            if game_logs_path.is_dir() {
+                app.loader.start_loading(&game_logs_path);
+            }
+            let ga_path = cwd.join("genetic-algorithm");
+            if ga_path.is_dir() {
+                app.ga_state.load_folder(&ga_path);
+            }
         }
+
+        app
     }
 
     fn filtered_logs(&self) -> Vec<&StructuredGameLog> {
@@ -186,12 +199,7 @@ impl eframe::App for ColoriGuiApp {
             LoadResult::Done(logs) => {
                 self.tagged_logs = logs;
                 self.load_error = None;
-                let batches = self.available_batches();
-                if batches.len() > 1 {
-                    self.selected_batches = HashSet::from([batches[0].clone()]);
-                } else {
-                    self.selected_batches.clear();
-                }
+                self.selected_batches.clear();
                 self.selected_variant = "all".to_string();
                 self.cache_key.clear();
             }
@@ -237,24 +245,15 @@ impl eframe::App for ColoriGuiApp {
 
             match self.active_tab {
                 Tab::Analysis => {
-                    ui.horizontal(|ui| {
-                        if ui.button("Load Game Logs...").clicked() && !self.loader.is_loading() {
-                            if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                                self.loader.start_loading(&path);
-                            }
-                        }
-                        if self.loader.is_loading() {
+                    if self.loader.is_loading() {
+                        ui.horizontal(|ui| {
                             ui.spinner();
                             ui.label("Loading...");
-                        }
-                    });
+                        });
+                    }
 
                     if let Some(ref error) = self.load_error {
                         ui.colored_label(egui::Color32::RED, error);
-                    }
-
-                    if self.tagged_logs.is_empty() && !self.loader.is_loading() && self.load_error.is_none() {
-                        ui.label("No game logs loaded. Click 'Load Game Logs...' to select a folder.");
                     }
 
                     if !self.tagged_logs.is_empty() {
@@ -302,10 +301,7 @@ impl eframe::App for ColoriGuiApp {
                                                     self.selected_batches.clear();
                                                 }
                                             } else {
-                                                // Prevent empty selection
-                                                if self.selected_batches.len() > 1 {
-                                                    self.selected_batches.remove(batch);
-                                                }
+                                                self.selected_batches.remove(batch);
                                             }
                                         }
                                     }
