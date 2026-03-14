@@ -5,3 +5,4 @@ colori-wasm/target/
 src/wasm-pkg/
 target/
 game-logs/
+genetic-algorithm/
