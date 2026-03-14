@@ -1,5 +1,5 @@
 use eframe::egui;
-use egui_plot::{HLine, Legend, Line, LineStyle, Plot, PlotPoints};
+use egui_plot::{HLine, Legend, Line, LineStyle, Plot, PlotPoints, Points};
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -49,7 +49,7 @@ const PARAM_GROUPS: &[(&str, &[&str])] = &[
         "draft_material_quality", "dual_material_quality",
     ]),
     ("Card Type Quality", &[
-        "action_quality", "dye_quality", "basic_dye_quality",
+        "basic_dye_quality",
     ]),
     ("Buyer & Glass Weights", &[
         "buyer_material_weight", "buyer_color_weight", "glass_weight",
@@ -109,6 +109,20 @@ fn get_param_value(params: &HeuristicParams, name: &str) -> Option<f64> {
         "material_type_count_weight" => Some(params.material_type_count_weight),
         "material_coverage_weight" => Some(params.material_coverage_weight),
         "heuristic_score_threshold" => params.heuristic_score_threshold,
+        _ => None,
+    }
+}
+
+fn baseline_fallback(param_name: &str) -> Option<f64> {
+    match param_name {
+        "alum_quality" | "cream_of_tartar_quality" | "gum_arabic_quality"
+        | "potash_quality" | "vinegar_quality" | "argol_quality" => {
+            Some(BASELINE_PARAMS.action_quality)
+        }
+        "pure_primary_dye_quality" | "primary_dye_quality"
+        | "secondary_dye_quality" | "tertiary_dye_quality" => {
+            Some(BASELINE_PARAMS.dye_quality)
+        }
         _ => None,
     }
 }
@@ -202,7 +216,11 @@ impl GeneticAlgorithmState {
         });
 
         self.batches = batches;
-        self.selected_batches.clear();
+        if let Some(first) = self.batches.first() {
+            self.selected_batches = HashSet::from([first.batch_id.clone()]);
+        } else {
+            self.selected_batches.clear();
+        }
         self.loaded_path = Some(dir.to_path_buf());
         if errors.is_empty() {
             self.error = None;
@@ -312,15 +330,17 @@ impl GeneticAlgorithmState {
                                 for (col_idx, param_name) in chunk.iter().enumerate() {
                                     let ui = &mut columns[col_idx];
                                     ui.label(param_display_name(param_name));
-                                    let plot = Plot::new(format!("ga_plot_{}", param_name))
+                                    let mut plot = Plot::new(format!("ga_plot_{}", param_name))
                                         .height(180.0)
-                                        .legend(Legend::default())
                                         .x_axis_label("Generation")
-                                        .y_axis_label(param_display_name(param_name))
+
                                         .allow_zoom(false)
                                         .allow_scroll(false)
                                         .allow_drag(false)
                                         .allow_boxed_zoom(false);
+                                    if filtered.len() > 1 {
+                                        plot = plot.legend(Legend::default());
+                                    }
                                     plot.show(ui, |plot_ui| {
                                         for batch in &filtered {
                                             let points: Vec<[f64; 2]> = batch
@@ -337,14 +357,24 @@ impl GeneticAlgorithmState {
                                                     BATCH_COLORS[batch_idx % BATCH_COLORS.len()];
                                                 let line = Line::new(
                                                     &batch.batch_id,
+                                                    PlotPoints::new(points.clone()),
+                                                )
+                                                    .color(color)
+                                                    .width(2.0)
+                                                    .allow_hover(false);
+                                                plot_ui.line(line);
+                                                let markers = Points::new(
+                                                    &batch.batch_id,
                                                     PlotPoints::new(points),
                                                 )
                                                     .color(color)
-                                                    .width(2.0);
-                                                plot_ui.line(line);
+                                                    .radius(3.0);
+                                                plot_ui.points(markers);
                                             }
                                         }
-                                        if let Some(baseline_val) = get_param_value(&BASELINE_PARAMS, param_name) {
+                                        let baseline_val = get_param_value(&BASELINE_PARAMS, param_name)
+                                            .or_else(|| baseline_fallback(param_name));
+                                        if let Some(baseline_val) = baseline_val {
                                             let hline = HLine::new("Baseline", baseline_val)
                                                 .color(egui::Color32::from_rgb(200, 200, 200))
                                                 .width(1.5)
