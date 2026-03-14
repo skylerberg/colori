@@ -302,7 +302,11 @@ impl GeneticAlgorithmState {
                                         .height(180.0)
                                         .legend(Legend::default())
                                         .x_axis_label("Generation")
-                                        .y_axis_label(param_display_name(param_name));
+                                        .y_axis_label(param_display_name(param_name))
+                                        .allow_zoom(false)
+                                        .allow_scroll(false)
+                                        .allow_drag(false)
+                                        .allow_boxed_zoom(false);
                                     plot.show(ui, |plot_ui| {
                                         for batch in &filtered {
                                             let points: Vec<[f64; 2]> = batch
