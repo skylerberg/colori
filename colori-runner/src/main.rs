@@ -7,6 +7,8 @@ use colori_core::setup::create_initial_game_state_with_expansions;
 use colori_core::types::*;
 use colori_core::unordered_cards::{set_sell_card_registry, set_card_registry};
 
+use nalgebra::{DMatrix, DVector};
+use nalgebra::linalg::SymmetricEigen;
 use rand::seq::SliceRandom;
 use rand::RngExt;
 use rand::SeedableRng;
@@ -31,8 +33,8 @@ struct GeneticArgs {
     population: usize,
     generations: usize,
     games_per_eval: usize,
-    mutation_rate: f64,
-    mutation_scale: f64,
+    initial_sigma: f64,
+    elitism: usize,
     eval_iterations: u32,
     seed_params: Option<HeuristicParams>,
 }
@@ -98,11 +100,11 @@ fn parse_args() -> Args {
     let mut glass = false;
 
     let mut genetic = false;
-    let mut population = 20usize;
+    let mut population = 14usize;
     let mut generations = 50usize;
     let mut games_per_eval = 100usize;
-    let mut mutation_rate = 0.15f64;
-    let mut mutation_scale = 0.25f64;
+    let mut initial_sigma = 0.3f64;
+    let mut elitism = 2usize;
     let mut eval_iterations = 10_000u32;
     let mut seed_params_file: Option<String> = None;
 
@@ -166,13 +168,13 @@ fn parse_args() -> Args {
                 i += 1;
                 games_per_eval = args[i].parse().expect("Invalid --games-per-eval value");
             }
-            "--mutation-rate" => {
+            "--initial-sigma" => {
                 i += 1;
-                mutation_rate = args[i].parse().expect("Invalid --mutation-rate value");
+                initial_sigma = args[i].parse().expect("Invalid --initial-sigma value");
             }
-            "--mutation-scale" => {
+            "--elitism" => {
                 i += 1;
-                mutation_scale = args[i].parse().expect("Invalid --mutation-scale value");
+                elitism = args[i].parse().expect("Invalid --elitism value");
             }
             "--eval-iterations" => {
                 i += 1;
@@ -205,8 +207,8 @@ fn parse_args() -> Args {
             population,
             generations,
             games_per_eval,
-            mutation_rate,
-            mutation_scale,
+            initial_sigma,
+            elitism,
             eval_iterations,
             seed_params,
         })
@@ -668,63 +670,235 @@ fn run_ga_game(
     }
 }
 
+// ── CMA-ES ──
+
+struct CmaEsState {
+    n: usize,
+    lambda: usize,
+    mu: usize,
+    weights: Vec<f64>,
+    mu_eff: f64,
+    c_c: f64,
+    c_sigma: f64,
+    c_1: f64,
+    c_mu: f64,
+    d_sigma: f64,
+    chi_n: f64,
+    mean: DVector<f64>,
+    sigma: f64,
+    c_mat: DMatrix<f64>,
+    p_c: DVector<f64>,
+    p_sigma: DVector<f64>,
+    b_mat: DMatrix<f64>,
+    d_vec: DVector<f64>,
+    inv_sqrt_c: DMatrix<f64>,
+    frozen_genes: Vec<usize>,
+}
+
+impl CmaEsState {
+    fn new(seed_genes: &[f64], lambda: usize, initial_sigma: f64, frozen_genes: Vec<usize>) -> Self {
+        let n = seed_genes.len();
+        let mu = lambda / 2;
+
+        // Compute recombination weights (log-linear)
+        let mut weights: Vec<f64> = (0..mu)
+            .map(|i| (mu as f64 + 0.5).ln() - ((i + 1) as f64).ln())
+            .collect();
+        let w_sum: f64 = weights.iter().sum();
+        for w in weights.iter_mut() {
+            *w /= w_sum;
+        }
+
+        let mu_eff: f64 = 1.0 / weights.iter().map(|w| w * w).sum::<f64>();
+
+        // Adaptation rates (standard Hansen formulas)
+        let c_c = (4.0 + mu_eff / n as f64) / (n as f64 + 4.0 + 2.0 * mu_eff / n as f64);
+        let c_sigma = (mu_eff + 2.0) / (n as f64 + mu_eff + 5.0);
+        let c_1 = 2.0 / ((n as f64 + 1.3).powi(2) + mu_eff);
+        let c_mu_raw = 2.0 * (mu_eff - 2.0 + 1.0 / mu_eff)
+            / ((n as f64 + 2.0).powi(2) + mu_eff);
+        let c_mu = c_mu_raw.min(1.0 - c_1);
+        let d_sigma = 1.0 + 2.0 * (0.0f64).max(((mu_eff - 1.0) / (n as f64 + 1.0)).sqrt() - 1.0) + c_sigma;
+        let chi_n = (n as f64).sqrt() * (1.0 - 1.0 / (4.0 * n as f64) + 1.0 / (21.0 * (n as f64).powi(2)));
+
+        let mean = DVector::from_column_slice(seed_genes);
+
+        // Initial C is diagonal with C_ii = max(|seed_i|, 0.1)^2
+        let diag: Vec<f64> = seed_genes
+            .iter()
+            .map(|&v| {
+                let s = v.abs().max(0.1);
+                s * s
+            })
+            .collect();
+        let c_mat = DMatrix::from_diagonal(&DVector::from_column_slice(&diag));
+
+        let p_c = DVector::zeros(n);
+        let p_sigma = DVector::zeros(n);
+
+        // Initial eigendecomposition
+        let eigen = SymmetricEigen::new(c_mat.clone());
+        let b_mat = eigen.eigenvectors.clone();
+        let d_vec = eigen.eigenvalues.map(|v| v.max(1e-20).sqrt());
+        let inv_d = d_vec.map(|v| 1.0 / v);
+        let inv_sqrt_c = &b_mat * DMatrix::from_diagonal(&inv_d) * b_mat.transpose();
+
+        CmaEsState {
+            n,
+            lambda,
+            mu,
+            weights,
+            mu_eff,
+            c_c,
+            c_sigma,
+            c_1,
+            c_mu,
+            d_sigma,
+            chi_n,
+            mean,
+            sigma: initial_sigma,
+            c_mat,
+            p_c,
+            p_sigma,
+            b_mat,
+            d_vec,
+            inv_sqrt_c,
+            frozen_genes,
+        }
+    }
+
+    fn sample_offspring(&self, rng: &mut WyRand) -> Vec<Vec<f64>> {
+        let mut offspring = Vec::with_capacity(self.lambda);
+        for _ in 0..self.lambda {
+            // z ~ N(0, I)
+            let z: DVector<f64> = DVector::from_fn(self.n, |_, _| sample_normal(rng, 1.0));
+            // x = mean + sigma * B * D * z
+            let scaled = &self.b_mat * DMatrix::from_diagonal(&self.d_vec) * &z;
+            let x = &self.mean + self.sigma * scaled;
+            let mut genes: Vec<f64> = x.as_slice().to_vec();
+
+            // Freeze frozen genes
+            for &idx in &self.frozen_genes {
+                genes[idx] = self.mean[idx];
+            }
+
+            // Clamp heuristic_lookahead >= 1
+            genes[29] = genes[29].round().max(1.0);
+
+            offspring.push(genes);
+        }
+        offspring
+    }
+
+    fn update(&mut self, offspring: &[Vec<f64>], fitnesses: &[f64], generation: usize) {
+        assert_eq!(offspring.len(), self.lambda);
+        assert_eq!(fitnesses.len(), self.lambda);
+
+        // Sort offspring by fitness (descending — higher is better)
+        let mut indices: Vec<usize> = (0..self.lambda).collect();
+        indices.sort_by(|&a, &b| fitnesses[b].partial_cmp(&fitnesses[a]).unwrap());
+
+        // Compute weighted mean of top mu offspring
+        let old_mean = self.mean.clone();
+        let mut new_mean = DVector::zeros(self.n);
+        for i in 0..self.mu {
+            let x = DVector::from_column_slice(&offspring[indices[i]]);
+            new_mean += self.weights[i] * &x;
+        }
+        self.mean = new_mean;
+
+        // Update sigma evolution path p_sigma
+        let mean_diff = (&self.mean - &old_mean) / self.sigma;
+        let invsqrt_times_diff = &self.inv_sqrt_c * &mean_diff;
+        let csn = (self.c_sigma * (2.0 - self.c_sigma) * self.mu_eff).sqrt();
+        self.p_sigma = (1.0 - self.c_sigma) * &self.p_sigma + csn * &invsqrt_times_diff;
+
+        // Heaviside function h_sigma
+        let ps_norm = self.p_sigma.norm();
+        let threshold = (1.0 - (1.0 - self.c_sigma).powi(2 * (generation as i32 + 1))).sqrt()
+            * (1.4 + 2.0 / (self.n as f64 + 1.0))
+            * self.chi_n;
+        let h_sigma: f64 = if ps_norm < threshold { 1.0 } else { 0.0 };
+
+        // Update C evolution path p_c
+        let ccn = (self.c_c * (2.0 - self.c_c) * self.mu_eff).sqrt();
+        self.p_c = (1.0 - self.c_c) * &self.p_c + h_sigma * ccn * &mean_diff;
+
+        // Rank-1 + rank-mu update of C
+        let delta_h = (1.0 - h_sigma) * self.c_c * (2.0 - self.c_c);
+        let old_c = (1.0 - self.c_1 - self.c_mu + self.c_1 * delta_h) * &self.c_mat;
+        let rank1 = self.c_1 * (&self.p_c * self.p_c.transpose());
+        let mut rank_mu = DMatrix::zeros(self.n, self.n);
+        for i in 0..self.mu {
+            let yi = (DVector::from_column_slice(&offspring[indices[i]]) - &old_mean) / self.sigma;
+            rank_mu += self.weights[i] * (&yi * yi.transpose());
+        }
+        self.c_mat = old_c + rank1 + self.c_mu * rank_mu;
+
+        // Enforce symmetry
+        self.c_mat = (&self.c_mat + self.c_mat.transpose()) * 0.5;
+
+        // Update sigma via CSA
+        self.sigma *= ((self.c_sigma / self.d_sigma) * (ps_norm / self.chi_n - 1.0)).exp();
+        self.sigma = self.sigma.max(1e-20);
+
+        // Eigendecompose C and cache B, D, C^{-1/2}
+        let eigen = SymmetricEigen::new(self.c_mat.clone());
+        self.b_mat = eigen.eigenvectors.clone();
+        self.d_vec = eigen.eigenvalues.map(|v| v.max(1e-20).sqrt());
+        let inv_d = self.d_vec.map(|v| 1.0 / v);
+        self.inv_sqrt_c = &self.b_mat * DMatrix::from_diagonal(&inv_d) * self.b_mat.transpose();
+    }
+}
+
 fn run_genetic_algorithm(args: &Args, ga: &GeneticArgs) {
     let batch_id = generate_batch_id();
-    let num_genes = 30;
 
     eprintln!(
-        "Genetic Algorithm: population={}, generations={}, games_per_eval={}, eval_iterations={}, threads={}",
-        ga.population, ga.generations, ga.games_per_eval, ga.eval_iterations, args.threads
+        "CMA-ES: lambda={}, generations={}, games_per_eval={}, eval_iterations={}, initial_sigma={}, elitism={}, threads={}",
+        ga.population, ga.generations, ga.games_per_eval, ga.eval_iterations, ga.initial_sigma, ga.elitism, args.threads
     );
 
     std::fs::create_dir_all(&args.output).expect("Failed to create output directory");
 
     let mut rng = WyRand::from_rng(&mut rand::rng());
 
-    // Initialize population
-    let mut population: Vec<Vec<f64>> = Vec::with_capacity(ga.population);
     let default_params = HeuristicParams::default();
     let seed = ga.seed_params.as_ref().unwrap_or(&default_params);
     let seed_genes = heuristic_params_to_vec(seed);
 
     if ga.seed_params.is_some() {
-        eprintln!("Seeding population from provided params file");
+        eprintln!("Seeding CMA-ES from provided params file");
     }
 
-    // First individual is the seed (or default)
-    population.push(seed_genes.clone());
-
-    // glass_weight index — skip when glass expansion is disabled
+    // glass_weight index — freeze when glass expansion is disabled
     const GLASS_WEIGHT_IDX: usize = 21;
-    let glass = args.glass;
+    let frozen_genes: Vec<usize> = if !args.glass {
+        vec![GLASS_WEIGHT_IDX]
+    } else {
+        vec![]
+    };
 
-    // Rest are randomly perturbed from seed
-    for _ in 1..ga.population {
-        let mut genes = seed_genes.clone();
-        for (i, g) in genes.iter_mut().enumerate() {
-            if i == GLASS_WEIGHT_IDX && !glass {
-                continue;
-            }
-            let factor = 0.5 + rng.random::<f64>() * 1.5; // [0.5, 2.0)
-            *g *= factor;
-        }
-        // Clamp u32 fields
-        genes[29] = (genes[29].round()).max(1.0);
-        population.push(genes);
-    }
+    let mut cma = CmaEsState::new(&seed_genes, ga.population, ga.initial_sigma, frozen_genes);
+    let baseline_params = seed.clone();
 
-    let baseline_params = HeuristicParams::default();
+    let mut elites: Vec<(Vec<f64>, f64)> = Vec::new(); // (genes, fitness) — not used for CMA-ES updates
 
     for gen in 0..ga.generations {
         let gen_start = Instant::now();
-        let pop_size = population.len();
 
-        // Evaluate each individual against the baseline (default params)
-        let wins: Vec<std::sync::atomic::AtomicU64> = (0..pop_size)
-            .map(|_| std::sync::atomic::AtomicU64::new(0))
-            .collect();
+        // Sample lambda offspring from CMA-ES distribution
+        let offspring = cma.sample_offspring(&mut rng);
 
-        let population_params: Vec<HeuristicParams> = population
+        // Build eval pool: offspring + elites
+        let mut eval_pool: Vec<Vec<f64>> = offspring.clone();
+        for (elite_genes, _) in &elites {
+            eval_pool.push(elite_genes.clone());
+        }
+        let pool_size = eval_pool.len();
+
+        // Evaluate all individuals against baseline
+        let eval_params: Vec<HeuristicParams> = eval_pool
             .iter()
             .map(|g| vec_to_heuristic_params(g))
             .collect();
@@ -733,12 +907,14 @@ fn run_genetic_algorithm(args: &Args, ga: &GeneticArgs) {
         let eval_iterations = ga.eval_iterations;
         let games_per_eval = ga.games_per_eval;
         let glass = args.glass;
-
-        // Evaluate one individual at a time, all threads cooperating on its games
         let num_threads = args.threads;
 
-        for i in 0..pop_size {
-            let params = &population_params[i];
+        let wins: Vec<std::sync::atomic::AtomicU64> = (0..pool_size)
+            .map(|_| std::sync::atomic::AtomicU64::new(0))
+            .collect();
+
+        for i in 0..pool_size {
+            let params = &eval_params[i];
             let wins_for_individual = std::sync::atomic::AtomicU64::new(0);
             let wins_ind_ref = &wins_for_individual;
 
@@ -771,110 +947,86 @@ fn run_genetic_algorithm(args: &Args, ga: &GeneticArgs) {
             let total_wins = wins_for_individual.load(Ordering::Relaxed) as f64 / 1000.0;
             wins[i].store((total_wins * 1000.0) as u64, Ordering::Relaxed);
             let wr = total_wins / games_per_eval as f64;
+            let label = if i < ga.population { "offspring" } else { "elite" };
             eprintln!(
-                "  Gen {} [{}/{}] individual {}: win_rate={:.4}",
-                gen + 1, i + 1, pop_size, i, wr
+                "  Gen {} [{}/{}] {} {}: win_rate={:.4}",
+                gen + 1, i + 1, pool_size, label, i, wr
             );
         }
 
-        // Compute fitness (win rate vs baseline)
-        let mut fitness: Vec<(usize, f64)> = (0..pop_size)
+        // Compute fitness for all individuals
+        let mut fitness: Vec<(usize, f64)> = (0..pool_size)
             .map(|i| {
                 let w = wins[i].load(Ordering::Relaxed) as f64 / 1000.0;
                 let wr = w / games_per_eval as f64;
                 (i, wr)
             })
             .collect();
-
         fitness.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
         let best_idx = fitness[0].0;
         let best_fitness = fitness[0].1;
-        let best_params = vec_to_heuristic_params(&population[best_idx]);
+        let best_params = vec_to_heuristic_params(&eval_pool[best_idx]);
 
         // Save best individual
         let output_path = format!("{}/batch-{}-gen-{}.json", args.output, batch_id, gen);
         let json = serde_json::to_string_pretty(&best_params).unwrap();
         std::fs::write(&output_path, json).unwrap();
 
+        let avg_fitness = fitness.iter().map(|(_, wr)| wr).sum::<f64>() / pool_size as f64;
+
+        // Compute average pairwise gene distance as a diversity measure
+        let mut total_dist = 0.0;
+        let mut pairs = 0u64;
+        for a in 0..pool_size {
+            for b in (a + 1)..pool_size {
+                let dist: f64 = eval_pool[a]
+                    .iter()
+                    .zip(eval_pool[b].iter())
+                    .map(|(ga, gb)| {
+                        let scale = ga.abs().max(gb.abs()).max(0.1);
+                        ((ga - gb) / scale).powi(2)
+                    })
+                    .sum::<f64>()
+                    .sqrt();
+                total_dist += dist;
+                pairs += 1;
+            }
+        }
+        let avg_diversity = if pairs > 0 { total_dist / pairs as f64 } else { 0.0 };
+
         let elapsed = gen_start.elapsed();
         eprintln!(
-            "Gen {}/{}: best_fitness={:.4}, worst_fitness={:.4}, elapsed={:.1}s, saved {}",
+            "Gen {}/{}: best={:.4}, avg={:.4}, worst={:.4}, diversity={:.3}, sigma={:.6}, elapsed={:.1}s, saved {}",
             gen + 1,
             ga.generations,
             best_fitness,
+            avg_fitness,
             fitness.last().unwrap().1,
+            avg_diversity,
+            cma.sigma,
             elapsed.as_secs_f64(),
             output_path,
         );
 
-        // If this is the last generation, we're done
-        if gen + 1 >= ga.generations {
-            break;
+        // Update elites: top `elitism` from full pool
+        elites.clear();
+        for i in 0..ga.elitism.min(fitness.len()) {
+            let idx = fitness[i].0;
+            elites.push((eval_pool[idx].clone(), fitness[i].1));
         }
 
-        // Selection, crossover, mutation to create next generation
-        let mut new_population: Vec<Vec<f64>> = Vec::with_capacity(ga.population);
-
-        // Elitism: top 2 survive
-        new_population.push(population[fitness[0].0].clone());
-        new_population.push(population[fitness[1].0].clone());
-
-        while new_population.len() < ga.population {
-            // Tournament selection (size 3) for two parents
-            let parent_a = tournament_select(&fitness, 3, &mut rng);
-            let parent_b = tournament_select(&fitness, 3, &mut rng);
-
-            // Uniform crossover
-            let mut child = Vec::with_capacity(num_genes);
-            for g in 0..num_genes {
-                if rng.random_bool(0.5) {
-                    child.push(population[parent_a][g]);
-                } else {
-                    child.push(population[parent_b][g]);
-                }
-            }
-
-            // Mutation
-            for (i, g) in child.iter_mut().enumerate() {
-                if i == GLASS_WEIGHT_IDX && !glass {
-                    continue;
-                }
-                if rng.random::<f64>() < ga.mutation_rate {
-                    let perturbation = sample_normal(&mut rng, ga.mutation_scale);
-                    *g *= 1.0 + perturbation;
-                }
-            }
-
-            // Clamp u32 fields
-            child[29] = (child[29].round()).max(1.0);
-
-            new_population.push(child);
-        }
-
-        population = new_population;
+        // Update CMA-ES using only offspring fitnesses (not elites)
+        let offspring_fitnesses: Vec<f64> = (0..ga.population)
+            .map(|i| {
+                let w = wins[i].load(Ordering::Relaxed) as f64 / 1000.0;
+                w / games_per_eval as f64
+            })
+            .collect();
+        cma.update(&offspring, &offspring_fitnesses, gen);
     }
 
-    eprintln!("Genetic algorithm complete. Results in {}/", args.output);
-}
-
-fn tournament_select(
-    fitness: &[(usize, f64)],
-    tournament_size: usize,
-    rng: &mut WyRand,
-) -> usize {
-    let mut best_idx = rng.random_range(0..fitness.len());
-    let mut best_fitness = fitness[best_idx].1;
-
-    for _ in 1..tournament_size {
-        let idx = rng.random_range(0..fitness.len());
-        if fitness[idx].1 > best_fitness {
-            best_fitness = fitness[idx].1;
-            best_idx = idx;
-        }
-    }
-
-    fitness[best_idx].0
+    eprintln!("CMA-ES optimization complete. Results in {}/", args.output);
 }
 
 // ── Main ──
