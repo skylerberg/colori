@@ -36,6 +36,7 @@ struct GeneticArgs {
     initial_sigma: f64,
     eval_iterations: u32,
     seed_params: Option<HeuristicParams>,
+    baseline_params: Option<HeuristicParams>,
 }
 
 #[derive(Clone)]
@@ -105,6 +106,7 @@ fn parse_args() -> Args {
     let mut initial_sigma = 0.3f64;
     let mut eval_iterations = 10_000u32;
     let mut seed_params_file: Option<String> = None;
+    let mut baseline_params_file: Option<String> = None;
 
     let mut i = 1;
     while i < args.len() {
@@ -178,6 +180,10 @@ fn parse_args() -> Args {
                 i += 1;
                 seed_params_file = Some(args[i].clone());
             }
+            "--baseline-params" => {
+                i += 1;
+                baseline_params_file = Some(args[i].clone());
+            }
             other => {
                 eprintln!("Unknown argument: {}", other);
                 std::process::exit(1);
@@ -197,6 +203,12 @@ fn parse_args() -> Args {
             serde_json::from_str::<HeuristicParams>(&contents)
                 .unwrap_or_else(|_| panic!("Failed to parse seed params file: {}", path))
         });
+        let baseline_params = baseline_params_file.map(|path| {
+            let contents = std::fs::read_to_string(&path)
+                .unwrap_or_else(|_| panic!("Failed to read baseline params file: {}", path));
+            serde_json::from_str::<HeuristicParams>(&contents)
+                .unwrap_or_else(|_| panic!("Failed to parse baseline params file: {}", path))
+        });
         Some(GeneticArgs {
             population,
             generations,
@@ -204,6 +216,7 @@ fn parse_args() -> Args {
             initial_sigma,
             eval_iterations,
             seed_params,
+            baseline_params,
         })
     } else {
         None
@@ -870,6 +883,9 @@ fn run_genetic_algorithm(args: &Args, ga: &GeneticArgs) {
     if ga.seed_params.is_some() {
         eprintln!("Seeding CMA-ES from provided params file");
     }
+    if ga.baseline_params.is_some() {
+        eprintln!("Using provided baseline params file");
+    }
 
     // Always freeze vinegar/argol (not in draft deck); freeze glass_weight when glass expansion is disabled
     // Freezing deck size genes for our current test
@@ -879,7 +895,7 @@ fn run_genetic_algorithm(args: &Args, ga: &GeneticArgs) {
     }
 
     let mut cma = CmaEsState::new(&seed_genes, ga.population, ga.initial_sigma, frozen_genes);
-    let baseline_params = seed.clone();
+    let baseline_params = ga.baseline_params.as_ref().unwrap_or(seed).clone();
 
     for gen in 0..ga.generations {
         let gen_start = Instant::now();
