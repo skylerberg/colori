@@ -3,6 +3,7 @@ use egui_plot::{Legend, Line, Plot, PlotPoints};
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
+use std::time::SystemTime;
 
 use colori_core::scoring::HeuristicParams;
 
@@ -137,6 +138,7 @@ impl GeneticAlgorithmState {
         };
 
         let mut groups: HashMap<String, Vec<GenerationEntry>> = HashMap::new();
+        let mut batch_latest_modified: HashMap<String, SystemTime> = HashMap::new();
         let mut errors = Vec::new();
 
         for entry in entries.flatten() {
@@ -149,6 +151,13 @@ impl GeneticAlgorithmState {
                     Err(_) => continue,
                 };
                 let path = entry.path();
+                let modified = std::fs::metadata(&path)
+                    .and_then(|m| m.modified())
+                    .unwrap_or(SystemTime::UNIX_EPOCH);
+                let latest = batch_latest_modified.entry(batch_id.clone()).or_insert(SystemTime::UNIX_EPOCH);
+                if modified > *latest {
+                    *latest = modified;
+                }
                 match std::fs::read_to_string(&path) {
                     Ok(content) => match serde_json::from_str::<HeuristicParams>(&content) {
                         Ok(params) => {
@@ -178,7 +187,12 @@ impl GeneticAlgorithmState {
                 }
             })
             .collect();
-        batches.sort_by(|a, b| a.batch_id.cmp(&b.batch_id));
+        // Sort by most recently modified first
+        batches.sort_by(|a, b| {
+            let ta = batch_latest_modified.get(&a.batch_id).copied().unwrap_or(SystemTime::UNIX_EPOCH);
+            let tb = batch_latest_modified.get(&b.batch_id).copied().unwrap_or(SystemTime::UNIX_EPOCH);
+            tb.cmp(&ta)
+        });
 
         self.batches = batches;
         self.selected_batches.clear();
@@ -273,41 +287,46 @@ impl GeneticAlgorithmState {
         // Build a stable color map: batch_id -> color index based on position in all batches
         let color_map: HashMap<&str, usize> = self.batches.iter().enumerate().map(|(i, b)| (b.batch_id.as_str(), i)).collect();
 
-        // Parameter graphs
+        // Parameter graphs in 2-column layout
         egui::ScrollArea::vertical().show(ui, |ui| {
             for (group_name, param_names) in PARAM_GROUPS {
                 egui::CollapsingHeader::new(*group_name)
                     .default_open(true)
                     .show(ui, |ui| {
-                        for param_name in *param_names {
-                            ui.label(param_display_name(param_name));
-                            let plot = Plot::new(format!("ga_plot_{}", param_name))
-                                .height(180.0)
-                                .legend(Legend::default())
-                                .x_axis_label("Generation")
-                                .y_axis_label(param_display_name(param_name));
-                            plot.show(ui, |plot_ui| {
-                                for batch in &filtered {
-                                    let points: Vec<[f64; 2]> = batch
-                                        .generations
-                                        .iter()
-                                        .filter_map(|gen| {
-                                            get_param_value(&gen.params, param_name)
-                                                .map(|v| [gen.generation as f64, v])
-                                        })
-                                        .collect();
-                                    if !points.is_empty() {
-                                        let batch_idx = color_map.get(batch.batch_id.as_str()).copied().unwrap_or(0);
-                                        let color =
-                                            BATCH_COLORS[batch_idx % BATCH_COLORS.len()];
-                                        let line = Line::new(
-                                            &batch.batch_id,
-                                            PlotPoints::new(points),
-                                        )
-                                            .color(color)
-                                            .width(2.0);
-                                        plot_ui.line(line);
-                                    }
+                        for chunk in param_names.chunks(2) {
+                            ui.columns(2, |columns| {
+                                for (col_idx, param_name) in chunk.iter().enumerate() {
+                                    let ui = &mut columns[col_idx];
+                                    ui.label(param_display_name(param_name));
+                                    let plot = Plot::new(format!("ga_plot_{}", param_name))
+                                        .height(180.0)
+                                        .legend(Legend::default())
+                                        .x_axis_label("Generation")
+                                        .y_axis_label(param_display_name(param_name));
+                                    plot.show(ui, |plot_ui| {
+                                        for batch in &filtered {
+                                            let points: Vec<[f64; 2]> = batch
+                                                .generations
+                                                .iter()
+                                                .filter_map(|gen| {
+                                                    get_param_value(&gen.params, param_name)
+                                                        .map(|v| [gen.generation as f64, v])
+                                                })
+                                                .collect();
+                                            if !points.is_empty() {
+                                                let batch_idx = color_map.get(batch.batch_id.as_str()).copied().unwrap_or(0);
+                                                let color =
+                                                    BATCH_COLORS[batch_idx % BATCH_COLORS.len()];
+                                                let line = Line::new(
+                                                    &batch.batch_id,
+                                                    PlotPoints::new(points),
+                                                )
+                                                    .color(color)
+                                                    .width(2.0);
+                                                plot_ui.line(line);
+                                            }
+                                        }
+                                    });
                                 }
                             });
                         }
