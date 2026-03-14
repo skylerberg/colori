@@ -321,9 +321,14 @@ pub fn ismcts<R: Rng>(
     let mut opponent_stats = OpponentDraftStats::new();
     let mut pick_log: Vec<(u32, usize, Card)> = Vec::new();
 
-    let (effective_max_rollout_round, use_heuristic) = if config.use_heuristic_eval
-        && state.round <= config.heuristic_params.heuristic_round_threshold
-    {
+    let (effective_max_rollout_round, use_heuristic) = if config.use_heuristic_eval && {
+        if let Some(score_threshold) = config.heuristic_params.heuristic_score_threshold {
+            let max_score = state.players.iter().map(|p| p.cached_score).max().unwrap_or(0);
+            (max_score as f64) < score_threshold
+        } else {
+            state.round <= config.heuristic_params.heuristic_round_threshold
+        }
+    } {
         let heuristic_round = state.round + config.heuristic_params.heuristic_lookahead;
         let effective = max_rollout_round.map_or(heuristic_round, |mr| mr.min(heuristic_round));
         (Some(effective), true)
