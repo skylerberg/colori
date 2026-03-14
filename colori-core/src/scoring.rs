@@ -6,6 +6,7 @@ use smallvec::SmallVec;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(default)]
 pub struct HeuristicParams {
     pub primary_pip_weight: f64,
     pub secondary_pip_weight: f64,
@@ -23,6 +24,27 @@ pub struct HeuristicParams {
     pub glass_weight: f64,
     pub heuristic_round_threshold: u32,
     pub heuristic_lookahead: u32,
+    // Per-action-card quality overrides
+    pub alum_quality: Option<f64>,
+    pub cream_of_tartar_quality: Option<f64>,
+    pub gum_arabic_quality: Option<f64>,
+    pub potash_quality: Option<f64>,
+    pub vinegar_quality: Option<f64>,
+    pub argol_quality: Option<f64>,
+    // Per-dye-type quality overrides
+    pub pure_primary_dye_quality: Option<f64>,
+    pub primary_dye_quality: Option<f64>,
+    pub secondary_dye_quality: Option<f64>,
+    pub tertiary_dye_quality: Option<f64>,
+    // New scoring terms
+    pub primary_color_coverage_weight: f64,
+    pub secondary_color_coverage_weight: f64,
+    pub cards_in_deck_weight: f64,
+    pub cards_in_deck_squared_weight: f64,
+    pub material_type_count_weight: f64,
+    pub material_coverage_weight: f64,
+    // Score-based heuristic threshold
+    pub heuristic_score_threshold: Option<f64>,
 }
 
 impl Default for HeuristicParams {
@@ -44,6 +66,23 @@ impl Default for HeuristicParams {
             glass_weight: 1.0,
             heuristic_round_threshold: 3,
             heuristic_lookahead: 3,
+            alum_quality: None,
+            cream_of_tartar_quality: None,
+            gum_arabic_quality: None,
+            potash_quality: None,
+            vinegar_quality: None,
+            argol_quality: None,
+            pure_primary_dye_quality: None,
+            primary_dye_quality: None,
+            secondary_dye_quality: None,
+            tertiary_dye_quality: None,
+            primary_color_coverage_weight: 0.0,
+            secondary_color_coverage_weight: 0.0,
+            cards_in_deck_weight: 0.0,
+            cards_in_deck_squared_weight: 0.0,
+            material_type_count_weight: 0.0,
+            material_coverage_weight: 0.0,
+            heuristic_score_threshold: None,
         }
     }
 }
@@ -89,8 +128,31 @@ fn card_quality(card: Card, params: &HeuristicParams) -> f64 {
         return params.chalk_quality;
     }
     match card.kind() {
-        CardKind::Action => params.action_quality,
-        CardKind::Dye => params.dye_quality,
+        CardKind::Action => {
+            match card {
+                Card::Alum => params.alum_quality,
+                Card::CreamOfTartar => params.cream_of_tartar_quality,
+                Card::GumArabic => params.gum_arabic_quality,
+                Card::Potash => params.potash_quality,
+                Card::Vinegar => params.vinegar_quality,
+                Card::Argol => params.argol_quality,
+                _ => None,
+            }
+            .unwrap_or(params.action_quality)
+        }
+        CardKind::Dye => {
+            match card {
+                Card::Kermes | Card::Weld | Card::Woad => params.pure_primary_dye_quality,
+                Card::Lac | Card::Brazilwood | Card::Pomegranate
+                | Card::Sumac | Card::Elderberry | Card::Turnsole => params.primary_dye_quality,
+                Card::Madder | Card::Turmeric | Card::DyersGreenweed
+                | Card::Verdigris | Card::Orchil | Card::Logwood => params.secondary_dye_quality,
+                Card::VermilionDye | Card::Saffron | Card::PersianBerries
+                | Card::Azurite | Card::IndigoDye | Card::Cochineal => params.tertiary_dye_quality,
+                _ => None,
+            }
+            .unwrap_or(params.dye_quality)
+        }
         CardKind::BasicDye => params.basic_dye_quality,
         CardKind::Material => {
             let colors = card.colors();
@@ -129,10 +191,29 @@ fn heuristic_score(
 
     let mut total_quality = 0.0;
     let mut card_count = 0u32;
+    let mut has_primary = [false; 3];
+    let mut has_secondary = [false; 3];
+    let mut has_material_type = [false; 3];
     for cards in [&player.deck, &player.discard, &player.workshop_cards, &player.workshopped_cards, &player.drafted_cards] {
         for id in cards.iter() {
-            total_quality += card_quality(card_lookup[id as usize], params);
+            let card = card_lookup[id as usize];
+            total_quality += card_quality(card, params);
             card_count += 1;
+            for &color in card.colors() {
+                for (i, &p) in PRIMARIES.iter().enumerate() {
+                    if color == p {
+                        has_primary[i] = true;
+                    }
+                }
+                for (i, &s) in SECONDARIES.iter().enumerate() {
+                    if color == s {
+                        has_secondary[i] = true;
+                    }
+                }
+            }
+            for &mt in card.material_types() {
+                has_material_type[mt as usize] = true;
+            }
         }
     }
     let deck_quality = if card_count > 0 {
@@ -164,7 +245,18 @@ fn heuristic_score(
 
     let glass_score = params.glass_weight * player.completed_glass.len() as f64;
 
+    let primary_coverage = has_primary.iter().filter(|&&b| b).count() as f64 / 3.0;
+    let secondary_coverage = has_secondary.iter().filter(|&&b| b).count() as f64 / 3.0;
+    let material_type_count = player.materials.counts.iter().filter(|&&c| c > 0).count() as f64;
+    let material_coverage = has_material_type.iter().filter(|&&b| b).count() as f64 / 3.0;
+
     score + color_score + material_score + deck_quality + best_alignment + glass_score
+        + params.primary_color_coverage_weight * primary_coverage
+        + params.secondary_color_coverage_weight * secondary_coverage
+        + params.cards_in_deck_weight * card_count as f64
+        + params.cards_in_deck_squared_weight * (card_count as f64) * (card_count as f64)
+        + params.material_type_count_weight * material_type_count
+        + params.material_coverage_weight * material_coverage
 }
 
 /// Compute heuristic rewards for truncated early-game rollouts.

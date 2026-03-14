@@ -539,43 +539,76 @@ fn sample_normal(rng: &mut WyRand, std_dev: f64) -> f64 {
 
 fn heuristic_params_to_vec(params: &HeuristicParams) -> Vec<f64> {
     vec![
-        params.primary_pip_weight,
-        params.secondary_pip_weight,
-        params.tertiary_pip_weight,
-        params.stored_material_weight,
-        params.chalk_quality,
-        params.action_quality,
-        params.dye_quality,
-        params.basic_dye_quality,
-        params.starter_material_quality,
-        params.draft_material_quality,
-        params.dual_material_quality,
-        params.buyer_material_weight,
-        params.buyer_color_weight,
-        params.glass_weight,
-        params.heuristic_round_threshold as f64,
-        params.heuristic_lookahead as f64,
+        params.primary_pip_weight,                                          // 0
+        params.secondary_pip_weight,                                        // 1
+        params.tertiary_pip_weight,                                         // 2
+        params.stored_material_weight,                                      // 3
+        params.chalk_quality,                                               // 4
+        params.alum_quality.unwrap_or(params.action_quality),               // 5
+        params.cream_of_tartar_quality.unwrap_or(params.action_quality),    // 6
+        params.gum_arabic_quality.unwrap_or(params.action_quality),         // 7
+        params.potash_quality.unwrap_or(params.action_quality),             // 8
+        params.vinegar_quality.unwrap_or(params.action_quality),            // 9
+        params.argol_quality.unwrap_or(params.action_quality),              // 10
+        params.pure_primary_dye_quality.unwrap_or(params.dye_quality),      // 11
+        params.primary_dye_quality.unwrap_or(params.dye_quality),           // 12
+        params.secondary_dye_quality.unwrap_or(params.dye_quality),         // 13
+        params.tertiary_dye_quality.unwrap_or(params.dye_quality),          // 14
+        params.basic_dye_quality,                                           // 15
+        params.starter_material_quality,                                    // 16
+        params.draft_material_quality,                                      // 17
+        params.dual_material_quality,                                       // 18
+        params.buyer_material_weight,                                       // 19
+        params.buyer_color_weight,                                          // 20
+        params.glass_weight,                                                // 21
+        params.primary_color_coverage_weight,                               // 22
+        params.secondary_color_coverage_weight,                             // 23
+        params.cards_in_deck_weight,                                        // 24
+        params.cards_in_deck_squared_weight,                                // 25
+        params.material_type_count_weight,                                  // 26
+        params.material_coverage_weight,                                    // 27
+        params.heuristic_score_threshold.unwrap_or(
+            params.heuristic_round_threshold as f64),                       // 28
+        params.heuristic_lookahead as f64,                                  // 29
     ]
 }
 
 fn vec_to_heuristic_params(v: &[f64]) -> HeuristicParams {
+    let defaults = HeuristicParams::default();
     HeuristicParams {
         primary_pip_weight: v[0],
         secondary_pip_weight: v[1],
         tertiary_pip_weight: v[2],
         stored_material_weight: v[3],
         chalk_quality: v[4],
-        action_quality: v[5],
-        dye_quality: v[6],
-        basic_dye_quality: v[7],
-        starter_material_quality: v[8],
-        draft_material_quality: v[9],
-        dual_material_quality: v[10],
-        buyer_material_weight: v[11],
-        buyer_color_weight: v[12],
-        glass_weight: v[13],
-        heuristic_round_threshold: (v[14].round() as u32).max(1),
-        heuristic_lookahead: (v[15].round() as u32).max(1),
+        action_quality: defaults.action_quality,
+        dye_quality: defaults.dye_quality,
+        basic_dye_quality: v[15],
+        starter_material_quality: v[16],
+        draft_material_quality: v[17],
+        dual_material_quality: v[18],
+        buyer_material_weight: v[19],
+        buyer_color_weight: v[20],
+        glass_weight: v[21],
+        heuristic_round_threshold: defaults.heuristic_round_threshold,
+        heuristic_lookahead: (v[29].round() as u32).max(1),
+        alum_quality: Some(v[5]),
+        cream_of_tartar_quality: Some(v[6]),
+        gum_arabic_quality: Some(v[7]),
+        potash_quality: Some(v[8]),
+        vinegar_quality: Some(v[9]),
+        argol_quality: Some(v[10]),
+        pure_primary_dye_quality: Some(v[11]),
+        primary_dye_quality: Some(v[12]),
+        secondary_dye_quality: Some(v[13]),
+        tertiary_dye_quality: Some(v[14]),
+        primary_color_coverage_weight: v[22],
+        secondary_color_coverage_weight: v[23],
+        cards_in_deck_weight: v[24],
+        cards_in_deck_squared_weight: v[25],
+        material_type_count_weight: v[26],
+        material_coverage_weight: v[27],
+        heuristic_score_threshold: Some(v[28]),
     }
 }
 
@@ -637,7 +670,7 @@ fn run_ga_game(
 
 fn run_genetic_algorithm(args: &Args, ga: &GeneticArgs) {
     let batch_id = generate_batch_id();
-    let num_genes = 16;
+    let num_genes = 30;
 
     eprintln!(
         "Genetic Algorithm: population={}, generations={}, games_per_eval={}, eval_iterations={}, threads={}",
@@ -662,7 +695,7 @@ fn run_genetic_algorithm(args: &Args, ga: &GeneticArgs) {
     population.push(seed_genes.clone());
 
     // glass_weight index — skip when glass expansion is disabled
-    const GLASS_WEIGHT_IDX: usize = 13;
+    const GLASS_WEIGHT_IDX: usize = 21;
     let glass = args.glass;
 
     // Rest are randomly perturbed from seed
@@ -674,13 +707,9 @@ fn run_genetic_algorithm(args: &Args, ga: &GeneticArgs) {
             }
             let factor = 0.5 + rng.random::<f64>() * 1.5; // [0.5, 2.0)
             *g *= factor;
-            if *g < 0.0 {
-                *g = 0.0;
-            }
         }
         // Clamp u32 fields
-        genes[14] = (genes[14].round()).max(1.0);
-        genes[15] = (genes[15].round()).max(1.0);
+        genes[29] = (genes[29].round()).max(1.0);
         population.push(genes);
     }
 
@@ -814,15 +843,11 @@ fn run_genetic_algorithm(args: &Args, ga: &GeneticArgs) {
                 if rng.random::<f64>() < ga.mutation_rate {
                     let perturbation = sample_normal(&mut rng, ga.mutation_scale);
                     *g *= 1.0 + perturbation;
-                    if *g < 0.0 {
-                        *g = 0.0;
-                    }
                 }
             }
 
             // Clamp u32 fields
-            child[14] = (child[14].round()).max(1.0);
-            child[15] = (child[15].round()).max(1.0);
+            child[29] = (child[29].round()).max(1.0);
 
             new_population.push(child);
         }
