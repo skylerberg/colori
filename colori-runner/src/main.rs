@@ -34,7 +34,6 @@ struct GeneticArgs {
     generations: usize,
     games_per_eval: usize,
     initial_sigma: f64,
-    elitism: usize,
     eval_iterations: u32,
     seed_params: Option<HeuristicParams>,
 }
@@ -104,7 +103,6 @@ fn parse_args() -> Args {
     let mut generations = 50usize;
     let mut games_per_eval = 100usize;
     let mut initial_sigma = 0.3f64;
-    let mut elitism = 2usize;
     let mut eval_iterations = 10_000u32;
     let mut seed_params_file: Option<String> = None;
 
@@ -172,10 +170,6 @@ fn parse_args() -> Args {
                 i += 1;
                 initial_sigma = args[i].parse().expect("Invalid --initial-sigma value");
             }
-            "--elitism" => {
-                i += 1;
-                elitism = args[i].parse().expect("Invalid --elitism value");
-            }
             "--eval-iterations" => {
                 i += 1;
                 eval_iterations = args[i].parse().expect("Invalid --eval-iterations value");
@@ -208,7 +202,6 @@ fn parse_args() -> Args {
             generations,
             games_per_eval,
             initial_sigma,
-            elitism,
             eval_iterations,
             seed_params,
         })
@@ -569,11 +562,14 @@ fn heuristic_params_to_vec(params: &HeuristicParams) -> Vec<f64> {
         params.cards_in_deck_squared_weight,                                // 25
         params.material_type_count_weight,                                  // 26
         params.material_coverage_weight,                                    // 27
-        params.heuristic_score_threshold.unwrap_or(
-            params.heuristic_round_threshold as f64),                       // 28
+        params.heuristic_score_threshold.unwrap_or(10.0),                   // 28
         params.heuristic_lookahead as f64,                                  // 29
     ]
 }
+
+// Gene indices for glass_weight and heuristic_lookahead
+const GLASS_WEIGHT_IDX: usize = 21;
+const HEURISTIC_LOOKAHEAD_IDX: usize = 29;
 
 fn vec_to_heuristic_params(v: &[f64]) -> HeuristicParams {
     let defaults = HeuristicParams::default();
@@ -591,9 +587,9 @@ fn vec_to_heuristic_params(v: &[f64]) -> HeuristicParams {
         dual_material_quality: v[18],
         buyer_material_weight: v[19],
         buyer_color_weight: v[20],
-        glass_weight: v[21],
+        glass_weight: v[GLASS_WEIGHT_IDX],
         heuristic_round_threshold: defaults.heuristic_round_threshold,
-        heuristic_lookahead: (v[29].round() as u32).max(1),
+        heuristic_lookahead: (v[HEURISTIC_LOOKAHEAD_IDX].round() as u32).max(1),
         alum_quality: Some(v[5]),
         cream_of_tartar_quality: Some(v[6]),
         gum_arabic_quality: Some(v[7]),
@@ -783,7 +779,7 @@ impl CmaEsState {
             }
 
             // Clamp heuristic_lookahead >= 1
-            genes[29] = genes[29].round().max(1.0);
+            genes[HEURISTIC_LOOKAHEAD_IDX] = genes[HEURISTIC_LOOKAHEAD_IDX].round().max(1.0);
 
             offspring.push(genes);
         }
@@ -855,8 +851,8 @@ fn run_genetic_algorithm(args: &Args, ga: &GeneticArgs) {
     let batch_id = generate_batch_id();
 
     eprintln!(
-        "CMA-ES: lambda={}, generations={}, games_per_eval={}, eval_iterations={}, initial_sigma={}, elitism={}, threads={}",
-        ga.population, ga.generations, ga.games_per_eval, ga.eval_iterations, ga.initial_sigma, ga.elitism, args.threads
+        "CMA-ES: lambda={}, generations={}, games_per_eval={}, eval_iterations={}, initial_sigma={}, threads={}",
+        ga.population, ga.generations, ga.games_per_eval, ga.eval_iterations, ga.initial_sigma, args.threads
     );
 
     std::fs::create_dir_all(&args.output).expect("Failed to create output directory");
@@ -871,8 +867,7 @@ fn run_genetic_algorithm(args: &Args, ga: &GeneticArgs) {
         eprintln!("Seeding CMA-ES from provided params file");
     }
 
-    // glass_weight index — freeze when glass expansion is disabled
-    const GLASS_WEIGHT_IDX: usize = 21;
+    // Freeze glass_weight when glass expansion is disabled
     let frozen_genes: Vec<usize> = if !args.glass {
         vec![GLASS_WEIGHT_IDX]
     } else {
@@ -882,23 +877,15 @@ fn run_genetic_algorithm(args: &Args, ga: &GeneticArgs) {
     let mut cma = CmaEsState::new(&seed_genes, ga.population, ga.initial_sigma, frozen_genes);
     let baseline_params = seed.clone();
 
-    let mut elites: Vec<(Vec<f64>, f64)> = Vec::new(); // (genes, fitness) — not used for CMA-ES updates
-
     for gen in 0..ga.generations {
         let gen_start = Instant::now();
 
         // Sample lambda offspring from CMA-ES distribution
         let offspring = cma.sample_offspring(&mut rng);
-
-        // Build eval pool: offspring + elites
-        let mut eval_pool: Vec<Vec<f64>> = offspring.clone();
-        for (elite_genes, _) in &elites {
-            eval_pool.push(elite_genes.clone());
-        }
-        let pool_size = eval_pool.len();
+        let pop_size = offspring.len();
 
         // Evaluate all individuals against baseline
-        let eval_params: Vec<HeuristicParams> = eval_pool
+        let eval_params: Vec<HeuristicParams> = offspring
             .iter()
             .map(|g| vec_to_heuristic_params(g))
             .collect();
@@ -909,11 +896,11 @@ fn run_genetic_algorithm(args: &Args, ga: &GeneticArgs) {
         let glass = args.glass;
         let num_threads = args.threads;
 
-        let wins: Vec<std::sync::atomic::AtomicU64> = (0..pool_size)
+        let wins: Vec<std::sync::atomic::AtomicU64> = (0..pop_size)
             .map(|_| std::sync::atomic::AtomicU64::new(0))
             .collect();
 
-        for i in 0..pool_size {
+        for i in 0..pop_size {
             let params = &eval_params[i];
             let wins_for_individual = std::sync::atomic::AtomicU64::new(0);
             let wins_ind_ref = &wins_for_individual;
@@ -947,15 +934,14 @@ fn run_genetic_algorithm(args: &Args, ga: &GeneticArgs) {
             let total_wins = wins_for_individual.load(Ordering::Relaxed) as f64 / 1000.0;
             wins[i].store((total_wins * 1000.0) as u64, Ordering::Relaxed);
             let wr = total_wins / games_per_eval as f64;
-            let label = if i < ga.population { "offspring" } else { "elite" };
             eprintln!(
-                "  Gen {} [{}/{}] {} {}: win_rate={:.4}",
-                gen + 1, i + 1, pool_size, label, i, wr
+                "  Gen {} [{}/{}] individual {}: win_rate={:.4}",
+                gen + 1, i + 1, pop_size, i, wr
             );
         }
 
         // Compute fitness for all individuals
-        let mut fitness: Vec<(usize, f64)> = (0..pool_size)
+        let mut fitness: Vec<(usize, f64)> = (0..pop_size)
             .map(|i| {
                 let w = wins[i].load(Ordering::Relaxed) as f64 / 1000.0;
                 let wr = w / games_per_eval as f64;
@@ -966,23 +952,23 @@ fn run_genetic_algorithm(args: &Args, ga: &GeneticArgs) {
 
         let best_idx = fitness[0].0;
         let best_fitness = fitness[0].1;
-        let best_params = vec_to_heuristic_params(&eval_pool[best_idx]);
+        let best_params = vec_to_heuristic_params(&offspring[best_idx]);
 
         // Save best individual
         let output_path = format!("{}/batch-{}-gen-{}.json", args.output, batch_id, gen);
         let json = serde_json::to_string_pretty(&best_params).unwrap();
         std::fs::write(&output_path, json).unwrap();
 
-        let avg_fitness = fitness.iter().map(|(_, wr)| wr).sum::<f64>() / pool_size as f64;
+        let avg_fitness = fitness.iter().map(|(_, wr)| wr).sum::<f64>() / pop_size as f64;
 
         // Compute average pairwise gene distance as a diversity measure
         let mut total_dist = 0.0;
         let mut pairs = 0u64;
-        for a in 0..pool_size {
-            for b in (a + 1)..pool_size {
-                let dist: f64 = eval_pool[a]
+        for a in 0..pop_size {
+            for b in (a + 1)..pop_size {
+                let dist: f64 = offspring[a]
                     .iter()
-                    .zip(eval_pool[b].iter())
+                    .zip(offspring[b].iter())
                     .map(|(ga, gb)| {
                         let scale = ga.abs().max(gb.abs()).max(0.1);
                         ((ga - gb) / scale).powi(2)
@@ -1009,14 +995,7 @@ fn run_genetic_algorithm(args: &Args, ga: &GeneticArgs) {
             output_path,
         );
 
-        // Update elites: top `elitism` from full pool
-        elites.clear();
-        for i in 0..ga.elitism.min(fitness.len()) {
-            let idx = fitness[i].0;
-            elites.push((eval_pool[idx].clone(), fitness[i].1));
-        }
-
-        // Update CMA-ES using only offspring fitnesses (not elites)
+        // Update CMA-ES distribution
         let offspring_fitnesses: Vec<f64> = (0..ga.population)
             .map(|i| {
                 let w = wins[i].load(Ordering::Relaxed) as f64 / 1000.0;
