@@ -567,7 +567,9 @@ fn heuristic_params_to_vec(params: &HeuristicParams) -> Vec<f64> {
     ]
 }
 
-// Gene indices for glass_weight and heuristic_lookahead
+// Gene indices for frozen/special parameters
+const VINEGAR_QUALITY_IDX: usize = 9;
+const ARGOL_QUALITY_IDX: usize = 10;
 const GLASS_WEIGHT_IDX: usize = 21;
 const HEURISTIC_LOOKAHEAD_IDX: usize = 29;
 
@@ -867,12 +869,11 @@ fn run_genetic_algorithm(args: &Args, ga: &GeneticArgs) {
         eprintln!("Seeding CMA-ES from provided params file");
     }
 
-    // Freeze glass_weight when glass expansion is disabled
-    let frozen_genes: Vec<usize> = if !args.glass {
-        vec![GLASS_WEIGHT_IDX]
-    } else {
-        vec![]
-    };
+    // Always freeze vinegar/argol (not in draft deck); freeze glass_weight when glass expansion is disabled
+    let mut frozen_genes: Vec<usize> = vec![VINEGAR_QUALITY_IDX, ARGOL_QUALITY_IDX];
+    if !args.glass {
+        frozen_genes.push(GLASS_WEIGHT_IDX);
+    }
 
     let mut cma = CmaEsState::new(&seed_genes, ga.population, ga.initial_sigma, frozen_genes);
     let baseline_params = seed.clone();
