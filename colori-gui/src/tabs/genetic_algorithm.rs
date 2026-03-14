@@ -50,7 +50,7 @@ const PARAM_GROUPS: &[(&str, &[&str])] = &[
     ]),
     ("Action Card Overrides", &[
         "alum_quality", "cream_of_tartar_quality", "gum_arabic_quality",
-        "potash_quality", "vinegar_quality", "argol_quality",
+        "potash_quality",
     ]),
     ("Dye Type Overrides", &[
         "pure_primary_dye_quality", "primary_dye_quality",
@@ -64,7 +64,7 @@ const PARAM_GROUPS: &[(&str, &[&str])] = &[
         "material_type_count_weight", "material_coverage_weight",
     ]),
     ("Heuristic Control", &[
-        "heuristic_round_threshold", "heuristic_lookahead", "heuristic_score_threshold",
+        "heuristic_lookahead", "heuristic_score_threshold",
     ]),
 ];
 
