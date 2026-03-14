@@ -332,8 +332,6 @@ impl GeneticAlgorithmState {
                                     ui.label(param_display_name(param_name));
                                     let mut plot = Plot::new(format!("ga_plot_{}", param_name))
                                         .height(180.0)
-                                        .x_axis_label("Generation")
-
                                         .allow_zoom(false)
                                         .allow_scroll(false)
                                         .allow_drag(false)
