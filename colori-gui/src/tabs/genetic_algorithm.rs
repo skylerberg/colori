@@ -1,11 +1,16 @@
 use eframe::egui;
-use egui_plot::{Legend, Line, Plot, PlotPoints};
+use egui_plot::{HLine, Legend, Line, LineStyle, Plot, PlotPoints};
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::time::SystemTime;
 
 use colori_core::scoring::HeuristicParams;
+
+static BASELINE_PARAMS: std::sync::LazyLock<HeuristicParams> = std::sync::LazyLock::new(|| {
+    const JSON: &str = include_str!("../../../genetic-algorithm/batch-rqo1vv-gen-18.json");
+    serde_json::from_str(JSON).expect("Failed to parse baseline params")
+});
 
 const BATCH_COLORS: [egui::Color32; 8] = [
     egui::Color32::from_rgb(230, 57, 70),   // red
@@ -338,6 +343,13 @@ impl GeneticAlgorithmState {
                                                     .width(2.0);
                                                 plot_ui.line(line);
                                             }
+                                        }
+                                        if let Some(baseline_val) = get_param_value(&BASELINE_PARAMS, param_name) {
+                                            let hline = HLine::new("Baseline", baseline_val)
+                                                .color(egui::Color32::from_rgb(200, 200, 200))
+                                                .width(1.5)
+                                                .style(LineStyle::dashed_dense());
+                                            plot_ui.hline(hline);
                                         }
                                     });
                                 }
