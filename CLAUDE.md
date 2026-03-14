@@ -21,7 +21,6 @@ Rust workspace with 4 crates plus a Svelte frontend:
   - `src/engine/` — WASM engine loader and game state management
   - `src/ai/` — AI controller and Web Worker for running MCTS in background threads
   - `src/network/` — P2P multiplayer via trystero (host/guest controllers, state sanitization)
-  - `src/analysis/` — Game log analysis dashboard
   - `src/wasm-pkg/` — Generated WASM output (gitignored)
 - `game-logs/` — JSON game replay logs (gitignored)
 
@@ -33,9 +32,8 @@ Rust workspace with 4 crates plus a Svelte frontend:
 - `npm run build:wasm` — Rebuild WASM bindings (requires wasm-pack, outputs to `src/wasm-pkg/`)
 - `npm run test` — Run frontend tests (Vitest)
 - `npm run bench` — Run frontend benchmarks
-- `cargo build --release` — Build all Rust crates
+- `cargo build` — Build all Rust crates
 - `cargo test` — Run Rust tests
-- `npm run run-games -- --games N --iterations I --threads T` — Batch game simulation via colori-runner
 
 ## Architecture Notes
 
