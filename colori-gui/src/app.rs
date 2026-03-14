@@ -5,6 +5,7 @@ use crate::analysis::log_loader::{LogLoader, LoadResult, TaggedGameLog};
 use crate::tabs::analysis::{CachedAnalysis, render_analysis_tab};
 use crate::tabs::card_reference::render_card_reference_tab;
 use crate::tabs::game_viewer::GameViewerState;
+use crate::tabs::genetic_algorithm::GeneticAlgorithmState;
 
 use colori_core::game_log::StructuredGameLog;
 
@@ -15,6 +16,7 @@ enum Tab {
     Analysis,
     CardReference,
     GameViewer,
+    GeneticAlgorithm,
 }
 
 struct BatchInfo {
@@ -42,6 +44,9 @@ pub struct ColoriGuiApp {
 
     // Game viewer
     game_viewer: GameViewerState,
+
+    // Genetic algorithm
+    ga_state: GeneticAlgorithmState,
 }
 
 impl ColoriGuiApp {
@@ -50,7 +55,7 @@ impl ColoriGuiApp {
         visuals.override_text_color = Some(egui::Color32::WHITE);
         cc.egui_ctx.set_visuals(visuals);
 
-        let mut app = Self {
+        Self {
             active_tab: Tab::Analysis,
             loader: LogLoader::new(),
             tagged_logs: Vec::new(),
@@ -61,17 +66,8 @@ impl ColoriGuiApp {
             cached_analysis: None,
             cache_key: String::new(),
             game_viewer: GameViewerState::new(),
-        };
-
-        // Auto-load game-logs directory if it exists
-        if let Ok(cwd) = std::env::current_dir() {
-            let game_logs_path = cwd.join("game-logs");
-            if game_logs_path.is_dir() {
-                app.loader.start_loading(&game_logs_path);
-            }
+            ga_state: GeneticAlgorithmState::new(),
         }
-
-        app
     }
 
     fn filtered_logs(&self) -> Vec<&StructuredGameLog> {
@@ -213,22 +209,6 @@ impl eframe::App for ColoriGuiApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Colori Game Analysis");
 
-            // Refresh button
-            ui.horizontal(|ui| {
-                if ui.button("Refresh").clicked() && !self.loader.is_loading() {
-                    if let Ok(cwd) = std::env::current_dir() {
-                        let game_logs_path = cwd.join("game-logs");
-                        if game_logs_path.is_dir() {
-                            self.loader.start_loading(&game_logs_path);
-                        }
-                    }
-                }
-                if self.loader.is_loading() {
-                    ui.spinner();
-                    ui.label("Loading...");
-                }
-            });
-
             // Tab bar
             ui.add_space(4.0);
             ui.horizontal(|ui| {
@@ -236,6 +216,7 @@ impl eframe::App for ColoriGuiApp {
                     (Tab::Analysis, "Game Analysis"),
                     (Tab::CardReference, "Card Reference"),
                     (Tab::GameViewer, "Game Viewer"),
+                    (Tab::GeneticAlgorithm, "Genetic Algorithm"),
                 ] {
                     let is_active = self.active_tab == tab;
                     let response = ui.selectable_value(&mut self.active_tab, tab, label);
@@ -256,8 +237,24 @@ impl eframe::App for ColoriGuiApp {
 
             match self.active_tab {
                 Tab::Analysis => {
+                    ui.horizontal(|ui| {
+                        if ui.button("Load Game Logs...").clicked() && !self.loader.is_loading() {
+                            if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                                self.loader.start_loading(&path);
+                            }
+                        }
+                        if self.loader.is_loading() {
+                            ui.spinner();
+                            ui.label("Loading...");
+                        }
+                    });
+
                     if let Some(ref error) = self.load_error {
                         ui.colored_label(egui::Color32::RED, error);
+                    }
+
+                    if self.tagged_logs.is_empty() && !self.loader.is_loading() && self.load_error.is_none() {
+                        ui.label("No game logs loaded. Click 'Load Game Logs...' to select a folder.");
                     }
 
                     if !self.tagged_logs.is_empty() {
@@ -378,6 +375,9 @@ impl eframe::App for ColoriGuiApp {
                 }
                 Tab::GameViewer => {
                     self.game_viewer.render(ui);
+                }
+                Tab::GeneticAlgorithm => {
+                    self.ga_state.render(ui);
                 }
             }
         });
