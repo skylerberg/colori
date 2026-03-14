@@ -572,6 +572,8 @@ const VINEGAR_QUALITY_IDX: usize = 9;
 const ARGOL_QUALITY_IDX: usize = 10;
 const GLASS_WEIGHT_IDX: usize = 21;
 const HEURISTIC_LOOKAHEAD_IDX: usize = 29;
+const CARDS_IN_DECK_IDX: usize = 24;
+const CARDS_IN_DECK_SQUARED_IDX: usize = 25;
 
 fn vec_to_heuristic_params(v: &[f64]) -> HeuristicParams {
     let defaults = HeuristicParams::default();
@@ -870,7 +872,8 @@ fn run_genetic_algorithm(args: &Args, ga: &GeneticArgs) {
     }
 
     // Always freeze vinegar/argol (not in draft deck); freeze glass_weight when glass expansion is disabled
-    let mut frozen_genes: Vec<usize> = vec![VINEGAR_QUALITY_IDX, ARGOL_QUALITY_IDX];
+    // Freezing deck size genes for our current test
+    let mut frozen_genes: Vec<usize> = vec![VINEGAR_QUALITY_IDX, ARGOL_QUALITY_IDX, CARDS_IN_DECK_IDX, CARDS_IN_DECK_SQUARED_IDX];
     if !args.glass {
         frozen_genes.push(GLASS_WEIGHT_IDX);
     }
