@@ -48,6 +48,8 @@ struct VariantFileEntry {
     #[serde(default)]
     rave_constant: Option<f64>,
     #[serde(default)]
+    rave_track_rollout: Option<bool>,
+    #[serde(default)]
     heuristic_params: Option<HeuristicParams>,
     #[serde(default)]
     heuristic_params_file: Option<String>,
@@ -75,6 +77,7 @@ impl VariantFileEntry {
                 use_heuristic_eval: self.use_heuristic_eval.unwrap_or(defaults.use_heuristic_eval),
                 progressive_bias_weight: self.progressive_bias_weight.unwrap_or(defaults.progressive_bias_weight),
                 rave_constant: self.rave_constant.unwrap_or(defaults.rave_constant),
+                rave_track_rollout: self.rave_track_rollout.unwrap_or(defaults.rave_track_rollout),
                 heuristic_params,
             },
         }

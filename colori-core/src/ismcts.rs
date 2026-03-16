@@ -18,6 +18,7 @@ pub struct MctsConfig {
     pub use_heuristic_eval: bool,
     pub progressive_bias_weight: f64,
     pub rave_constant: f64,
+    pub rave_track_rollout: bool,
     pub heuristic_params: HeuristicParams,
 }
 
@@ -30,6 +31,7 @@ impl Default for MctsConfig {
             use_heuristic_eval: true,
             progressive_bias_weight: 0.0,
             rave_constant: 0.0,
+            rave_track_rollout: false,
             heuristic_params: HeuristicParams::default(),
         }
     }
@@ -55,6 +57,8 @@ impl<'de> Deserialize<'de> for MctsConfig {
             progressive_bias_weight: f64,
             #[serde(default = "default_rave_constant")]
             rave_constant: f64,
+            #[serde(default = "default_rave_track_rollout")]
+            rave_track_rollout: bool,
             #[serde(default)]
             heuristic_params: HeuristicParams,
         }
@@ -65,6 +69,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
         fn default_use_heuristic_eval() -> bool { true }
         fn default_progressive_bias_weight() -> f64 { 0.0 }
         fn default_rave_constant() -> f64 { 0.0 }
+        fn default_rave_track_rollout() -> bool { false }
 
         let helper = MctsConfigHelper::deserialize(deserializer)?;
         Ok(MctsConfig {
@@ -74,6 +79,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
             use_heuristic_eval: helper.use_heuristic_eval,
             progressive_bias_weight: helper.progressive_bias_weight,
             rave_constant: helper.rave_constant,
+            rave_track_rollout: helper.rave_track_rollout,
             heuristic_params: helper.heuristic_params,
         })
     }
@@ -475,7 +481,7 @@ fn iteration_simultaneous<R: Rng>(
     }
 
     let scores = if should_rollout {
-        let scores = if config.rave_constant > 0.0 {
+        let scores = if config.rave_constant > 0.0 && config.rave_track_rollout {
             rollout_with_tracking(state, max_rollout_round, config.max_rollout_steps, use_heuristic, &config.heuristic_params, card_table, move_log, choices_buf, rng)
         } else {
             rollout(state, max_rollout_round, config.max_rollout_steps, use_heuristic, &config.heuristic_params, card_table, rng)
