@@ -2,7 +2,7 @@ use colori_core::colori_game::apply_choice_to_state;
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::ismcts::{ismcts, MctsConfig};
 use colori_core::scoring::diff_eval::{
-    compute_diff_eval_rewards, diff_eval_score, DiffEvalParams, DiffEvalTable, NUM_PARAMS,
+    diff_eval_score, DiffEvalParams, DiffEvalTable, NUM_PARAMS,
 };
 use colori_core::scoring::diff_eval_grad::{diff_eval_backward, DiffEvalGradients};
 use colori_core::scoring::{calculate_score, HeuristicParams};
@@ -10,7 +10,6 @@ use colori_core::setup::create_initial_game_state_with_expansions;
 use colori_core::fixed_vec::FixedVec;
 use colori_core::types::*;
 
-use rand::RngExt;
 use rand::SeedableRng;
 use wyrand::WyRand;
 
@@ -77,10 +76,8 @@ fn generate_training_data(
     eval_iterations: u32,
     num_threads: usize,
     heuristic_params: &HeuristicParams,
+    epoch: usize,
 ) -> Vec<TrainingSample> {
-    eprintln!("Generating training data: {} games, {} iterations, {} threads...",
-        num_games, eval_iterations, num_threads);
-
     let samples = std::sync::Mutex::new(Vec::new());
     let completed = std::sync::atomic::AtomicUsize::new(0);
 
@@ -105,8 +102,7 @@ fn generate_training_data(
 
                     let done = completed.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
                     if done % 100 == 0 {
-                        eprintln!("  Generated {}/{} games ({} samples so far)", done, num_games,
-                            samples.lock().unwrap().len() + thread_samples.len());
+                        eprintln!("  Epoch {}: generated {}/{} games", epoch + 1, done, num_games);
                     }
                 }
 
@@ -120,7 +116,7 @@ fn generate_training_data(
     });
 
     let samples = samples.into_inner().unwrap();
-    eprintln!("Generated {} training samples from {} games", samples.len(), num_games);
+    eprintln!("  Epoch {}: {} samples from {} games", epoch + 1, samples.len(), num_games);
     samples
 }
 
@@ -357,8 +353,10 @@ pub struct TrainArgs {
 
 pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
     eprintln!("=== Diff Eval Training ===");
-    eprintln!("Games: {}, Epochs: {}, Batch size: {}, LR: {}", train.games, train.epochs, train.batch_size, train.lr);
-    eprintln!("Eval iterations: {}, Eval games: {}, Threads: {}", train.eval_iterations, train.eval_games, train.threads);
+    eprintln!("Games/epoch: {}, Epochs: {}, Batch size: {}, LR: {}",
+        train.games, train.epochs, train.batch_size, train.lr);
+    eprintln!("Eval iterations: {}, Eval games: {}, Threads: {}",
+        train.eval_iterations, train.eval_games, train.threads);
 
     // Use baseline heuristic params from first variant (or default)
     let baseline_params = if !args.variants.is_empty() {
@@ -367,30 +365,32 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
         HeuristicParams::default()
     };
 
-    // Generate training data
-    let samples = generate_training_data(train.games, train.eval_iterations, train.threads, &baseline_params);
-    if samples.is_empty() {
-        eprintln!("No training samples generated!");
-        return;
-    }
-
-    // Initialize model
-    let mut params = DiffEvalParams::default();
-    let table = DiffEvalTable::new();
-    let mut optimizer = Adam::new(train.lr);
-    let mut best_win_rate = 0.0f64;
-
     // Create output directory
     std::fs::create_dir_all(&train.output).expect("Failed to create output directory");
 
-    // Training loop
-    let num_samples = samples.len();
-    let mut indices: Vec<usize> = (0..num_samples).collect();
-    let mut rng = WyRand::from_rng(&mut rand::rng());
+    // Try to resume from latest checkpoint
+    let (mut params, mut optimizer, start_epoch, mut best_win_rate) = load_checkpoint(&train.output, train.lr);
+    let table = DiffEvalTable::new();
 
-    for epoch in 0..train.epochs {
-        // Shuffle
+    if start_epoch > 0 {
+        eprintln!("Resuming from epoch {} (best win rate so far: {:.1}%)",
+            start_epoch, best_win_rate * 100.0);
+    }
+
+    // Training loop: fresh data each epoch
+    for epoch in start_epoch..train.epochs {
+        let samples = generate_training_data(
+            train.games, train.eval_iterations, train.threads, &baseline_params, epoch,
+        );
+        if samples.is_empty() {
+            eprintln!("No training samples generated for epoch {}!", epoch + 1);
+            continue;
+        }
+
+        // Shuffle and train on mini-batches
         use rand::seq::SliceRandom;
+        let mut rng = WyRand::from_rng(&mut rand::rng());
+        let mut indices: Vec<usize> = (0..samples.len()).collect();
         indices.shuffle(&mut rng);
 
         let mut epoch_loss = 0.0;
@@ -406,30 +406,75 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
 
         let avg_loss = epoch_loss / num_batches as f64;
 
-        // Periodic evaluation
-        if (epoch + 1) % 10 == 0 || epoch == 0 {
-            let win_rate = evaluate_against_baseline(
-                &params, &baseline_params, train.eval_iterations,
-                train.eval_games, train.threads,
-            );
-            eprintln!("Epoch {}/{}: loss={:.4}, eval win rate={:.1}%", epoch + 1, train.epochs, avg_loss, win_rate * 100.0);
+        // Evaluate against baseline
+        let win_rate = evaluate_against_baseline(
+            &params, &baseline_params, train.eval_iterations,
+            train.eval_games, train.threads,
+        );
+        eprintln!("Epoch {}/{}: loss={:.4}, eval win rate={:.1}%",
+            epoch + 1, train.epochs, avg_loss, win_rate * 100.0);
 
-            if win_rate > best_win_rate {
-                best_win_rate = win_rate;
-                let path = format!("{}/best-diff-eval.json", train.output);
-                let json = serde_json::to_string_pretty(&params).unwrap();
-                std::fs::write(&path, json).unwrap();
-                eprintln!("  New best! Saved to {}", path);
-            }
-        } else {
-            eprintln!("Epoch {}/{}: loss={:.4}", epoch + 1, train.epochs, avg_loss);
+        if win_rate > best_win_rate {
+            best_win_rate = win_rate;
+            let path = format!("{}/best-diff-eval.json", train.output);
+            let json = serde_json::to_string_pretty(&params).unwrap();
+            std::fs::write(&path, json).unwrap();
+            eprintln!("  New best! Saved to {}", path);
         }
+
+        // Save checkpoint after every epoch for resumability
+        save_checkpoint(&train.output, &params, &optimizer, epoch + 1, best_win_rate);
     }
 
-    // Save final params
-    let path = format!("{}/final-diff-eval.json", train.output);
-    let json = serde_json::to_string_pretty(&params).unwrap();
-    std::fs::write(&path, json).unwrap();
     eprintln!("\nTraining complete. Best win rate: {:.1}%", best_win_rate * 100.0);
-    eprintln!("Final params saved to {}", path);
+}
+
+// ── Checkpoint save/load ──
+
+use serde::{Serialize as SerdeSerialize, Deserialize as SerdeDeserialize};
+
+#[derive(SerdeSerialize, SerdeDeserialize)]
+struct Checkpoint {
+    params: DiffEvalParams,
+    adam_m: Vec<f64>,
+    adam_v: Vec<f64>,
+    adam_t: u64,
+    epoch: usize,
+    best_win_rate: f64,
+}
+
+fn save_checkpoint(output_dir: &str, params: &DiffEvalParams, optimizer: &Adam, epoch: usize, best_win_rate: f64) {
+    let checkpoint = Checkpoint {
+        params: params.clone(),
+        adam_m: optimizer.m.to_vec(),
+        adam_v: optimizer.v.to_vec(),
+        adam_t: optimizer.t,
+        epoch,
+        best_win_rate,
+    };
+    let path = format!("{}/checkpoint.json", output_dir);
+    let json = serde_json::to_string(&checkpoint).unwrap();
+    std::fs::write(&path, json).unwrap();
+}
+
+fn load_checkpoint(output_dir: &str, lr: f64) -> (DiffEvalParams, Adam, usize, f64) {
+    let path = format!("{}/checkpoint.json", output_dir);
+    match std::fs::read_to_string(&path) {
+        Ok(json) => {
+            match serde_json::from_str::<Checkpoint>(&json) {
+                Ok(cp) => {
+                    let mut optimizer = Adam::new(lr);
+                    optimizer.m.copy_from_slice(&cp.adam_m);
+                    optimizer.v.copy_from_slice(&cp.adam_v);
+                    optimizer.t = cp.adam_t;
+                    (cp.params, optimizer, cp.epoch, cp.best_win_rate)
+                }
+                Err(e) => {
+                    eprintln!("Warning: failed to parse checkpoint: {}", e);
+                    (DiffEvalParams::default(), Adam::new(lr), 0, 0.0)
+                }
+            }
+        }
+        Err(_) => (DiffEvalParams::default(), Adam::new(lr), 0, 0.0),
+    }
 }
