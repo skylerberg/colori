@@ -20,6 +20,7 @@ pub struct SimulationArgs {
     pub train_batch_size: usize,
     pub train_lr: f64,
     pub train_vs_baseline: bool,
+    pub train_eval_iterations: u32,
     pub baseline_heuristic_params: Option<HeuristicParams>,
 }
 
@@ -328,6 +329,7 @@ pub fn parse_args() -> SimulationArgs {
         train_epochs,
         train_batch_size,
         train_lr,
+        train_eval_iterations: eval_iterations,
         baseline_heuristic_params,
     }
 }
