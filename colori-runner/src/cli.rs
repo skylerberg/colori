@@ -15,6 +15,7 @@ pub struct SimulationArgs {
     pub genetic: Option<CmaEsArgs>,
     pub tournament: bool,
     pub train_diff_eval: bool,
+    pub train_games_per_epoch: usize,
     pub train_epochs: usize,
     pub train_batch_size: usize,
     pub train_lr: f64,
@@ -113,6 +114,7 @@ pub fn parse_args() -> SimulationArgs {
     let mut tournament = false;
 
     let mut train_diff_eval = false;
+    let mut train_games_per_epoch = 1000usize;
     let mut train_epochs = 100usize;
     let mut train_batch_size = 256usize;
     let mut train_lr = 1e-3f64;
@@ -183,6 +185,10 @@ pub fn parse_args() -> SimulationArgs {
                 train_diff_eval = true;
                 i += 1;
                 continue;
+            }
+            "--games-per-epoch" => {
+                i += 1;
+                train_games_per_epoch = args[i].parse().expect("Invalid --games-per-epoch value");
             }
             "--train-epochs" => {
                 i += 1;
@@ -292,6 +298,7 @@ pub fn parse_args() -> SimulationArgs {
         genetic: genetic_args,
         tournament,
         train_diff_eval,
+        train_games_per_epoch,
         train_epochs,
         train_batch_size,
         train_lr,

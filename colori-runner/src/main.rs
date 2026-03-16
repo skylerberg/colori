@@ -41,7 +41,7 @@ fn main() {
 
     if args.train_diff_eval {
         let train_args = train_diff_eval::TrainArgs {
-            games: args.games,
+            games: args.train_games_per_epoch,
             epochs: args.train_epochs,
             batch_size: args.train_batch_size,
             lr: args.train_lr,
