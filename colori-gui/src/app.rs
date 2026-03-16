@@ -39,6 +39,7 @@ pub struct ColoriGuiApp {
     selected_batch: String, // "all" or a batch ID
     selected_variant: String, // "all" or variant label
     previous_batch: String,
+    excluded_variants: HashSet<String>,
 
     // Cached analysis
     cached_analysis: Option<CachedAnalysis>,
@@ -66,6 +67,7 @@ impl ColoriGuiApp {
             selected_batch: "all".to_string(),
             selected_variant: "all".to_string(),
             previous_batch: "all".to_string(),
+            excluded_variants: HashSet::new(),
             cached_analysis: None,
             cache_key: String::new(),
             game_viewer: GameViewerState::new(),
@@ -87,7 +89,7 @@ impl ColoriGuiApp {
         app
     }
 
-    fn filtered_logs(&self) -> Vec<&StructuredGameLog> {
+    fn batch_filtered_logs(&self) -> Vec<&StructuredGameLog> {
         if self.selected_batch == "all" {
             self.tagged_logs.iter().map(|t| &t.log).collect()
         } else {
@@ -97,6 +99,43 @@ impl ColoriGuiApp {
                 .map(|t| &t.log)
                 .collect()
         }
+    }
+
+    fn filtered_logs(&self) -> Vec<&StructuredGameLog> {
+        let batch_filtered = self.batch_filtered_logs();
+        if self.excluded_variants.is_empty() {
+            return batch_filtered;
+        }
+        batch_filtered
+            .into_iter()
+            .filter(|log| {
+                if let Some(ref pvs) = log.player_variants {
+                    !pvs.iter().any(|v| {
+                        self.excluded_variants
+                            .contains(&format_variant_label(v, Some(pvs)))
+                    })
+                } else {
+                    true
+                }
+            })
+            .collect()
+    }
+
+    /// All variant labels in the current batch (ignoring exclusions).
+    /// Used by the exclusion UI so excluded variants remain visible.
+    fn all_batch_variants(&self) -> Vec<String> {
+        let filtered = self.batch_filtered_logs();
+        let mut labels = HashSet::new();
+        for log in &filtered {
+            if let Some(ref pvs) = log.player_variants {
+                for v in pvs {
+                    labels.insert(format_variant_label(v, Some(pvs)));
+                }
+            }
+        }
+        let mut sorted: Vec<String> = labels.into_iter().collect();
+        sorted.sort();
+        sorted
     }
 
     fn available_batches(&self) -> Vec<String> {
@@ -185,7 +224,9 @@ impl ColoriGuiApp {
         } else {
             Some(self.selected_variant.as_str())
         };
-        let key = format!("{}:{}:{}", self.selected_batch, self.selected_variant, self.tagged_logs.len());
+        let mut excluded_sorted: Vec<&str> = self.excluded_variants.iter().map(|s| s.as_str()).collect();
+        excluded_sorted.sort();
+        let key = format!("{}:{}:{}:{}", self.selected_batch, self.selected_variant, self.tagged_logs.len(), excluded_sorted.join(","));
         if self.cache_key != key {
             let filtered: Vec<StructuredGameLog> = self.filtered_logs().into_iter().cloned().collect();
             self.cached_analysis = Some(CachedAnalysis::compute(&filtered, None, variant_label));
@@ -202,6 +243,7 @@ impl eframe::App for ColoriGuiApp {
                 self.tagged_logs = logs;
                 self.load_error = None;
                 self.selected_variant = "all".to_string();
+                self.excluded_variants.clear();
                 self.cache_key.clear();
                 // Select only the latest batch by default
                 let batches = self.available_batches();
@@ -295,7 +337,30 @@ impl eframe::App for ColoriGuiApp {
                         // Reset variant when batch selection changes
                         if self.selected_batch != self.previous_batch {
                             self.selected_variant = "all".to_string();
+                            self.excluded_variants.clear();
                             self.previous_batch = self.selected_batch.clone();
+                        }
+
+                        // Variant exclusion
+                        let all_variants = self.all_batch_variants();
+                        if all_variants.len() > 1 {
+                            ui.horizontal(|ui| {
+                                ui.label("Exclude:");
+                                for variant in &all_variants {
+                                    let mut excluded = self.excluded_variants.contains(variant);
+                                    if ui.checkbox(&mut excluded, variant.as_str()).changed() {
+                                        if excluded {
+                                            self.excluded_variants.insert(variant.clone());
+                                        } else {
+                                            self.excluded_variants.remove(variant);
+                                        }
+                                    }
+                                }
+                            });
+                            // Reset selected variant if it was excluded
+                            if self.excluded_variants.contains(&self.selected_variant) {
+                                self.selected_variant = "all".to_string();
+                            }
                         }
 
                         // Variant filter
