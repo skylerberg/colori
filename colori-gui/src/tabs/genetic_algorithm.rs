@@ -41,8 +41,8 @@ pub struct GeneticAlgorithmState {
 }
 
 const PARAM_GROUPS: &[(&str, &[&str])] = &[
-    ("Pip Weights", &[
-        "primary_pip_weight", "secondary_pip_weight", "tertiary_pip_weight",
+    ("Color Value Weights", &[
+        "primary_color_value", "secondary_color_value", "tertiary_color_value",
     ]),
     ("Material Weights", &[
         "stored_material_weight", "chalk_quality", "starter_material_quality",
@@ -51,8 +51,8 @@ const PARAM_GROUPS: &[(&str, &[&str])] = &[
     ("Card Type Quality", &[
         "basic_dye_quality",
     ]),
-    ("Buyer & Glass Weights", &[
-        "buyer_material_weight", "buyer_color_weight", "glass_weight",
+    ("Sell Card & Glass Weights", &[
+        "sell_card_material_alignment", "sell_card_color_alignment", "glass_weight",
     ]),
     ("Action Card Overrides", &[
         "alum_quality", "cream_of_tartar_quality", "gum_arabic_quality",
@@ -76,9 +76,9 @@ const PARAM_GROUPS: &[(&str, &[&str])] = &[
 
 fn get_param_value(params: &HeuristicParams, name: &str) -> Option<f64> {
     match name {
-        "primary_pip_weight" => Some(params.primary_pip_weight),
-        "secondary_pip_weight" => Some(params.secondary_pip_weight),
-        "tertiary_pip_weight" => Some(params.tertiary_pip_weight),
+        "primary_color_value" => Some(params.primary_color_value),
+        "secondary_color_value" => Some(params.secondary_color_value),
+        "tertiary_color_value" => Some(params.tertiary_color_value),
         "stored_material_weight" => Some(params.stored_material_weight),
         "chalk_quality" => Some(params.chalk_quality),
         "action_quality" => Some(params.action_quality),
@@ -87,8 +87,8 @@ fn get_param_value(params: &HeuristicParams, name: &str) -> Option<f64> {
         "starter_material_quality" => Some(params.starter_material_quality),
         "draft_material_quality" => Some(params.draft_material_quality),
         "dual_material_quality" => Some(params.dual_material_quality),
-        "buyer_material_weight" => Some(params.buyer_material_weight),
-        "buyer_color_weight" => Some(params.buyer_color_weight),
+        "sell_card_material_alignment" => Some(params.sell_card_material_alignment),
+        "sell_card_color_alignment" => Some(params.sell_card_color_alignment),
         "glass_weight" => Some(params.glass_weight),
         "heuristic_round_threshold" => Some(params.heuristic_round_threshold as f64),
         "heuristic_lookahead" => Some(params.heuristic_lookahead as f64),

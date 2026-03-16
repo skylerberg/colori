@@ -1,11 +1,16 @@
 use crate::types::{Color, ColorWheel, NUM_COLORS};
 
+/// Indices of primary colors on the 12-color wheel: Red(0), Yellow(4), Blue(8).
+const PRIMARY_INDICES: [usize; 3] = [0, 4, 8];
+/// Indices of secondary colors on the 12-color wheel: Orange(2), Green(6), Purple(10).
+const SECONDARY_INDICES: [usize; 3] = [2, 6, 10];
+
 fn is_primary_idx(idx: usize) -> bool {
-    idx == 0 || idx == 4 || idx == 8
+    PRIMARY_INDICES.contains(&idx)
 }
 
 fn is_secondary_idx(idx: usize) -> bool {
-    idx == 2 || idx == 6 || idx == 10
+    SECONDARY_INDICES.contains(&idx)
 }
 
 pub fn can_mix(a: Color, b: Color) -> bool {
@@ -23,6 +28,10 @@ pub fn can_mix(a: Color, b: Color) -> bool {
     one_is_primary && one_is_secondary && distance == 2
 }
 
+/// Compute the result of mixing two colors on the 12-color wheel.
+/// Colors are arranged: Red(0), Vermilion(1), Orange(2), ..., Magenta(11).
+/// Mixing two colors produces the color at the midpoint between them
+/// on the shorter arc of the wheel.
 pub fn mix_result(a: Color, b: Color) -> Color {
     let a_index = a.index();
     let b_index = b.index();

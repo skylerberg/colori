@@ -1,91 +1,10 @@
+mod heuristic_params;
+
+pub use heuristic_params::HeuristicParams;
+
 use crate::colors::{PRIMARIES, SECONDARIES, TERTIARIES};
 use crate::fixed_vec::FixedVec;
 use crate::types::*;
-use serde::{Deserialize, Serialize};
-
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[serde(default)]
-pub struct HeuristicParams {
-    pub primary_pip_weight: f64,
-    pub secondary_pip_weight: f64,
-    pub tertiary_pip_weight: f64,
-    pub stored_material_weight: f64,
-    pub chalk_quality: f64,
-    pub action_quality: f64,
-    pub dye_quality: f64,
-    pub basic_dye_quality: f64,
-    pub starter_material_quality: f64,
-    pub draft_material_quality: f64,
-    pub dual_material_quality: f64,
-    pub buyer_material_weight: f64,
-    pub buyer_color_weight: f64,
-    pub glass_weight: f64,
-    pub heuristic_round_threshold: u32,
-    pub heuristic_lookahead: u32,
-    // Per-action-card quality overrides
-    pub alum_quality: Option<f64>,
-    pub cream_of_tartar_quality: Option<f64>,
-    pub gum_arabic_quality: Option<f64>,
-    pub potash_quality: Option<f64>,
-    pub vinegar_quality: Option<f64>,
-    pub argol_quality: Option<f64>,
-    // Per-dye-type quality overrides
-    pub pure_primary_dye_quality: Option<f64>,
-    pub primary_dye_quality: Option<f64>,
-    pub secondary_dye_quality: Option<f64>,
-    pub tertiary_dye_quality: Option<f64>,
-    // New scoring terms
-    pub primary_color_coverage_weight: f64,
-    pub secondary_color_coverage_weight: f64,
-    pub cards_in_deck_weight: f64,
-    pub cards_in_deck_squared_weight: f64,
-    pub material_type_count_weight: f64,
-    pub material_coverage_weight: f64,
-    // Score-based heuristic threshold
-    pub heuristic_score_threshold: Option<f64>,
-}
-
-impl Default for HeuristicParams {
-    fn default() -> Self {
-        HeuristicParams {
-            primary_pip_weight: 0.10,
-            secondary_pip_weight: 0.20,
-            tertiary_pip_weight: 0.30,
-            stored_material_weight: 0.20,
-            chalk_quality: 0.20,
-            action_quality: 1.00,
-            dye_quality: 1.00,
-            basic_dye_quality: 0.10,
-            starter_material_quality: 0.20,
-            draft_material_quality: 0.50,
-            dual_material_quality: 0.60,
-            buyer_material_weight: 0.50,
-            buyer_color_weight: 0.50,
-            glass_weight: 1.0,
-            heuristic_round_threshold: 3,
-            heuristic_lookahead: 3,
-            alum_quality: None,
-            cream_of_tartar_quality: None,
-            gum_arabic_quality: None,
-            potash_quality: None,
-            vinegar_quality: None,
-            argol_quality: None,
-            pure_primary_dye_quality: None,
-            primary_dye_quality: None,
-            secondary_dye_quality: None,
-            tertiary_dye_quality: None,
-            primary_color_coverage_weight: 0.0,
-            secondary_color_coverage_weight: 0.0,
-            cards_in_deck_weight: 0.0,
-            cards_in_deck_squared_weight: 0.0,
-            material_type_count_weight: 0.0,
-            material_coverage_weight: 0.0,
-            heuristic_score_threshold: None,
-        }
-    }
-}
 
 const ALL_CARDS: [Card; 46] = [
     Card::BasicRed, Card::BasicYellow, Card::BasicBlue,
@@ -232,13 +151,13 @@ fn heuristic_score(
 
     let mut color_score = 0.0;
     for &c in &PRIMARIES {
-        color_score += params.primary_pip_weight * player.color_wheel.get(c) as f64;
+        color_score += params.primary_color_value * player.color_wheel.get(c) as f64;
     }
     for &c in &SECONDARIES {
-        color_score += params.secondary_pip_weight * player.color_wheel.get(c) as f64;
+        color_score += params.secondary_color_value * player.color_wheel.get(c) as f64;
     }
     for &c in &TERTIARIES {
-        color_score += params.tertiary_pip_weight * player.color_wheel.get(c) as f64;
+        color_score += params.tertiary_color_value * player.color_wheel.get(c) as f64;
     }
 
     let material_score = params.stored_material_weight * player.materials.counts.iter().sum::<u32>() as f64;
@@ -271,14 +190,14 @@ fn heuristic_score(
         let mut alignment = 0.0;
 
         if player.materials.get(sell_card.required_material()) > 0 {
-            alignment += params.buyer_material_weight * ducats;
+            alignment += params.sell_card_material_alignment * ducats;
         }
 
         let cost = sell_card.color_cost();
         let cost_len = cost.len() as f64;
         for &color in cost {
             if player.color_wheel.get(color) > 0 {
-                alignment += (params.buyer_color_weight / cost_len) * ducats;
+                alignment += (params.sell_card_color_alignment / cost_len) * ducats;
             }
         }
 

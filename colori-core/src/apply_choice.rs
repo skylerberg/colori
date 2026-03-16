@@ -118,10 +118,10 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
             resolve_select_sell_card(state, sell_card_instance_id, rng);
         }
         Choice::GainSecondary { color } => {
-            resolve_gain_secondary(state, *color, rng);
+            resolve_gain_color(state, *color, rng);
         }
         Choice::GainPrimary { color } => {
-            resolve_gain_primary(state, *color, rng);
+            resolve_gain_color(state, *color, rng);
         }
         Choice::MixAll { mixes } => {
             for &(a, b) in mixes.iter() {

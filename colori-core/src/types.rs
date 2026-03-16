@@ -52,8 +52,7 @@ impl GlassCard {
 #[serde(rename_all = "camelCase")]
 pub struct GlassInstance {
     pub instance_id: u32,
-    #[serde(rename = "card")]
-    pub glass: GlassCard,
+    pub card: GlassCard,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

@@ -1,8 +1,8 @@
 use crate::action_phase::{
     can_afford_glass, can_afford_sell_card, destroy_drafted_card, end_player_turn,
-    get_action_state_mut, glass_ability_available, initialize_action_phase, mark_glass_used,
+    get_action_state_mut, initialize_action_phase, mark_glass_used,
     process_ability_stack, resolve_choose_tertiary_to_gain, resolve_choose_tertiary_to_lose,
-    resolve_destroy_cards, resolve_gain_primary, resolve_gain_secondary, resolve_select_sell_card,
+    resolve_destroy_cards, resolve_gain_color, resolve_select_sell_card,
     resolve_select_glass, resolve_workshop_choice, resolve_workshop_with_reworkshop,
     skip_workshop,
 };
@@ -10,6 +10,7 @@ use crate::colors::{
     is_primary, pay_cost, perform_mix_unchecked, perform_unmix, PRIMARIES, SECONDARIES,
     TERTIARIES, VALID_MIX_PAIRS,
 };
+use crate::choices::is_glass_ability_available;
 use crate::deck_utils::draw_from_deck;
 use crate::draft_phase::player_pick;
 use crate::types::*;
@@ -310,7 +311,7 @@ fn try_activate_random_glass<R: Rng>(
     let mut available = [GlassCard::GlassWorkshop; 10];
     let mut count = 0usize;
     for &glass in &ALL_ACTIVATABLE {
-        if glass_ability_available(state, player_index, glass)
+        if is_glass_ability_available(state, &state.players[player_index], glass)
             && glass_has_valid_targets(&state.players[player_index], glass)
         {
             available[count] = glass;
@@ -498,7 +499,7 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                     let count = *count;
 
                     let use_reworkshop = state.expansions.glass
-                        && glass_ability_available(state, player_index, GlassCard::GlassReworkshop)
+                        && is_glass_ability_available(state, &state.players[player_index], GlassCard::GlassReworkshop)
                         && count >= 2
                         && !state.players[player_index].workshop_cards.is_empty()
                         && rng.random_range(0..2u32) == 0;
@@ -565,7 +566,7 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                             } else {
                                 // Pick random glass and affordable primary
                                 let glass_idx = rng.random_range(0..state.glass_display.len());
-                                let glass_card = state.glass_display[glass_idx].glass;
+                                let glass_card = state.glass_display[glass_idx].card;
                                 let mut affordable_primaries = [Color::Red; 3];
                                 let mut aff_count = 0usize;
                                 for &c in &PRIMARIES {
@@ -584,7 +585,7 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                         }
                         (None, true) => {
                             let glass_idx = rng.random_range(0..state.glass_display.len());
-                            let glass_card = state.glass_display[glass_idx].glass;
+                            let glass_card = state.glass_display[glass_idx].card;
                             let mut affordable_primaries = [Color::Red; 3];
                             let mut aff_count = 0usize;
                             for &c in &PRIMARIES {
@@ -607,11 +608,11 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
                 }
                 Some(Ability::GainSecondary) => {
                     let color = SECONDARIES[rng.random_range(0..SECONDARIES.len())];
-                    resolve_gain_secondary(state, color, rng);
+                    resolve_gain_color(state, color, rng);
                 }
                 Some(Ability::GainPrimary) => {
                     let color = PRIMARIES[rng.random_range(0..PRIMARIES.len())];
-                    resolve_gain_primary(state, color, rng);
+                    resolve_gain_color(state, color, rng);
                 }
                 Some(Ability::ChangeTertiary) => {
                     let player = &state.players[player_index];

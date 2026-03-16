@@ -1,12 +1,180 @@
 use crate::colors::{can_pay_cost, pay_cost, perform_mix, perform_mix_unchecked, PRIMARIES, TERTIARIES};
 use crate::deck_utils::draw_from_deck;
 use crate::types::{
-    Ability, ActionState, Color, GamePhase, GameState, GlassCard,
+    Ability, AbilityStack, ActionState, Card, Color, GamePhase, GameState, GlassCard,
     PlayerState, SellCard, SellCardInstance,
 };
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
 use smallvec::SmallVec;
+
+/// Iterate over unique card types in a card set, deduplicating by card variant.
+pub(crate) fn for_each_unique_card_type(
+    cards: &UnorderedCards,
+    card_lookup: &[Card; 256],
+    mut f: impl FnMut(Card),
+) {
+    let mut seen: u64 = 0;
+    for id in cards.iter() {
+        let card = card_lookup[id as usize];
+        let bit = 1u64 << (card as u64);
+        if seen & bit != 0 { continue; }
+        seen |= bit;
+        f(card);
+    }
+}
+
+/// Partitions card IDs from `selected_cards` into action and non-action cards.
+/// Returns `(action_ids, action_count, non_action_ids, non_action_count)`.
+fn partition_action_cards(
+    selected_cards: &UnorderedCards,
+    card_lookup: &[Card; 256],
+) -> ([u8; 16], usize, [u8; 16], usize) {
+    let mut action_ids = [0u8; 16];
+    let mut action_count = 0usize;
+    let mut non_action_ids = [0u8; 16];
+    let mut non_action_count = 0usize;
+    for id in selected_cards.iter() {
+        let card = card_lookup[id as usize];
+        if card.is_action() {
+            action_ids[action_count] = id;
+            action_count += 1;
+        } else {
+            non_action_ids[non_action_count] = id;
+            non_action_count += 1;
+        }
+    }
+    (action_ids, action_count, non_action_ids, non_action_count)
+}
+
+/// Processes non-action cards: extracts materials/colors, moves from workshop to workshopped.
+fn process_non_action_cards(
+    player: &mut PlayerState,
+    card_lookup: &[Card; 256],
+    non_action_ids: &[u8; 16],
+    non_action_count: usize,
+) {
+    for i in 0..non_action_count {
+        let id = non_action_ids[i];
+        let card = card_lookup[id as usize];
+        player.workshop_cards.remove(id);
+        for mt in card.material_types() {
+            player.materials.increment(*mt);
+        }
+        for color in card.colors() {
+            player.color_wheel.increment(*color);
+        }
+        player.workshopped_cards.insert(id);
+    }
+}
+
+/// Categorized abilities collected from action cards during workshop processing.
+struct CollectedAbilities {
+    regular: [Ability; 8],
+    regular_count: usize,
+    draw_card: [Ability; 8],
+    draw_card_count: usize,
+    change_tertiary: [Ability; 8],
+    change_tertiary_count: usize,
+    potash_base_count: Option<u32>,
+    has_draw_cards: bool,
+}
+
+impl CollectedAbilities {
+    fn new() -> Self {
+        Self {
+            regular: [Ability::Sell; 8],
+            regular_count: 0,
+            draw_card: [Ability::Sell; 8],
+            draw_card_count: 0,
+            change_tertiary: [Ability::Sell; 8],
+            change_tertiary_count: 0,
+            potash_base_count: None,
+            has_draw_cards: false,
+        }
+    }
+
+    /// Categorize a single ability into the appropriate bucket.
+    fn add_ability(&mut self, ability: Ability) {
+        match ability {
+            Ability::ChangeTertiary => {
+                self.change_tertiary[self.change_tertiary_count] = ability;
+                self.change_tertiary_count += 1;
+            }
+            Ability::Workshop { count: c } => {
+                self.potash_base_count = Some(self.potash_base_count.unwrap_or(0) + c);
+            }
+            Ability::DrawCards { .. } => {
+                self.has_draw_cards = true;
+                self.draw_card[self.draw_card_count] = ability;
+                self.draw_card_count += 1;
+            }
+            _ => {
+                self.regular[self.regular_count] = ability;
+                self.regular_count += 1;
+            }
+        }
+    }
+}
+
+/// Processes action cards: removes from workshop, moves to workshopped, and collects abilities.
+fn collect_abilities_from_action_cards(
+    player: &mut PlayerState,
+    card_lookup: &[Card; 256],
+    action_ids: &[u8; 16],
+    action_count: usize,
+) -> CollectedAbilities {
+    let mut collected = CollectedAbilities::new();
+
+    for i in 0..action_count {
+        let id = action_ids[i];
+        let card = card_lookup[id as usize];
+        player.workshop_cards.remove(id);
+
+        for &ability in card.workshop_abilities() {
+            collected.add_ability(ability);
+        }
+
+        player.workshopped_cards.insert(id);
+    }
+
+    collected
+}
+
+/// Pushes collected abilities onto the LIFO stack in the correct resolution order.
+/// `remaining` is the number of unused workshop slots; if `None`, no remaining-based
+/// workshop ability is pushed (used by reworkshop path).
+fn push_abilities_to_stack(
+    stack: &mut AbilityStack,
+    collected: &CollectedAbilities,
+    remaining: Option<u32>,
+) {
+    if let Some(base) = collected.potash_base_count {
+        let potash_count = match remaining {
+            Some(rem) if !collected.has_draw_cards => base + rem,
+            _ => base,
+        };
+        stack.push(Ability::Workshop { count: potash_count });
+    }
+
+    for i in 0..collected.change_tertiary_count {
+        stack.push(collected.change_tertiary[i]);
+    }
+
+    if let Some(remaining) = remaining {
+        if collected.has_draw_cards && remaining > 0 {
+            stack.push(Ability::Workshop { count: remaining });
+        }
+    }
+
+    for i in 0..collected.draw_card_count {
+        stack.push(collected.draw_card[i]);
+    }
+
+    for i in 0..collected.regular_count {
+        stack.push(collected.regular[i]);
+    }
+}
 
 pub fn initialize_action_phase(state: &mut GameState) {
     let action_state = ActionState {
@@ -144,103 +312,25 @@ pub fn resolve_workshop_choice<R: Rng>(
     // Pop the Workshop ability from the stack
     get_action_state_mut(state).ability_stack.pop();
 
-    // Partition selected cards into action and non-action using card_lookup
-    let mut action_ids = [0u8; 16];
-    let mut action_count = 0usize;
-    let mut non_action_ids = [0u8; 16];
-    let mut non_action_count = 0usize;
-    for id in selected_cards.iter() {
-        let card = state.card_lookup[id as usize];
-        if card.is_action() {
-            action_ids[action_count] = id;
-            action_count += 1;
-        } else {
-            non_action_ids[non_action_count] = id;
-            non_action_count += 1;
-        }
-    }
+    let (action_ids, action_count, non_action_ids, non_action_count) =
+        partition_action_cards(&selected_cards, &state.card_lookup);
 
-    // Process non-action cards: extract materials/colors, move to discard
-    let player = &mut state.players[player_index];
-    for i in 0..non_action_count {
-        let id = non_action_ids[i];
-        let card = state.card_lookup[id as usize];
-        player.workshop_cards.remove(id);
-        for mt in card.material_types() {
-            player.materials.increment(*mt);
-        }
-        for color in card.colors() {
-            player.color_wheel.increment(*color);
-        }
-        player.workshopped_cards.insert(id);
-    }
+    process_non_action_cards(
+        &mut state.players[player_index],
+        &state.card_lookup,
+        &non_action_ids,
+        non_action_count,
+    );
 
-    // Remove action cards from workshop, move to discard, collect abilities
-    let mut regular_abilities = [Ability::Sell; 8];
-    let mut regular_abilities_count = 0usize;
-    let mut draw_card_abilities = [Ability::Sell; 8];
-    let mut draw_card_abilities_count = 0usize;
-    let mut change_tertiary_abilities = [Ability::Sell; 8];
-    let mut change_tertiary_abilities_count = 0usize;
-    let mut potash_base_count: Option<u32> = None;
-    let mut has_draw_cards = false;
+    let collected = collect_abilities_from_action_cards(
+        &mut state.players[player_index],
+        &state.card_lookup,
+        &action_ids,
+        action_count,
+    );
 
-    for i in 0..action_count {
-        let id = action_ids[i];
-        let card = state.card_lookup[id as usize];
-        player.workshop_cards.remove(id);
-
-        for &ability in card.workshop_abilities() {
-            match ability {
-                Ability::ChangeTertiary => {
-                    change_tertiary_abilities[change_tertiary_abilities_count] = ability;
-                    change_tertiary_abilities_count += 1;
-                }
-                Ability::Workshop { count: c } => {
-                    potash_base_count = Some(potash_base_count.unwrap_or(0) + c);
-                }
-                Ability::DrawCards { .. } => {
-                    has_draw_cards = true;
-                    draw_card_abilities[draw_card_abilities_count] = ability;
-                    draw_card_abilities_count += 1;
-                }
-                _ => {
-                    regular_abilities[regular_abilities_count] = ability;
-                    regular_abilities_count += 1;
-                }
-            }
-        }
-
-        player.workshopped_cards.insert(id);
-    }
-
-    // Push abilities onto LIFO stack in reverse resolution order
     let stack = &mut get_action_state_mut(state).ability_stack;
-
-    if let Some(base) = potash_base_count {
-        let potash_count = if has_draw_cards {
-            base
-        } else {
-            base + remaining
-        };
-        stack.push(Ability::Workshop { count: potash_count });
-    }
-
-    for i in 0..change_tertiary_abilities_count {
-        stack.push(change_tertiary_abilities[i]);
-    }
-
-    if has_draw_cards && remaining > 0 {
-        stack.push(Ability::Workshop { count: remaining });
-    }
-
-    for i in 0..draw_card_abilities_count {
-        stack.push(draw_card_abilities[i]);
-    }
-
-    for i in 0..regular_abilities_count {
-        stack.push(regular_abilities[i]);
-    }
+    push_abilities_to_stack(stack, &collected, Some(remaining));
 
     process_ability_stack(state, rng);
 }
@@ -259,75 +349,22 @@ pub fn resolve_workshop_with_reworkshop<R: Rng>(
     // Pop the Workshop ability from the stack
     get_action_state_mut(state).ability_stack.pop();
 
-    // Partition selected cards into action and non-action
-    let mut action_ids = [0u8; 16];
-    let mut action_count = 0usize;
-    let mut non_action_ids = [0u8; 16];
-    let mut non_action_count = 0usize;
-    for id in selected_cards.iter() {
-        let card = state.card_lookup[id as usize];
-        if card.is_action() {
-            action_ids[action_count] = id;
-            action_count += 1;
-        } else {
-            non_action_ids[non_action_count] = id;
-            non_action_count += 1;
-        }
-    }
+    let (action_ids, action_count, non_action_ids, non_action_count) =
+        partition_action_cards(&selected_cards, &state.card_lookup);
 
-    // Process non-action cards: extract materials/colors, move to workshopped
-    let player = &mut state.players[player_index];
-    for i in 0..non_action_count {
-        let id = non_action_ids[i];
-        let card = state.card_lookup[id as usize];
-        player.workshop_cards.remove(id);
-        for mt in card.material_types() {
-            player.materials.increment(*mt);
-        }
-        for color in card.colors() {
-            player.color_wheel.increment(*color);
-        }
-        player.workshopped_cards.insert(id);
-    }
+    process_non_action_cards(
+        &mut state.players[player_index],
+        &state.card_lookup,
+        &non_action_ids,
+        non_action_count,
+    );
 
-    // Process action cards: move to workshopped, collect abilities
-    let mut regular_abilities = [Ability::Sell; 8];
-    let mut regular_abilities_count = 0usize;
-    let mut draw_card_abilities = [Ability::Sell; 8];
-    let mut draw_card_abilities_count = 0usize;
-    let mut change_tertiary_abilities = [Ability::Sell; 8];
-    let mut change_tertiary_abilities_count = 0usize;
-    let mut potash_base_count: Option<u32> = None;
-    let mut has_draw_cards = false;
-
-    for i in 0..action_count {
-        let id = action_ids[i];
-        let card = state.card_lookup[id as usize];
-        player.workshop_cards.remove(id);
-
-        for &ability in card.workshop_abilities() {
-            match ability {
-                Ability::ChangeTertiary => {
-                    change_tertiary_abilities[change_tertiary_abilities_count] = ability;
-                    change_tertiary_abilities_count += 1;
-                }
-                Ability::Workshop { count: c } => {
-                    potash_base_count = Some(potash_base_count.unwrap_or(0) + c);
-                }
-                Ability::DrawCards { .. } => {
-                    has_draw_cards = true;
-                    draw_card_abilities[draw_card_abilities_count] = ability;
-                    draw_card_abilities_count += 1;
-                }
-                _ => {
-                    regular_abilities[regular_abilities_count] = ability;
-                    regular_abilities_count += 1;
-                }
-            }
-        }
-
-        player.workshopped_cards.insert(id);
-    }
+    let mut collected = collect_abilities_from_action_cards(
+        &mut state.players[player_index],
+        &state.card_lookup,
+        &action_ids,
+        action_count,
+    );
 
     // Now un-rotate the reworkshop card and process it a second time
     let player = &mut state.players[player_index];
@@ -339,24 +376,7 @@ pub fn resolve_workshop_with_reworkshop<R: Rng>(
     player.workshop_cards.remove(reworkshop_id);
     if reworkshop_card.is_action() {
         for &ability in reworkshop_card.workshop_abilities() {
-            match ability {
-                Ability::ChangeTertiary => {
-                    change_tertiary_abilities[change_tertiary_abilities_count] = ability;
-                    change_tertiary_abilities_count += 1;
-                }
-                Ability::Workshop { count: c } => {
-                    potash_base_count = Some(potash_base_count.unwrap_or(0) + c);
-                }
-                Ability::DrawCards { .. } => {
-                    has_draw_cards = true;
-                    draw_card_abilities[draw_card_abilities_count] = ability;
-                    draw_card_abilities_count += 1;
-                }
-                _ => {
-                    regular_abilities[regular_abilities_count] = ability;
-                    regular_abilities_count += 1;
-                }
-            }
+            collected.add_ability(ability);
         }
     } else {
         for mt in reworkshop_card.material_types() {
@@ -368,35 +388,10 @@ pub fn resolve_workshop_with_reworkshop<R: Rng>(
     }
     player.workshopped_cards.insert(reworkshop_id);
 
-    // The reworkshop card used 2 slots, other cards used 1 each.
-    // Total slots used = 2 + other_cards.len() = selected_cards.len() + 1
-    // remaining = count - total = already accounted for by the caller's Workshop count
-    // We don't have the original count here, but we don't need remaining for the ability stack
-    // since the Workshop was already popped.
-
     // Push abilities onto LIFO stack in reverse resolution order
+    // No remaining slots for reworkshop path
     let stack = &mut get_action_state_mut(state).ability_stack;
-
-    if let Some(base) = potash_base_count {
-        let potash_count = if has_draw_cards {
-            base
-        } else {
-            base
-        };
-        stack.push(Ability::Workshop { count: potash_count });
-    }
-
-    for i in 0..change_tertiary_abilities_count {
-        stack.push(change_tertiary_abilities[i]);
-    }
-
-    for i in 0..draw_card_abilities_count {
-        stack.push(draw_card_abilities[i]);
-    }
-
-    for i in 0..regular_abilities_count {
-        stack.push(regular_abilities[i]);
-    }
+    push_abilities_to_stack(stack, &collected, None);
 
     process_ability_stack(state, rng);
 }
@@ -519,15 +514,7 @@ pub fn resolve_select_sell_card<R: Rng>(
     process_ability_stack(state, rng);
 }
 
-pub fn resolve_gain_secondary<R: Rng>(state: &mut GameState, color: Color, rng: &mut R) {
-    resolve_gain_color(state, color, rng);
-}
-
-pub fn resolve_gain_primary<R: Rng>(state: &mut GameState, color: Color, rng: &mut R) {
-    resolve_gain_color(state, color, rng);
-}
-
-fn resolve_gain_color<R: Rng>(state: &mut GameState, color: Color, rng: &mut R) {
+pub fn resolve_gain_color<R: Rng>(state: &mut GameState, color: Color, rng: &mut R) {
     let player_index = get_action_state(state).current_player_index;
     state.players[player_index].color_wheel.increment(color);
     get_action_state_mut(state).ability_stack.pop();
@@ -550,16 +537,6 @@ pub fn resolve_choose_tertiary_to_gain<R: Rng>(
     process_ability_stack(state, rng);
 }
 
-#[allow(dead_code)]
-pub(crate) fn glass_ability_available(state: &GameState, player_index: usize, glass: GlassCard) -> bool {
-    let action_state = get_action_state(state);
-    let bit = 1u16 << (glass as u16);
-    if action_state.used_glass & bit != 0 {
-        return false;
-    }
-    state.players[player_index].completed_glass.iter().any(|g| g.glass == glass)
-}
-
 pub(crate) fn mark_glass_used(state: &mut GameState, glass: GlassCard) {
     let action_state = get_action_state_mut(state);
     action_state.used_glass |= 1u16 << (glass as u16);
@@ -575,7 +552,7 @@ pub fn resolve_select_glass<R: Rng>(
     get_action_state_mut(state).ability_stack.pop();
 
     let glass_index = state.glass_display.iter()
-        .position(|g| g.glass == glass_card)
+        .position(|g| g.card == glass_card)
         .expect("Glass card not found in display");
     let glass_instance = state.glass_display.swap_remove(glass_index);
 

@@ -114,7 +114,7 @@ pub fn advance_draft(state: &mut GameState) {
                 let has_keep_both = state.players[i]
                     .completed_glass
                     .iter()
-                    .any(|g| g.glass == GlassCard::GlassKeepBoth);
+                    .any(|g| g.card == GlassCard::GlassKeepBoth);
                 if has_keep_both {
                     for id in draft_state.hands[i].iter() {
                         state.players[i].drafted_cards.insert(id);
@@ -238,7 +238,7 @@ mod tests {
         for &idx in glass_players {
             state.players[idx].completed_glass = smallvec![GlassInstance {
                 instance_id: 1000 + idx as u32,
-                glass: GlassCard::GlassKeepBoth,
+                card: GlassCard::GlassKeepBoth,
             }];
         }
 
@@ -474,7 +474,7 @@ mod tests {
         // Give player 0 the GlassKeepBoth card
         state.players[0].completed_glass.push(GlassInstance {
             instance_id: 255,
-            glass: GlassCard::GlassKeepBoth,
+            card: GlassCard::GlassKeepBoth,
         });
 
         // Play through round 1 to reach the draft
@@ -523,7 +523,7 @@ mod tests {
         // Give player 0 the GlassKeepBoth card
         state.players[0].completed_glass.push(GlassInstance {
             instance_id: 255,
-            glass: GlassCard::GlassKeepBoth,
+            card: GlassCard::GlassKeepBoth,
         });
 
         execute_draw_phase(&mut state, &mut rng);
@@ -562,7 +562,7 @@ mod tests {
         // Give player 0 the GlassKeepBoth card
         state.players[0].completed_glass.push(GlassInstance {
             instance_id: 255,
-            glass: GlassCard::GlassKeepBoth,
+            card: GlassCard::GlassKeepBoth,
         });
 
         execute_draw_phase(&mut state, &mut rng);

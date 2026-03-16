@@ -142,9 +142,9 @@ pub fn create_initial_game_state_with_expansions<R: Rng>(num_players: usize, ai_
     if expansions.glass {
         let mut glass_cards: Vec<GlassInstance> = generate_all_glass()
             .iter()
-            .map(|&glass| GlassInstance {
+            .map(|&card| GlassInstance {
                 instance_id: next_glass_id(),
-                glass,
+                card,
             })
             .collect();
         glass_cards.shuffle(rng);
