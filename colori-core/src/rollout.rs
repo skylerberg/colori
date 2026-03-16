@@ -573,6 +573,7 @@ fn apply_rollout_step_impl<T: MoveTracker, R: Rng>(state: &mut GameState, tracke
                                     other_cards.push(state.card_lookup[id as usize]);
                                 }
                             }
+                            other_cards.sort_by_key(|c| *c as usize);
                             tracker.track(player_index, Choice::WorkshopWithReworkshop { reworkshop_card, other_cards });
                             mark_glass_used(state, GlassCard::GlassReworkshop);
                             resolve_workshop_with_reworkshop(state, selected, reworkshop_id, rng);
@@ -588,6 +589,7 @@ fn apply_rollout_step_impl<T: MoveTracker, R: Rng>(state: &mut GameState, tracke
                             for id in selected.iter() {
                                 card_types.push(state.card_lookup[id as usize]);
                             }
+                            card_types.sort_by_key(|c| *c as usize);
                             tracker.track(player_index, Choice::Workshop { card_types });
                             resolve_workshop_choice(state, selected, rng);
                         }
