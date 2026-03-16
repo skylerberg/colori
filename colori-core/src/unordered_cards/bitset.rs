@@ -183,10 +183,12 @@ impl<T> BitSet<T> {
             self.0 = [0; 2];
             return BitSet(all, PhantomData);
         }
-        // For small draws from large sets, use repeated single draws.
+        // For small draws, use repeated single draws.
         // Each draw() call needs one random_range call, so drawing `count`
         // elements costs `count` calls vs ~n calls for selection sampling.
-        if count <= 8 && count * 4 < n {
+        // Crossover heuristic: repeated draws (O(count) RNG + O(count*n/2) bit ops)
+        // beats selection sampling (O(n) RNG) when count^2 <= 6*n.
+        if count * count <= n * 6 {
             let mut selected = Self::new();
             for _ in 0..count {
                 if let Some(id) = self.draw(rng) {

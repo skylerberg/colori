@@ -4,7 +4,7 @@ use crate::scoring::compute_terminal_rewards;
 use crate::types::*;
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
-use smallvec::SmallVec;
+
 
 pub use crate::choices::{check_choice_available, enumerate_choices, enumerate_choices_into};
 pub use crate::rollout::apply_rollout_step;
@@ -26,7 +26,7 @@ pub fn apply_choice_to_state<R: Rng>(state: &mut GameState, choice: &Choice, rng
 #[derive(Debug)]
 pub enum GameStatus {
     AwaitingAction { player_index: usize },
-    Terminated { scores: SmallVec<[f64; 4]> },
+    Terminated { scores: [f64; MAX_PLAYERS] },
 }
 
 pub fn get_game_status(state: &GameState, max_round: Option<u32>) -> GameStatus {

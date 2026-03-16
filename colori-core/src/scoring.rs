@@ -2,7 +2,7 @@ use crate::colors::{PRIMARIES, SECONDARIES, TERTIARIES};
 use crate::fixed_vec::FixedVec;
 use crate::types::*;
 use serde::{Deserialize, Serialize};
-use smallvec::SmallVec;
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -104,23 +104,22 @@ pub fn player_ranking(player: &PlayerState) -> (u32, usize, u32) {
 
 /// Compute terminal rewards using tiebreakers. Uses cached_score for consistency with ISMCTS.
 /// Each true-tied winner gets 1.0 / num_winners, losers get 0.0.
-pub fn compute_terminal_rewards(players: &FixedVec<PlayerState, MAX_PLAYERS>) -> SmallVec<[f64; 4]> {
-    let rankings: SmallVec<[(u32, usize, u32); 4]> = players
-        .iter()
-        .map(|p| {
-            (
-                p.cached_score,
-                p.completed_sell_cards.len(),
-                p.color_wheel.counts.iter().sum(),
-            )
-        })
-        .collect();
-    let best = rankings.iter().copied().max().unwrap_or((0, 0, 0));
-    let num_winners = rankings.iter().filter(|&&r| r == best).count() as f64;
-    rankings
-        .iter()
-        .map(|&r| if r == best { 1.0 / num_winners } else { 0.0 })
-        .collect()
+pub fn compute_terminal_rewards(players: &FixedVec<PlayerState, MAX_PLAYERS>) -> [f64; MAX_PLAYERS] {
+    let mut rankings = [(0u32, 0usize, 0u32); MAX_PLAYERS];
+    for (i, p) in players.iter().enumerate() {
+        rankings[i] = (
+            p.cached_score,
+            p.completed_sell_cards.len(),
+            p.color_wheel.counts.iter().sum(),
+        );
+    }
+    let best = rankings[..players.len()].iter().copied().max().unwrap_or((0, 0, 0));
+    let num_winners = rankings[..players.len()].iter().filter(|&&r| r == best).count() as f64;
+    let mut result = [0.0; MAX_PLAYERS];
+    for i in 0..players.len() {
+        result[i] = if rankings[i] == best { 1.0 / num_winners } else { 0.0 };
+    }
+    result
 }
 
 fn card_quality(card: Card, params: &HeuristicParams) -> f64 {
@@ -266,19 +265,19 @@ pub fn compute_heuristic_rewards(
     sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
     card_lookup: &[Card; 256],
     params: &HeuristicParams,
-) -> SmallVec<[f64; 4]> {
-    let scores: SmallVec<[f64; 4]> = players
-        .iter()
-        .map(|p| heuristic_score(p, sell_card_display, card_lookup, params))
-        .collect();
+) -> [f64; MAX_PLAYERS] {
+    let mut scores = [0.0f64; MAX_PLAYERS];
+    for (i, p) in players.iter().enumerate() {
+        scores[i] = heuristic_score(p, sell_card_display, card_lookup, params);
+    }
 
-    // Use integer comparison via bits for exact tie detection
-    let best = scores.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-    let num_winners = scores.iter().filter(|&&s| s == best).count() as f64;
-    scores
-        .iter()
-        .map(|&s| if s == best { 1.0 / num_winners } else { 0.0 })
-        .collect()
+    let best = scores[..players.len()].iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    let num_winners = scores[..players.len()].iter().filter(|&&s| s == best).count() as f64;
+    let mut result = [0.0; MAX_PLAYERS];
+    for i in 0..players.len() {
+        result[i] = if scores[i] == best { 1.0 / num_winners } else { 0.0 };
+    }
+    result
 }
 
 #[cfg(test)]
@@ -286,6 +285,7 @@ mod tests {
     use super::*;
     use crate::types::{SellCard, SellCardInstance, ColorWheel, Materials, PlayerState};
     use crate::unordered_cards::UnorderedCards;
+    use smallvec::SmallVec;
 
     fn make_player(ducats: u32, sell_cards: &[SellCard], color_counts: [u32; 12]) -> PlayerState {
         let completed_sell_cards: SmallVec<[SellCardInstance; 12]> = sell_cards

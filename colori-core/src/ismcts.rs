@@ -94,24 +94,17 @@ impl MctsNode {
 
     fn expand<R: Rng>(
         &mut self,
-        choices: &mut Vec<Choice>,
+        choices: &[Choice],
         active_player: usize,
         available: &mut Vec<bool>,
         rng: &mut R,
     ) {
-        // Shuffle choices in place
-        let len = choices.len();
-        for i in (1..len).rev() {
-            let j = rng.random_range(0..=i);
-            choices.swap(i, j);
-        }
-
         available.clear();
         available.resize(self.children.len(), false);
 
-        let mut added_new_node = false;
-
-        for choice in choices.iter() {
+        // Match choices against existing children, collect unseen indices
+        let mut unseen_indices: SmallVec<[usize; 16]> = SmallVec::new();
+        for (i, choice) in choices.iter().enumerate() {
             if let Some(idx) = self
                 .children
                 .iter()
@@ -121,13 +114,26 @@ impl MctsNode {
                     self.children[idx].availability_count += 1;
                     available[idx] = true;
                 }
-            } else if self.is_root() || !added_new_node {
-                let mut new_node = MctsNode::new(active_player, Some(choice.clone()));
+            } else {
+                unseen_indices.push(i);
+            }
+        }
+
+        // Add new nodes: root adds all unseen, non-root adds one at random
+        if self.is_root() {
+            for &i in &unseen_indices {
+                let mut new_node = MctsNode::new(active_player, Some(choices[i].clone()));
                 new_node.availability_count = 1;
                 available.push(true);
                 self.children.push(new_node);
-                added_new_node = true;
             }
+        } else if !unseen_indices.is_empty() {
+            let pick = rng.random_range(0..unseen_indices.len());
+            let i = unseen_indices[pick];
+            let mut new_node = MctsNode::new(active_player, Some(choices[i].clone()));
+            new_node.availability_count = 1;
+            available.push(true);
+            self.children.push(new_node);
         }
     }
 }
@@ -349,7 +355,7 @@ pub fn ismcts<R: Rng>(
             effective_max_rollout_round, use_heuristic, config, &mut choices_buf, &mut availability_buf, rng,
         );
         for &(pick_round, player, card) in &pick_log {
-            let reward = if player < scores.len() { scores[player] } else { 0.0 };
+            let reward = scores[player];
             opponent_stats.record_outcome(pick_round as usize, player, card, reward);
         }
     }
@@ -370,7 +376,7 @@ pub fn ismcts<R: Rng>(
     best_child.unwrap().choice.clone().unwrap()
 }
 
-fn eval_scores(state: &GameState, use_heuristic: bool, params: &HeuristicParams) -> SmallVec<[f64; 4]> {
+fn eval_scores(state: &GameState, use_heuristic: bool, params: &HeuristicParams) -> [f64; MAX_PLAYERS] {
     if use_heuristic {
         compute_heuristic_rewards(&state.players, &state.sell_card_display, &state.card_lookup, params)
     } else {
@@ -390,7 +396,7 @@ fn iteration_simultaneous<R: Rng>(
     choices_buf: &mut Vec<Choice>,
     availability_buf: &mut Vec<bool>,
     rng: &mut R,
-) -> SmallVec<[f64; 4]> {
+) -> [f64; MAX_PLAYERS] {
     let active_player = if matches!(state.phase, GamePhase::GameOver) {
         let scores = compute_terminal_rewards(&state.players);
         record_outcome(node, &scores);
@@ -420,15 +426,15 @@ fn iteration_simultaneous<R: Rng>(
         {
             Some(idx) => idx,
             None => {
-                let empty_scores = SmallVec::new();
+                let empty_scores = [0.0; MAX_PLAYERS];
                 record_outcome(node, &empty_scores);
                 return empty_scores;
             }
         };
 
     // Apply selected child's choice
-    let choice = node.children[best_idx].choice.clone().unwrap();
-    apply_choice_to_state(state, &choice, rng);
+    let choice = node.children[best_idx].choice.as_ref().unwrap();
+    apply_choice_to_state(state, choice, rng);
 
     // After applying the perspective player's draft pick, advance past opponents
     advance_past_opponent_draft_picks(
@@ -488,7 +494,7 @@ fn select(
     best_idx
 }
 
-fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_rollout_steps: u32, use_heuristic: bool, params: &HeuristicParams, rng: &mut R) -> SmallVec<[f64; 4]> {
+fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_rollout_steps: u32, use_heuristic: bool, params: &HeuristicParams, rng: &mut R) -> [f64; MAX_PLAYERS] {
     for _ in 0..max_rollout_steps {
         if matches!(state.phase, GamePhase::GameOver) {
             return compute_terminal_rewards(&state.players);
@@ -506,16 +512,11 @@ fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_ro
         return eval_scores(state, use_heuristic, params);
     }
 
-    SmallVec::new()
+    [0.0; MAX_PLAYERS]
 }
 
-fn record_outcome(node: &mut MctsNode, scores: &[f64]) {
-    let reward = if node.player_index < scores.len() {
-        scores[node.player_index]
-    } else {
-        0.0
-    };
-    node.cumulative_reward += reward;
+fn record_outcome(node: &mut MctsNode, scores: &[f64; MAX_PLAYERS]) {
+    node.cumulative_reward += scores[node.player_index];
     node.visit_count += 1;
 }
 
