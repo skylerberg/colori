@@ -7,16 +7,8 @@ use crate::scoring::{calculate_score, compute_heuristic_rewards, compute_termina
 use crate::types::*;
 use rand::Rng;
 use rand::RngExt;
-use rustc_hash::FxHasher;
 use serde::Deserialize;
 use smallvec::SmallVec;
-use std::hash::{Hash, Hasher};
-
-fn hash_choice(choice: &Choice) -> u64 {
-    let mut hasher = FxHasher::default();
-    choice.hash(&mut hasher);
-    hasher.finish()
-}
 
 #[derive(Clone, Debug)]
 pub struct MctsConfig {
@@ -80,20 +72,17 @@ struct MctsNode {
     cumulative_reward: f64,
     player_index: usize,
     choice: Option<Choice>,
-    choice_hash: u64,
     availability_count: u32,
     children: Vec<MctsNode>,
 }
 
 impl MctsNode {
     fn new(player_index: usize, choice: Option<Choice>) -> Self {
-        let choice_hash = choice.as_ref().map_or(0, hash_choice);
         MctsNode {
             visit_count: 0,
             cumulative_reward: 0.0,
             player_index,
             choice,
-            choice_hash,
             availability_count: 0,
             children: Vec::new(),
         }
@@ -113,17 +102,13 @@ impl MctsNode {
         available.clear();
         available.resize(self.children.len(), false);
 
-        // Match choices against existing children, collect unseen indices.
-        // Compare precomputed hashes first to avoid expensive full Choice
-        // equality checks on non-matching children.
-        let choice_hashes: SmallVec<[u64; 16]> = choices.iter().map(hash_choice).collect();
+        // Match choices against existing children, collect unseen indices
         let mut unseen_indices: SmallVec<[usize; 16]> = SmallVec::new();
         for (i, choice) in choices.iter().enumerate() {
-            let h = choice_hashes[i];
             if let Some(idx) = self
                 .children
                 .iter()
-                .position(|c| c.choice_hash == h && c.choice.as_ref() == Some(choice))
+                .position(|c| c.choice.as_ref() == Some(choice))
             {
                 if !available[idx] {
                     self.children[idx].availability_count += 1;
