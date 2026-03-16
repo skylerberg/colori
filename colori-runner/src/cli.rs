@@ -1,5 +1,5 @@
 use colori_core::ismcts::MctsConfig;
-use colori_core::scoring::HeuristicParams;
+use colori_core::scoring::{DiffEvalParams, HeuristicParams};
 
 use serde::Deserialize;
 
@@ -56,6 +56,8 @@ struct VariantFileEntry {
     heuristic_params: Option<HeuristicParams>,
     #[serde(default)]
     heuristic_params_file: Option<String>,
+    #[serde(default)]
+    diff_eval_params_file: Option<String>,
 }
 
 impl VariantFileEntry {
@@ -71,6 +73,12 @@ impl VariantFileEntry {
         } else {
             HeuristicParams::default()
         };
+        let diff_eval_params = self.diff_eval_params_file.as_ref().map(|path| {
+            let contents = std::fs::read_to_string(path)
+                .unwrap_or_else(|_| panic!("Failed to read diff eval params file: {}", path));
+            serde_json::from_str::<DiffEvalParams>(&contents)
+                .unwrap_or_else(|_| panic!("Failed to parse diff eval params file: {}", path))
+        });
         NamedVariant {
             name: self.name,
             ai: MctsConfig {
@@ -83,6 +91,7 @@ impl VariantFileEntry {
                 rave_track_rollout: self.rave_track_rollout.unwrap_or(defaults.rave_track_rollout),
                 rave_track_draft: self.rave_track_draft.unwrap_or(defaults.rave_track_draft),
                 heuristic_params,
+                diff_eval_params,
             },
         }
     }

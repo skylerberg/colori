@@ -1,5 +1,7 @@
+pub mod diff_eval;
 mod heuristic_params;
 
+pub use diff_eval::{DiffEvalParams, DiffEvalTable, diff_eval_score, compute_diff_eval_rewards};
 pub use heuristic_params::HeuristicParams;
 
 use crate::colors::{PRIMARIES, SECONDARIES, TERTIARIES};
