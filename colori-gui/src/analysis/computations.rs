@@ -882,21 +882,30 @@ pub fn compute_win_rate_by_variant(
     }
 }
 
-/// Compute Elo ratings for each variant using multiplayer pairwise comparisons.
-///
-/// Each game is treated as a set of pairwise matchups between all variants.
-/// K-factor is normalized by (N-1) where N is the number of players.
-pub fn compute_elo_by_variant(
-    logs: &[StructuredGameLog],
-) -> Option<HashMap<String, f64>> {
-    let has_variants = logs.iter().any(|log| log.player_variants.is_some());
-    if !has_variants {
-        return None;
-    }
+/// Skill vs chance statistics derived from calibrated Elo ratings.
+/// Based on Duersch, Lambrecht, and Oechssler (2018).
+pub struct SkillChanceStats {
+    /// Optimal K-factor that minimizes prediction error.
+    pub optimal_k: f64,
+    /// Standard deviation of final Elo ratings (higher = more skill).
+    pub elo_std_dev: f64,
+    /// Win probability of a player +1 std dev above opponent.
+    pub p_sd: f64,
+    /// Games needed for better player to most likely be ahead (>50% wins with >75% prob).
+    pub repetitions: u64,
+    /// Final Elo ratings per variant (centered at 1500).
+    pub elos: HashMap<String, f64>,
+}
 
-    let k: f64 = 32.0;
-    let initial_elo: f64 = 1500.0;
+/// Run Elo with a given k-factor. Returns (ratings, mean_squared_error, total_pairs).
+/// Ratings start at 0 (paper convention). MSE measures prediction accuracy.
+fn compute_elo_with_mse(
+    logs: &[StructuredGameLog],
+    k: f64,
+) -> (HashMap<String, f64>, f64) {
     let mut elos: HashMap<String, f64> = HashMap::new();
+    let mut total_sq_error = 0.0;
+    let mut total_pairs: usize = 0;
 
     for log in logs {
         let variants = match &log.player_variants {
@@ -922,10 +931,9 @@ pub fn compute_elo_by_variant(
 
         let current_elos: Vec<f64> = labels
             .iter()
-            .map(|l| *elos.get(l).unwrap_or(&initial_elo))
+            .map(|l| *elos.get(l).unwrap_or(&0.0))
             .collect();
 
-        // Actual scores: 1/num_winners for winners, 0 for losers
         let actual_scores: Vec<f64> = (0..n)
             .map(|i| {
                 if i < log.player_names.len() && is_winner_fn(&log.player_names[i]) {
@@ -954,17 +962,132 @@ pub fn compute_elo_by_variant(
                     0.0
                 };
                 delta += k_adj * (actual - expected);
+                total_sq_error += (actual - expected) * (actual - expected);
+                total_pairs += 1;
             }
-            let rating = elos.entry(labels[i].clone()).or_insert(initial_elo);
+            let rating = elos.entry(labels[i].clone()).or_insert(0.0);
             *rating += delta;
         }
     }
 
-    if elos.is_empty() {
-        None
+    let mse = if total_pairs > 0 {
+        total_sq_error / total_pairs as f64
     } else {
-        Some(elos)
+        0.5 // baseline: predicting 0.5 for everything
+    };
+    (elos, mse)
+}
+
+/// Calibrate K-factor via grid search (Duersch et al. Appendix 6.2).
+/// Finds k* that minimizes mean squared prediction error.
+fn calibrate_k(logs: &[StructuredGameLog]) -> f64 {
+    let mut grid = vec![0.0, 20.0, 40.0, 60.0, 80.0];
+
+    for _ in 0..25 {
+        let losses: Vec<f64> = grid.iter().map(|&k| compute_elo_with_mse(logs, k).1).collect();
+
+        let best_idx = losses
+            .iter()
+            .enumerate()
+            .min_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+            .unwrap()
+            .0;
+        let best_k = grid[best_idx];
+        let step = if grid.len() >= 2 {
+            (grid[1] - grid[0]) / 2.0
+        } else {
+            break;
+        };
+
+        if step < 0.01 {
+            return best_k;
+        }
+
+        // Check convergence: (L(k+) - L(k*)) + (L(k-) - L(k*)) relative to L(0) - L(k*)
+        let loss_best = losses[best_idx];
+        let loss_at_zero = compute_elo_with_mse(logs, 0.0).1;
+        let denom = loss_at_zero - loss_best;
+        if denom > 0.0 {
+            let loss_above = if best_idx + 1 < losses.len() {
+                losses[best_idx + 1]
+            } else {
+                loss_best
+            };
+            let loss_below = if best_idx > 0 {
+                losses[best_idx - 1]
+            } else {
+                loss_best
+            };
+            let precision =
+                ((loss_above - loss_best) + (loss_below - loss_best)) / denom;
+            if precision < 1e-6 {
+                return best_k;
+            }
+        }
+
+        // Halve grid around best
+        grid = vec![
+            best_k - 2.0 * step,
+            best_k - step,
+            best_k,
+            best_k + step,
+            best_k + 2.0 * step,
+        ];
+        grid.retain(|&k| k >= 0.0);
     }
+
+    grid[grid.len() / 2]
+}
+
+/// Compute skill vs chance statistics using calibrated Elo ratings.
+pub fn compute_skill_chance_stats(
+    logs: &[StructuredGameLog],
+) -> Option<SkillChanceStats> {
+    let has_variants = logs.iter().any(|log| log.player_variants.is_some());
+    if !has_variants {
+        return None;
+    }
+
+    let optimal_k = calibrate_k(logs);
+    let (elos, _mse) = compute_elo_with_mse(logs, optimal_k);
+
+    if elos.is_empty() {
+        return None;
+    }
+
+    // Compute standard deviation of ratings
+    let values: Vec<f64> = elos.values().copied().collect();
+    let mean = values.iter().sum::<f64>() / values.len() as f64;
+    let variance = values.iter().map(|v| (v - mean) * (v - mean)).sum::<f64>() / values.len() as f64;
+    let elo_std_dev = variance.sqrt();
+
+    // Win probability at +1 standard deviation: p^sd = 1 / (1 + 10^(-σ/400))
+    let p_sd = 1.0 / (1.0 + 10.0_f64.powf(-elo_std_dev / 400.0));
+
+    // Games needed for skill to show (normal approximation)
+    // P(X > n/2) > 0.75 where X ~ Binomial(n, p_sd)
+    // n > z^2 * p*(1-p) / (p - 0.5)^2, z = 0.6745 for 75%
+    let repetitions = if p_sd > 0.5 {
+        let z = 0.6745_f64;
+        let n = z * z * p_sd * (1.0 - p_sd) / ((p_sd - 0.5) * (p_sd - 0.5));
+        (n.ceil() as u64).max(1)
+    } else {
+        u64::MAX
+    };
+
+    // Shift ratings to center at 1500 for display
+    let display_elos: HashMap<String, f64> = elos
+        .into_iter()
+        .map(|(label, rating)| (label, rating - mean + 1500.0))
+        .collect();
+
+    Some(SkillChanceStats {
+        optimal_k,
+        elo_std_dev,
+        p_sd,
+        repetitions,
+        elos: display_elos,
+    })
 }
 
 /// Compute aggregate win rate stats per category.

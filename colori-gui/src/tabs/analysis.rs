@@ -28,7 +28,7 @@ pub struct CachedAnalysis {
     pub color_stats: HashMap<String, f64>,
     pub duration_stats: Option<DurationStats>,
     pub variant_win_rate: Option<HashMap<String, WinRateEntry>>,
-    pub variant_elo: Option<HashMap<String, f64>>,
+    pub skill_stats: Option<SkillChanceStats>,
     pub penultimate_deck_sizes: std::collections::BTreeMap<u32, usize>,
     pub round_count_dist: std::collections::BTreeMap<u32, usize>,
     pub card_win_rate: HashMap<String, WinRateEntry>,
@@ -71,7 +71,7 @@ impl CachedAnalysis {
         let color_stats = compute_color_wheel_stats(logs, filter_ref);
         let duration_stats = compute_duration_stats(logs, filter_ref);
         let variant_win_rate = compute_win_rate_by_variant(logs);
-        let variant_elo = compute_elo_by_variant(logs);
+        let skill_stats = compute_skill_chance_stats(logs);
         let penultimate_deck_sizes = compute_penultimate_round_deck_sizes(logs, filter_ref);
         let round_count_dist = compute_round_count_distribution(logs, filter_ref);
         let card_win_rate = compute_win_rate_by_card(logs, filter_ref);
@@ -147,7 +147,7 @@ impl CachedAnalysis {
             color_stats,
             duration_stats,
             variant_win_rate,
-            variant_elo,
+            skill_stats,
             penultimate_deck_sizes,
             round_count_dist,
             card_win_rate,
@@ -272,7 +272,7 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
                     ui.strong("Win Rate by Variant");
                 })
                 .body(|ui| {
-                    let elo_map = analysis.variant_elo.as_ref();
+                    let elo_map = analysis.skill_stats.as_ref().map(|s| &s.elos);
                     let mut entries: Vec<_> = variant_wr.iter().collect();
                     // Sort by Elo descending
                     entries.sort_by(|a, b| {
@@ -342,6 +342,35 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
                                 ui.end_row();
                             }
                         });
+
+                    // Skill vs Chance metrics
+                    if let Some(ref stats) = analysis.skill_stats {
+                        ui.add_space(8.0);
+                        let rep_text = if stats.repetitions == u64::MAX {
+                            "\u{221e}".to_string()
+                        } else {
+                            format!("{}", stats.repetitions)
+                        };
+                        let cards = vec![
+                            StatCard {
+                                value: format!("{:.1}", stats.optimal_k),
+                                label: "K-factor".into(),
+                            },
+                            StatCard {
+                                value: format!("{:.1}", stats.elo_std_dev),
+                                label: "Elo Std Dev".into(),
+                            },
+                            StatCard {
+                                value: format!("{:.1}%", stats.p_sd * 100.0),
+                                label: "Win Prob at +1 SD".into(),
+                            },
+                            StatCard {
+                                value: rep_text,
+                                label: "Games for Skill to Show".into(),
+                            },
+                        ];
+                        stat_grid(ui, &cards);
+                    }
                 });
         }
 
