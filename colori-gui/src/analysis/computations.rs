@@ -1020,9 +1020,17 @@ pub fn compute_score_distribution(
 }
 
 /// Compute the distribution of game round counts.
-pub fn compute_round_count_distribution(logs: &[StructuredGameLog]) -> BTreeMap<u32, usize> {
+pub fn compute_round_count_distribution(
+    logs: &[StructuredGameLog],
+    filter: Option<&PlayerFilter>,
+) -> BTreeMap<u32, usize> {
     let mut counts = BTreeMap::new();
-    for log in logs {
+    for (log_idx, log) in logs.iter().enumerate() {
+        if let Some(f) = filter {
+            if !f.contains_key(&log_idx) {
+                continue;
+            }
+        }
         let mut max_round: u32 = 0;
         for entry in &log.entries {
             if entry.round > max_round {
@@ -1087,18 +1095,20 @@ pub fn compute_deck_size_stats(
 }
 
 /// Compute average game length in rounds and choices.
-pub fn compute_average_game_length(logs: &[StructuredGameLog]) -> GameLengthStats {
-    if logs.is_empty() {
-        return GameLengthStats {
-            avg_rounds: 0.0,
-            avg_choices: 0.0,
-        };
-    }
-
+pub fn compute_average_game_length(
+    logs: &[StructuredGameLog],
+    filter: Option<&PlayerFilter>,
+) -> GameLengthStats {
     let mut total_rounds: u32 = 0;
     let mut total_choices: usize = 0;
+    let mut game_count: usize = 0;
 
-    for log in logs {
+    for (log_idx, log) in logs.iter().enumerate() {
+        if let Some(f) = filter {
+            if !f.contains_key(&log_idx) {
+                continue;
+            }
+        }
         let mut max_round: u32 = 0;
         for entry in &log.entries {
             if entry.round > max_round {
@@ -1107,18 +1117,34 @@ pub fn compute_average_game_length(logs: &[StructuredGameLog]) -> GameLengthStat
         }
         total_rounds += max_round;
         total_choices += log.entries.len();
+        game_count += 1;
+    }
+
+    if game_count == 0 {
+        return GameLengthStats {
+            avg_rounds: 0.0,
+            avg_choices: 0.0,
+        };
     }
 
     GameLengthStats {
-        avg_rounds: total_rounds as f64 / logs.len() as f64,
-        avg_choices: total_choices as f64 / logs.len() as f64,
+        avg_rounds: total_rounds as f64 / game_count as f64,
+        avg_choices: total_choices as f64 / game_count as f64,
     }
 }
 
 /// Compute duration statistics. Returns None if no logs have duration_ms.
-pub fn compute_duration_stats(logs: &[StructuredGameLog]) -> Option<DurationStats> {
+pub fn compute_duration_stats(
+    logs: &[StructuredGameLog],
+    filter: Option<&PlayerFilter>,
+) -> Option<DurationStats> {
     let mut durations: Vec<u64> = Vec::new();
-    for log in logs {
+    for (log_idx, log) in logs.iter().enumerate() {
+        if let Some(f) = filter {
+            if !f.contains_key(&log_idx) {
+                continue;
+            }
+        }
         if let Some(ms) = log.duration_ms {
             durations.push(ms);
         }

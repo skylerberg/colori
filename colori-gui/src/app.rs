@@ -341,7 +341,7 @@ impl eframe::App for ColoriGuiApp {
                         // Compute and render analysis
                         self.ensure_analysis_cached();
                         if let Some(ref analysis) = self.cached_analysis {
-                            render_analysis_tab(ui, analysis, filtered_count);
+                            render_analysis_tab(ui, analysis);
                         }
                     }
                 }

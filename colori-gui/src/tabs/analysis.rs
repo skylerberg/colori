@@ -44,6 +44,7 @@ pub struct CachedAnalysis {
     pub winner_sell_card_breakdown: WinnerSellCardBreakdown,
     pub glass_acquisitions: Option<HashMap<String, usize>>,
     pub glass_win_rate: Option<HashMap<String, WinRateEntry>>,
+    pub num_games: usize,
 }
 
 impl CachedAnalysis {
@@ -66,13 +67,13 @@ impl CachedAnalysis {
         let deck_stats = compute_deck_size_stats(logs, filter_ref);
         let score_dist = compute_score_distribution(logs, filter_ref);
         let win_rate_position = compute_win_rate_by_position(logs, filter_ref);
-        let game_length = compute_average_game_length(logs);
+        let game_length = compute_average_game_length(logs, filter_ref);
         let color_stats = compute_color_wheel_stats(logs, filter_ref);
-        let duration_stats = compute_duration_stats(logs);
+        let duration_stats = compute_duration_stats(logs, filter_ref);
         let variant_win_rate = compute_win_rate_by_variant(logs);
         let variant_elo = compute_elo_by_variant(logs);
         let penultimate_deck_sizes = compute_penultimate_round_deck_sizes(logs, filter_ref);
-        let round_count_dist = compute_round_count_distribution(logs);
+        let round_count_dist = compute_round_count_distribution(logs, filter_ref);
         let card_win_rate = compute_win_rate_by_card(logs, filter_ref);
         let draft_win_rate = compute_win_rate_if_drafted(logs, filter_ref);
         let winner_sell_card_breakdown = compute_winner_sell_card_breakdown(logs, filter_ref);
@@ -122,6 +123,11 @@ impl CachedAnalysis {
         let glass_wr = compute_glass_win_rate(logs, filter_ref);
         let glass_win_rate = if glass_wr.is_empty() { None } else { Some(glass_wr) };
 
+        let num_games = match filter_ref {
+            Some(f) => f.len(),
+            None => logs.len(),
+        };
+
         let filter_key = format!("{}:{}", "computed", variant_label.unwrap_or("all"));
 
         CachedAnalysis {
@@ -156,12 +162,13 @@ impl CachedAnalysis {
             winner_sell_card_breakdown,
             glass_acquisitions,
             glass_win_rate,
+            num_games,
         }
     }
 }
 
 /// Render the Analysis tab content.
-pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis, num_games: usize) {
+pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
     egui::ScrollArea::vertical().show(ui, |ui| {
         // 1. Game Overview
         let id = ui.make_persistent_id("game_overview");
@@ -172,7 +179,7 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis, num_gam
             .body(|ui| {
                 let mut cards = vec![
                     StatCard {
-                        value: format!("{}", num_games),
+                        value: format!("{}", analysis.num_games),
                         label: "Games".into(),
                     },
                     StatCard {
