@@ -19,6 +19,7 @@ pub struct MctsConfig {
     pub progressive_bias_weight: f64,
     pub rave_constant: f64,
     pub rave_track_rollout: bool,
+    pub rave_track_draft: bool,
     pub heuristic_params: HeuristicParams,
 }
 
@@ -32,6 +33,7 @@ impl Default for MctsConfig {
             progressive_bias_weight: 0.0,
             rave_constant: 0.0,
             rave_track_rollout: false,
+            rave_track_draft: false,
             heuristic_params: HeuristicParams::default(),
         }
     }
@@ -59,6 +61,8 @@ impl<'de> Deserialize<'de> for MctsConfig {
             rave_constant: f64,
             #[serde(default = "default_rave_track_rollout")]
             rave_track_rollout: bool,
+            #[serde(default = "default_rave_track_draft")]
+            rave_track_draft: bool,
             #[serde(default)]
             heuristic_params: HeuristicParams,
         }
@@ -70,6 +74,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
         fn default_progressive_bias_weight() -> f64 { 0.0 }
         fn default_rave_constant() -> f64 { 0.0 }
         fn default_rave_track_rollout() -> bool { false }
+        fn default_rave_track_draft() -> bool { false }
 
         let helper = MctsConfigHelper::deserialize(deserializer)?;
         Ok(MctsConfig {
@@ -80,6 +85,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
             progressive_bias_weight: helper.progressive_bias_weight,
             rave_constant: helper.rave_constant,
             rave_track_rollout: helper.rave_track_rollout,
+            rave_track_draft: helper.rave_track_draft,
             heuristic_params: helper.heuristic_params,
         })
     }
@@ -483,6 +489,8 @@ fn iteration_simultaneous<R: Rng>(
     let scores = if should_rollout {
         let scores = if config.rave_constant > 0.0 && config.rave_track_rollout {
             rollout_with_tracking(state, max_rollout_round, config.max_rollout_steps, use_heuristic, &config.heuristic_params, card_table, move_log, choices_buf, rng)
+        } else if config.rave_constant > 0.0 && config.rave_track_draft {
+            rollout_with_draft_tracking(state, max_rollout_round, config.max_rollout_steps, use_heuristic, &config.heuristic_params, card_table, move_log, rng)
         } else {
             rollout(state, max_rollout_round, config.max_rollout_steps, use_heuristic, &config.heuristic_params, card_table, rng)
         };
@@ -594,6 +602,60 @@ fn update_amaf(node: &mut MctsNode, choice: &Choice, reward: f64) {
         }
     }
     node.amaf_stats.push((choice.clone(), reward, 1));
+}
+
+fn rollout_with_draft_tracking<R: Rng>(
+    state: &mut GameState,
+    max_rollout_round: Option<u32>,
+    max_rollout_steps: u32,
+    use_heuristic: bool,
+    params: &HeuristicParams,
+    card_table: &CardHeuristicTable,
+    move_log: &mut Vec<(usize, Choice)>,
+    rng: &mut R,
+) -> [f64; MAX_PLAYERS] {
+    for _ in 0..max_rollout_steps {
+        if matches!(state.phase, GamePhase::GameOver) {
+            return compute_terminal_rewards(&state.players);
+        }
+        if max_rollout_round.is_some_and(|mr| state.round > mr) {
+            return eval_scores(state, use_heuristic, params, card_table);
+        }
+
+        if matches!(&state.phase, GamePhase::Draft { .. }) {
+            // Track draft picks using the fast path (no enumerate_choices_into)
+            loop {
+                let (player_index, card_id, card) = {
+                    if let GamePhase::Draft { ref draft_state } = state.phase {
+                        let player = draft_state.current_player_index;
+                        let hand = draft_state.hands[player];
+                        match hand.pick_random(rng) {
+                            Some(id) => {
+                                let card = state.card_lookup[id as usize];
+                                (player, id as u32, card)
+                            }
+                            None => break,
+                        }
+                    } else {
+                        break;
+                    }
+                };
+                move_log.push((player_index, Choice::DraftPick { card }));
+                player_pick(state, card_id);
+            }
+        } else {
+            apply_rollout_step(state, rng);
+        }
+    }
+
+    if matches!(state.phase, GamePhase::GameOver) {
+        return compute_terminal_rewards(&state.players);
+    }
+    if max_rollout_round.is_some_and(|mr| state.round > mr) {
+        return eval_scores(state, use_heuristic, params, card_table);
+    }
+
+    [0.0; MAX_PLAYERS]
 }
 
 fn rollout_with_tracking<R: Rng>(
