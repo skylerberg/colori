@@ -87,6 +87,60 @@ impl Default for HeuristicParams {
     }
 }
 
+const ALL_CARDS: [Card; 46] = [
+    Card::BasicRed, Card::BasicYellow, Card::BasicBlue,
+    Card::Kermes, Card::Weld, Card::Woad,
+    Card::Lac, Card::Brazilwood, Card::Pomegranate,
+    Card::Sumac, Card::Elderberry, Card::Turnsole,
+    Card::Madder, Card::Turmeric, Card::DyersGreenweed,
+    Card::Verdigris, Card::Orchil, Card::Logwood,
+    Card::VermilionDye, Card::Saffron, Card::PersianBerries,
+    Card::Azurite, Card::IndigoDye, Card::Cochineal,
+    Card::StarterCeramics, Card::StarterPaintings, Card::StarterTextiles,
+    Card::TerraCotta, Card::OchreWare, Card::CobaltWare,
+    Card::CinnabarCanvas, Card::OrpimentCanvas, Card::UltramarineCanvas,
+    Card::AlizarinFabric, Card::FusticFabric, Card::PastelFabric,
+    Card::ClayCanvas, Card::ClayFabric, Card::CanvasFabric,
+    Card::Alum, Card::CreamOfTartar, Card::GumArabic,
+    Card::Potash, Card::Vinegar, Card::Argol, Card::Chalk,
+];
+
+pub struct CardHeuristicTable {
+    quality: [f64; 46],
+    primary_mask: [u8; 46],
+    secondary_mask: [u8; 46],
+    material_mask: [u8; 46],
+}
+
+impl CardHeuristicTable {
+    pub fn new(params: &HeuristicParams) -> Self {
+        let mut quality = [0.0f64; 46];
+        let mut primary_mask = [0u8; 46];
+        let mut secondary_mask = [0u8; 46];
+        let mut material_mask = [0u8; 46];
+        for &card in &ALL_CARDS {
+            let idx = card as usize;
+            quality[idx] = card_quality(card, params);
+            for &color in card.colors() {
+                for (i, &p) in PRIMARIES.iter().enumerate() {
+                    if color == p {
+                        primary_mask[idx] |= 1 << i;
+                    }
+                }
+                for (i, &s) in SECONDARIES.iter().enumerate() {
+                    if color == s {
+                        secondary_mask[idx] |= 1 << i;
+                    }
+                }
+            }
+            for &mt in card.material_types() {
+                material_mask[idx] |= 1 << (mt as usize);
+            }
+        }
+        CardHeuristicTable { quality, primary_mask, secondary_mask, material_mask }
+    }
+}
+
 pub fn calculate_score(player: &PlayerState) -> u32 {
     let sell_card_ducats: u32 = player.completed_sell_cards.iter().map(|bi| bi.sell_card.ducats()).sum();
     sell_card_ducats + player.ducats
@@ -172,6 +226,7 @@ fn heuristic_score(
     sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
     card_lookup: &[Card; 256],
     params: &HeuristicParams,
+    card_table: &CardHeuristicTable,
 ) -> f64 {
     let score = player.cached_score as f64;
 
@@ -190,29 +245,17 @@ fn heuristic_score(
 
     let mut total_quality = 0.0;
     let mut card_count = 0u32;
-    let mut has_primary = [false; 3];
-    let mut has_secondary = [false; 3];
-    let mut has_material_type = [false; 3];
+    let mut primary_seen = 0u8;
+    let mut secondary_seen = 0u8;
+    let mut material_seen = 0u8;
     for cards in [&player.deck, &player.discard, &player.workshop_cards, &player.workshopped_cards, &player.drafted_cards] {
         for id in cards.iter() {
-            let card = card_lookup[id as usize];
-            total_quality += card_quality(card, params);
+            let idx = card_lookup[id as usize] as usize;
+            total_quality += card_table.quality[idx];
             card_count += 1;
-            for &color in card.colors() {
-                for (i, &p) in PRIMARIES.iter().enumerate() {
-                    if color == p {
-                        has_primary[i] = true;
-                    }
-                }
-                for (i, &s) in SECONDARIES.iter().enumerate() {
-                    if color == s {
-                        has_secondary[i] = true;
-                    }
-                }
-            }
-            for &mt in card.material_types() {
-                has_material_type[mt as usize] = true;
-            }
+            primary_seen |= card_table.primary_mask[idx];
+            secondary_seen |= card_table.secondary_mask[idx];
+            material_seen |= card_table.material_mask[idx];
         }
     }
     let deck_quality = if card_count > 0 {
@@ -244,10 +287,10 @@ fn heuristic_score(
 
     let glass_score = params.glass_weight * player.completed_glass.len() as f64;
 
-    let primary_coverage = has_primary.iter().filter(|&&b| b).count() as f64 / 3.0;
-    let secondary_coverage = has_secondary.iter().filter(|&&b| b).count() as f64 / 3.0;
+    let primary_coverage = primary_seen.count_ones() as f64 / 3.0;
+    let secondary_coverage = secondary_seen.count_ones() as f64 / 3.0;
     let material_type_count = player.materials.counts.iter().filter(|&&c| c > 0).count() as f64;
-    let material_coverage = has_material_type.iter().filter(|&&b| b).count() as f64 / 3.0;
+    let material_coverage = material_seen.count_ones() as f64 / 3.0;
 
     score + color_score + material_score + deck_quality + best_alignment + glass_score
         + params.primary_color_coverage_weight * primary_coverage
@@ -265,10 +308,11 @@ pub fn compute_heuristic_rewards(
     sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
     card_lookup: &[Card; 256],
     params: &HeuristicParams,
+    card_table: &CardHeuristicTable,
 ) -> [f64; MAX_PLAYERS] {
     let mut scores = [0.0f64; MAX_PLAYERS];
     for (i, p) in players.iter().enumerate() {
-        scores[i] = heuristic_score(p, sell_card_display, card_lookup, params);
+        scores[i] = heuristic_score(p, sell_card_display, card_lookup, params, card_table);
     }
 
     let best = scores[..players.len()].iter().copied().fold(f64::NEG_INFINITY, f64::max);

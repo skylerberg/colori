@@ -3,7 +3,7 @@ use crate::colori_game::{
     determinize_in_place, enumerate_choices_into,
 };
 use crate::draft_phase::player_pick;
-use crate::scoring::{calculate_score, compute_heuristic_rewards, compute_terminal_rewards, HeuristicParams};
+use crate::scoring::{calculate_score, CardHeuristicTable, compute_heuristic_rewards, compute_terminal_rewards, HeuristicParams};
 use crate::types::*;
 use rand::Rng;
 use rand::RngExt;
@@ -323,6 +323,7 @@ pub fn ismcts<R: Rng>(
     }
 
     let mut availability_buf: Vec<bool> = Vec::new();
+    let card_table = CardHeuristicTable::new(&config.heuristic_params);
 
     let mut opponent_stats = OpponentDraftStats::new();
     let mut pick_log: Vec<(u32, usize, Card)> = Vec::new();
@@ -352,7 +353,7 @@ pub fn ismcts<R: Rng>(
         let scores = iteration_simultaneous(
             &mut root, &mut det_state, player_index,
             &mut opponent_stats, &mut pick_log,
-            effective_max_rollout_round, use_heuristic, config, &mut choices_buf, &mut availability_buf, rng,
+            effective_max_rollout_round, use_heuristic, config, &mut choices_buf, &mut availability_buf, &card_table, rng,
         );
         for &(pick_round, player, card) in &pick_log {
             let reward = scores[player];
@@ -376,9 +377,9 @@ pub fn ismcts<R: Rng>(
     best_child.unwrap().choice.clone().unwrap()
 }
 
-fn eval_scores(state: &GameState, use_heuristic: bool, params: &HeuristicParams) -> [f64; MAX_PLAYERS] {
+fn eval_scores(state: &GameState, use_heuristic: bool, params: &HeuristicParams, card_table: &CardHeuristicTable) -> [f64; MAX_PLAYERS] {
     if use_heuristic {
-        compute_heuristic_rewards(&state.players, &state.sell_card_display, &state.card_lookup, params)
+        compute_heuristic_rewards(&state.players, &state.sell_card_display, &state.card_lookup, params, card_table)
     } else {
         compute_terminal_rewards(&state.players)
     }
@@ -395,6 +396,7 @@ fn iteration_simultaneous<R: Rng>(
     config: &MctsConfig,
     choices_buf: &mut Vec<Choice>,
     availability_buf: &mut Vec<bool>,
+    card_table: &CardHeuristicTable,
     rng: &mut R,
 ) -> [f64; MAX_PLAYERS] {
     let active_player = if matches!(state.phase, GamePhase::GameOver) {
@@ -402,7 +404,7 @@ fn iteration_simultaneous<R: Rng>(
         record_outcome(node, &scores);
         return scores;
     } else if max_rollout_round.is_some_and(|mr| state.round > mr) {
-        let scores = eval_scores(state, use_heuristic, &config.heuristic_params);
+        let scores = eval_scores(state, use_heuristic, &config.heuristic_params, card_table);
         record_outcome(node, &scores);
         return scores;
     } else {
@@ -445,7 +447,7 @@ fn iteration_simultaneous<R: Rng>(
     let should_rollout = node.children[best_idx].visit_count == 0;
 
     let scores = if should_rollout {
-        let scores = rollout(state, max_rollout_round, config.max_rollout_steps, use_heuristic, &config.heuristic_params, rng);
+        let scores = rollout(state, max_rollout_round, config.max_rollout_steps, use_heuristic, &config.heuristic_params, card_table, rng);
         record_outcome(&mut node.children[best_idx], &scores);
         scores
     } else {
@@ -453,7 +455,7 @@ fn iteration_simultaneous<R: Rng>(
         iteration_simultaneous(
             child, state, perspective_player,
             opponent_stats, pick_log,
-            max_rollout_round, use_heuristic, config, choices_buf, availability_buf, rng,
+            max_rollout_round, use_heuristic, config, choices_buf, availability_buf, card_table, rng,
         )
     };
 
@@ -494,13 +496,13 @@ fn select(
     best_idx
 }
 
-fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_rollout_steps: u32, use_heuristic: bool, params: &HeuristicParams, rng: &mut R) -> [f64; MAX_PLAYERS] {
+fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_rollout_steps: u32, use_heuristic: bool, params: &HeuristicParams, card_table: &CardHeuristicTable, rng: &mut R) -> [f64; MAX_PLAYERS] {
     for _ in 0..max_rollout_steps {
         if matches!(state.phase, GamePhase::GameOver) {
             return compute_terminal_rewards(&state.players);
         }
         if max_rollout_round.is_some_and(|mr| state.round > mr) {
-            return eval_scores(state, use_heuristic, params);
+            return eval_scores(state, use_heuristic, params, card_table);
         }
         apply_rollout_step(state, rng);
     }
@@ -509,7 +511,7 @@ fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_ro
         return compute_terminal_rewards(&state.players);
     }
     if max_rollout_round.is_some_and(|mr| state.round > mr) {
-        return eval_scores(state, use_heuristic, params);
+        return eval_scores(state, use_heuristic, params, card_table);
     }
 
     [0.0; MAX_PLAYERS]
