@@ -3,6 +3,8 @@ use colori_core::scoring::{DiffEvalParams, HeuristicParams};
 
 use serde::Deserialize;
 
+const DEFAULT_EVAL_ITERATIONS: u32 = 4_000;
+
 // ── CLI args ──
 
 pub struct SimulationArgs {
@@ -144,7 +146,7 @@ pub fn parse_args() -> SimulationArgs {
     let mut generations = 50usize;
     let mut games_per_eval = 100usize;
     let mut initial_sigma = 0.3f64;
-    let mut eval_iterations = 10_000u32;
+    let mut eval_iterations = DEFAULT_EVAL_ITERATIONS;
     let mut seed_params_file: Option<String> = None;
     let mut baseline_params_file: Option<String> = None;
 
