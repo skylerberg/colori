@@ -1,5 +1,6 @@
 use colori_core::colori_game::apply_choice_to_state;
 use colori_core::draw_phase::execute_draw_phase;
+use colori_core::fixed_vec::FixedVec;
 use colori_core::ismcts::{ismcts, MctsConfig};
 use colori_core::scoring::diff_eval::{
     diff_eval_score, DiffEvalParams, DiffEvalTable, NUM_PARAMS,
@@ -7,7 +8,6 @@ use colori_core::scoring::diff_eval::{
 use colori_core::scoring::diff_eval_grad::{diff_eval_backward, DiffEvalGradients};
 use colori_core::scoring::{calculate_score, HeuristicParams};
 use colori_core::setup::create_initial_game_state_with_expansions;
-use colori_core::fixed_vec::FixedVec;
 use colori_core::types::*;
 
 use rand::SeedableRng;
@@ -252,92 +252,6 @@ fn compute_loss_and_grads(
     (total_loss, total_grads)
 }
 
-fn evaluate_against_baseline(
-    params: &DiffEvalParams,
-    baseline: &HeuristicParams,
-    eval_iterations: u32,
-    num_games: usize,
-    num_threads: usize,
-) -> f64 {
-    let wins = std::sync::atomic::AtomicUsize::new(0);
-    let draws = std::sync::atomic::AtomicUsize::new(0);
-
-    std::thread::scope(|s| {
-        let games_per_thread = num_games / num_threads;
-        let remainder = num_games % num_threads;
-        let mut handles = Vec::new();
-
-        for t in 0..num_threads {
-            let count = games_per_thread + if t < remainder { 1 } else { 0 };
-            let wins = &wins;
-            let draws = &draws;
-            let p = params.clone();
-            let b = baseline.clone();
-
-            handles.push(s.spawn(move || {
-                let mut rng = WyRand::from_rng(&mut rand::rng());
-
-                for game_idx in 0..count {
-                    // Alternate sides
-                    let diff_is_p0 = game_idx % 2 == 0;
-                    let diff_config = MctsConfig {
-                        iterations: eval_iterations,
-                        use_heuristic_eval: true,
-                        diff_eval_params: Some(p.clone()),
-                        ..MctsConfig::default()
-                    };
-                    let baseline_config = MctsConfig {
-                        iterations: eval_iterations,
-                        use_heuristic_eval: true,
-                        heuristic_params: b.clone(),
-                        ..MctsConfig::default()
-                    };
-
-                    let configs: [MctsConfig; 2] = if diff_is_p0 {
-                        [diff_config, baseline_config]
-                    } else {
-                        [baseline_config, diff_config]
-                    };
-                    let diff_player = if diff_is_p0 { 0 } else { 1 };
-
-                    let ai_players = vec![true; 2];
-                    let expansions = Expansions { glass: false };
-                    let mut state = create_initial_game_state_with_expansions(2, &ai_players, expansions, &mut rng);
-                    execute_draw_phase(&mut state, &mut rng);
-
-                    while !matches!(state.phase, GamePhase::GameOver) {
-                        let player_index = match &state.phase {
-                            GamePhase::Draft { draft_state } => draft_state.current_player_index,
-                            GamePhase::Action { action_state } => action_state.current_player_index,
-                            GamePhase::Draw | GamePhase::GameOver => break,
-                        };
-                        let config = &configs[player_index];
-                        let max_rollout_round = std::cmp::max(8, state.round + 2);
-                        let choice = ismcts(&state, player_index, config, &None, Some(max_rollout_round), &mut rng);
-                        apply_choice_to_state(&mut state, &choice, &mut rng);
-                    }
-
-                    let score_diff = calculate_score(&state.players[diff_player]);
-                    let score_base = calculate_score(&state.players[1 - diff_player]);
-                    if score_diff > score_base {
-                        wins.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    } else if score_diff == score_base {
-                        draws.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    }
-                }
-            }));
-        }
-
-        for handle in handles {
-            handle.join().unwrap();
-        }
-    });
-
-    let w = wins.load(std::sync::atomic::Ordering::Relaxed) as f64;
-    let d = draws.load(std::sync::atomic::Ordering::Relaxed) as f64;
-    (w + 0.5 * d) / num_games as f64
-}
-
 // ── Public entry point ──
 
 pub struct TrainArgs {
@@ -346,7 +260,6 @@ pub struct TrainArgs {
     pub batch_size: usize,
     pub lr: f64,
     pub eval_iterations: u32,
-    pub eval_games: usize,
     pub threads: usize,
     pub output: String,
 }
@@ -355,8 +268,7 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
     eprintln!("=== Diff Eval Training ===");
     eprintln!("Games/epoch: {}, Epochs: {}, Batch size: {}, LR: {}",
         train.games, train.epochs, train.batch_size, train.lr);
-    eprintln!("Eval iterations: {}, Eval games: {}, Threads: {}",
-        train.eval_iterations, train.eval_games, train.threads);
+    eprintln!("MCTS iterations: {}, Threads: {}", train.eval_iterations, train.threads);
 
     // Use baseline heuristic params from first variant (or default)
     let baseline_params = if !args.variants.is_empty() {
@@ -369,12 +281,11 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
     std::fs::create_dir_all(&train.output).expect("Failed to create output directory");
 
     // Try to resume from latest checkpoint
-    let (mut params, mut optimizer, start_epoch, mut best_win_rate) = load_checkpoint(&train.output, train.lr);
+    let (mut params, mut optimizer, start_epoch) = load_checkpoint(&train.output, train.lr);
     let table = DiffEvalTable::new();
 
     if start_epoch > 0 {
-        eprintln!("Resuming from epoch {} (best win rate so far: {:.1}%)",
-            start_epoch, best_win_rate * 100.0);
+        eprintln!("Resuming from epoch {}", start_epoch);
     }
 
     // Training loop: fresh data each epoch
@@ -405,28 +316,20 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
         }
 
         let avg_loss = epoch_loss / num_batches as f64;
+        eprintln!("Epoch {}/{}: loss={:.4}", epoch + 1, train.epochs, avg_loss);
 
-        // Evaluate against baseline
-        let win_rate = evaluate_against_baseline(
-            &params, &baseline_params, train.eval_iterations,
-            train.eval_games, train.threads,
-        );
-        eprintln!("Epoch {}/{}: loss={:.4}, eval win rate={:.1}%",
-            epoch + 1, train.epochs, avg_loss, win_rate * 100.0);
-
-        if win_rate > best_win_rate {
-            best_win_rate = win_rate;
-            let path = format!("{}/best-diff-eval.json", train.output);
-            let json = serde_json::to_string_pretty(&params).unwrap();
-            std::fs::write(&path, json).unwrap();
-            eprintln!("  New best! Saved to {}", path);
-        }
-
-        // Save checkpoint after every epoch for resumability
-        save_checkpoint(&train.output, &params, &optimizer, epoch + 1, best_win_rate);
+        // Save checkpoint + params after every epoch
+        save_checkpoint(&train.output, &params, &optimizer, epoch + 1);
+        let path = format!("{}/diff-eval-epoch-{}.json", train.output, epoch + 1);
+        let json = serde_json::to_string_pretty(&params).unwrap();
+        std::fs::write(&path, json).unwrap();
     }
 
-    eprintln!("\nTraining complete. Best win rate: {:.1}%", best_win_rate * 100.0);
+    // Save final params
+    let path = format!("{}/latest-diff-eval.json", train.output);
+    let json = serde_json::to_string_pretty(&params).unwrap();
+    std::fs::write(&path, json).unwrap();
+    eprintln!("\nTraining complete. Final params saved to {}", path);
 }
 
 // ── Checkpoint save/load ──
@@ -440,24 +343,22 @@ struct Checkpoint {
     adam_v: Vec<f64>,
     adam_t: u64,
     epoch: usize,
-    best_win_rate: f64,
 }
 
-fn save_checkpoint(output_dir: &str, params: &DiffEvalParams, optimizer: &Adam, epoch: usize, best_win_rate: f64) {
+fn save_checkpoint(output_dir: &str, params: &DiffEvalParams, optimizer: &Adam, epoch: usize) {
     let checkpoint = Checkpoint {
         params: params.clone(),
         adam_m: optimizer.m.to_vec(),
         adam_v: optimizer.v.to_vec(),
         adam_t: optimizer.t,
         epoch,
-        best_win_rate,
     };
     let path = format!("{}/checkpoint.json", output_dir);
     let json = serde_json::to_string(&checkpoint).unwrap();
     std::fs::write(&path, json).unwrap();
 }
 
-fn load_checkpoint(output_dir: &str, lr: f64) -> (DiffEvalParams, Adam, usize, f64) {
+fn load_checkpoint(output_dir: &str, lr: f64) -> (DiffEvalParams, Adam, usize) {
     let path = format!("{}/checkpoint.json", output_dir);
     match std::fs::read_to_string(&path) {
         Ok(json) => {
@@ -467,14 +368,14 @@ fn load_checkpoint(output_dir: &str, lr: f64) -> (DiffEvalParams, Adam, usize, f
                     optimizer.m.copy_from_slice(&cp.adam_m);
                     optimizer.v.copy_from_slice(&cp.adam_v);
                     optimizer.t = cp.adam_t;
-                    (cp.params, optimizer, cp.epoch, cp.best_win_rate)
+                    (cp.params, optimizer, cp.epoch)
                 }
                 Err(e) => {
                     eprintln!("Warning: failed to parse checkpoint: {}", e);
-                    (DiffEvalParams::default(), Adam::new(lr), 0, 0.0)
+                    (DiffEvalParams::default(), Adam::new(lr), 0)
                 }
             }
         }
-        Err(_) => (DiffEvalParams::default(), Adam::new(lr), 0, 0.0),
+        Err(_) => (DiffEvalParams::default(), Adam::new(lr), 0),
     }
 }

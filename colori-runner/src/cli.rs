@@ -18,7 +18,6 @@ pub struct SimulationArgs {
     pub train_epochs: usize,
     pub train_batch_size: usize,
     pub train_lr: f64,
-    pub train_eval_games: usize,
 }
 
 pub struct CmaEsArgs {
@@ -117,7 +116,6 @@ pub fn parse_args() -> SimulationArgs {
     let mut train_epochs = 100usize;
     let mut train_batch_size = 256usize;
     let mut train_lr = 1e-3f64;
-    let mut train_eval_games = 200usize;
 
     let mut genetic = false;
     let mut population = 14usize;
@@ -197,10 +195,6 @@ pub fn parse_args() -> SimulationArgs {
             "--train-lr" => {
                 i += 1;
                 train_lr = args[i].parse().expect("Invalid --train-lr value");
-            }
-            "--train-eval-games" => {
-                i += 1;
-                train_eval_games = args[i].parse().expect("Invalid --train-eval-games value");
             }
             "--population" => {
                 i += 1;
@@ -301,6 +295,5 @@ pub fn parse_args() -> SimulationArgs {
         train_epochs,
         train_batch_size,
         train_lr,
-        train_eval_games,
     }
 }
