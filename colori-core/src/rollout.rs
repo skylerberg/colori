@@ -40,7 +40,7 @@ impl MoveTracker for Vec<(usize, Choice)> {
 
 // ── Rollout draw+draft shortcut ──
 
-fn rollout_draw_and_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
+fn rollout_draw_and_draft<T: MoveTracker, R: Rng>(state: &mut GameState, tracker: &mut T, rng: &mut R) {
     let num_players = state.players.len();
 
     // Step 1: Draw 5 cards from each player's personal deck
@@ -91,8 +91,12 @@ fn rollout_draw_and_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
         return;
     }
 
-    // Step 4: Assign dealt cards as drafted_cards
+    // Step 4: Assign dealt cards as drafted_cards and track for RAVE
     for i in 0..num_players {
+        for id in dealt[i].iter() {
+            let card = state.card_lookup[id as usize];
+            tracker.track(i, Choice::DraftPick { card });
+        }
         state.players[i].drafted_cards = dealt[i];
     }
 
@@ -378,7 +382,7 @@ fn handle_action_no_pending_impl<T: MoveTracker, R: Rng>(state: &mut GameState, 
         tracker.track(player_index, Choice::EndTurn);
         end_player_turn(state, rng);
         if matches!(state.phase, GamePhase::Draw) {
-            rollout_draw_and_draft(state, rng);
+            rollout_draw_and_draft(state, tracker, rng);
         }
         return;
     }
