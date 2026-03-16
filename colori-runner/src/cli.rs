@@ -13,6 +13,7 @@ pub struct SimulationArgs {
     pub variants: Vec<NamedVariant>,
     pub glass: bool,
     pub genetic: Option<CmaEsArgs>,
+    pub tournament: bool,
 }
 
 pub struct CmaEsArgs {
@@ -96,6 +97,7 @@ pub fn parse_args() -> SimulationArgs {
     let mut variants: Option<Vec<NamedVariant>> = None;
     let mut variants_file = "variants.json".to_string();
     let mut glass = false;
+    let mut tournament = false;
 
     let mut genetic = false;
     let mut population = 14usize;
@@ -146,6 +148,11 @@ pub fn parse_args() -> SimulationArgs {
             }
             "--glass" => {
                 glass = true;
+                i += 1;
+                continue;
+            }
+            "--tournament" => {
+                tournament = true;
                 i += 1;
                 continue;
             }
@@ -244,5 +251,6 @@ pub fn parse_args() -> SimulationArgs {
         variants,
         glass,
         genetic: genetic_args,
+        tournament,
     }
 }

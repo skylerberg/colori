@@ -1,6 +1,7 @@
 mod cli;
 mod cmaes;
 mod simulation;
+mod tournament;
 
 use colori_core::unordered_cards::{set_sell_card_registry, set_card_registry};
 
@@ -29,6 +30,11 @@ fn main() {
 
     if let Some(ref ga) = args.genetic {
         run_genetic_algorithm(&args, ga);
+        return;
+    }
+
+    if args.tournament {
+        tournament::run_tournament(&args);
         return;
     }
 
