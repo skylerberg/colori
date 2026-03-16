@@ -140,7 +140,7 @@ fn card_quality(card: Card, params: &HeuristicParams) -> f64 {
     }
 }
 
-fn heuristic_score(
+pub fn heuristic_score(
     player: &PlayerState,
     sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
     card_lookup: &[Card; 256],

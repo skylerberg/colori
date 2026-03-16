@@ -3,7 +3,7 @@ use crate::colori_game::{
     determinize_in_place, enumerate_choices_into,
 };
 use crate::draft_phase::player_pick;
-use crate::scoring::{calculate_score, CardHeuristicTable, compute_heuristic_rewards, compute_terminal_rewards, HeuristicParams};
+use crate::scoring::{calculate_score, CardHeuristicTable, compute_heuristic_rewards, compute_terminal_rewards, heuristic_score, HeuristicParams};
 use crate::types::*;
 use rand::Rng;
 use rand::RngExt;
@@ -16,6 +16,7 @@ pub struct MctsConfig {
     pub exploration_constant: f64,
     pub max_rollout_steps: u32,
     pub use_heuristic_eval: bool,
+    pub progressive_bias_weight: f64,
     pub heuristic_params: HeuristicParams,
 }
 
@@ -26,6 +27,7 @@ impl Default for MctsConfig {
             exploration_constant: std::f64::consts::SQRT_2,
             max_rollout_steps: 1000,
             use_heuristic_eval: true,
+            progressive_bias_weight: 0.0,
             heuristic_params: HeuristicParams::default(),
         }
     }
@@ -47,6 +49,8 @@ impl<'de> Deserialize<'de> for MctsConfig {
             max_rollout_steps: u32,
             #[serde(default = "default_use_heuristic_eval")]
             use_heuristic_eval: bool,
+            #[serde(default = "default_progressive_bias_weight")]
+            progressive_bias_weight: f64,
             #[serde(default)]
             heuristic_params: HeuristicParams,
         }
@@ -55,6 +59,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
         fn default_exploration_constant() -> f64 { std::f64::consts::SQRT_2 }
         fn default_max_rollout_steps() -> u32 { 1000 }
         fn default_use_heuristic_eval() -> bool { true }
+        fn default_progressive_bias_weight() -> f64 { 0.0 }
 
         let helper = MctsConfigHelper::deserialize(deserializer)?;
         Ok(MctsConfig {
@@ -62,6 +67,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
             exploration_constant: helper.exploration_constant,
             max_rollout_steps: helper.max_rollout_steps,
             use_heuristic_eval: helper.use_heuristic_eval,
+            progressive_bias_weight: helper.progressive_bias_weight,
             heuristic_params: helper.heuristic_params,
         })
     }
@@ -74,6 +80,7 @@ struct MctsNode {
     choice: Option<Choice>,
     availability_count: u32,
     ln_availability: f64,
+    heuristic_bias: f64,
     children: Vec<MctsNode>,
 }
 
@@ -86,6 +93,7 @@ impl MctsNode {
             choice,
             availability_count: 0,
             ln_availability: 0.0,
+            heuristic_bias: 0.0,
             children: Vec::new(),
         }
     }
@@ -427,7 +435,7 @@ fn iteration_simultaneous<R: Rng>(
 
     // Select
     let best_idx =
-        match select(node, availability_buf, config.exploration_constant)
+        match select(node, availability_buf, config.exploration_constant, config.progressive_bias_weight)
         {
             Some(idx) => idx,
             None => {
@@ -448,6 +456,16 @@ fn iteration_simultaneous<R: Rng>(
     );
 
     let should_rollout = node.children[best_idx].visit_count == 0;
+
+    if should_rollout && config.progressive_bias_weight != 0.0 {
+        node.children[best_idx].heuristic_bias = heuristic_score(
+            &state.players[perspective_player],
+            &state.sell_card_display,
+            &state.card_lookup,
+            &config.heuristic_params,
+            card_table,
+        );
+    }
 
     let scores = if should_rollout {
         let scores = rollout(state, max_rollout_round, config.max_rollout_steps, use_heuristic, &config.heuristic_params, card_table, rng);
@@ -470,6 +488,7 @@ fn select(
     node: &MctsNode,
     available: &[bool],
     c: f64,
+    progressive_bias_weight: f64,
 ) -> Option<usize> {
     let mut best_idx: Option<usize> = None;
     let mut best_value = f64::NEG_INFINITY;
@@ -483,10 +502,10 @@ fn select(
 
         let value = if child.visit_count == 0 {
             f64::INFINITY
-        } else if node.is_root() {
-            upper_confidence_bound_with_ln(child.cumulative_reward, child.visit_count, root_ln, c)
         } else {
-            upper_confidence_bound_with_ln(child.cumulative_reward, child.visit_count, child.ln_availability, c)
+            let ln_total = if node.is_root() { root_ln } else { child.ln_availability };
+            upper_confidence_bound_with_ln(child.cumulative_reward, child.visit_count, ln_total, c)
+                + progressive_bias_weight * child.heuristic_bias / (1.0 + child.visit_count as f64)
         };
 
         if value > best_value {
