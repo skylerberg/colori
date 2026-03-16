@@ -48,6 +48,9 @@ pub(crate) const MLP_B1: usize = 168;          // [16]
 pub(crate) const MLP_W2: usize = 184;          // [16]
 pub(crate) const MLP_B2: usize = 200;          // [1]
 
+/// Number of differentiable parameters (indices 0..NUM_DIFF_PARAMS are updated by gradient descent).
+pub const NUM_DIFF_PARAMS: usize = 201;
+
 // Heuristic control parameters (non-differentiable)
 pub(crate) const HEURISTIC_ROUND_THRESHOLD: usize = 201;
 pub(crate) const HEURISTIC_LOOKAHEAD: usize = 202;

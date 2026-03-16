@@ -53,11 +53,13 @@ impl Adam {
     }
 
     fn step(&mut self, params: &mut DiffEvalParams, grads: &DiffEvalGradients) {
+        use colori_core::scoring::diff_eval::NUM_DIFF_PARAMS;
         self.t += 1;
         let bc1 = 1.0 - self.beta1.powi(self.t as i32);
         let bc2 = 1.0 - self.beta2.powi(self.t as i32);
 
-        for i in 0..NUM_PARAMS {
+        // Only update differentiable params; control params (threshold, lookahead, progressive bias) are left unchanged
+        for i in 0..NUM_DIFF_PARAMS {
             self.m[i] = self.beta1 * self.m[i] + (1.0 - self.beta1) * grads.grads[i];
             self.v[i] = self.beta2 * self.v[i] + (1.0 - self.beta2) * grads.grads[i] * grads.grads[i];
 
