@@ -134,7 +134,7 @@ pub fn parse_args() -> SimulationArgs {
     let mut train_diff_eval = false;
     let mut train_vs_baseline = false;
     let mut train_games_per_epoch = 2000usize;
-    let mut train_epochs = 100usize;
+    let mut train_epochs = 100_000usize;
     let mut train_batch_size = 256usize;
     let mut train_lr = 1e-3f64;
 
