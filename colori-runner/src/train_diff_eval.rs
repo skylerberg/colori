@@ -71,6 +71,16 @@ impl Adam {
 
 // ── Data generation ──
 
+struct GameResult {
+    samples: Vec<TrainingSample>,
+    /// In vs-baseline mode: 1=diff-eval won, 0=draw, -1=diff-eval lost. None in self-play.
+    diff_eval_outcome: Option<i8>,
+}
+
+struct DataGenStats {
+    samples: Vec<TrainingSample>,
+}
+
 fn generate_training_data(
     num_games: usize,
     eval_iterations: u32,
@@ -78,8 +88,9 @@ fn generate_training_data(
     heuristic_params: &HeuristicParams,
     diff_eval_params: Option<&DiffEvalParams>,
     epoch: usize,
-) -> Vec<TrainingSample> {
-    let samples = std::sync::Mutex::new(Vec::new());
+) -> DataGenStats {
+    let start = std::time::Instant::now();
+    let all_results = std::sync::Mutex::new(Vec::new());
     let completed = std::sync::atomic::AtomicUsize::new(0);
 
     std::thread::scope(|s| {
@@ -89,7 +100,7 @@ fn generate_training_data(
 
         for t in 0..num_threads {
             let count = games_per_thread + if t < remainder { 1 } else { 0 };
-            let samples = &samples;
+            let all_results = &all_results;
             let completed = &completed;
             let hp = heuristic_params.clone();
             let dep = diff_eval_params.cloned();
@@ -97,13 +108,13 @@ fn generate_training_data(
 
             handles.push(s.spawn(move || {
                 let mut rng = WyRand::from_rng(&mut rand::rng());
-                let mut thread_samples = Vec::new();
+                let mut thread_results = Vec::new();
 
                 for game_i in 0..count {
-                    let game_samples = play_game_and_collect(
+                    let result = play_game_and_collect(
                         &hp, dep.as_ref(), eval_iterations, game_offset + game_i, &mut rng,
                     );
-                    thread_samples.extend(game_samples);
+                    thread_results.push(result);
 
                     let done = completed.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
                     if done % 100 == 0 {
@@ -111,7 +122,7 @@ fn generate_training_data(
                     }
                 }
 
-                samples.lock().unwrap().extend(thread_samples);
+                all_results.lock().unwrap().extend(thread_results);
             }));
         }
 
@@ -120,9 +131,37 @@ fn generate_training_data(
         }
     });
 
-    let samples = samples.into_inner().unwrap();
-    eprintln!("  Epoch {}: {} samples from {} games", epoch + 1, samples.len(), num_games);
-    samples
+    let results = all_results.into_inner().unwrap();
+    let elapsed = start.elapsed();
+
+    let mut samples = Vec::new();
+    let mut wins = 0usize;
+    let mut draws = 0usize;
+    let mut losses = 0usize;
+    let vs_baseline = diff_eval_params.is_some();
+
+    for result in results {
+        samples.extend(result.samples);
+        if let Some(outcome) = result.diff_eval_outcome {
+            match outcome {
+                1 => wins += 1,
+                0 => draws += 1,
+                _ => losses += 1,
+            }
+        }
+    }
+
+    if vs_baseline {
+        eprintln!("  Epoch {}: {} samples from {} games ({:.0}s) | vs baseline: {}W/{}D/{}L ({:.1}%)",
+            epoch + 1, samples.len(), num_games, elapsed.as_secs_f64(),
+            wins, draws, losses,
+            (wins as f64 + 0.5 * draws as f64) / num_games as f64 * 100.0);
+    } else {
+        eprintln!("  Epoch {}: {} samples from {} games ({:.0}s)",
+            epoch + 1, samples.len(), num_games, elapsed.as_secs_f64());
+    }
+
+    DataGenStats { samples }
 }
 
 /// Play a game and collect training samples.
@@ -134,7 +173,7 @@ fn play_game_and_collect(
     eval_iterations: u32,
     game_index: usize,
     rng: &mut WyRand,
-) -> Vec<TrainingSample> {
+) -> GameResult {
     let num_players = 2;
     let ai_players = vec![true; num_players];
     let expansions = Expansions { glass: false };
@@ -147,6 +186,10 @@ fn play_game_and_collect(
         ..MctsConfig::default()
     };
 
+    let diff_player: Option<usize> = diff_eval_params.as_ref().map(|_| {
+        if game_index % 2 == 0 { 0 } else { 1 }
+    });
+
     let configs: [MctsConfig; 2] = if let Some(dep) = diff_eval_params {
         let diff_config = MctsConfig {
             iterations: eval_iterations,
@@ -154,7 +197,6 @@ fn play_game_and_collect(
             diff_eval_params: Some(dep.clone()),
             ..MctsConfig::default()
         };
-        // Alternate sides based on game index
         if game_index % 2 == 0 {
             [diff_config, baseline_config]
         } else {
@@ -170,10 +212,8 @@ fn play_game_and_collect(
     let mut last_snapshot_round = u32::MAX;
 
     while !matches!(state.phase, GamePhase::GameOver) {
-        // Snapshot at the start of each draft phase (once per round)
         if matches!(state.phase, GamePhase::Draft { .. }) && state.round != last_snapshot_round {
             last_snapshot_round = state.round;
-            // Update cached scores before snapshot
             for p in state.players.iter_mut() {
                 p.cached_score = calculate_score(p);
             }
@@ -182,7 +222,7 @@ fn play_game_and_collect(
                 sell_card_display: state.sell_card_display.iter().cloned().collect(),
                 card_lookup: state.card_lookup,
                 round: state.round,
-                winner_mask: vec![false; num_players], // filled in later
+                winner_mask: vec![false; num_players],
             });
         }
 
@@ -207,12 +247,20 @@ fn play_game_and_collect(
     }
     let winners: Vec<bool> = state.players.iter().map(|p| calculate_score(p) == best_score).collect();
 
-    // Backfill outcomes
+    // Compute diff-eval outcome
+    let diff_eval_outcome = diff_player.map(|dp| {
+        let diff_won = winners[dp];
+        let base_won = winners[1 - dp];
+        if diff_won && !base_won { 1 }
+        else if !diff_won && base_won { -1 }
+        else { 0 }
+    });
+
     for sample in &mut snapshots {
         sample.winner_mask = winners.clone();
     }
 
-    snapshots
+    GameResult { samples: snapshots, diff_eval_outcome }
 }
 
 // ── Training loop ──
@@ -318,19 +366,26 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
     if start_epoch > 0 {
         eprintln!("Resuming from epoch {}", start_epoch);
     }
+    eprintln!();
+
+    let mut prev_loss: Option<f64> = None;
 
     // Training loop: fresh data each epoch
     for epoch in start_epoch..train.epochs {
+        let epoch_start = std::time::Instant::now();
+
         let dep = if train.vs_baseline { Some(&params) } else { None };
-        let samples = generate_training_data(
+        let data = generate_training_data(
             train.games, train.eval_iterations, train.threads, &baseline_params, dep, epoch,
         );
+        let samples = data.samples;
         if samples.is_empty() {
             eprintln!("No training samples generated for epoch {}!", epoch + 1);
             continue;
         }
 
         // Shuffle and train on mini-batches
+        let train_start = std::time::Instant::now();
         use rand::seq::SliceRandom;
         let mut rng = WyRand::from_rng(&mut rand::rng());
         let mut indices: Vec<usize> = (0..samples.len()).collect();
@@ -348,7 +403,20 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
         }
 
         let avg_loss = epoch_loss / num_batches as f64;
-        eprintln!("Epoch {}/{}: loss={:.4}", epoch + 1, train.epochs, avg_loss);
+        let train_secs = train_start.elapsed().as_secs_f64();
+        let total_secs = epoch_start.elapsed().as_secs_f64();
+
+        // Format loss with trend indicator
+        let trend = match prev_loss {
+            Some(pl) if avg_loss < pl - 0.001 => " \u{2193}",  // ↓
+            Some(pl) if avg_loss > pl + 0.001 => " \u{2191}",  // ↑
+            Some(_) => " =",
+            None => "",
+        };
+        prev_loss = Some(avg_loss);
+
+        eprintln!("Epoch {}/{}: loss={:.4}{} ({:.0}s train, {:.0}s total)",
+            epoch + 1, train.epochs, avg_loss, trend, train_secs, total_secs);
 
         // Save checkpoint + params after every epoch
         save_checkpoint(&train.output, &params, &optimizer, epoch + 1);
