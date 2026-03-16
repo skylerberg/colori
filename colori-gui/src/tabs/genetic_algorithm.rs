@@ -1,7 +1,7 @@
 use eframe::egui;
 use egui_plot::{HLine, Legend, Line, LineStyle, Plot, PlotPoints, Points};
 use regex::Regex;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::Path;
 use std::time::SystemTime;
 
@@ -35,7 +35,7 @@ struct BatchRun {
 
 pub struct GeneticAlgorithmState {
     batches: Vec<BatchRun>,
-    selected_batches: HashSet<String>, // empty = all
+    selected_batch: String, // "all" or a batch ID
     loaded_path: Option<std::path::PathBuf>,
     error: Option<String>,
 }
@@ -135,7 +135,7 @@ impl GeneticAlgorithmState {
     pub fn new() -> Self {
         Self {
             batches: Vec::new(),
-            selected_batches: HashSet::new(),
+            selected_batch: "all".to_string(),
             loaded_path: None,
             error: None,
         }
@@ -216,11 +216,9 @@ impl GeneticAlgorithmState {
         });
 
         self.batches = batches;
-        if let Some(first) = self.batches.first() {
-            self.selected_batches = HashSet::from([first.batch_id.clone()]);
-        } else {
-            self.selected_batches.clear();
-        }
+        self.selected_batch = self.batches.first()
+            .map(|b| b.batch_id.clone())
+            .unwrap_or_else(|| "all".to_string());
         self.loaded_path = Some(dir.to_path_buf());
         if errors.is_empty() {
             self.error = None;
@@ -230,12 +228,12 @@ impl GeneticAlgorithmState {
     }
 
     fn filtered_batches(&self) -> Vec<&BatchRun> {
-        if self.selected_batches.is_empty() {
+        if self.selected_batch == "all" {
             self.batches.iter().collect()
         } else {
             self.batches
                 .iter()
-                .filter(|b| self.selected_batches.contains(&b.batch_id))
+                .filter(|b| b.batch_id == self.selected_batch)
                 .collect()
         }
     }
@@ -262,41 +260,21 @@ impl GeneticAlgorithmState {
         if self.batches.len() > 1 {
             ui.horizontal(|ui| {
                 ui.label("Batch:");
-                let button_text = if self.selected_batches.is_empty() {
+                let selected_text = if self.selected_batch == "all" {
                     "All batches".to_string()
-                } else if self.selected_batches.len() == 1 {
-                    let batch_id = self.selected_batches.iter().next().unwrap();
-                    format!("{} ({} gens)", batch_id, self.batches.iter().find(|b| &b.batch_id == batch_id).map_or(0, |b| b.generations.len()))
                 } else {
-                    format!("{} batches selected", self.selected_batches.len())
+                    let gen_count = self.batches.iter()
+                        .find(|b| b.batch_id == self.selected_batch)
+                        .map_or(0, |b| b.generations.len());
+                    format!("{} ({} gens)", self.selected_batch, gen_count)
                 };
-                let batch_ids: Vec<String> = self.batches.iter().map(|b| b.batch_id.clone()).collect();
-                let batch_labels: Vec<String> = self.batches.iter().map(|b| format!("{} ({} gens)", b.batch_id, b.generations.len())).collect();
-                let button = ui.button(format!("{} ▾", button_text));
-                egui::Popup::from_toggle_button_response(&button)
-                    .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
-                    .show(|ui| {
-                        let mut all_selected = self.selected_batches.is_empty();
-                        if ui.checkbox(&mut all_selected, "All batches").changed() {
-                            if all_selected {
-                                self.selected_batches.clear();
-                            } else {
-                                self.selected_batches = HashSet::from([batch_ids[0].clone()]);
-                            }
-                        }
-                        ui.separator();
-                        for (batch_id, label) in batch_ids.iter().zip(batch_labels.iter()) {
-                            let mut is_selected = self.selected_batches.contains(batch_id);
-                            if ui.checkbox(&mut is_selected, label).changed() {
-                                if is_selected {
-                                    self.selected_batches.insert(batch_id.clone());
-                                    if self.selected_batches.len() == self.batches.len() {
-                                        self.selected_batches.clear();
-                                    }
-                                } else {
-                                    self.selected_batches.remove(batch_id);
-                                }
-                            }
+                egui::ComboBox::from_id_salt("ga_batch_filter")
+                    .selected_text(selected_text)
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(&mut self.selected_batch, "all".to_string(), "All batches");
+                        for batch in &self.batches {
+                            let label = format!("{} ({} gens)", batch.batch_id, batch.generations.len());
+                            ui.selectable_value(&mut self.selected_batch, batch.batch_id.clone(), label);
                         }
                     });
             });
@@ -305,7 +283,7 @@ impl GeneticAlgorithmState {
         let filtered = self.filtered_batches();
         let batch_count = filtered.len();
         let total_count = self.batches.len();
-        if self.selected_batches.is_empty() {
+        if self.selected_batch == "all" {
             ui.label(format!("{} batch(es) loaded", total_count));
         } else {
             ui.label(format!("{} of {} batch(es) shown", batch_count, total_count));
