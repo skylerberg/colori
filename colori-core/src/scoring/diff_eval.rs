@@ -210,6 +210,18 @@ impl DiffEvalParams {
     pub fn progressive_bias_weight(&self) -> f64 {
         self.weights[PROGRESSIVE_BIAS_WEIGHT]
     }
+
+    pub fn set_progressive_bias_weight(&mut self, value: f64) {
+        self.weights[PROGRESSIVE_BIAS_WEIGHT] = value;
+    }
+
+    pub fn set_heuristic_round_threshold(&mut self, value: u32) {
+        self.weights[HEURISTIC_ROUND_THRESHOLD] = value as f64;
+    }
+
+    pub fn set_heuristic_lookahead(&mut self, value: u32) {
+        self.weights[HEURISTIC_LOOKAHEAD] = value as f64;
+    }
 }
 
 // ── Precomputed per-card tables ──

@@ -64,6 +64,11 @@ struct VariantFileEntry {
     heuristic_params_file: Option<String>,
     #[serde(default)]
     diff_eval_params_file: Option<String>,
+    // Overrides for diff eval control params (applied on top of params file values)
+    #[serde(default)]
+    heuristic_round_threshold: Option<u32>,
+    #[serde(default)]
+    heuristic_lookahead: Option<u32>,
 }
 
 impl VariantFileEntry {
@@ -82,8 +87,19 @@ impl VariantFileEntry {
         let diff_eval_params = self.diff_eval_params_file.as_ref().map(|path| {
             let contents = std::fs::read_to_string(path)
                 .unwrap_or_else(|_| panic!("Failed to read diff eval params file: {}", path));
-            serde_json::from_str::<DiffEvalParams>(&contents)
-                .unwrap_or_else(|_| panic!("Failed to parse diff eval params file: {}", path))
+            let mut params = serde_json::from_str::<DiffEvalParams>(&contents)
+                .unwrap_or_else(|_| panic!("Failed to parse diff eval params file: {}", path));
+            // Variant-level overrides take precedence over params file values
+            if let Some(v) = self.progressive_bias_weight {
+                params.set_progressive_bias_weight(v);
+            }
+            if let Some(v) = self.heuristic_round_threshold {
+                params.set_heuristic_round_threshold(v);
+            }
+            if let Some(v) = self.heuristic_lookahead {
+                params.set_heuristic_lookahead(v);
+            }
+            params
         });
         NamedVariant {
             name: self.name,
@@ -116,7 +132,7 @@ pub fn parse_args() -> SimulationArgs {
 
     let mut train_diff_eval = false;
     let mut train_vs_baseline = false;
-    let mut train_games_per_epoch = 500usize;
+    let mut train_games_per_epoch = 2000usize;
     let mut train_epochs = 100usize;
     let mut train_batch_size = 256usize;
     let mut train_lr = 1e-3f64;
