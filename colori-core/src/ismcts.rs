@@ -1,5 +1,5 @@
 use crate::colori_game::{
-    apply_choice_to_state, apply_rollout_step,
+    apply_choice_to_state, apply_rollout_step, apply_rollout_step_tracked,
     determinize_in_place, enumerate_choices_into,
 };
 use crate::draft_phase::player_pick;
@@ -488,7 +488,7 @@ fn iteration_simultaneous<R: Rng>(
 
     let scores = if should_rollout {
         let scores = if config.rave_constant > 0.0 && config.rave_track_rollout {
-            rollout_with_tracking(state, max_rollout_round, config.max_rollout_steps, use_heuristic, &config.heuristic_params, card_table, move_log, choices_buf, rng)
+            rollout_with_tracking(state, max_rollout_round, config.max_rollout_steps, use_heuristic, &config.heuristic_params, card_table, move_log, rng)
         } else if config.rave_constant > 0.0 && config.rave_track_draft {
             rollout_with_draft_tracking(state, max_rollout_round, config.max_rollout_steps, use_heuristic, &config.heuristic_params, card_table, move_log, rng)
         } else {
@@ -666,7 +666,6 @@ fn rollout_with_tracking<R: Rng>(
     params: &HeuristicParams,
     card_table: &CardHeuristicTable,
     move_log: &mut Vec<(usize, Choice)>,
-    choices_buf: &mut Vec<Choice>,
     rng: &mut R,
 ) -> [f64; MAX_PLAYERS] {
     for _ in 0..max_rollout_steps {
@@ -676,26 +675,7 @@ fn rollout_with_tracking<R: Rng>(
         if max_rollout_round.is_some_and(|mr| state.round > mr) {
             return eval_scores(state, use_heuristic, params, card_table);
         }
-
-        let active_player = match &state.phase {
-            GamePhase::Draft { draft_state } => draft_state.current_player_index,
-            GamePhase::Action { action_state } => action_state.current_player_index,
-            GamePhase::Draw => {
-                apply_rollout_step(state, rng);
-                continue;
-            }
-            GamePhase::GameOver => break,
-        };
-
-        enumerate_choices_into(state, choices_buf);
-        if choices_buf.is_empty() {
-            break;
-        }
-
-        let idx = rng.random_range(0..choices_buf.len());
-        let choice = &choices_buf[idx];
-        move_log.push((active_player, choice.clone()));
-        apply_choice_to_state(state, choice, rng);
+        apply_rollout_step_tracked(state, move_log, rng);
     }
 
     if matches!(state.phase, GamePhase::GameOver) {
