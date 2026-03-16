@@ -14,6 +14,11 @@ pub struct SimulationArgs {
     pub glass: bool,
     pub genetic: Option<CmaEsArgs>,
     pub tournament: bool,
+    pub train_diff_eval: bool,
+    pub train_epochs: usize,
+    pub train_batch_size: usize,
+    pub train_lr: f64,
+    pub train_eval_games: usize,
 }
 
 pub struct CmaEsArgs {
@@ -108,6 +113,12 @@ pub fn parse_args() -> SimulationArgs {
     let mut glass = false;
     let mut tournament = false;
 
+    let mut train_diff_eval = false;
+    let mut train_epochs = 100usize;
+    let mut train_batch_size = 256usize;
+    let mut train_lr = 1e-3f64;
+    let mut train_eval_games = 200usize;
+
     let mut genetic = false;
     let mut population = 14usize;
     let mut generations = 50usize;
@@ -169,6 +180,27 @@ pub fn parse_args() -> SimulationArgs {
                 genetic = true;
                 i += 1;
                 continue;
+            }
+            "--train-diff-eval" => {
+                train_diff_eval = true;
+                i += 1;
+                continue;
+            }
+            "--train-epochs" => {
+                i += 1;
+                train_epochs = args[i].parse().expect("Invalid --train-epochs value");
+            }
+            "--train-batch-size" => {
+                i += 1;
+                train_batch_size = args[i].parse().expect("Invalid --train-batch-size value");
+            }
+            "--train-lr" => {
+                i += 1;
+                train_lr = args[i].parse().expect("Invalid --train-lr value");
+            }
+            "--train-eval-games" => {
+                i += 1;
+                train_eval_games = args[i].parse().expect("Invalid --train-eval-games value");
             }
             "--population" => {
                 i += 1;
@@ -237,8 +269,8 @@ pub fn parse_args() -> SimulationArgs {
     };
 
     let variants = variants.unwrap_or_else(|| {
-        if genetic {
-            // In genetic mode, variants file is not required
+        if genetic || train_diff_eval {
+            // In genetic/training mode, variants file is not required
             vec![NamedVariant { name: None, ai: MctsConfig::default() }; 2]
         } else {
             let contents = std::fs::read_to_string(&variants_file)
@@ -252,6 +284,10 @@ pub fn parse_args() -> SimulationArgs {
         }
     });
 
+    if train_diff_eval && output == "game-logs" {
+        output = "diff-eval-training".to_string();
+    }
+
     SimulationArgs {
         games,
         threads,
@@ -261,5 +297,10 @@ pub fn parse_args() -> SimulationArgs {
         glass,
         genetic: genetic_args,
         tournament,
+        train_diff_eval,
+        train_epochs,
+        train_batch_size,
+        train_lr,
+        train_eval_games,
     }
 }

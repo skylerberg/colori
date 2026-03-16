@@ -2,6 +2,7 @@ mod cli;
 mod cmaes;
 mod simulation;
 mod tournament;
+mod train_diff_eval;
 
 use colori_core::unordered_cards::{set_sell_card_registry, set_card_registry};
 
@@ -35,6 +36,21 @@ fn main() {
 
     if args.tournament {
         tournament::run_tournament(&args);
+        return;
+    }
+
+    if args.train_diff_eval {
+        let train_args = train_diff_eval::TrainArgs {
+            games: args.games,
+            epochs: args.train_epochs,
+            batch_size: args.train_batch_size,
+            lr: args.train_lr,
+            eval_iterations: if !args.variants.is_empty() { args.variants[0].ai.iterations } else { 100 },
+            eval_games: args.train_eval_games,
+            threads: args.threads,
+            output: args.output.clone(),
+        };
+        train_diff_eval::run_training(&args, &train_args);
         return;
     }
 
