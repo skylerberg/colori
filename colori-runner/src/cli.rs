@@ -20,6 +20,7 @@ pub struct SimulationArgs {
     pub train_batch_size: usize,
     pub train_lr: f64,
     pub train_vs_baseline: bool,
+    pub baseline_heuristic_params: Option<HeuristicParams>,
 }
 
 pub struct CmaEsArgs {
@@ -261,6 +262,13 @@ pub fn parse_args() -> SimulationArgs {
         i += 1;
     }
 
+    let baseline_heuristic_params = baseline_params_file.map(|path| {
+        let contents = std::fs::read_to_string(&path)
+            .unwrap_or_else(|_| panic!("Failed to read baseline params file: {}", path));
+        serde_json::from_str::<HeuristicParams>(&contents)
+            .unwrap_or_else(|_| panic!("Failed to parse baseline params file: {}", path))
+    });
+
     let genetic_args = if genetic {
         // In genetic mode, default output to "genetic-algorithm"
         if output == "game-logs" {
@@ -272,12 +280,6 @@ pub fn parse_args() -> SimulationArgs {
             serde_json::from_str::<HeuristicParams>(&contents)
                 .unwrap_or_else(|_| panic!("Failed to parse seed params file: {}", path))
         });
-        let baseline_params = baseline_params_file.map(|path| {
-            let contents = std::fs::read_to_string(&path)
-                .unwrap_or_else(|_| panic!("Failed to read baseline params file: {}", path));
-            serde_json::from_str::<HeuristicParams>(&contents)
-                .unwrap_or_else(|_| panic!("Failed to parse baseline params file: {}", path))
-        });
         Some(CmaEsArgs {
             population,
             generations,
@@ -285,7 +287,7 @@ pub fn parse_args() -> SimulationArgs {
             initial_sigma,
             eval_iterations,
             seed_params,
-            baseline_params,
+            baseline_params: baseline_heuristic_params.clone(),
         })
     } else {
         None
@@ -326,5 +328,6 @@ pub fn parse_args() -> SimulationArgs {
         train_epochs,
         train_batch_size,
         train_lr,
+        baseline_heuristic_params,
     }
 }

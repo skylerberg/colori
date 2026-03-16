@@ -349,12 +349,12 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
         train.eval_iterations, train.threads,
         if train.vs_baseline { "vs baseline" } else { "self-play" });
 
-    // Use baseline heuristic params from first variant (or default)
-    let baseline_params = if !args.variants.is_empty() {
-        args.variants[0].ai.heuristic_params.clone()
+    let baseline_params = args.baseline_heuristic_params.clone().unwrap_or_default();
+    if args.baseline_heuristic_params.is_some() {
+        eprintln!("Baseline: custom heuristic params from --baseline-params");
     } else {
-        HeuristicParams::default()
-    };
+        eprintln!("Baseline: default heuristic params (use --baseline-params to override)");
+    }
 
     // Create output directory
     std::fs::create_dir_all(&train.output).expect("Failed to create output directory");
