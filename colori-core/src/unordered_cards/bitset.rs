@@ -183,38 +183,64 @@ impl<T> BitSet<T> {
             self.0 = [0; 2];
             return BitSet(all, PhantomData);
         }
-        // Extract all set bit positions into a flat array, then use partial
-        // Fisher-Yates to select `count` elements. This uses only `count`
-        // RNG calls and avoids the O(k) bit-scan-per-draw of repeated draw().
-        let n_usize = n as usize;
-        let count_usize = count as usize;
-        let mut arr = [0u8; 256];
-        let mut idx = 0usize;
-        let mut lo = self.0[0];
-        while lo != 0 {
-            arr[idx] = lo.trailing_zeros() as u8;
-            lo &= lo - 1;
-            idx += 1;
+        // For small draws, use repeated single draws.
+        // Each draw() call needs one random_range call, so drawing `count`
+        // elements costs `count` calls vs ~n calls for selection sampling.
+        // Crossover heuristic: repeated draws (O(count) RNG + O(count*n/2) bit ops)
+        // beats selection sampling (O(n) RNG) when count^2 <= 6*n.
+        if count * count <= n * 6 {
+            let mut selected = Self::new();
+            for _ in 0..count {
+                if let Some(id) = self.draw(rng) {
+                    selected.insert(id);
+                }
+            }
+            return selected;
         }
-        let mut hi = self.0[1];
-        while hi != 0 {
-            arr[idx] = 128 + hi.trailing_zeros() as u8;
-            hi &= hi - 1;
-            idx += 1;
+        let mut remaining = n;
+        let mut to_pick = count;
+        let mut selected = [0u128; 2];
+
+        // Selection sampling (Algorithm S): for each element,
+        // include with probability to_pick/remaining.
+        let mut bits0 = self.0[0];
+        while to_pick > 0 && bits0 != 0 {
+            if remaining == to_pick {
+                // Must take all remaining elements
+                selected[0] |= bits0;
+                selected[1] = self.0[1];
+                self.0[0] &= !selected[0];
+                self.0[1] = 0;
+                return BitSet(selected, PhantomData);
+            }
+            let pos = bits0.trailing_zeros();
+            bits0 &= bits0 - 1;
+            if rng.random_range(0..remaining) < to_pick {
+                selected[0] |= 1u128 << pos;
+                to_pick -= 1;
+            }
+            remaining -= 1;
+        }
+        let mut bits1 = self.0[1];
+        while to_pick > 0 && bits1 != 0 {
+            if remaining == to_pick {
+                selected[1] |= bits1;
+                self.0[0] &= !selected[0];
+                self.0[1] &= !selected[1];
+                return BitSet(selected, PhantomData);
+            }
+            let pos = bits1.trailing_zeros();
+            bits1 &= bits1 - 1;
+            if rng.random_range(0..remaining) < to_pick {
+                selected[1] |= 1u128 << pos;
+                to_pick -= 1;
+            }
+            remaining -= 1;
         }
 
-        for i in 0..count_usize {
-            let j = i + rng.random_range(0..((n_usize - i) as u32)) as usize;
-            arr.swap(i, j);
-        }
-
-        let mut selected = Self::new();
-        for i in 0..count_usize {
-            selected.insert(arr[i]);
-        }
-        self.0[0] &= !selected.0[0];
-        self.0[1] &= !selected.0[1];
-        selected
+        self.0[0] &= !selected[0];
+        self.0[1] &= !selected[1];
+        BitSet(selected, PhantomData)
     }
 
     #[inline]
@@ -257,11 +283,19 @@ impl<T> BitSet<T> {
             return Self::new();
         }
         if c >= BINOM_CUM[0].len() {
-            // Table doesn't cover this c value. Use random bitmask to
-            // independently include each element with p=0.5.
-            let r0 = (rng.random::<u64>() as u128) | ((rng.random::<u64>() as u128) << 64);
-            let r1 = (rng.random::<u64>() as u128) | ((rng.random::<u64>() as u128) << 64);
-            let selected = [self.0[0] & r0, self.0[1] & r1];
+            // Table doesn't cover this c value. Fall back to per-element
+            // coin flips, which gives a uniform random subset when c >= n.
+            let mut selected = [0u128; 2];
+            for word in 0..2 {
+                let mut bits = self.0[word];
+                while bits != 0 {
+                    let pos = bits.trailing_zeros();
+                    bits &= bits - 1;
+                    if rng.random_range(0..2u32) == 0 {
+                        selected[word] |= 1u128 << pos;
+                    }
+                }
+            }
             self.0[0] &= !selected[0];
             self.0[1] &= !selected[1];
             return BitSet(selected, PhantomData);
@@ -279,7 +313,48 @@ impl<T> BitSet<T> {
         if size == 0 {
             return Self::new();
         }
-        self.draw_multiple(size as u32, rng)
+        // Selection sampling for `size` elements
+        let mut remaining = n as u32;
+        let mut to_pick = size as u32;
+        let mut selected = [0u128; 2];
+
+        let mut bits0 = self.0[0];
+        while to_pick > 0 && bits0 != 0 {
+            if remaining == to_pick {
+                selected[0] |= bits0;
+                selected[1] = self.0[1];
+                self.0[0] &= !selected[0];
+                self.0[1] = 0;
+                return BitSet(selected, PhantomData);
+            }
+            let pos = bits0.trailing_zeros();
+            bits0 &= bits0 - 1;
+            if rng.random_range(0..remaining) < to_pick {
+                selected[0] |= 1u128 << pos;
+                to_pick -= 1;
+            }
+            remaining -= 1;
+        }
+        let mut bits1 = self.0[1];
+        while to_pick > 0 && bits1 != 0 {
+            if remaining == to_pick {
+                selected[1] |= bits1;
+                self.0[0] &= !selected[0];
+                self.0[1] &= !selected[1];
+                return BitSet(selected, PhantomData);
+            }
+            let pos = bits1.trailing_zeros();
+            bits1 &= bits1 - 1;
+            if rng.random_range(0..remaining) < to_pick {
+                selected[1] |= 1u128 << pos;
+                to_pick -= 1;
+            }
+            remaining -= 1;
+        }
+
+        self.0[0] &= !selected[0];
+        self.0[1] &= !selected[1];
+        BitSet(selected, PhantomData)
     }
 
     #[inline]
