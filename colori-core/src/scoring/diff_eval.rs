@@ -10,50 +10,50 @@ pub const NUM_PARAMS: usize = 206;
 // ── Parameter indices ──
 
 // Module 1: Color Wheel Value (24 params)
-const COLOR_SAT_W: usize = 0;       // [3] primary, secondary, tertiary
-const COLOR_SAT_A: usize = 3;       // [3]
-const MIX_PAIR_W: usize = 6;        // [9] one per VALID_MIX_PAIRS entry
-const COVERAGE_W: usize = 15;       // [3] per tier
-const COVERAGE_A: usize = 18;       // [3]
-const COVERAGE_B: usize = 21;       // [3]
+pub(crate) const COLOR_SAT_W: usize = 0;       // [3] primary, secondary, tertiary
+pub(crate) const COLOR_SAT_A: usize = 3;       // [3]
+pub(crate) const MIX_PAIR_W: usize = 6;        // [9] one per VALID_MIX_PAIRS entry
+pub(crate) const COVERAGE_W: usize = 15;       // [3] per tier
+pub(crate) const COVERAGE_A: usize = 18;       // [3]
+pub(crate) const COVERAGE_B: usize = 21;       // [3]
 
 // Module 2: Sell Card Alignment (20 params)
-const SELL_MAT_W: usize = 24;       // [3] per material type
-const SELL_DUCAT_W: usize = 27;     // [3] for 2/3/4-ducat tiers
-const SELL_COMBINE_W: usize = 30;   // [2] w_combine, w_color
-const SELL_AGG_W: usize = 32;       // [3] best, second, sum_rest
-const SELL_ROUND_W: usize = 35;     // [2] w_round, b_round
-const SELL_SOLD_W: usize = 37;      // [3] w_sold, a_sold, b_sold
+pub(crate) const SELL_MAT_W: usize = 24;       // [3] per material type
+pub(crate) const SELL_DUCAT_W: usize = 27;     // [3] for 2/3/4-ducat tiers
+pub(crate) const SELL_COMBINE_W: usize = 30;   // [2] w_combine, w_color
+pub(crate) const SELL_AGG_W: usize = 32;       // [3] best, second, sum_rest
+pub(crate) const SELL_ROUND_W: usize = 35;     // [2] w_round, b_round
+pub(crate) const SELL_SOLD_W: usize = 37;      // [3] w_sold, a_sold, b_sold
 // Total module 2: 17 params (I'll adjust)
 
 // Module 3: Deck Color Profile (22 params)
-const DECK_COLOR_SAT_W: usize = 40; // [3] per tier
-const DECK_COLOR_SAT_A: usize = 43; // [3]
-const DECK_PROD_NEED_W: usize = 46; // [3] per ducat tier
-const DECK_ACTION_W: usize = 49;    // [5] Alum, CreamOfTartar, GumArabic, Potash, Chalk
-const DECK_MAT_CARD_W: usize = 54;  // [3] starter, colored, dual
-const DECK_SIZE_W: usize = 57;      // [2] linear, quadratic
-const DECK_DIVERSITY_W: usize = 59; // [1]
-const DECK_WORKSHOP_W: usize = 60;  // [1]
+pub(crate) const DECK_COLOR_SAT_W: usize = 40; // [3] per tier
+pub(crate) const DECK_COLOR_SAT_A: usize = 43; // [3]
+pub(crate) const DECK_PROD_NEED_W: usize = 46; // [3] per ducat tier
+pub(crate) const DECK_ACTION_W: usize = 49;    // [5] Alum, CreamOfTartar, GumArabic, Potash, Chalk
+pub(crate) const DECK_MAT_CARD_W: usize = 54;  // [3] starter, colored, dual
+pub(crate) const DECK_SIZE_W: usize = 57;      // [2] linear, quadratic
+pub(crate) const DECK_DIVERSITY_W: usize = 59; // [1]
+pub(crate) const DECK_WORKSHOP_W: usize = 60;  // [1]
 
 // Module 4: Material Strategy (11 params)
-const MAT_SUFF_W: usize = 61;       // [3] per type
-const MAT_SUFF_THRESH: usize = 64;  // [3]
-const MAT_DEMAND_W: usize = 67;     // [3]
-const MAT_DIVERSITY_W: usize = 70;  // [2]
+pub(crate) const MAT_SUFF_W: usize = 61;       // [3] per type
+pub(crate) const MAT_SUFF_THRESH: usize = 64;  // [3]
+pub(crate) const MAT_DEMAND_W: usize = 67;     // [3]
+pub(crate) const MAT_DIVERSITY_W: usize = 70;  // [2]
 
 // Aggregation MLP: 6 → 16 → 1 (129 params)
-const MLP_W1: usize = 72;           // [6 * 16 = 96]
-const MLP_B1: usize = 168;          // [16]
-const MLP_W2: usize = 184;          // [16]
-const MLP_B2: usize = 200;          // [1]
+pub(crate) const MLP_W1: usize = 72;           // [6 * 16 = 96]
+pub(crate) const MLP_B1: usize = 168;          // [16]
+pub(crate) const MLP_W2: usize = 184;          // [16]
+pub(crate) const MLP_B2: usize = 200;          // [1]
 
 // Heuristic control parameters (non-differentiable)
-const HEURISTIC_ROUND_THRESHOLD: usize = 201;
-const HEURISTIC_LOOKAHEAD: usize = 202;
+pub(crate) const HEURISTIC_ROUND_THRESHOLD: usize = 201;
+pub(crate) const HEURISTIC_LOOKAHEAD: usize = 202;
 
 // Reserved
-const _RESERVED_START: usize = 203;
+pub(crate) const _RESERVED_START: usize = 203;
 
 /// All learnable weights for the differentiable evaluation model.
 /// Stored as a Vec for serde compatibility (Rust serde doesn't support [f64; 206]).

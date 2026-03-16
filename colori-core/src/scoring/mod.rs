@@ -1,4 +1,5 @@
 pub mod diff_eval;
+pub mod diff_eval_grad;
 mod heuristic_params;
 
 pub use diff_eval::{DiffEvalParams, DiffEvalTable, diff_eval_score, compute_diff_eval_rewards};
