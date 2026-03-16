@@ -6,7 +6,7 @@ use colori_core::game_log::StructuredGameLog;
 use crate::analysis::categories::{draft_card_categories, get_starter_card_categories, CardCategory};
 use crate::analysis::computations::*;
 use crate::analysis::stats::wilson_confidence_interval;
-use crate::widgets::bar_table::{bar_table, win_rate_table};
+use crate::widgets::bar_table::{bar_table, win_rate_color, win_rate_table};
 use crate::widgets::stat_grid::{stat_grid, StatCard};
 
 /// Cached analysis results. Recomputed when filter changes.
@@ -28,6 +28,7 @@ pub struct CachedAnalysis {
     pub color_stats: HashMap<String, f64>,
     pub duration_stats: Option<DurationStats>,
     pub variant_win_rate: Option<HashMap<String, WinRateEntry>>,
+    pub variant_elo: Option<HashMap<String, f64>>,
     pub penultimate_deck_sizes: std::collections::BTreeMap<u32, usize>,
     pub round_count_dist: std::collections::BTreeMap<u32, usize>,
     pub card_win_rate: HashMap<String, WinRateEntry>,
@@ -69,6 +70,7 @@ impl CachedAnalysis {
         let color_stats = compute_color_wheel_stats(logs, filter_ref);
         let duration_stats = compute_duration_stats(logs);
         let variant_win_rate = compute_win_rate_by_variant(logs);
+        let variant_elo = compute_elo_by_variant(logs);
         let penultimate_deck_sizes = compute_penultimate_round_deck_sizes(logs, filter_ref);
         let round_count_dist = compute_round_count_distribution(logs);
         let card_win_rate = compute_win_rate_by_card(logs, filter_ref);
@@ -139,6 +141,7 @@ impl CachedAnalysis {
             color_stats,
             duration_stats,
             variant_win_rate,
+            variant_elo,
             penultimate_deck_sizes,
             round_count_dist,
             card_win_rate,
@@ -262,28 +265,76 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis, num_gam
                     ui.strong("Win Rate by Variant");
                 })
                 .body(|ui| {
+                    let elo_map = analysis.variant_elo.as_ref();
                     let mut entries: Vec<_> = variant_wr.iter().collect();
+                    // Sort by Elo descending
                     entries.sort_by(|a, b| {
-                        let rate_a = if a.1.games > 0.0 {
-                            a.1.wins / a.1.games
-                        } else {
-                            0.0
-                        };
-                        let rate_b = if b.1.games > 0.0 {
-                            b.1.wins / b.1.games
-                        } else {
-                            0.0
-                        };
-                        rate_b.partial_cmp(&rate_a).unwrap()
+                        let elo_a = elo_map.and_then(|m| m.get(a.0.as_str())).copied().unwrap_or(1500.0);
+                        let elo_b = elo_map.and_then(|m| m.get(b.0.as_str())).copied().unwrap_or(1500.0);
+                        elo_b.partial_cmp(&elo_a).unwrap()
                     });
-                    let rows: Vec<_> = entries
-                        .iter()
-                        .map(|(label, entry)| {
-                            let ci = wilson_confidence_interval(entry.wins, entry.games);
-                            (label.to_string(), entry.wins, entry.games, ci)
-                        })
-                        .collect();
-                    win_rate_table(ui, "Variant", "Games", &rows);
+
+                    egui::Grid::new(ui.next_auto_id())
+                        .striped(true)
+                        .min_col_width(60.0)
+                        .show(ui, |ui| {
+                            ui.strong("Variant");
+                            ui.strong("Wins");
+                            ui.strong("Games");
+                            ui.strong("Win %");
+                            ui.strong("95% CI");
+                            ui.strong("Elo");
+                            ui.end_row();
+
+                            for (label, entry) in &entries {
+                                ui.label(label.as_str());
+                                if (entry.wins - entry.wins.round()).abs() < 0.01 {
+                                    ui.label(format!("{}", entry.wins as i64));
+                                } else {
+                                    ui.label(format!("{:.1}", entry.wins));
+                                }
+                                ui.label(format!("{}", entry.games as i64));
+                                let pct = if entry.games > 0.0 {
+                                    entry.wins / entry.games * 100.0
+                                } else {
+                                    0.0
+                                };
+                                let bar_width = 60.0;
+                                let bar_height = 16.0;
+                                ui.horizontal(|ui| {
+                                    let (rect, _) = ui.allocate_exact_size(
+                                        egui::vec2(bar_width, bar_height),
+                                        egui::Sense::hover(),
+                                    );
+                                    if ui.is_rect_visible(rect) {
+                                        let fraction = (pct / 100.0).clamp(0.0, 1.0) as f32;
+                                        let bar_rect = egui::Rect::from_min_size(
+                                            rect.min,
+                                            egui::vec2(rect.width() * fraction, rect.height()),
+                                        );
+                                        let color = win_rate_color(fraction);
+                                        ui.painter().rect_filled(bar_rect, 2.0, color);
+                                        ui.painter().text(
+                                            rect.center(),
+                                            egui::Align2::CENTER_CENTER,
+                                            format!("{:.1}%", pct),
+                                            egui::FontId::default(),
+                                            ui.visuals().text_color(),
+                                        );
+                                    }
+                                });
+                                let ci = wilson_confidence_interval(entry.wins, entry.games);
+                                match ci {
+                                    Some((lower, upper)) => {
+                                        ui.label(format!("[{:.1}%, {:.1}%]", lower, upper))
+                                    }
+                                    None => ui.label("\u{2013}"),
+                                };
+                                let elo = elo_map.and_then(|m| m.get(label.as_str())).copied().unwrap_or(1500.0);
+                                ui.label(format!("{:.0}", elo));
+                                ui.end_row();
+                            }
+                        });
                 });
         }
 

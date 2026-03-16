@@ -882,6 +882,91 @@ pub fn compute_win_rate_by_variant(
     }
 }
 
+/// Compute Elo ratings for each variant using multiplayer pairwise comparisons.
+///
+/// Each game is treated as a set of pairwise matchups between all variants.
+/// K-factor is normalized by (N-1) where N is the number of players.
+pub fn compute_elo_by_variant(
+    logs: &[StructuredGameLog],
+) -> Option<HashMap<String, f64>> {
+    let has_variants = logs.iter().any(|log| log.player_variants.is_some());
+    if !has_variants {
+        return None;
+    }
+
+    let k: f64 = 32.0;
+    let initial_elo: f64 = 1500.0;
+    let mut elos: HashMap<String, f64> = HashMap::new();
+
+    for log in logs {
+        let variants = match &log.player_variants {
+            Some(v) => v,
+            None => continue,
+        };
+        let final_scores = match &log.final_scores {
+            Some(fs) => fs,
+            None => continue,
+        };
+
+        let n = variants.len();
+        if n < 2 {
+            continue;
+        }
+
+        let (is_winner_fn, num_winners) = compute_winners(final_scores);
+
+        let labels: Vec<String> = variants
+            .iter()
+            .map(|v| format_variant_label(v, Some(variants)))
+            .collect();
+
+        let current_elos: Vec<f64> = labels
+            .iter()
+            .map(|l| *elos.get(l).unwrap_or(&initial_elo))
+            .collect();
+
+        // Actual scores: 1/num_winners for winners, 0 for losers
+        let actual_scores: Vec<f64> = (0..n)
+            .map(|i| {
+                if i < log.player_names.len() && is_winner_fn(&log.player_names[i]) {
+                    1.0 / num_winners as f64
+                } else {
+                    0.0
+                }
+            })
+            .collect();
+
+        let k_adj = k / (n - 1) as f64;
+
+        for i in 0..n {
+            let mut delta = 0.0;
+            for j in 0..n {
+                if i == j {
+                    continue;
+                }
+                let expected =
+                    1.0 / (1.0 + 10.0_f64.powf((current_elos[j] - current_elos[i]) / 400.0));
+                let actual = if actual_scores[i] > actual_scores[j] {
+                    1.0
+                } else if (actual_scores[i] - actual_scores[j]).abs() < f64::EPSILON {
+                    0.5
+                } else {
+                    0.0
+                };
+                delta += k_adj * (actual - expected);
+            }
+            let rating = elos.entry(labels[i].clone()).or_insert(initial_elo);
+            *rating += delta;
+        }
+    }
+
+    if elos.is_empty() {
+        None
+    } else {
+        Some(elos)
+    }
+}
+
 /// Compute aggregate win rate stats per category.
 pub fn compute_win_rate_category_stats(
     win_rates: &HashMap<String, WinRateEntry>,

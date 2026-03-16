@@ -118,7 +118,7 @@ pub fn win_rate_table(
 }
 
 /// Returns a color for win rate: red (0%) → yellow (50%) → green (100%).
-fn win_rate_color(fraction: f32) -> egui::Color32 {
+pub fn win_rate_color(fraction: f32) -> egui::Color32 {
     let f = fraction.clamp(0.0, 1.0);
     let (r, g) = if f < 0.5 {
         // Red to yellow
