@@ -17,6 +17,7 @@ pub struct MctsConfig {
     pub max_rollout_steps: u32,
     pub use_heuristic_eval: bool,
     pub progressive_bias_weight: f64,
+    pub rave_constant: f64,
     pub heuristic_params: HeuristicParams,
 }
 
@@ -28,6 +29,7 @@ impl Default for MctsConfig {
             max_rollout_steps: 1000,
             use_heuristic_eval: true,
             progressive_bias_weight: 0.0,
+            rave_constant: 0.0,
             heuristic_params: HeuristicParams::default(),
         }
     }
@@ -51,6 +53,8 @@ impl<'de> Deserialize<'de> for MctsConfig {
             use_heuristic_eval: bool,
             #[serde(default = "default_progressive_bias_weight")]
             progressive_bias_weight: f64,
+            #[serde(default = "default_rave_constant")]
+            rave_constant: f64,
             #[serde(default)]
             heuristic_params: HeuristicParams,
         }
@@ -60,6 +64,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
         fn default_max_rollout_steps() -> u32 { 1000 }
         fn default_use_heuristic_eval() -> bool { true }
         fn default_progressive_bias_weight() -> f64 { 0.0 }
+        fn default_rave_constant() -> f64 { 0.0 }
 
         let helper = MctsConfigHelper::deserialize(deserializer)?;
         Ok(MctsConfig {
@@ -68,6 +73,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
             max_rollout_steps: helper.max_rollout_steps,
             use_heuristic_eval: helper.use_heuristic_eval,
             progressive_bias_weight: helper.progressive_bias_weight,
+            rave_constant: helper.rave_constant,
             heuristic_params: helper.heuristic_params,
         })
     }
@@ -81,6 +87,7 @@ struct MctsNode {
     availability_count: u32,
     ln_availability: f64,
     heuristic_bias: f64,
+    amaf_stats: Vec<(Choice, f64, u32)>,
     children: Vec<MctsNode>,
 }
 
@@ -94,6 +101,7 @@ impl MctsNode {
             availability_count: 0,
             ln_availability: 0.0,
             heuristic_bias: 0.0,
+            amaf_stats: Vec::new(),
             children: Vec::new(),
         }
     }
@@ -157,16 +165,6 @@ fn upper_confidence_bound(
 ) -> f64 {
     let win_rate = cumulative_reward / visit_count as f64;
     win_rate + c * ((total_visit_count as f64).ln() / visit_count as f64).sqrt()
-}
-
-fn upper_confidence_bound_with_ln(
-    cumulative_reward: f64,
-    visit_count: u32,
-    ln_total: f64,
-    c: f64,
-) -> f64 {
-    let win_rate = cumulative_reward / visit_count as f64;
-    win_rate + c * (ln_total / visit_count as f64).sqrt()
 }
 
 // ── DUCT (Decoupled UCT) for opponent draft modeling ──
@@ -338,6 +336,7 @@ pub fn ismcts<R: Rng>(
 
     let mut opponent_stats = OpponentDraftStats::new();
     let mut pick_log: Vec<(u32, usize, Card)> = Vec::new();
+    let mut move_log: Vec<(usize, Choice)> = Vec::new();
 
     let (effective_max_rollout_round, use_heuristic) = if config.use_heuristic_eval && {
         if let Some(score_threshold) = config.heuristic_params.heuristic_score_threshold {
@@ -356,6 +355,7 @@ pub fn ismcts<R: Rng>(
 
     for _ in 0..config.iterations {
         pick_log.clear();
+        move_log.clear();
         determinize_in_place(&mut det_state, state, player_index, known_draft_hands, &cached_scores, rng);
         advance_past_opponent_draft_picks(
             &mut det_state, player_index, &mut opponent_stats,
@@ -364,7 +364,7 @@ pub fn ismcts<R: Rng>(
         let scores = iteration_simultaneous(
             &mut root, &mut det_state, player_index,
             &mut opponent_stats, &mut pick_log,
-            effective_max_rollout_round, use_heuristic, config, &mut choices_buf, &mut availability_buf, &card_table, rng,
+            effective_max_rollout_round, use_heuristic, config, &mut choices_buf, &mut availability_buf, &card_table, &mut move_log, rng,
         );
         for &(pick_round, player, card) in &pick_log {
             let reward = scores[player];
@@ -408,6 +408,7 @@ fn iteration_simultaneous<R: Rng>(
     choices_buf: &mut Vec<Choice>,
     availability_buf: &mut Vec<bool>,
     card_table: &CardHeuristicTable,
+    move_log: &mut Vec<(usize, Choice)>,
     rng: &mut R,
 ) -> [f64; MAX_PLAYERS] {
     let active_player = if matches!(state.phase, GamePhase::GameOver) {
@@ -435,7 +436,7 @@ fn iteration_simultaneous<R: Rng>(
 
     // Select
     let best_idx =
-        match select(node, availability_buf, config.exploration_constant, config.progressive_bias_weight)
+        match select(node, availability_buf, config.exploration_constant, config.progressive_bias_weight, config.rave_constant)
         {
             Some(idx) => idx,
             None => {
@@ -444,6 +445,12 @@ fn iteration_simultaneous<R: Rng>(
                 return empty_scores;
             }
         };
+
+    // Track move for RAVE
+    let log_start = move_log.len();
+    if config.rave_constant > 0.0 {
+        move_log.push((active_player, node.children[best_idx].choice.as_ref().unwrap().clone()));
+    }
 
     // Apply selected child's choice
     let choice = node.children[best_idx].choice.as_ref().unwrap();
@@ -468,7 +475,11 @@ fn iteration_simultaneous<R: Rng>(
     }
 
     let scores = if should_rollout {
-        let scores = rollout(state, max_rollout_round, config.max_rollout_steps, use_heuristic, &config.heuristic_params, card_table, rng);
+        let scores = if config.rave_constant > 0.0 {
+            rollout_with_tracking(state, max_rollout_round, config.max_rollout_steps, use_heuristic, &config.heuristic_params, card_table, move_log, choices_buf, rng)
+        } else {
+            rollout(state, max_rollout_round, config.max_rollout_steps, use_heuristic, &config.heuristic_params, card_table, rng)
+        };
         record_outcome(&mut node.children[best_idx], &scores);
         scores
     } else {
@@ -476,9 +487,20 @@ fn iteration_simultaneous<R: Rng>(
         iteration_simultaneous(
             child, state, perspective_player,
             opponent_stats, pick_log,
-            max_rollout_round, use_heuristic, config, choices_buf, availability_buf, card_table, rng,
+            max_rollout_round, use_heuristic, config, choices_buf, availability_buf, card_table, move_log, rng,
         )
     };
+
+    // Update AMAF stats at this node
+    if config.rave_constant > 0.0 {
+        let node_player = node.player_index;
+        let reward = scores[node_player];
+        for (player, choice) in &move_log[log_start..] {
+            if *player == node_player {
+                update_amaf(node, choice, reward);
+            }
+        }
+    }
 
     record_outcome(node, &scores);
     scores
@@ -489,6 +511,7 @@ fn select(
     available: &[bool],
     c: f64,
     progressive_bias_weight: f64,
+    rave_constant: f64,
 ) -> Option<usize> {
     let mut best_idx: Option<usize> = None;
     let mut best_value = f64::NEG_INFINITY;
@@ -504,8 +527,26 @@ fn select(
             f64::INFINITY
         } else {
             let ln_total = if node.is_root() { root_ln } else { child.ln_availability };
-            upper_confidence_bound_with_ln(child.cumulative_reward, child.visit_count, ln_total, c)
-                + progressive_bias_weight * child.heuristic_bias / (1.0 + child.visit_count as f64)
+            let visit_count_f = child.visit_count as f64;
+            let win_rate = child.cumulative_reward / visit_count_f;
+            let exploration = c * (ln_total / visit_count_f).sqrt();
+
+            let effective_win_rate = if rave_constant > 0.0 {
+                if let Some((_, amaf_reward, amaf_visits)) = node.amaf_stats.iter()
+                    .find(|s| s.0 == *child.choice.as_ref().unwrap())
+                {
+                    let amaf_rate = amaf_reward / *amaf_visits as f64;
+                    let beta = (rave_constant / (3.0 * visit_count_f + rave_constant)).sqrt();
+                    (1.0 - beta) * win_rate + beta * amaf_rate
+                } else {
+                    win_rate
+                }
+            } else {
+                win_rate
+            };
+
+            effective_win_rate + exploration
+                + progressive_bias_weight * child.heuristic_bias / (1.0 + visit_count_f)
         };
 
         if value > best_value {
@@ -526,6 +567,67 @@ fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_ro
             return eval_scores(state, use_heuristic, params, card_table);
         }
         apply_rollout_step(state, rng);
+    }
+
+    if matches!(state.phase, GamePhase::GameOver) {
+        return compute_terminal_rewards(&state.players);
+    }
+    if max_rollout_round.is_some_and(|mr| state.round > mr) {
+        return eval_scores(state, use_heuristic, params, card_table);
+    }
+
+    [0.0; MAX_PLAYERS]
+}
+
+fn update_amaf(node: &mut MctsNode, choice: &Choice, reward: f64) {
+    for stat in node.amaf_stats.iter_mut() {
+        if &stat.0 == choice {
+            stat.1 += reward;
+            stat.2 += 1;
+            return;
+        }
+    }
+    node.amaf_stats.push((choice.clone(), reward, 1));
+}
+
+fn rollout_with_tracking<R: Rng>(
+    state: &mut GameState,
+    max_rollout_round: Option<u32>,
+    max_rollout_steps: u32,
+    use_heuristic: bool,
+    params: &HeuristicParams,
+    card_table: &CardHeuristicTable,
+    move_log: &mut Vec<(usize, Choice)>,
+    choices_buf: &mut Vec<Choice>,
+    rng: &mut R,
+) -> [f64; MAX_PLAYERS] {
+    for _ in 0..max_rollout_steps {
+        if matches!(state.phase, GamePhase::GameOver) {
+            return compute_terminal_rewards(&state.players);
+        }
+        if max_rollout_round.is_some_and(|mr| state.round > mr) {
+            return eval_scores(state, use_heuristic, params, card_table);
+        }
+
+        let active_player = match &state.phase {
+            GamePhase::Draft { draft_state } => draft_state.current_player_index,
+            GamePhase::Action { action_state } => action_state.current_player_index,
+            GamePhase::Draw => {
+                apply_rollout_step(state, rng);
+                continue;
+            }
+            GamePhase::GameOver => break,
+        };
+
+        enumerate_choices_into(state, choices_buf);
+        if choices_buf.is_empty() {
+            break;
+        }
+
+        let idx = rng.random_range(0..choices_buf.len());
+        let choice = &choices_buf[idx];
+        move_log.push((active_player, choice.clone()));
+        apply_choice_to_state(state, choice, rng);
     }
 
     if matches!(state.phase, GamePhase::GameOver) {
