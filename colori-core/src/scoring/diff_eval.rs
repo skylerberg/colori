@@ -5,7 +5,7 @@ use crate::fixed_vec::FixedVec;
 use crate::types::*;
 
 /// Number of learnable parameters in the differentiable evaluation model.
-pub const NUM_PARAMS: usize = 206;
+pub const NUM_PARAMS: usize = 207;
 
 // ── Parameter indices ──
 
@@ -52,8 +52,10 @@ pub(crate) const MLP_B2: usize = 200;          // [1]
 pub(crate) const HEURISTIC_ROUND_THRESHOLD: usize = 201;
 pub(crate) const HEURISTIC_LOOKAHEAD: usize = 202;
 
+pub(crate) const PROGRESSIVE_BIAS_WEIGHT: usize = 203;
+
 // Reserved
-pub(crate) const _RESERVED_START: usize = 203;
+pub(crate) const _RESERVED_START: usize = 204;
 
 /// All learnable weights for the differentiable evaluation model.
 /// Stored as a Vec for serde compatibility (Rust serde doesn't support [f64; 206]).
@@ -72,13 +74,15 @@ impl Serialize for DiffEvalParams {
 impl<'de> Deserialize<'de> for DiffEvalParams {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let vec = Vec::<f64>::deserialize(deserializer)?;
-        if vec.len() != NUM_PARAMS {
+        if vec.len() > NUM_PARAMS {
             return Err(serde::de::Error::custom(
-                format!("expected {} weights, got {}", NUM_PARAMS, vec.len())
+                format!("expected at most {} weights, got {}", NUM_PARAMS, vec.len())
             ));
         }
-        let mut weights = [0.0; NUM_PARAMS];
-        weights.copy_from_slice(&vec);
+        // Pad with defaults for backwards compatibility with older checkpoints
+        let defaults = DiffEvalParams::default();
+        let mut weights = defaults.weights;
+        weights[..vec.len()].copy_from_slice(&vec);
         Ok(DiffEvalParams { weights })
     }
 }
@@ -188,6 +192,7 @@ impl Default for DiffEvalParams {
         // Control params
         w[HEURISTIC_ROUND_THRESHOLD] = 3.0;
         w[HEURISTIC_LOOKAHEAD] = 3.0;
+        w[PROGRESSIVE_BIAS_WEIGHT] = 0.0;
 
         DiffEvalParams { weights: w }
     }
@@ -200,6 +205,10 @@ impl DiffEvalParams {
 
     pub fn heuristic_lookahead(&self) -> u32 {
         self.weights[HEURISTIC_LOOKAHEAD].max(1.0) as u32
+    }
+
+    pub fn progressive_bias_weight(&self) -> f64 {
+        self.weights[PROGRESSIVE_BIAS_WEIGHT]
     }
 }
 

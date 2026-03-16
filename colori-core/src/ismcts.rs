@@ -346,6 +346,16 @@ pub fn ismcts<R: Rng>(
         cached_scores[i] = calculate_score(p);
     }
 
+    // If diff eval specifies a progressive bias weight, use it
+    let effective_progressive_bias = config.diff_eval_params.as_ref()
+        .map(|dep| dep.progressive_bias_weight())
+        .filter(|&w| w != 0.0)
+        .unwrap_or(config.progressive_bias_weight);
+    let config = &MctsConfig {
+        progressive_bias_weight: effective_progressive_bias,
+        ..config.clone()
+    };
+
     let mut availability_buf: Vec<bool> = Vec::new();
     let card_table = CardHeuristicTable::new(&config.heuristic_params);
     let diff_table = config.diff_eval_params.as_ref().map(|_| DiffEvalTable::new());
