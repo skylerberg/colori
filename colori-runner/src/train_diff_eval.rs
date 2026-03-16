@@ -76,6 +76,7 @@ fn generate_training_data(
     eval_iterations: u32,
     num_threads: usize,
     heuristic_params: &HeuristicParams,
+    diff_eval_params: Option<&DiffEvalParams>,
     epoch: usize,
 ) -> Vec<TrainingSample> {
     let samples = std::sync::Mutex::new(Vec::new());
@@ -91,13 +92,17 @@ fn generate_training_data(
             let samples = &samples;
             let completed = &completed;
             let hp = heuristic_params.clone();
+            let dep = diff_eval_params.cloned();
+            let game_offset = t * games_per_thread + t.min(remainder);
 
             handles.push(s.spawn(move || {
                 let mut rng = WyRand::from_rng(&mut rand::rng());
                 let mut thread_samples = Vec::new();
 
-                for _ in 0..count {
-                    let game_samples = play_game_and_collect(&hp, eval_iterations, &mut rng);
+                for game_i in 0..count {
+                    let game_samples = play_game_and_collect(
+                        &hp, dep.as_ref(), eval_iterations, game_offset + game_i, &mut rng,
+                    );
                     thread_samples.extend(game_samples);
 
                     let done = completed.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
@@ -120,9 +125,14 @@ fn generate_training_data(
     samples
 }
 
+/// Play a game and collect training samples.
+/// If `diff_eval_params` is Some, one player uses diff-eval and the other uses the baseline
+/// heuristic (alternating sides based on `game_index`). If None, both players use the baseline.
 fn play_game_and_collect(
     heuristic_params: &HeuristicParams,
+    diff_eval_params: Option<&DiffEvalParams>,
     eval_iterations: u32,
+    game_index: usize,
     rng: &mut WyRand,
 ) -> Vec<TrainingSample> {
     let num_players = 2;
@@ -130,11 +140,28 @@ fn play_game_and_collect(
     let expansions = Expansions { glass: false };
     let mut state = create_initial_game_state_with_expansions(num_players, &ai_players, expansions, rng);
 
-    let config = MctsConfig {
+    let baseline_config = MctsConfig {
         iterations: eval_iterations,
         use_heuristic_eval: true,
         heuristic_params: heuristic_params.clone(),
         ..MctsConfig::default()
+    };
+
+    let configs: [MctsConfig; 2] = if let Some(dep) = diff_eval_params {
+        let diff_config = MctsConfig {
+            iterations: eval_iterations,
+            use_heuristic_eval: true,
+            diff_eval_params: Some(dep.clone()),
+            ..MctsConfig::default()
+        };
+        // Alternate sides based on game index
+        if game_index % 2 == 0 {
+            [diff_config, baseline_config]
+        } else {
+            [baseline_config.clone(), diff_config]
+        }
+    } else {
+        [baseline_config.clone(), baseline_config]
     };
 
     execute_draw_phase(&mut state, rng);
@@ -166,8 +193,9 @@ fn play_game_and_collect(
             GamePhase::GameOver => break,
         };
 
+        let config = &configs[player_index];
         let max_rollout_round = std::cmp::max(8, state.round + 2);
-        let choice = ismcts(&state, player_index, &config, &None, Some(max_rollout_round), rng);
+        let choice = ismcts(&state, player_index, config, &None, Some(max_rollout_round), rng);
         apply_choice_to_state(&mut state, &choice, rng);
     }
 
@@ -260,6 +288,7 @@ pub struct TrainArgs {
     pub batch_size: usize,
     pub lr: f64,
     pub eval_iterations: u32,
+    pub vs_baseline: bool,
     pub threads: usize,
     pub output: String,
 }
@@ -268,7 +297,9 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
     eprintln!("=== Diff Eval Training ===");
     eprintln!("Games/epoch: {}, Epochs: {}, Batch size: {}, LR: {}",
         train.games, train.epochs, train.batch_size, train.lr);
-    eprintln!("MCTS iterations: {}, Threads: {}", train.eval_iterations, train.threads);
+    eprintln!("MCTS iterations: {}, Threads: {}, Mode: {}",
+        train.eval_iterations, train.threads,
+        if train.vs_baseline { "vs baseline" } else { "self-play" });
 
     // Use baseline heuristic params from first variant (or default)
     let baseline_params = if !args.variants.is_empty() {
@@ -290,8 +321,9 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
 
     // Training loop: fresh data each epoch
     for epoch in start_epoch..train.epochs {
+        let dep = if train.vs_baseline { Some(&params) } else { None };
         let samples = generate_training_data(
-            train.games, train.eval_iterations, train.threads, &baseline_params, epoch,
+            train.games, train.eval_iterations, train.threads, &baseline_params, dep, epoch,
         );
         if samples.is_empty() {
             eprintln!("No training samples generated for epoch {}!", epoch + 1);

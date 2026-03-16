@@ -19,6 +19,7 @@ pub struct SimulationArgs {
     pub train_epochs: usize,
     pub train_batch_size: usize,
     pub train_lr: f64,
+    pub train_vs_baseline: bool,
 }
 
 pub struct CmaEsArgs {
@@ -114,6 +115,7 @@ pub fn parse_args() -> SimulationArgs {
     let mut tournament = false;
 
     let mut train_diff_eval = false;
+    let mut train_vs_baseline = false;
     let mut train_games_per_epoch = 1000usize;
     let mut train_epochs = 100usize;
     let mut train_batch_size = 256usize;
@@ -183,6 +185,11 @@ pub fn parse_args() -> SimulationArgs {
             }
             "--train-diff-eval" => {
                 train_diff_eval = true;
+                i += 1;
+                continue;
+            }
+            "--train-vs-baseline" => {
+                train_vs_baseline = true;
                 i += 1;
                 continue;
             }
@@ -298,6 +305,7 @@ pub fn parse_args() -> SimulationArgs {
         genetic: genetic_args,
         tournament,
         train_diff_eval,
+        train_vs_baseline,
         train_games_per_epoch,
         train_epochs,
         train_batch_size,

@@ -46,6 +46,7 @@ fn main() {
             batch_size: args.train_batch_size,
             lr: args.train_lr,
             eval_iterations: if !args.variants.is_empty() { args.variants[0].ai.iterations } else { 100 },
+            vs_baseline: args.train_vs_baseline,
             threads: args.threads,
             output: args.output.clone(),
         };
