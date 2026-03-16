@@ -73,6 +73,7 @@ struct MctsNode {
     player_index: usize,
     choice: Option<Choice>,
     availability_count: u32,
+    ln_availability: f64,
     children: Vec<MctsNode>,
 }
 
@@ -84,6 +85,7 @@ impl MctsNode {
             player_index,
             choice,
             availability_count: 0,
+            ln_availability: 0.0,
             children: Vec::new(),
         }
     }
@@ -112,6 +114,7 @@ impl MctsNode {
             {
                 if !available[idx] {
                     self.children[idx].availability_count += 1;
+                    self.children[idx].ln_availability = (self.children[idx].availability_count as f64).ln();
                     available[idx] = true;
                 }
             } else {
@@ -483,8 +486,7 @@ fn select(
         } else if node.is_root() {
             upper_confidence_bound_with_ln(child.cumulative_reward, child.visit_count, root_ln, c)
         } else {
-            let total_visit_count = child.availability_count.max(1);
-            upper_confidence_bound(child.cumulative_reward, child.visit_count, total_visit_count, c)
+            upper_confidence_bound_with_ln(child.cumulative_reward, child.visit_count, child.ln_availability, c)
         };
 
         if value > best_value {
