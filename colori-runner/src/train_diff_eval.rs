@@ -465,8 +465,9 @@ fn load_checkpoint(output_dir: &str, lr: f64) -> (DiffEvalParams, Adam, usize) {
             match serde_json::from_str::<Checkpoint>(&json) {
                 Ok(cp) => {
                     let mut optimizer = Adam::new(lr);
-                    optimizer.m.copy_from_slice(&cp.adam_m);
-                    optimizer.v.copy_from_slice(&cp.adam_v);
+                    let len = cp.adam_m.len().min(NUM_PARAMS);
+                    optimizer.m[..len].copy_from_slice(&cp.adam_m[..len]);
+                    optimizer.v[..len].copy_from_slice(&cp.adam_v[..len]);
                     optimizer.t = cp.adam_t;
                     (cp.params, optimizer, cp.epoch)
                 }
