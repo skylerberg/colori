@@ -336,6 +336,7 @@ pub struct TrainArgs {
     pub games: usize,
     pub epochs: usize,
     pub batch_size: usize,
+    pub passes: usize,
     pub lr: f64,
     pub eval_iterations: u32,
     pub vs_baseline: bool,
@@ -345,8 +346,8 @@ pub struct TrainArgs {
 
 pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
     eprintln!("=== Diff Eval Training ===");
-    eprintln!("Games/epoch: {}, Epochs: {}, Batch size: {}, LR: {}",
-        train.games, train.epochs, train.batch_size, train.lr);
+    eprintln!("Games/epoch: {}, Epochs: {}, Batch size: {}, Passes: {}, LR: {}",
+        train.games, train.epochs, train.batch_size, train.passes, train.lr);
     eprintln!("MCTS iterations: {}, Threads: {}, Mode: {}",
         train.eval_iterations, train.threads,
         if train.vs_baseline { "vs baseline" } else { "self-play" });
@@ -386,22 +387,24 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
             continue;
         }
 
-        // Shuffle and train on mini-batches
+        // Train on mini-batches with multiple passes over the data
         let train_start = std::time::Instant::now();
         use rand::seq::SliceRandom;
         let mut rng = WyRand::from_rng(&mut rand::rng());
         let mut indices: Vec<usize> = (0..samples.len()).collect();
-        indices.shuffle(&mut rng);
 
         let mut epoch_loss = 0.0;
         let mut num_batches = 0;
 
-        for chunk in indices.chunks(train.batch_size) {
-            let batch: Vec<&TrainingSample> = chunk.iter().map(|&i| &samples[i]).collect();
-            let (loss, grads) = compute_loss_and_grads(&batch, &params, &table);
-            optimizer.step(&mut params, &grads);
-            epoch_loss += loss;
-            num_batches += 1;
+        for _ in 0..train.passes {
+            indices.shuffle(&mut rng);
+            for chunk in indices.chunks(train.batch_size) {
+                let batch: Vec<&TrainingSample> = chunk.iter().map(|&i| &samples[i]).collect();
+                let (loss, grads) = compute_loss_and_grads(&batch, &params, &table);
+                optimizer.step(&mut params, &grads);
+                epoch_loss += loss;
+                num_batches += 1;
+            }
         }
 
         let avg_loss = epoch_loss / num_batches as f64;

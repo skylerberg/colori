@@ -44,6 +44,7 @@ fn main() {
             games: args.train_games_per_epoch,
             epochs: args.train_epochs,
             batch_size: args.train_batch_size,
+            passes: args.train_passes,
             lr: args.train_lr,
             eval_iterations: args.train_eval_iterations,
             vs_baseline: args.train_vs_baseline,

@@ -20,6 +20,7 @@ pub struct SimulationArgs {
     pub train_games_per_epoch: usize,
     pub train_epochs: usize,
     pub train_batch_size: usize,
+    pub train_passes: usize,
     pub train_lr: f64,
     pub train_vs_baseline: bool,
     pub train_eval_iterations: u32,
@@ -138,7 +139,8 @@ pub fn parse_args() -> SimulationArgs {
     let mut train_vs_baseline = false;
     let mut train_games_per_epoch = 500usize;
     let mut train_epochs = 100_000usize;
-    let mut train_batch_size = 256usize;
+    let mut train_batch_size = 64usize;
+    let mut train_passes = 10usize;
     let mut train_lr = 1e-3f64;
 
     let mut genetic = false;
@@ -224,6 +226,10 @@ pub fn parse_args() -> SimulationArgs {
             "--train-batch-size" => {
                 i += 1;
                 train_batch_size = args[i].parse().expect("Invalid --train-batch-size value");
+            }
+            "--train-passes" => {
+                i += 1;
+                train_passes = args[i].parse().expect("Invalid --train-passes value");
             }
             "--train-lr" => {
                 i += 1;
@@ -330,6 +336,7 @@ pub fn parse_args() -> SimulationArgs {
         train_games_per_epoch,
         train_epochs,
         train_batch_size,
+        train_passes,
         train_lr,
         train_eval_iterations: eval_iterations,
         baseline_heuristic_params,
