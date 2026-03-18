@@ -397,25 +397,25 @@ fn build_graph() -> Snarl<DiffEvalNode> {
     let col_output = 1100.0;
 
     // Input nodes
-    let score_id = snarl.insert_node(egui::pos2(col_input, 0.0), DiffEvalNode::InputScore);
-    let color_id = snarl.insert_node(egui::pos2(col_input, 60.0), DiffEvalNode::InputColorWheel);
-    let mat_id = snarl.insert_node(egui::pos2(col_input, 120.0), DiffEvalNode::InputMaterials);
-    let sell_id = snarl.insert_node(egui::pos2(col_input, 180.0), DiffEvalNode::InputSellCards);
-    let deck_id = snarl.insert_node(egui::pos2(col_input, 240.0), DiffEvalNode::InputDeck);
-    let round_id = snarl.insert_node(egui::pos2(col_input, 300.0), DiffEvalNode::InputRound);
+    let score_id = snarl.insert_node_collapsed(egui::pos2(col_input, 0.0), DiffEvalNode::InputScore);
+    let color_id = snarl.insert_node_collapsed(egui::pos2(col_input, 60.0), DiffEvalNode::InputColorWheel);
+    let mat_id = snarl.insert_node_collapsed(egui::pos2(col_input, 120.0), DiffEvalNode::InputMaterials);
+    let sell_id = snarl.insert_node_collapsed(egui::pos2(col_input, 180.0), DiffEvalNode::InputSellCards);
+    let deck_id = snarl.insert_node_collapsed(egui::pos2(col_input, 240.0), DiffEvalNode::InputDeck);
+    let round_id = snarl.insert_node_collapsed(egui::pos2(col_input, 300.0), DiffEvalNode::InputRound);
 
     // Module nodes
-    let cwv_id = snarl.insert_node(egui::pos2(col_module, 0.0), DiffEvalNode::ColorWheelValue);
-    let sca_id = snarl.insert_node(egui::pos2(col_module, 200.0), DiffEvalNode::SellCardAlignment);
-    let dcp_id = snarl.insert_node(egui::pos2(col_module, 500.0), DiffEvalNode::DeckColorProfile);
-    let ms_id = snarl.insert_node(egui::pos2(col_module, 750.0), DiffEvalNode::MaterialStrategy);
+    let cwv_id = snarl.insert_node_collapsed(egui::pos2(col_module, 0.0), DiffEvalNode::ColorWheelValue);
+    let sca_id = snarl.insert_node_collapsed(egui::pos2(col_module, 200.0), DiffEvalNode::SellCardAlignment);
+    let dcp_id = snarl.insert_node_collapsed(egui::pos2(col_module, 500.0), DiffEvalNode::DeckColorProfile);
+    let ms_id = snarl.insert_node_collapsed(egui::pos2(col_module, 750.0), DiffEvalNode::MaterialStrategy);
 
     // MLP nodes
-    let hidden_id = snarl.insert_node(egui::pos2(col_mlp, 100.0), DiffEvalNode::HiddenLayer);
-    let output_id = snarl.insert_node(egui::pos2(col_mlp, 600.0), DiffEvalNode::OutputLayer);
+    let hidden_id = snarl.insert_node_collapsed(egui::pos2(col_mlp, 100.0), DiffEvalNode::HiddenLayer);
+    let output_id = snarl.insert_node_collapsed(egui::pos2(col_mlp, 600.0), DiffEvalNode::OutputLayer);
 
     // Output node
-    let win_id = snarl.insert_node(egui::pos2(col_output, 300.0), DiffEvalNode::WinProbability);
+    let win_id = snarl.insert_node_collapsed(egui::pos2(col_output, 300.0), DiffEvalNode::WinProbability);
 
     // Input -> Module edges
     snarl.connect(OutPinId { node: color_id, output: 0 }, InPinId { node: cwv_id, input: 0 });
