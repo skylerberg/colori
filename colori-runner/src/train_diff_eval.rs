@@ -77,6 +77,8 @@ struct GameResult {
     samples: Vec<TrainingSample>,
     /// In vs-baseline mode: 1=diff-eval won, 0=draw, -1=diff-eval lost. None in self-play.
     diff_eval_outcome: Option<i8>,
+    /// Final round number when the game ended.
+    final_round: u32,
 }
 
 struct DataGenStats {
@@ -141,9 +143,11 @@ fn generate_training_data(
     let mut wins = 0usize;
     let mut draws = 0usize;
     let mut losses = 0usize;
+    let mut total_rounds = 0u64;
     let vs_baseline = diff_eval_params.is_some();
 
     for result in results {
+        total_rounds += result.final_round as u64;
         samples.extend(result.samples);
         if let Some(outcome) = result.diff_eval_outcome {
             match outcome {
@@ -154,14 +158,15 @@ fn generate_training_data(
         }
     }
 
+    let avg_rounds = total_rounds as f64 / num_games as f64;
     if vs_baseline {
-        eprintln!("  Epoch {}: {} samples from {} games ({:.0}s) | vs baseline: {}W/{}D/{}L ({:.1}%)",
+        eprintln!("  Epoch {}: {} samples from {} games ({:.0}s) | avg {:.1} rounds | vs baseline: {}W/{}D/{}L ({:.1}%)",
             epoch + 1, samples.len(), num_games, elapsed.as_secs_f64(),
-            wins, draws, losses,
+            avg_rounds, wins, draws, losses,
             (wins as f64 + 0.5 * draws as f64) / num_games as f64 * 100.0);
     } else {
-        eprintln!("  Epoch {}: {} samples from {} games ({:.0}s)",
-            epoch + 1, samples.len(), num_games, elapsed.as_secs_f64());
+        eprintln!("  Epoch {}: {} samples from {} games ({:.0}s) | avg {:.1} rounds",
+            epoch + 1, samples.len(), num_games, elapsed.as_secs_f64(), avg_rounds);
     }
 
     DataGenStats { samples }
@@ -264,7 +269,7 @@ fn play_game_and_collect(
         sample.winner_mask = winners.clone();
     }
 
-    GameResult { samples: snapshots, diff_eval_outcome }
+    GameResult { samples: snapshots, diff_eval_outcome, final_round: state.round }
 }
 
 // ── Training loop ──
