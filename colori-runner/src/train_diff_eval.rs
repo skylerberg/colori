@@ -89,6 +89,7 @@ fn generate_training_data(
     num_threads: usize,
     heuristic_params: &HeuristicParams,
     diff_eval_params: Option<&DiffEvalParams>,
+    no_rollout: bool,
     epoch: usize,
 ) -> DataGenStats {
     let start = std::time::Instant::now();
@@ -114,7 +115,7 @@ fn generate_training_data(
 
                 for game_i in 0..count {
                     let result = play_game_and_collect(
-                        &hp, dep.as_ref(), eval_iterations, game_offset + game_i, &mut rng,
+                        &hp, dep.as_ref(), eval_iterations, no_rollout, game_offset + game_i, &mut rng,
                     );
                     thread_results.push(result);
 
@@ -173,6 +174,7 @@ fn play_game_and_collect(
     heuristic_params: &HeuristicParams,
     diff_eval_params: Option<&DiffEvalParams>,
     eval_iterations: u32,
+    no_rollout: bool,
     game_index: usize,
     rng: &mut WyRand,
 ) -> GameResult {
@@ -197,6 +199,7 @@ fn play_game_and_collect(
             iterations: eval_iterations,
             use_heuristic_eval: true,
             diff_eval_params: Some(dep.clone()),
+            no_rollout,
             ..MctsConfig::default()
         };
         if game_index % 2 == 0 {
@@ -340,6 +343,7 @@ pub struct TrainArgs {
     pub lr: f64,
     pub eval_iterations: u32,
     pub vs_baseline: bool,
+    pub no_rollout: bool,
     pub threads: usize,
     pub output: String,
 }
@@ -348,9 +352,10 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
     eprintln!("=== Diff Eval Training ===");
     eprintln!("Games/epoch: {}, Epochs: {}, Batch size: {}, Passes: {}, LR: {}",
         train.games, train.epochs, train.batch_size, train.passes, train.lr);
-    eprintln!("MCTS iterations: {}, Threads: {}, Mode: {}",
+    eprintln!("MCTS iterations: {}, Threads: {}, Mode: {}, Rollout: {}",
         train.eval_iterations, train.threads,
-        if train.vs_baseline { "vs baseline" } else { "self-play" });
+        if train.vs_baseline { "vs baseline" } else { "self-play" },
+        if train.no_rollout { "none (direct eval)" } else { "standard" });
 
     let baseline_params = args.baseline_heuristic_params.clone().unwrap_or_default();
     if args.baseline_heuristic_params.is_some() {
@@ -379,7 +384,7 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
 
         let dep = if train.vs_baseline { Some(&params) } else { None };
         let data = generate_training_data(
-            train.games, train.eval_iterations, train.threads, &baseline_params, dep, epoch,
+            train.games, train.eval_iterations, train.threads, &baseline_params, dep, train.no_rollout, epoch,
         );
         let samples = data.samples;
         if samples.is_empty() {

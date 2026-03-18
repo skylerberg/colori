@@ -22,6 +22,7 @@ pub struct MctsConfig {
     pub rave_track_draft: bool,
     pub heuristic_params: HeuristicParams,
     pub diff_eval_params: Option<DiffEvalParams>,
+    pub no_rollout: bool,
 }
 
 impl Default for MctsConfig {
@@ -37,6 +38,7 @@ impl Default for MctsConfig {
             rave_track_draft: false,
             heuristic_params: HeuristicParams::default(),
             diff_eval_params: None,
+            no_rollout: false,
         }
     }
 }
@@ -90,6 +92,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
             rave_track_draft: helper.rave_track_draft,
             heuristic_params: helper.heuristic_params,
             diff_eval_params: None,
+            no_rollout: false,
         })
     }
 }
@@ -538,7 +541,9 @@ fn iteration_simultaneous<R: Rng>(
 
     let scores = if should_rollout {
         let de = diff_eval_ref(config, diff_table);
-        let scores = if config.rave_constant > 0.0 && config.rave_track_rollout {
+        let scores = if config.no_rollout {
+            eval_scores(state, true, &config.heuristic_params, card_table, de)
+        } else if config.rave_constant > 0.0 && config.rave_track_rollout {
             rollout_with_tracking(state, max_rollout_round, config.max_rollout_steps, use_heuristic, &config.heuristic_params, card_table, de, move_log, rng)
         } else if config.rave_constant > 0.0 && config.rave_track_draft {
             rollout_with_draft_tracking(state, max_rollout_round, config.max_rollout_steps, use_heuristic, &config.heuristic_params, card_table, de, move_log, rng)

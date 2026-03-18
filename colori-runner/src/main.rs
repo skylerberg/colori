@@ -48,6 +48,7 @@ fn main() {
             lr: args.train_lr,
             eval_iterations: args.train_eval_iterations,
             vs_baseline: args.train_vs_baseline,
+            no_rollout: args.train_no_rollout,
             threads: args.threads,
             output: args.output.clone(),
         };

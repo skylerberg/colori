@@ -23,6 +23,7 @@ pub struct SimulationArgs {
     pub train_passes: usize,
     pub train_lr: f64,
     pub train_vs_baseline: bool,
+    pub train_no_rollout: bool,
     pub train_eval_iterations: u32,
     pub baseline_heuristic_params: Option<HeuristicParams>,
 }
@@ -74,6 +75,8 @@ struct VariantFileEntry {
     heuristic_round_threshold: Option<u32>,
     #[serde(default)]
     heuristic_lookahead: Option<u32>,
+    #[serde(default)]
+    no_rollout: Option<bool>,
 }
 
 impl VariantFileEntry {
@@ -119,6 +122,7 @@ impl VariantFileEntry {
                 rave_track_draft: self.rave_track_draft.unwrap_or(defaults.rave_track_draft),
                 heuristic_params,
                 diff_eval_params,
+                no_rollout: self.no_rollout.unwrap_or(defaults.no_rollout),
             },
         }
     }
@@ -137,6 +141,7 @@ pub fn parse_args() -> SimulationArgs {
 
     let mut train_diff_eval = false;
     let mut train_vs_baseline = false;
+    let mut train_no_rollout = false;
     let mut train_games_per_epoch = 500usize;
     let mut train_epochs = 100_000usize;
     let mut train_batch_size = 64usize;
@@ -212,6 +217,11 @@ pub fn parse_args() -> SimulationArgs {
             }
             "--train-vs-baseline" => {
                 train_vs_baseline = true;
+                i += 1;
+                continue;
+            }
+            "--no-rollout" => {
+                train_no_rollout = true;
                 i += 1;
                 continue;
             }
@@ -333,6 +343,7 @@ pub fn parse_args() -> SimulationArgs {
         tournament,
         train_diff_eval,
         train_vs_baseline,
+        train_no_rollout,
         train_games_per_epoch,
         train_epochs,
         train_batch_size,
