@@ -173,7 +173,7 @@ The game ends when either:
 - Any player reaches **16 or more ducats** after a complete round, OR
 - **Round 20** is completed.
 
-Each player's score = total ducats (from sell cards + Gain Ducats ability). The player with the most ducats wins.
+Each player's score = total ducats (from sell cards + Gain Ducats ability). The player with the most ducats wins. If tied, the player with the most completed sell cards wins. If still tied, the player with the most colors (total count) on their color wheel wins. If still tied, those players share the victory.
 
 ---
 

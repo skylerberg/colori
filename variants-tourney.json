@@ -1,0 +1,68 @@
+[
+  {
+    "name": "100k rqo1vv",
+    "useHeuristicEval": true,
+    "heuristicParamsFile": "genetic-algorithm/batch-rqo1vv-gen-18.json",
+    "iterations": 100000
+  },
+  {
+    "name": "50k rqo1vv",
+    "useHeuristicEval": true,
+    "heuristicParamsFile": "genetic-algorithm/batch-rqo1vv-gen-18.json",
+    "iterations": 50000
+  },
+  {
+    "name": "25k rqo1vv",
+    "useHeuristicEval": true,
+    "heuristicParamsFile": "genetic-algorithm/batch-rqo1vv-gen-18.json",
+    "iterations": 25000
+  },
+  {
+    "name": "10k rqo1vv",
+    "useHeuristicEval": true,
+    "heuristicParamsFile": "genetic-algorithm/batch-rqo1vv-gen-18.json",
+    "iterations": 10000
+  },
+  {
+    "name": "7.5k rqo1vv",
+    "useHeuristicEval": true,
+    "heuristicParamsFile": "genetic-algorithm/batch-rqo1vv-gen-18.json",
+    "iterations": 7500
+  },
+  {
+    "name": "5k rqo1vv",
+    "useHeuristicEval": true,
+    "heuristicParamsFile": "genetic-algorithm/batch-rqo1vv-gen-18.json",
+    "iterations": 5000
+  },
+  {
+    "name": "4k rqo1vv",
+    "useHeuristicEval": true,
+    "heuristicParamsFile": "genetic-algorithm/batch-rqo1vv-gen-18.json",
+    "iterations": 4000
+  },
+  {
+    "name": "3k rqo1vv",
+    "useHeuristicEval": true,
+    "heuristicParamsFile": "genetic-algorithm/batch-rqo1vv-gen-18.json",
+    "iterations": 3000
+  },
+  {
+    "name": "2k rqo1vv",
+    "useHeuristicEval": true,
+    "heuristicParamsFile": "genetic-algorithm/batch-rqo1vv-gen-18.json",
+    "iterations": 2000
+  },
+  {
+    "name": "1k rqo1vv",
+    "useHeuristicEval": true,
+    "heuristicParamsFile": "genetic-algorithm/batch-rqo1vv-gen-18.json",
+    "iterations": 1000
+  },
+  {
+    "name": "500 rqo1vv",
+    "useHeuristicEval": true,
+    "heuristicParamsFile": "genetic-algorithm/batch-rqo1vv-gen-18.json",
+    "iterations": 500
+  }
+]

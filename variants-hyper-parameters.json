@@ -1,0 +1,13 @@
+[
+  {
+    "name": "4k rqo1vv",
+    "useHeuristicEval": true,
+    "heuristicParamsFile": "genetic-algorithm/batch-rqo1vv-gen-18.json",
+    "iterations": 4000
+  },
+  {"name": "bias-lookahead-threshold-0.025-3-3", "diffEvalParamsFile": "diff-eval-training/diff-eval-epoch-90.json", "progressiveBiasWeight": 0.025, "heuristicLookahead": 3, "heuristicRoundThreshold": 3, "iterations": 4000},
+  {"name": "bias-lookahead-threshold-0.05-3-3", "diffEvalParamsFile": "diff-eval-training/diff-eval-epoch-90.json", "progressiveBiasWeight": 0.05, "heuristicLookahead": 3, "heuristicRoundThreshold": 3, "iterations": 4000},
+  {"name": "bias-lookahead-threshold-0.1-3-3", "diffEvalParamsFile": "diff-eval-training/diff-eval-epoch-90.json", "progressiveBiasWeight": 0.1, "heuristicLookahead": 3, "heuristicRoundThreshold": 3, "iterations": 4000},
+  {"name": "bias-lookahead-threshold-0.15-3-3", "diffEvalParamsFile": "diff-eval-training/diff-eval-epoch-90.json", "progressiveBiasWeight": 0.15, "heuristicLookahead": 3, "heuristicRoundThreshold": 3, "iterations": 4000},
+  {"name": "bias-lookahead-threshold-0.2-3-3", "diffEvalParamsFile": "diff-eval-training/diff-eval-epoch-90.json", "progressiveBiasWeight": 0.2, "heuristicLookahead": 3, "heuristicRoundThreshold": 3, "iterations": 4000}
+]

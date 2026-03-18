@@ -1,0 +1,14 @@
+[
+  {
+    "name": "4k rqo1vv",
+    "useHeuristicEval": true,
+    "heuristicParamsFile": "genetic-algorithm/batch-rqo1vv-gen-18.json",
+    "iterations": 4000
+  },
+  {
+    "name": "4k rqo1vv",
+    "useHeuristicEval": true,
+    "heuristicParamsFile": "genetic-algorithm/batch-rqo1vv-gen-18.json",
+    "iterations": 4000
+  }
+]
