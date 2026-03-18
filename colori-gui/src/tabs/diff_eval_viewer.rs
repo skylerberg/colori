@@ -332,15 +332,16 @@ impl SnarlViewer<DiffEvalNode> for DiffEvalViewer<'_> {
         node.num_outputs()
     }
 
+    #[allow(refining_impl_trait)]
     fn show_input(&mut self, pin: &InPin, ui: &mut egui::Ui, snarl: &mut Snarl<DiffEvalNode>) -> PinInfo {
         let node = &snarl[pin.id.node];
         ui.label(node.input_label(pin.id.input));
         PinInfo::circle().with_fill(egui::Color32::from_rgb(150, 150, 200))
     }
 
-    fn show_output(&mut self, pin: &OutPin, ui: &mut egui::Ui, snarl: &mut Snarl<DiffEvalNode>) -> PinInfo {
-        let node = &snarl[pin.id.node];
-        ui.label(node.title());
+    #[allow(refining_impl_trait)]
+    fn show_output(&mut self, _pin: &OutPin, ui: &mut egui::Ui, _snarl: &mut Snarl<DiffEvalNode>) -> PinInfo {
+        ui.label("out");
         PinInfo::circle().with_fill(egui::Color32::from_rgb(200, 150, 150))
     }
 
