@@ -25,6 +25,8 @@ struct TrainingSample {
     round: u32,
     // Outcome: index of winning player (or multiple for ties)
     winner_mask: Vec<bool>,
+    // Round the game ended on (for urgency weighting)
+    final_round: u32,
 }
 
 // ── Adam optimizer ──
@@ -235,6 +237,7 @@ fn play_game_and_collect(
             card_lookup: state.card_lookup,
             round: state.round,
             winner_mask: vec![false; num_players],
+            final_round: 0, // backfilled after game ends
         });
 
         let player_index = match &state.phase {
@@ -267,8 +270,10 @@ fn play_game_and_collect(
         else { 0 }
     });
 
+    let final_round = state.round;
     for sample in &mut snapshots {
         sample.winner_mask = winners.clone();
+        sample.final_round = final_round;
     }
 
     GameResult { samples: snapshots, diff_eval_outcome, final_round: state.round }
@@ -309,23 +314,33 @@ fn compute_loss_and_grads(
             probs[i] /= exp_sum;
         }
 
-        // Target: uniform over winners
+        // Target: uniform over winners, weighted by urgency.
+        // Games won quickly are worth more — encourages the model to
+        // value positions that lead to fast wins.
+        // Weight: 1.0 + (MAX_ROUNDS - final_round) / MAX_ROUNDS
+        // e.g. win at round 5 → weight 1.75, win at round 10 → weight 1.5, round 20 → weight 1.0
+        const MAX_ROUNDS: f64 = 20.0;
+        let urgency_weight = 1.0 + (MAX_ROUNDS - sample.final_round as f64).max(0.0) / MAX_ROUNDS;
+
         let num_winners = sample.winner_mask.iter().filter(|&&w| w).count() as f64;
         let mut targets = vec![0.0f64; n];
         for i in 0..n {
-            targets[i] = if sample.winner_mask[i] { 1.0 / num_winners } else { 0.0 };
+            targets[i] = if sample.winner_mask[i] { urgency_weight / num_winners } else { 0.0 };
         }
+        // Normalize targets to sum to urgency_weight (not 1.0) — this makes
+        // samples from fast games contribute more to the loss and gradient.
 
-        // Cross-entropy loss
+        // Cross-entropy loss (weighted)
         for i in 0..n {
             if targets[i] > 0.0 {
                 total_loss -= targets[i] * (probs[i].max(1e-10)).ln();
             }
         }
 
-        // Gradient: d_logit_i = probs[i] - targets[i]
+        // Gradient: d_logit_i = urgency_weight * probs[i] - targets[i]
+        // The urgency weight scales the entire gradient for this sample.
         for (i, p) in sample.players.iter().enumerate() {
-            let grad_output = probs[i] - targets[i];
+            let grad_output = urgency_weight * probs[i] - targets[i];
             let grads = diff_eval_backward(p, &display, &sample.card_lookup, sample.round, params, table, grad_output);
             total_grads.accumulate(&grads);
         }
