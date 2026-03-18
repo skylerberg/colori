@@ -346,7 +346,7 @@ impl SnarlViewer<DiffEvalNode> for DiffEvalViewer<'_> {
         snarl: &mut Snarl<DiffEvalNode>,
     ) {
         let node_data = &snarl[node].clone();
-        ui.push_id(node, |ui| {
+        ui.vertical(|ui| {
             match node_data {
                 DiffEvalNode::ColorWheelValue => self.render_color_wheel_body(ui),
                 DiffEvalNode::SellCardAlignment => self.render_sell_card_body(ui),
