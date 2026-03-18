@@ -214,22 +214,21 @@ fn play_game_and_collect(
     execute_draw_phase(&mut state, rng);
 
     let mut snapshots: Vec<TrainingSample> = Vec::new();
-    let mut last_snapshot_round = u32::MAX;
 
     while !matches!(state.phase, GamePhase::GameOver) {
-        if matches!(state.phase, GamePhase::Draft { .. }) && state.round != last_snapshot_round {
-            last_snapshot_round = state.round;
-            for p in state.players.iter_mut() {
-                p.cached_score = calculate_score(p);
-            }
-            snapshots.push(TrainingSample {
-                players: state.players.iter().cloned().collect(),
-                sell_card_display: state.sell_card_display.iter().cloned().collect(),
-                card_lookup: state.card_lookup,
-                round: state.round,
-                winner_mask: vec![false; num_players],
-            });
+        // Snapshot before every choice point so the model learns to evaluate
+        // any game state — not just draft-phase starts. This is essential for
+        // --no-rollout where the eval is called on mid-phase states.
+        for p in state.players.iter_mut() {
+            p.cached_score = calculate_score(p);
         }
+        snapshots.push(TrainingSample {
+            players: state.players.iter().cloned().collect(),
+            sell_card_display: state.sell_card_display.iter().cloned().collect(),
+            card_lookup: state.card_lookup,
+            round: state.round,
+            winner_mask: vec![false; num_players],
+        });
 
         let player_index = match &state.phase {
             GamePhase::Draft { draft_state } => draft_state.current_player_index,
