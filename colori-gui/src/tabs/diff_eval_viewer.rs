@@ -144,107 +144,99 @@ struct DiffEvalViewer<'a> {
 }
 
 impl DiffEvalViewer<'_> {
-    fn render_weight_row(ui: &mut egui::Ui, label: &str, value: f64) {
-        ui.label(label);
-        let color = weight_color(value);
-        ui.colored_label(color, format!("{:.4}", value));
-        ui.end_row();
+    fn weight_label(ui: &mut egui::Ui, label: &str, value: f64) {
+        ui.horizontal(|ui| {
+            ui.label(label);
+            ui.colored_label(weight_color(value), format!("{:.4}", value));
+        });
     }
 
     fn render_color_wheel_body(&self, ui: &mut egui::Ui) {
         let w = &self.params.weights;
-        egui::Grid::new("cwv_params").num_columns(2).show(ui, |ui| {
-            for (i, tier) in ["Primary", "Secondary", "Tertiary"].iter().enumerate() {
-                Self::render_weight_row(ui, &format!("{} sat_w", tier), w[COLOR_SAT_W + i]);
-                Self::render_weight_row(ui, &format!("{} sat_a", tier), w[COLOR_SAT_A + i]);
-            }
-            ui.separator(); ui.separator(); ui.end_row();
-            let pair_names = [
-                "Red+Yellow", "Red+Blue", "Yellow+Blue",
-                "Red+Orange", "Yellow+Orange", "Yellow+Green",
-                "Blue+Green", "Blue+Purple", "Red+Purple",
-            ];
-            for (i, name) in pair_names.iter().enumerate() {
-                Self::render_weight_row(ui, &format!("Mix {}", name), w[MIX_PAIR_W + i]);
-            }
-            ui.separator(); ui.separator(); ui.end_row();
-            for (i, tier) in ["Primary", "Secondary", "Tertiary"].iter().enumerate() {
-                Self::render_weight_row(ui, &format!("{} cov_w", tier), w[COVERAGE_W + i]);
-                Self::render_weight_row(ui, &format!("{} cov_a", tier), w[COVERAGE_A + i]);
-                Self::render_weight_row(ui, &format!("{} cov_b", tier), w[COVERAGE_B + i]);
-            }
-        });
+        for (i, tier) in ["Primary", "Secondary", "Tertiary"].iter().enumerate() {
+            Self::weight_label(ui, &format!("{} sat_w:", tier), w[COLOR_SAT_W + i]);
+            Self::weight_label(ui, &format!("{} sat_a:", tier), w[COLOR_SAT_A + i]);
+        }
+        ui.separator();
+        let pair_names = [
+            "Red+Yellow", "Red+Blue", "Yellow+Blue",
+            "Red+Orange", "Yellow+Orange", "Yellow+Green",
+            "Blue+Green", "Blue+Purple", "Red+Purple",
+        ];
+        for (i, name) in pair_names.iter().enumerate() {
+            Self::weight_label(ui, &format!("Mix {}:", name), w[MIX_PAIR_W + i]);
+        }
+        ui.separator();
+        for (i, tier) in ["Primary", "Secondary", "Tertiary"].iter().enumerate() {
+            Self::weight_label(ui, &format!("{} cov_w:", tier), w[COVERAGE_W + i]);
+            Self::weight_label(ui, &format!("{} cov_a:", tier), w[COVERAGE_A + i]);
+            Self::weight_label(ui, &format!("{} cov_b:", tier), w[COVERAGE_B + i]);
+        }
     }
 
     fn render_sell_card_body(&self, ui: &mut egui::Ui) {
         let w = &self.params.weights;
-        egui::Grid::new("sca_params").num_columns(2).show(ui, |ui| {
-            for (i, name) in ["Textiles", "Ceramics", "Paintings"].iter().enumerate() {
-                Self::render_weight_row(ui, &format!("{} mat_w", name), w[SELL_MAT_W + i]);
-            }
-            ui.separator(); ui.separator(); ui.end_row();
-            for (i, name) in ["2-ducat", "3-ducat", "4-ducat"].iter().enumerate() {
-                Self::render_weight_row(ui, &format!("{} color_w", name), w[SELL_DUCAT_W + i]);
-            }
-            ui.separator(); ui.separator(); ui.end_row();
-            Self::render_weight_row(ui, "combine_mat", w[SELL_COMBINE_W]);
-            Self::render_weight_row(ui, "combine_color", w[SELL_COMBINE_W + 1]);
-            ui.separator(); ui.separator(); ui.end_row();
-            Self::render_weight_row(ui, "agg_best", w[SELL_AGG_W]);
-            Self::render_weight_row(ui, "agg_second", w[SELL_AGG_W + 1]);
-            Self::render_weight_row(ui, "agg_rest", w[SELL_AGG_W + 2]);
-            ui.separator(); ui.separator(); ui.end_row();
-            Self::render_weight_row(ui, "round_w", w[SELL_ROUND_W]);
-            Self::render_weight_row(ui, "round_b", w[SELL_ROUND_W + 1]);
-            ui.separator(); ui.separator(); ui.end_row();
-            Self::render_weight_row(ui, "sold_w", w[SELL_SOLD_W]);
-            Self::render_weight_row(ui, "sold_a", w[SELL_SOLD_W + 1]);
-            Self::render_weight_row(ui, "sold_b", w[SELL_SOLD_W + 2]);
-        });
+        for (i, name) in ["Textiles", "Ceramics", "Paintings"].iter().enumerate() {
+            Self::weight_label(ui, &format!("{} mat_w:", name), w[SELL_MAT_W + i]);
+        }
+        ui.separator();
+        for (i, name) in ["2-ducat", "3-ducat", "4-ducat"].iter().enumerate() {
+            Self::weight_label(ui, &format!("{} color_w:", name), w[SELL_DUCAT_W + i]);
+        }
+        ui.separator();
+        Self::weight_label(ui, "combine_mat:", w[SELL_COMBINE_W]);
+        Self::weight_label(ui, "combine_color:", w[SELL_COMBINE_W + 1]);
+        ui.separator();
+        Self::weight_label(ui, "agg_best:", w[SELL_AGG_W]);
+        Self::weight_label(ui, "agg_second:", w[SELL_AGG_W + 1]);
+        Self::weight_label(ui, "agg_rest:", w[SELL_AGG_W + 2]);
+        ui.separator();
+        Self::weight_label(ui, "round_w:", w[SELL_ROUND_W]);
+        Self::weight_label(ui, "round_b:", w[SELL_ROUND_W + 1]);
+        ui.separator();
+        Self::weight_label(ui, "sold_w:", w[SELL_SOLD_W]);
+        Self::weight_label(ui, "sold_a:", w[SELL_SOLD_W + 1]);
+        Self::weight_label(ui, "sold_b:", w[SELL_SOLD_W + 2]);
     }
 
     fn render_deck_profile_body(&self, ui: &mut egui::Ui) {
         let w = &self.params.weights;
-        egui::Grid::new("dcp_params").num_columns(2).show(ui, |ui| {
-            for (i, tier) in ["Primary", "Secondary", "Tertiary"].iter().enumerate() {
-                Self::render_weight_row(ui, &format!("{} sat_w", tier), w[DECK_COLOR_SAT_W + i]);
-                Self::render_weight_row(ui, &format!("{} sat_a", tier), w[DECK_COLOR_SAT_A + i]);
-            }
-            ui.separator(); ui.separator(); ui.end_row();
-            for (i, name) in ["2-ducat", "3-ducat", "4-ducat"].iter().enumerate() {
-                Self::render_weight_row(ui, &format!("{} need_w", name), w[DECK_PROD_NEED_W + i]);
-            }
-            ui.separator(); ui.separator(); ui.end_row();
-            for (i, name) in ["Alum", "CreamOfTartar", "GumArabic", "Potash", "Chalk"].iter().enumerate() {
-                Self::render_weight_row(ui, name, w[DECK_ACTION_W + i]);
-            }
-            ui.separator(); ui.separator(); ui.end_row();
-            for (i, name) in ["Starter mat", "Colored mat", "Dual mat"].iter().enumerate() {
-                Self::render_weight_row(ui, name, w[DECK_MAT_CARD_W + i]);
-            }
-            ui.separator(); ui.separator(); ui.end_row();
-            Self::render_weight_row(ui, "size_linear", w[DECK_SIZE_W]);
-            Self::render_weight_row(ui, "size_quad", w[DECK_SIZE_W + 1]);
-            Self::render_weight_row(ui, "diversity", w[DECK_DIVERSITY_W]);
-            Self::render_weight_row(ui, "workshopped", w[DECK_WORKSHOP_W]);
-        });
+        for (i, tier) in ["Primary", "Secondary", "Tertiary"].iter().enumerate() {
+            Self::weight_label(ui, &format!("{} sat_w:", tier), w[DECK_COLOR_SAT_W + i]);
+            Self::weight_label(ui, &format!("{} sat_a:", tier), w[DECK_COLOR_SAT_A + i]);
+        }
+        ui.separator();
+        for (i, name) in ["2-ducat", "3-ducat", "4-ducat"].iter().enumerate() {
+            Self::weight_label(ui, &format!("{} need_w:", name), w[DECK_PROD_NEED_W + i]);
+        }
+        ui.separator();
+        for (i, name) in ["Alum", "CreamOfTartar", "GumArabic", "Potash", "Chalk"].iter().enumerate() {
+            Self::weight_label(ui, &format!("{}:", name), w[DECK_ACTION_W + i]);
+        }
+        ui.separator();
+        for (i, name) in ["Starter mat", "Colored mat", "Dual mat"].iter().enumerate() {
+            Self::weight_label(ui, &format!("{}:", name), w[DECK_MAT_CARD_W + i]);
+        }
+        ui.separator();
+        Self::weight_label(ui, "size_linear:", w[DECK_SIZE_W]);
+        Self::weight_label(ui, "size_quad:", w[DECK_SIZE_W + 1]);
+        Self::weight_label(ui, "diversity:", w[DECK_DIVERSITY_W]);
+        Self::weight_label(ui, "workshopped:", w[DECK_WORKSHOP_W]);
     }
 
     fn render_material_body(&self, ui: &mut egui::Ui) {
         let w = &self.params.weights;
-        egui::Grid::new("ms_params").num_columns(2).show(ui, |ui| {
-            for (i, name) in ["Textiles", "Ceramics", "Paintings"].iter().enumerate() {
-                Self::render_weight_row(ui, &format!("{} suff_w", name), w[MAT_SUFF_W + i]);
-                Self::render_weight_row(ui, &format!("{} thresh", name), w[MAT_SUFF_THRESH + i]);
-            }
-            ui.separator(); ui.separator(); ui.end_row();
-            for (i, name) in ["Textiles", "Ceramics", "Paintings"].iter().enumerate() {
-                Self::render_weight_row(ui, &format!("{} demand", name), w[MAT_DEMAND_W + i]);
-            }
-            ui.separator(); ui.separator(); ui.end_row();
-            Self::render_weight_row(ui, "diversity_2+", w[MAT_DIVERSITY_W]);
-            Self::render_weight_row(ui, "diversity_3", w[MAT_DIVERSITY_W + 1]);
-        });
+        for (i, name) in ["Textiles", "Ceramics", "Paintings"].iter().enumerate() {
+            Self::weight_label(ui, &format!("{} suff_w:", name), w[MAT_SUFF_W + i]);
+            Self::weight_label(ui, &format!("{} thresh:", name), w[MAT_SUFF_THRESH + i]);
+        }
+        ui.separator();
+        for (i, name) in ["Textiles", "Ceramics", "Paintings"].iter().enumerate() {
+            Self::weight_label(ui, &format!("{} demand:", name), w[MAT_DEMAND_W + i]);
+        }
+        ui.separator();
+        Self::weight_label(ui, "diversity_2+:", w[MAT_DIVERSITY_W]);
+        Self::weight_label(ui, "diversity_3:", w[MAT_DIVERSITY_W + 1]);
     }
 
     fn render_hidden_layer_body(&self, ui: &mut egui::Ui) {
@@ -252,58 +244,58 @@ impl DiffEvalViewer<'_> {
         let input_names = ["score", "color", "sell", "deck", "mat", "round"];
 
         ui.label("W1 weights:");
-        egui::Grid::new("mlp_w1").num_columns(7).spacing([4.0, 2.0]).show(ui, |ui| {
-            ui.label("");
+        for row in 0..16 {
+            ui.horizontal(|ui| {
+                ui.label(format!("h{}:", row));
+                for col in 0..6 {
+                    let val = w[MLP_W1 + row * 6 + col];
+                    ui.colored_label(weight_color(val), format!("{:.2}", val));
+                }
+            });
+        }
+        ui.separator();
+        ui.label("Input order:");
+        ui.horizontal(|ui| {
             for name in &input_names {
                 ui.label(*name);
             }
-            ui.end_row();
-            for row in 0..16 {
-                ui.label(format!("h{}", row));
-                for col in 0..6 {
-                    let val = w[MLP_W1 + row * 6 + col];
-                    let color = weight_color(val);
-                    ui.colored_label(color, format!("{:.2}", val));
-                }
-                ui.end_row();
+        });
+        ui.separator();
+        ui.label("Biases:");
+        ui.horizontal(|ui| {
+            for i in 0..8 {
+                ui.colored_label(weight_color(w[MLP_B1 + i]), format!("{:.3}", w[MLP_B1 + i]));
             }
         });
-        ui.add_space(4.0);
-        ui.label("Biases:");
-        egui::Grid::new("mlp_b1").num_columns(8).spacing([4.0, 2.0]).show(ui, |ui| {
-            for i in 0..16 {
-                let color = weight_color(w[MLP_B1 + i]);
-                ui.colored_label(color, format!("{:.3}", w[MLP_B1 + i]));
-                if i == 7 { ui.end_row(); }
+        ui.horizontal(|ui| {
+            for i in 8..16 {
+                ui.colored_label(weight_color(w[MLP_B1 + i]), format!("{:.3}", w[MLP_B1 + i]));
             }
-            ui.end_row();
         });
     }
 
     fn render_output_layer_body(&self, ui: &mut egui::Ui) {
         let w = &self.params.weights;
         ui.label("W2 weights:");
-        egui::Grid::new("mlp_w2").num_columns(8).spacing([4.0, 2.0]).show(ui, |ui| {
-            for i in 0..16 {
-                let color = weight_color(w[MLP_W2 + i]);
-                ui.colored_label(color, format!("{:.3}", w[MLP_W2 + i]));
-                if i == 7 { ui.end_row(); }
+        ui.horizontal(|ui| {
+            for i in 0..8 {
+                ui.colored_label(weight_color(w[MLP_W2 + i]), format!("{:.3}", w[MLP_W2 + i]));
             }
-            ui.end_row();
         });
-        ui.add_space(4.0);
-        egui::Grid::new("mlp_b2").num_columns(2).show(ui, |ui| {
-            Self::render_weight_row(ui, "bias", w[MLP_B2]);
+        ui.horizontal(|ui| {
+            for i in 8..16 {
+                ui.colored_label(weight_color(w[MLP_W2 + i]), format!("{:.3}", w[MLP_W2 + i]));
+            }
         });
+        ui.separator();
+        Self::weight_label(ui, "bias:", w[MLP_B2]);
     }
 
     fn render_control_params(&self, ui: &mut egui::Ui) {
         let w = &self.params.weights;
-        egui::Grid::new("ctrl_params").num_columns(2).show(ui, |ui| {
-            Self::render_weight_row(ui, "round_threshold", w[HEURISTIC_ROUND_THRESHOLD]);
-            Self::render_weight_row(ui, "lookahead", w[HEURISTIC_LOOKAHEAD]);
-            Self::render_weight_row(ui, "progressive_bias", w[PROGRESSIVE_BIAS_WEIGHT]);
-        });
+        Self::weight_label(ui, "round_threshold:", w[HEURISTIC_ROUND_THRESHOLD]);
+        Self::weight_label(ui, "lookahead:", w[HEURISTIC_LOOKAHEAD]);
+        Self::weight_label(ui, "progressive_bias:", w[PROGRESSIVE_BIAS_WEIGHT]);
     }
 }
 
