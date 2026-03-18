@@ -357,22 +357,24 @@ impl SnarlViewer<DiffEvalNode> for DiffEvalViewer<'_> {
         ui: &mut egui::Ui,
         snarl: &mut Snarl<DiffEvalNode>,
     ) {
-        let node_data = &snarl[node];
-        match node_data {
-            DiffEvalNode::ColorWheelValue => self.render_color_wheel_body(ui),
-            DiffEvalNode::SellCardAlignment => self.render_sell_card_body(ui),
-            DiffEvalNode::DeckColorProfile => self.render_deck_profile_body(ui),
-            DiffEvalNode::MaterialStrategy => self.render_material_body(ui),
-            DiffEvalNode::HiddenLayer => self.render_hidden_layer_body(ui),
-            DiffEvalNode::OutputLayer => self.render_output_layer_body(ui),
-            DiffEvalNode::WinProbability => self.render_control_params(ui),
-            DiffEvalNode::InputScore => { ui.label("Player's cached score / 20"); }
-            DiffEvalNode::InputColorWheel => { ui.label("12 color counts"); }
-            DiffEvalNode::InputMaterials => { ui.label("3 material counts"); }
-            DiffEvalNode::InputSellCards => { ui.label("6 sell cards in display"); }
-            DiffEvalNode::InputDeck => { ui.label("All cards in player's deck"); }
-            DiffEvalNode::InputRound => { ui.label("Current round / 20"); }
-        }
+        let node_data = &snarl[node].clone();
+        ui.push_id(node, |ui| {
+            match node_data {
+                DiffEvalNode::ColorWheelValue => self.render_color_wheel_body(ui),
+                DiffEvalNode::SellCardAlignment => self.render_sell_card_body(ui),
+                DiffEvalNode::DeckColorProfile => self.render_deck_profile_body(ui),
+                DiffEvalNode::MaterialStrategy => self.render_material_body(ui),
+                DiffEvalNode::HiddenLayer => self.render_hidden_layer_body(ui),
+                DiffEvalNode::OutputLayer => self.render_output_layer_body(ui),
+                DiffEvalNode::WinProbability => self.render_control_params(ui),
+                DiffEvalNode::InputScore => { ui.label("Player's cached score / 20"); }
+                DiffEvalNode::InputColorWheel => { ui.label("12 color counts"); }
+                DiffEvalNode::InputMaterials => { ui.label("3 material counts"); }
+                DiffEvalNode::InputSellCards => { ui.label("6 sell cards in display"); }
+                DiffEvalNode::InputDeck => { ui.label("All cards in player's deck"); }
+                DiffEvalNode::InputRound => { ui.label("Current round / 20"); }
+            }
+        });
     }
 
     fn connect(&mut self, _from: &OutPin, _to: &InPin, _snarl: &mut Snarl<DiffEvalNode>) {
