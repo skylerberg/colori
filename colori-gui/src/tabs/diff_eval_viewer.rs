@@ -377,30 +377,41 @@ fn build_graph() -> Snarl<DiffEvalNode> {
     let mut snarl = Snarl::new();
 
     let col_input = 0.0;
-    let col_module = 350.0;
-    let col_mlp = 750.0;
-    let col_output = 1100.0;
+    let col_module = 300.0;
+    let col_mlp = 600.0;
+    let col_output = 900.0;
+    let spacing = 70.0;
 
-    // Input nodes
-    let score_id = snarl.insert_node(egui::pos2(col_input, 0.0), DiffEvalNode::InputScore);
-    let color_id = snarl.insert_node(egui::pos2(col_input, 60.0), DiffEvalNode::InputColorWheel);
-    let mat_id = snarl.insert_node(egui::pos2(col_input, 120.0), DiffEvalNode::InputMaterials);
-    let sell_id = snarl.insert_node(egui::pos2(col_input, 180.0), DiffEvalNode::InputSellCards);
-    let deck_id = snarl.insert_node(egui::pos2(col_input, 240.0), DiffEvalNode::InputDeck);
-    let round_id = snarl.insert_node(egui::pos2(col_input, 300.0), DiffEvalNode::InputRound);
+    // Vertical order chosen to minimize edge crossings.
+    // Hidden layer inputs are: score, cwv, sca, dcp, ms, round (top to bottom).
+    // Input nodes are ordered to match their primary downstream targets.
 
-    // Module nodes
-    let cwv_id = snarl.insert_node(egui::pos2(col_module, 0.0), DiffEvalNode::ColorWheelValue);
-    let sca_id = snarl.insert_node(egui::pos2(col_module, 200.0), DiffEvalNode::SellCardAlignment);
-    let dcp_id = snarl.insert_node(egui::pos2(col_module, 500.0), DiffEvalNode::DeckColorProfile);
-    let ms_id = snarl.insert_node(egui::pos2(col_module, 750.0), DiffEvalNode::MaterialStrategy);
+    // Input nodes (left column)
+    // Score goes to hidden input 0 (top) — place at top
+    let score_id = snarl.insert_node(egui::pos2(col_input, 0.0 * spacing), DiffEvalNode::InputScore);
+    // Color Wheel goes to cwv (top module) and sca — place near top
+    let color_id = snarl.insert_node(egui::pos2(col_input, 1.0 * spacing), DiffEvalNode::InputColorWheel);
+    // Sell Cards fans out to sca, dcp, ms — place in middle
+    let sell_id = snarl.insert_node(egui::pos2(col_input, 2.5 * spacing), DiffEvalNode::InputSellCards);
+    // Deck goes to dcp — place below sell cards
+    let deck_id = snarl.insert_node(egui::pos2(col_input, 3.5 * spacing), DiffEvalNode::InputDeck);
+    // Materials goes to sca and ms — place between sell and deck
+    let mat_id = snarl.insert_node(egui::pos2(col_input, 4.5 * spacing), DiffEvalNode::InputMaterials);
+    // Round goes to sca and hidden input 5 (bottom) — place at bottom
+    let round_id = snarl.insert_node(egui::pos2(col_input, 5.5 * spacing), DiffEvalNode::InputRound);
+
+    // Module nodes (middle column) — ordered to match hidden layer inputs 1-4
+    let cwv_id = snarl.insert_node(egui::pos2(col_module, 0.5 * spacing), DiffEvalNode::ColorWheelValue);
+    let sca_id = snarl.insert_node(egui::pos2(col_module, 2.0 * spacing), DiffEvalNode::SellCardAlignment);
+    let dcp_id = snarl.insert_node(egui::pos2(col_module, 3.5 * spacing), DiffEvalNode::DeckColorProfile);
+    let ms_id = snarl.insert_node(egui::pos2(col_module, 5.0 * spacing), DiffEvalNode::MaterialStrategy);
 
     // MLP nodes
-    let hidden_id = snarl.insert_node(egui::pos2(col_mlp, 100.0), DiffEvalNode::HiddenLayer);
-    let output_id = snarl.insert_node(egui::pos2(col_mlp, 600.0), DiffEvalNode::OutputLayer);
+    let hidden_id = snarl.insert_node(egui::pos2(col_mlp, 2.0 * spacing), DiffEvalNode::HiddenLayer);
+    let output_id = snarl.insert_node(egui::pos2(col_mlp, 4.0 * spacing), DiffEvalNode::OutputLayer);
 
     // Output node
-    let win_id = snarl.insert_node(egui::pos2(col_output, 300.0), DiffEvalNode::WinProbability);
+    let win_id = snarl.insert_node(egui::pos2(col_output, 3.0 * spacing), DiffEvalNode::WinProbability);
 
     // Input -> Module edges
     snarl.connect(OutPinId { node: color_id, output: 0 }, InPinId { node: cwv_id, input: 0 });
