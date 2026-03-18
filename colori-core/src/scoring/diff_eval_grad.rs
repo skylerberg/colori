@@ -57,155 +57,159 @@ pub fn diff_eval_backward(
     let mut grads = DiffEvalGradients::zeros();
     let g = &mut grads.grads;
 
-    // ── Forward pass with caching ──
+    // ── Step 1: Forward pass to get module outputs + raw features ──
 
-    // Module 1: Color wheel value
-    let color_value = color_wheel_value_cached(player, w, g, grad_output);
+    let color_out = color_wheel_value_forward(player, w);
+    let sell_out = sell_card_alignment_forward(player, sell_card_display, round, w);
+    let deck_out = deck_color_profile_forward(player, sell_card_display, card_lookup, w, table);
+    let mat_out = material_strategy_forward(player, sell_card_display, w);
+    let raw = extract_raw_features_forward(player, sell_card_display, card_lookup, table);
 
-    // Module 2: Sell card alignment
-    let sell_align = sell_card_alignment_cached(player, sell_card_display, round, w, g, grad_output);
+    // ── Step 2: Assemble MLP inputs ──
 
-    // Module 3: Deck color profile
-    let deck_profile = deck_color_profile_cached(player, sell_card_display, card_lookup, w, table, g, grad_output);
+    let mut mlp_inputs = [0.0f64; MLP_INPUT_SIZE];
 
-    // Module 4: Material strategy
-    let material = material_strategy_cached(player, sell_card_display, w, g, grad_output);
+    // Module 1: Color Wheel Value (7 outputs) -> [0..7]
+    for i in 0..7 { mlp_inputs[i] = color_out[i]; }
 
-    // ── Aggregation MLP forward + backward ──
-    let mlp_inputs = [
-        player.cached_score as f64 / 20.0,
-        color_value,
-        sell_align,
-        deck_profile,
-        material,
-        round as f64 / 20.0,
-    ];
+    // Module 2: Sell Card Alignment (5 outputs) -> [7..12]
+    for i in 0..5 { mlp_inputs[7 + i] = sell_out[i]; }
 
-    // Forward: hidden = ReLU(W1 * x + b1)
-    let mut pre_relu = [0.0f64; 16];
-    let mut hidden = [0.0f64; 16];
-    for row in 0..16 {
+    // Module 3: Deck Color Profile (9 outputs) -> [12..21]
+    for i in 0..9 { mlp_inputs[12 + i] = deck_out[i]; }
+
+    // Module 4: Material Strategy (7 outputs) -> [21..28]
+    for i in 0..7 { mlp_inputs[21 + i] = mat_out[i]; }
+
+    // Direct inputs -> [28..30]
+    mlp_inputs[28] = player.cached_score as f64 / 20.0;
+    mlp_inputs[29] = round as f64 / 20.0;
+
+    // Raw features -> [30..117]
+    for i in 0..87 { mlp_inputs[30 + i] = raw[i]; }
+
+    // ── Step 3: MLP forward to cache pre_relu and hidden ──
+
+    let mut pre_relu = [0.0f64; MLP_HIDDEN_SIZE];
+    let mut hidden = [0.0f64; MLP_HIDDEN_SIZE];
+    for row in 0..MLP_HIDDEN_SIZE {
         let mut sum = w[MLP_B1 + row];
-        for col in 0..6 {
-            sum += w[MLP_W1 + row * 6 + col] * mlp_inputs[col];
+        for col in 0..MLP_INPUT_SIZE {
+            sum += w[MLP_W1 + row * MLP_INPUT_SIZE + col] * mlp_inputs[col];
         }
         pre_relu[row] = sum;
         hidden[row] = sum.max(0.0);
     }
 
-    // Forward: output = W2 * hidden + b2
-    // (output value not needed, we already have grad_output)
+    // ── Step 4: MLP backward ──
 
-    // Backward through output layer: d_output/d_W2[i] = hidden[i], d_output/d_b2 = 1
+    // Output layer: output = W2 * hidden + b2
     g[MLP_B2] += grad_output;
-    for i in 0..16 {
+    for i in 0..MLP_HIDDEN_SIZE {
         g[MLP_W2 + i] += grad_output * hidden[i];
     }
 
     // Backward through hidden layer
-    let mut d_hidden = [0.0f64; 16];
-    for i in 0..16 {
+    let mut d_hidden = [0.0f64; MLP_HIDDEN_SIZE];
+    for i in 0..MLP_HIDDEN_SIZE {
         d_hidden[i] = grad_output * w[MLP_W2 + i];
     }
 
     // Backward through ReLU
-    let mut d_pre_relu = [0.0f64; 16];
-    for i in 0..16 {
+    let mut d_pre_relu = [0.0f64; MLP_HIDDEN_SIZE];
+    for i in 0..MLP_HIDDEN_SIZE {
         d_pre_relu[i] = if pre_relu[i] > 0.0 { d_hidden[i] } else { 0.0 };
     }
 
     // Backward through W1 * x + b1
-    for row in 0..16 {
+    for row in 0..MLP_HIDDEN_SIZE {
         g[MLP_B1 + row] += d_pre_relu[row];
-        for col in 0..6 {
-            g[MLP_W1 + row * 6 + col] += d_pre_relu[row] * mlp_inputs[col];
+        for col in 0..MLP_INPUT_SIZE {
+            g[MLP_W1 + row * MLP_INPUT_SIZE + col] += d_pre_relu[row] * mlp_inputs[col];
         }
     }
 
-    // Gradient w.r.t. mlp_inputs (to propagate to modules)
-    let mut d_inputs = [0.0f64; 6];
-    for col in 0..6 {
-        for row in 0..16 {
-            d_inputs[col] += d_pre_relu[row] * w[MLP_W1 + row * 6 + col];
+    // Gradient w.r.t. mlp_inputs
+    let mut d_inputs = [0.0f64; MLP_INPUT_SIZE];
+    for col in 0..MLP_INPUT_SIZE {
+        for row in 0..MLP_HIDDEN_SIZE {
+            d_inputs[col] += d_pre_relu[row] * w[MLP_W1 + row * MLP_INPUT_SIZE + col];
         }
     }
 
-    // Now we need to propagate d_inputs back through the modules.
-    // d_inputs[0] = d_loss/d_(score/20) — no learnable params, skip
-    // d_inputs[1] = d_loss/d_color_value — already accumulated in color_wheel_value_cached
-    // d_inputs[2] = d_loss/d_sell_align — already accumulated
-    // d_inputs[3] = d_loss/d_deck_profile — already accumulated
-    // d_inputs[4] = d_loss/d_material — already accumulated
-    // d_inputs[5] = d_loss/d_(round/20) — no learnable params, skip
+    // ── Step 5: Extract upstream gradients for each module from d_inputs ──
+    // d_inputs[0..7]   → color_wheel upstream
+    // d_inputs[7..12]  → sell_card upstream
+    // d_inputs[12..21] → deck_profile upstream
+    // d_inputs[21..28] → material upstream
+    // d_inputs[28..30] → score/20 and round/20 (no params, ignore)
+    // d_inputs[30..117] → raw features (no params, ignore)
 
-    // Wait — the module gradient functions above used grad_output directly,
-    // but they should use d_inputs[module_idx] * grad_output is wrong.
-    // Actually, we need to multiply the module gradients by the MLP input gradient.
-    //
-    // Let me restructure: the module functions should compute their output AND
-    // accumulate gradients scaled by the upstream gradient (d_inputs[i]).
-    //
-    // Since I already accumulated with grad_output, I need to rescale.
-    // The correct upstream gradient for each module is d_inputs[i], not grad_output.
-    //
-    // Let me fix this by using a two-pass approach:
-    // 1. Forward: compute module outputs (no gradient accumulation)
-    // 2. MLP forward + backward: compute d_inputs
-    // 3. Backward: accumulate module gradients using d_inputs
+    let mut d_color: [f64; 7] = [0.0; 7];
+    for i in 0..7 { d_color[i] = d_inputs[i]; }
 
-    // Reset module gradients (we incorrectly accumulated them with grad_output)
-    // Actually, let me restructure to not accumulate in the forward pass at all.
+    let mut d_sell: [f64; 5] = [0.0; 5];
+    for i in 0..5 { d_sell[i] = d_inputs[7 + i]; }
 
-    // Re-zero the module parameter gradients (indices 0..72)
-    for i in 0..72 {
-        g[i] = 0.0;
-    }
+    let mut d_deck: [f64; 9] = [0.0; 9];
+    for i in 0..9 { d_deck[i] = d_inputs[12 + i]; }
 
-    // Now properly accumulate with correct upstream gradients
-    color_wheel_backward(player, w, g, d_inputs[1]);
-    sell_card_alignment_backward(player, sell_card_display, round, w, g, d_inputs[2]);
-    deck_color_profile_backward(player, sell_card_display, card_lookup, w, table, g, d_inputs[3]);
-    material_strategy_backward(player, sell_card_display, w, g, d_inputs[4]);
+    let mut d_mat: [f64; 7] = [0.0; 7];
+    for i in 0..7 { d_mat[i] = d_inputs[21 + i]; }
+
+    // ── Step 6: Call module backward functions ──
+
+    color_wheel_backward(player, w, g, &d_color);
+    sell_card_alignment_backward(player, sell_card_display, round, w, g, &d_sell);
+    deck_color_profile_backward(player, sell_card_display, card_lookup, w, table, g, &d_deck);
+    material_strategy_backward(player, sell_card_display, w, g, &d_mat);
 
     grads
 }
 
-// ── Module forward passes (return output only) ──
+// ── Module forward passes (return output arrays only, no gradient accumulation) ──
 
-fn color_wheel_value_cached(player: &PlayerState, w: &[f64; NUM_PARAMS], _g: &mut [f64; NUM_PARAMS], _grad: f64) -> f64 {
-    let mut value = 0.0;
+fn color_wheel_value_forward(player: &PlayerState, w: &[f64; NUM_PARAMS]) -> [f64; 7] {
+    let mut out = [0.0f64; 7];
+
     for (tier, colors) in [&PRIMARIES[..], &SECONDARIES[..], &TERTIARIES[..]].iter().enumerate() {
         let sat_w = w[COLOR_SAT_W + tier];
         let sat_a = w[COLOR_SAT_A + tier];
+        let mut tier_sum = 0.0;
         for &c in *colors {
             let count = player.color_wheel.get(c) as f64;
-            value += sat_w * (1.0 + sat_a * count).ln();
+            tier_sum += sat_w * (1.0 + sat_a * count).ln();
         }
+        out[tier] = tier_sum;
     }
+
+    let mut mix_total = 0.0;
     for (i, &(a, b)) in VALID_MIX_PAIRS.iter().enumerate() {
         let count_a = player.color_wheel.get(a) as f64;
         let count_b = player.color_wheel.get(b) as f64;
-        value += w[MIX_PAIR_W + i] * count_a.min(count_b);
+        mix_total += w[MIX_PAIR_W + i] * count_a.min(count_b);
     }
+    out[3] = mix_total;
+
     for (tier, colors) in [&PRIMARIES[..], &SECONDARIES[..], &TERTIARIES[..]].iter().enumerate() {
         let num_distinct = colors.iter().filter(|&&c| player.color_wheel.get(c) > 0).count() as f64;
         let x = w[COVERAGE_A + tier] * num_distinct - w[COVERAGE_B + tier];
-        value += w[COVERAGE_W + tier] * sigmoid(x);
+        out[4 + tier] = w[COVERAGE_W + tier] * sigmoid(x);
     }
-    value
+
+    out
 }
 
-fn sell_card_alignment_cached(
+fn sell_card_alignment_forward(
     player: &PlayerState,
     sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
     round: u32,
     w: &[f64; NUM_PARAMS],
-    _g: &mut [f64; NUM_PARAMS],
-    _grad: f64,
-) -> f64 {
-    // Same as forward pass in diff_eval.rs
-    let n = sell_card_display.len();
+) -> [f64; 5] {
+    let mut out = [0.0f64; 5];
     let mut alignments = [0.0f64; MAX_SELL_CARD_DISPLAY];
+    let n = sell_card_display.len();
+
     for (i, bi) in sell_card_display.iter().enumerate() {
         let sell_card = bi.sell_card;
         let ducats = sell_card.ducats();
@@ -220,31 +224,33 @@ fn sell_card_alignment_cached(
         let weighted_color = w[SELL_DUCAT_W + ducat_tier] * color_ratio;
         alignments[i] = w[SELL_COMBINE_W] * mat_match + w[SELL_COMBINE_W + 1] * weighted_color;
     }
+
     let mut sorted = [0.0f64; MAX_SELL_CARD_DISPLAY];
     sorted[..n].copy_from_slice(&alignments[..n]);
     sorted[..n].sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
-    let best = if n > 0 { sorted[0] } else { 0.0 };
-    let second = if n > 1 { sorted[1] } else { 0.0 };
-    let rest: f64 = if n > 2 { sorted[2..n].iter().sum() } else { 0.0 };
-    let aggregated = w[SELL_AGG_W] * best + w[SELL_AGG_W + 1] * second + w[SELL_AGG_W + 2] * rest;
+
+    out[0] = if n > 0 { sorted[0] } else { 0.0 };
+    out[1] = if n > 1 { sorted[1] } else { 0.0 };
+    out[2] = if n > 2 { sorted[2..n].iter().sum() } else { 0.0 };
+
     let round_f = round as f64;
-    let urgency = sigmoid(w[SELL_ROUND_W] * round_f - w[SELL_ROUND_W + 1]);
-    let alignment_value = aggregated * urgency;
+    out[3] = sigmoid(w[SELL_ROUND_W] * round_f - w[SELL_ROUND_W + 1]);
+
     let sold_count = player.completed_sell_cards.len() as f64;
-    let sold_value = w[SELL_SOLD_W] * sold_count * sigmoid(w[SELL_SOLD_W + 1] * round_f - w[SELL_SOLD_W + 2]);
-    alignment_value + sold_value
+    out[4] = w[SELL_SOLD_W] * sold_count * sigmoid(w[SELL_SOLD_W + 1] * round_f - w[SELL_SOLD_W + 2]);
+
+    out
 }
 
-fn deck_color_profile_cached(
+fn deck_color_profile_forward(
     player: &PlayerState,
     sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
     card_lookup: &[Card; 256],
     w: &[f64; NUM_PARAMS],
     table: &DiffEvalTable,
-    _g: &mut [f64; NUM_PARAMS],
-    _grad: f64,
-) -> f64 {
-    let mut value = 0.0;
+) -> [f64; 9] {
+    let mut out = [0.0f64; 9];
+
     let mut production = [0u32; NUM_COLORS];
     let mut card_count = 0u32;
     let mut workshopped_count = 0u32;
@@ -267,48 +273,69 @@ fn deck_color_profile_cached(
                 DeckCardCategory::MaterialStarter => mat_card_counts[0] += 1,
                 DeckCardCategory::MaterialColored => mat_card_counts[1] += 1,
                 DeckCardCategory::MaterialDual => mat_card_counts[2] += 1,
-                _ => {}
+                DeckCardCategory::Dye | DeckCardCategory::ActionOther => {}
             }
         }
     }
+
     let mut distinct_colors = 0u32;
+    let mut tier_sums = [0.0f64; 3];
     for c in 0..NUM_COLORS {
         let count = production[c] as f64;
         if count > 0.0 { distinct_colors += 1; }
         let tier = color_tier(Color::from_index(c));
-        value += w[DECK_COLOR_SAT_W + tier] * (1.0 + w[DECK_COLOR_SAT_A + tier] * count).ln();
+        let sat_w = w[DECK_COLOR_SAT_W + tier];
+        let sat_a = w[DECK_COLOR_SAT_A + tier];
+        tier_sums[tier] += sat_w * (1.0 + sat_a * count).ln();
     }
+    out[0] = tier_sums[0];
+    out[1] = tier_sums[1];
+    out[2] = tier_sums[2];
+
+    let mut prod_need_total = 0.0;
     for bi in sell_card_display.iter() {
         let cost = bi.sell_card.color_cost();
         let producible = cost.iter().filter(|&&c| production[c.index()] > 0).count() as f64;
         let cost_len = cost.len() as f64;
         let fraction = if cost_len > 0.0 { producible / cost_len } else { 0.0 };
         let ducat_tier = match bi.sell_card.ducats() { 2 => 0, 3 => 1, _ => 2 };
-        value += w[DECK_PROD_NEED_W + ducat_tier] * fraction;
+        prod_need_total += w[DECK_PROD_NEED_W + ducat_tier] * fraction;
     }
-    for i in 0..5 { value += w[DECK_ACTION_W + i] * action_counts[i] as f64; }
-    for i in 0..3 { value += w[DECK_MAT_CARD_W + i] * mat_card_counts[i] as f64; }
+    out[3] = prod_need_total;
+
+    let mut action_total = 0.0;
+    for i in 0..5 { action_total += w[DECK_ACTION_W + i] * action_counts[i] as f64; }
+    out[4] = action_total;
+
+    let mut mat_card_total = 0.0;
+    for i in 0..3 { mat_card_total += w[DECK_MAT_CARD_W + i] * mat_card_counts[i] as f64; }
+    out[5] = mat_card_total;
+
     let size = card_count as f64;
-    value += w[DECK_SIZE_W] * size + w[DECK_SIZE_W + 1] * size * size;
-    value += w[DECK_DIVERSITY_W] * distinct_colors as f64 / 12.0;
-    value += w[DECK_WORKSHOP_W] * workshopped_count as f64;
-    value
+    out[6] = w[DECK_SIZE_W] * size + w[DECK_SIZE_W + 1] * size * size;
+
+    out[7] = w[DECK_DIVERSITY_W] * distinct_colors as f64 / 12.0;
+
+    out[8] = w[DECK_WORKSHOP_W] * workshopped_count as f64;
+
+    out
 }
 
-fn material_strategy_cached(
+fn material_strategy_forward(
     player: &PlayerState,
     sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
     w: &[f64; NUM_PARAMS],
-    _g: &mut [f64; NUM_PARAMS],
-    _grad: f64,
-) -> f64 {
-    let mut value = 0.0;
+) -> [f64; 7] {
+    let mut out = [0.0f64; 7];
+
     let mut types_with_material = 0u32;
     for i in 0..3 {
         let stored = player.materials.counts[i] as f64;
         let x = w[MAT_SUFF_W + i] * (stored - w[MAT_SUFF_THRESH + i]);
-        value += sigmoid(x);
+        out[i] = sigmoid(x);
+
         if stored > 0.0 { types_with_material += 1; }
+
         let mut demand = 0.0;
         for bi in sell_card_display.iter() {
             if bi.sell_card.required_material() as usize == i {
@@ -316,63 +343,135 @@ fn material_strategy_cached(
             }
         }
         let availability = sigmoid(stored - 0.5);
-        value += w[MAT_DEMAND_W + i] * demand * availability;
+        out[3 + i] = w[MAT_DEMAND_W + i] * demand * availability;
     }
-    if types_with_material >= 2 { value += w[MAT_DIVERSITY_W]; }
-    if types_with_material >= 3 { value += w[MAT_DIVERSITY_W + 1]; }
-    value
+
+    let mut diversity = 0.0;
+    if types_with_material >= 2 { diversity += w[MAT_DIVERSITY_W]; }
+    if types_with_material >= 3 { diversity += w[MAT_DIVERSITY_W + 1]; }
+    out[6] = diversity;
+
+    out
+}
+
+fn extract_raw_features_forward(
+    player: &PlayerState,
+    sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
+    card_lookup: &[Card; 256],
+    table: &DiffEvalTable,
+) -> [f64; 87] {
+    let mut out = [0.0f64; 87];
+
+    // Raw color wheel counts [0..12]
+    for c in 0..NUM_COLORS {
+        out[c] = player.color_wheel.counts[c] as f64;
+    }
+
+    // Raw deck color production [12..24] and card type counts [36..82]
+    let mut production = [0u32; NUM_COLORS];
+    let mut card_type_counts = [0u32; 46];
+
+    let card_sets: [&crate::unordered_cards::UnorderedCards; 5] = [
+        &player.deck, &player.discard, &player.workshop_cards, &player.workshopped_cards, &player.drafted_cards,
+    ];
+
+    for cards in card_sets.iter() {
+        for id in cards.iter() {
+            let card = card_lookup[id as usize];
+            let card_idx = card as usize;
+            for c in 0..NUM_COLORS {
+                production[c] += table.color_production[card_idx][c] as u32;
+            }
+            card_type_counts[card_idx] += 1;
+        }
+    }
+
+    for c in 0..NUM_COLORS {
+        out[12 + c] = production[c] as f64;
+    }
+
+    // Raw sell card color demand [24..36]
+    let mut sell_demand = [0u32; NUM_COLORS];
+    for bi in sell_card_display.iter() {
+        let cost = bi.sell_card.color_cost();
+        for &c in cost {
+            sell_demand[c.index()] += 1;
+        }
+    }
+    for c in 0..NUM_COLORS {
+        out[24 + c] = sell_demand[c] as f64;
+    }
+
+    // Raw card type counts [36..82]
+    for i in 0..46 {
+        out[36 + i] = card_type_counts[i] as f64;
+    }
+
+    // Raw material counts [82..85]
+    for i in 0..3 {
+        out[82 + i] = player.materials.counts[i] as f64;
+    }
+
+    // Completed sell cards [85]
+    out[85] = player.completed_sell_cards.len() as f64;
+
+    // Ducats [86]
+    out[86] = player.ducats as f64;
+
+    out
 }
 
 // ── Module backward passes ──
 
-fn color_wheel_backward(player: &PlayerState, w: &[f64; NUM_PARAMS], g: &mut [f64; NUM_PARAMS], upstream: f64) {
-    // d/d(sat_w) [sat_w * ln(1 + sat_a * count)] = ln(1 + sat_a * count)
-    // d/d(sat_a) [sat_w * ln(1 + sat_a * count)] = sat_w * count / (1 + sat_a * count)
+/// Color wheel backward. upstream is [f64; 7]:
+/// [0..3] per-tier saturation, [3] mix-pair total, [4..7] per-tier coverage
+fn color_wheel_backward(player: &PlayerState, w: &[f64; NUM_PARAMS], g: &mut [f64; NUM_PARAMS], upstream: &[f64; 7]) {
+    // Per-tier saturation: out[tier] = sum_c sat_w * ln(1 + sat_a * count)
     for (tier, colors) in [&PRIMARIES[..], &SECONDARIES[..], &TERTIARIES[..]].iter().enumerate() {
         let sat_w = w[COLOR_SAT_W + tier];
         let sat_a = w[COLOR_SAT_A + tier];
         for &c in *colors {
             let count = player.color_wheel.get(c) as f64;
             let inner = 1.0 + sat_a * count;
-            g[COLOR_SAT_W + tier] += upstream * inner.ln();
-            g[COLOR_SAT_A + tier] += upstream * sat_w * count / inner;
+            g[COLOR_SAT_W + tier] += upstream[tier] * inner.ln();
+            g[COLOR_SAT_A + tier] += upstream[tier] * sat_w * count / inner;
         }
     }
 
-    // d/d(mix_w[i]) [mix_w[i] * min(a, b)] = min(a, b)
+    // Mix-pair: out[3] = sum_i mix_w[i] * min(a, b)
     for (i, &(a, b)) in VALID_MIX_PAIRS.iter().enumerate() {
         let count_a = player.color_wheel.get(a) as f64;
         let count_b = player.color_wheel.get(b) as f64;
-        g[MIX_PAIR_W + i] += upstream * count_a.min(count_b);
+        g[MIX_PAIR_W + i] += upstream[3] * count_a.min(count_b);
     }
 
-    // Coverage: d/d(cov_w) [cov_w * sigmoid(cov_a * n - cov_b)] = sigmoid(...)
-    // d/d(cov_a) = cov_w * sig' * n
-    // d/d(cov_b) = cov_w * sig' * (-1)
+    // Coverage: out[4+tier] = cov_w * sigmoid(cov_a * n - cov_b)
     for (tier, colors) in [&PRIMARIES[..], &SECONDARIES[..], &TERTIARIES[..]].iter().enumerate() {
         let num_distinct = colors.iter().filter(|&&c| player.color_wheel.get(c) > 0).count() as f64;
         let x = w[COVERAGE_A + tier] * num_distinct - w[COVERAGE_B + tier];
         let sig = sigmoid(x);
         let sig_deriv = sig * (1.0 - sig);
 
-        g[COVERAGE_W + tier] += upstream * sig;
-        g[COVERAGE_A + tier] += upstream * w[COVERAGE_W + tier] * sig_deriv * num_distinct;
-        g[COVERAGE_B + tier] += upstream * w[COVERAGE_W + tier] * sig_deriv * (-1.0);
+        g[COVERAGE_W + tier] += upstream[4 + tier] * sig;
+        g[COVERAGE_A + tier] += upstream[4 + tier] * w[COVERAGE_W + tier] * sig_deriv * num_distinct;
+        g[COVERAGE_B + tier] += upstream[4 + tier] * w[COVERAGE_W + tier] * sig_deriv * (-1.0);
     }
 }
 
+/// Sell card alignment backward. upstream is [f64; 5]:
+/// [0] best, [1] second, [2] rest, [3] urgency, [4] sold_value
 fn sell_card_alignment_backward(
     player: &PlayerState,
     sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
     round: u32,
     w: &[f64; NUM_PARAMS],
     g: &mut [f64; NUM_PARAMS],
-    upstream: f64,
+    upstream: &[f64; 5],
 ) {
     let n = sell_card_display.len();
     let round_f = round as f64;
 
-    // Recompute per-card alignments (needed for backward)
+    // Recompute per-card alignments
     let mut alignments = [0.0f64; MAX_SELL_CARD_DISPLAY];
     let mut mat_matches = [0.0f64; MAX_SELL_CARD_DISPLAY];
     let mut color_ratios = [0.0f64; MAX_SELL_CARD_DISPLAY];
@@ -404,67 +503,52 @@ fn sell_card_alignment_backward(
     let best_idx_opt = sorted_indices.first().copied();
     let second_idx_opt = sorted_indices.get(1).copied();
 
-    // Forward recompute
-    let best = best_idx_opt.map_or(0.0, |i| alignments[i]);
-    let second = second_idx_opt.map_or(0.0, |i| alignments[i]);
-    let rest: f64 = sorted_indices.iter().skip(2).map(|&i| alignments[i]).sum();
-    let aggregated = w[SELL_AGG_W] * best + w[SELL_AGG_W + 1] * second + w[SELL_AGG_W + 2] * rest;
-
-    let urgency_arg = w[SELL_ROUND_W] * round_f - w[SELL_ROUND_W + 1];
-    let urgency = sigmoid(urgency_arg);
-    let urgency_deriv = urgency * (1.0 - urgency);
-
-    // Backward through alignment_value = aggregated * urgency
-    let d_aggregated = upstream * urgency;
-    let d_urgency = upstream * aggregated;
-
-    // Backward through urgency = sigmoid(w_round * round - b_round)
-    g[SELL_ROUND_W] += d_urgency * urgency_deriv * round_f;
-    g[SELL_ROUND_W + 1] += d_urgency * urgency_deriv * (-1.0);
-
-    // Backward through aggregation weights
-    g[SELL_AGG_W] += d_aggregated * best;
-    g[SELL_AGG_W + 1] += d_aggregated * second;
-    g[SELL_AGG_W + 2] += d_aggregated * rest;
-
+    // Upstream for out[0] = best alignment, out[1] = second, out[2] = rest
     // d_alignment[i] depends on position in sorted order
     let mut d_alignments = [0.0f64; MAX_SELL_CARD_DISPLAY];
-    if let Some(i) = best_idx_opt { d_alignments[i] += d_aggregated * w[SELL_AGG_W]; }
-    if let Some(i) = second_idx_opt { d_alignments[i] += d_aggregated * w[SELL_AGG_W + 1]; }
-    for &i in sorted_indices.iter().skip(2) { d_alignments[i] += d_aggregated * w[SELL_AGG_W + 2]; }
+    if let Some(i) = best_idx_opt { d_alignments[i] += upstream[0]; }
+    if let Some(i) = second_idx_opt { d_alignments[i] += upstream[1]; }
+    for &i in sorted_indices.iter().skip(2) { d_alignments[i] += upstream[2]; }
 
     // Backward through per-card alignment computation
     for i in 0..n {
         let d_a = d_alignments[i];
         if d_a == 0.0 { continue; }
 
-        // alignment[i] = w_combine * mat_match + w_color * weighted_color
-        // where weighted_color = w_ducat[tier] * color_ratio
         let weighted_color = w[SELL_DUCAT_W + ducat_tiers[i]] * color_ratios[i];
 
         g[SELL_COMBINE_W] += d_a * mat_matches[i];
         g[SELL_COMBINE_W + 1] += d_a * weighted_color;
 
-        // d/d(w_ducat[tier])
         g[SELL_DUCAT_W + ducat_tiers[i]] += d_a * w[SELL_COMBINE_W + 1] * color_ratios[i];
 
-        // d/d(sell_mat_w[mt]) through sigmoid
         let sig = mat_matches[i];
         let sig_deriv = sig * (1.0 - sig);
         g[SELL_MAT_W + mat_types[i]] += d_a * w[SELL_COMBINE_W] * sig_deriv * has_mats[i];
     }
 
-    // Backward through sold_value = w_sold * sold_count * sigmoid(a_sold * round - b_sold)
+    // Backward through urgency: out[3] = sigmoid(w_round * round - b_round)
+    let urgency_arg = w[SELL_ROUND_W] * round_f - w[SELL_ROUND_W + 1];
+    let urgency = sigmoid(urgency_arg);
+    let urgency_deriv = urgency * (1.0 - urgency);
+
+    g[SELL_ROUND_W] += upstream[3] * urgency_deriv * round_f;
+    g[SELL_ROUND_W + 1] += upstream[3] * urgency_deriv * (-1.0);
+
+    // Backward through sold_value: out[4] = w_sold * sold_count * sigmoid(a_sold * round - b_sold)
     let sold_count = player.completed_sell_cards.len() as f64;
     let sold_arg = w[SELL_SOLD_W + 1] * round_f - w[SELL_SOLD_W + 2];
     let sold_sig = sigmoid(sold_arg);
     let sold_sig_deriv = sold_sig * (1.0 - sold_sig);
 
-    g[SELL_SOLD_W] += upstream * sold_count * sold_sig;
-    g[SELL_SOLD_W + 1] += upstream * w[SELL_SOLD_W] * sold_count * sold_sig_deriv * round_f;
-    g[SELL_SOLD_W + 2] += upstream * w[SELL_SOLD_W] * sold_count * sold_sig_deriv * (-1.0);
+    g[SELL_SOLD_W] += upstream[4] * sold_count * sold_sig;
+    g[SELL_SOLD_W + 1] += upstream[4] * w[SELL_SOLD_W] * sold_count * sold_sig_deriv * round_f;
+    g[SELL_SOLD_W + 2] += upstream[4] * w[SELL_SOLD_W] * sold_count * sold_sig_deriv * (-1.0);
 }
 
+/// Deck color profile backward. upstream is [f64; 9]:
+/// [0-2] per-tier saturation, [3] prod-need, [4] action, [5] mat-card,
+/// [6] deck-size, [7] diversity, [8] workshopped
 fn deck_color_profile_backward(
     player: &PlayerState,
     sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
@@ -472,7 +556,7 @@ fn deck_color_profile_backward(
     w: &[f64; NUM_PARAMS],
     table: &DiffEvalTable,
     g: &mut [f64; NUM_PARAMS],
-    upstream: f64,
+    upstream: &[f64; 9],
 ) {
     // Recompute intermediates
     let mut production = [0u32; NUM_COLORS];
@@ -497,12 +581,12 @@ fn deck_color_profile_backward(
                 DeckCardCategory::MaterialStarter => mat_card_counts[0] += 1,
                 DeckCardCategory::MaterialColored => mat_card_counts[1] += 1,
                 DeckCardCategory::MaterialDual => mat_card_counts[2] += 1,
-                _ => {}
+                DeckCardCategory::Dye | DeckCardCategory::ActionOther => {}
             }
         }
     }
 
-    // Gradients for per-color log-saturation
+    // Per-color saturation gradients (grouped by tier)
     let mut distinct_colors = 0u32;
     for c in 0..NUM_COLORS {
         let count = production[c] as f64;
@@ -511,36 +595,46 @@ fn deck_color_profile_backward(
         let sat_w = w[DECK_COLOR_SAT_W + tier];
         let sat_a = w[DECK_COLOR_SAT_A + tier];
         let inner = 1.0 + sat_a * count;
-        g[DECK_COLOR_SAT_W + tier] += upstream * inner.ln();
-        g[DECK_COLOR_SAT_A + tier] += upstream * sat_w * count / inner;
+        g[DECK_COLOR_SAT_W + tier] += upstream[tier] * inner.ln();
+        g[DECK_COLOR_SAT_A + tier] += upstream[tier] * sat_w * count / inner;
     }
 
-    // Gradients for production-need interaction (linear in weights)
+    // Production-need interaction
     for bi in sell_card_display.iter() {
         let cost = bi.sell_card.color_cost();
         let producible = cost.iter().filter(|&&c| production[c.index()] > 0).count() as f64;
         let cost_len = cost.len() as f64;
         let fraction = if cost_len > 0.0 { producible / cost_len } else { 0.0 };
         let ducat_tier = match bi.sell_card.ducats() { 2 => 0, 3 => 1, _ => 2 };
-        g[DECK_PROD_NEED_W + ducat_tier] += upstream * fraction;
+        g[DECK_PROD_NEED_W + ducat_tier] += upstream[3] * fraction;
     }
 
-    // Linear terms
-    for i in 0..5 { g[DECK_ACTION_W + i] += upstream * action_counts[i] as f64; }
-    for i in 0..3 { g[DECK_MAT_CARD_W + i] += upstream * mat_card_counts[i] as f64; }
+    // Action card weights
+    for i in 0..5 { g[DECK_ACTION_W + i] += upstream[4] * action_counts[i] as f64; }
+
+    // Material card weights
+    for i in 0..3 { g[DECK_MAT_CARD_W + i] += upstream[5] * mat_card_counts[i] as f64; }
+
+    // Deck size
     let size = card_count as f64;
-    g[DECK_SIZE_W] += upstream * size;
-    g[DECK_SIZE_W + 1] += upstream * size * size;
-    g[DECK_DIVERSITY_W] += upstream * distinct_colors as f64 / 12.0;
-    g[DECK_WORKSHOP_W] += upstream * workshopped_count as f64;
+    g[DECK_SIZE_W] += upstream[6] * size;
+    g[DECK_SIZE_W + 1] += upstream[6] * size * size;
+
+    // Diversity
+    g[DECK_DIVERSITY_W] += upstream[7] * distinct_colors as f64 / 12.0;
+
+    // Workshopped
+    g[DECK_WORKSHOP_W] += upstream[8] * workshopped_count as f64;
 }
 
+/// Material strategy backward. upstream is [f64; 7]:
+/// [0-2] per-type sufficiency, [3-5] per-type demand, [6] diversity
 fn material_strategy_backward(
     player: &PlayerState,
     sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
     w: &[f64; NUM_PARAMS],
     g: &mut [f64; NUM_PARAMS],
-    upstream: f64,
+    upstream: &[f64; 7],
 ) {
     let mut types_with_material = 0u32;
     for i in 0..3 {
@@ -549,14 +643,13 @@ fn material_strategy_backward(
         let sig = sigmoid(x);
         let sig_deriv = sig * (1.0 - sig);
 
-        // d/d(suff_w[i]) = sig' * (stored - thresh)
-        g[MAT_SUFF_W + i] += upstream * sig_deriv * (stored - w[MAT_SUFF_THRESH + i]);
-        // d/d(thresh[i]) = sig' * (-suff_w)
-        g[MAT_SUFF_THRESH + i] += upstream * sig_deriv * (-w[MAT_SUFF_W + i]);
+        // out[i] = sigmoid(suff_w * (stored - thresh))
+        g[MAT_SUFF_W + i] += upstream[i] * sig_deriv * (stored - w[MAT_SUFF_THRESH + i]);
+        g[MAT_SUFF_THRESH + i] += upstream[i] * sig_deriv * (-w[MAT_SUFF_W + i]);
 
         if stored > 0.0 { types_with_material += 1; }
 
-        // demand * availability interaction
+        // out[3+i] = demand_w * demand * availability
         let mut demand = 0.0;
         for bi in sell_card_display.iter() {
             if bi.sell_card.required_material() as usize == i {
@@ -564,14 +657,13 @@ fn material_strategy_backward(
             }
         }
         let availability = sigmoid(stored - 0.5);
-        // d/d(demand_w[i]) = demand * availability
-        g[MAT_DEMAND_W + i] += upstream * demand * availability;
-        // (availability has no learnable params — stored and 0.5 are fixed)
+        g[MAT_DEMAND_W + i] += upstream[3 + i] * demand * availability;
     }
 
-    // Diversity (step-function-like, no smooth gradient, but accumulate for the weight)
-    if types_with_material >= 2 { g[MAT_DIVERSITY_W] += upstream; }
-    if types_with_material >= 3 { g[MAT_DIVERSITY_W + 1] += upstream; }
+    // Diversity (step-function-like, no smooth gradient for the condition,
+    // but accumulate for the weight)
+    if types_with_material >= 2 { g[MAT_DIVERSITY_W] += upstream[6]; }
+    if types_with_material >= 3 { g[MAT_DIVERSITY_W + 1] += upstream[6]; }
 }
 
 #[cfg(test)]
@@ -622,15 +714,29 @@ mod tests {
         // Compute analytical gradients
         let grads = diff_eval_backward(&player, &display, &card_lookup, round, &params, &table, 1.0);
 
-        // Compare against finite differences for each parameter
+        // Compare against finite differences.
+        // Check all module params (0..72) plus a sampling of MLP params.
         let eps = 1e-5;
         let mut max_rel_error = 0.0f64;
         let mut worst_param = 0;
 
-        for i in 0..NUM_PARAMS {
-            // Skip non-differentiable control params
-            if i >= 201 { continue; }
+        let mut params_to_check: Vec<usize> = (0..72).collect();
+        // Sample every 100th MLP param
+        let mut i = 72;
+        while i < NUM_DIFF_PARAMS {
+            params_to_check.push(i);
+            i += 100;
+        }
+        // Always include the last few params (W2 tail, B2)
+        if NUM_DIFF_PARAMS > 3 {
+            for j in (NUM_DIFF_PARAMS - 3)..NUM_DIFF_PARAMS {
+                if !params_to_check.contains(&j) {
+                    params_to_check.push(j);
+                }
+            }
+        }
 
+        for &i in &params_to_check {
             let mut params_plus = params.clone();
             params_plus.weights[i] += eps;
             let score_plus = diff_eval_score(&player, &display, &card_lookup, round, &params_plus, &table);
@@ -661,7 +767,7 @@ mod tests {
             }
         }
 
-        eprintln!("Max relative gradient error: {:.6} at param {}", max_rel_error, worst_param);
+        eprintln!("Checked {} params. Max relative gradient error: {:.6} at param {}", params_to_check.len(), max_rel_error, worst_param);
         assert!(max_rel_error < 0.01, "Maximum relative error {:.6} exceeds 1%", max_rel_error);
     }
 }

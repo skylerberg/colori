@@ -4,8 +4,12 @@ use crate::colors::{PRIMARIES, SECONDARIES, TERTIARIES, VALID_MIX_PAIRS};
 use crate::fixed_vec::FixedVec;
 use crate::types::*;
 
+/// MLP architecture constants
+pub const MLP_INPUT_SIZE: usize = 117;
+pub const MLP_HIDDEN_SIZE: usize = 256;
+
 /// Number of learnable parameters in the differentiable evaluation model.
-pub const NUM_PARAMS: usize = 207;
+pub const NUM_PARAMS: usize = 30540;
 
 // ── Parameter indices ──
 
@@ -42,26 +46,23 @@ pub(crate) const MAT_SUFF_THRESH: usize = 64;  // [3]
 pub(crate) const MAT_DEMAND_W: usize = 67;     // [3]
 pub(crate) const MAT_DIVERSITY_W: usize = 70;  // [2]
 
-// Aggregation MLP: 6 → 16 → 1 (129 params)
-pub(crate) const MLP_W1: usize = 72;           // [6 * 16 = 96]
-pub(crate) const MLP_B1: usize = 168;          // [16]
-pub(crate) const MLP_W2: usize = 184;          // [16]
-pub(crate) const MLP_B2: usize = 200;          // [1]
+// Aggregation MLP: MLP_INPUT_SIZE → MLP_HIDDEN_SIZE → 1
+pub(crate) const MLP_W1: usize = 72;                                                       // [MLP_INPUT_SIZE * MLP_HIDDEN_SIZE = 29952]
+pub(crate) const MLP_B1: usize = MLP_W1 + MLP_INPUT_SIZE * MLP_HIDDEN_SIZE;                // 30024, [MLP_HIDDEN_SIZE = 256]
+pub(crate) const MLP_W2: usize = MLP_B1 + MLP_HIDDEN_SIZE;                                 // 30280, [MLP_HIDDEN_SIZE = 256]
+pub(crate) const MLP_B2: usize = MLP_W2 + MLP_HIDDEN_SIZE;                                 // 30536, [1]
 
 /// Number of differentiable parameters (indices 0..NUM_DIFF_PARAMS are updated by gradient descent).
-pub const NUM_DIFF_PARAMS: usize = 201;
+pub const NUM_DIFF_PARAMS: usize = MLP_B2 + 1;                                             // 30537
 
 // Heuristic control parameters (non-differentiable)
-pub(crate) const HEURISTIC_ROUND_THRESHOLD: usize = 201;
-pub(crate) const HEURISTIC_LOOKAHEAD: usize = 202;
+pub(crate) const HEURISTIC_ROUND_THRESHOLD: usize = NUM_DIFF_PARAMS;                       // 30537
+pub(crate) const HEURISTIC_LOOKAHEAD: usize = HEURISTIC_ROUND_THRESHOLD + 1;               // 30538
 
-pub(crate) const PROGRESSIVE_BIAS_WEIGHT: usize = 203;
-
-// Reserved
-pub(crate) const _RESERVED_START: usize = 204;
+pub(crate) const PROGRESSIVE_BIAS_WEIGHT: usize = HEURISTIC_LOOKAHEAD + 1;                 // 30539
 
 /// All learnable weights for the differentiable evaluation model.
-/// Stored as a Vec for serde compatibility (Rust serde doesn't support [f64; 206]).
+/// Stored as a Vec for serde compatibility (Rust serde doesn't support large arrays).
 /// The Vec must have exactly NUM_PARAMS elements.
 #[derive(Debug, Clone)]
 pub struct DiffEvalParams {
@@ -168,29 +169,26 @@ impl Default for DiffEvalParams {
         w[MAT_DIVERSITY_W] = 0.1;
         w[MAT_DIVERSITY_W + 1] = 0.05;
 
-        // Aggregation MLP: Xavier-ish initialization
-        // W1: 6x16, scale ~0.4
-        let scale = 0.4;
-        let mut idx = MLP_W1;
-        for row in 0..16 {
-            for col in 0..6 {
-                // Deterministic init: alternate signs, scale by position
+        // Aggregation MLP: Xavier initialization
+        // W1: MLP_INPUT_SIZE x MLP_HIDDEN_SIZE, scale = sqrt(2.0 / (input + hidden))
+        let w1_scale = (2.0f64 / (MLP_INPUT_SIZE as f64 + MLP_HIDDEN_SIZE as f64)).sqrt();
+        for row in 0..MLP_HIDDEN_SIZE {
+            for col in 0..MLP_INPUT_SIZE {
                 let sign = if (row + col) % 2 == 0 { 1.0 } else { -1.0 };
-                w[idx] = sign * scale * (1.0 / (1.0 + (row as f64 * 0.1)));
-                idx += 1;
+                w[MLP_W1 + row * MLP_INPUT_SIZE + col] = sign * w1_scale;
             }
         }
-        // B1: small positive bias
-        for i in 0..16 {
-            w[MLP_B1 + i] = 0.01;
-        }
-        // W2: 16x1
-        for i in 0..16 {
+        // B1: zeros
+        // (already 0.0)
+
+        // W2: MLP_HIDDEN_SIZE x 1, scale = sqrt(2.0 / (hidden + 1))
+        let w2_scale = (2.0f64 / (MLP_HIDDEN_SIZE as f64 + 1.0)).sqrt();
+        for i in 0..MLP_HIDDEN_SIZE {
             let sign = if i % 2 == 0 { 1.0 } else { -1.0 };
-            w[MLP_W2 + i] = sign * 0.1;
+            w[MLP_W2 + i] = sign * w2_scale;
         }
-        // B2
-        w[MLP_B2] = 0.0;
+        // B2: zero
+        // (already 0.0)
 
         // Control params
         w[HEURISTIC_ROUND_THRESHOLD] = 3.0;
@@ -329,44 +327,57 @@ fn color_tier(color: Color) -> usize {
     else { 2 }                   // tertiary: 1, 3, 5, 7, 9, 11
 }
 
-/// Module 1: Color wheel value
-fn color_wheel_value(player: &PlayerState, w: &[f64; NUM_PARAMS]) -> f64 {
-    let mut value = 0.0;
+/// Module 1: Color wheel value (7 outputs)
+/// [0-2] Per-tier saturation
+/// [3]   Mix-pair total
+/// [4-6] Per-tier coverage
+fn color_wheel_value(player: &PlayerState, w: &[f64; NUM_PARAMS]) -> [f64; 7] {
+    let mut out = [0.0f64; 7];
 
     // Log-saturation per tier
     for (tier, colors) in [&PRIMARIES[..], &SECONDARIES[..], &TERTIARIES[..]].iter().enumerate() {
         let sat_w = w[COLOR_SAT_W + tier];
         let sat_a = w[COLOR_SAT_A + tier];
+        let mut tier_sum = 0.0;
         for &c in *colors {
             let count = player.color_wheel.get(c) as f64;
-            value += sat_w * (1.0 + sat_a * count).ln();
+            tier_sum += sat_w * (1.0 + sat_a * count).ln();
         }
+        out[tier] = tier_sum;
     }
 
     // Mix-pair interaction
+    let mut mix_total = 0.0;
     for (i, &(a, b)) in VALID_MIX_PAIRS.iter().enumerate() {
         let count_a = player.color_wheel.get(a) as f64;
         let count_b = player.color_wheel.get(b) as f64;
-        value += w[MIX_PAIR_W + i] * count_a.min(count_b);
+        mix_total += w[MIX_PAIR_W + i] * count_a.min(count_b);
     }
+    out[3] = mix_total;
 
     // Coverage gating per tier
     for (tier, colors) in [&PRIMARIES[..], &SECONDARIES[..], &TERTIARIES[..]].iter().enumerate() {
         let num_distinct = colors.iter().filter(|&&c| player.color_wheel.get(c) > 0).count() as f64;
         let x = w[COVERAGE_A + tier] * num_distinct - w[COVERAGE_B + tier];
-        value += w[COVERAGE_W + tier] * sigmoid(x);
+        out[4 + tier] = w[COVERAGE_W + tier] * sigmoid(x);
     }
 
-    value
+    out
 }
 
-/// Module 2: Sell card alignment
+/// Module 2: Sell card alignment (5 outputs)
+/// [0] Best alignment score
+/// [1] Second best alignment score
+/// [2] Sum of remaining alignment scores
+/// [3] Urgency
+/// [4] Sold value
 fn sell_card_alignment(
     player: &PlayerState,
     sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
     round: u32,
     w: &[f64; NUM_PARAMS],
-) -> f64 {
+) -> [f64; 5] {
+    let mut out = [0.0f64; 5];
     let mut alignments = [0.0f64; MAX_SELL_CARD_DISPLAY];
     let n = sell_card_display.len();
 
@@ -404,33 +415,37 @@ fn sell_card_alignment(
     sorted[..n].copy_from_slice(&alignments[..n]);
     sorted[..n].sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
 
-    let best = if n > 0 { sorted[0] } else { 0.0 };
-    let second = if n > 1 { sorted[1] } else { 0.0 };
-    let rest: f64 = if n > 2 { sorted[2..n].iter().sum() } else { 0.0 };
-
-    let aggregated = w[SELL_AGG_W] * best + w[SELL_AGG_W + 1] * second + w[SELL_AGG_W + 2] * rest;
+    out[0] = if n > 0 { sorted[0] } else { 0.0 };
+    out[1] = if n > 1 { sorted[1] } else { 0.0 };
+    out[2] = if n > 2 { sorted[2..n].iter().sum() } else { 0.0 };
 
     // Round-dependent urgency
     let round_f = round as f64;
-    let urgency = sigmoid(w[SELL_ROUND_W] * round_f - w[SELL_ROUND_W + 1]);
-    let alignment_value = aggregated * urgency;
+    out[3] = sigmoid(w[SELL_ROUND_W] * round_f - w[SELL_ROUND_W + 1]);
 
     // Already-sold scaling
     let sold_count = player.completed_sell_cards.len() as f64;
-    let sold_value = w[SELL_SOLD_W] * sold_count * sigmoid(w[SELL_SOLD_W + 1] * round_f - w[SELL_SOLD_W + 2]);
+    out[4] = w[SELL_SOLD_W] * sold_count * sigmoid(w[SELL_SOLD_W + 1] * round_f - w[SELL_SOLD_W + 2]);
 
-    alignment_value + sold_value
+    out
 }
 
-/// Module 3: Deck color profile
+/// Module 3: Deck color profile (9 outputs)
+/// [0-2] Per-tier production saturation
+/// [3]   Production-need interaction total
+/// [4]   Action card value total
+/// [5]   Material card value total
+/// [6]   Deck size effect
+/// [7]   Diversity
+/// [8]   Workshopped bonus
 fn deck_color_profile(
     player: &PlayerState,
     sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
     card_lookup: &[Card; 256],
     w: &[f64; NUM_PARAMS],
     table: &DiffEvalTable,
-) -> f64 {
-    let mut value = 0.0;
+) -> [f64; 9] {
+    let mut out = [0.0f64; 9];
 
     // Accumulate per-color production counts and card category counts
     let mut production = [0u32; NUM_COLORS];
@@ -474,8 +489,9 @@ fn deck_color_profile(
         }
     }
 
-    // Per-color production with diminishing returns
+    // Per-color production with diminishing returns, grouped by tier
     let mut distinct_colors = 0u32;
+    let mut tier_sums = [0.0f64; 3];
     for c in 0..NUM_COLORS {
         let count = production[c] as f64;
         if count > 0.0 {
@@ -484,10 +500,14 @@ fn deck_color_profile(
         let tier = color_tier(Color::from_index(c));
         let sat_w = w[DECK_COLOR_SAT_W + tier];
         let sat_a = w[DECK_COLOR_SAT_A + tier];
-        value += sat_w * (1.0 + sat_a * count).ln();
+        tier_sums[tier] += sat_w * (1.0 + sat_a * count).ln();
     }
+    out[0] = tier_sums[0];
+    out[1] = tier_sums[1];
+    out[2] = tier_sums[2];
 
     // Production-need interaction with sell cards
+    let mut prod_need_total = 0.0;
     for bi in sell_card_display.iter() {
         let sell_card = bi.sell_card;
         let cost = sell_card.color_cost();
@@ -500,52 +520,60 @@ fn deck_color_profile(
             3 => 1,
             _ => 2,
         };
-        value += w[DECK_PROD_NEED_W + ducat_tier] * fraction;
+        prod_need_total += w[DECK_PROD_NEED_W + ducat_tier] * fraction;
     }
+    out[3] = prod_need_total;
 
     // Action card values
+    let mut action_total = 0.0;
     for i in 0..5 {
-        value += w[DECK_ACTION_W + i] * action_counts[i] as f64;
+        action_total += w[DECK_ACTION_W + i] * action_counts[i] as f64;
     }
+    out[4] = action_total;
 
     // Material card subcategory values
+    let mut mat_card_total = 0.0;
     for i in 0..3 {
-        value += w[DECK_MAT_CARD_W + i] * mat_card_counts[i] as f64;
+        mat_card_total += w[DECK_MAT_CARD_W + i] * mat_card_counts[i] as f64;
     }
+    out[5] = mat_card_total;
 
     // Deck size effect
     let size = card_count as f64;
-    value += w[DECK_SIZE_W] * size + w[DECK_SIZE_W + 1] * size * size;
+    out[6] = w[DECK_SIZE_W] * size + w[DECK_SIZE_W + 1] * size * size;
 
     // Diversity
-    value += w[DECK_DIVERSITY_W] * distinct_colors as f64 / 12.0;
+    out[7] = w[DECK_DIVERSITY_W] * distinct_colors as f64 / 12.0;
 
     // Workshopped bonus
-    value += w[DECK_WORKSHOP_W] * workshopped_count as f64;
+    out[8] = w[DECK_WORKSHOP_W] * workshopped_count as f64;
 
-    value
+    out
 }
 
-/// Module 4: Material strategy
+/// Module 4: Material strategy (7 outputs)
+/// [0-2] Per-type sufficiency
+/// [3-5] Per-type demand
+/// [6]   Diversity value
 fn material_strategy(
     player: &PlayerState,
     sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
     w: &[f64; NUM_PARAMS],
-) -> f64 {
-    let mut value = 0.0;
+) -> [f64; 7] {
+    let mut out = [0.0f64; 7];
 
     // Material sufficiency per type
     let mut types_with_material = 0u32;
     for i in 0..3 {
         let stored = player.materials.counts[i] as f64;
         let x = w[MAT_SUFF_W + i] * (stored - w[MAT_SUFF_THRESH + i]);
-        value += sigmoid(x);
+        out[i] = sigmoid(x);
 
         if stored > 0.0 {
             types_with_material += 1;
         }
 
-        // Material × sell-card demand
+        // Material x sell-card demand
         let mut demand = 0.0;
         for bi in sell_card_display.iter() {
             if bi.sell_card.required_material() as usize == i {
@@ -553,35 +581,114 @@ fn material_strategy(
             }
         }
         let availability = sigmoid(stored - 0.5); // ~1 if stored >= 1
-        value += w[MAT_DEMAND_W + i] * demand * availability;
+        out[3 + i] = w[MAT_DEMAND_W + i] * demand * availability;
     }
 
     // Diversity bonus
+    let mut diversity = 0.0;
     if types_with_material >= 2 {
-        value += w[MAT_DIVERSITY_W];
+        diversity += w[MAT_DIVERSITY_W];
     }
     if types_with_material >= 3 {
-        value += w[MAT_DIVERSITY_W + 1];
+        diversity += w[MAT_DIVERSITY_W + 1];
     }
+    out[6] = diversity;
 
-    value
+    out
 }
 
-/// Aggregation MLP: 6 → 16 (ReLU) → 1
-fn aggregation_mlp(inputs: &[f64; 6], w: &[f64; NUM_PARAMS]) -> f64 {
-    // Hidden layer: 6 → 16
-    let mut hidden = [0.0f64; 16];
-    for row in 0..16 {
+/// Extract raw features from player state for direct MLP input.
+/// Returns counts for: color wheel (12), deck color production (12),
+/// sell card color demand (12), card type counts (46), material counts (3),
+/// completed sell cards (1), ducats (1).
+/// Total: 12 + 12 + 12 + 46 + 3 + 1 + 1 = 87
+fn extract_raw_features(
+    player: &PlayerState,
+    sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
+    card_lookup: &[Card; 256],
+    table: &DiffEvalTable,
+) -> [f64; 87] {
+    let mut out = [0.0f64; 87];
+
+    // Raw color wheel counts [0..12]
+    for c in 0..NUM_COLORS {
+        out[c] = player.color_wheel.counts[c] as f64;
+    }
+
+    // Raw deck color production [12..24]
+    // and card type counts [36..82]
+    let mut production = [0u32; NUM_COLORS];
+    let mut card_type_counts = [0u32; 46];
+
+    let card_sets: [&crate::unordered_cards::UnorderedCards; 5] = [
+        &player.deck, &player.discard, &player.workshop_cards, &player.workshopped_cards, &player.drafted_cards,
+    ];
+
+    for cards in card_sets.iter() {
+        for id in cards.iter() {
+            let card = card_lookup[id as usize];
+            let card_idx = card as usize;
+
+            // Color production
+            for c in 0..NUM_COLORS {
+                production[c] += table.color_production[card_idx][c] as u32;
+            }
+
+            // Card type count
+            card_type_counts[card_idx] += 1;
+        }
+    }
+
+    for c in 0..NUM_COLORS {
+        out[12 + c] = production[c] as f64;
+    }
+
+    // Raw sell card color demand [24..36]
+    let mut sell_demand = [0u32; NUM_COLORS];
+    for bi in sell_card_display.iter() {
+        let cost = bi.sell_card.color_cost();
+        for &c in cost {
+            sell_demand[c.index()] += 1;
+        }
+    }
+    for c in 0..NUM_COLORS {
+        out[24 + c] = sell_demand[c] as f64;
+    }
+
+    // Raw card type counts [36..82]
+    for i in 0..46 {
+        out[36 + i] = card_type_counts[i] as f64;
+    }
+
+    // Raw material counts [82..85]
+    for i in 0..3 {
+        out[82 + i] = player.materials.counts[i] as f64;
+    }
+
+    // Completed sell cards [85]
+    out[85] = player.completed_sell_cards.len() as f64;
+
+    // Ducats [86]
+    out[86] = player.ducats as f64;
+
+    out
+}
+
+/// Aggregation MLP: MLP_INPUT_SIZE → MLP_HIDDEN_SIZE (ReLU) → 1
+fn aggregation_mlp(inputs: &[f64; MLP_INPUT_SIZE], w: &[f64; NUM_PARAMS]) -> f64 {
+    // Hidden layer: MLP_INPUT_SIZE → MLP_HIDDEN_SIZE
+    let mut hidden = [0.0f64; MLP_HIDDEN_SIZE];
+    for row in 0..MLP_HIDDEN_SIZE {
         let mut sum = w[MLP_B1 + row];
-        for col in 0..6 {
-            sum += w[MLP_W1 + row * 6 + col] * inputs[col];
+        for col in 0..MLP_INPUT_SIZE {
+            sum += w[MLP_W1 + row * MLP_INPUT_SIZE + col] * inputs[col];
         }
         hidden[row] = sum.max(0.0); // ReLU
     }
 
-    // Output layer: 16 → 1
+    // Output layer: MLP_HIDDEN_SIZE → 1
     let mut output = w[MLP_B2];
-    for i in 0..16 {
+    for i in 0..MLP_HIDDEN_SIZE {
         output += w[MLP_W2 + i] * hidden[i];
     }
 
@@ -599,19 +706,72 @@ pub fn diff_eval_score(
 ) -> f64 {
     let w = &params.weights;
 
-    let color_value = color_wheel_value(player, w);
-    let sell_align = sell_card_alignment(player, sell_card_display, round, w);
-    let deck_profile = deck_color_profile(player, sell_card_display, card_lookup, w, table);
-    let material = material_strategy(player, sell_card_display, w);
+    let color_out = color_wheel_value(player, w);
+    let sell_out = sell_card_alignment(player, sell_card_display, round, w);
+    let deck_out = deck_color_profile(player, sell_card_display, card_lookup, w, table);
+    let mat_out = material_strategy(player, sell_card_display, w);
+    let raw = extract_raw_features(player, sell_card_display, card_lookup, table);
 
-    let inputs = [
-        player.cached_score as f64 / 20.0,
-        color_value,
-        sell_align,
-        deck_profile,
-        material,
-        round as f64 / 20.0,
-    ];
+    let mut inputs = [0.0f64; MLP_INPUT_SIZE];
+
+    // Module 1: Color Wheel Value (7 outputs) -> [0..7]
+    inputs[0] = color_out[0];
+    inputs[1] = color_out[1];
+    inputs[2] = color_out[2];
+    inputs[3] = color_out[3];
+    inputs[4] = color_out[4];
+    inputs[5] = color_out[5];
+    inputs[6] = color_out[6];
+
+    // Module 2: Sell Card Alignment (5 outputs) -> [7..12]
+    inputs[7] = sell_out[0];
+    inputs[8] = sell_out[1];
+    inputs[9] = sell_out[2];
+    inputs[10] = sell_out[3];
+    inputs[11] = sell_out[4];
+
+    // Module 3: Deck Color Profile (9 outputs) -> [12..21]
+    for i in 0..9 {
+        inputs[12 + i] = deck_out[i];
+    }
+
+    // Module 4: Material Strategy (7 outputs) -> [21..28]
+    for i in 0..7 {
+        inputs[21 + i] = mat_out[i];
+    }
+
+    // Direct inputs -> [28..30]
+    inputs[28] = player.cached_score as f64 / 20.0;
+    inputs[29] = round as f64 / 20.0;
+
+    // Raw color wheel counts -> [30..42]
+    for c in 0..NUM_COLORS {
+        inputs[30 + c] = raw[c];
+    }
+
+    // Raw deck color production -> [42..54]
+    for c in 0..NUM_COLORS {
+        inputs[42 + c] = raw[12 + c];
+    }
+
+    // Raw sell card color demand -> [54..66]
+    for c in 0..NUM_COLORS {
+        inputs[54 + c] = raw[24 + c];
+    }
+
+    // Raw card type counts -> [66..112]
+    for i in 0..46 {
+        inputs[66 + i] = raw[36 + i];
+    }
+
+    // Raw material counts -> [112..115]
+    for i in 0..3 {
+        inputs[112 + i] = raw[82 + i];
+    }
+
+    // Completed sell cards and ducats -> [115..117]
+    inputs[115] = raw[85];
+    inputs[116] = raw[86];
 
     aggregation_mlp(&inputs, w)
 }

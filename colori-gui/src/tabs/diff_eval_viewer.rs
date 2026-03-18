@@ -2,7 +2,7 @@ use eframe::egui;
 use egui_snarl::ui::{PinInfo, SnarlViewer, SnarlStyle};
 use egui_snarl::{InPin, InPinId, NodeId, OutPin, OutPinId, Snarl};
 
-use colori_core::scoring::diff_eval::DiffEvalParams;
+use colori_core::scoring::diff_eval::{DiffEvalParams, MLP_INPUT_SIZE, MLP_HIDDEN_SIZE};
 
 // ── Parameter index constants (mirrored from diff_eval.rs) ──
 
@@ -35,27 +35,32 @@ const MAT_DEMAND_W: usize = 67;
 const MAT_DIVERSITY_W: usize = 70;
 
 const MLP_W1: usize = 72;
-const MLP_B1: usize = 168;
-const MLP_W2: usize = 184;
-const MLP_B2: usize = 200;
-const HEURISTIC_ROUND_THRESHOLD: usize = 201;
-const HEURISTIC_LOOKAHEAD: usize = 202;
-const PROGRESSIVE_BIAS_WEIGHT: usize = 203;
+const MLP_B1: usize = MLP_W1 + MLP_INPUT_SIZE * MLP_HIDDEN_SIZE;
+const MLP_W2: usize = MLP_B1 + MLP_HIDDEN_SIZE;
+const MLP_B2: usize = MLP_W2 + MLP_HIDDEN_SIZE;
+const HEURISTIC_ROUND_THRESHOLD: usize = MLP_B2 + 1;
+const HEURISTIC_LOOKAHEAD: usize = HEURISTIC_ROUND_THRESHOLD + 1;
+const PROGRESSIVE_BIAS_WEIGHT: usize = HEURISTIC_LOOKAHEAD + 1;
 
 // ── Node types ──
 
 #[derive(Clone, Debug)]
 enum DiffEvalNode {
+    // Game state inputs (read by modules)
     InputScore,
     InputColorWheel,
     InputMaterials,
     InputSellCards,
     InputDeck,
     InputRound,
+    // Modules (hand-crafted features with learnable params)
     ColorWheelValue,
     SellCardAlignment,
     DeckColorProfile,
     MaterialStrategy,
+    // Raw features (passed directly to MLP)
+    RawFeatures,
+    // MLP
     HiddenLayer,
     OutputLayer,
     WinProbability,
@@ -70,13 +75,14 @@ impl DiffEvalNode {
             Self::InputSellCards => "Sell Card Display",
             Self::InputDeck => "Deck",
             Self::InputRound => "Round / 20",
-            Self::ColorWheelValue => "Color Wheel Value",
-            Self::SellCardAlignment => "Sell Card Alignment",
-            Self::DeckColorProfile => "Deck Color Profile",
-            Self::MaterialStrategy => "Material Strategy",
-            Self::HiddenLayer => "Hidden Layer (6->16 ReLU)",
-            Self::OutputLayer => "Output Layer (16->1)",
-            Self::WinProbability => "Win Probability",
+            Self::ColorWheelValue => "Color Wheel Value (24 params)",
+            Self::SellCardAlignment => "Sell Card Alignment (17 params)",
+            Self::DeckColorProfile => "Deck Color Profile (22 params)",
+            Self::MaterialStrategy => "Material Strategy (11 params)",
+            Self::RawFeatures => "Raw Features (87 values)",
+            Self::HiddenLayer => "Hidden Layer (117->256 ReLU)",
+            Self::OutputLayer => "Output Layer (256->1)",
+            Self::WinProbability => "Win Probability (softmax)",
         }
     }
 
@@ -88,7 +94,8 @@ impl DiffEvalNode {
             Self::SellCardAlignment => 4,
             Self::DeckColorProfile => 2,
             Self::MaterialStrategy => 2,
-            Self::HiddenLayer => 6,
+            Self::RawFeatures => 4, // Color Wheel, Deck, Materials, Sell Cards
+            Self::HiddenLayer => 7, // CWV(7) + SCA(5) + DCP(9) + MS(7) + direct(2) + raw(87) — grouped as 7 source connections
             Self::OutputLayer => 1,
             Self::WinProbability => 1,
         }
@@ -97,6 +104,11 @@ impl DiffEvalNode {
     fn num_outputs(&self) -> usize {
         match self {
             Self::WinProbability => 0,
+            Self::ColorWheelValue => 7,
+            Self::SellCardAlignment => 5,
+            Self::DeckColorProfile => 9,
+            Self::MaterialStrategy => 7,
+            Self::RawFeatures => 1,
             _ => 1,
         }
     }
@@ -121,18 +133,72 @@ impl DiffEvalNode {
                 1 => "Sell Cards",
                 _ => "",
             },
-            Self::HiddenLayer => match idx {
-                0 => "score/20",
-                1 => "color_value",
-                2 => "sell_align",
-                3 => "deck_profile",
-                4 => "material",
-                5 => "round/20",
+            Self::RawFeatures => match idx {
+                0 => "Color Wheel",
+                1 => "Deck",
+                2 => "Materials",
+                3 => "Sell Cards",
                 _ => "",
             },
-            Self::OutputLayer => "hidden[16]",
+            Self::HiddenLayer => match idx {
+                0 => "CWV [7]",
+                1 => "SCA [5]",
+                2 => "DCP [9]",
+                3 => "MS [7]",
+                4 => "score/20",
+                5 => "round/20",
+                6 => "raw [87]",
+                _ => "",
+            },
+            Self::OutputLayer => "hidden [256]",
             Self::WinProbability => "logit",
             _ => "",
+        }
+    }
+
+    fn output_label(&self, idx: usize) -> &'static str {
+        match self {
+            Self::ColorWheelValue => match idx {
+                0 => "pri sat",
+                1 => "sec sat",
+                2 => "ter sat",
+                3 => "mix pairs",
+                4 => "pri cov",
+                5 => "sec cov",
+                6 => "ter cov",
+                _ => "out",
+            },
+            Self::SellCardAlignment => match idx {
+                0 => "best",
+                1 => "second",
+                2 => "rest",
+                3 => "urgency",
+                4 => "sold",
+                _ => "out",
+            },
+            Self::DeckColorProfile => match idx {
+                0 => "pri prod",
+                1 => "sec prod",
+                2 => "ter prod",
+                3 => "need",
+                4 => "action",
+                5 => "mat cards",
+                6 => "size",
+                7 => "diversity",
+                8 => "workshop",
+                _ => "out",
+            },
+            Self::MaterialStrategy => match idx {
+                0 => "tex suff",
+                1 => "cer suff",
+                2 => "pnt suff",
+                3 => "tex demand",
+                4 => "cer demand",
+                5 => "pnt demand",
+                6 => "diversity",
+                _ => "out",
+            },
+            _ => "out",
         }
     }
 }
@@ -150,6 +216,8 @@ impl DiffEvalViewer<'_> {
 
     fn render_color_wheel_body(&self, ui: &mut egui::Ui) {
         let w = &self.params.weights;
+        ui.label("Outputs: 7 (3 tier sat + 1 mix + 3 coverage)");
+        ui.separator();
         for (i, tier) in ["Primary", "Secondary", "Tertiary"].iter().enumerate() {
             Self::w(ui, &format!("{} sat_w", tier), w[COLOR_SAT_W + i]);
             Self::w(ui, &format!("{} sat_a", tier), w[COLOR_SAT_A + i]);
@@ -173,6 +241,8 @@ impl DiffEvalViewer<'_> {
 
     fn render_sell_card_body(&self, ui: &mut egui::Ui) {
         let w = &self.params.weights;
+        ui.label("Outputs: 5 (best, second, rest, urgency, sold)");
+        ui.separator();
         for (i, name) in ["Textiles", "Ceramics", "Paintings"].iter().enumerate() {
             Self::w(ui, &format!("{} mat_w", name), w[SELL_MAT_W + i]);
         }
@@ -198,6 +268,8 @@ impl DiffEvalViewer<'_> {
 
     fn render_deck_profile_body(&self, ui: &mut egui::Ui) {
         let w = &self.params.weights;
+        ui.label("Outputs: 9 (3 tier prod + need + action + mat + size + div + workshop)");
+        ui.separator();
         for (i, tier) in ["Primary", "Secondary", "Tertiary"].iter().enumerate() {
             Self::w(ui, &format!("{} sat_w", tier), w[DECK_COLOR_SAT_W + i]);
             Self::w(ui, &format!("{} sat_a", tier), w[DECK_COLOR_SAT_A + i]);
@@ -223,6 +295,8 @@ impl DiffEvalViewer<'_> {
 
     fn render_material_body(&self, ui: &mut egui::Ui) {
         let w = &self.params.weights;
+        ui.label("Outputs: 7 (3 sufficiency + 3 demand + 1 diversity)");
+        ui.separator();
         for (i, name) in ["Textiles", "Ceramics", "Paintings"].iter().enumerate() {
             Self::w(ui, &format!("{} suff_w", name), w[MAT_SUFF_W + i]);
             Self::w(ui, &format!("{} thresh", name), w[MAT_SUFF_THRESH + i]);
@@ -238,52 +312,55 @@ impl DiffEvalViewer<'_> {
 
     fn render_hidden_layer_body(&self, ui: &mut egui::Ui) {
         let w = &self.params.weights;
-        let input_names = ["score", "color", "sell", "deck", "mat", "round"];
-
-        ui.label("W1 (rows=hidden, cols=inputs):");
-        ui.horizontal(|ui| {
-            ui.monospace(format!("{:>4}", ""));
-            for name in &input_names {
-                ui.monospace(format!("{:>6}", name));
-            }
-        });
-        for row in 0..16 {
-            ui.horizontal(|ui| {
-                ui.monospace(format!("h{:<2} ", row));
-                for col in 0..6 {
-                    let val = w[MLP_W1 + row * 6 + col];
-                    ui.colored_label(weight_color(val), format!("{:>6.2}", val));
-                }
-            });
-        }
+        ui.label(format!("W1: {}x{} = {} weights", MLP_INPUT_SIZE, MLP_HIDDEN_SIZE, MLP_INPUT_SIZE * MLP_HIDDEN_SIZE));
+        ui.label(format!("B1: {} biases", MLP_HIDDEN_SIZE));
         ui.separator();
-        ui.label("Biases:");
-        ui.horizontal(|ui| {
-            for i in 0..8 {
-                ui.colored_label(weight_color(w[MLP_B1 + i]), format!("{:>7.3}", w[MLP_B1 + i]));
+
+        // Show weight statistics per input group
+        let groups: &[(&str, usize, usize)] = &[
+            ("CWV [0-6]", 0, 7),
+            ("SCA [7-11]", 7, 12),
+            ("DCP [12-20]", 12, 21),
+            ("MS [21-27]", 21, 28),
+            ("score/20", 28, 29),
+            ("round/20", 29, 30),
+            ("raw colors [30-41]", 30, 42),
+            ("raw prod [42-53]", 42, 54),
+            ("raw demand [54-65]", 54, 66),
+            ("raw cards [66-111]", 66, 112),
+            ("raw mats [112-114]", 112, 115),
+            ("raw other [115-116]", 115, 117),
+        ];
+
+        ui.label("Mean |W1| per input group:");
+        for &(name, start, end) in groups {
+            let mut sum = 0.0f64;
+            let count = (end - start) * MLP_HIDDEN_SIZE;
+            for col in start..end {
+                for row in 0..MLP_HIDDEN_SIZE {
+                    sum += w[MLP_W1 + row * MLP_INPUT_SIZE + col].abs();
+                }
             }
-        });
-        ui.horizontal(|ui| {
-            for i in 8..16 {
-                ui.colored_label(weight_color(w[MLP_B1 + i]), format!("{:>7.3}", w[MLP_B1 + i]));
-            }
-        });
+            let mean = sum / count as f64;
+            Self::w(ui, name, mean);
+        }
     }
 
     fn render_output_layer_body(&self, ui: &mut egui::Ui) {
         let w = &self.params.weights;
-        ui.label("W2 weights:");
-        ui.horizontal(|ui| {
-            for i in 0..8 {
-                ui.colored_label(weight_color(w[MLP_W2 + i]), format!("{:>7.3}", w[MLP_W2 + i]));
-            }
-        });
-        ui.horizontal(|ui| {
-            for i in 8..16 {
-                ui.colored_label(weight_color(w[MLP_W2 + i]), format!("{:>7.3}", w[MLP_W2 + i]));
-            }
-        });
+        ui.label(format!("W2: {} weights", MLP_HIDDEN_SIZE));
         ui.separator();
+
+        // Show weight statistics
+        let mut sum_abs = 0.0f64;
+        let mut max_abs = 0.0f64;
+        for i in 0..MLP_HIDDEN_SIZE {
+            let abs = w[MLP_W2 + i].abs();
+            sum_abs += abs;
+            if abs > max_abs { max_abs = abs; }
+        }
+        Self::w(ui, "mean |W2|", sum_abs / MLP_HIDDEN_SIZE as f64);
+        Self::w(ui, "max |W2|", max_abs);
         Self::w(ui, "bias", w[MLP_B2]);
     }
 
@@ -328,8 +405,9 @@ impl SnarlViewer<DiffEvalNode> for DiffEvalViewer<'_> {
     }
 
     #[allow(refining_impl_trait)]
-    fn show_output(&mut self, _pin: &OutPin, ui: &mut egui::Ui, _snarl: &mut Snarl<DiffEvalNode>) -> PinInfo {
-        ui.label("out");
+    fn show_output(&mut self, pin: &OutPin, ui: &mut egui::Ui, snarl: &mut Snarl<DiffEvalNode>) -> PinInfo {
+        let node = &snarl[pin.id.node];
+        ui.label(node.output_label(pin.id.output));
         PinInfo::circle().with_fill(egui::Color32::from_rgb(200, 150, 150))
     }
 
@@ -337,7 +415,8 @@ impl SnarlViewer<DiffEvalNode> for DiffEvalViewer<'_> {
         !matches!(node,
             DiffEvalNode::InputScore | DiffEvalNode::InputColorWheel |
             DiffEvalNode::InputMaterials | DiffEvalNode::InputSellCards |
-            DiffEvalNode::InputDeck | DiffEvalNode::InputRound
+            DiffEvalNode::InputDeck | DiffEvalNode::InputRound |
+            DiffEvalNode::RawFeatures
         )
     }
 
@@ -362,13 +441,8 @@ impl SnarlViewer<DiffEvalNode> for DiffEvalViewer<'_> {
         }
     }
 
-    fn connect(&mut self, _from: &OutPin, _to: &InPin, _snarl: &mut Snarl<DiffEvalNode>) {
-        // Read-only: don't allow new connections
-    }
-
-    fn disconnect(&mut self, _from: &OutPin, _to: &InPin, _snarl: &mut Snarl<DiffEvalNode>) {
-        // Read-only: don't allow disconnections
-    }
+    fn connect(&mut self, _from: &OutPin, _to: &InPin, _snarl: &mut Snarl<DiffEvalNode>) {}
+    fn disconnect(&mut self, _from: &OutPin, _to: &InPin, _snarl: &mut Snarl<DiffEvalNode>) {}
 }
 
 // ── Graph construction ──
@@ -378,40 +452,31 @@ fn build_graph() -> Snarl<DiffEvalNode> {
 
     let col_input = 0.0;
     let col_module = 300.0;
-    let col_mlp = 600.0;
-    let col_output = 900.0;
+    let col_mlp = 700.0;
+    let col_output = 1050.0;
     let spacing = 70.0;
 
-    // Vertical order chosen to minimize edge crossings.
-    // Hidden layer inputs are: score, cwv, sca, dcp, ms, round (top to bottom).
-    // Input nodes are ordered to match their primary downstream targets.
-
-    // Input nodes (left column)
-    // Score goes to hidden input 0 (top) — place at top
+    // Input nodes
     let score_id = snarl.insert_node(egui::pos2(col_input, 0.0 * spacing), DiffEvalNode::InputScore);
-    // Color Wheel goes to cwv (top module) and sca — place near top
     let color_id = snarl.insert_node(egui::pos2(col_input, 1.0 * spacing), DiffEvalNode::InputColorWheel);
-    // Sell Cards fans out to sca, dcp, ms — place in middle
     let sell_id = snarl.insert_node(egui::pos2(col_input, 2.5 * spacing), DiffEvalNode::InputSellCards);
-    // Deck goes to dcp — place below sell cards
     let deck_id = snarl.insert_node(egui::pos2(col_input, 3.5 * spacing), DiffEvalNode::InputDeck);
-    // Materials goes to sca and ms — place between sell and deck
     let mat_id = snarl.insert_node(egui::pos2(col_input, 4.5 * spacing), DiffEvalNode::InputMaterials);
-    // Round goes to sca and hidden input 5 (bottom) — place at bottom
     let round_id = snarl.insert_node(egui::pos2(col_input, 5.5 * spacing), DiffEvalNode::InputRound);
 
-    // Module nodes (middle column) — ordered to match hidden layer inputs 1-4
-    let cwv_id = snarl.insert_node(egui::pos2(col_module, 0.5 * spacing), DiffEvalNode::ColorWheelValue);
+    // Module nodes
+    let cwv_id = snarl.insert_node(egui::pos2(col_module, 0.0 * spacing), DiffEvalNode::ColorWheelValue);
     let sca_id = snarl.insert_node(egui::pos2(col_module, 2.0 * spacing), DiffEvalNode::SellCardAlignment);
-    let dcp_id = snarl.insert_node(egui::pos2(col_module, 3.5 * spacing), DiffEvalNode::DeckColorProfile);
-    let ms_id = snarl.insert_node(egui::pos2(col_module, 5.0 * spacing), DiffEvalNode::MaterialStrategy);
+    let dcp_id = snarl.insert_node(egui::pos2(col_module, 4.0 * spacing), DiffEvalNode::DeckColorProfile);
+    let ms_id = snarl.insert_node(egui::pos2(col_module, 6.5 * spacing), DiffEvalNode::MaterialStrategy);
+    let raw_id = snarl.insert_node(egui::pos2(col_module, 8.5 * spacing), DiffEvalNode::RawFeatures);
 
     // MLP nodes
-    let hidden_id = snarl.insert_node(egui::pos2(col_mlp, 2.0 * spacing), DiffEvalNode::HiddenLayer);
-    let output_id = snarl.insert_node(egui::pos2(col_mlp, 4.0 * spacing), DiffEvalNode::OutputLayer);
+    let hidden_id = snarl.insert_node(egui::pos2(col_mlp, 3.0 * spacing), DiffEvalNode::HiddenLayer);
+    let output_id = snarl.insert_node(egui::pos2(col_mlp, 6.0 * spacing), DiffEvalNode::OutputLayer);
 
     // Output node
-    let win_id = snarl.insert_node(egui::pos2(col_output, 3.0 * spacing), DiffEvalNode::WinProbability);
+    let win_id = snarl.insert_node(egui::pos2(col_output, 4.5 * spacing), DiffEvalNode::WinProbability);
 
     // Input -> Module edges
     snarl.connect(OutPinId { node: color_id, output: 0 }, InPinId { node: cwv_id, input: 0 });
@@ -424,13 +489,20 @@ fn build_graph() -> Snarl<DiffEvalNode> {
     snarl.connect(OutPinId { node: mat_id, output: 0 }, InPinId { node: ms_id, input: 0 });
     snarl.connect(OutPinId { node: sell_id, output: 0 }, InPinId { node: ms_id, input: 1 });
 
-    // Module -> Hidden Layer
-    snarl.connect(OutPinId { node: score_id, output: 0 }, InPinId { node: hidden_id, input: 0 });
-    snarl.connect(OutPinId { node: cwv_id, output: 0 }, InPinId { node: hidden_id, input: 1 });
-    snarl.connect(OutPinId { node: sca_id, output: 0 }, InPinId { node: hidden_id, input: 2 });
-    snarl.connect(OutPinId { node: dcp_id, output: 0 }, InPinId { node: hidden_id, input: 3 });
-    snarl.connect(OutPinId { node: ms_id, output: 0 }, InPinId { node: hidden_id, input: 4 });
+    // Input -> Raw features
+    snarl.connect(OutPinId { node: color_id, output: 0 }, InPinId { node: raw_id, input: 0 });
+    snarl.connect(OutPinId { node: deck_id, output: 0 }, InPinId { node: raw_id, input: 1 });
+    snarl.connect(OutPinId { node: mat_id, output: 0 }, InPinId { node: raw_id, input: 2 });
+    snarl.connect(OutPinId { node: sell_id, output: 0 }, InPinId { node: raw_id, input: 3 });
+
+    // Module -> Hidden Layer (using output pin 0 for each — the connections are conceptual)
+    snarl.connect(OutPinId { node: cwv_id, output: 0 }, InPinId { node: hidden_id, input: 0 });
+    snarl.connect(OutPinId { node: sca_id, output: 0 }, InPinId { node: hidden_id, input: 1 });
+    snarl.connect(OutPinId { node: dcp_id, output: 0 }, InPinId { node: hidden_id, input: 2 });
+    snarl.connect(OutPinId { node: ms_id, output: 0 }, InPinId { node: hidden_id, input: 3 });
+    snarl.connect(OutPinId { node: score_id, output: 0 }, InPinId { node: hidden_id, input: 4 });
     snarl.connect(OutPinId { node: round_id, output: 0 }, InPinId { node: hidden_id, input: 5 });
+    snarl.connect(OutPinId { node: raw_id, output: 0 }, InPinId { node: hidden_id, input: 6 });
 
     // Hidden -> Output -> Win Probability
     snarl.connect(OutPinId { node: hidden_id, output: 0 }, InPinId { node: output_id, input: 0 });
