@@ -5,6 +5,7 @@ use crate::analysis::log_loader::{LogLoader, LoadResult, TaggedGameLog};
 use crate::tabs::analysis::{CachedAnalysis, render_analysis_tab};
 use crate::tabs::card_reference::render_card_reference_tab;
 use crate::tabs::game_viewer::GameViewerState;
+use crate::tabs::diff_eval_viewer::DiffEvalViewerState;
 use crate::tabs::genetic_algorithm::GeneticAlgorithmState;
 
 use colori_core::game_log::StructuredGameLog;
@@ -18,6 +19,7 @@ enum Tab {
     CardReference,
     GameViewer,
     GeneticAlgorithm,
+    DiffEval,
 }
 
 struct BatchInfo {
@@ -50,6 +52,9 @@ pub struct ColoriGuiApp {
 
     // Genetic algorithm
     ga_state: GeneticAlgorithmState,
+
+    // Diff eval viewer
+    diff_eval_state: DiffEvalViewerState,
 }
 
 impl ColoriGuiApp {
@@ -72,6 +77,7 @@ impl ColoriGuiApp {
             cache_key: String::new(),
             game_viewer: GameViewerState::new(),
             ga_state: GeneticAlgorithmState::new(),
+            diff_eval_state: DiffEvalViewerState::new(),
         };
 
         if let Ok(cwd) = std::env::current_dir() {
@@ -84,6 +90,7 @@ impl ColoriGuiApp {
             if ga_path.is_dir() {
                 app.ga_state.load_folder(&ga_path);
             }
+            app.diff_eval_state.try_auto_load();
         }
 
         app
@@ -271,6 +278,7 @@ impl eframe::App for ColoriGuiApp {
                     (Tab::CardReference, "Card Reference"),
                     (Tab::GameViewer, "Game Viewer"),
                     (Tab::GeneticAlgorithm, "Genetic Algorithm"),
+                    (Tab::DiffEval, "Diff Eval"),
                 ] {
                     let is_active = self.active_tab == tab;
                     let response = ui.selectable_value(&mut self.active_tab, tab, label);
@@ -418,6 +426,9 @@ impl eframe::App for ColoriGuiApp {
                 }
                 Tab::GeneticAlgorithm => {
                     self.ga_state.render(ui);
+                }
+                Tab::DiffEval => {
+                    self.diff_eval_state.render(ui);
                 }
             }
         });

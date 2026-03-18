@@ -8,6 +8,7 @@ colori-core = { path = "../colori-core" }
 eframe = "0.33"
 egui_extras = { version = "0.33", features = ["default"] }
 egui_plot = "0.34"
+egui-snarl = { version = "0.9", features = ["serde"] }
 rfd = "0.17"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
