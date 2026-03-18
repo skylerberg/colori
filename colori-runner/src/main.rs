@@ -47,6 +47,7 @@ fn main() {
             passes: args.train_passes,
             lr: args.train_lr,
             eval_iterations: args.train_eval_iterations,
+            baseline_iterations: args.train_baseline_iterations,
             vs_baseline: args.train_vs_baseline,
             no_rollout: args.train_no_rollout,
             threads: args.threads,

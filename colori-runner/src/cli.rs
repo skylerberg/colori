@@ -25,6 +25,7 @@ pub struct SimulationArgs {
     pub train_vs_baseline: bool,
     pub train_no_rollout: bool,
     pub train_eval_iterations: u32,
+    pub train_baseline_iterations: Option<u32>,
     pub baseline_heuristic_params: Option<HeuristicParams>,
 }
 
@@ -142,6 +143,7 @@ pub fn parse_args() -> SimulationArgs {
     let mut train_diff_eval = false;
     let mut train_vs_baseline = false;
     let mut train_no_rollout = false;
+    let mut train_baseline_iterations: Option<u32> = None;
     let mut train_games_per_epoch = 500usize;
     let mut train_epochs = 100_000usize;
     let mut train_batch_size = 256usize;
@@ -224,6 +226,10 @@ pub fn parse_args() -> SimulationArgs {
                 train_no_rollout = true;
                 i += 1;
                 continue;
+            }
+            "--baseline-iterations" => {
+                i += 1;
+                train_baseline_iterations = Some(args[i].parse().expect("Invalid --baseline-iterations value"));
             }
             "--games-per-epoch" => {
                 i += 1;
@@ -350,6 +356,7 @@ pub fn parse_args() -> SimulationArgs {
         train_passes,
         train_lr,
         train_eval_iterations: eval_iterations,
+        train_baseline_iterations,
         baseline_heuristic_params,
     }
 }

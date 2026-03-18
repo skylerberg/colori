@@ -88,6 +88,7 @@ struct DataGenStats {
 fn generate_training_data(
     num_games: usize,
     eval_iterations: u32,
+    baseline_iterations: u32,
     num_threads: usize,
     heuristic_params: &HeuristicParams,
     diff_eval_params: Option<&DiffEvalParams>,
@@ -117,7 +118,7 @@ fn generate_training_data(
 
                 for game_i in 0..count {
                     let result = play_game_and_collect(
-                        &hp, dep.as_ref(), eval_iterations, no_rollout, game_offset + game_i, &mut rng,
+                        &hp, dep.as_ref(), eval_iterations, baseline_iterations, no_rollout, game_offset + game_i, &mut rng,
                     );
                     thread_results.push(result);
 
@@ -179,6 +180,7 @@ fn play_game_and_collect(
     heuristic_params: &HeuristicParams,
     diff_eval_params: Option<&DiffEvalParams>,
     eval_iterations: u32,
+    baseline_iterations: u32,
     no_rollout: bool,
     game_index: usize,
     rng: &mut WyRand,
@@ -189,7 +191,7 @@ fn play_game_and_collect(
     let mut state = create_initial_game_state_with_expansions(num_players, &ai_players, expansions, rng);
 
     let baseline_config = MctsConfig {
-        iterations: eval_iterations,
+        iterations: baseline_iterations,
         use_heuristic_eval: true,
         heuristic_params: heuristic_params.clone(),
         ..MctsConfig::default()
@@ -346,6 +348,7 @@ pub struct TrainArgs {
     pub passes: usize,
     pub lr: f64,
     pub eval_iterations: u32,
+    pub baseline_iterations: Option<u32>,
     pub vs_baseline: bool,
     pub no_rollout: bool,
     pub threads: usize,
@@ -356,8 +359,9 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
     eprintln!("=== Diff Eval Training ===");
     eprintln!("Games/epoch: {}, Epochs: {}, Batch size: {}, Passes: {}, LR: {}",
         train.games, train.epochs, train.batch_size, train.passes, train.lr);
-    eprintln!("MCTS iterations: {}, Threads: {}, Mode: {}, Rollout: {}",
-        train.eval_iterations, train.threads,
+    let baseline_iters_display = train.baseline_iterations.unwrap_or(train.eval_iterations);
+    eprintln!("MCTS iterations: {} (baseline: {}), Threads: {}, Mode: {}, Rollout: {}",
+        train.eval_iterations, baseline_iters_display, train.threads,
         if train.vs_baseline { "vs baseline" } else { "self-play" },
         if train.no_rollout { "none (direct eval)" } else { "standard" });
 
@@ -387,8 +391,9 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
         let epoch_start = std::time::Instant::now();
 
         let dep = if train.vs_baseline { Some(&params) } else { None };
+        let baseline_iters = train.baseline_iterations.unwrap_or(train.eval_iterations);
         let data = generate_training_data(
-            train.games, train.eval_iterations, train.threads, &baseline_params, dep, train.no_rollout, epoch,
+            train.games, train.eval_iterations, baseline_iters, train.threads, &baseline_params, dep, train.no_rollout, epoch,
         );
         let samples = data.samples;
         if samples.is_empty() {
