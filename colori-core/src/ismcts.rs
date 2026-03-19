@@ -49,7 +49,7 @@ impl Default for MctsConfig {
             diff_eval_params: None,
             no_rollout: false,
             early_termination: true,
-            subtree_reuse: false,
+            subtree_reuse: true,
         }
     }
 }
@@ -697,14 +697,7 @@ fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_ro
         apply_rollout_step(state, rng);
     }
 
-    if matches!(state.phase, GamePhase::GameOver) {
-        return compute_terminal_rewards(&state.players);
-    }
-    if max_rollout_round.is_some_and(|mr| state.round > mr) {
-        return eval_scores(state, use_heuristic, params, card_table, diff_eval);
-    }
-
-    [0.0; MAX_PLAYERS]
+    eval_scores(state, use_heuristic, params, card_table, diff_eval)
 }
 
 fn update_amaf(node: &mut MctsNode, choice: &Choice, reward: f64) {
@@ -763,14 +756,7 @@ fn rollout_with_draft_tracking<R: Rng>(
         }
     }
 
-    if matches!(state.phase, GamePhase::GameOver) {
-        return compute_terminal_rewards(&state.players);
-    }
-    if max_rollout_round.is_some_and(|mr| state.round > mr) {
-        return eval_scores(state, use_heuristic, params, card_table, diff_eval);
-    }
-
-    [0.0; MAX_PLAYERS]
+    eval_scores(state, use_heuristic, params, card_table, diff_eval)
 }
 
 fn rollout_with_tracking<R: Rng>(
@@ -794,14 +780,7 @@ fn rollout_with_tracking<R: Rng>(
         apply_rollout_step_tracked(state, move_log, rng);
     }
 
-    if matches!(state.phase, GamePhase::GameOver) {
-        return compute_terminal_rewards(&state.players);
-    }
-    if max_rollout_round.is_some_and(|mr| state.round > mr) {
-        return eval_scores(state, use_heuristic, params, card_table, diff_eval);
-    }
-
-    [0.0; MAX_PLAYERS]
+    eval_scores(state, use_heuristic, params, card_table, diff_eval)
 }
 
 fn record_outcome(node: &mut MctsNode, scores: &[f64; MAX_PLAYERS]) {
