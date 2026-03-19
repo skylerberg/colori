@@ -81,10 +81,13 @@ fn main() {
     std::fs::create_dir_all(&args.output).expect("Failed to create output directory");
 
     let any_early_termination = player_variants.iter().any(|v| v.ai.early_termination);
+    let any_subtree_reuse = player_variants.iter().any(|v| v.ai.subtree_reuse);
     let batch_id = generate_batch_id();
     let completed = AtomicUsize::new(0);
     let agg_iterations_budget = AtomicU64::new(0);
     let agg_iterations_used = AtomicU64::new(0);
+    let agg_reuse_budget = AtomicU64::new(0);
+    let agg_reuse_saved = AtomicU64::new(0);
     let total_games = args.games;
     let num_threads = args.threads;
     let output_dir = &args.output;
@@ -103,6 +106,8 @@ fn main() {
             let completed = &completed;
             let agg_iterations_budget = &agg_iterations_budget;
             let agg_iterations_used = &agg_iterations_used;
+            let agg_reuse_budget = &agg_reuse_budget;
+            let agg_reuse_saved = &agg_reuse_saved;
 
             handles.push(s.spawn(move || {
                 let mut rng = WyRand::from_rng(&mut rand::rng());
@@ -116,13 +121,16 @@ fn main() {
                         &mut rng,
                     );
                     if let Some(savings) = log.early_termination_savings {
-                        // Back-compute budget and used from savings ratio
-                        // savings = 1 - used/budget, so used = budget * (1 - savings)
-                        // We use a fixed scale to accumulate without floating point drift
                         let scale = 10000u64;
                         let used_frac = ((1.0 - savings) * scale as f64).round() as u64;
                         agg_iterations_budget.fetch_add(scale, Ordering::Relaxed);
                         agg_iterations_used.fetch_add(used_frac, Ordering::Relaxed);
+                    }
+                    if let Some(savings) = log.subtree_reuse_savings {
+                        let scale = 10000u64;
+                        let saved_frac = (savings * scale as f64).round() as u64;
+                        agg_reuse_budget.fetch_add(scale, Ordering::Relaxed);
+                        agg_reuse_saved.fetch_add(saved_frac, Ordering::Relaxed);
                     }
                     set_card_registry(&log.initial_state.card_lookup);
                     set_sell_card_registry(&log.initial_state.sell_card_lookup);
@@ -153,6 +161,14 @@ fn main() {
         if budget > 0 {
             let savings = 1.0 - (used as f64 / budget as f64);
             eprintln!("Early termination saved {:.1}% of iterations across all games", savings * 100.0);
+        }
+    }
+    if any_subtree_reuse {
+        let budget = agg_reuse_budget.load(Ordering::Relaxed);
+        let saved = agg_reuse_saved.load(Ordering::Relaxed);
+        if budget > 0 {
+            let savings = saved as f64 / budget as f64;
+            eprintln!("Subtree reuse saved {:.1}% of iterations across all games", savings * 100.0);
         }
     }
     eprintln!("All {} games written to {}/", total_games, args.output);

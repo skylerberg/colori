@@ -1,7 +1,7 @@
 use colori_core::colori_game::apply_choice_to_state;
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::game_log::{FinalPlayerStats, FinalScore, PlayerVariant};
-use colori_core::ismcts::{ismcts, MctsConfig};
+use colori_core::ismcts::{ismcts, MctsConfig, MctsNode};
 use colori_core::scoring::{calculate_score, HeuristicParams};
 use colori_core::setup::create_initial_game_state_with_expansions;
 use colori_core::types::*;
@@ -37,6 +37,8 @@ pub struct GameRunOutput {
     pub note: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub early_termination_savings: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subtree_reuse_savings: Option<f64>,
 }
 
 #[derive(Serialize)]
@@ -203,7 +205,10 @@ pub fn run_game(
     let mut seq: u32 = 0;
     let mut total_iterations_budget: u64 = 0;
     let mut total_iterations_used: u64 = 0;
+    let mut total_reused_iterations: u64 = 0;
     let any_early_termination = shuffled_variants.iter().any(|v| v.ai.early_termination);
+    let any_subtree_reuse = shuffled_variants.iter().any(|v| v.ai.subtree_reuse);
+    let mut reuse_tree: Option<MctsNode> = None;
 
     // Main game loop
     while !matches!(state.phase, GamePhase::GameOver) {
@@ -222,9 +227,10 @@ pub fn run_game(
 
         let config = &shuffled_variants[player_index].ai;
         let max_rollout_round = std::cmp::max(8, state.round + 2);
-        let result = ismcts(&state, player_index, config, &None, Some(max_rollout_round), rng);
+        let result = ismcts(&state, player_index, config, &None, Some(max_rollout_round), reuse_tree.take(), rng);
         total_iterations_budget += config.iterations as u64;
         total_iterations_used += result.iterations_used as u64;
+        total_reused_iterations += result.reused_iterations as u64;
 
         seq += 1;
         entries.push(StructuredLogEntry {
@@ -236,7 +242,25 @@ pub fn run_game(
             choice: result.choice.clone(),
         });
 
+        // Snapshot state for information revelation check
+        let prev_workshop_len = state.players[player_index].workshop_cards.len();
+        let prev_sell_deck_len = state.sell_card_deck.len();
+        let prev_glass_deck_len = state.glass_deck.len();
+
         apply_choice_to_state(&mut state, &result.choice, rng);
+
+        // Reuse subtree only if same player is still active and no information was revealed
+        let same_player_action = matches!(&state.phase, GamePhase::Action { action_state }
+            if action_state.current_player_index == player_index);
+        let info_revealed =
+            state.players[player_index].workshop_cards.len() != prev_workshop_len ||
+            state.sell_card_deck.len() != prev_sell_deck_len ||
+            state.glass_deck.len() != prev_glass_deck_len;
+        reuse_tree = if same_player_action && !info_revealed {
+            result.tree.and_then(|t| t.into_subtree(&result.choice))
+        } else {
+            None
+        };
     }
 
     let game_ended_at = Some(now_epoch_secs_string());
@@ -295,6 +319,12 @@ pub fn run_game(
         None
     };
 
+    let subtree_reuse_savings = if any_subtree_reuse && total_iterations_budget > 0 {
+        Some(total_reused_iterations as f64 / total_iterations_budget as f64)
+    } else {
+        None
+    };
+
     GameRunOutput {
         version: 1,
         game_started_at,
@@ -310,5 +340,6 @@ pub fn run_game(
         player_variants: log_player_variants,
         note,
         early_termination_savings,
+        subtree_reuse_savings,
     }
 }

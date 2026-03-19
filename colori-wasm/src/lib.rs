@@ -60,6 +60,7 @@ pub fn wasm_run_ismcts(
         &config,
         &known_draft_hands,
         Some(max_rollout_round),
+        None,
         &mut rng,
     );
 

@@ -24,11 +24,14 @@ pub struct MctsConfig {
     pub diff_eval_params: Option<DiffEvalParams>,
     pub no_rollout: bool,
     pub early_termination: bool,
+    pub subtree_reuse: bool,
 }
 
 pub struct MctsResult {
     pub choice: Choice,
     pub iterations_used: u32,
+    pub reused_iterations: u32,
+    pub tree: Option<MctsNode>,
 }
 
 impl Default for MctsConfig {
@@ -46,6 +49,7 @@ impl Default for MctsConfig {
             diff_eval_params: None,
             no_rollout: false,
             early_termination: true,
+            subtree_reuse: false,
         }
     }
 }
@@ -78,6 +82,8 @@ impl<'de> Deserialize<'de> for MctsConfig {
             heuristic_params: HeuristicParams,
             #[serde(default)]
             early_termination: bool,
+            #[serde(default)]
+            subtree_reuse: bool,
         }
 
         fn default_iterations() -> u32 { 100 }
@@ -103,11 +109,12 @@ impl<'de> Deserialize<'de> for MctsConfig {
             diff_eval_params: None,
             no_rollout: false,
             early_termination: helper.early_termination,
+            subtree_reuse: helper.subtree_reuse,
         })
     }
 }
 
-struct MctsNode {
+pub struct MctsNode {
     visit_count: u32,
     cumulative_reward: f64,
     player_index: usize,
@@ -136,6 +143,13 @@ impl MctsNode {
 
     fn is_root(&self) -> bool {
         self.choice.is_none()
+    }
+
+    pub fn into_subtree(mut self, choice: &Choice) -> Option<MctsNode> {
+        let idx = self.children.iter().position(|c| c.choice.as_ref() == Some(choice))?;
+        let mut child = self.children.swap_remove(idx);
+        child.choice = None;
+        Some(child)
     }
 
     fn expand<R: Rng>(
@@ -342,16 +356,18 @@ pub fn ismcts<R: Rng>(
     config: &MctsConfig,
     known_draft_hands: &Option<Vec<Vec<CardInstance>>>,
     max_rollout_round: Option<u32>,
+    previous_tree: Option<MctsNode>,
     rng: &mut R,
 ) -> MctsResult {
     // If there's only one legal choice, return it immediately without searching
     let mut choices_buf: Vec<Choice> = Vec::new();
     enumerate_choices_into(state, &mut choices_buf);
     if choices_buf.len() == 1 {
-        return MctsResult { choice: choices_buf.swap_remove(0), iterations_used: 0 };
+        return MctsResult { choice: choices_buf.swap_remove(0), iterations_used: 0, reused_iterations: 0, tree: None };
     }
 
-    let mut root = MctsNode::new(player_index, None);
+    let mut root = previous_tree.unwrap_or_else(|| MctsNode::new(player_index, None));
+    let reused_iterations = root.visit_count;
     let mut det_state = state.clone();
 
     let mut cached_scores = [0u32; MAX_PLAYERS];
@@ -397,8 +413,9 @@ pub fn ismcts<R: Rng>(
         (max_rollout_round, false)
     };
 
+    let new_iterations = config.iterations.saturating_sub(reused_iterations);
     let mut iterations_used = 0u32;
-    for i in 0..config.iterations {
+    for i in 0..new_iterations {
         iterations_used = i + 1;
         pick_log.clear();
         move_log.clear();
@@ -419,7 +436,7 @@ pub fn ismcts<R: Rng>(
 
         // Early termination: stop if the leader can't be overtaken
         if config.early_termination {
-            let remaining = config.iterations - iterations_used;
+            let remaining = new_iterations - iterations_used;
             if remaining > 0 && root.children.len() >= 2 {
                 let (best, second) = top_two_visit_counts(&root.children);
                 if best - second > remaining {
@@ -432,19 +449,20 @@ pub fn ismcts<R: Rng>(
     if root.children.is_empty() {
         enumerate_choices_into(state, &mut choices_buf);
         let idx = rng.random_range(0..choices_buf.len());
-        return MctsResult { choice: choices_buf[idx].clone(), iterations_used };
+        return MctsResult { choice: choices_buf[idx].clone(), iterations_used, reused_iterations, tree: None };
     }
 
-    let mut best_child: Option<&MctsNode> = None;
-    for child in root.children.iter() {
-        if best_child.is_none() || child.visit_count > best_child.unwrap().visit_count {
-            best_child = Some(child);
-        }
-    }
+    let best_choice = root.children.iter()
+        .max_by_key(|c| c.visit_count)
+        .unwrap()
+        .choice.clone().unwrap();
 
+    let tree = if config.subtree_reuse { Some(root) } else { None };
     MctsResult {
-        choice: best_child.unwrap().choice.clone().unwrap(),
+        choice: best_choice,
         iterations_used,
+        reused_iterations,
+        tree,
     }
 }
 
@@ -835,7 +853,7 @@ mod tests {
                 GameStatus::Terminated { .. } => return,
             };
 
-            let choice = ismcts(&state, player_index, &config, &None, None, &mut rng).choice;
+            let choice = ismcts(&state, player_index, &config, &None, None, None, &mut rng).choice;
 
             enumerate_choices_into(&state, &mut choices_buf);
             assert!(
@@ -920,7 +938,7 @@ mod tests {
                 GameStatus::Terminated { .. } => return,
             };
 
-            let choice = ismcts(&state, player_index, &config, &None, None, &mut rng).choice;
+            let choice = ismcts(&state, player_index, &config, &None, None, None, &mut rng).choice;
 
             enumerate_choices_into(&state, &mut choices_buf);
             assert!(

@@ -180,7 +180,7 @@ fn run_eval_game(
 
         let config = &configs[player_index];
         let max_rollout_round = std::cmp::max(8, state.round + 2);
-        let result = ismcts(&state, player_index, config, &None, Some(max_rollout_round), rng);
+        let result = ismcts(&state, player_index, config, &None, Some(max_rollout_round), None, rng);
         apply_choice_to_state(&mut state, &result.choice, rng);
     }
 

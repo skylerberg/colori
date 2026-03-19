@@ -80,6 +80,8 @@ struct VariantFileEntry {
     no_rollout: Option<bool>,
     #[serde(default)]
     early_termination: Option<bool>,
+    #[serde(default)]
+    subtree_reuse: Option<bool>,
 }
 
 impl VariantFileEntry {
@@ -127,6 +129,7 @@ impl VariantFileEntry {
                 diff_eval_params,
                 no_rollout: self.no_rollout.unwrap_or(defaults.no_rollout),
                 early_termination: self.early_termination.unwrap_or(defaults.early_termination),
+                subtree_reuse: self.subtree_reuse.unwrap_or(defaults.subtree_reuse),
             },
         }
     }
