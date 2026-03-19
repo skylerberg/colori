@@ -9,7 +9,7 @@ use colori_core::unordered_cards::{set_sell_card_registry, set_card_registry};
 use rand::RngExt;
 use rand::SeedableRng;
 use wyrand::WyRand;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
 use cli::parse_args;
 use cmaes::run_genetic_algorithm;
@@ -80,8 +80,11 @@ fn main() {
 
     std::fs::create_dir_all(&args.output).expect("Failed to create output directory");
 
+    let any_early_termination = player_variants.iter().any(|v| v.ai.early_termination);
     let batch_id = generate_batch_id();
     let completed = AtomicUsize::new(0);
+    let agg_iterations_budget = AtomicU64::new(0);
+    let agg_iterations_used = AtomicU64::new(0);
     let total_games = args.games;
     let num_threads = args.threads;
     let output_dir = &args.output;
@@ -98,6 +101,8 @@ fn main() {
         for t in 0..num_threads {
             let count = games_per_thread + if t < remainder { 1 } else { 0 };
             let completed = &completed;
+            let agg_iterations_budget = &agg_iterations_budget;
+            let agg_iterations_used = &agg_iterations_used;
 
             handles.push(s.spawn(move || {
                 let mut rng = WyRand::from_rng(&mut rand::rng());
@@ -110,6 +115,15 @@ fn main() {
                         glass,
                         &mut rng,
                     );
+                    if let Some(savings) = log.early_termination_savings {
+                        // Back-compute budget and used from savings ratio
+                        // savings = 1 - used/budget, so used = budget * (1 - savings)
+                        // We use a fixed scale to accumulate without floating point drift
+                        let scale = 10000u64;
+                        let used_frac = ((1.0 - savings) * scale as f64).round() as u64;
+                        agg_iterations_budget.fetch_add(scale, Ordering::Relaxed);
+                        agg_iterations_used.fetch_add(used_frac, Ordering::Relaxed);
+                    }
                     set_card_registry(&log.initial_state.card_lookup);
                     set_sell_card_registry(&log.initial_state.sell_card_lookup);
                     let epoch_millis = now_epoch_millis();
@@ -133,5 +147,13 @@ fn main() {
         }
     });
 
+    if any_early_termination {
+        let budget = agg_iterations_budget.load(Ordering::Relaxed);
+        let used = agg_iterations_used.load(Ordering::Relaxed);
+        if budget > 0 {
+            let savings = 1.0 - (used as f64 / budget as f64);
+            eprintln!("Early termination saved {:.1}% of iterations across all games", savings * 100.0);
+        }
+    }
     eprintln!("All {} games written to {}/", total_games, args.output);
 }

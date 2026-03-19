@@ -249,8 +249,8 @@ fn play_game_and_collect(
 
         let config = &configs[player_index];
         let max_rollout_round = std::cmp::max(8, state.round + 2);
-        let choice = ismcts(&state, player_index, config, &None, Some(max_rollout_round), rng);
-        apply_choice_to_state(&mut state, &choice, rng);
+        let result = ismcts(&state, player_index, config, &None, Some(max_rollout_round), rng);
+        apply_choice_to_state(&mut state, &result.choice, rng);
     }
 
     // Determine winner

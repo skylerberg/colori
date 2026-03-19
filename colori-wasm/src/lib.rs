@@ -54,7 +54,7 @@ pub fn wasm_run_ismcts(
     let heuristic_params: HeuristicParams = serde_json::from_str(TRAINED_PARAMS_JSON)
         .expect("Failed to parse trained heuristic params");
     let config = MctsConfig { iterations, heuristic_params, ..MctsConfig::default() };
-    let choice: Choice = ismcts(
+    let result = ismcts(
         &game_state,
         player_index as usize,
         &config,
@@ -63,7 +63,7 @@ pub fn wasm_run_ismcts(
         &mut rng,
     );
 
-    serde_json::to_string(&choice).expect("Failed to serialize choice")
+    serde_json::to_string(&result.choice).expect("Failed to serialize choice")
 }
 
 #[wasm_bindgen]

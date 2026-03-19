@@ -78,6 +78,8 @@ struct VariantFileEntry {
     heuristic_lookahead: Option<u32>,
     #[serde(default)]
     no_rollout: Option<bool>,
+    #[serde(default)]
+    early_termination: Option<bool>,
 }
 
 impl VariantFileEntry {
@@ -124,6 +126,7 @@ impl VariantFileEntry {
                 heuristic_params,
                 diff_eval_params,
                 no_rollout: self.no_rollout.unwrap_or(defaults.no_rollout),
+                early_termination: self.early_termination.unwrap_or(defaults.early_termination),
             },
         }
     }

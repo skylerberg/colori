@@ -23,6 +23,12 @@ pub struct MctsConfig {
     pub heuristic_params: HeuristicParams,
     pub diff_eval_params: Option<DiffEvalParams>,
     pub no_rollout: bool,
+    pub early_termination: bool,
+}
+
+pub struct MctsResult {
+    pub choice: Choice,
+    pub iterations_used: u32,
 }
 
 impl Default for MctsConfig {
@@ -39,6 +45,7 @@ impl Default for MctsConfig {
             heuristic_params: HeuristicParams::default(),
             diff_eval_params: None,
             no_rollout: false,
+            early_termination: false,
         }
     }
 }
@@ -69,6 +76,8 @@ impl<'de> Deserialize<'de> for MctsConfig {
             rave_track_draft: bool,
             #[serde(default)]
             heuristic_params: HeuristicParams,
+            #[serde(default)]
+            early_termination: bool,
         }
 
         fn default_iterations() -> u32 { 100 }
@@ -93,6 +102,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
             heuristic_params: helper.heuristic_params,
             diff_eval_params: None,
             no_rollout: false,
+            early_termination: helper.early_termination,
         })
     }
 }
@@ -333,12 +343,12 @@ pub fn ismcts<R: Rng>(
     known_draft_hands: &Option<Vec<Vec<CardInstance>>>,
     max_rollout_round: Option<u32>,
     rng: &mut R,
-) -> Choice {
+) -> MctsResult {
     // If there's only one legal choice, return it immediately without searching
     let mut choices_buf: Vec<Choice> = Vec::new();
     enumerate_choices_into(state, &mut choices_buf);
     if choices_buf.len() == 1 {
-        return choices_buf.swap_remove(0);
+        return MctsResult { choice: choices_buf.swap_remove(0), iterations_used: 0 };
     }
 
     let mut root = MctsNode::new(player_index, None);
@@ -387,7 +397,9 @@ pub fn ismcts<R: Rng>(
         (max_rollout_round, false)
     };
 
-    for _ in 0..config.iterations {
+    let mut iterations_used = 0u32;
+    for i in 0..config.iterations {
+        iterations_used = i + 1;
         pick_log.clear();
         move_log.clear();
         determinize_in_place(&mut det_state, state, player_index, known_draft_hands, &cached_scores, rng);
@@ -404,12 +416,23 @@ pub fn ismcts<R: Rng>(
             let reward = scores[player];
             opponent_stats.record_outcome(pick_round as usize, player, card, reward);
         }
+
+        // Early termination: stop if the leader can't be overtaken
+        if config.early_termination {
+            let remaining = config.iterations - iterations_used;
+            if remaining > 0 && root.children.len() >= 2 {
+                let (best, second) = top_two_visit_counts(&root.children);
+                if best - second > remaining {
+                    break;
+                }
+            }
+        }
     }
 
     if root.children.is_empty() {
         enumerate_choices_into(state, &mut choices_buf);
         let idx = rng.random_range(0..choices_buf.len());
-        return choices_buf[idx].clone();
+        return MctsResult { choice: choices_buf[idx].clone(), iterations_used };
     }
 
     let mut best_child: Option<&MctsNode> = None;
@@ -419,7 +442,24 @@ pub fn ismcts<R: Rng>(
         }
     }
 
-    best_child.unwrap().choice.clone().unwrap()
+    MctsResult {
+        choice: best_child.unwrap().choice.clone().unwrap(),
+        iterations_used,
+    }
+}
+
+fn top_two_visit_counts(children: &[MctsNode]) -> (u32, u32) {
+    let mut best = 0u32;
+    let mut second = 0u32;
+    for child in children {
+        if child.visit_count > best {
+            second = best;
+            best = child.visit_count;
+        } else if child.visit_count > second {
+            second = child.visit_count;
+        }
+    }
+    (best, second)
 }
 
 fn eval_scores(
@@ -795,7 +835,7 @@ mod tests {
                 GameStatus::Terminated { .. } => return,
             };
 
-            let choice = ismcts(&state, player_index, &config, &None, None, &mut rng);
+            let choice = ismcts(&state, player_index, &config, &None, None, &mut rng).choice;
 
             enumerate_choices_into(&state, &mut choices_buf);
             assert!(
@@ -880,7 +920,7 @@ mod tests {
                 GameStatus::Terminated { .. } => return,
             };
 
-            let choice = ismcts(&state, player_index, &config, &None, None, &mut rng);
+            let choice = ismcts(&state, player_index, &config, &None, None, &mut rng).choice;
 
             enumerate_choices_into(&state, &mut choices_buf);
             assert!(

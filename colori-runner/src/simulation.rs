@@ -35,6 +35,8 @@ pub struct GameRunOutput {
     pub player_variants: Option<Vec<PlayerVariant>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub early_termination_savings: Option<f64>,
 }
 
 #[derive(Serialize)]
@@ -199,6 +201,9 @@ pub fn run_game(
 
     let mut entries: Vec<StructuredLogEntry> = Vec::new();
     let mut seq: u32 = 0;
+    let mut total_iterations_budget: u64 = 0;
+    let mut total_iterations_used: u64 = 0;
+    let any_early_termination = shuffled_variants.iter().any(|v| v.ai.early_termination);
 
     // Main game loop
     while !matches!(state.phase, GamePhase::GameOver) {
@@ -217,7 +222,9 @@ pub fn run_game(
 
         let config = &shuffled_variants[player_index].ai;
         let max_rollout_round = std::cmp::max(8, state.round + 2);
-        let choice = ismcts(&state, player_index, config, &None, Some(max_rollout_round), rng);
+        let result = ismcts(&state, player_index, config, &None, Some(max_rollout_round), rng);
+        total_iterations_budget += config.iterations as u64;
+        total_iterations_used += result.iterations_used as u64;
 
         seq += 1;
         entries.push(StructuredLogEntry {
@@ -226,10 +233,10 @@ pub fn run_game(
             round: state.round,
             phase: phase_str.to_string(),
             player_index,
-            choice: choice.clone(),
+            choice: result.choice.clone(),
         });
 
-        apply_choice_to_state(&mut state, &choice, rng);
+        apply_choice_to_state(&mut state, &result.choice, rng);
     }
 
     let game_ended_at = Some(now_epoch_secs_string());
@@ -282,6 +289,12 @@ pub fn run_game(
         (Some(shuffled_variants[0].ai.iterations), None)
     };
 
+    let early_termination_savings = if any_early_termination && total_iterations_budget > 0 {
+        Some(1.0 - (total_iterations_used as f64 / total_iterations_budget as f64))
+    } else {
+        None
+    };
+
     GameRunOutput {
         version: 1,
         game_started_at,
@@ -296,5 +309,6 @@ pub fn run_game(
         iterations: log_iterations,
         player_variants: log_player_variants,
         note,
+        early_termination_savings,
     }
 }
