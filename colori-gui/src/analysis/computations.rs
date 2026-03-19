@@ -882,6 +882,64 @@ pub fn compute_win_rate_by_variant(
     }
 }
 
+/// Compute win rate by variant, grouped by game length (round count).
+/// Returns a map from round count to (variant label -> win rate entry).
+pub fn compute_variant_win_rate_by_game_length(
+    logs: &[StructuredGameLog],
+) -> Option<BTreeMap<u32, HashMap<String, WinRateEntry>>> {
+    let has_variants = logs.iter().any(|log| log.player_variants.is_some());
+    if !has_variants {
+        return None;
+    }
+
+    let mut stats: BTreeMap<u32, HashMap<String, WinRateEntry>> = BTreeMap::new();
+
+    for log in logs {
+        let variants = match &log.player_variants {
+            Some(v) => v,
+            None => continue,
+        };
+        let final_scores = match &log.final_scores {
+            Some(fs) => fs,
+            None => continue,
+        };
+
+        let mut max_round: u32 = 0;
+        for entry in &log.entries {
+            if entry.round > max_round {
+                max_round = entry.round;
+            }
+        }
+        if max_round == 0 {
+            continue;
+        }
+
+        let (is_winner_fn, num_winners) = compute_winners(final_scores);
+        let round_stats = stats.entry(max_round).or_default();
+
+        for (i, variant) in variants.iter().enumerate() {
+            let label = format_variant_label(variant, Some(variants));
+            let entry = round_stats
+                .entry(label)
+                .or_insert(WinRateEntry { wins: 0.0, games: 0.0 });
+            entry.games += 1.0;
+
+            if i < log.player_names.len() {
+                let player_name = &log.player_names[i];
+                if is_winner_fn(player_name) {
+                    entry.wins += 1.0 / num_winners as f64;
+                }
+            }
+        }
+    }
+
+    if stats.is_empty() {
+        None
+    } else {
+        Some(stats)
+    }
+}
+
 /// Skill vs chance statistics derived from calibrated Elo ratings.
 /// Based on Duersch, Lambrecht, and Oechssler (2018).
 pub struct SkillChanceStats {
