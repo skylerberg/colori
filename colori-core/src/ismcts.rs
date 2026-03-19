@@ -45,7 +45,7 @@ impl Default for MctsConfig {
             heuristic_params: HeuristicParams::default(),
             diff_eval_params: None,
             no_rollout: false,
-            early_termination: false,
+            early_termination: true,
         }
     }
 }
