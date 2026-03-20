@@ -1,5 +1,6 @@
 mod cli;
 mod cmaes;
+pub(crate) mod legacy_eval;
 mod simulation;
 mod tournament;
 mod train_diff_eval;
@@ -53,6 +54,7 @@ fn main() {
             threads: args.threads,
             output: args.output.clone(),
             replay_buffer_epochs: args.train_replay_buffer_epochs,
+            distill_from: args.distill_from.clone(),
         };
         train_diff_eval::run_training(&args, &train_args);
         return;

@@ -28,6 +28,7 @@ pub struct SimulationArgs {
     pub train_baseline_iterations: Option<u32>,
     pub train_replay_buffer_epochs: usize,
     pub baseline_heuristic_params: Option<HeuristicParams>,
+    pub distill_from: Option<String>,
 }
 
 pub struct CmaEsArgs {
@@ -152,6 +153,8 @@ pub fn parse_args() -> SimulationArgs {
     let mut train_lr = 1e-3f64;
     let mut train_replay_buffer_epochs = 5usize;
 
+    let mut distill_from: Option<String> = None;
+
     let mut genetic = false;
     let mut population = 14usize;
     let mut generations = 50usize;
@@ -256,6 +259,10 @@ pub fn parse_args() -> SimulationArgs {
             "--replay-buffer-epochs" => {
                 i += 1;
                 train_replay_buffer_epochs = args[i].parse().expect("Invalid --replay-buffer-epochs value");
+            }
+            "--distill-from" => {
+                i += 1;
+                distill_from = Some(args[i].clone());
             }
             "--population" => {
                 i += 1;
@@ -365,5 +372,6 @@ pub fn parse_args() -> SimulationArgs {
         train_baseline_iterations,
         train_replay_buffer_epochs,
         baseline_heuristic_params,
+        distill_from,
     }
 }

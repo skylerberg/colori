@@ -13,6 +13,7 @@ use rand::SeedableRng;
 use wyrand::WyRand;
 
 use crate::cli::SimulationArgs;
+use crate::legacy_eval::LegacyDiffEvalParams;
 
 // ── Training sample ──
 
@@ -343,6 +344,87 @@ fn compute_loss_and_grads(
     (total_loss, total_grads)
 }
 
+// ── Distillation loss ──
+
+fn compute_distill_loss_and_grads(
+    batch: &[&TrainingSample],
+    params: &DiffEvalParams,
+    table: &DiffEvalTable,
+    teacher_params: &LegacyDiffEvalParams,
+) -> (f64, DiffEvalGradients) {
+    let mut total_loss = 0.0;
+    let mut total_grads = DiffEvalGradients::zeros();
+
+    for sample in batch {
+        let n = sample.state.players.len();
+        let sell_card_display_slice: &[colori_core::types::SellCardInstance] = &sample.state.sell_card_display;
+
+        // Teacher logits (legacy model)
+        let mut teacher_logits = vec![0.0f64; n];
+        for i in 0..n {
+            teacher_logits[i] = crate::legacy_eval::legacy_diff_eval_score(
+                &sample.state.players[i],
+                sell_card_display_slice,
+                &sample.state.card_lookup,
+                sample.state.round,
+                teacher_params,
+            );
+        }
+
+        // Student logits (new model)
+        let mut student_logits = vec![0.0f64; n];
+        for i in 0..n {
+            student_logits[i] = diff_eval_score(&sample.state, i, params, table);
+        }
+
+        // Softmax teacher
+        let teacher_max = teacher_logits.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        let mut teacher_probs = vec![0.0f64; n];
+        let mut teacher_exp_sum = 0.0;
+        for i in 0..n {
+            teacher_probs[i] = (teacher_logits[i] - teacher_max).exp();
+            teacher_exp_sum += teacher_probs[i];
+        }
+        for i in 0..n {
+            teacher_probs[i] /= teacher_exp_sum;
+        }
+
+        // Softmax student
+        let student_max = student_logits.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        let mut student_probs = vec![0.0f64; n];
+        let mut student_exp_sum = 0.0;
+        for i in 0..n {
+            student_probs[i] = (student_logits[i] - student_max).exp();
+            student_exp_sum += student_probs[i];
+        }
+        for i in 0..n {
+            student_probs[i] /= student_exp_sum;
+        }
+
+        // KL divergence: sum_i(teacher_probs[i] * ln(teacher_probs[i] / student_probs[i]))
+        for i in 0..n {
+            if teacher_probs[i] > 1e-10 {
+                total_loss += teacher_probs[i] * (teacher_probs[i] / student_probs[i].max(1e-10)).ln();
+            }
+        }
+
+        // Gradient of KL w.r.t. student logit_i: student_probs[i] - teacher_probs[i]
+        // Backprop through student model only
+        for i in 0..n {
+            let grad_output = student_probs[i] - teacher_probs[i];
+            let grads = diff_eval_backward(&sample.state, i, params, table, grad_output);
+            total_grads.accumulate(&grads);
+        }
+    }
+
+    // Average over batch
+    let batch_size = batch.len() as f64;
+    total_loss /= batch_size;
+    total_grads.scale(1.0 / batch_size);
+
+    (total_loss, total_grads)
+}
+
 // ── Public entry point ──
 
 pub struct TrainArgs {
@@ -358,6 +440,7 @@ pub struct TrainArgs {
     pub threads: usize,
     pub output: String,
     pub replay_buffer_epochs: usize,
+    pub distill_from: Option<String>,
 }
 
 pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
@@ -375,6 +458,15 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
         eprintln!("Baseline: custom heuristic params from --baseline-params");
     } else {
         eprintln!("Baseline: default heuristic params (use --baseline-params to override)");
+    }
+
+    // Load teacher params for distillation if requested
+    let teacher_params = train.distill_from.as_ref().map(|path| {
+        eprintln!("Distillation: loading teacher model from {}", path);
+        LegacyDiffEvalParams::load(path)
+    });
+    if teacher_params.is_some() {
+        eprintln!("Distillation mode: ALL training uses KL divergence loss from teacher model");
     }
 
     // Create output directory
@@ -442,7 +534,11 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
                         &replay_buffer[slot][idx]
                     })
                     .collect();
-                let (loss, grads) = compute_loss_and_grads(&batch, &params, &table);
+                let (loss, grads) = if let Some(ref tp) = teacher_params {
+                    compute_distill_loss_and_grads(&batch, &params, &table, tp)
+                } else {
+                    compute_loss_and_grads(&batch, &params, &table)
+                };
                 optimizer.step(&mut params, &grads);
                 epoch_loss += loss;
                 num_batches += 1;
