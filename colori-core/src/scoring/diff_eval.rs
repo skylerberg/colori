@@ -379,7 +379,9 @@ impl DiffEvalTable {
 
         // Precompute f32 MLP weights for fast inference
         let w = &params.weights;
-        let mut w1_f32 = Box::new([0.0f32; MLP_INPUT_SIZE * MLP_HIDDEN_SIZE]);
+        let mut w1_f32: Box<[f32; MLP_INPUT_SIZE * MLP_HIDDEN_SIZE]> =
+            vec![0.0f32; MLP_INPUT_SIZE * MLP_HIDDEN_SIZE].into_boxed_slice().try_into()
+                .unwrap_or_else(|_| unreachable!());
         for i in 0..(MLP_INPUT_SIZE * MLP_HIDDEN_SIZE) {
             w1_f32[i] = w[MLP_W1 + i] as f32;
         }
@@ -387,7 +389,9 @@ impl DiffEvalTable {
         for i in 0..MLP_HIDDEN_SIZE {
             b1_f32[i] = w[MLP_B1 + i] as f32;
         }
-        let mut w2_f32 = Box::new([0.0f32; MLP_HIDDEN_SIZE * MLP_HIDDEN2_SIZE]);
+        let mut w2_f32: Box<[f32; MLP_HIDDEN_SIZE * MLP_HIDDEN2_SIZE]> =
+            vec![0.0f32; MLP_HIDDEN_SIZE * MLP_HIDDEN2_SIZE].into_boxed_slice().try_into()
+                .unwrap_or_else(|_| unreachable!());
         for i in 0..(MLP_HIDDEN_SIZE * MLP_HIDDEN2_SIZE) {
             w2_f32[i] = w[MLP_W2 + i] as f32;
         }
