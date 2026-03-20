@@ -368,12 +368,13 @@ pub struct TrainArgs {
     pub no_rollout: bool,
     pub threads: usize,
     pub output: String,
+    pub replay_buffer_epochs: usize,
 }
 
 pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
     eprintln!("=== Diff Eval Training ===");
-    eprintln!("Games/epoch: {}, Epochs: {}, Batch size: {}, Passes: {}, LR: {}",
-        train.games, train.epochs, train.batch_size, train.passes, train.lr);
+    eprintln!("Games/epoch: {}, Epochs: {}, Batch size: {}, Passes: {}, LR: {}, Replay buffer: {} epochs",
+        train.games, train.epochs, train.batch_size, train.passes, train.lr, train.replay_buffer_epochs);
     let baseline_iters_display = train.baseline_iterations.unwrap_or(train.eval_iterations);
     eprintln!("MCTS iterations: {} (baseline: {}), Threads: {}, Mode: {}, Rollout: {}",
         train.eval_iterations, baseline_iters_display, train.threads,
@@ -401,7 +402,11 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
 
     let mut prev_loss: Option<f64> = None;
 
-    // Training loop: fresh data each epoch
+    // Replay buffer: sliding window of recent epochs' samples
+    use std::collections::VecDeque;
+    let mut replay_buffer: VecDeque<Vec<TrainingSample>> = VecDeque::new();
+
+    // Training loop
     for epoch in start_epoch..train.epochs {
         let epoch_start = std::time::Instant::now();
 
@@ -410,25 +415,44 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
         let data = generate_training_data(
             train.games, train.eval_iterations, baseline_iters, train.threads, &baseline_params, dep, train.no_rollout, epoch,
         );
-        let samples = data.samples;
-        if samples.is_empty() {
+        let new_samples = data.samples;
+        if new_samples.is_empty() {
             eprintln!("No training samples generated for epoch {}!", epoch + 1);
             continue;
         }
 
-        // Train on mini-batches with multiple passes over the data
+        // Add new samples to replay buffer, evict oldest if over capacity
+        replay_buffer.push_back(new_samples);
+        while replay_buffer.len() > train.replay_buffer_epochs {
+            replay_buffer.pop_front();
+        }
+
+        // Collect references to all samples in the buffer
+        let total_samples: usize = replay_buffer.iter().map(|s| s.len()).sum();
+
+        // Train on mini-batches with multiple passes over the buffered data
         let train_start = std::time::Instant::now();
         use rand::seq::SliceRandom;
         let mut rng = WyRand::from_rng(&mut rand::rng());
-        let mut indices: Vec<usize> = (0..samples.len()).collect();
+        let mut indices: Vec<usize> = (0..total_samples).collect();
 
         let mut epoch_loss = 0.0;
         let mut num_batches = 0;
 
+        // Build a flat index → (buffer_slot, sample_index) mapping
+        let flat_refs: Vec<(usize, usize)> = replay_buffer.iter().enumerate()
+            .flat_map(|(slot, samples)| (0..samples.len()).map(move |i| (slot, i)))
+            .collect();
+
         for _ in 0..train.passes {
             indices.shuffle(&mut rng);
             for chunk in indices.chunks(train.batch_size) {
-                let batch: Vec<&TrainingSample> = chunk.iter().map(|&i| &samples[i]).collect();
+                let batch: Vec<&TrainingSample> = chunk.iter()
+                    .map(|&i| {
+                        let (slot, idx) = flat_refs[i];
+                        &replay_buffer[slot][idx]
+                    })
+                    .collect();
                 let (loss, grads) = compute_loss_and_grads(&batch, &params, &table);
                 optimizer.step(&mut params, &grads);
                 epoch_loss += loss;
@@ -449,8 +473,8 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
         };
         prev_loss = Some(avg_loss);
 
-        eprintln!("Epoch {}/{}: loss={:.4}{} ({:.0}s train, {:.0}s total)",
-            epoch + 1, train.epochs, avg_loss, trend, train_secs, total_secs);
+        eprintln!("Epoch {}/{}: loss={:.4}{} ({} samples from {} epochs, {:.0}s train, {:.0}s total)",
+            epoch + 1, train.epochs, avg_loss, trend, total_samples, replay_buffer.len(), train_secs, total_secs);
 
         // Save checkpoint + params after every epoch
         save_checkpoint(&train.output, &params, &optimizer, epoch + 1);

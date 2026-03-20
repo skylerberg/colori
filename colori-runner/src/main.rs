@@ -52,6 +52,7 @@ fn main() {
             no_rollout: args.train_no_rollout,
             threads: args.threads,
             output: args.output.clone(),
+            replay_buffer_epochs: args.train_replay_buffer_epochs,
         };
         train_diff_eval::run_training(&args, &train_args);
         return;

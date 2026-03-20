@@ -26,6 +26,7 @@ pub struct SimulationArgs {
     pub train_no_rollout: bool,
     pub train_eval_iterations: u32,
     pub train_baseline_iterations: Option<u32>,
+    pub train_replay_buffer_epochs: usize,
     pub baseline_heuristic_params: Option<HeuristicParams>,
 }
 
@@ -149,6 +150,7 @@ pub fn parse_args() -> SimulationArgs {
     let mut train_batch_size = 256usize;
     let mut train_passes = 1usize;
     let mut train_lr = 1e-3f64;
+    let mut train_replay_buffer_epochs = 5usize;
 
     let mut genetic = false;
     let mut population = 14usize;
@@ -250,6 +252,10 @@ pub fn parse_args() -> SimulationArgs {
             "--train-lr" => {
                 i += 1;
                 train_lr = args[i].parse().expect("Invalid --train-lr value");
+            }
+            "--replay-buffer-epochs" => {
+                i += 1;
+                train_replay_buffer_epochs = args[i].parse().expect("Invalid --replay-buffer-epochs value");
             }
             "--population" => {
                 i += 1;
@@ -357,6 +363,7 @@ pub fn parse_args() -> SimulationArgs {
         train_lr,
         train_eval_iterations: eval_iterations,
         train_baseline_iterations,
+        train_replay_buffer_epochs,
         baseline_heuristic_params,
     }
 }
