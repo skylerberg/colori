@@ -69,6 +69,11 @@ fn main() {
             labels.join(", "),
             args.threads
         );
+    } else if let Some(tl) = player_variants[0].ai.time_limit_ms {
+        eprintln!(
+            "Running {} games with {} players, {}ms MCTS time limit, {} threads",
+            args.games, num_players, tl, args.threads
+        );
     } else {
         eprintln!(
             "Running {} games with {} players, {} ISMCTS iterations, {} threads",
@@ -89,6 +94,7 @@ fn main() {
     let agg_reuse_budget = AtomicU64::new(0);
     let agg_reuse_saved = AtomicU64::new(0);
     let variant_time_ms: Vec<AtomicU64> = (0..num_players).map(|_| AtomicU64::new(0)).collect();
+    let variant_iterations: Vec<AtomicU64> = (0..num_players).map(|_| AtomicU64::new(0)).collect();
     let total_games = args.games;
     let num_threads = args.threads;
     let output_dir = &args.output;
@@ -110,6 +116,7 @@ fn main() {
             let agg_reuse_budget = &agg_reuse_budget;
             let agg_reuse_saved = &agg_reuse_saved;
             let variant_time_ms = &variant_time_ms;
+            let variant_iterations = &variant_iterations;
 
             handles.push(s.spawn(move || {
                 let mut rng = WyRand::from_rng(&mut rand::rng());
@@ -136,6 +143,7 @@ fn main() {
                     }
                     for (player_pos, &orig_idx) in log.variant_order.iter().enumerate() {
                         variant_time_ms[orig_idx].fetch_add(log.player_time_ms[player_pos], Ordering::Relaxed);
+                        variant_iterations[orig_idx].fetch_add(log.player_iterations[player_pos], Ordering::Relaxed);
                     }
                     set_card_registry(&log.initial_state.card_lookup);
                     set_sell_card_registry(&log.initial_state.sell_card_lookup);
@@ -180,13 +188,17 @@ fn main() {
         let differing = compute_differing_fields(player_variants);
         for (i, v) in player_variants.iter().enumerate() {
             let total_ms = variant_time_ms[i].load(Ordering::Relaxed);
+            let total_iters = variant_iterations[i].load(Ordering::Relaxed);
             let avg_secs = total_ms as f64 / total_games as f64 / 1000.0;
-            eprintln!("{}: {:.1}s avg MCTS time per game", format_variant_label(v, &differing), avg_secs);
+            let avg_iters = total_iters as f64 / total_games as f64;
+            eprintln!("{}: {:.1}s avg, {:.0} avg iters per game", format_variant_label(v, &differing), avg_secs, avg_iters);
         }
     } else {
         let total_ms: u64 = variant_time_ms.iter().map(|a| a.load(Ordering::Relaxed)).sum();
+        let total_iters: u64 = variant_iterations.iter().map(|a| a.load(Ordering::Relaxed)).sum();
         let avg_secs = total_ms as f64 / (total_games as f64 * num_players as f64) / 1000.0;
-        eprintln!("Average MCTS time per player per game: {:.1}s", avg_secs);
+        let avg_iters = total_iters as f64 / (total_games as f64 * num_players as f64);
+        eprintln!("Average per player per game: {:.1}s, {:.0} iters", avg_secs, avg_iters);
     }
     eprintln!("All {} games written to {}/", total_games, args.output);
 }

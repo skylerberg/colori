@@ -93,6 +93,8 @@ pub struct PlayerVariant {
     pub algorithm: Option<String>,
     pub iterations: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_limit_ms: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub exploration_constant: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_rollout_steps: Option<u32>,

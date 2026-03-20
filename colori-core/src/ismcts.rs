@@ -9,6 +9,7 @@ use rand::Rng;
 use rand::RngExt;
 use serde::Deserialize;
 use smallvec::SmallVec;
+use std::time::{Duration, Instant};
 
 #[derive(Clone, Debug)]
 pub struct MctsConfig {
@@ -25,6 +26,7 @@ pub struct MctsConfig {
     pub no_rollout: bool,
     pub early_termination: bool,
     pub subtree_reuse: bool,
+    pub time_limit_ms: Option<u64>,
 }
 
 pub struct MctsResult {
@@ -50,6 +52,7 @@ impl Default for MctsConfig {
             no_rollout: false,
             early_termination: true,
             subtree_reuse: true,
+            time_limit_ms: None,
         }
     }
 }
@@ -84,6 +87,8 @@ impl<'de> Deserialize<'de> for MctsConfig {
             early_termination: bool,
             #[serde(default)]
             subtree_reuse: bool,
+            #[serde(default)]
+            time_limit_ms: Option<u64>,
         }
 
         fn default_iterations() -> u32 { 100 }
@@ -110,6 +115,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
             no_rollout: false,
             early_termination: helper.early_termination,
             subtree_reuse: helper.subtree_reuse,
+            time_limit_ms: helper.time_limit_ms,
         })
     }
 }
@@ -413,34 +419,57 @@ pub fn ismcts<R: Rng>(
         (max_rollout_round, false)
     };
 
-    let new_iterations = config.iterations.saturating_sub(reused_iterations);
     let mut iterations_used = 0u32;
-    for i in 0..new_iterations {
-        iterations_used = i + 1;
-        pick_log.clear();
-        move_log.clear();
-        determinize_in_place(&mut det_state, state, player_index, known_draft_hands, &cached_scores, rng);
-        advance_past_opponent_draft_picks(
-            &mut det_state, player_index, &mut opponent_stats,
-            &mut pick_log, config.exploration_constant, rng,
-        );
-        let scores = iteration_simultaneous(
-            &mut root, &mut det_state, player_index,
-            &mut opponent_stats, &mut pick_log,
-            effective_max_rollout_round, use_heuristic, config, &mut choices_buf, &mut availability_buf, &card_table, &diff_table, &mut move_log, rng,
-        );
-        for &(pick_round, player, card) in &pick_log {
-            let reward = scores[player];
-            opponent_stats.record_outcome(pick_round as usize, player, card, reward);
+    if let Some(time_limit_ms) = config.time_limit_ms {
+        let deadline = Instant::now() + Duration::from_millis(time_limit_ms);
+        while Instant::now() < deadline {
+            iterations_used += 1;
+            pick_log.clear();
+            move_log.clear();
+            determinize_in_place(&mut det_state, state, player_index, known_draft_hands, &cached_scores, rng);
+            advance_past_opponent_draft_picks(
+                &mut det_state, player_index, &mut opponent_stats,
+                &mut pick_log, config.exploration_constant, rng,
+            );
+            let scores = iteration_simultaneous(
+                &mut root, &mut det_state, player_index,
+                &mut opponent_stats, &mut pick_log,
+                effective_max_rollout_round, use_heuristic, config, &mut choices_buf, &mut availability_buf, &card_table, &diff_table, &mut move_log, rng,
+            );
+            for &(pick_round, player, card) in &pick_log {
+                let reward = scores[player];
+                opponent_stats.record_outcome(pick_round as usize, player, card, reward);
+            }
         }
+    } else {
+        let new_iterations = config.iterations.saturating_sub(reused_iterations);
+        for i in 0..new_iterations {
+            iterations_used = i + 1;
+            pick_log.clear();
+            move_log.clear();
+            determinize_in_place(&mut det_state, state, player_index, known_draft_hands, &cached_scores, rng);
+            advance_past_opponent_draft_picks(
+                &mut det_state, player_index, &mut opponent_stats,
+                &mut pick_log, config.exploration_constant, rng,
+            );
+            let scores = iteration_simultaneous(
+                &mut root, &mut det_state, player_index,
+                &mut opponent_stats, &mut pick_log,
+                effective_max_rollout_round, use_heuristic, config, &mut choices_buf, &mut availability_buf, &card_table, &diff_table, &mut move_log, rng,
+            );
+            for &(pick_round, player, card) in &pick_log {
+                let reward = scores[player];
+                opponent_stats.record_outcome(pick_round as usize, player, card, reward);
+            }
 
-        // Early termination: stop if the leader can't be overtaken
-        if config.early_termination {
-            let remaining = new_iterations - iterations_used;
-            if remaining > 0 && root.children.len() >= 2 {
-                let (best, second) = top_two_visit_counts(&root.children);
-                if best - second > remaining {
-                    break;
+            // Early termination: stop if the leader can't be overtaken
+            if config.early_termination {
+                let remaining = new_iterations - iterations_used;
+                if remaining > 0 && root.children.len() >= 2 {
+                    let (best, second) = top_two_visit_counts(&root.children);
+                    if best - second > remaining {
+                        break;
+                    }
                 }
             }
         }

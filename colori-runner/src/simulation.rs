@@ -30,6 +30,7 @@ pub struct GameRunOutput {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub duration_ms: Option<u64>,
     pub player_time_ms: Vec<u64>,
+    pub player_iterations: Vec<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub iterations: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -80,13 +81,26 @@ fn format_iterations(iters: u32) -> String {
     }
 }
 
+fn format_time_limit(ms: u64) -> String {
+    if ms >= 1000 && ms % 1000 == 0 {
+        format!("{}s", ms / 1000)
+    } else {
+        format!("{}ms", ms)
+    }
+}
+
 pub fn format_variant_label(variant: &NamedVariant, differing: &DifferingFields) -> String {
     if let Some(name) = &variant.name {
         return name.clone();
     }
     let config = &variant.ai;
     let mut parts = Vec::new();
-    if differing.iterations_differs {
+    if differing.time_limit_differs {
+        if let Some(tl) = config.time_limit_ms {
+            parts.push(format_time_limit(tl));
+        }
+    }
+    if differing.iterations_differs && config.time_limit_ms.is_none() {
         parts.push(format_iterations(config.iterations));
     }
     if differing.exploration_constant_differs {
@@ -96,7 +110,11 @@ pub fn format_variant_label(variant: &NamedVariant, differing: &DifferingFields)
         parts.push(format!("rollout={}", config.max_rollout_steps));
     }
     if parts.is_empty() {
-        parts.push(format_iterations(config.iterations));
+        if let Some(tl) = config.time_limit_ms {
+            parts.push(format_time_limit(tl));
+        } else {
+            parts.push(format_iterations(config.iterations));
+        }
     }
     parts.join(", ")
 }
@@ -105,6 +123,7 @@ pub struct DifferingFields {
     pub iterations_differs: bool,
     pub exploration_constant_differs: bool,
     pub max_rollout_steps_differs: bool,
+    pub time_limit_differs: bool,
 }
 
 pub fn compute_differing_fields(variants: &[NamedVariant]) -> DifferingFields {
@@ -113,6 +132,7 @@ pub fn compute_differing_fields(variants: &[NamedVariant]) -> DifferingFields {
             iterations_differs: false,
             exploration_constant_differs: false,
             max_rollout_steps_differs: false,
+            time_limit_differs: false,
         };
     }
     let first = &variants[0].ai;
@@ -120,6 +140,7 @@ pub fn compute_differing_fields(variants: &[NamedVariant]) -> DifferingFields {
         iterations_differs: variants.iter().any(|v| v.ai.iterations != first.iterations),
         exploration_constant_differs: variants.iter().any(|v| v.ai.exploration_constant != first.exploration_constant),
         max_rollout_steps_differs: variants.iter().any(|v| v.ai.max_rollout_steps != first.max_rollout_steps),
+        time_limit_differs: variants.iter().any(|v| v.ai.time_limit_ms != first.time_limit_ms),
     }
 }
 
@@ -131,7 +152,7 @@ pub fn has_any_difference(variants: &[NamedVariant]) -> bool {
         return true;
     }
     let diff = compute_differing_fields(variants);
-    diff.iterations_differs || diff.exploration_constant_differs || diff.max_rollout_steps_differs
+    diff.iterations_differs || diff.exploration_constant_differs || diff.max_rollout_steps_differs || diff.time_limit_differs
 }
 
 fn is_default_heuristic_params(params: &HeuristicParams) -> bool {
@@ -148,6 +169,7 @@ fn variant_to_player_variant(variant: &NamedVariant) -> PlayerVariant {
         name: variant.name.clone(),
         algorithm: Some("ucb".to_string()),
         iterations: config.iterations,
+        time_limit_ms: config.time_limit_ms,
         exploration_constant: if config.exploration_constant != defaults.exploration_constant {
             Some(config.exploration_constant)
         } else {
@@ -214,6 +236,7 @@ pub fn run_game(
     let any_subtree_reuse = shuffled_variants.iter().any(|v| v.ai.subtree_reuse);
     let mut reuse_tree: Option<MctsNode> = None;
     let mut player_time = vec![std::time::Duration::ZERO; num_players];
+    let mut player_iterations_count = vec![0u64; num_players];
 
     // Main game loop
     while !matches!(state.phase, GamePhase::GameOver) {
@@ -235,7 +258,10 @@ pub fn run_game(
         let mcts_start = std::time::Instant::now();
         let result = ismcts(&state, player_index, config, &None, Some(max_rollout_round), reuse_tree.take(), rng);
         player_time[player_index] += mcts_start.elapsed();
-        total_iterations_budget += config.iterations as u64;
+        player_iterations_count[player_index] += result.iterations_used as u64;
+        if config.time_limit_ms.is_none() {
+            total_iterations_budget += config.iterations as u64;
+        }
         total_iterations_used += result.iterations_used as u64;
         total_reused_iterations += result.reused_iterations as u64;
 
@@ -345,6 +371,7 @@ pub fn run_game(
         entries,
         duration_ms,
         player_time_ms,
+        player_iterations: player_iterations_count,
         iterations: log_iterations,
         player_variants: log_player_variants,
         note,

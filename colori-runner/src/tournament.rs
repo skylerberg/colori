@@ -16,6 +16,7 @@ struct TournamentStats {
     draws: Vec<AtomicU64>,
     games: Vec<AtomicU64>,
     time_ms: Vec<AtomicU64>,
+    iterations: Vec<AtomicU64>,
 }
 
 impl TournamentStats {
@@ -27,6 +28,7 @@ impl TournamentStats {
             draws: (0..n).map(|_| AtomicU64::new(0)).collect(),
             games: (0..n).map(|_| AtomicU64::new(0)).collect(),
             time_ms: (0..n).map(|_| AtomicU64::new(0)).collect(),
+            iterations: (0..n).map(|_| AtomicU64::new(0)).collect(),
         }
     }
 }
@@ -160,11 +162,11 @@ pub fn run_tournament(args: &SimulationArgs) {
                     stats.games[idx_0].fetch_add(1, Ordering::Relaxed);
                     stats.games[idx_1].fetch_add(1, Ordering::Relaxed);
 
-                    // Accumulate per-variant MCTS time
-                    let pv_names: Vec<&str> = pv.iter().map(|p| p.name.as_ref().unwrap().as_str()).collect();
-                    for (player_pos, name) in pv_names.iter().enumerate() {
-                        let vi = name_to_index[*name];
+                    // Accumulate per-variant MCTS time and iterations
+                    for (player_pos, player_variant) in pv.iter().enumerate() {
+                        let vi = name_to_index[player_variant.name.as_ref().unwrap()];
                         stats.time_ms[vi].fetch_add(log.player_time_ms[player_pos], Ordering::Relaxed);
+                        stats.iterations[vi].fetch_add(log.player_iterations[player_pos], Ordering::Relaxed);
                     }
 
                     // Save game log
@@ -208,6 +210,7 @@ fn print_summary(stats: &TournamentStats) {
         losses: u64,
         win_rate: f64,
         avg_time_secs: f64,
+        avg_iterations: f64,
     }
 
     let mut results: Vec<VariantResult> = (0..n)
@@ -216,6 +219,7 @@ fn print_summary(stats: &TournamentStats) {
             let wins = stats.wins[i].load(Ordering::Relaxed);
             let draws = stats.draws[i].load(Ordering::Relaxed);
             let time_ms = stats.time_ms[i].load(Ordering::Relaxed);
+            let iters = stats.iterations[i].load(Ordering::Relaxed);
             let losses = games.saturating_sub(wins + draws);
             let win_rate = if games > 0 {
                 (wins as f64 + 0.5 * draws as f64) / games as f64
@@ -227,6 +231,11 @@ fn print_summary(stats: &TournamentStats) {
             } else {
                 0.0
             };
+            let avg_iterations = if games > 0 {
+                iters as f64 / games as f64
+            } else {
+                0.0
+            };
             VariantResult {
                 label: stats.labels[i].clone(),
                 games,
@@ -235,6 +244,7 @@ fn print_summary(stats: &TournamentStats) {
                 losses,
                 win_rate,
                 avg_time_secs,
+                avg_iterations,
             }
         })
         .collect();
@@ -252,7 +262,7 @@ fn print_summary(stats: &TournamentStats) {
     eprintln!("=== Tournament Results ===");
     eprintln!();
     eprintln!(
-        "{:<width$}  {:>5}  {:>5}  {:>5}  {:>6}  {:>8}  {:>8}",
+        "{:<width$}  {:>5}  {:>5}  {:>5}  {:>6}  {:>8}  {:>8}  {:>10}",
         "Variant",
         "Games",
         "Wins",
@@ -260,12 +270,13 @@ fn print_summary(stats: &TournamentStats) {
         "Losses",
         "Win Rate",
         "Avg Time",
+        "Avg Iters",
         width = max_label,
     );
-    eprintln!("{}", "-".repeat(max_label + 46));
+    eprintln!("{}", "-".repeat(max_label + 58));
     for r in &results {
         eprintln!(
-            "{:<width$}  {:>5}  {:>5}  {:>5}  {:>6}  {:>7.1}%  {:>7.1}s",
+            "{:<width$}  {:>5}  {:>5}  {:>5}  {:>6}  {:>7.1}%  {:>7.1}s  {:>10.0}",
             r.label,
             r.games,
             r.wins,
@@ -273,6 +284,7 @@ fn print_summary(stats: &TournamentStats) {
             r.losses,
             r.win_rate * 100.0,
             r.avg_time_secs,
+            r.avg_iterations,
             width = max_label,
         );
     }
