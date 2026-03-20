@@ -5,7 +5,7 @@ export class GameLogAccumulator {
   private log: StructuredGameLog;
   private seq = 0;
 
-  constructor(initialState: GameState, aiIterations?: number[]) {
+  constructor(initialState: GameState, aiIterations?: number[], aiStyle?: string) {
     this.log = {
       version: 1,
       gameStartedAt: new Date().toISOString(),
@@ -18,7 +18,7 @@ export class GameLogAccumulator {
       entries: [],
     };
     if (aiIterations) {
-      this.log.playerVariants = aiIterations.map(iterations => ({ iterations }));
+      this.log.playerVariants = aiIterations.map(iterations => ({ iterations, aiStyle }));
     }
   }
 

@@ -36,6 +36,7 @@
   let gameStartTime: number | null = $state(saved?.gameStartTime ?? null);
   let savedGameLog: string[] = $state(saved?.gameLog ?? []);
   let aiIterations: number[] | null = $state(saved?.aiIterations ?? null);
+  let aiStyle: string | null = $state(saved?.aiStyle ?? null);
   let hasSavedGame = $state(saved !== null && saved.gameState.phase.type !== 'gameOver');
 
   // Structured logging state
@@ -116,14 +117,15 @@
 
   // -- Local game handlers --
 
-  function handleGameStarted(state: GameState, iterations: number[]) {
+  function handleGameStarted(state: GameState, iterations: number[], style: string) {
     gameState = state;
     aiIterations = iterations;
+    aiStyle = style;
     gameStartTime = Date.now();
     savedGameLog = [];
-    gameLogAccumulator = new GameLogAccumulator(state, iterations);
+    gameLogAccumulator = new GameLogAccumulator(state, iterations, style);
     finalGameLog = null;
-    saveGame(state, gameStartTime!, [], iterations, gameLogAccumulator!.getLog());
+    saveGame(state, gameStartTime!, [], iterations, gameLogAccumulator!.getLog(), style);
     replaceScreen({ type: 'localGame' });
   }
 
@@ -138,7 +140,7 @@
       }
       replaceScreen({ type: 'score' });
     } else {
-      saveGame(state, gameStartTime!, log, aiIterations ?? undefined, gameLogAccumulator?.getLog());
+      saveGame(state, gameStartTime!, log, aiIterations ?? undefined, gameLogAccumulator?.getLog(), aiStyle ?? undefined);
     }
   }
 
@@ -147,6 +149,7 @@
     gameStartTime = null;
     savedGameLog = [];
     aiIterations = null;
+    aiStyle = null;
     gameLogAccumulator = null;
     finalGameLog = null;
     clearSavedGame();
@@ -160,6 +163,7 @@
     gameStartTime = null;
     savedGameLog = [];
     aiIterations = null;
+    aiStyle = null;
     gameLogAccumulator = null;
     finalGameLog = null;
     hasSavedGame = false;
@@ -317,7 +321,7 @@
       onBack={goToMainMenu}
     />
   {:else if screen.type === 'localGame' && gameState !== null}
-    <GameScreen {gameState} {gameStartTime} onGameUpdated={handleGameUpdated} initialGameLog={savedGameLog} onLeaveGame={handleLeaveGame} {gameLogAccumulator} aiIterations={aiIterations ?? gameState.aiPlayers.map(() => 100000)} />
+    <GameScreen {gameState} {gameStartTime} onGameUpdated={handleGameUpdated} initialGameLog={savedGameLog} onLeaveGame={handleLeaveGame} {gameLogAccumulator} aiIterations={aiIterations ?? gameState.aiPlayers.map(() => 100000)} aiStyle={aiStyle ?? 'ga'} />
   {:else if screen.type === 'onlineGame' && gameState !== null}
     <OnlineGameScreen
       role={screen.role}

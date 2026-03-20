@@ -8,11 +8,12 @@ export interface SavedGame {
   gameLog: string[];
   aiIterations?: number[];
   structuredLog?: StructuredGameLog;
+  aiStyle?: string;
 }
 
-export function saveGame(gameState: GameState, gameStartTime: number, gameLog: string[], aiIterations?: number[], structuredLog?: StructuredGameLog): void {
+export function saveGame(gameState: GameState, gameStartTime: number, gameLog: string[], aiIterations?: number[], structuredLog?: StructuredGameLog, aiStyle?: string): void {
   try {
-    const data: SavedGame = { gameState, gameStartTime, gameLog, aiIterations, structuredLog };
+    const data: SavedGame = { gameState, gameStartTime, gameLog, aiIterations, structuredLog, aiStyle };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch {
     // localStorage full or unavailable — silently ignore

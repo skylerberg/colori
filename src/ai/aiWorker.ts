@@ -6,6 +6,7 @@ export interface AIWorkerRequest {
   playerIndex: number;
   iterations: number;
   aiDraftKnowledge?: CardInstance[][];
+  aiStyle?: string;
 }
 
 export interface AIWorkerSuccess {
@@ -32,11 +33,11 @@ function ensureInit(): Promise<unknown> {
 self.onmessage = async (event: MessageEvent<AIWorkerRequest>) => {
   try {
     await ensureInit();
-    const { gameState, playerIndex, iterations, aiDraftKnowledge } = event.data;
+    const { gameState, playerIndex, iterations, aiDraftKnowledge, aiStyle } = event.data;
     const gameStateJson = JSON.stringify(gameState);
     const aiDraftKnowledgeJson = aiDraftKnowledge ? JSON.stringify(aiDraftKnowledge) : '';
 
-    const resultJson = wasm_run_ismcts(gameStateJson, playerIndex, iterations, aiDraftKnowledgeJson);
+    const resultJson = wasm_run_ismcts(gameStateJson, playerIndex, iterations, aiDraftKnowledgeJson, aiStyle ?? 'ga');
 
     const choice = JSON.parse(resultJson);
     self.postMessage({ type: 'success', choice } satisfies AIWorkerSuccess);

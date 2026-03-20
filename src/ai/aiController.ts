@@ -19,6 +19,7 @@ interface PrecomputeEntry {
 
 export class AIController {
   private worker: Worker;
+  aiStyle: string = 'ga';
 
   private precomputeMap = new Map<string, PrecomputeEntry>();
   private generationId = 0;
@@ -46,6 +47,7 @@ export class AIController {
         playerIndex,
         iterations,
         aiDraftKnowledge,
+        aiStyle: this.aiStyle,
       }));
       this.worker.postMessage(plain);
     });
@@ -85,6 +87,7 @@ export class AIController {
         playerIndex: req.playerIndex,
         iterations: req.iterations,
         aiDraftKnowledge: req.aiDraftKnowledge,
+        aiStyle: this.aiStyle,
       }));
       worker.postMessage(plain);
       this.precomputeMap.set(key, entry);

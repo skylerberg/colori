@@ -10,7 +10,7 @@
   import CardList from './CardList.svelte';
   import { startTutorial, cancelTutorial } from '../tutorial/tutorial';
 
-  let { gameState, gameStartTime, onGameUpdated, initialGameLog, onLeaveGame, gameLogAccumulator, aiIterations }: {
+  let { gameState, gameStartTime, onGameUpdated, initialGameLog, onLeaveGame, gameLogAccumulator, aiIterations, aiStyle }: {
     gameState: GameState;
     gameStartTime: number | null;
     onGameUpdated: (state: GameState, log: string[]) => void;
@@ -18,6 +18,7 @@
     onLeaveGame: () => void;
     gameLogAccumulator: GameLogAccumulator | null;
     aiIterations: number[];
+    aiStyle: string;
   } = $props();
 
   let elapsedSeconds = $state(0);
@@ -89,6 +90,7 @@
   }
 
   const aiController = new AIController();
+  aiController.aiStyle = aiStyle;
 
   // Per-AI-player seen hands for draft knowledge tracking
   let aiDraftKnowledge: Map<number, CardInstance[][]> = $state(new Map());
