@@ -7,7 +7,7 @@ use rand::Rng;
 
 
 pub use crate::choices::{check_choice_available, enumerate_choices, enumerate_choices_into};
-pub use crate::rollout::{apply_rollout_step, apply_rollout_step_tracked};
+pub use crate::rollout::apply_rollout_step;
 
 // ── Apply choice with AI post-processing ──
 

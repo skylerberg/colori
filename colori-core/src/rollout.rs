@@ -17,30 +17,10 @@ use crate::types::*;
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
 use rand::RngExt;
-use smallvec::SmallVec;
-
-// ── Move tracking trait ──
-
-pub trait MoveTracker {
-    fn track(&mut self, player: usize, choice: Choice);
-}
-
-pub struct NoTracking;
-impl MoveTracker for NoTracking {
-    #[inline(always)]
-    fn track(&mut self, _: usize, _: Choice) {}
-}
-
-impl MoveTracker for Vec<(usize, Choice)> {
-    #[inline(always)]
-    fn track(&mut self, player: usize, choice: Choice) {
-        self.push((player, choice));
-    }
-}
 
 // ── Rollout draw+draft shortcut ──
 
-fn rollout_draw_and_draft<T: MoveTracker, R: Rng>(state: &mut GameState, tracker: &mut T, rng: &mut R) {
+fn rollout_draw_and_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
     let num_players = state.players.len();
 
     // Step 1: Draw 5 cards from each player's personal deck
@@ -91,12 +71,8 @@ fn rollout_draw_and_draft<T: MoveTracker, R: Rng>(state: &mut GameState, tracker
         return;
     }
 
-    // Step 4: Assign dealt cards as drafted_cards and track for RAVE
+    // Step 4: Assign dealt cards as drafted_cards
     for i in 0..num_players {
-        for id in dealt[i].iter() {
-            let card = state.card_lookup[id as usize];
-            tracker.track(i, Choice::DraftPick { card });
-        }
         state.players[i].drafted_cards = dealt[i];
     }
 
@@ -197,39 +173,34 @@ fn glass_has_valid_targets(player: &PlayerState, glass: GlassCard) -> bool {
 
 /// Activate a glass ability during rollout. Handles both stack-pushing and immediate abilities.
 #[inline(always)]
-fn activate_glass_in_rollout_impl<T: MoveTracker, R: Rng>(
+fn activate_glass_in_rollout(
     state: &mut GameState,
     player_index: usize,
     glass: GlassCard,
-    tracker: &mut T,
-    rng: &mut R,
+    rng: &mut impl Rng,
 ) {
     mark_glass_used(state, glass);
     match glass {
         // Stack-pushing abilities
         GlassCard::GlassWorkshop => {
-            tracker.track(player_index, Choice::ActivateGlassWorkshop);
             get_action_state_mut(state)
                 .ability_stack
                 .push(Ability::Workshop { count: 1 });
             process_ability_stack(state, rng);
         }
         GlassCard::GlassDraw => {
-            tracker.track(player_index, Choice::ActivateGlassDraw);
             get_action_state_mut(state)
                 .ability_stack
                 .push(Ability::DrawCards { count: 1 });
             process_ability_stack(state, rng);
         }
         GlassCard::GlassMix => {
-            tracker.track(player_index, Choice::ActivateGlassMix);
             get_action_state_mut(state)
                 .ability_stack
                 .push(Ability::MixColors { count: 1 });
             process_ability_stack(state, rng);
         }
         GlassCard::GlassGainPrimary => {
-            tracker.track(player_index, Choice::ActivateGlassGainPrimary);
             get_action_state_mut(state)
                 .ability_stack
                 .push(Ability::GainPrimary);
@@ -256,7 +227,6 @@ fn activate_glass_in_rollout_impl<T: MoveTracker, R: Rng>(
                 }
             }
             let gain = gain_options[rng.random_range(0..gain_count)];
-            tracker.track(player_index, Choice::ActivateGlassExchange { lose, gain });
             let player = &mut state.players[player_index];
             player.materials.decrement(lose);
             player.materials.increment(gain);
@@ -264,8 +234,6 @@ fn activate_glass_in_rollout_impl<T: MoveTracker, R: Rng>(
         GlassCard::GlassMoveDrafted => {
             let player = &mut state.players[player_index];
             let card_id = player.drafted_cards.pick_random(rng).unwrap();
-            let card = state.card_lookup[card_id as usize];
-            tracker.track(player_index, Choice::ActivateGlassMoveDrafted { card });
             player.drafted_cards.remove(card_id);
             player.workshop_cards.insert(card_id);
         }
@@ -280,7 +248,6 @@ fn activate_glass_in_rollout_impl<T: MoveTracker, R: Rng>(
                 }
             }
             let color = unmixable[rng.random_range(0..count)];
-            tracker.track(player_index, Choice::ActivateGlassUnmix { color });
             perform_unmix(&mut state.players[player_index].color_wheel, color);
         }
         GlassCard::GlassTertiaryDucat => {
@@ -294,7 +261,6 @@ fn activate_glass_in_rollout_impl<T: MoveTracker, R: Rng>(
                 }
             }
             let color = tertiaries[rng.random_range(0..count)];
-            tracker.track(player_index, Choice::ActivateGlassTertiaryDucat { color });
             let player = &mut state.players[player_index];
             player.color_wheel.decrement(color);
             player.ducats += 1;
@@ -303,15 +269,12 @@ fn activate_glass_in_rollout_impl<T: MoveTracker, R: Rng>(
         GlassCard::GlassReworkshop => {
             let player = &mut state.players[player_index];
             let card_id = player.workshopped_cards.pick_random(rng).unwrap();
-            let card = state.card_lookup[card_id as usize];
-            tracker.track(player_index, Choice::ActivateGlassReworkshop { card });
             player.workshopped_cards.remove(card_id);
             player.workshop_cards.insert(card_id);
         }
         GlassCard::GlassDestroyClean => {
             let card_id = state.players[player_index].workshop_cards.pick_random(rng).unwrap();
             let card = state.card_lookup[card_id as usize];
-            tracker.track(player_index, Choice::ActivateGlassDestroyClean { card });
             state.players[player_index].workshop_cards.remove(card_id);
             state.destroyed_pile.insert(card_id);
             let ability = card.ability();
@@ -324,11 +287,10 @@ fn activate_glass_in_rollout_impl<T: MoveTracker, R: Rng>(
 
 /// Try to randomly activate a glass ability. Returns true if one was activated.
 #[inline(always)]
-fn try_activate_random_glass_impl<T: MoveTracker, R: Rng>(
+fn try_activate_random_glass(
     state: &mut GameState,
     player_index: usize,
-    tracker: &mut T,
-    rng: &mut R,
+    rng: &mut impl Rng,
 ) -> bool {
     if !state.expansions.glass {
         return false;
@@ -364,14 +326,14 @@ fn try_activate_random_glass_impl<T: MoveTracker, R: Rng>(
     if choice == count {
         return false; // skip
     }
-    activate_glass_in_rollout_impl(state, player_index, available[choice], tracker, rng);
+    activate_glass_in_rollout(state, player_index, available[choice], rng);
     true
 }
 
 #[inline(always)]
-fn handle_action_no_pending_impl<T: MoveTracker, R: Rng>(state: &mut GameState, player_index: usize, tracker: &mut T, rng: &mut R) {
+fn handle_action_no_pending(state: &mut GameState, player_index: usize, rng: &mut impl Rng) {
     // Try activating a random glass ability before picking a drafted card
-    if try_activate_random_glass_impl(state, player_index, tracker, rng) {
+    if try_activate_random_glass(state, player_index, rng) {
         return;
     }
 
@@ -379,10 +341,9 @@ fn handle_action_no_pending_impl<T: MoveTracker, R: Rng>(state: &mut GameState, 
     let sel = copy.draw_up_to(1, rng);
     if sel.is_empty() {
         // No drafted cards left — end turn and advance to next round
-        tracker.track(player_index, Choice::EndTurn);
         end_player_turn(state, rng);
         if matches!(state.phase, GamePhase::Draw) {
-            rollout_draw_and_draft(state, tracker, rng);
+            rollout_draw_and_draft(state, rng);
         }
         return;
     }
@@ -393,11 +354,6 @@ fn handle_action_no_pending_impl<T: MoveTracker, R: Rng>(state: &mut GameState, 
         Ability::MixColors { count } => {
             let (mixes, mix_count) =
                 random_mix_seq(&state.players[player_index].color_wheel, count, rng);
-            let mut mixes_vec = SmallVec::new();
-            for i in 0..mix_count {
-                mixes_vec.push(mixes[i]);
-            }
-            tracker.track(player_index, Choice::DestroyAndMix { card, mixes: mixes_vec });
             state.players[player_index].drafted_cards.remove(card_id);
             state.destroyed_pile.insert(card_id);
             for i in 0..mix_count {
@@ -418,33 +374,23 @@ fn handle_action_no_pending_impl<T: MoveTracker, R: Rng>(state: &mut GameState, 
             match (sell_card_id_opt, glass_available) {
                 (Some(sell_card_id), true) => {
                     if rng.random_range(0..2u32) == 0 {
-                        let sell_card = state.sell_card_display.iter()
-                            .find(|c| c.instance_id == sell_card_id).unwrap().sell_card;
-                        tracker.track(player_index, Choice::DestroyAndSell { card, sell_card });
                         fused_buy(state, player_index, card_id, sell_card_id, rng);
                     } else {
-                        let (glass, pay_color) = fused_glass_acquire(state, player_index, card_id, rng);
-                        tracker.track(player_index, Choice::DestroyAndSelectGlass { card, glass, pay_color });
+                        fused_glass_acquire(state, player_index, card_id, rng);
                     }
                 }
                 (Some(sell_card_id), false) => {
-                    let sell_card = state.sell_card_display.iter()
-                        .find(|c| c.instance_id == sell_card_id).unwrap().sell_card;
-                    tracker.track(player_index, Choice::DestroyAndSell { card, sell_card });
                     fused_buy(state, player_index, card_id, sell_card_id, rng);
                 }
                 (None, true) => {
-                    let (glass, pay_color) = fused_glass_acquire(state, player_index, card_id, rng);
-                    tracker.track(player_index, Choice::DestroyAndSelectGlass { card, glass, pay_color });
+                    fused_glass_acquire(state, player_index, card_id, rng);
                 }
                 (None, false) => {
-                    tracker.track(player_index, Choice::DestroyDraftedCard { card });
                     destroy_drafted_card(state, card_id as u32, rng);
                 }
             }
         }
         _ => {
-            tracker.track(player_index, Choice::DestroyDraftedCard { card });
             destroy_drafted_card(state, card_id as u32, rng);
         }
     }
@@ -481,21 +427,19 @@ fn fused_buy<R: Rng>(
 }
 
 /// Fused glass acquisition (no ability stack involvement).
-/// Returns (glass_card, pay_color) for tracking.
 #[inline(always)]
 fn fused_glass_acquire<R: Rng>(
     state: &mut GameState,
     player_index: usize,
     card_id: u8,
     rng: &mut R,
-) -> (GlassCard, Color) {
+) {
     state.players[player_index].drafted_cards.remove(card_id);
     state.destroyed_pile.insert(card_id);
 
     // Pick random glass from display
     let glass_idx = rng.random_range(0..state.glass_display.len());
     let glass_instance = state.glass_display.swap_remove(glass_idx);
-    let glass_card = glass_instance.card;
 
     // Pick random affordable primary color (>= 4)
     let mut affordable_primaries = [Color::Red; 3];
@@ -518,29 +462,24 @@ fn fused_glass_acquire<R: Rng>(
     if let Some(next) = state.glass_deck.pop() {
         state.glass_display.push(next);
     }
-
-    (glass_card, pay_color)
 }
 
-#[inline(always)]
-fn apply_rollout_step_impl<T: MoveTracker, R: Rng>(state: &mut GameState, tracker: &mut T, rng: &mut R) {
+pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
     // Fast path: complete entire draft in one step
     if matches!(&state.phase, GamePhase::Draft { .. }) {
         loop {
-            let (player_index, card_id) = {
+            let card_id = {
                 if let GamePhase::Draft { ref draft_state } = state.phase {
                     let player = draft_state.current_player_index;
                     let hand = draft_state.hands[player];
                     match hand.pick_random(rng) {
-                        Some(id) => (player, id as u32),
+                        Some(id) => id as u32,
                         None => break, // Empty hand (e.g., GlassKeepBoth)
                     }
                 } else {
                     break;
                 }
             };
-            let card = state.card_lookup[card_id as usize];
-            tracker.track(player_index, Choice::DraftPick { card });
             player_pick(state, card_id);
         }
         return;
@@ -551,7 +490,7 @@ fn apply_rollout_step_impl<T: MoveTracker, R: Rng>(state: &mut GameState, tracke
             let player_index = action_state.current_player_index;
             match action_state.ability_stack.last() {
                 None => {
-                    handle_action_no_pending_impl(state, player_index, tracker, rng);
+                    handle_action_no_pending(state, player_index, rng);
                 }
                 Some(Ability::Workshop { count }) => {
                     let count = *count;
@@ -566,19 +505,9 @@ fn apply_rollout_step_impl<T: MoveTracker, R: Rng>(state: &mut GameState, tracke
                         let mut copy = state.players[player_index].workshop_cards;
                         let selected = copy.draw_up_to((count - 1) as u8, rng);
                         if selected.is_empty() {
-                            tracker.track(player_index, Choice::SkipWorkshop);
                             skip_workshop(state, rng);
                         } else {
                             let reworkshop_id = selected.pick_random(rng).unwrap();
-                            let reworkshop_card = state.card_lookup[reworkshop_id as usize];
-                            let mut other_cards = SmallVec::new();
-                            for id in selected.iter() {
-                                if id != reworkshop_id {
-                                    other_cards.push(state.card_lookup[id as usize]);
-                                }
-                            }
-                            other_cards.sort_by_key(|c| *c as usize);
-                            tracker.track(player_index, Choice::WorkshopWithReworkshop { reworkshop_card, other_cards });
                             mark_glass_used(state, GlassCard::GlassReworkshop);
                             resolve_workshop_with_reworkshop(state, selected, reworkshop_id, rng);
                         }
@@ -586,15 +515,8 @@ fn apply_rollout_step_impl<T: MoveTracker, R: Rng>(state: &mut GameState, tracke
                         let mut copy = state.players[player_index].workshop_cards;
                         let selected = copy.draw_up_to(count as u8, rng);
                         if selected.is_empty() {
-                            tracker.track(player_index, Choice::SkipWorkshop);
                             skip_workshop(state, rng);
                         } else {
-                            let mut card_types = SmallVec::new();
-                            for id in selected.iter() {
-                                card_types.push(state.card_lookup[id as usize]);
-                            }
-                            card_types.sort_by_key(|c| *c as usize);
-                            tracker.track(player_index, Choice::Workshop { card_types });
                             resolve_workshop_choice(state, selected, rng);
                         }
                     }
@@ -602,19 +524,12 @@ fn apply_rollout_step_impl<T: MoveTracker, R: Rng>(state: &mut GameState, tracke
                 Some(Ability::DestroyCards) => {
                     let mut copy = state.players[player_index].workshop_cards;
                     let selected = copy.draw_up_to(1, rng);
-                    let card = selected.iter().next().map(|id| state.card_lookup[id as usize]);
-                    tracker.track(player_index, Choice::DestroyDrawnCards { card });
                     resolve_destroy_cards(state, selected, rng);
                 }
                 Some(Ability::MixColors { count }) => {
                     let remaining_mixes = *count;
                     let (mixes, mix_count) =
                         random_mix_seq(&state.players[player_index].color_wheel, remaining_mixes, rng);
-                    let mut mixes_vec = SmallVec::new();
-                    for i in 0..mix_count {
-                        mixes_vec.push(mixes[i]);
-                    }
-                    tracker.track(player_index, Choice::MixAll { mixes: mixes_vec });
                     for i in 0..mix_count {
                         let (a, b) = mixes[i];
                         perform_mix_unchecked(
@@ -641,9 +556,6 @@ fn apply_rollout_step_impl<T: MoveTracker, R: Rng>(state: &mut GameState, tracke
                     match (sell_card_id_opt, glass_available) {
                         (Some(sell_card_id), true) => {
                             if rng.random_range(0..2u32) == 0 {
-                                let sell_card = state.sell_card_display.iter()
-                                    .find(|c| c.instance_id == sell_card_id).unwrap().sell_card;
-                                tracker.track(player_index, Choice::SelectSellCard { sell_card });
                                 resolve_select_sell_card(state, sell_card_id, rng);
                             } else {
                                 let glass_idx = rng.random_range(0..state.glass_display.len());
@@ -658,14 +570,10 @@ fn apply_rollout_step_impl<T: MoveTracker, R: Rng>(state: &mut GameState, tracke
                                 }
                                 let pay_color =
                                     affordable_primaries[rng.random_range(0..aff_count)];
-                                tracker.track(player_index, Choice::SelectGlass { glass: glass_card, pay_color });
                                 resolve_select_glass(state, glass_card, pay_color, rng);
                             }
                         }
                         (Some(sell_card_id), false) => {
-                            let sell_card = state.sell_card_display.iter()
-                                .find(|c| c.instance_id == sell_card_id).unwrap().sell_card;
-                            tracker.track(player_index, Choice::SelectSellCard { sell_card });
                             resolve_select_sell_card(state, sell_card_id, rng);
                         }
                         (None, true) => {
@@ -681,7 +589,6 @@ fn apply_rollout_step_impl<T: MoveTracker, R: Rng>(state: &mut GameState, tracke
                             }
                             let pay_color =
                                 affordable_primaries[rng.random_range(0..aff_count)];
-                            tracker.track(player_index, Choice::SelectGlass { glass: glass_card, pay_color });
                             resolve_select_glass(state, glass_card, pay_color, rng);
                         }
                         (None, false) => {
@@ -694,12 +601,10 @@ fn apply_rollout_step_impl<T: MoveTracker, R: Rng>(state: &mut GameState, tracke
                 }
                 Some(Ability::GainSecondary) => {
                     let color = SECONDARIES[rng.random_range(0..SECONDARIES.len())];
-                    tracker.track(player_index, Choice::GainSecondary { color });
                     resolve_gain_color(state, color, rng);
                 }
                 Some(Ability::GainPrimary) => {
                     let color = PRIMARIES[rng.random_range(0..PRIMARIES.len())];
-                    tracker.track(player_index, Choice::GainPrimary { color });
                     resolve_gain_color(state, color, rng);
                 }
                 Some(Ability::ChangeTertiary) => {
@@ -731,7 +636,6 @@ fn apply_rollout_step_impl<T: MoveTracker, R: Rng>(state: &mut GameState, tracke
                             }
                         }
                         let gain_color = options[gain_local_idx];
-                        tracker.track(player_index, Choice::SwapTertiary { lose: lose_color, gain: gain_color });
                         resolve_choose_tertiary_to_lose(state, lose_color);
                         resolve_choose_tertiary_to_gain(state, gain_color, rng);
                     }
@@ -742,16 +646,4 @@ fn apply_rollout_step_impl<T: MoveTracker, R: Rng>(state: &mut GameState, tracke
         }
         _ => panic!("Cannot apply rollout step for current state"),
     }
-}
-
-pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
-    apply_rollout_step_impl(state, &mut NoTracking, rng);
-}
-
-pub fn apply_rollout_step_tracked<R: Rng>(
-    state: &mut GameState,
-    move_log: &mut Vec<(usize, Choice)>,
-    rng: &mut R,
-) {
-    apply_rollout_step_impl(state, move_log, rng);
 }
