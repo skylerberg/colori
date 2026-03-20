@@ -5,14 +5,17 @@ use crate::types::*;
 use super::diff_eval::*;
 
 /// Accumulated gradients, same shape as DiffEvalParams.
+/// Heap-allocated to avoid stack overflows with large parameter arrays.
 #[derive(Debug, Clone)]
 pub struct DiffEvalGradients {
-    pub grads: [f64; NUM_PARAMS],
+    pub grads: Box<[f64; NUM_PARAMS]>,
 }
 
 impl DiffEvalGradients {
     pub fn zeros() -> Self {
-        DiffEvalGradients { grads: [0.0; NUM_PARAMS] }
+        let grads: Box<[f64; NUM_PARAMS]> = vec![0.0f64; NUM_PARAMS].into_boxed_slice().try_into()
+            .unwrap_or_else(|_| unreachable!());
+        DiffEvalGradients { grads }
     }
 
     pub fn accumulate(&mut self, other: &DiffEvalGradients) {
@@ -88,44 +91,81 @@ pub fn diff_eval_backward(
     // Raw features -> [30..117]
     for i in 0..87 { mlp_inputs[30 + i] = raw[i]; }
 
-    // ── Step 3: MLP forward to cache pre_relu and hidden ──
+    // ── Step 3: MLP forward to cache pre-activations and hidden outputs ──
 
-    let mut pre_relu = [0.0f64; MLP_HIDDEN_SIZE];
-    let mut hidden = [0.0f64; MLP_HIDDEN_SIZE];
+    const LEAKY_ALPHA: f64 = 0.01;
+
+    // Hidden layer 1: MLP_INPUT_SIZE → MLP_HIDDEN_SIZE (LeakyReLU)
+    let mut pre_act1 = [0.0f64; MLP_HIDDEN_SIZE];
+    let mut hidden1 = [0.0f64; MLP_HIDDEN_SIZE];
     for row in 0..MLP_HIDDEN_SIZE {
         let mut sum = w[MLP_B1 + row];
         for col in 0..MLP_INPUT_SIZE {
             sum += w[MLP_W1 + row * MLP_INPUT_SIZE + col] * mlp_inputs[col];
         }
-        pre_relu[row] = sum;
-        hidden[row] = sum.max(0.0);
+        pre_act1[row] = sum;
+        hidden1[row] = if sum > 0.0 { sum } else { LEAKY_ALPHA * sum };
+    }
+
+    // Hidden layer 2: MLP_HIDDEN_SIZE → MLP_HIDDEN2_SIZE (LeakyReLU)
+    let mut pre_act2 = [0.0f64; MLP_HIDDEN2_SIZE];
+    let mut hidden2 = [0.0f64; MLP_HIDDEN2_SIZE];
+    for row in 0..MLP_HIDDEN2_SIZE {
+        let mut sum = w[MLP_B2 + row];
+        for col in 0..MLP_HIDDEN_SIZE {
+            sum += w[MLP_W2 + row * MLP_HIDDEN_SIZE + col] * hidden1[col];
+        }
+        pre_act2[row] = sum;
+        hidden2[row] = if sum > 0.0 { sum } else { LEAKY_ALPHA * sum };
     }
 
     // ── Step 4: MLP backward ──
 
-    // Output layer: output = W2 * hidden + b2
-    g[MLP_B2] += grad_output;
-    for i in 0..MLP_HIDDEN_SIZE {
-        g[MLP_W2 + i] += grad_output * hidden[i];
+    // Output layer: output = W3 * hidden2 + B3
+    g[MLP_B3] += grad_output;
+    for i in 0..MLP_HIDDEN2_SIZE {
+        g[MLP_W3 + i] += grad_output * hidden2[i];
     }
 
-    // Backward through hidden layer
-    let mut d_hidden = [0.0f64; MLP_HIDDEN_SIZE];
-    for i in 0..MLP_HIDDEN_SIZE {
-        d_hidden[i] = grad_output * w[MLP_W2 + i];
+    // Backward through hidden layer 2
+    let mut d_hidden2 = [0.0f64; MLP_HIDDEN2_SIZE];
+    for i in 0..MLP_HIDDEN2_SIZE {
+        d_hidden2[i] = grad_output * w[MLP_W3 + i];
     }
 
-    // Backward through ReLU
-    let mut d_pre_relu = [0.0f64; MLP_HIDDEN_SIZE];
-    for i in 0..MLP_HIDDEN_SIZE {
-        d_pre_relu[i] = if pre_relu[i] > 0.0 { d_hidden[i] } else { 0.0 };
+    // Backward through LeakyReLU 2
+    let mut d_pre_act2 = [0.0f64; MLP_HIDDEN2_SIZE];
+    for i in 0..MLP_HIDDEN2_SIZE {
+        d_pre_act2[i] = if pre_act2[i] > 0.0 { d_hidden2[i] } else { LEAKY_ALPHA * d_hidden2[i] };
     }
 
-    // Backward through W1 * x + b1
+    // Backward through W2 * hidden1 + B2
+    for row in 0..MLP_HIDDEN2_SIZE {
+        g[MLP_B2 + row] += d_pre_act2[row];
+        for col in 0..MLP_HIDDEN_SIZE {
+            g[MLP_W2 + row * MLP_HIDDEN_SIZE + col] += d_pre_act2[row] * hidden1[col];
+        }
+    }
+
+    // Gradient w.r.t. hidden1
+    let mut d_hidden1 = [0.0f64; MLP_HIDDEN_SIZE];
+    for col in 0..MLP_HIDDEN_SIZE {
+        for row in 0..MLP_HIDDEN2_SIZE {
+            d_hidden1[col] += d_pre_act2[row] * w[MLP_W2 + row * MLP_HIDDEN_SIZE + col];
+        }
+    }
+
+    // Backward through LeakyReLU 1
+    let mut d_pre_act1 = [0.0f64; MLP_HIDDEN_SIZE];
+    for i in 0..MLP_HIDDEN_SIZE {
+        d_pre_act1[i] = if pre_act1[i] > 0.0 { d_hidden1[i] } else { LEAKY_ALPHA * d_hidden1[i] };
+    }
+
+    // Backward through W1 * x + B1
     for row in 0..MLP_HIDDEN_SIZE {
-        g[MLP_B1 + row] += d_pre_relu[row];
+        g[MLP_B1 + row] += d_pre_act1[row];
         for col in 0..MLP_INPUT_SIZE {
-            g[MLP_W1 + row * MLP_INPUT_SIZE + col] += d_pre_relu[row] * mlp_inputs[col];
+            g[MLP_W1 + row * MLP_INPUT_SIZE + col] += d_pre_act1[row] * mlp_inputs[col];
         }
     }
 
@@ -133,7 +173,7 @@ pub fn diff_eval_backward(
     let mut d_inputs = [0.0f64; MLP_INPUT_SIZE];
     for col in 0..MLP_INPUT_SIZE {
         for row in 0..MLP_HIDDEN_SIZE {
-            d_inputs[col] += d_pre_relu[row] * w[MLP_W1 + row * MLP_INPUT_SIZE + col];
+            d_inputs[col] += d_pre_act1[row] * w[MLP_W1 + row * MLP_INPUT_SIZE + col];
         }
     }
 

@@ -19,7 +19,7 @@ pub struct MctsConfig {
     pub use_heuristic_eval: bool,
     pub progressive_bias_weight: f64,
     pub heuristic_params: HeuristicParams,
-    pub diff_eval_params: Option<DiffEvalParams>,
+    pub diff_eval_params: Option<Box<DiffEvalParams>>,
     pub no_rollout: bool,
     pub early_termination: bool,
     pub subtree_reuse: bool,
@@ -508,7 +508,7 @@ fn eval_scores(
 #[inline]
 fn diff_eval_ref<'a>(config: &'a MctsConfig, diff_table: &'a Option<DiffEvalTable>) -> Option<(&'a DiffEvalParams, &'a DiffEvalTable)> {
     match (&config.diff_eval_params, diff_table) {
-        (Some(params), Some(table)) => Some((params, table)),
+        (Some(params), Some(table)) => Some((params.as_ref(), table)),
         _ => None,
     }
 }

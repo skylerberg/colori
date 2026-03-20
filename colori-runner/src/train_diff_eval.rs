@@ -36,8 +36,8 @@ struct Adam {
     beta1: f64,
     beta2: f64,
     epsilon: f64,
-    m: [f64; NUM_PARAMS],
-    v: [f64; NUM_PARAMS],
+    m: Vec<f64>,
+    v: Vec<f64>,
     t: u64,
 }
 
@@ -48,8 +48,8 @@ impl Adam {
             beta1: 0.9,
             beta2: 0.999,
             epsilon: 1e-8,
-            m: [0.0; NUM_PARAMS],
-            v: [0.0; NUM_PARAMS],
+            m: vec![0.0; NUM_PARAMS],
+            v: vec![0.0; NUM_PARAMS],
             t: 0,
         }
     }
@@ -207,7 +207,7 @@ fn play_game_and_collect(
         let diff_config = MctsConfig {
             iterations: eval_iterations,
             use_heuristic_eval: true,
-            diff_eval_params: Some(dep.clone()),
+            diff_eval_params: Some(Box::new(dep.clone())),
             no_rollout,
             ..MctsConfig::default()
         };

@@ -2,7 +2,7 @@ use eframe::egui;
 use egui_snarl::ui::{PinInfo, SnarlViewer, SnarlStyle};
 use egui_snarl::{InPin, InPinId, NodeId, OutPin, OutPinId, Snarl};
 
-use colori_core::scoring::diff_eval::{DiffEvalParams, MLP_INPUT_SIZE, MLP_HIDDEN_SIZE};
+use colori_core::scoring::diff_eval::{DiffEvalParams, MLP_INPUT_SIZE, MLP_HIDDEN_SIZE, MLP_HIDDEN2_SIZE};
 
 // ── Parameter index constants (mirrored from diff_eval.rs) ──
 
@@ -37,8 +37,10 @@ const MAT_DIVERSITY_W: usize = 70;
 const MLP_W1: usize = 72;
 const MLP_B1: usize = MLP_W1 + MLP_INPUT_SIZE * MLP_HIDDEN_SIZE;
 const MLP_W2: usize = MLP_B1 + MLP_HIDDEN_SIZE;
-const MLP_B2: usize = MLP_W2 + MLP_HIDDEN_SIZE;
-const HEURISTIC_ROUND_THRESHOLD: usize = MLP_B2 + 1;
+const MLP_B2: usize = MLP_W2 + MLP_HIDDEN_SIZE * MLP_HIDDEN2_SIZE;
+const MLP_W3: usize = MLP_B2 + MLP_HIDDEN2_SIZE;
+const MLP_B3: usize = MLP_W3 + MLP_HIDDEN2_SIZE;
+const HEURISTIC_ROUND_THRESHOLD: usize = MLP_B3 + 1;
 const HEURISTIC_LOOKAHEAD: usize = HEURISTIC_ROUND_THRESHOLD + 1;
 const PROGRESSIVE_BIAS_WEIGHT: usize = HEURISTIC_LOOKAHEAD + 1;
 
@@ -344,24 +346,39 @@ impl DiffEvalViewer<'_> {
             let mean = sum / count as f64;
             Self::w(ui, name, mean);
         }
+
+        ui.separator();
+        ui.label(format!("W2: {}x{} = {} weights", MLP_HIDDEN_SIZE, MLP_HIDDEN2_SIZE, MLP_HIDDEN_SIZE * MLP_HIDDEN2_SIZE));
+        ui.label(format!("B2: {} biases", MLP_HIDDEN2_SIZE));
+        ui.separator();
+
+        let mut sum_abs = 0.0f64;
+        let mut max_abs = 0.0f64;
+        for i in 0..(MLP_HIDDEN_SIZE * MLP_HIDDEN2_SIZE) {
+            let abs = w[MLP_W2 + i].abs();
+            sum_abs += abs;
+            if abs > max_abs { max_abs = abs; }
+        }
+        Self::w(ui, "mean |W2|", sum_abs / (MLP_HIDDEN_SIZE * MLP_HIDDEN2_SIZE) as f64);
+        Self::w(ui, "max |W2|", max_abs);
     }
 
     fn render_output_layer_body(&self, ui: &mut egui::Ui) {
         let w = &self.params.weights;
-        ui.label(format!("W2: {} weights", MLP_HIDDEN_SIZE));
+        ui.label(format!("W3: {} weights", MLP_HIDDEN2_SIZE));
         ui.separator();
 
         // Show weight statistics
         let mut sum_abs = 0.0f64;
         let mut max_abs = 0.0f64;
-        for i in 0..MLP_HIDDEN_SIZE {
-            let abs = w[MLP_W2 + i].abs();
+        for i in 0..MLP_HIDDEN2_SIZE {
+            let abs = w[MLP_W3 + i].abs();
             sum_abs += abs;
             if abs > max_abs { max_abs = abs; }
         }
-        Self::w(ui, "mean |W2|", sum_abs / MLP_HIDDEN_SIZE as f64);
-        Self::w(ui, "max |W2|", max_abs);
-        Self::w(ui, "bias", w[MLP_B2]);
+        Self::w(ui, "mean |W3|", sum_abs / MLP_HIDDEN2_SIZE as f64);
+        Self::w(ui, "max |W3|", max_abs);
+        Self::w(ui, "bias", w[MLP_B3]);
     }
 
     fn render_control_params(&self, ui: &mut egui::Ui) {

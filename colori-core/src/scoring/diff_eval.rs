@@ -7,9 +7,10 @@ use crate::types::*;
 /// MLP architecture constants
 pub const MLP_INPUT_SIZE: usize = 117;
 pub const MLP_HIDDEN_SIZE: usize = 256;
+pub const MLP_HIDDEN2_SIZE: usize = 64;
 
 /// Number of learnable parameters in the differentiable evaluation model.
-pub const NUM_PARAMS: usize = 30540;
+pub const NUM_PARAMS: usize = 46796;
 
 // ── Parameter indices ──
 
@@ -46,27 +47,42 @@ pub(crate) const MAT_SUFF_THRESH: usize = 64;  // [3]
 pub(crate) const MAT_DEMAND_W: usize = 67;     // [3]
 pub(crate) const MAT_DIVERSITY_W: usize = 70;  // [2]
 
-// Aggregation MLP: MLP_INPUT_SIZE → MLP_HIDDEN_SIZE → 1
+// Aggregation MLP: MLP_INPUT_SIZE → MLP_HIDDEN_SIZE → MLP_HIDDEN2_SIZE → 1
 pub(crate) const MLP_W1: usize = 72;                                                       // [MLP_INPUT_SIZE * MLP_HIDDEN_SIZE = 29952]
 pub(crate) const MLP_B1: usize = MLP_W1 + MLP_INPUT_SIZE * MLP_HIDDEN_SIZE;                // 30024, [MLP_HIDDEN_SIZE = 256]
-pub(crate) const MLP_W2: usize = MLP_B1 + MLP_HIDDEN_SIZE;                                 // 30280, [MLP_HIDDEN_SIZE = 256]
-pub(crate) const MLP_B2: usize = MLP_W2 + MLP_HIDDEN_SIZE;                                 // 30536, [1]
+pub(crate) const MLP_W2: usize = MLP_B1 + MLP_HIDDEN_SIZE;                                 // 30280, [MLP_HIDDEN_SIZE * MLP_HIDDEN2_SIZE = 16384]
+pub(crate) const MLP_B2: usize = MLP_W2 + MLP_HIDDEN_SIZE * MLP_HIDDEN2_SIZE;              // 46664, [MLP_HIDDEN2_SIZE = 64]
+pub(crate) const MLP_W3: usize = MLP_B2 + MLP_HIDDEN2_SIZE;                                // 46728, [MLP_HIDDEN2_SIZE = 64]
+pub(crate) const MLP_B3: usize = MLP_W3 + MLP_HIDDEN2_SIZE;                                // 46792, [1]
 
 /// Number of differentiable parameters (indices 0..NUM_DIFF_PARAMS are updated by gradient descent).
-pub const NUM_DIFF_PARAMS: usize = MLP_B2 + 1;                                             // 30537
+pub const NUM_DIFF_PARAMS: usize = MLP_B3 + 1;                                             // 46793
 
 // Heuristic control parameters (non-differentiable)
-pub(crate) const HEURISTIC_ROUND_THRESHOLD: usize = NUM_DIFF_PARAMS;                       // 30537
-pub(crate) const HEURISTIC_LOOKAHEAD: usize = HEURISTIC_ROUND_THRESHOLD + 1;               // 30538
+pub(crate) const HEURISTIC_ROUND_THRESHOLD: usize = NUM_DIFF_PARAMS;                       // 46793
+pub(crate) const HEURISTIC_LOOKAHEAD: usize = HEURISTIC_ROUND_THRESHOLD + 1;               // 46794
 
-pub(crate) const PROGRESSIVE_BIAS_WEIGHT: usize = HEURISTIC_LOOKAHEAD + 1;                 // 30539
+pub(crate) const PROGRESSIVE_BIAS_WEIGHT: usize = HEURISTIC_LOOKAHEAD + 1;                 // 46795
+
+/// LeakyReLU negative slope
+const LEAKY_RELU_ALPHA: f64 = 0.01;
+const LEAKY_RELU_ALPHA_F32: f32 = 0.01;
+
+/// Deterministic pseudo-random number in [-1, 1] for reproducible weight initialization.
+/// Uses SplitMix64-style hash for good distribution without needing an RNG crate.
+fn deterministic_random(index: usize) -> f64 {
+    let mut z = (index as u64).wrapping_add(0x9e3779b97f4a7c15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94d049bb133111eb);
+    z = z ^ (z >> 31);
+    (z as i64 as f64) / (i64::MAX as f64)
+}
 
 /// All learnable weights for the differentiable evaluation model.
-/// Stored as a Vec for serde compatibility (Rust serde doesn't support large arrays).
-/// The Vec must have exactly NUM_PARAMS elements.
+/// Weights are heap-allocated (Box) to avoid stack overflows with the large parameter array.
 #[derive(Debug, Clone)]
 pub struct DiffEvalParams {
-    pub weights: [f64; NUM_PARAMS],
+    pub weights: Box<[f64; NUM_PARAMS]>,
 }
 
 impl Serialize for DiffEvalParams {
@@ -74,6 +90,20 @@ impl Serialize for DiffEvalParams {
         self.weights.as_slice().serialize(serializer)
     }
 }
+
+/// Allocate a zeroed parameter array on the heap.
+fn boxed_zeros() -> Box<[f64; NUM_PARAMS]> {
+    vec![0.0f64; NUM_PARAMS].into_boxed_slice().try_into()
+        .unwrap_or_else(|_| unreachable!())
+}
+
+/// Old architecture parameter count (before the deeper MLP change).
+/// Used to detect and migrate legacy checkpoints.
+const LEGACY_NUM_PARAMS: usize = 30540;
+const LEGACY_MLP_B2: usize = 30536;
+const LEGACY_HEURISTIC_ROUND_THRESHOLD: usize = 30537;
+const LEGACY_HEURISTIC_LOOKAHEAD: usize = 30538;
+const LEGACY_PROGRESSIVE_BIAS_WEIGHT: usize = 30539;
 
 impl<'de> Deserialize<'de> for DiffEvalParams {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
@@ -84,16 +114,42 @@ impl<'de> Deserialize<'de> for DiffEvalParams {
             ));
         }
         // Pad with defaults for backwards compatibility with older checkpoints
-        let defaults = DiffEvalParams::default();
-        let mut weights = defaults.weights;
-        weights[..vec.len()].copy_from_slice(&vec);
-        Ok(DiffEvalParams { weights })
+        let mut params = DiffEvalParams::default();
+        params.weights[..vec.len()].copy_from_slice(&vec);
+
+        // Legacy checkpoint migration: old architecture had 30540 params with a single
+        // hidden layer (256->1). The naive copy puts old W2 (256 values at 30280..30536)
+        // into new W2 row 0 (same indices), which is correct. But old B2 and control
+        // params (30536-30539) land in the middle of new W2 and need to be relocated.
+        if vec.len() <= LEGACY_NUM_PARAMS && vec.len() > LEGACY_MLP_B2 {
+            // Reset misplaced values in new W2 to default random Xavier init
+            let defaults = DiffEvalParams::default();
+            for i in LEGACY_MLP_B2..vec.len().min(LEGACY_NUM_PARAMS) {
+                params.weights[i] = defaults.weights[i];
+            }
+            // Place old B2 into new B2[0]
+            params.weights[MLP_B2] = vec[LEGACY_MLP_B2];
+            // Set W3[0] = 1.0 so first hidden2 neuron passes through old output
+            params.weights[MLP_W3] = 1.0;
+            // Migrate control params to new positions
+            if vec.len() > LEGACY_HEURISTIC_ROUND_THRESHOLD {
+                params.weights[HEURISTIC_ROUND_THRESHOLD] = vec[LEGACY_HEURISTIC_ROUND_THRESHOLD];
+            }
+            if vec.len() > LEGACY_HEURISTIC_LOOKAHEAD {
+                params.weights[HEURISTIC_LOOKAHEAD] = vec[LEGACY_HEURISTIC_LOOKAHEAD];
+            }
+            if vec.len() > LEGACY_PROGRESSIVE_BIAS_WEIGHT {
+                params.weights[PROGRESSIVE_BIAS_WEIGHT] = vec[LEGACY_PROGRESSIVE_BIAS_WEIGHT];
+            }
+        }
+
+        Ok(params)
     }
 }
 
 impl Default for DiffEvalParams {
     fn default() -> Self {
-        let mut w = [0.0; NUM_PARAMS];
+        let mut w = boxed_zeros();
 
         // Module 1: Color wheel - initial values inspired by linear heuristic
         // Color saturation weights (w) and rates (a)
@@ -169,26 +225,27 @@ impl Default for DiffEvalParams {
         w[MAT_DIVERSITY_W] = 0.1;
         w[MAT_DIVERSITY_W + 1] = 0.05;
 
-        // Aggregation MLP: Xavier initialization
-        // W1: MLP_INPUT_SIZE x MLP_HIDDEN_SIZE, scale = sqrt(2.0 / (input + hidden))
+        // Aggregation MLP: Random Xavier initialization
+        // W1: MLP_INPUT_SIZE x MLP_HIDDEN_SIZE
         let w1_scale = (2.0f64 / (MLP_INPUT_SIZE as f64 + MLP_HIDDEN_SIZE as f64)).sqrt();
-        for row in 0..MLP_HIDDEN_SIZE {
-            for col in 0..MLP_INPUT_SIZE {
-                let sign = if (row + col) % 2 == 0 { 1.0 } else { -1.0 };
-                w[MLP_W1 + row * MLP_INPUT_SIZE + col] = sign * w1_scale;
-            }
+        for i in 0..(MLP_INPUT_SIZE * MLP_HIDDEN_SIZE) {
+            w[MLP_W1 + i] = deterministic_random(MLP_W1 + i) * w1_scale;
         }
-        // B1: zeros
-        // (already 0.0)
+        // B1: zeros (already 0.0)
 
-        // W2: MLP_HIDDEN_SIZE x 1, scale = sqrt(2.0 / (hidden + 1))
-        let w2_scale = (2.0f64 / (MLP_HIDDEN_SIZE as f64 + 1.0)).sqrt();
-        for i in 0..MLP_HIDDEN_SIZE {
-            let sign = if i % 2 == 0 { 1.0 } else { -1.0 };
-            w[MLP_W2 + i] = sign * w2_scale;
+        // W2: MLP_HIDDEN_SIZE x MLP_HIDDEN2_SIZE
+        let w2_scale = (2.0f64 / (MLP_HIDDEN_SIZE as f64 + MLP_HIDDEN2_SIZE as f64)).sqrt();
+        for i in 0..(MLP_HIDDEN_SIZE * MLP_HIDDEN2_SIZE) {
+            w[MLP_W2 + i] = deterministic_random(MLP_W2 + i) * w2_scale;
         }
-        // B2: zero
-        // (already 0.0)
+        // B2: zeros (already 0.0)
+
+        // W3: MLP_HIDDEN2_SIZE x 1
+        let w3_scale = (2.0f64 / (MLP_HIDDEN2_SIZE as f64 + 1.0)).sqrt();
+        for i in 0..MLP_HIDDEN2_SIZE {
+            w[MLP_W3 + i] = deterministic_random(MLP_W3 + i) * w3_scale;
+        }
+        // B3: zero (already 0.0)
 
         // Control params
         w[HEURISTIC_ROUND_THRESHOLD] = 3.0;
@@ -200,6 +257,11 @@ impl Default for DiffEvalParams {
 }
 
 impl DiffEvalParams {
+    /// Create a new DiffEvalParams with all weights set to zero (heap-allocated).
+    pub fn zeros() -> Self {
+        DiffEvalParams { weights: boxed_zeros() }
+    }
+
     pub fn heuristic_round_threshold(&self) -> u32 {
         self.weights[HEURISTIC_ROUND_THRESHOLD].max(0.0) as u32
     }
@@ -253,8 +315,10 @@ pub struct DiffEvalTable {
     /// Precomputed f32 MLP weights for fast batched inference
     w1_f32: Box<[f32; MLP_INPUT_SIZE * MLP_HIDDEN_SIZE]>,
     b1_f32: [f32; MLP_HIDDEN_SIZE],
-    w2_f32: [f32; MLP_HIDDEN_SIZE],
-    b2_f32: f32,
+    w2_f32: Box<[f32; MLP_HIDDEN_SIZE * MLP_HIDDEN2_SIZE]>,
+    b2_f32: [f32; MLP_HIDDEN2_SIZE],
+    w3_f32: [f32; MLP_HIDDEN2_SIZE],
+    b3_f32: f32,
 }
 
 const ALL_CARDS: [Card; 46] = [
@@ -323,13 +387,21 @@ impl DiffEvalTable {
         for i in 0..MLP_HIDDEN_SIZE {
             b1_f32[i] = w[MLP_B1 + i] as f32;
         }
-        let mut w2_f32 = [0.0f32; MLP_HIDDEN_SIZE];
-        for i in 0..MLP_HIDDEN_SIZE {
+        let mut w2_f32 = Box::new([0.0f32; MLP_HIDDEN_SIZE * MLP_HIDDEN2_SIZE]);
+        for i in 0..(MLP_HIDDEN_SIZE * MLP_HIDDEN2_SIZE) {
             w2_f32[i] = w[MLP_W2 + i] as f32;
         }
-        let b2_f32 = w[MLP_B2] as f32;
+        let mut b2_f32 = [0.0f32; MLP_HIDDEN2_SIZE];
+        for i in 0..MLP_HIDDEN2_SIZE {
+            b2_f32[i] = w[MLP_B2 + i] as f32;
+        }
+        let mut w3_f32 = [0.0f32; MLP_HIDDEN2_SIZE];
+        for i in 0..MLP_HIDDEN2_SIZE {
+            w3_f32[i] = w[MLP_W3 + i] as f32;
+        }
+        let b3_f32 = w[MLP_B3] as f32;
 
-        DiffEvalTable { color_production, category, w1_f32, b1_f32, w2_f32, b2_f32 }
+        DiffEvalTable { color_production, category, w1_f32, b1_f32, w2_f32, b2_f32, w3_f32, b3_f32 }
     }
 }
 
@@ -348,23 +420,33 @@ fn color_tier(color: Color) -> usize {
     else { 2 }                   // tertiary: 1, 3, 5, 7, 9, 11
 }
 
-/// Aggregation MLP: MLP_INPUT_SIZE → MLP_HIDDEN_SIZE (ReLU) → 1
+/// Aggregation MLP: MLP_INPUT_SIZE → MLP_HIDDEN_SIZE (LeakyReLU) → MLP_HIDDEN2_SIZE (LeakyReLU) → 1
 /// Used by diff_eval_score for f64 compatibility with gradient tests.
 fn aggregation_mlp(inputs: &[f64; MLP_INPUT_SIZE], w: &[f64; NUM_PARAMS]) -> f64 {
-    // Hidden layer: MLP_INPUT_SIZE → MLP_HIDDEN_SIZE
-    let mut hidden = [0.0f64; MLP_HIDDEN_SIZE];
+    // Hidden layer 1: MLP_INPUT_SIZE → MLP_HIDDEN_SIZE
+    let mut hidden1 = [0.0f64; MLP_HIDDEN_SIZE];
     for row in 0..MLP_HIDDEN_SIZE {
         let mut sum = w[MLP_B1 + row];
         for col in 0..MLP_INPUT_SIZE {
             sum += w[MLP_W1 + row * MLP_INPUT_SIZE + col] * inputs[col];
         }
-        hidden[row] = sum.max(0.0); // ReLU
+        hidden1[row] = if sum > 0.0 { sum } else { LEAKY_RELU_ALPHA * sum };
     }
 
-    // Output layer: MLP_HIDDEN_SIZE → 1
-    let mut output = w[MLP_B2];
-    for i in 0..MLP_HIDDEN_SIZE {
-        output += w[MLP_W2 + i] * hidden[i];
+    // Hidden layer 2: MLP_HIDDEN_SIZE → MLP_HIDDEN2_SIZE
+    let mut hidden2 = [0.0f64; MLP_HIDDEN2_SIZE];
+    for row in 0..MLP_HIDDEN2_SIZE {
+        let mut sum = w[MLP_B2 + row];
+        for col in 0..MLP_HIDDEN_SIZE {
+            sum += w[MLP_W2 + row * MLP_HIDDEN_SIZE + col] * hidden1[col];
+        }
+        hidden2[row] = if sum > 0.0 { sum } else { LEAKY_RELU_ALPHA * sum };
+    }
+
+    // Output layer: MLP_HIDDEN2_SIZE → 1
+    let mut output = w[MLP_B3];
+    for i in 0..MLP_HIDDEN2_SIZE {
+        output += w[MLP_W3 + i] * hidden2[i];
     }
 
     output
@@ -629,9 +711,9 @@ fn batched_mlp_f32(
     n: usize,
     table: &DiffEvalTable,
 ) -> [f32; MAX_PLAYERS] {
-    let mut hidden = [[0.0f32; MLP_HIDDEN_SIZE]; MAX_PLAYERS];
+    let mut hidden1 = [[0.0f32; MLP_HIDDEN_SIZE]; MAX_PLAYERS];
 
-    // Hidden layer: iterate rows of W1, apply to all players
+    // Hidden layer 1: iterate rows of W1, apply to all players
     for row in 0..MLP_HIDDEN_SIZE {
         let bias = table.b1_f32[row];
         let w1_row = &table.w1_f32[row * MLP_INPUT_SIZE..(row + 1) * MLP_INPUT_SIZE];
@@ -640,16 +722,30 @@ fn batched_mlp_f32(
             for col in 0..MLP_INPUT_SIZE {
                 sum += w1_row[col] * all_inputs[p][col];
             }
-            hidden[p][row] = sum.max(0.0); // ReLU
+            hidden1[p][row] = if sum > 0.0 { sum } else { LEAKY_RELU_ALPHA_F32 * sum };
         }
     }
 
-    // Output layer
+    // Hidden layer 2: MLP_HIDDEN_SIZE → MLP_HIDDEN2_SIZE
+    let mut hidden2 = [[0.0f32; MLP_HIDDEN2_SIZE]; MAX_PLAYERS];
+    for row in 0..MLP_HIDDEN2_SIZE {
+        let bias = table.b2_f32[row];
+        let w2_row = &table.w2_f32[row * MLP_HIDDEN_SIZE..(row + 1) * MLP_HIDDEN_SIZE];
+        for p in 0..n {
+            let mut sum = bias;
+            for col in 0..MLP_HIDDEN_SIZE {
+                sum += w2_row[col] * hidden1[p][col];
+            }
+            hidden2[p][row] = if sum > 0.0 { sum } else { LEAKY_RELU_ALPHA_F32 * sum };
+        }
+    }
+
+    // Output layer: MLP_HIDDEN2_SIZE → 1
     let mut outputs = [0.0f32; MAX_PLAYERS];
     for p in 0..n {
-        let mut out = table.b2_f32;
-        for i in 0..MLP_HIDDEN_SIZE {
-            out += table.w2_f32[i] * hidden[p][i];
+        let mut out = table.b3_f32;
+        for i in 0..MLP_HIDDEN2_SIZE {
+            out += table.w3_f32[i] * hidden2[p][i];
         }
         outputs[p] = out;
     }

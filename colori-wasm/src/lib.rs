@@ -56,8 +56,8 @@ pub fn wasm_run_ismcts(
     let heuristic_params: HeuristicParams = serde_json::from_str(TRAINED_PARAMS_JSON)
         .expect("Failed to parse trained heuristic params");
     let diff_eval_params = if ai_style == "nn" {
-        Some(serde_json::from_str::<DiffEvalParams>(NN_PARAMS_JSON)
-            .expect("Failed to parse NN eval params"))
+        Some(Box::new(serde_json::from_str::<DiffEvalParams>(NN_PARAMS_JSON)
+            .expect("Failed to parse NN eval params")))
     } else {
         None
     };

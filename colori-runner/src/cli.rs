@@ -108,7 +108,7 @@ impl VariantFileEntry {
             if let Some(v) = self.heuristic_lookahead {
                 params.set_heuristic_lookahead(v);
             }
-            params
+            Box::new(params)
         });
         NamedVariant {
             name: self.name,
