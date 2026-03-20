@@ -61,9 +61,7 @@ pub fn diff_eval_backward(
     let mut hidden1 = [0.0f64; MLP_HIDDEN_SIZE];
     for row in 0..MLP_HIDDEN_SIZE {
         let mut sum = w[MLP_B1 + row];
-        for col in 0..MLP_INPUT_SIZE {
-            sum += w[MLP_W1 + row * MLP_INPUT_SIZE + col] * mlp_inputs[col];
-        }
+        sum += super::simd_ops::dot_f64(&w[MLP_W1 + row * MLP_INPUT_SIZE..MLP_W1 + (row + 1) * MLP_INPUT_SIZE], &mlp_inputs);
         pre_act1[row] = sum;
         hidden1[row] = if sum > 0.0 { sum } else { LEAKY_ALPHA * sum };
     }
@@ -73,9 +71,7 @@ pub fn diff_eval_backward(
     let mut hidden2 = [0.0f64; MLP_HIDDEN2_SIZE];
     for row in 0..MLP_HIDDEN2_SIZE {
         let mut sum = w[MLP_B2 + row];
-        for col in 0..MLP_HIDDEN_SIZE {
-            sum += w[MLP_W2 + row * MLP_HIDDEN_SIZE + col] * hidden1[col];
-        }
+        sum += super::simd_ops::dot_f64(&w[MLP_W2 + row * MLP_HIDDEN_SIZE..MLP_W2 + (row + 1) * MLP_HIDDEN_SIZE], &hidden1);
         pre_act2[row] = sum;
         hidden2[row] = if sum > 0.0 { sum } else { LEAKY_ALPHA * sum };
     }

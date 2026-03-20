@@ -405,9 +405,7 @@ fn aggregation_mlp(inputs: &[f64; MLP_INPUT_SIZE], w: &[f64; NUM_PARAMS]) -> f64
     let mut hidden1 = [0.0f64; MLP_HIDDEN_SIZE];
     for row in 0..MLP_HIDDEN_SIZE {
         let mut sum = w[MLP_B1 + row];
-        for col in 0..MLP_INPUT_SIZE {
-            sum += w[MLP_W1 + row * MLP_INPUT_SIZE + col] * inputs[col];
-        }
+        sum += super::simd_ops::dot_f64(&w[MLP_W1 + row * MLP_INPUT_SIZE..MLP_W1 + (row + 1) * MLP_INPUT_SIZE], inputs);
         hidden1[row] = if sum > 0.0 { sum } else { LEAKY_RELU_ALPHA * sum };
     }
 
@@ -415,17 +413,13 @@ fn aggregation_mlp(inputs: &[f64; MLP_INPUT_SIZE], w: &[f64; NUM_PARAMS]) -> f64
     let mut hidden2 = [0.0f64; MLP_HIDDEN2_SIZE];
     for row in 0..MLP_HIDDEN2_SIZE {
         let mut sum = w[MLP_B2 + row];
-        for col in 0..MLP_HIDDEN_SIZE {
-            sum += w[MLP_W2 + row * MLP_HIDDEN_SIZE + col] * hidden1[col];
-        }
+        sum += super::simd_ops::dot_f64(&w[MLP_W2 + row * MLP_HIDDEN_SIZE..MLP_W2 + (row + 1) * MLP_HIDDEN_SIZE], &hidden1);
         hidden2[row] = if sum > 0.0 { sum } else { LEAKY_RELU_ALPHA * sum };
     }
 
     // Output layer: MLP_HIDDEN2_SIZE -> 1
     let mut output = w[MLP_B3];
-    for i in 0..MLP_HIDDEN2_SIZE {
-        output += w[MLP_W3 + i] * hidden2[i];
-    }
+    output += super::simd_ops::dot_f64(&w[MLP_W3..MLP_W3 + MLP_HIDDEN2_SIZE], &hidden2);
 
     output
 }
@@ -440,9 +434,7 @@ fn mlp_f32(
     for row in 0..MLP_HIDDEN_SIZE {
         let mut sum = table.b1_f32[row];
         let w1_row = &table.w1_f32[row * MLP_INPUT_SIZE..(row + 1) * MLP_INPUT_SIZE];
-        for col in 0..MLP_INPUT_SIZE {
-            sum += w1_row[col] * input[col];
-        }
+        sum += super::simd_ops::dot_f32(w1_row, input);
         hidden1[row] = if sum > 0.0 { sum } else { LEAKY_RELU_ALPHA_F32 * sum };
     }
 
@@ -451,17 +443,13 @@ fn mlp_f32(
     for row in 0..MLP_HIDDEN2_SIZE {
         let mut sum = table.b2_f32[row];
         let w2_row = &table.w2_f32[row * MLP_HIDDEN_SIZE..(row + 1) * MLP_HIDDEN_SIZE];
-        for col in 0..MLP_HIDDEN_SIZE {
-            sum += w2_row[col] * hidden1[col];
-        }
+        sum += super::simd_ops::dot_f32(w2_row, &hidden1);
         hidden2[row] = if sum > 0.0 { sum } else { LEAKY_RELU_ALPHA_F32 * sum };
     }
 
     // Output layer: MLP_HIDDEN2_SIZE -> 1
     let mut output = table.b3_f32;
-    for i in 0..MLP_HIDDEN2_SIZE {
-        output += table.w3_f32[i] * hidden2[i];
-    }
+    output += super::simd_ops::dot_f32(&table.w3_f32, &hidden2);
     output
 }
 
