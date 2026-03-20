@@ -46,7 +46,7 @@ pub struct NamedVariant {
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct VariantFileEntry {
     name: Option<String>,
     #[serde(default)]
