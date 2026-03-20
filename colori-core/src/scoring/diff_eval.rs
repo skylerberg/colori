@@ -250,6 +250,11 @@ pub struct DiffEvalTable {
     pub color_production: [[u8; NUM_COLORS]; 46],
     /// For each card type: category for deck quality computation
     pub category: [DeckCardCategory; 46],
+    /// Precomputed f32 MLP weights for fast batched inference
+    w1_f32: Box<[f32; MLP_INPUT_SIZE * MLP_HIDDEN_SIZE]>,
+    b1_f32: [f32; MLP_HIDDEN_SIZE],
+    w2_f32: [f32; MLP_HIDDEN_SIZE],
+    b2_f32: f32,
 }
 
 const ALL_CARDS: [Card; 46] = [
@@ -271,7 +276,7 @@ const ALL_CARDS: [Card; 46] = [
 ];
 
 impl DiffEvalTable {
-    pub fn new() -> Self {
+    pub fn new(params: &DiffEvalParams) -> Self {
         let mut color_production = [[0u8; NUM_COLORS]; 46];
         let mut category = [DeckCardCategory::Dye; 46];
 
@@ -308,7 +313,23 @@ impl DiffEvalTable {
             };
         }
 
-        DiffEvalTable { color_production, category }
+        // Precompute f32 MLP weights for fast inference
+        let w = &params.weights;
+        let mut w1_f32 = Box::new([0.0f32; MLP_INPUT_SIZE * MLP_HIDDEN_SIZE]);
+        for i in 0..(MLP_INPUT_SIZE * MLP_HIDDEN_SIZE) {
+            w1_f32[i] = w[MLP_W1 + i] as f32;
+        }
+        let mut b1_f32 = [0.0f32; MLP_HIDDEN_SIZE];
+        for i in 0..MLP_HIDDEN_SIZE {
+            b1_f32[i] = w[MLP_B1 + i] as f32;
+        }
+        let mut w2_f32 = [0.0f32; MLP_HIDDEN_SIZE];
+        for i in 0..MLP_HIDDEN_SIZE {
+            w2_f32[i] = w[MLP_W2 + i] as f32;
+        }
+        let b2_f32 = w[MLP_B2] as f32;
+
+        DiffEvalTable { color_production, category, w1_f32, b1_f32, w2_f32, b2_f32 }
     }
 }
 
@@ -327,354 +348,8 @@ fn color_tier(color: Color) -> usize {
     else { 2 }                   // tertiary: 1, 3, 5, 7, 9, 11
 }
 
-/// Module 1: Color wheel value (7 outputs)
-/// [0-2] Per-tier saturation
-/// [3]   Mix-pair total
-/// [4-6] Per-tier coverage
-fn color_wheel_value(player: &PlayerState, w: &[f64; NUM_PARAMS]) -> [f64; 7] {
-    let mut out = [0.0f64; 7];
-
-    // Log-saturation per tier
-    for (tier, colors) in [&PRIMARIES[..], &SECONDARIES[..], &TERTIARIES[..]].iter().enumerate() {
-        let sat_w = w[COLOR_SAT_W + tier];
-        let sat_a = w[COLOR_SAT_A + tier];
-        let mut tier_sum = 0.0;
-        for &c in *colors {
-            let count = player.color_wheel.get(c) as f64;
-            tier_sum += sat_w * (1.0 + sat_a * count).ln();
-        }
-        out[tier] = tier_sum;
-    }
-
-    // Mix-pair interaction
-    let mut mix_total = 0.0;
-    for (i, &(a, b)) in VALID_MIX_PAIRS.iter().enumerate() {
-        let count_a = player.color_wheel.get(a) as f64;
-        let count_b = player.color_wheel.get(b) as f64;
-        mix_total += w[MIX_PAIR_W + i] * count_a.min(count_b);
-    }
-    out[3] = mix_total;
-
-    // Coverage gating per tier
-    for (tier, colors) in [&PRIMARIES[..], &SECONDARIES[..], &TERTIARIES[..]].iter().enumerate() {
-        let num_distinct = colors.iter().filter(|&&c| player.color_wheel.get(c) > 0).count() as f64;
-        let x = w[COVERAGE_A + tier] * num_distinct - w[COVERAGE_B + tier];
-        out[4 + tier] = w[COVERAGE_W + tier] * sigmoid(x);
-    }
-
-    out
-}
-
-/// Module 2: Sell card alignment (5 outputs)
-/// [0] Best alignment score
-/// [1] Second best alignment score
-/// [2] Sum of remaining alignment scores
-/// [3] Urgency
-/// [4] Sold value
-fn sell_card_alignment(
-    player: &PlayerState,
-    sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
-    round: u32,
-    w: &[f64; NUM_PARAMS],
-) -> [f64; 5] {
-    let mut out = [0.0f64; 5];
-    let mut alignments = [0.0f64; MAX_SELL_CARD_DISPLAY];
-    let n = sell_card_display.len();
-
-    for (i, bi) in sell_card_display.iter().enumerate() {
-        let sell_card = bi.sell_card;
-        let ducats = sell_card.ducats();
-        let mat_type = sell_card.required_material();
-
-        // Material match
-        let has_mat = if player.materials.get(mat_type) > 0 { 1.0 } else { 0.0 };
-        let mat_match = sigmoid(w[SELL_MAT_W + mat_type as usize] * has_mat);
-
-        // Color match ratio
-        let cost = sell_card.color_cost();
-        let cost_len = cost.len() as f64;
-        let color_matches: f64 = cost.iter()
-            .map(|&c| (player.color_wheel.get(c) as f64).min(1.0))
-            .sum();
-        let color_ratio = if cost_len > 0.0 { color_matches / cost_len } else { 0.0 };
-
-        // Weight by ducat tier
-        let ducat_tier = match ducats {
-            2 => 0,
-            3 => 1,
-            _ => 2,
-        };
-        let weighted_color = w[SELL_DUCAT_W + ducat_tier] * color_ratio;
-
-        // Combine
-        alignments[i] = w[SELL_COMBINE_W] * mat_match + w[SELL_COMBINE_W + 1] * weighted_color;
-    }
-
-    // Sort descending to get best, second, rest
-    let mut sorted = [0.0f64; MAX_SELL_CARD_DISPLAY];
-    sorted[..n].copy_from_slice(&alignments[..n]);
-    sorted[..n].sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
-
-    out[0] = if n > 0 { sorted[0] } else { 0.0 };
-    out[1] = if n > 1 { sorted[1] } else { 0.0 };
-    out[2] = if n > 2 { sorted[2..n].iter().sum() } else { 0.0 };
-
-    // Round-dependent urgency
-    let round_f = round as f64;
-    out[3] = sigmoid(w[SELL_ROUND_W] * round_f - w[SELL_ROUND_W + 1]);
-
-    // Already-sold scaling
-    let sold_count = player.completed_sell_cards.len() as f64;
-    out[4] = w[SELL_SOLD_W] * sold_count * sigmoid(w[SELL_SOLD_W + 1] * round_f - w[SELL_SOLD_W + 2]);
-
-    out
-}
-
-/// Module 3: Deck color profile (9 outputs)
-/// [0-2] Per-tier production saturation
-/// [3]   Production-need interaction total
-/// [4]   Action card value total
-/// [5]   Material card value total
-/// [6]   Deck size effect
-/// [7]   Diversity
-/// [8]   Workshopped bonus
-fn deck_color_profile(
-    player: &PlayerState,
-    sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
-    card_lookup: &[Card; 256],
-    w: &[f64; NUM_PARAMS],
-    table: &DiffEvalTable,
-) -> [f64; 9] {
-    let mut out = [0.0f64; 9];
-
-    // Accumulate per-color production counts and card category counts
-    let mut production = [0u32; NUM_COLORS];
-    let mut card_count = 0u32;
-    let mut workshopped_count = 0u32;
-    let mut action_counts = [0u32; 5]; // Alum, CreamOfTartar, GumArabic, Potash, Chalk
-    let mut mat_card_counts = [0u32; 3]; // starter, colored, dual
-
-    let card_sets: [&crate::unordered_cards::UnorderedCards; 5] = [
-        &player.deck, &player.discard, &player.workshop_cards, &player.workshopped_cards, &player.drafted_cards,
-    ];
-    let workshopped_idx = 3; // index of workshopped_cards in the array above
-
-    for (set_idx, cards) in card_sets.iter().enumerate() {
-        for id in cards.iter() {
-            let card = card_lookup[id as usize];
-            let card_idx = card as usize;
-            card_count += 1;
-
-            if set_idx == workshopped_idx {
-                workshopped_count += 1;
-            }
-
-            // Accumulate color production
-            for c in 0..NUM_COLORS {
-                production[c] += table.color_production[card_idx][c] as u32;
-            }
-
-            // Accumulate category counts
-            match table.category[card_idx] {
-                DeckCardCategory::ActionAlum => action_counts[0] += 1,
-                DeckCardCategory::ActionCreamOfTartar => action_counts[1] += 1,
-                DeckCardCategory::ActionGumArabic => action_counts[2] += 1,
-                DeckCardCategory::ActionPotash => action_counts[3] += 1,
-                DeckCardCategory::ActionChalk => action_counts[4] += 1,
-                DeckCardCategory::MaterialStarter => mat_card_counts[0] += 1,
-                DeckCardCategory::MaterialColored => mat_card_counts[1] += 1,
-                DeckCardCategory::MaterialDual => mat_card_counts[2] += 1,
-                DeckCardCategory::Dye | DeckCardCategory::ActionOther => {}
-            }
-        }
-    }
-
-    // Per-color production with diminishing returns, grouped by tier
-    let mut distinct_colors = 0u32;
-    let mut tier_sums = [0.0f64; 3];
-    for c in 0..NUM_COLORS {
-        let count = production[c] as f64;
-        if count > 0.0 {
-            distinct_colors += 1;
-        }
-        let tier = color_tier(Color::from_index(c));
-        let sat_w = w[DECK_COLOR_SAT_W + tier];
-        let sat_a = w[DECK_COLOR_SAT_A + tier];
-        tier_sums[tier] += sat_w * (1.0 + sat_a * count).ln();
-    }
-    out[0] = tier_sums[0];
-    out[1] = tier_sums[1];
-    out[2] = tier_sums[2];
-
-    // Production-need interaction with sell cards
-    let mut prod_need_total = 0.0;
-    for bi in sell_card_display.iter() {
-        let sell_card = bi.sell_card;
-        let cost = sell_card.color_cost();
-        let producible = cost.iter().filter(|&&c| production[c.index()] > 0).count() as f64;
-        let cost_len = cost.len() as f64;
-        let fraction = if cost_len > 0.0 { producible / cost_len } else { 0.0 };
-
-        let ducat_tier = match sell_card.ducats() {
-            2 => 0,
-            3 => 1,
-            _ => 2,
-        };
-        prod_need_total += w[DECK_PROD_NEED_W + ducat_tier] * fraction;
-    }
-    out[3] = prod_need_total;
-
-    // Action card values
-    let mut action_total = 0.0;
-    for i in 0..5 {
-        action_total += w[DECK_ACTION_W + i] * action_counts[i] as f64;
-    }
-    out[4] = action_total;
-
-    // Material card subcategory values
-    let mut mat_card_total = 0.0;
-    for i in 0..3 {
-        mat_card_total += w[DECK_MAT_CARD_W + i] * mat_card_counts[i] as f64;
-    }
-    out[5] = mat_card_total;
-
-    // Deck size effect
-    let size = card_count as f64;
-    out[6] = w[DECK_SIZE_W] * size + w[DECK_SIZE_W + 1] * size * size;
-
-    // Diversity
-    out[7] = w[DECK_DIVERSITY_W] * distinct_colors as f64 / 12.0;
-
-    // Workshopped bonus
-    out[8] = w[DECK_WORKSHOP_W] * workshopped_count as f64;
-
-    out
-}
-
-/// Module 4: Material strategy (7 outputs)
-/// [0-2] Per-type sufficiency
-/// [3-5] Per-type demand
-/// [6]   Diversity value
-fn material_strategy(
-    player: &PlayerState,
-    sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
-    w: &[f64; NUM_PARAMS],
-) -> [f64; 7] {
-    let mut out = [0.0f64; 7];
-
-    // Material sufficiency per type
-    let mut types_with_material = 0u32;
-    for i in 0..3 {
-        let stored = player.materials.counts[i] as f64;
-        let x = w[MAT_SUFF_W + i] * (stored - w[MAT_SUFF_THRESH + i]);
-        out[i] = sigmoid(x);
-
-        if stored > 0.0 {
-            types_with_material += 1;
-        }
-
-        // Material x sell-card demand
-        let mut demand = 0.0;
-        for bi in sell_card_display.iter() {
-            if bi.sell_card.required_material() as usize == i {
-                demand += bi.sell_card.ducats() as f64;
-            }
-        }
-        let availability = sigmoid(stored - 0.5); // ~1 if stored >= 1
-        out[3 + i] = w[MAT_DEMAND_W + i] * demand * availability;
-    }
-
-    // Diversity bonus
-    let mut diversity = 0.0;
-    if types_with_material >= 2 {
-        diversity += w[MAT_DIVERSITY_W];
-    }
-    if types_with_material >= 3 {
-        diversity += w[MAT_DIVERSITY_W + 1];
-    }
-    out[6] = diversity;
-
-    out
-}
-
-/// Extract raw features from player state for direct MLP input.
-/// Returns counts for: color wheel (12), deck color production (12),
-/// sell card color demand (12), card type counts (46), material counts (3),
-/// completed sell cards (1), ducats (1).
-/// Total: 12 + 12 + 12 + 46 + 3 + 1 + 1 = 87
-fn extract_raw_features(
-    player: &PlayerState,
-    sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
-    card_lookup: &[Card; 256],
-    table: &DiffEvalTable,
-) -> [f64; 87] {
-    let mut out = [0.0f64; 87];
-
-    // Raw color wheel counts [0..12]
-    for c in 0..NUM_COLORS {
-        out[c] = player.color_wheel.counts[c] as f64;
-    }
-
-    // Raw deck color production [12..24]
-    // and card type counts [36..82]
-    let mut production = [0u32; NUM_COLORS];
-    let mut card_type_counts = [0u32; 46];
-
-    let card_sets: [&crate::unordered_cards::UnorderedCards; 5] = [
-        &player.deck, &player.discard, &player.workshop_cards, &player.workshopped_cards, &player.drafted_cards,
-    ];
-
-    for cards in card_sets.iter() {
-        for id in cards.iter() {
-            let card = card_lookup[id as usize];
-            let card_idx = card as usize;
-
-            // Color production
-            for c in 0..NUM_COLORS {
-                production[c] += table.color_production[card_idx][c] as u32;
-            }
-
-            // Card type count
-            card_type_counts[card_idx] += 1;
-        }
-    }
-
-    for c in 0..NUM_COLORS {
-        out[12 + c] = production[c] as f64;
-    }
-
-    // Raw sell card color demand [24..36]
-    let mut sell_demand = [0u32; NUM_COLORS];
-    for bi in sell_card_display.iter() {
-        let cost = bi.sell_card.color_cost();
-        for &c in cost {
-            sell_demand[c.index()] += 1;
-        }
-    }
-    for c in 0..NUM_COLORS {
-        out[24 + c] = sell_demand[c] as f64;
-    }
-
-    // Raw card type counts [36..82]
-    for i in 0..46 {
-        out[36 + i] = card_type_counts[i] as f64;
-    }
-
-    // Raw material counts [82..85]
-    for i in 0..3 {
-        out[82 + i] = player.materials.counts[i] as f64;
-    }
-
-    // Completed sell cards [85]
-    out[85] = player.completed_sell_cards.len() as f64;
-
-    // Ducats [86]
-    out[86] = player.ducats as f64;
-
-    out
-}
-
 /// Aggregation MLP: MLP_INPUT_SIZE → MLP_HIDDEN_SIZE (ReLU) → 1
+/// Used by diff_eval_score for f64 compatibility with gradient tests.
 fn aggregation_mlp(inputs: &[f64; MLP_INPUT_SIZE], w: &[f64; NUM_PARAMS]) -> f64 {
     // Hidden layer: MLP_INPUT_SIZE → MLP_HIDDEN_SIZE
     let mut hidden = [0.0f64; MLP_HIDDEN_SIZE];
@@ -695,7 +370,294 @@ fn aggregation_mlp(inputs: &[f64; MLP_INPUT_SIZE], w: &[f64; NUM_PARAMS]) -> f64
     output
 }
 
+/// Compute all MLP input features for a single player.
+/// Merges card iteration from deck_color_profile and extract_raw_features into a single pass.
+fn compute_features(
+    player: &PlayerState,
+    sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
+    card_lookup: &[Card; 256],
+    round: u32,
+    params: &DiffEvalParams,
+    table: &DiffEvalTable,
+) -> [f64; MLP_INPUT_SIZE] {
+    let w = &params.weights;
+    let mut inputs = [0.0f64; MLP_INPUT_SIZE];
+
+    // ── Single pass over all card sets ──
+    // Accumulates data needed by both deck_color_profile and extract_raw_features
+    let mut production = [0u32; NUM_COLORS];
+    let mut card_type_counts = [0u32; 46];
+    let mut card_count = 0u32;
+    let mut workshopped_count = 0u32;
+    let mut action_counts = [0u32; 5];
+    let mut mat_card_counts = [0u32; 3];
+
+    let card_sets: [&crate::unordered_cards::UnorderedCards; 5] = [
+        &player.deck, &player.discard, &player.workshop_cards, &player.workshopped_cards, &player.drafted_cards,
+    ];
+    let workshopped_idx = 3;
+
+    for (set_idx, cards) in card_sets.iter().enumerate() {
+        for id in cards.iter() {
+            let card = card_lookup[id as usize];
+            let card_idx = card as usize;
+            card_count += 1;
+            card_type_counts[card_idx] += 1;
+
+            if set_idx == workshopped_idx {
+                workshopped_count += 1;
+            }
+
+            for c in 0..NUM_COLORS {
+                production[c] += table.color_production[card_idx][c] as u32;
+            }
+
+            match table.category[card_idx] {
+                DeckCardCategory::ActionAlum => action_counts[0] += 1,
+                DeckCardCategory::ActionCreamOfTartar => action_counts[1] += 1,
+                DeckCardCategory::ActionGumArabic => action_counts[2] += 1,
+                DeckCardCategory::ActionPotash => action_counts[3] += 1,
+                DeckCardCategory::ActionChalk => action_counts[4] += 1,
+                DeckCardCategory::MaterialStarter => mat_card_counts[0] += 1,
+                DeckCardCategory::MaterialColored => mat_card_counts[1] += 1,
+                DeckCardCategory::MaterialDual => mat_card_counts[2] += 1,
+                DeckCardCategory::Dye | DeckCardCategory::ActionOther => {}
+            }
+        }
+    }
+
+    // ── Module 1: Color wheel value → inputs[0..7] ──
+    for (tier, colors) in [&PRIMARIES[..], &SECONDARIES[..], &TERTIARIES[..]].iter().enumerate() {
+        let sat_w = w[COLOR_SAT_W + tier];
+        let sat_a = w[COLOR_SAT_A + tier];
+        let mut tier_sum = 0.0;
+        for &c in *colors {
+            let count = player.color_wheel.get(c) as f64;
+            tier_sum += sat_w * (1.0 + sat_a * count).ln();
+        }
+        inputs[tier] = tier_sum;
+    }
+
+    let mut mix_total = 0.0;
+    for (i, &(a, b)) in VALID_MIX_PAIRS.iter().enumerate() {
+        let count_a = player.color_wheel.get(a) as f64;
+        let count_b = player.color_wheel.get(b) as f64;
+        mix_total += w[MIX_PAIR_W + i] * count_a.min(count_b);
+    }
+    inputs[3] = mix_total;
+
+    for (tier, colors) in [&PRIMARIES[..], &SECONDARIES[..], &TERTIARIES[..]].iter().enumerate() {
+        let num_distinct = colors.iter().filter(|&&c| player.color_wheel.get(c) > 0).count() as f64;
+        let x = w[COVERAGE_A + tier] * num_distinct - w[COVERAGE_B + tier];
+        inputs[4 + tier] = w[COVERAGE_W + tier] * sigmoid(x);
+    }
+
+    // ── Module 2: Sell card alignment → inputs[7..12] ──
+    let mut alignments = [0.0f64; MAX_SELL_CARD_DISPLAY];
+    let n_sell = sell_card_display.len();
+
+    for (i, bi) in sell_card_display.iter().enumerate() {
+        let sell_card = bi.sell_card;
+        let ducats = sell_card.ducats();
+        let mat_type = sell_card.required_material();
+
+        let has_mat = if player.materials.get(mat_type) > 0 { 1.0 } else { 0.0 };
+        let mat_match = sigmoid(w[SELL_MAT_W + mat_type as usize] * has_mat);
+
+        let cost = sell_card.color_cost();
+        let cost_len = cost.len() as f64;
+        let color_matches: f64 = cost.iter()
+            .map(|&c| (player.color_wheel.get(c) as f64).min(1.0))
+            .sum();
+        let color_ratio = if cost_len > 0.0 { color_matches / cost_len } else { 0.0 };
+
+        let ducat_tier = match ducats {
+            2 => 0,
+            3 => 1,
+            _ => 2,
+        };
+        let weighted_color = w[SELL_DUCAT_W + ducat_tier] * color_ratio;
+
+        alignments[i] = w[SELL_COMBINE_W] * mat_match + w[SELL_COMBINE_W + 1] * weighted_color;
+    }
+
+    let mut sorted = [0.0f64; MAX_SELL_CARD_DISPLAY];
+    sorted[..n_sell].copy_from_slice(&alignments[..n_sell]);
+    sorted[..n_sell].sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
+
+    inputs[7] = if n_sell > 0 { sorted[0] } else { 0.0 };
+    inputs[8] = if n_sell > 1 { sorted[1] } else { 0.0 };
+    inputs[9] = if n_sell > 2 { sorted[2..n_sell].iter().sum() } else { 0.0 };
+
+    let round_f = round as f64;
+    inputs[10] = sigmoid(w[SELL_ROUND_W] * round_f - w[SELL_ROUND_W + 1]);
+
+    let sold_count = player.completed_sell_cards.len() as f64;
+    inputs[11] = w[SELL_SOLD_W] * sold_count * sigmoid(w[SELL_SOLD_W + 1] * round_f - w[SELL_SOLD_W + 2]);
+
+    // ── Module 3: Deck color profile → inputs[12..21] ──
+    // Uses production, action_counts, mat_card_counts from the merged card pass
+
+    let mut distinct_colors = 0u32;
+    let mut tier_sums = [0.0f64; 3];
+    for c in 0..NUM_COLORS {
+        let count = production[c] as f64;
+        if count > 0.0 {
+            distinct_colors += 1;
+        }
+        let tier = color_tier(Color::from_index(c));
+        let sat_w = w[DECK_COLOR_SAT_W + tier];
+        let sat_a = w[DECK_COLOR_SAT_A + tier];
+        tier_sums[tier] += sat_w * (1.0 + sat_a * count).ln();
+    }
+    inputs[12] = tier_sums[0];
+    inputs[13] = tier_sums[1];
+    inputs[14] = tier_sums[2];
+
+    let mut prod_need_total = 0.0;
+    for bi in sell_card_display.iter() {
+        let sell_card = bi.sell_card;
+        let cost = sell_card.color_cost();
+        let producible = cost.iter().filter(|&&c| production[c.index()] > 0).count() as f64;
+        let cost_len = cost.len() as f64;
+        let fraction = if cost_len > 0.0 { producible / cost_len } else { 0.0 };
+
+        let ducat_tier = match sell_card.ducats() {
+            2 => 0,
+            3 => 1,
+            _ => 2,
+        };
+        prod_need_total += w[DECK_PROD_NEED_W + ducat_tier] * fraction;
+    }
+    inputs[15] = prod_need_total;
+
+    let mut action_total = 0.0;
+    for i in 0..5 {
+        action_total += w[DECK_ACTION_W + i] * action_counts[i] as f64;
+    }
+    inputs[16] = action_total;
+
+    let mut mat_card_total = 0.0;
+    for i in 0..3 {
+        mat_card_total += w[DECK_MAT_CARD_W + i] * mat_card_counts[i] as f64;
+    }
+    inputs[17] = mat_card_total;
+
+    let size = card_count as f64;
+    inputs[18] = w[DECK_SIZE_W] * size + w[DECK_SIZE_W + 1] * size * size;
+    inputs[19] = w[DECK_DIVERSITY_W] * distinct_colors as f64 / 12.0;
+    inputs[20] = w[DECK_WORKSHOP_W] * workshopped_count as f64;
+
+    // ── Module 4: Material strategy → inputs[21..28] ──
+    let mut types_with_material = 0u32;
+    for i in 0..3 {
+        let stored = player.materials.counts[i] as f64;
+        let x = w[MAT_SUFF_W + i] * (stored - w[MAT_SUFF_THRESH + i]);
+        inputs[21 + i] = sigmoid(x);
+
+        if stored > 0.0 {
+            types_with_material += 1;
+        }
+
+        let mut demand = 0.0;
+        for bi in sell_card_display.iter() {
+            if bi.sell_card.required_material() as usize == i {
+                demand += bi.sell_card.ducats() as f64;
+            }
+        }
+        let availability = sigmoid(stored - 0.5);
+        inputs[24 + i] = w[MAT_DEMAND_W + i] * demand * availability;
+    }
+
+    let mut diversity = 0.0;
+    if types_with_material >= 2 {
+        diversity += w[MAT_DIVERSITY_W];
+    }
+    if types_with_material >= 3 {
+        diversity += w[MAT_DIVERSITY_W + 1];
+    }
+    inputs[27] = diversity;
+
+    // ── Direct inputs → inputs[28..30] ──
+    inputs[28] = player.cached_score as f64 / 20.0;
+    inputs[29] = round_f / 20.0;
+
+    // ── Raw features → inputs[30..117] ──
+    // Color wheel counts [30..42]
+    for c in 0..NUM_COLORS {
+        inputs[30 + c] = player.color_wheel.counts[c] as f64;
+    }
+
+    // Deck color production [42..54] (from merged pass)
+    for c in 0..NUM_COLORS {
+        inputs[42 + c] = production[c] as f64;
+    }
+
+    // Sell card color demand [54..66]
+    let mut sell_demand = [0u32; NUM_COLORS];
+    for bi in sell_card_display.iter() {
+        let cost = bi.sell_card.color_cost();
+        for &c in cost {
+            sell_demand[c.index()] += 1;
+        }
+    }
+    for c in 0..NUM_COLORS {
+        inputs[54 + c] = sell_demand[c] as f64;
+    }
+
+    // Card type counts [66..112] (from merged pass)
+    for i in 0..46 {
+        inputs[66 + i] = card_type_counts[i] as f64;
+    }
+
+    // Material counts [112..115]
+    for i in 0..3 {
+        inputs[112 + i] = player.materials.counts[i] as f64;
+    }
+
+    // Completed sell cards [115], ducats [116]
+    inputs[115] = player.completed_sell_cards.len() as f64;
+    inputs[116] = player.ducats as f64;
+
+    inputs
+}
+
+/// Batched f32 MLP: reads W1 once for all players.
+/// Iterates hidden units in the outer loop so each W1 row is loaded once.
+fn batched_mlp_f32(
+    all_inputs: &[[f32; MLP_INPUT_SIZE]; MAX_PLAYERS],
+    n: usize,
+    table: &DiffEvalTable,
+) -> [f32; MAX_PLAYERS] {
+    let mut hidden = [[0.0f32; MLP_HIDDEN_SIZE]; MAX_PLAYERS];
+
+    // Hidden layer: iterate rows of W1, apply to all players
+    for row in 0..MLP_HIDDEN_SIZE {
+        let bias = table.b1_f32[row];
+        let w1_row = &table.w1_f32[row * MLP_INPUT_SIZE..(row + 1) * MLP_INPUT_SIZE];
+        for p in 0..n {
+            let mut sum = bias;
+            for col in 0..MLP_INPUT_SIZE {
+                sum += w1_row[col] * all_inputs[p][col];
+            }
+            hidden[p][row] = sum.max(0.0); // ReLU
+        }
+    }
+
+    // Output layer
+    let mut outputs = [0.0f32; MAX_PLAYERS];
+    for p in 0..n {
+        let mut out = table.b2_f32;
+        for i in 0..MLP_HIDDEN_SIZE {
+            out += table.w2_f32[i] * hidden[p][i];
+        }
+        outputs[p] = out;
+    }
+    outputs
+}
+
 /// Full forward pass: compute evaluation logit for a single player.
+/// Uses f64 MLP for compatibility with gradient finite-difference tests.
 pub fn diff_eval_score(
     player: &PlayerState,
     sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
@@ -704,76 +666,8 @@ pub fn diff_eval_score(
     params: &DiffEvalParams,
     table: &DiffEvalTable,
 ) -> f64 {
-    let w = &params.weights;
-
-    let color_out = color_wheel_value(player, w);
-    let sell_out = sell_card_alignment(player, sell_card_display, round, w);
-    let deck_out = deck_color_profile(player, sell_card_display, card_lookup, w, table);
-    let mat_out = material_strategy(player, sell_card_display, w);
-    let raw = extract_raw_features(player, sell_card_display, card_lookup, table);
-
-    let mut inputs = [0.0f64; MLP_INPUT_SIZE];
-
-    // Module 1: Color Wheel Value (7 outputs) -> [0..7]
-    inputs[0] = color_out[0];
-    inputs[1] = color_out[1];
-    inputs[2] = color_out[2];
-    inputs[3] = color_out[3];
-    inputs[4] = color_out[4];
-    inputs[5] = color_out[5];
-    inputs[6] = color_out[6];
-
-    // Module 2: Sell Card Alignment (5 outputs) -> [7..12]
-    inputs[7] = sell_out[0];
-    inputs[8] = sell_out[1];
-    inputs[9] = sell_out[2];
-    inputs[10] = sell_out[3];
-    inputs[11] = sell_out[4];
-
-    // Module 3: Deck Color Profile (9 outputs) -> [12..21]
-    for i in 0..9 {
-        inputs[12 + i] = deck_out[i];
-    }
-
-    // Module 4: Material Strategy (7 outputs) -> [21..28]
-    for i in 0..7 {
-        inputs[21 + i] = mat_out[i];
-    }
-
-    // Direct inputs -> [28..30]
-    inputs[28] = player.cached_score as f64 / 20.0;
-    inputs[29] = round as f64 / 20.0;
-
-    // Raw color wheel counts -> [30..42]
-    for c in 0..NUM_COLORS {
-        inputs[30 + c] = raw[c];
-    }
-
-    // Raw deck color production -> [42..54]
-    for c in 0..NUM_COLORS {
-        inputs[42 + c] = raw[12 + c];
-    }
-
-    // Raw sell card color demand -> [54..66]
-    for c in 0..NUM_COLORS {
-        inputs[54 + c] = raw[24 + c];
-    }
-
-    // Raw card type counts -> [66..112]
-    for i in 0..46 {
-        inputs[66 + i] = raw[36 + i];
-    }
-
-    // Raw material counts -> [112..115]
-    for i in 0..3 {
-        inputs[112 + i] = raw[82 + i];
-    }
-
-    // Completed sell cards and ducats -> [115..117]
-    inputs[115] = raw[85];
-    inputs[116] = raw[86];
-
-    aggregation_mlp(&inputs, w)
+    let inputs = compute_features(player, sell_card_display, card_lookup, round, params, table);
+    aggregation_mlp(&inputs, &params.weights)
 }
 
 /// Compute per-player rewards using softmax over diff eval logits.
@@ -787,12 +681,24 @@ pub fn compute_diff_eval_rewards(
     table: &DiffEvalTable,
 ) -> [f64; MAX_PLAYERS] {
     let n = players.len();
-    let mut logits = [0.0f64; MAX_PLAYERS];
+
+    // Compute features for all players, convert to f32 for batched MLP
+    let mut all_inputs = [[0.0f32; MLP_INPUT_SIZE]; MAX_PLAYERS];
     for (i, p) in players.iter().enumerate() {
-        logits[i] = diff_eval_score(p, sell_card_display, card_lookup, round, params, table);
+        let features = compute_features(p, sell_card_display, card_lookup, round, params, table);
+        for j in 0..MLP_INPUT_SIZE {
+            all_inputs[i][j] = features[j] as f32;
+        }
     }
 
-    // Softmax
+    // Batched f32 MLP (reads W1 once for all players)
+    let logits_f32 = batched_mlp_f32(&all_inputs, n, table);
+
+    // Softmax in f64 for numerical stability
+    let mut logits = [0.0f64; MAX_PLAYERS];
+    for i in 0..n {
+        logits[i] = logits_f32[i] as f64;
+    }
     let max_logit = logits[..n].iter().copied().fold(f64::NEG_INFINITY, f64::max);
     let mut exp_sum = 0.0;
     let mut result = [0.0; MAX_PLAYERS];
@@ -832,7 +738,7 @@ mod tests {
     #[test]
     fn test_default_params_forward_pass() {
         let params = DiffEvalParams::default();
-        let table = DiffEvalTable::new();
+        let table = DiffEvalTable::new(&params);
         let card_lookup = [Card::BasicRed; 256];
         let display: FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY> = FixedVec::new();
 
@@ -846,7 +752,7 @@ mod tests {
     #[test]
     fn test_different_players_get_different_scores() {
         let params = DiffEvalParams::default();
-        let table = DiffEvalTable::new();
+        let table = DiffEvalTable::new(&params);
         let card_lookup = [Card::BasicRed; 256];
         let display: FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY> = FixedVec::new();
 
@@ -869,7 +775,7 @@ mod tests {
     #[test]
     fn test_softmax_rewards_sum_to_one() {
         let params = DiffEvalParams::default();
-        let table = DiffEvalTable::new();
+        let table = DiffEvalTable::new(&params);
         let card_lookup = [Card::BasicRed; 256];
         let display: FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY> = FixedVec::new();
 
@@ -889,7 +795,8 @@ mod tests {
 
     #[test]
     fn test_diff_eval_table_color_production() {
-        let table = DiffEvalTable::new();
+        let params = DiffEvalParams::default();
+        let table = DiffEvalTable::new(&params);
 
         // Kermes produces 3 red pips
         let kermes_idx = Card::Kermes as usize;
@@ -912,7 +819,8 @@ mod tests {
 
     #[test]
     fn test_diff_eval_table_categories() {
-        let table = DiffEvalTable::new();
+        let params = DiffEvalParams::default();
+        let table = DiffEvalTable::new(&params);
 
         assert_eq!(table.category[Card::BasicRed as usize], DeckCardCategory::Dye);
         assert_eq!(table.category[Card::Kermes as usize], DeckCardCategory::Dye);

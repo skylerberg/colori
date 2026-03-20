@@ -373,7 +373,7 @@ pub fn ismcts<R: Rng>(
 
     let mut availability_buf: Vec<bool> = Vec::new();
     let card_table = CardHeuristicTable::new(&config.heuristic_params);
-    let diff_table = config.diff_eval_params.as_ref().map(|_| DiffEvalTable::new());
+    let diff_table = config.diff_eval_params.as_ref().map(|p| DiffEvalTable::new(p));
 
     let mut opponent_stats = OpponentDraftStats::new();
     let mut pick_log: Vec<(u32, usize, Card)> = Vec::new();

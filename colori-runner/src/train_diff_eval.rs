@@ -392,7 +392,7 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
 
     // Try to resume from latest checkpoint
     let (mut params, mut optimizer, start_epoch) = load_checkpoint(&train.output, train.lr);
-    let table = DiffEvalTable::new();
+    let table = DiffEvalTable::new(&params);
 
     if start_epoch > 0 {
         eprintln!("Resuming from epoch {}", start_epoch);

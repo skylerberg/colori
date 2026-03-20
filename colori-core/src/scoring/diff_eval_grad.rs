@@ -705,7 +705,7 @@ mod tests {
     #[test]
     fn test_gradient_vs_finite_difference() {
         let params = DiffEvalParams::default();
-        let table = DiffEvalTable::new();
+        let table = DiffEvalTable::new(&params);
         let card_lookup = [Card::BasicRed; 256];
         let player = make_test_player();
         let display = make_test_display();
