@@ -6,3 +6,4 @@ src/wasm-pkg/
 target/
 game-logs/
 genetic-algorithm/
+diff-eval-training
