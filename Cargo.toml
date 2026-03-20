@@ -1,3 +1,7 @@
 [workspace]
 members = ["colori-core", "colori-wasm", "colori-runner", "colori-gui"]
 resolver = "2"
+
+[profile.release]
+lto = true
+codegen-units = 1
