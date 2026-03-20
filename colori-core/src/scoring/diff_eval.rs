@@ -408,7 +408,7 @@ impl DiffEvalTable {
 // ── Forward pass ──
 
 #[inline]
-fn sigmoid(x: f64) -> f64 {
+fn sigmoid_f32(x: f32) -> f32 {
     1.0 / (1.0 + (-x).exp())
 }
 
@@ -452,8 +452,30 @@ fn aggregation_mlp(inputs: &[f64; MLP_INPUT_SIZE], w: &[f64; NUM_PARAMS]) -> f64
     output
 }
 
-/// Compute all MLP input features for a single player.
-/// Merges card iteration from deck_color_profile and extract_raw_features into a single pass.
+/// Precomputed sell card data shared across all player evaluations.
+struct SellCardCache {
+    sell_demand: [u32; NUM_COLORS],
+    mat_demand: [f32; 3],
+}
+
+impl SellCardCache {
+    fn new(sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>) -> Self {
+        let mut sell_demand = [0u32; NUM_COLORS];
+        let mut mat_demand = [0.0f32; 3];
+        for bi in sell_card_display.iter() {
+            let cost = bi.sell_card.color_cost();
+            for &c in cost {
+                sell_demand[c.index()] += 1;
+            }
+            let mat_idx = bi.sell_card.required_material() as usize;
+            mat_demand[mat_idx] += bi.sell_card.ducats() as f32;
+        }
+        SellCardCache { sell_demand, mat_demand }
+    }
+}
+
+/// Compute all MLP input features for a single player in f32.
+/// Merges card iteration and uses precomputed sell card cache.
 fn compute_features(
     player: &PlayerState,
     sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
@@ -461,12 +483,12 @@ fn compute_features(
     round: u32,
     params: &DiffEvalParams,
     table: &DiffEvalTable,
-) -> [f64; MLP_INPUT_SIZE] {
+    cache: &SellCardCache,
+) -> [f32; MLP_INPUT_SIZE] {
     let w = &params.weights;
-    let mut inputs = [0.0f64; MLP_INPUT_SIZE];
+    let mut inputs = [0.0f32; MLP_INPUT_SIZE];
 
     // ── Single pass over all card sets ──
-    // Accumulates data needed by both deck_color_profile and extract_raw_features
     let mut production = [0u32; NUM_COLORS];
     let mut card_type_counts = [0u32; 46];
     let mut card_count = 0u32;
@@ -510,32 +532,32 @@ fn compute_features(
 
     // ── Module 1: Color wheel value → inputs[0..7] ──
     for (tier, colors) in [&PRIMARIES[..], &SECONDARIES[..], &TERTIARIES[..]].iter().enumerate() {
-        let sat_w = w[COLOR_SAT_W + tier];
-        let sat_a = w[COLOR_SAT_A + tier];
-        let mut tier_sum = 0.0;
+        let sat_w = w[COLOR_SAT_W + tier] as f32;
+        let sat_a = w[COLOR_SAT_A + tier] as f32;
+        let mut tier_sum = 0.0f32;
         for &c in *colors {
-            let count = player.color_wheel.get(c) as f64;
-            tier_sum += sat_w * (1.0 + sat_a * count).ln();
+            let count = player.color_wheel.get(c) as f32;
+            tier_sum += sat_w * (1.0f32 + sat_a * count).ln();
         }
         inputs[tier] = tier_sum;
     }
 
-    let mut mix_total = 0.0;
+    let mut mix_total = 0.0f32;
     for (i, &(a, b)) in VALID_MIX_PAIRS.iter().enumerate() {
-        let count_a = player.color_wheel.get(a) as f64;
-        let count_b = player.color_wheel.get(b) as f64;
-        mix_total += w[MIX_PAIR_W + i] * count_a.min(count_b);
+        let count_a = player.color_wheel.get(a) as f32;
+        let count_b = player.color_wheel.get(b) as f32;
+        mix_total += w[MIX_PAIR_W + i] as f32 * count_a.min(count_b);
     }
     inputs[3] = mix_total;
 
     for (tier, colors) in [&PRIMARIES[..], &SECONDARIES[..], &TERTIARIES[..]].iter().enumerate() {
-        let num_distinct = colors.iter().filter(|&&c| player.color_wheel.get(c) > 0).count() as f64;
-        let x = w[COVERAGE_A + tier] * num_distinct - w[COVERAGE_B + tier];
-        inputs[4 + tier] = w[COVERAGE_W + tier] * sigmoid(x);
+        let num_distinct = colors.iter().filter(|&&c| player.color_wheel.get(c) > 0).count() as f32;
+        let x = w[COVERAGE_A + tier] as f32 * num_distinct - w[COVERAGE_B + tier] as f32;
+        inputs[4 + tier] = w[COVERAGE_W + tier] as f32 * sigmoid_f32(x);
     }
 
     // ── Module 2: Sell card alignment → inputs[7..12] ──
-    let mut alignments = [0.0f64; MAX_SELL_CARD_DISPLAY];
+    let mut alignments = [0.0f32; MAX_SELL_CARD_DISPLAY];
     let n_sell = sell_card_display.len();
 
     for (i, bi) in sell_card_display.iter().enumerate() {
@@ -543,13 +565,13 @@ fn compute_features(
         let ducats = sell_card.ducats();
         let mat_type = sell_card.required_material();
 
-        let has_mat = if player.materials.get(mat_type) > 0 { 1.0 } else { 0.0 };
-        let mat_match = sigmoid(w[SELL_MAT_W + mat_type as usize] * has_mat);
+        let has_mat = if player.materials.get(mat_type) > 0 { 1.0f32 } else { 0.0f32 };
+        let mat_match = sigmoid_f32(w[SELL_MAT_W + mat_type as usize] as f32 * has_mat);
 
         let cost = sell_card.color_cost();
-        let cost_len = cost.len() as f64;
-        let color_matches: f64 = cost.iter()
-            .map(|&c| (player.color_wheel.get(c) as f64).min(1.0))
+        let cost_len = cost.len() as f32;
+        let color_matches: f32 = cost.iter()
+            .map(|&c| (player.color_wheel.get(c) as f32).min(1.0))
             .sum();
         let color_ratio = if cost_len > 0.0 { color_matches / cost_len } else { 0.0 };
 
@@ -558,12 +580,12 @@ fn compute_features(
             3 => 1,
             _ => 2,
         };
-        let weighted_color = w[SELL_DUCAT_W + ducat_tier] * color_ratio;
+        let weighted_color = w[SELL_DUCAT_W + ducat_tier] as f32 * color_ratio;
 
-        alignments[i] = w[SELL_COMBINE_W] * mat_match + w[SELL_COMBINE_W + 1] * weighted_color;
+        alignments[i] = w[SELL_COMBINE_W] as f32 * mat_match + w[SELL_COMBINE_W + 1] as f32 * weighted_color;
     }
 
-    let mut sorted = [0.0f64; MAX_SELL_CARD_DISPLAY];
+    let mut sorted = [0.0f32; MAX_SELL_CARD_DISPLAY];
     sorted[..n_sell].copy_from_slice(&alignments[..n_sell]);
     sorted[..n_sell].sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
 
@@ -571,37 +593,35 @@ fn compute_features(
     inputs[8] = if n_sell > 1 { sorted[1] } else { 0.0 };
     inputs[9] = if n_sell > 2 { sorted[2..n_sell].iter().sum() } else { 0.0 };
 
-    let round_f = round as f64;
-    inputs[10] = sigmoid(w[SELL_ROUND_W] * round_f - w[SELL_ROUND_W + 1]);
+    let round_f = round as f32;
+    inputs[10] = sigmoid_f32(w[SELL_ROUND_W] as f32 * round_f - w[SELL_ROUND_W + 1] as f32);
 
-    let sold_count = player.completed_sell_cards.len() as f64;
-    inputs[11] = w[SELL_SOLD_W] * sold_count * sigmoid(w[SELL_SOLD_W + 1] * round_f - w[SELL_SOLD_W + 2]);
+    let sold_count = player.completed_sell_cards.len() as f32;
+    inputs[11] = w[SELL_SOLD_W] as f32 * sold_count * sigmoid_f32(w[SELL_SOLD_W + 1] as f32 * round_f - w[SELL_SOLD_W + 2] as f32);
 
     // ── Module 3: Deck color profile → inputs[12..21] ──
-    // Uses production, action_counts, mat_card_counts from the merged card pass
-
     let mut distinct_colors = 0u32;
-    let mut tier_sums = [0.0f64; 3];
+    let mut tier_sums = [0.0f32; 3];
     for c in 0..NUM_COLORS {
-        let count = production[c] as f64;
+        let count = production[c] as f32;
         if count > 0.0 {
             distinct_colors += 1;
         }
         let tier = color_tier(Color::from_index(c));
-        let sat_w = w[DECK_COLOR_SAT_W + tier];
-        let sat_a = w[DECK_COLOR_SAT_A + tier];
-        tier_sums[tier] += sat_w * (1.0 + sat_a * count).ln();
+        let sat_w = w[DECK_COLOR_SAT_W + tier] as f32;
+        let sat_a = w[DECK_COLOR_SAT_A + tier] as f32;
+        tier_sums[tier] += sat_w * (1.0f32 + sat_a * count).ln();
     }
     inputs[12] = tier_sums[0];
     inputs[13] = tier_sums[1];
     inputs[14] = tier_sums[2];
 
-    let mut prod_need_total = 0.0;
+    let mut prod_need_total = 0.0f32;
     for bi in sell_card_display.iter() {
         let sell_card = bi.sell_card;
         let cost = sell_card.color_cost();
-        let producible = cost.iter().filter(|&&c| production[c.index()] > 0).count() as f64;
-        let cost_len = cost.len() as f64;
+        let producible = cost.iter().filter(|&&c| production[c.index()] > 0).count() as f32;
+        let cost_len = cost.len() as f32;
         let fraction = if cost_len > 0.0 { producible / cost_len } else { 0.0 };
 
         let ducat_tier = match sell_card.ducats() {
@@ -609,97 +629,79 @@ fn compute_features(
             3 => 1,
             _ => 2,
         };
-        prod_need_total += w[DECK_PROD_NEED_W + ducat_tier] * fraction;
+        prod_need_total += w[DECK_PROD_NEED_W + ducat_tier] as f32 * fraction;
     }
     inputs[15] = prod_need_total;
 
-    let mut action_total = 0.0;
+    let mut action_total = 0.0f32;
     for i in 0..5 {
-        action_total += w[DECK_ACTION_W + i] * action_counts[i] as f64;
+        action_total += w[DECK_ACTION_W + i] as f32 * action_counts[i] as f32;
     }
     inputs[16] = action_total;
 
-    let mut mat_card_total = 0.0;
+    let mut mat_card_total = 0.0f32;
     for i in 0..3 {
-        mat_card_total += w[DECK_MAT_CARD_W + i] * mat_card_counts[i] as f64;
+        mat_card_total += w[DECK_MAT_CARD_W + i] as f32 * mat_card_counts[i] as f32;
     }
     inputs[17] = mat_card_total;
 
-    let size = card_count as f64;
-    inputs[18] = w[DECK_SIZE_W] * size + w[DECK_SIZE_W + 1] * size * size;
-    inputs[19] = w[DECK_DIVERSITY_W] * distinct_colors as f64 / 12.0;
-    inputs[20] = w[DECK_WORKSHOP_W] * workshopped_count as f64;
+    let size = card_count as f32;
+    inputs[18] = w[DECK_SIZE_W] as f32 * size + w[DECK_SIZE_W + 1] as f32 * size * size;
+    inputs[19] = w[DECK_DIVERSITY_W] as f32 * distinct_colors as f32 / 12.0;
+    inputs[20] = w[DECK_WORKSHOP_W] as f32 * workshopped_count as f32;
 
     // ── Module 4: Material strategy → inputs[21..28] ──
     let mut types_with_material = 0u32;
     for i in 0..3 {
-        let stored = player.materials.counts[i] as f64;
-        let x = w[MAT_SUFF_W + i] * (stored - w[MAT_SUFF_THRESH + i]);
-        inputs[21 + i] = sigmoid(x);
+        let stored = player.materials.counts[i] as f32;
+        let x = w[MAT_SUFF_W + i] as f32 * (stored - w[MAT_SUFF_THRESH + i] as f32);
+        inputs[21 + i] = sigmoid_f32(x);
 
         if stored > 0.0 {
             types_with_material += 1;
         }
 
-        let mut demand = 0.0;
-        for bi in sell_card_display.iter() {
-            if bi.sell_card.required_material() as usize == i {
-                demand += bi.sell_card.ducats() as f64;
-            }
-        }
-        let availability = sigmoid(stored - 0.5);
-        inputs[24 + i] = w[MAT_DEMAND_W + i] * demand * availability;
+        let availability = sigmoid_f32(stored - 0.5);
+        inputs[24 + i] = w[MAT_DEMAND_W + i] as f32 * cache.mat_demand[i] * availability;
     }
 
-    let mut diversity = 0.0;
+    let mut diversity = 0.0f32;
     if types_with_material >= 2 {
-        diversity += w[MAT_DIVERSITY_W];
+        diversity += w[MAT_DIVERSITY_W] as f32;
     }
     if types_with_material >= 3 {
-        diversity += w[MAT_DIVERSITY_W + 1];
+        diversity += w[MAT_DIVERSITY_W + 1] as f32;
     }
     inputs[27] = diversity;
 
     // ── Direct inputs → inputs[28..30] ──
-    inputs[28] = player.cached_score as f64 / 20.0;
+    inputs[28] = player.cached_score as f32 / 20.0;
     inputs[29] = round_f / 20.0;
 
     // ── Raw features → inputs[30..117] ──
-    // Color wheel counts [30..42]
     for c in 0..NUM_COLORS {
-        inputs[30 + c] = player.color_wheel.counts[c] as f64;
+        inputs[30 + c] = player.color_wheel.counts[c] as f32;
     }
 
-    // Deck color production [42..54] (from merged pass)
     for c in 0..NUM_COLORS {
-        inputs[42 + c] = production[c] as f64;
+        inputs[42 + c] = production[c] as f32;
     }
 
-    // Sell card color demand [54..66]
-    let mut sell_demand = [0u32; NUM_COLORS];
-    for bi in sell_card_display.iter() {
-        let cost = bi.sell_card.color_cost();
-        for &c in cost {
-            sell_demand[c.index()] += 1;
-        }
-    }
+    // Sell card color demand [54..66] (from precomputed cache)
     for c in 0..NUM_COLORS {
-        inputs[54 + c] = sell_demand[c] as f64;
+        inputs[54 + c] = cache.sell_demand[c] as f32;
     }
 
-    // Card type counts [66..112] (from merged pass)
     for i in 0..46 {
-        inputs[66 + i] = card_type_counts[i] as f64;
+        inputs[66 + i] = card_type_counts[i] as f32;
     }
 
-    // Material counts [112..115]
     for i in 0..3 {
-        inputs[112 + i] = player.materials.counts[i] as f64;
+        inputs[112 + i] = player.materials.counts[i] as f32;
     }
 
-    // Completed sell cards [115], ducats [116]
-    inputs[115] = player.completed_sell_cards.len() as f64;
-    inputs[116] = player.ducats as f64;
+    inputs[115] = player.completed_sell_cards.len() as f32;
+    inputs[116] = player.ducats as f32;
 
     inputs
 }
@@ -762,7 +764,12 @@ pub fn diff_eval_score(
     params: &DiffEvalParams,
     table: &DiffEvalTable,
 ) -> f64 {
-    let inputs = compute_features(player, sell_card_display, card_lookup, round, params, table);
+    let cache = SellCardCache::new(sell_card_display);
+    let features_f32 = compute_features(player, sell_card_display, card_lookup, round, params, table, &cache);
+    let mut inputs = [0.0f64; MLP_INPUT_SIZE];
+    for i in 0..MLP_INPUT_SIZE {
+        inputs[i] = features_f32[i] as f64;
+    }
     aggregation_mlp(&inputs, &params.weights)
 }
 
@@ -778,13 +785,13 @@ pub fn compute_diff_eval_rewards(
 ) -> [f64; MAX_PLAYERS] {
     let n = players.len();
 
-    // Compute features for all players, convert to f32 for batched MLP
+    // Precompute sell card data shared across all players
+    let cache = SellCardCache::new(sell_card_display);
+
+    // Compute f32 features directly for batched MLP
     let mut all_inputs = [[0.0f32; MLP_INPUT_SIZE]; MAX_PLAYERS];
     for (i, p) in players.iter().enumerate() {
-        let features = compute_features(p, sell_card_display, card_lookup, round, params, table);
-        for j in 0..MLP_INPUT_SIZE {
-            all_inputs[i][j] = features[j] as f32;
-        }
+        all_inputs[i] = compute_features(p, sell_card_display, card_lookup, round, params, table, &cache);
     }
 
     // Batched f32 MLP (reads W1 once for all players)
