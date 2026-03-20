@@ -1,6 +1,5 @@
 use colori_core::colori_game::apply_choice_to_state;
 use colori_core::draw_phase::execute_draw_phase;
-use colori_core::fixed_vec::FixedVec;
 use colori_core::ismcts::{ismcts, MctsConfig};
 use colori_core::scoring::diff_eval::{
     diff_eval_score, DiffEvalParams, DiffEvalTable, NUM_PARAMS,
@@ -18,11 +17,8 @@ use crate::cli::SimulationArgs;
 // ── Training sample ──
 
 struct TrainingSample {
-    // Per-player snapshots (we store the raw player state + context)
-    players: Vec<PlayerState>,
-    sell_card_display: Vec<SellCardInstance>,
-    card_lookup: [Card; 256],
-    round: u32,
+    // Full game state snapshot
+    state: GameState,
     // Outcome: index of winning player (or multiple for ties)
     winner_mask: Vec<bool>,
     // Round the game ended on (for urgency weighting)
@@ -232,10 +228,7 @@ fn play_game_and_collect(
             p.cached_score = calculate_score(p);
         }
         snapshots.push(TrainingSample {
-            players: state.players.iter().cloned().collect(),
-            sell_card_display: state.sell_card_display.iter().cloned().collect(),
-            card_lookup: state.card_lookup,
-            round: state.round,
+            state: state.clone(),
             winner_mask: vec![false; num_players],
             final_round: 0, // backfilled after game ends
         });
@@ -290,16 +283,12 @@ fn compute_loss_and_grads(
     let mut total_grads = DiffEvalGradients::zeros();
 
     for sample in batch {
-        let n = sample.players.len();
-        let mut display = FixedVec::new();
-        for sc in &sample.sell_card_display {
-            display.push(*sc);
-        }
+        let n = sample.state.players.len();
 
-        // Forward: compute logits
+        // Forward: compute logits (one per player, from each player's perspective)
         let mut logits = vec![0.0f64; n];
-        for (i, p) in sample.players.iter().enumerate() {
-            logits[i] = diff_eval_score(p, &display, &sample.card_lookup, sample.round, params, table);
+        for i in 0..n {
+            logits[i] = diff_eval_score(&sample.state, i, params, table);
         }
 
         // Softmax
@@ -315,10 +304,10 @@ fn compute_loss_and_grads(
         }
 
         // Target: uniform over winners, weighted by urgency.
-        // Games won quickly are worth more — encourages the model to
+        // Games won quickly are worth more -- encourages the model to
         // value positions that lead to fast wins.
         // Weight: 1.0 + (MAX_ROUNDS - final_round) / MAX_ROUNDS
-        // e.g. win at round 5 → weight 1.75, win at round 10 → weight 1.5, round 20 → weight 1.0
+        // e.g. win at round 5 -> weight 1.75, win at round 10 -> weight 1.5, round 20 -> weight 1.0
         const MAX_ROUNDS: f64 = 20.0;
         let urgency_weight = 1.0 + (MAX_ROUNDS - sample.final_round as f64).max(0.0) / MAX_ROUNDS;
 
@@ -327,7 +316,7 @@ fn compute_loss_and_grads(
         for i in 0..n {
             targets[i] = if sample.winner_mask[i] { urgency_weight / num_winners } else { 0.0 };
         }
-        // Normalize targets to sum to urgency_weight (not 1.0) — this makes
+        // Normalize targets to sum to urgency_weight (not 1.0) -- this makes
         // samples from fast games contribute more to the loss and gradient.
 
         // Cross-entropy loss (weighted)
@@ -339,9 +328,9 @@ fn compute_loss_and_grads(
 
         // Gradient: d_logit_i = urgency_weight * probs[i] - targets[i]
         // The urgency weight scales the entire gradient for this sample.
-        for (i, p) in sample.players.iter().enumerate() {
+        for i in 0..n {
             let grad_output = urgency_weight * probs[i] - targets[i];
-            let grads = diff_eval_backward(p, &display, &sample.card_lookup, sample.round, params, table, grad_output);
+            let grads = diff_eval_backward(&sample.state, i, params, table, grad_output);
             total_grads.accumulate(&grads);
         }
     }

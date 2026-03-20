@@ -495,7 +495,7 @@ fn eval_scores(
 ) -> [f64; MAX_PLAYERS] {
     if use_heuristic {
         if let Some((diff_params, diff_table)) = diff_eval {
-            compute_diff_eval_rewards(&state.players, &state.sell_card_display, &state.card_lookup, state.round, diff_params, diff_table)
+            compute_diff_eval_rewards(state, 0, diff_params, diff_table)
         } else {
             compute_heuristic_rewards(&state.players, &state.sell_card_display, &state.card_lookup, params, card_table)
         }
@@ -578,10 +578,8 @@ fn iteration_simultaneous<R: Rng>(
     if should_rollout && config.progressive_bias_weight != 0.0 {
         node.children[best_idx].heuristic_bias = if let Some((diff_params, dt)) = diff_eval_ref(config, diff_table) {
             diff_eval_score(
-                &state.players[perspective_player],
-                &state.sell_card_display,
-                &state.card_lookup,
-                state.round,
+                state,
+                perspective_player,
                 diff_params,
                 dt,
             )
