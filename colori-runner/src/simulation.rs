@@ -29,6 +29,7 @@ pub struct GameRunOutput {
     pub entries: Vec<StructuredLogEntry>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub duration_ms: Option<u64>,
+    pub player_time_ms: Vec<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub iterations: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -39,6 +40,8 @@ pub struct GameRunOutput {
     pub early_termination_savings: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subtree_reuse_savings: Option<f64>,
+    #[serde(skip)]
+    pub variant_order: Vec<usize>,
 }
 
 #[derive(Serialize)]
@@ -176,8 +179,9 @@ pub fn run_game(
     let num_players = player_variants.len();
 
     // Shuffle variant assignment to eliminate position bias
-    let mut shuffled_variants = player_variants.to_vec();
-    shuffled_variants.shuffle(rng);
+    let mut variant_order: Vec<usize> = (0..num_players).collect();
+    variant_order.shuffle(rng);
+    let shuffled_variants: Vec<NamedVariant> = variant_order.iter().map(|&i| player_variants[i].clone()).collect();
 
     let has_variants = has_any_difference(&shuffled_variants);
     let differing = compute_differing_fields(&shuffled_variants);
@@ -209,6 +213,7 @@ pub fn run_game(
     let any_early_termination = shuffled_variants.iter().any(|v| v.ai.early_termination);
     let any_subtree_reuse = shuffled_variants.iter().any(|v| v.ai.subtree_reuse);
     let mut reuse_tree: Option<MctsNode> = None;
+    let mut player_time = vec![std::time::Duration::ZERO; num_players];
 
     // Main game loop
     while !matches!(state.phase, GamePhase::GameOver) {
@@ -227,7 +232,9 @@ pub fn run_game(
 
         let config = &shuffled_variants[player_index].ai;
         let max_rollout_round = std::cmp::max(8, state.round + 2);
+        let mcts_start = std::time::Instant::now();
         let result = ismcts(&state, player_index, config, &None, Some(max_rollout_round), reuse_tree.take(), rng);
+        player_time[player_index] += mcts_start.elapsed();
         total_iterations_budget += config.iterations as u64;
         total_iterations_used += result.iterations_used as u64;
         total_reused_iterations += result.reused_iterations as u64;
@@ -298,6 +305,7 @@ pub fn run_game(
     );
 
     let duration_ms = Some(start.elapsed().as_millis() as u64);
+    let player_time_ms: Vec<u64> = player_time.iter().map(|d| d.as_millis() as u64).collect();
 
     let (log_iterations, log_player_variants) = if has_variants {
         (
@@ -336,10 +344,12 @@ pub fn run_game(
         final_player_stats,
         entries,
         duration_ms,
+        player_time_ms,
         iterations: log_iterations,
         player_variants: log_player_variants,
         note,
         early_termination_savings,
         subtree_reuse_savings,
+        variant_order,
     }
 }
