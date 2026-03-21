@@ -7,7 +7,7 @@ use crate::action_phase::{
     skip_workshop,
 };
 use crate::colors::{
-    is_primary, pay_cost, perform_mix_unchecked, perform_unmix, PRIMARIES, SECONDARIES,
+    is_primary, mix_result, pay_cost, perform_mix_unchecked, perform_unmix, PRIMARIES, SECONDARIES,
     TERTIARIES, VALID_MIX_PAIRS,
 };
 use crate::choices::is_glass_ability_available;
@@ -645,5 +645,604 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
             }
         }
         _ => panic!("Cannot apply rollout step for current state"),
+    }
+}
+
+// ── Heuristic rollout helpers ──
+
+/// Epsilon probability for falling back to random in the heuristic rollout.
+const HEURISTIC_EPSILON: f64 = 0.2;
+
+/// Score a color by how useful it is for sell cards in the display, weighted by ducats.
+#[inline(always)]
+fn sell_card_color_demand(color: Color, sell_card_display: &[SellCardInstance]) -> u32 {
+    let mut score = 0u32;
+    for sc in sell_card_display {
+        for &c in sc.sell_card.color_cost() {
+            if c == color {
+                score += sc.sell_card.ducats();
+            }
+        }
+    }
+    score
+}
+
+/// Pick the best affordable sell card (highest ducats, tie-break by fewest missing colors).
+#[inline(always)]
+fn pick_best_affordable_sell_card(
+    player: &PlayerState,
+    sell_card_display: &[SellCardInstance],
+) -> Option<u32> {
+    let mut best_id: Option<u32> = None;
+    let mut best_ducats = 0u32;
+    let mut best_owned_colors = 0u32; // tie-break: more owned = fewer missing
+
+    for sell_card in sell_card_display {
+        if !can_afford_sell_card(player, &sell_card.sell_card) {
+            continue;
+        }
+        let ducats = sell_card.sell_card.ducats();
+        let owned = sell_card.sell_card.color_cost().iter()
+            .filter(|&&c| player.color_wheel.get(c) > 0)
+            .count() as u32;
+        if ducats > best_ducats || (ducats == best_ducats && owned > best_owned_colors) {
+            best_ducats = ducats;
+            best_owned_colors = owned;
+            best_id = Some(sell_card.instance_id);
+        }
+    }
+    best_id
+}
+
+/// Score a card for destruction priority. Higher = destroy first.
+#[inline(always)]
+fn destruction_priority(card: Card, can_sell: bool, has_workshop_targets: bool) -> u32 {
+    match card.ability() {
+        Ability::Sell if can_sell => 100,
+        Ability::Workshop { .. } if has_workshop_targets => 80,
+        Ability::MixColors { .. } => 60,
+        Ability::DestroyCards => 50,
+        Ability::Sell => 40, // sell but can't afford anything
+        Ability::DrawCards { .. } => 30,
+        Ability::Workshop { .. } => 20, // workshop but no targets
+        _ => 10,
+    }
+}
+
+/// Score a workshop card for selection priority.
+#[inline(always)]
+fn workshop_card_score(
+    card: Card,
+    sell_card_display: &[SellCardInstance],
+) -> u32 {
+    let mut score = 0u32;
+
+    // Material cards: score by how much their material type is needed
+    for &mt in card.material_types() {
+        for sc in sell_card_display {
+            if sc.sell_card.required_material() == mt {
+                score += sc.sell_card.ducats() * 3;
+            }
+        }
+    }
+
+    // Color cards: score by how much their colors are needed
+    for &color in card.colors() {
+        score += sell_card_color_demand(color, sell_card_display);
+    }
+
+    // Action cards get a moderate bonus
+    if card.is_action() {
+        score += 5;
+    }
+
+    score
+}
+
+/// Pick the best color from a slice, preferring colors needed for sell cards.
+#[inline(always)]
+fn pick_best_color<R: Rng>(
+    colors: &[Color],
+    sell_card_display: &[SellCardInstance],
+    rng: &mut R,
+) -> Color {
+    if rng.random_bool(HEURISTIC_EPSILON) {
+        return colors[rng.random_range(0..colors.len())];
+    }
+    let mut best_color = colors[0];
+    let mut best_score = 0u32;
+    for &c in colors {
+        let score = sell_card_color_demand(c, sell_card_display);
+        if score > best_score {
+            best_score = score;
+            best_color = c;
+        }
+    }
+    best_color
+}
+
+/// Heuristic mix sequence: prefer mixes whose output is useful for sell cards.
+#[inline(always)]
+fn heuristic_mix_seq<R: Rng>(
+    wheel: &ColorWheel,
+    remaining: u32,
+    sell_card_display: &[SellCardInstance],
+    rng: &mut R,
+) -> ([(Color, Color); 2], usize) {
+    if rng.random_bool(HEURISTIC_EPSILON) {
+        return random_mix_seq(wheel, remaining, rng);
+    }
+
+    let mut mixes = [(Color::Red, Color::Red); 2];
+    let mut count = 0usize;
+    let mut sim_wheel = wheel.clone();
+    for _ in 0..remaining {
+        if count >= 2 {
+            break;
+        }
+        let mut best_pair: Option<(Color, Color)> = None;
+        let mut best_score = 0u32;
+        let mut any_valid = false;
+        for &(a, b) in &VALID_MIX_PAIRS {
+            if sim_wheel.get(a) > 0 && sim_wheel.get(b) > 0 {
+                any_valid = true;
+                let output = mix_result(a, b);
+                let score = sell_card_color_demand(output, sell_card_display);
+                if score > best_score {
+                    best_score = score;
+                    best_pair = Some((a, b));
+                }
+            }
+        }
+        if !any_valid {
+            break;
+        }
+        // If no mix is useful, skip mixing (50% chance) or do random
+        if best_pair.is_none() {
+            if rng.random_bool(0.5) {
+                break;
+            }
+            // Fall back to random valid pair
+            let mut pairs: [(Color, Color); 9] = [(Color::Red, Color::Red); 9];
+            let mut pair_count = 0usize;
+            for &(a, b) in &VALID_MIX_PAIRS {
+                if sim_wheel.get(a) > 0 && sim_wheel.get(b) > 0 {
+                    pairs[pair_count] = (a, b);
+                    pair_count += 1;
+                }
+            }
+            let (a, b) = pairs[rng.random_range(0..pair_count)];
+            mixes[count] = (a, b);
+            count += 1;
+            perform_mix_unchecked(&mut sim_wheel, a, b);
+        } else {
+            let (a, b) = best_pair.unwrap();
+            mixes[count] = (a, b);
+            count += 1;
+            perform_mix_unchecked(&mut sim_wheel, a, b);
+        }
+    }
+    (mixes, count)
+}
+
+#[inline(always)]
+fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize, rng: &mut impl Rng) {
+    // Glass: use same random policy (glass strategy is complex, not worth heuristic overhead)
+    if try_activate_random_glass(state, player_index, rng) {
+        return;
+    }
+
+    let drafted = state.players[player_index].drafted_cards;
+    if drafted.is_empty() {
+        end_player_turn(state, rng);
+        if matches!(state.phase, GamePhase::Draw) {
+            rollout_draw_and_draft(state, rng);
+        }
+        return;
+    }
+
+    // Epsilon: random fallback
+    if rng.random_bool(HEURISTIC_EPSILON) {
+        handle_action_no_pending(state, player_index, rng);
+        return;
+    }
+
+    let can_sell = pick_best_affordable_sell_card(
+        &state.players[player_index],
+        &state.sell_card_display,
+    ).is_some();
+    let has_workshop_targets = !state.players[player_index].workshop_cards.is_empty();
+
+    // Score each drafted card and pick the best to destroy
+    let mut best_id: Option<u8> = None;
+    let mut best_priority = 0u32;
+    let mut seen: u64 = 0;
+    for id in drafted.iter() {
+        let card = state.card_lookup[id as usize];
+        let bit = 1u64 << (card as u64);
+        if seen & bit != 0 { continue; }
+        seen |= bit;
+        let priority = destruction_priority(card, can_sell, has_workshop_targets);
+        if priority > best_priority {
+            best_priority = priority;
+            best_id = Some(id);
+        }
+    }
+
+    // If best priority is low, 50% chance to just end turn
+    if best_priority <= 30 && rng.random_bool(0.5) {
+        end_player_turn(state, rng);
+        if matches!(state.phase, GamePhase::Draw) {
+            rollout_draw_and_draft(state, rng);
+        }
+        return;
+    }
+
+    let card_id = best_id.unwrap();
+    let card = state.card_lookup[card_id as usize];
+    match card.ability() {
+        Ability::MixColors { count } => {
+            let (mixes, mix_count) =
+                heuristic_mix_seq(&state.players[player_index].color_wheel, count, &state.sell_card_display, rng);
+            state.players[player_index].drafted_cards.remove(card_id);
+            state.destroyed_pile.insert(card_id);
+            for i in 0..mix_count {
+                let (a, b) = mixes[i];
+                perform_mix_unchecked(&mut state.players[player_index].color_wheel, a, b);
+            }
+        }
+        Ability::Sell => {
+            let sell_card_id_opt = pick_best_affordable_sell_card(
+                &state.players[player_index],
+                &state.sell_card_display,
+            );
+            let glass_available = state.expansions.glass
+                && !state.glass_display.is_empty()
+                && can_afford_glass(&state.players[player_index]);
+
+            match (sell_card_id_opt, glass_available) {
+                (Some(sell_card_id), true) => {
+                    // Prefer selling (ducats are the goal) unless glass is clearly better
+                    if rng.random_range(0..3u32) == 0 {
+                        fused_glass_acquire(state, player_index, card_id, rng);
+                    } else {
+                        fused_buy(state, player_index, card_id, sell_card_id, rng);
+                    }
+                }
+                (Some(sell_card_id), false) => {
+                    fused_buy(state, player_index, card_id, sell_card_id, rng);
+                }
+                (None, true) => {
+                    fused_glass_acquire(state, player_index, card_id, rng);
+                }
+                (None, false) => {
+                    destroy_drafted_card(state, card_id as u32, rng);
+                }
+            }
+        }
+        _ => {
+            destroy_drafted_card(state, card_id as u32, rng);
+        }
+    }
+}
+
+pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
+    // Draft phase: use same fast-path as random rollout
+    if matches!(&state.phase, GamePhase::Draft { .. }) {
+        loop {
+            let card_id = {
+                if let GamePhase::Draft { ref draft_state } = state.phase {
+                    let player = draft_state.current_player_index;
+                    let hand = draft_state.hands[player];
+                    match hand.pick_random(rng) {
+                        Some(id) => id as u32,
+                        None => break,
+                    }
+                } else {
+                    break;
+                }
+            };
+            player_pick(state, card_id);
+        }
+        return;
+    }
+
+    match &state.phase {
+        GamePhase::Action { action_state } => {
+            let player_index = action_state.current_player_index;
+            match action_state.ability_stack.last() {
+                None => {
+                    handle_action_no_pending_heuristic(state, player_index, rng);
+                }
+                Some(Ability::Workshop { count }) => {
+                    let count = *count;
+
+                    // Epsilon: fall back to random
+                    if rng.random_bool(HEURISTIC_EPSILON) {
+                        let mut copy = state.players[player_index].workshop_cards;
+                        let selected = copy.draw_up_to(count as u8, rng);
+                        if selected.is_empty() {
+                            skip_workshop(state, rng);
+                        } else {
+                            resolve_workshop_choice(state, selected, rng);
+                        }
+                        return;
+                    }
+
+                    // Score each workshop card and pick the top N
+                    let workshop = state.players[player_index].workshop_cards;
+                    let mut scored: [(u8, u32); 16] = [(0, 0); 16];
+                    let mut scored_count = 0usize;
+                    for id in workshop.iter() {
+                        let card = state.card_lookup[id as usize];
+                        let score = workshop_card_score(card, &state.sell_card_display);
+                        scored[scored_count] = (id, score);
+                        scored_count += 1;
+                    }
+
+                    if scored_count == 0 {
+                        skip_workshop(state, rng);
+                        return;
+                    }
+
+                    // Sort descending by score (simple insertion sort, max 16 elements)
+                    for i in 1..scored_count {
+                        let mut j = i;
+                        while j > 0 && scored[j].1 > scored[j - 1].1 {
+                            scored.swap(j, j - 1);
+                            j -= 1;
+                        }
+                    }
+
+                    // Select top min(count, scored_count) cards
+                    let take = (count as usize).min(scored_count);
+                    let mut selected = UnorderedCards::new();
+                    for i in 0..take {
+                        selected.insert(scored[i].0);
+                    }
+                    resolve_workshop_choice(state, selected, rng);
+                }
+                Some(Ability::DestroyCards) => {
+                    let workshop = state.players[player_index].workshop_cards;
+                    if workshop.is_empty() {
+                        resolve_destroy_cards(state, UnorderedCards::new(), rng);
+                        return;
+                    }
+
+                    // Epsilon: random
+                    if rng.random_bool(HEURISTIC_EPSILON) {
+                        let mut copy = workshop;
+                        let selected = copy.draw_up_to(1, rng);
+                        resolve_destroy_cards(state, selected, rng);
+                        return;
+                    }
+
+                    // Pick the card whose destroy ability is most useful
+                    let can_sell = pick_best_affordable_sell_card(
+                        &state.players[player_index],
+                        &state.sell_card_display,
+                    ).is_some();
+                    let has_targets = workshop.len() > 1; // after destroying one, are there more?
+
+                    let mut best_id: Option<u8> = None;
+                    let mut best_score = 0u32;
+                    for id in workshop.iter() {
+                        let card = state.card_lookup[id as usize];
+                        let score = destruction_priority(card, can_sell, has_targets);
+                        if score > best_score || best_id.is_none() {
+                            best_score = score;
+                            best_id = Some(id);
+                        }
+                    }
+
+                    let mut selected = UnorderedCards::new();
+                    if let Some(id) = best_id {
+                        selected.insert(id);
+                    }
+                    resolve_destroy_cards(state, selected, rng);
+                }
+                Some(Ability::MixColors { count }) => {
+                    let remaining_mixes = *count;
+                    let (mixes, mix_count) = heuristic_mix_seq(
+                        &state.players[player_index].color_wheel,
+                        remaining_mixes,
+                        &state.sell_card_display,
+                        rng,
+                    );
+                    for i in 0..mix_count {
+                        let (a, b) = mixes[i];
+                        perform_mix_unchecked(
+                            &mut state.players[player_index].color_wheel,
+                            a,
+                            b,
+                        );
+                    }
+                    if let GamePhase::Action { ref mut action_state } = state.phase {
+                        action_state.ability_stack.pop();
+                    }
+                    process_ability_stack(state, rng);
+                }
+                Some(Ability::Sell) => {
+                    // Epsilon: random
+                    if rng.random_bool(HEURISTIC_EPSILON) {
+                        let sell_card_id_opt = pick_random_affordable_sell_card(
+                            &state.players[player_index],
+                            &state.sell_card_display,
+                            rng,
+                        );
+                        let glass_available = state.expansions.glass
+                            && !state.glass_display.is_empty()
+                            && can_afford_glass(&state.players[player_index]);
+                        match (sell_card_id_opt, glass_available) {
+                            (Some(sell_card_id), true) => {
+                                if rng.random_range(0..2u32) == 0 {
+                                    resolve_select_sell_card(state, sell_card_id, rng);
+                                } else {
+                                    let glass_idx = rng.random_range(0..state.glass_display.len());
+                                    let glass_card = state.glass_display[glass_idx].card;
+                                    let mut affordable_primaries = [Color::Red; 3];
+                                    let mut aff_count = 0usize;
+                                    for &c in &PRIMARIES {
+                                        if state.players[player_index].color_wheel.get(c) >= 4 {
+                                            affordable_primaries[aff_count] = c;
+                                            aff_count += 1;
+                                        }
+                                    }
+                                    let pay_color = affordable_primaries[rng.random_range(0..aff_count)];
+                                    resolve_select_glass(state, glass_card, pay_color, rng);
+                                }
+                            }
+                            (Some(sell_card_id), false) => {
+                                resolve_select_sell_card(state, sell_card_id, rng);
+                            }
+                            (None, true) => {
+                                let glass_idx = rng.random_range(0..state.glass_display.len());
+                                let glass_card = state.glass_display[glass_idx].card;
+                                let mut affordable_primaries = [Color::Red; 3];
+                                let mut aff_count = 0usize;
+                                for &c in &PRIMARIES {
+                                    if state.players[player_index].color_wheel.get(c) >= 4 {
+                                        affordable_primaries[aff_count] = c;
+                                        aff_count += 1;
+                                    }
+                                }
+                                let pay_color = affordable_primaries[rng.random_range(0..aff_count)];
+                                resolve_select_glass(state, glass_card, pay_color, rng);
+                            }
+                            (None, false) => {
+                                if let GamePhase::Action { ref mut action_state } = state.phase {
+                                    action_state.ability_stack.pop();
+                                }
+                                process_ability_stack(state, rng);
+                            }
+                        }
+                        return;
+                    }
+
+                    // Heuristic: pick best sell card
+                    let sell_card_id_opt = pick_best_affordable_sell_card(
+                        &state.players[player_index],
+                        &state.sell_card_display,
+                    );
+                    let glass_available = state.expansions.glass
+                        && !state.glass_display.is_empty()
+                        && can_afford_glass(&state.players[player_index]);
+                    match (sell_card_id_opt, glass_available) {
+                        (Some(sell_card_id), true) => {
+                            // Prefer selling over glass most of the time
+                            if rng.random_range(0..3u32) == 0 {
+                                let glass_idx = rng.random_range(0..state.glass_display.len());
+                                let glass_card = state.glass_display[glass_idx].card;
+                                let mut affordable_primaries = [Color::Red; 3];
+                                let mut aff_count = 0usize;
+                                for &c in &PRIMARIES {
+                                    if state.players[player_index].color_wheel.get(c) >= 4 {
+                                        affordable_primaries[aff_count] = c;
+                                        aff_count += 1;
+                                    }
+                                }
+                                let pay_color = affordable_primaries[rng.random_range(0..aff_count)];
+                                resolve_select_glass(state, glass_card, pay_color, rng);
+                            } else {
+                                resolve_select_sell_card(state, sell_card_id, rng);
+                            }
+                        }
+                        (Some(sell_card_id), false) => {
+                            resolve_select_sell_card(state, sell_card_id, rng);
+                        }
+                        (None, true) => {
+                            let glass_idx = rng.random_range(0..state.glass_display.len());
+                            let glass_card = state.glass_display[glass_idx].card;
+                            let mut affordable_primaries = [Color::Red; 3];
+                            let mut aff_count = 0usize;
+                            for &c in &PRIMARIES {
+                                if state.players[player_index].color_wheel.get(c) >= 4 {
+                                    affordable_primaries[aff_count] = c;
+                                    aff_count += 1;
+                                }
+                            }
+                            let pay_color = affordable_primaries[rng.random_range(0..aff_count)];
+                            resolve_select_glass(state, glass_card, pay_color, rng);
+                        }
+                        (None, false) => {
+                            if let GamePhase::Action { ref mut action_state } = state.phase {
+                                action_state.ability_stack.pop();
+                            }
+                            process_ability_stack(state, rng);
+                        }
+                    }
+                }
+                Some(Ability::GainSecondary) => {
+                    let color = pick_best_color(&SECONDARIES, &state.sell_card_display, rng);
+                    resolve_gain_color(state, color, rng);
+                }
+                Some(Ability::GainPrimary) => {
+                    let color = pick_best_color(&PRIMARIES, &state.sell_card_display, rng);
+                    resolve_gain_color(state, color, rng);
+                }
+                Some(Ability::ChangeTertiary) => {
+                    let player = &state.players[player_index];
+                    let mut owned_tertiaries = [Color::Red; 6];
+                    let mut own_count = 0usize;
+                    for &c in &TERTIARIES {
+                        if player.color_wheel.get(c) > 0 {
+                            owned_tertiaries[own_count] = c;
+                            own_count += 1;
+                        }
+                    }
+                    if own_count == 0 {
+                        if let GamePhase::Action { ref mut action_state } = state.phase {
+                            action_state.ability_stack.pop();
+                        }
+                        process_ability_stack(state, rng);
+                    } else if rng.random_bool(HEURISTIC_EPSILON) {
+                        // Epsilon: random
+                        let r = rng.random_range(0..own_count * 5);
+                        let lose_idx = r / 5;
+                        let gain_local_idx = r % 5;
+                        let lose_color = owned_tertiaries[lose_idx];
+                        let mut options = [Color::Red; 6];
+                        let mut opt_count = 0usize;
+                        for &c in &TERTIARIES {
+                            if c != lose_color {
+                                options[opt_count] = c;
+                                opt_count += 1;
+                            }
+                        }
+                        let gain_color = options[gain_local_idx];
+                        resolve_choose_tertiary_to_lose(state, lose_color);
+                        resolve_choose_tertiary_to_gain(state, gain_color, rng);
+                    } else {
+                        // Heuristic: lose the least useful, gain the most useful
+                        let sell_display = &state.sell_card_display;
+                        let mut best_lose = owned_tertiaries[0];
+                        let mut best_lose_score = u32::MAX;
+                        for i in 0..own_count {
+                            let c = owned_tertiaries[i];
+                            let score = sell_card_color_demand(c, sell_display);
+                            if score < best_lose_score {
+                                best_lose_score = score;
+                                best_lose = c;
+                            }
+                        }
+                        let mut best_gain = TERTIARIES[0];
+                        let mut best_gain_score = 0u32;
+                        for &c in &TERTIARIES {
+                            if c != best_lose {
+                                let score = sell_card_color_demand(c, sell_display);
+                                if score > best_gain_score {
+                                    best_gain_score = score;
+                                    best_gain = c;
+                                }
+                            }
+                        }
+                        resolve_choose_tertiary_to_lose(state, best_lose);
+                        resolve_choose_tertiary_to_gain(state, best_gain, rng);
+                    }
+                }
+                Some(_) => panic!("Unexpected ability on stack top during rollout"),
+            }
+        }
+        _ => panic!("Cannot apply heuristic rollout step for current state"),
     }
 }

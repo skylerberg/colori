@@ -1,5 +1,5 @@
 use crate::colori_game::{
-    apply_choice_to_state, apply_rollout_step,
+    apply_choice_to_state, apply_rollout_step, apply_heuristic_rollout_step,
     determinize_in_place, enumerate_choices_into,
 };
 use crate::draft_phase::player_pick;
@@ -21,6 +21,7 @@ pub struct MctsConfig {
     pub heuristic_params: HeuristicParams,
     pub diff_eval_params: Option<Box<DiffEvalParams>>,
     pub no_rollout: bool,
+    pub heuristic_rollout: bool,
     pub early_termination: bool,
     pub subtree_reuse: bool,
     pub time_limit_ms: Option<u64>,
@@ -44,6 +45,7 @@ impl Default for MctsConfig {
             heuristic_params: HeuristicParams::default(),
             diff_eval_params: None,
             no_rollout: false,
+            heuristic_rollout: false,
             early_termination: true,
             subtree_reuse: true,
             time_limit_ms: None,
@@ -72,6 +74,8 @@ impl<'de> Deserialize<'de> for MctsConfig {
             #[serde(default)]
             heuristic_params: HeuristicParams,
             #[serde(default)]
+            heuristic_rollout: bool,
+            #[serde(default)]
             early_termination: bool,
             #[serde(default)]
             subtree_reuse: bool,
@@ -95,6 +99,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
             heuristic_params: helper.heuristic_params,
             diff_eval_params: None,
             no_rollout: false,
+            heuristic_rollout: helper.heuristic_rollout,
             early_termination: helper.early_termination,
             subtree_reuse: helper.subtree_reuse,
             time_limit_ms: helper.time_limit_ms,
@@ -599,7 +604,7 @@ fn iteration_simultaneous<R: Rng>(
         let scores = if config.no_rollout {
             eval_scores(state, true, &config.heuristic_params, card_table, de)
         } else {
-            rollout(state, max_rollout_round, config.max_rollout_steps, use_heuristic, &config.heuristic_params, card_table, de, rng)
+            rollout(state, max_rollout_round, config.max_rollout_steps, use_heuristic, config.heuristic_rollout, &config.heuristic_params, card_table, de, rng)
         };
         record_outcome(&mut node.children[best_idx], &scores);
         scores
@@ -653,7 +658,7 @@ fn select(
     best_idx
 }
 
-fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_rollout_steps: u32, use_heuristic: bool, params: &HeuristicParams, card_table: &CardHeuristicTable, diff_eval: Option<(&DiffEvalParams, &DiffEvalTable)>, rng: &mut R) -> [f64; MAX_PLAYERS] {
+fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_rollout_steps: u32, use_heuristic: bool, heuristic_rollout: bool, params: &HeuristicParams, card_table: &CardHeuristicTable, diff_eval: Option<(&DiffEvalParams, &DiffEvalTable)>, rng: &mut R) -> [f64; MAX_PLAYERS] {
     for _ in 0..max_rollout_steps {
         if matches!(state.phase, GamePhase::GameOver) {
             return compute_terminal_rewards(&state.players);
@@ -661,7 +666,11 @@ fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_ro
         if max_rollout_round.is_some_and(|mr| state.round > mr) {
             return eval_scores(state, use_heuristic, params, card_table, diff_eval);
         }
-        apply_rollout_step(state, rng);
+        if heuristic_rollout {
+            apply_heuristic_rollout_step(state, rng);
+        } else {
+            apply_rollout_step(state, rng);
+        }
     }
 
     eval_scores(state, use_heuristic, params, card_table, diff_eval)

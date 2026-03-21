@@ -75,6 +75,8 @@ struct VariantFileEntry {
     #[serde(default)]
     no_rollout: Option<bool>,
     #[serde(default)]
+    heuristic_rollout: Option<bool>,
+    #[serde(default)]
     early_termination: Option<bool>,
     #[serde(default)]
     subtree_reuse: Option<bool>,
@@ -123,6 +125,7 @@ impl VariantFileEntry {
                 heuristic_params,
                 diff_eval_params,
                 no_rollout: self.no_rollout.unwrap_or(defaults.no_rollout),
+                heuristic_rollout: self.heuristic_rollout.unwrap_or(defaults.heuristic_rollout),
                 early_termination: self.early_termination.unwrap_or(defaults.early_termination),
                 subtree_reuse: self.subtree_reuse.unwrap_or(defaults.subtree_reuse),
                 time_limit_ms: self.time_limit_ms,
