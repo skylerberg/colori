@@ -92,6 +92,7 @@ fn generate_training_data(
     heuristic_params: &HeuristicParams,
     diff_eval_params: Option<&DiffEvalParams>,
     no_rollout: bool,
+    game_play_mode: GamePlayMode,
     epoch: usize,
 ) -> DataGenStats {
     let start = std::time::Instant::now();
@@ -117,7 +118,7 @@ fn generate_training_data(
 
                 for game_i in 0..count {
                     let result = play_game_and_collect(
-                        &hp, dep.as_ref(), eval_iterations, baseline_iterations, no_rollout, game_offset + game_i, &mut rng,
+                        &hp, dep.as_ref(), eval_iterations, baseline_iterations, no_rollout, game_play_mode, game_offset + game_i, &mut rng,
                     );
                     thread_results.push(result);
 
@@ -144,7 +145,6 @@ fn generate_training_data(
     let mut draws = 0usize;
     let mut losses = 0usize;
     let mut total_rounds = 0u64;
-    let vs_baseline = diff_eval_params.is_some();
 
     for result in results {
         total_rounds += result.final_round as u64;
@@ -159,7 +159,7 @@ fn generate_training_data(
     }
 
     let avg_rounds = total_rounds as f64 / num_games as f64;
-    if vs_baseline {
+    if matches!(game_play_mode, GamePlayMode::VsBaseline) {
         eprintln!("  Epoch {}: {} samples from {} games ({:.0}s) | avg {:.1} rounds | vs baseline: {}W/{}D/{}L ({:.1}%)",
             epoch + 1, samples.len(), num_games, elapsed.as_secs_f64(),
             avg_rounds, wins, draws, losses,
@@ -172,15 +172,25 @@ fn generate_training_data(
     DataGenStats { samples }
 }
 
+/// Game play mode for training data generation.
+#[derive(Clone, Copy)]
+enum GamePlayMode {
+    /// Both players use heuristic MCTS (fast, no NN during game play)
+    Heuristic,
+    /// One player uses NN, the other uses heuristic (tracks W/D/L)
+    VsBaseline,
+    /// Both players use NN (for self-play training)
+    SelfPlay,
+}
+
 /// Play a game and collect training samples.
-/// If `diff_eval_params` is Some, one player uses diff-eval and the other uses the baseline
-/// heuristic (alternating sides based on `game_index`). If None, both players use the baseline.
 fn play_game_and_collect(
     heuristic_params: &HeuristicParams,
     diff_eval_params: Option<&DiffEvalParams>,
     eval_iterations: u32,
     baseline_iterations: u32,
     no_rollout: bool,
+    game_play_mode: GamePlayMode,
     game_index: usize,
     rng: &mut WyRand,
 ) -> GameResult {
@@ -196,25 +206,41 @@ fn play_game_and_collect(
         ..MctsConfig::default()
     };
 
-    let diff_player: Option<usize> = diff_eval_params.as_ref().map(|_| {
-        if game_index % 2 == 0 { 0 } else { 1 }
-    });
+    let diff_player: Option<usize> = match game_play_mode {
+        GamePlayMode::VsBaseline => Some(if game_index % 2 == 0 { 0 } else { 1 }),
+        _ => None,
+    };
 
-    let configs: [MctsConfig; 2] = if let Some(dep) = diff_eval_params {
-        let diff_config = MctsConfig {
-            iterations: eval_iterations,
-            use_heuristic_eval: true,
-            diff_eval_params: Some(Box::new(dep.clone())),
-            no_rollout,
-            ..MctsConfig::default()
-        };
-        if game_index % 2 == 0 {
-            [diff_config, baseline_config]
-        } else {
-            [baseline_config.clone(), diff_config]
+    let configs: [MctsConfig; 2] = match game_play_mode {
+        GamePlayMode::Heuristic => {
+            [baseline_config.clone(), baseline_config]
         }
-    } else {
-        [baseline_config.clone(), baseline_config]
+        GamePlayMode::VsBaseline => {
+            let dep = diff_eval_params.expect("VsBaseline mode requires diff_eval_params");
+            let diff_config = MctsConfig {
+                iterations: eval_iterations,
+                use_heuristic_eval: true,
+                diff_eval_params: Some(Box::new(dep.clone())),
+                no_rollout,
+                ..MctsConfig::default()
+            };
+            if game_index % 2 == 0 {
+                [diff_config, baseline_config]
+            } else {
+                [baseline_config.clone(), diff_config]
+            }
+        }
+        GamePlayMode::SelfPlay => {
+            let dep = diff_eval_params.expect("SelfPlay mode requires diff_eval_params");
+            let diff_config = MctsConfig {
+                iterations: eval_iterations,
+                use_heuristic_eval: true,
+                diff_eval_params: Some(Box::new(dep.clone())),
+                no_rollout,
+                ..MctsConfig::default()
+            };
+            [diff_config.clone(), diff_config]
+        }
     };
 
     execute_draw_phase(&mut state, rng);
@@ -435,6 +461,7 @@ pub struct TrainArgs {
     pub lr: f64,
     pub eval_iterations: u32,
     pub baseline_iterations: Option<u32>,
+    pub self_play: bool,
     pub vs_baseline: bool,
     pub no_rollout: bool,
     pub threads: usize,
@@ -448,9 +475,21 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
     eprintln!("Games/epoch: {}, Epochs: {}, Batch size: {}, Passes: {}, LR: {}, Replay buffer: {} epochs",
         train.games, train.epochs, train.batch_size, train.passes, train.lr, train.replay_buffer_epochs);
     let baseline_iters_display = train.baseline_iterations.unwrap_or(train.eval_iterations);
+    let game_play_mode = if train.self_play {
+        GamePlayMode::SelfPlay
+    } else if train.vs_baseline {
+        GamePlayMode::VsBaseline
+    } else {
+        GamePlayMode::Heuristic
+    };
+    let mode_name = match game_play_mode {
+        GamePlayMode::Heuristic => "heuristic",
+        GamePlayMode::VsBaseline => "vs baseline",
+        GamePlayMode::SelfPlay => "self-play",
+    };
     eprintln!("MCTS iterations: {} (baseline: {}), Threads: {}, Mode: {}, Rollout: {}",
         train.eval_iterations, baseline_iters_display, train.threads,
-        if train.vs_baseline { "vs baseline" } else { "self-play" },
+        mode_name,
         if train.no_rollout { "none (direct eval)" } else { "standard" });
 
     let baseline_params = args.baseline_heuristic_params.clone().unwrap_or_default();
@@ -474,7 +513,7 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
 
     // Try to resume from latest checkpoint
     let (mut params, mut optimizer, start_epoch) = load_checkpoint(&train.output, train.lr);
-    let table = DiffEvalTable::new(&params);
+    let mut table = DiffEvalTable::new(&params);
 
     if start_epoch > 0 {
         eprintln!("Resuming from epoch {}", start_epoch);
@@ -491,10 +530,18 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
     for epoch in start_epoch..train.epochs {
         let epoch_start = std::time::Instant::now();
 
-        let dep = if train.vs_baseline { Some(&params) } else { None };
+        // Recreate table each epoch for self-play (weights change between epochs)
+        if matches!(game_play_mode, GamePlayMode::SelfPlay) && epoch > start_epoch {
+            table = DiffEvalTable::new(&params);
+        }
+
+        let dep = match game_play_mode {
+            GamePlayMode::Heuristic => None,
+            GamePlayMode::VsBaseline | GamePlayMode::SelfPlay => Some(&params),
+        };
         let baseline_iters = train.baseline_iterations.unwrap_or(train.eval_iterations);
         let data = generate_training_data(
-            train.games, train.eval_iterations, baseline_iters, train.threads, &baseline_params, dep, train.no_rollout, epoch,
+            train.games, train.eval_iterations, baseline_iters, train.threads, &baseline_params, dep, train.no_rollout, game_play_mode, epoch,
         );
         let new_samples = data.samples;
         if new_samples.is_empty() {

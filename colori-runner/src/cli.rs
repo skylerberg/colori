@@ -22,6 +22,7 @@ pub struct SimulationArgs {
     pub train_batch_size: usize,
     pub train_passes: usize,
     pub train_lr: f64,
+    pub train_self_play: bool,
     pub train_vs_baseline: bool,
     pub train_no_rollout: bool,
     pub train_eval_iterations: u32,
@@ -149,6 +150,7 @@ pub fn parse_args() -> SimulationArgs {
     let mut tournament = false;
 
     let mut train_diff_eval = false;
+    let mut train_self_play = false;
     let mut train_vs_baseline = false;
     let mut train_no_rollout = false;
     let mut train_baseline_iterations: Option<u32> = None;
@@ -230,6 +232,11 @@ pub fn parse_args() -> SimulationArgs {
             }
             "--train-vs-baseline" => {
                 train_vs_baseline = true;
+                i += 1;
+                continue;
+            }
+            "--self-play" => {
+                train_self_play = true;
                 i += 1;
                 continue;
             }
@@ -367,6 +374,7 @@ pub fn parse_args() -> SimulationArgs {
         genetic: genetic_args,
         tournament,
         train_diff_eval,
+        train_self_play,
         train_vs_baseline,
         train_no_rollout,
         train_games_per_epoch,

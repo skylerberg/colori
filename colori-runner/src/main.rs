@@ -49,6 +49,7 @@ fn main() {
             lr: args.train_lr,
             eval_iterations: args.train_eval_iterations,
             baseline_iterations: args.train_baseline_iterations,
+            self_play: args.train_self_play,
             vs_baseline: args.train_vs_baseline,
             no_rollout: args.train_no_rollout,
             threads: args.threads,
