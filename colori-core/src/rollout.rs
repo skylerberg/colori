@@ -331,7 +331,7 @@ fn try_activate_random_glass(
 }
 
 #[inline(always)]
-fn handle_action_no_pending(state: &mut GameState, player_index: usize, rng: &mut impl Rng) {
+fn handle_action_no_pending(state: &mut GameState, player_index: usize, heuristic_draft: bool, rng: &mut impl Rng) {
     // Try activating a random glass ability before picking a drafted card
     if try_activate_random_glass(state, player_index, rng) {
         return;
@@ -343,7 +343,11 @@ fn handle_action_no_pending(state: &mut GameState, player_index: usize, rng: &mu
         // No drafted cards left — end turn and advance to next round
         end_player_turn(state, rng);
         if matches!(state.phase, GamePhase::Draw) {
-            rollout_draw_and_draft(state, rng);
+            if heuristic_draft {
+                heuristic_rollout_draw_and_draft(state, rng);
+            } else {
+                rollout_draw_and_draft(state, rng);
+            }
         }
         return;
     }
@@ -464,23 +468,27 @@ fn fused_glass_acquire<R: Rng>(
     }
 }
 
-pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
+pub fn apply_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, rng: &mut R) {
     // Fast path: complete entire draft in one step
     if matches!(&state.phase, GamePhase::Draft { .. }) {
-        loop {
-            let card_id = {
-                if let GamePhase::Draft { ref draft_state } = state.phase {
-                    let player = draft_state.current_player_index;
-                    let hand = draft_state.hands[player];
-                    match hand.pick_random(rng) {
-                        Some(id) => id as u32,
-                        None => break, // Empty hand (e.g., GlassKeepBoth)
+        if heuristic_draft {
+            heuristic_draft_loop(state, rng);
+        } else {
+            loop {
+                let card_id = {
+                    if let GamePhase::Draft { ref draft_state } = state.phase {
+                        let player = draft_state.current_player_index;
+                        let hand = draft_state.hands[player];
+                        match hand.pick_random(rng) {
+                            Some(id) => id as u32,
+                            None => break,
+                        }
+                    } else {
+                        break;
                     }
-                } else {
-                    break;
-                }
-            };
-            player_pick(state, card_id);
+                };
+                player_pick(state, card_id);
+            }
         }
         return;
     }
@@ -490,7 +498,7 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
             let player_index = action_state.current_player_index;
             match action_state.ability_stack.last() {
                 None => {
-                    handle_action_no_pending(state, player_index, rng);
+                    handle_action_no_pending(state, player_index, heuristic_draft, rng);
                 }
                 Some(Ability::Workshop { count }) => {
                     let count = *count;
@@ -652,6 +660,214 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
 
 /// Epsilon probability for falling back to random in the heuristic rollout.
 const HEURISTIC_EPSILON: f64 = 0.2;
+
+// ── Heuristic draft helpers ──
+
+/// Classify a card's ability into a category index for redundancy counting.
+/// Returns (category, workshop_count) where workshop_count is only meaningful for Workshop.
+#[inline(always)]
+fn ability_category(ability: Ability) -> (u8, u32) {
+    match ability {
+        Ability::Workshop { count } => (0, count),
+        Ability::MixColors { .. } => (1, 0),
+        Ability::Sell => (2, 0),
+        Ability::DestroyCards => (3, 0),
+        Ability::DrawCards { .. } => (4, 0),
+        _ => (5, 0),
+    }
+}
+
+/// Given a hand of cards, pick the instance ID of the card to drop.
+/// Drops the most redundant card (most other cards share its ability type).
+/// Among equally redundant Workshop cards, drops the one with the lowest count.
+#[inline(always)]
+fn pick_card_to_drop<R: Rng>(
+    hand: &UnorderedCards,
+    card_lookup: &[Card; 256],
+    rng: &mut R,
+) -> u8 {
+    // Epsilon: random drop
+    if rng.random_bool(HEURISTIC_EPSILON) {
+        return hand.pick_random(rng).unwrap();
+    }
+
+    // Collect card info: (instance_id, category, workshop_count)
+    let mut cards: [(u8, u8, u32); 8] = [(0, 0, 0); 8];
+    let mut count = 0usize;
+    for id in hand.iter() {
+        let card = card_lookup[id as usize];
+        let (cat, wc) = ability_category(card.ability());
+        cards[count] = (id, cat, wc);
+        count += 1;
+    }
+
+    // Count how many cards share each category
+    let mut cat_counts = [0u32; 6];
+    for i in 0..count {
+        cat_counts[cards[i].1 as usize] += 1;
+    }
+
+    // For each card, its redundancy is cat_counts[its_category] - 1
+    // Find the max redundancy
+    let mut max_redundancy = 0u32;
+    for i in 0..count {
+        let redundancy = cat_counts[cards[i].1 as usize] - 1;
+        if redundancy > max_redundancy {
+            max_redundancy = redundancy;
+        }
+    }
+
+    // Among cards with max redundancy, pick the worst to drop
+    let mut best_drop: Option<u8> = None;
+    let mut best_drop_wc = u32::MAX; // for Workshop: lower = worse = drop first
+    let mut candidates = 0u32;
+
+    for i in 0..count {
+        let redundancy = cat_counts[cards[i].1 as usize] - 1;
+        if redundancy != max_redundancy {
+            continue;
+        }
+        let (id, cat, wc) = cards[i];
+        if cat == 0 {
+            // Workshop: prefer dropping lowest workshop count
+            if wc < best_drop_wc {
+                best_drop_wc = wc;
+                best_drop = Some(id);
+                candidates = 1;
+            } else if wc == best_drop_wc {
+                candidates += 1;
+                if rng.random_range(0..candidates) == 0 {
+                    best_drop = Some(id);
+                }
+            }
+        } else {
+            // Non-workshop: pick randomly among equal redundancy
+            candidates += 1;
+            if best_drop.is_none() || rng.random_range(0..candidates) == 0 {
+                best_drop = Some(id);
+            }
+        }
+    }
+
+    best_drop.unwrap()
+}
+
+/// Like `rollout_draw_and_draft` but deals 5 cards per player and uses
+/// the heuristic to drop the most redundant card, keeping the best 4.
+fn heuristic_rollout_draw_and_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
+    let num_players = state.players.len();
+
+    // Step 1: Draw 5 cards from each player's personal deck
+    for i in 0..num_players {
+        let player = &mut state.players[i];
+        draw_from_deck(
+            &mut player.deck,
+            &mut player.discard,
+            &mut player.workshop_cards,
+            5,
+            rng,
+        );
+    }
+
+    // Step 2: Draw 5 cards per player from draft_deck (instead of 4)
+    let mut dealt = [UnorderedCards::new(); MAX_PLAYERS];
+    for i in 0..num_players {
+        let deck_len = state.draft_deck.len();
+        if deck_len >= 5 {
+            dealt[i] = state.draft_deck.draw_multiple(5, rng);
+        } else {
+            dealt[i] = state.draft_deck;
+            state.draft_deck = UnorderedCards::new();
+            let remaining = 5 - deck_len;
+            if remaining > 0 && !state.destroyed_pile.is_empty() {
+                state.draft_deck = state.destroyed_pile;
+                state.destroyed_pile = UnorderedCards::new();
+                let available = state.draft_deck.len().min(remaining);
+                if available > 0 {
+                    let drawn = state.draft_deck.draw_multiple(available, rng);
+                    dealt[i] = dealt[i].union(drawn);
+                }
+            }
+        }
+    }
+
+    // Step 3: If any player got 0 cards, return all dealt cards to destroyed_pile
+    if (0..num_players).any(|i| dealt[i].is_empty()) {
+        for i in 0..num_players {
+            state.destroyed_pile = state.destroyed_pile.union(dealt[i]);
+        }
+        state.destroyed_pile = state.destroyed_pile.union(state.draft_deck);
+        state.draft_deck = UnorderedCards::new();
+        initialize_action_phase(state);
+        return;
+    }
+
+    // Step 4: For each player, drop the most redundant card
+    for i in 0..num_players {
+        if dealt[i].len() > 4 {
+            let drop_id = pick_card_to_drop(&dealt[i], &state.card_lookup, rng);
+            dealt[i].remove(drop_id);
+            state.destroyed_pile.insert(drop_id);
+        }
+    }
+
+    // Step 5: Assign remaining cards as drafted_cards
+    for i in 0..num_players {
+        state.players[i].drafted_cards = dealt[i];
+    }
+
+    // Step 6: Remaining draft_deck cards go to destroyed_pile
+    state.destroyed_pile = state.destroyed_pile.union(state.draft_deck);
+    state.draft_deck = UnorderedCards::new();
+
+    // Step 7: Go directly to action phase
+    initialize_action_phase(state);
+}
+
+/// Heuristic draft loop: for each player's hand, identify the card to drop,
+/// then pick all other cards via player_pick.
+fn heuristic_draft_loop<R: Rng>(state: &mut GameState, rng: &mut R) {
+    loop {
+        let (_player, hand, card_to_drop) = {
+            if let GamePhase::Draft { ref draft_state } = state.phase {
+                let player = draft_state.current_player_index;
+                let hand = draft_state.hands[player];
+                if hand.is_empty() {
+                    break;
+                }
+                // Only compute drop card when hand has more than 1 card
+                // (with 1 card, it'll be picked anyway — it's the last card which gets destroyed)
+                let drop = if hand.len() > 1 {
+                    Some(pick_card_to_drop(&hand, &state.card_lookup, rng))
+                } else {
+                    None
+                };
+                (player, hand, drop)
+            } else {
+                break;
+            }
+        };
+
+        // Pick a card that is NOT the one we want to drop
+        let card_id = if let Some(drop_id) = card_to_drop {
+            // Find any card in hand that isn't the drop card
+            let mut pick = None;
+            for id in hand.iter() {
+                if id != drop_id {
+                    pick = Some(id);
+                    break;
+                }
+            }
+            // If all cards are the drop card (shouldn't happen with len > 1), just pick any
+            pick.unwrap_or_else(|| hand.iter().next().unwrap()) as u32
+        } else {
+            // Single card in hand, just pick it (it'll be the last discarded card)
+            hand.iter().next().unwrap() as u32
+        };
+
+        player_pick(state, card_id);
+    }
+}
 
 /// Score a color by how useful it is for sell cards in the display, weighted by ducats.
 #[inline(always)]
@@ -826,7 +1042,7 @@ fn heuristic_mix_seq<R: Rng>(
 }
 
 #[inline(always)]
-fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize, rng: &mut impl Rng) {
+fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize, heuristic_draft: bool, rng: &mut impl Rng) {
     // Glass: use same random policy (glass strategy is complex, not worth heuristic overhead)
     if try_activate_random_glass(state, player_index, rng) {
         return;
@@ -836,14 +1052,18 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     if drafted.is_empty() {
         end_player_turn(state, rng);
         if matches!(state.phase, GamePhase::Draw) {
-            rollout_draw_and_draft(state, rng);
+            if heuristic_draft {
+                heuristic_rollout_draw_and_draft(state, rng);
+            } else {
+                rollout_draw_and_draft(state, rng);
+            }
         }
         return;
     }
 
     // Epsilon: random fallback
     if rng.random_bool(HEURISTIC_EPSILON) {
-        handle_action_no_pending(state, player_index, rng);
+        handle_action_no_pending(state, player_index, heuristic_draft, rng);
         return;
     }
 
@@ -926,23 +1146,27 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     }
 }
 
-pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) {
-    // Draft phase: use same fast-path as random rollout
+pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, rng: &mut R) {
+    // Draft phase
     if matches!(&state.phase, GamePhase::Draft { .. }) {
-        loop {
-            let card_id = {
-                if let GamePhase::Draft { ref draft_state } = state.phase {
-                    let player = draft_state.current_player_index;
-                    let hand = draft_state.hands[player];
-                    match hand.pick_random(rng) {
-                        Some(id) => id as u32,
-                        None => break,
+        if heuristic_draft {
+            heuristic_draft_loop(state, rng);
+        } else {
+            loop {
+                let card_id = {
+                    if let GamePhase::Draft { ref draft_state } = state.phase {
+                        let player = draft_state.current_player_index;
+                        let hand = draft_state.hands[player];
+                        match hand.pick_random(rng) {
+                            Some(id) => id as u32,
+                            None => break,
+                        }
+                    } else {
+                        break;
                     }
-                } else {
-                    break;
-                }
-            };
-            player_pick(state, card_id);
+                };
+                player_pick(state, card_id);
+            }
         }
         return;
     }
@@ -952,7 +1176,7 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, rng: &mut R) 
             let player_index = action_state.current_player_index;
             match action_state.ability_stack.last() {
                 None => {
-                    handle_action_no_pending_heuristic(state, player_index, rng);
+                    handle_action_no_pending_heuristic(state, player_index, heuristic_draft, rng);
                 }
                 Some(Ability::Workshop { count }) => {
                     let count = *count;
