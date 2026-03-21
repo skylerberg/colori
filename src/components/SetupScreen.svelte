@@ -4,11 +4,9 @@
 
   const DIFFICULTY_LEVELS: { label: string; iterations: number }[] = [
     { label: 'Easy', iterations: 1000 },
-    { label: 'Medium', iterations: 10000 },
-    { label: 'Hard', iterations: 50000 },
+    { label: 'Medium', iterations: 4000 },
+    { label: 'Hard', iterations: 25000 },
     { label: 'Very Hard', iterations: 100000 },
-    { label: 'Insane', iterations: 200000 },
-    { label: 'Godly', iterations: 500000 },
   ];
 
   let { onGameStarted }: {
