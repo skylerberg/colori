@@ -46,7 +46,7 @@ impl Default for MctsConfig {
             heuristic_params: HeuristicParams::default(),
             diff_eval_params: None,
             no_rollout: false,
-            heuristic_rollout: false,
+            heuristic_rollout: true,
             heuristic_draft: false,
             early_termination: true,
             subtree_reuse: true,
@@ -75,7 +75,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
             progressive_bias_weight: f64,
             #[serde(default)]
             heuristic_params: HeuristicParams,
-            #[serde(default)]
+            #[serde(default = "default_heuristic_rollout")]
             heuristic_rollout: bool,
             #[serde(default)]
             heuristic_draft: bool,
@@ -92,6 +92,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
         fn default_max_rollout_steps() -> u32 { 1000 }
         fn default_use_heuristic_eval() -> bool { true }
         fn default_progressive_bias_weight() -> f64 { 0.0 }
+        fn default_heuristic_rollout() -> bool { true }
 
         let helper = MctsConfigHelper::deserialize(deserializer)?;
         Ok(MctsConfig {

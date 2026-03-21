@@ -320,6 +320,11 @@ pub fn parse_args() -> SimulationArgs {
             .unwrap_or_else(|_| panic!("Failed to parse baseline params file: {}", path))
     });
 
+    // Auto-enable vs-baseline mode when baseline params are provided
+    if baseline_heuristic_params.is_some() {
+        train_vs_baseline = true;
+    }
+
     let genetic_args = if genetic {
         // In genetic mode, default output to "genetic-algorithm"
         if output == "game-logs" {
