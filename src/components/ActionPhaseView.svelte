@@ -47,11 +47,16 @@
       ? topAbility : null
   );
 
+  // Effective workshop/destroy ability: from the real ability stack OR from compound pending state
+  let effectiveWorkshopAbility: Ability | null = $derived(
+    workshopPendingChoice ??
+    (pendingDestroyAbility?.type === 'workshop' || pendingDestroyAbility?.type === 'destroyCards'
+      ? pendingDestroyAbility : null)
+  );
+
   // ── Compound destroy state ──
   let pendingDestroyCard: { card: Card; instanceId: number } | null = $state(null);
   let pendingDestroyAbility: Ability | null = $state(null);
-  let compoundWorkshopSelectedIds: number[] = $state([]);
-  let compoundDestroySelectedIds: number[] = $state([]);
 
   let hasPendingCompound = $derived(pendingDestroyCard !== null);
 
@@ -60,15 +65,11 @@
     topAbility;
     pendingDestroyCard = null;
     pendingDestroyAbility = null;
-    compoundWorkshopSelectedIds = [];
-    compoundDestroySelectedIds = [];
   });
 
   function cancelPendingDestroy() {
     pendingDestroyCard = null;
     pendingDestroyAbility = null;
-    compoundWorkshopSelectedIds = [];
-    compoundDestroySelectedIds = [];
   }
 
   function compoundAction(choice: Choice) {
@@ -83,71 +84,26 @@
     }
   }
 
-  function toggleCompoundWorkshopCard(instanceId: number) {
-    if (!pendingDestroyAbility || pendingDestroyAbility.type !== 'workshop') return;
-    const idx = compoundWorkshopSelectedIds.indexOf(instanceId);
-    if (idx >= 0) {
-      compoundWorkshopSelectedIds = compoundWorkshopSelectedIds.filter(id => id !== instanceId);
-    } else if (compoundWorkshopSelectedIds.length < pendingDestroyAbility.count) {
-      compoundWorkshopSelectedIds = [...compoundWorkshopSelectedIds, instanceId];
-    }
-  }
-
-  function confirmCompoundWorkshop() {
-    if (!currentPlayer || !pendingDestroyCard) return;
-    const card = pendingDestroyCard.card;
-    const workshopCards = compoundWorkshopSelectedIds.map(id => {
-      const ci = currentPlayer!.workshopCards.find(c => c.instanceId === id);
-      return ci!.card;
-    });
-    cancelPendingDestroy();
-    onAction({ type: 'destroyAndWorkshop', card, workshopCards });
-  }
-
-  function skipCompoundWorkshop() {
-    if (!pendingDestroyCard) return;
-    const card = pendingDestroyCard.card;
-    cancelPendingDestroy();
-    onAction({ type: 'destroyAndWorkshop', card, workshopCards: [] });
-  }
-
-  function toggleCompoundDestroyCard(instanceId: number) {
-    const idx = compoundDestroySelectedIds.indexOf(instanceId);
-    if (idx >= 0) {
-      compoundDestroySelectedIds = compoundDestroySelectedIds.filter(id => id !== instanceId);
-    } else if (compoundDestroySelectedIds.length < 1) {
-      compoundDestroySelectedIds = [...compoundDestroySelectedIds, instanceId];
-    }
-  }
-
-  function confirmCompoundDestroy() {
-    if (!currentPlayer || !pendingDestroyCard) return;
-    const card = pendingDestroyCard.card;
-    const target = compoundDestroySelectedIds.length > 0
-      ? currentPlayer.workshopCards.find(c => c.instanceId === compoundDestroySelectedIds[0])!.card
-      : null;
-    cancelPendingDestroy();
-    onAction({ type: 'destroyAndDestroyCards', card, target });
-  }
-
   let selectedWorkshopIds: number[] = $state([]);
   let selectedDestroyIds: number[] = $state([]);
   let reworkshopCardId: number | null = $state(null);
 
   $effect(() => {
     topAbility;
+    pendingDestroyAbility;
     selectedWorkshopIds = [];
     selectedDestroyIds = [];
     reworkshopCardId = null;
   });
 
   function toggleWorkshopCard(instanceId: number) {
-    if (!topAbility || topAbility.type !== 'workshop') return;
+    const ability = effectiveWorkshopAbility;
+    if (!ability || ability.type !== 'workshop') return;
     // Don't allow selecting the card that's marked for x2 reworkshop
     if (instanceId === reworkshopCardId) return;
     const idx = selectedWorkshopIds.indexOf(instanceId);
     const reworkshopSlots = reworkshopCardId !== null ? 2 : 0;
-    const maxOther = topAbility.count - reworkshopSlots;
+    const maxOther = ability.count - reworkshopSlots;
     if (idx >= 0) {
       selectedWorkshopIds = selectedWorkshopIds.filter(id => id !== instanceId);
     } else if (selectedWorkshopIds.length < maxOther) {
@@ -157,7 +113,15 @@
 
   function confirmWorkshop() {
     if (!currentPlayer) return;
-    if (reworkshopCardId !== null) {
+    const cardTypes = selectedWorkshopIds.map(id => {
+      const ci = currentPlayer!.workshopCards.find(c => c.instanceId === id);
+      return ci!.card;
+    });
+    if (pendingDestroyCard) {
+      const card = pendingDestroyCard.card;
+      cancelPendingDestroy();
+      onAction({ type: 'destroyAndWorkshop', card, workshopCards: cardTypes });
+    } else if (reworkshopCardId !== null) {
       const reworkshopCard = currentPlayer.workshopCards.find(c => c.instanceId === reworkshopCardId);
       if (!reworkshopCard) return;
       const otherCards = selectedWorkshopIds.map(id => {
@@ -166,20 +130,22 @@
       });
       onAction({ type: 'workshopWithReworkshop', reworkshopCard: reworkshopCard.card, otherCards });
     } else {
-      const cardTypes = selectedWorkshopIds.map(id => {
-        const ci = currentPlayer!.workshopCards.find(c => c.instanceId === id);
-        return ci!.card;
-      });
       onAction({ type: 'workshop', cardTypes });
     }
   }
 
   function handleSkipWorkshop() {
-    onAction({ type: 'skipWorkshop' });
+    if (pendingDestroyCard) {
+      const card = pendingDestroyCard.card;
+      cancelPendingDestroy();
+      onAction({ type: 'destroyAndWorkshop', card, workshopCards: [] });
+    } else {
+      onAction({ type: 'skipWorkshop' });
+    }
   }
 
   function toggleDestroyCard(instanceId: number) {
-    if (!topAbility || topAbility.type !== 'destroyCards') return;
+    if (!effectiveWorkshopAbility || effectiveWorkshopAbility.type !== 'destroyCards') return;
     const idx = selectedDestroyIds.indexOf(instanceId);
     if (idx >= 0) {
       selectedDestroyIds = selectedDestroyIds.filter(id => id !== instanceId);
@@ -190,10 +156,16 @@
 
   function confirmDestroy() {
     if (!currentPlayer) return;
-    const card = selectedDestroyIds.length > 0
+    const target = selectedDestroyIds.length > 0
       ? currentPlayer.workshopCards.find(c => c.instanceId === selectedDestroyIds[0])!.card
       : null;
-    onAction({ type: 'destroyDrawnCards', card });
+    if (pendingDestroyCard) {
+      const card = pendingDestroyCard.card;
+      cancelPendingDestroy();
+      onAction({ type: 'destroyAndDestroyCards', card, target });
+    } else {
+      onAction({ type: 'destroyDrawnCards', card: target });
+    }
   }
 
   function handleDestroyDrafted(cardInstanceId: number) {
@@ -341,7 +313,8 @@
   );
 
   let canUseReworkshopX2 = $derived(
-    topAbility?.type === 'workshop'
+    !pendingDestroyCard
+    && topAbility?.type === 'workshop'
     && topAbility.count >= 2
     && gameState.expansions?.glass
     && currentPlayer
@@ -351,7 +324,8 @@
 
   // Glass Reworkshop helpers (available during workshop ability too)
   let glassReworkshopAvailable = $derived(
-    currentPlayer && actionState && gameState.expansions?.glass
+    !pendingDestroyCard
+    && currentPlayer && actionState && gameState.expansions?.glass
     && (currentPlayer.completedGlass ?? []).some(g => g.card === 'GlassReworkshop')
     && !isGlassUsed('GlassReworkshop')
     && currentPlayer.workshoppedCards.length > 0
@@ -374,7 +348,7 @@
       <AbilityPrompt {gameState} {onAction} />
     {/if}
 
-    {#if hasPendingCompound && pendingDestroyAbility}
+    {#if hasPendingCompound && pendingDestroyAbility && pendingDestroyAbility.type !== 'workshop' && pendingDestroyAbility.type !== 'destroyCards'}
       {@const cardName = (() => { const d = getAnyCardData(pendingDestroyCard!.card); return d && 'name' in d ? d.name : pendingDestroyCard!.card; })()}
       <div class="ability-prompt">
         <div class="compound-header">
@@ -389,41 +363,6 @@
           />
         {:else if pendingDestroyAbility.type === 'sell'}
           <SellCardSelectPrompt {gameState} onAction={compoundAction} />
-        {:else if pendingDestroyAbility.type === 'workshop'}
-          <h3>Workshop — Select cards ({pendingDestroyAbility.count} available)</h3>
-          <CardList
-            cards={workshopAndWorkshopped}
-            selectable={true}
-            selectedIds={compoundWorkshopSelectedIds}
-            rotatedIds={workshoppedIds}
-            onCardClick={toggleCompoundWorkshopCard}
-          />
-          <div class="workshop-actions">
-            <button class="confirm-btn" onclick={confirmCompoundWorkshop}>
-              Confirm Workshop ({compoundWorkshopSelectedIds.length} selected)
-            </button>
-            {#if compoundWorkshopSelectedIds.length === 0}
-              <button class="confirm-btn skip-btn" onclick={skipCompoundWorkshop}>
-                Skip Workshop
-              </button>
-            {/if}
-          </div>
-        {:else if pendingDestroyAbility.type === 'destroyCards'}
-          <h3>Workshop — Select a card to destroy</h3>
-          {#if currentPlayer.workshopCards.length > 0}
-            <CardList
-              cards={workshopAndWorkshopped}
-              selectable={true}
-              selectedIds={compoundDestroySelectedIds}
-              rotatedIds={workshoppedIds}
-              onCardClick={toggleCompoundDestroyCard}
-            />
-          {/if}
-          <button class="confirm-btn" onclick={confirmCompoundDestroy}>
-            {currentPlayer.workshopCards.length > 0
-              ? `Confirm Destroy (${compoundDestroySelectedIds.length} selected)`
-              : 'Confirm (nothing to destroy)'}
-          </button>
         {/if}
       </div>
     {/if}
@@ -439,9 +378,9 @@
         />
       </div>
 
-      <div class="section" class:active-choice={workshopPendingChoice}>
-        {#if topAbility?.type === 'workshop'}
-          <h3>Workshop — Select cards ({topAbility.count} available)</h3>
+      <div class="section" class:active-choice={effectiveWorkshopAbility}>
+        {#if effectiveWorkshopAbility?.type === 'workshop'}
+          <h3>Workshop — Select cards ({effectiveWorkshopAbility.count} available)</h3>
           <CardList
             cards={workshopAndWorkshopped}
             selectable={true}
@@ -473,6 +412,13 @@
               </div>
             </div>
           {/if}
+          {#if pendingDestroyCard}
+            {@const destroyCardName = (() => { const d = getAnyCardData(pendingDestroyCard!.card); return d && 'name' in d ? d.name : pendingDestroyCard!.card; })()}
+            <div class="compound-header">
+              <span class="compound-title">Destroying {destroyCardName}</span>
+              <button class="confirm-btn skip-btn compound-cancel" onclick={cancelPendingDestroy}>Cancel</button>
+            </div>
+          {/if}
           <div class="workshop-actions">
             <button class="confirm-btn" onclick={confirmWorkshop}>
               Confirm Workshop ({(reworkshopCardId !== null ? 2 : 0) + selectedWorkshopIds.length} selected{reworkshopCardId !== null ? ', incl. x2' : ''})
@@ -499,7 +445,14 @@
               </div>
             {/if}
           </div>
-        {:else if topAbility?.type === 'destroyCards'}
+        {:else if effectiveWorkshopAbility?.type === 'destroyCards'}
+          {#if pendingDestroyCard}
+            {@const destroyCardName = (() => { const d = getAnyCardData(pendingDestroyCard!.card); return d && 'name' in d ? d.name : pendingDestroyCard!.card; })()}
+            <div class="compound-header">
+              <span class="compound-title">Destroying {destroyCardName}</span>
+              <button class="confirm-btn skip-btn compound-cancel" onclick={cancelPendingDestroy}>Cancel</button>
+            </div>
+          {/if}
           <h3>Workshop — Select a card to destroy</h3>
           <CardList
             cards={workshopAndWorkshopped}
