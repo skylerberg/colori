@@ -84,6 +84,7 @@ impl ColoriGuiApp {
             let game_logs_path = cwd.join("game-logs");
             if game_logs_path.is_dir() {
                 app.loader.start_loading(&game_logs_path);
+                app.game_viewer.load_latest_from_dir(&game_logs_path);
                 app.game_logs_path = Some(game_logs_path);
             }
             let ga_path = cwd.join("genetic-algorithm");

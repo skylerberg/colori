@@ -136,6 +136,24 @@ impl GameViewerState {
         }
     }
 
+    pub fn load_latest_from_dir(&mut self, dir: &std::path::Path) {
+        let latest = std::fs::read_dir(dir)
+            .ok()
+            .and_then(|entries| {
+                entries
+                    .filter_map(|e| e.ok())
+                    .filter(|e| {
+                        e.path()
+                            .extension()
+                            .is_some_and(|ext| ext == "json")
+                    })
+                    .max_by_key(|e| e.file_name())
+            });
+        if let Some(entry) = latest {
+            self.load_file(&entry.path());
+        }
+    }
+
     pub fn load_file(&mut self, path: &std::path::Path) {
         match std::fs::read_to_string(path) {
             Ok(contents) => {
