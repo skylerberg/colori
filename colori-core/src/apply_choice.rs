@@ -12,7 +12,20 @@ fn find_card_instance(state: &GameState, card: &Card, cards: &UnorderedCards) ->
             return id as u32;
         }
     }
-    panic!("Card type {:?} not found in card set", card);
+    let contents: Vec<(u8, Card)> = cards.iter().map(|id| (id, state.card_lookup[id as usize])).collect();
+    panic!(
+        "Card type {:?} not found in card set (round {}, phase {:?}, set contents: {:?})",
+        card, state.round, phase_name(&state.phase), contents
+    );
+}
+
+fn phase_name(phase: &GamePhase) -> &'static str {
+    match phase {
+        GamePhase::Draw => "Draw",
+        GamePhase::Draft { .. } => "Draft",
+        GamePhase::Action { .. } => "Action",
+        GamePhase::GameOver => "GameOver",
+    }
 }
 
 /// Get the instance ID of a drafted card belonging to the current action-phase player.
