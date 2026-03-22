@@ -53,6 +53,7 @@ pub struct MctsAnalysisResult {
 struct BatchMctsEntry {
     mcts_best_choice: Choice,
     agrees: bool,
+    analysis: MctsAnalysisResult,
 }
 
 // ── Main state ──
@@ -335,9 +336,27 @@ impl GameViewerState {
                         &mut mcts_rng,
                     );
                     let agrees = result.choice == entry.choice;
+                    let analysis = if let Some(root) = result.tree {
+                        let tree_stats = root.tree_stats();
+                        let iterations_used = root.visit_count();
+                        MctsAnalysisResult {
+                            iterations_used,
+                            tree_stats,
+                            root,
+                        }
+                    } else {
+                        // Advance state and skip (single-choice case, no tree)
+                        let queue: std::collections::VecDeque<DrawEvent> =
+                            entry.draws.iter().cloned().collect();
+                        state.draw_log = Some(DrawLog::Replaying(queue));
+                        apply_choice_to_state(&mut state, &entry.choice, &mut rng);
+                        state.draw_log = None;
+                        continue;
+                    };
                     let batch_entry = BatchMctsEntry {
                         mcts_best_choice: result.choice,
                         agrees,
+                        analysis,
                     };
                     if tx.send((entry_index, batch_entry)).is_err() {
                         return; // Receiver dropped, stop
@@ -491,11 +510,18 @@ impl GameViewerState {
                             if let Some(state) = replayed_state {
                                 render_replayed_state(ui, state, game);
                                 ui.add_space(12.0);
+                                // Use batch tree if available for selected entry,
+                                // otherwise fall back to manual single-step result
+                                let batch_result = selected_entry
+                                    .and_then(|idx| batch_mcts_results.get(&idx))
+                                    .map(|b| &b.analysis);
+                                let effective_result =
+                                    mcts_result.or(batch_result);
                                 render_mcts_section(
                                     ui,
                                     mcts_config,
                                     mcts_receiver.is_some(),
-                                    mcts_result,
+                                    effective_result,
                                     &mut run_mcts,
                                 );
                             }
