@@ -63,7 +63,7 @@
     <!-- svelte-ignore a11y_label_has_associated_control -->
     <label>Number of Players:</label>
     <div class="count-buttons">
-      {#each [2, 3, 4, 5] as count}
+      {#each [2, 3, 4] as count}
         <button
           class="count-btn"
           class:active={playerCount === count}

@@ -181,6 +181,7 @@
 
     // Simultaneous AI drafting: compute picks for all AI players at once
     if (gameState.phase.type === 'draft') {
+      const ds = gameState.phase.draftState;
       const aiPlayerIndices = gameState.aiPlayers
         .map((isAI, idx) => isAI ? idx : -1)
         .filter(idx => idx >= 0)
@@ -190,7 +191,6 @@
       if (aiPlayerIndices.length === 0) return;
 
       // Record seen hands for all AI players
-      const ds = gameState.phase.draftState;
       for (const playerIdx of aiPlayerIndices) {
         const hand = ds.hands[playerIdx];
         if (!aiDraftKnowledge.has(playerIdx)) {
