@@ -165,6 +165,10 @@ fn render_summary(ui: &mut egui::Ui, game: &StructuredGameLog) {
             ui.separator();
         }
 
+        // Plies
+        ui.label(format!("Plies: {}", game.entries.len()));
+        ui.separator();
+
         // Duration
         if let Some(ms) = game.duration_ms {
             if ms >= 1000 {
