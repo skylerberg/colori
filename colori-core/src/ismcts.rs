@@ -539,10 +539,14 @@ pub fn ismcts<R: Rng>(
                     if best - second > remaining {
                         break;
                     }
-                    // Periodic worst-case UCB simulation: even with optimal rewards
-                    // for challengers (1.0) and worst rewards for leader (0.0),
+                    // Worst-case UCB simulation: even with optimal rewards for
+                    // challengers (1.0) and worst rewards for leader (0.0),
                     // can any challenger overtake the leader by visit count?
+                    // Only run when the leader has a meaningful lead (gap > remaining/4)
+                    // to avoid wasting time on simulations that won't pass.
+                    let gap = best - second;
                     if iterations_used % 1024 == 0
+                        && gap > remaining / 4
                         && !can_challenger_overtake(
                             &root.children,
                             root.visit_count,
