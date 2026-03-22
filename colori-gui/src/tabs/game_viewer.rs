@@ -5,13 +5,14 @@ use eframe::egui;
 use rand::SeedableRng;
 use wyrand::WyRand;
 
-use colori_core::colori_game::enumerate_choices;
-use colori_core::game_log::{StructuredGameLog, StructuredLogEntry};
+use colori_core::colori_game::{apply_choice_to_state, enumerate_choices};
+use colori_core::draw_phase::execute_draw_phase;
+use colori_core::game_log::{DrawEvent, DrawLog, StructuredGameLog, StructuredLogEntry};
 use colori_core::ismcts::{ismcts, MctsConfig, MctsNode, TreeStats};
-use colori_core::replay::replay_to;
+use colori_core::replay::{reconstruct_initial_state, replay_to};
 use colori_core::scoring::{calculate_score, HeuristicParams};
 use colori_core::types::{
-    CardInstance, GamePhase, GameState, SellCardInstance, ALL_COLORS, ALL_MATERIAL_TYPES,
+    CardInstance, Choice, GamePhase, GameState, SellCardInstance, ALL_COLORS, ALL_MATERIAL_TYPES,
 };
 
 use crate::analysis::computations::{
@@ -49,6 +50,11 @@ pub struct MctsAnalysisResult {
     pub root: MctsNode,
 }
 
+struct BatchMctsEntry {
+    mcts_best_choice: Choice,
+    agrees: bool,
+}
+
 // ── Main state ──
 
 pub struct GameViewerState {
@@ -64,10 +70,14 @@ pub struct GameViewerState {
     // Replay state
     selected_entry_index: Option<usize>,
     replayed_state: Option<GameState>,
-    // MCTS analysis
+    // MCTS analysis (single step)
     mcts_config: MctsGuiConfig,
     mcts_receiver: Option<mpsc::Receiver<MctsAnalysisResult>>,
     mcts_result: Option<MctsAnalysisResult>,
+    // Batch MCTS analysis
+    batch_mcts_results: HashMap<usize, BatchMctsEntry>,
+    batch_mcts_receiver: Option<mpsc::Receiver<(usize, BatchMctsEntry)>>,
+    batch_mcts_total: usize,
 }
 
 struct MctsGuiConfig {
@@ -132,6 +142,9 @@ impl GameViewerState {
             mcts_config: MctsGuiConfig::default(),
             mcts_receiver: None,
             mcts_result: None,
+            batch_mcts_results: HashMap::new(),
+            batch_mcts_receiver: None,
+            batch_mcts_total: 0,
         }
     }
 
@@ -179,6 +192,9 @@ impl GameViewerState {
                         self.replayed_state = None;
                         self.mcts_result = None;
                         self.mcts_receiver = None;
+                        self.batch_mcts_results.clear();
+                        self.batch_mcts_receiver = None;
+                        self.batch_mcts_total = 0;
                     }
                     Err(e) => {
                         self.error = Some(format!("Failed to parse game log: {}", e));
@@ -266,6 +282,78 @@ impl GameViewerState {
         });
     }
 
+    fn start_batch_mcts_analysis(&mut self) {
+        let initial_state_json = match &self.initial_state_json {
+            Some(j) => j.clone(),
+            None => return,
+        };
+        let game = match &self.game {
+            Some(g) => g,
+            None => return,
+        };
+
+        let entries: Vec<StructuredLogEntry> = game.entries.clone();
+        let initial_draws: Vec<DrawEvent> = game.initial_draws.clone();
+        let config = self.mcts_config.to_mcts_config();
+
+        self.batch_mcts_total = entries.len();
+        self.batch_mcts_results.clear();
+
+        let (tx, rx) = mpsc::channel();
+        self.batch_mcts_receiver = Some(rx);
+
+        std::thread::spawn(move || {
+            let mut state = reconstruct_initial_state(&initial_state_json);
+            let mut rng = WyRand::seed_from_u64(0);
+
+            // Apply initial draw phase
+            let queue: std::collections::VecDeque<DrawEvent> =
+                initial_draws.iter().cloned().collect();
+            state.draw_log = Some(DrawLog::Replaying(queue));
+            execute_draw_phase(&mut state, &mut rng);
+            state.draw_log = None;
+
+            let mut mcts_rng = WyRand::seed_from_u64(42);
+
+            for (entry_index, entry) in entries.iter().enumerate() {
+                // Run MCTS if the state is in a decision phase
+                let player_index = match &state.phase {
+                    GamePhase::Draft { draft_state } => Some(draft_state.current_player_index),
+                    GamePhase::Action { action_state } => Some(action_state.current_player_index),
+                    _ => None,
+                };
+
+                if let Some(player_index) = player_index {
+                    let max_rollout_round = std::cmp::max(8, state.round + 2);
+                    let result = ismcts(
+                        &state,
+                        player_index,
+                        &config,
+                        &None,
+                        Some(max_rollout_round),
+                        None,
+                        &mut mcts_rng,
+                    );
+                    let agrees = result.choice == entry.choice;
+                    let batch_entry = BatchMctsEntry {
+                        mcts_best_choice: result.choice,
+                        agrees,
+                    };
+                    if tx.send((entry_index, batch_entry)).is_err() {
+                        return; // Receiver dropped, stop
+                    }
+                }
+
+                // Advance state by applying this entry's choice
+                let queue: std::collections::VecDeque<DrawEvent> =
+                    entry.draws.iter().cloned().collect();
+                state.draw_log = Some(DrawLog::Replaying(queue));
+                apply_choice_to_state(&mut state, &entry.choice, &mut rng);
+                state.draw_log = None;
+            }
+        });
+    }
+
     pub fn render(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
         // Poll for MCTS completion
         if let Some(rx) = &self.mcts_receiver {
@@ -273,6 +361,23 @@ impl GameViewerState {
                 self.mcts_result = Some(result);
                 self.mcts_receiver = None;
             } else {
+                ctx.request_repaint();
+            }
+        }
+
+        // Poll for batch MCTS results
+        if let Some(rx) = &self.batch_mcts_receiver {
+            let mut got_any = false;
+            while let Ok((idx, entry)) = rx.try_recv() {
+                self.batch_mcts_results.insert(idx, entry);
+                got_any = true;
+            }
+            if self.batch_mcts_results.len() >= self.batch_mcts_total {
+                self.batch_mcts_receiver = None;
+            } else if !got_any {
+                ctx.request_repaint();
+            }
+            if got_any {
                 ctx.request_repaint();
             }
         }
@@ -306,6 +411,7 @@ impl GameViewerState {
         // We need to collect click events during rendering, then process after
         let mut clicked_entry: Option<usize> = None;
         let mut run_mcts = false;
+        let mut run_batch_mcts = false;
 
         let game = self.game.as_ref().unwrap();
         let card_map = self.card_map.as_ref().unwrap();
@@ -316,6 +422,9 @@ impl GameViewerState {
         let mcts_receiver = &self.mcts_receiver;
         let mcts_result = self.mcts_result.as_ref();
         let mcts_config = &mut self.mcts_config;
+        let batch_mcts_results = &self.batch_mcts_results;
+        let batch_mcts_running = self.batch_mcts_receiver.is_some();
+        let batch_mcts_total = self.batch_mcts_total;
 
         // Split view: left = timeline, right = state + analysis
         let has_selection = replayed_state.is_some();
@@ -338,6 +447,22 @@ impl GameViewerState {
             // Left panel: timeline
             ui.vertical(|ui| {
                 ui.set_width(panel_width);
+                ui.horizontal(|ui| {
+                    if batch_mcts_running {
+                        ui.spinner();
+                        let done = batch_mcts_results.len();
+                        ui.label(format!("Analyzing: {}/{}", done, batch_mcts_total));
+                    } else if ui.button("Analyze All Moves").clicked() {
+                        run_batch_mcts = true;
+                    }
+                    if !batch_mcts_results.is_empty() {
+                        let disagreements = batch_mcts_results.values().filter(|e| !e.agrees).count();
+                        if disagreements > 0 {
+                            ui.label(format!("{} disagreements", disagreements));
+                        }
+                    }
+                });
+                ui.add_space(4.0);
                 egui::ScrollArea::vertical()
                     .id_salt("timeline_scroll")
                     .show(ui, |ui| {
@@ -351,6 +476,7 @@ impl GameViewerState {
                             selected_player,
                             selected_entry,
                             &mut clicked_entry,
+                            batch_mcts_results,
                         );
                     });
             });
@@ -384,6 +510,9 @@ impl GameViewerState {
         }
         if run_mcts {
             self.start_mcts_analysis();
+        }
+        if run_batch_mcts {
+            self.start_batch_mcts_analysis();
         }
     }
 }
@@ -548,6 +677,8 @@ fn build_round_groups<'a>(
     groups
 }
 
+const MCTS_DISAGREE_COLOR: egui::Color32 = egui::Color32::from_rgb(180, 100, 30);
+
 fn render_timeline(
     ui: &mut egui::Ui,
     game: &StructuredGameLog,
@@ -556,6 +687,7 @@ fn render_timeline(
     selected_player: Option<usize>,
     selected_entry: Option<usize>,
     clicked_entry: &mut Option<usize>,
+    batch_mcts_results: &HashMap<usize, BatchMctsEntry>,
 ) {
     let round_groups = build_round_groups(&game.entries, selected_player);
 
@@ -577,21 +709,39 @@ fn render_timeline(
                             let choice_text = format_choice(&entry.choice);
 
                             let is_selected = selected_entry == Some(global_idx);
+                            let mcts_disagrees = batch_mcts_results
+                                .get(&global_idx)
+                                .is_some_and(|e| !e.agrees);
 
                             ui.horizontal(|ui| {
+                                if mcts_disagrees {
+                                    ui.colored_label(MCTS_DISAGREE_COLOR, "!");
+                                }
                                 ui.colored_label(player_color, player_name);
-                                let label = egui::Label::new(
-                                    egui::RichText::new(&choice_text).background_color(
-                                        if is_selected {
-                                            egui::Color32::from_rgb(60, 60, 90)
-                                        } else {
-                                            egui::Color32::TRANSPARENT
-                                        },
-                                    ),
-                                )
-                                .sense(egui::Sense::click());
-                                if ui.add(label).clicked() {
+                                let bg_color = if is_selected {
+                                    egui::Color32::from_rgb(60, 60, 90)
+                                } else if mcts_disagrees {
+                                    egui::Color32::from_rgb(80, 50, 15)
+                                } else {
+                                    egui::Color32::TRANSPARENT
+                                };
+                                let mut rich_text =
+                                    egui::RichText::new(&choice_text).background_color(bg_color);
+                                if mcts_disagrees {
+                                    rich_text = rich_text.color(egui::Color32::from_rgb(255, 180, 80));
+                                }
+                                let label =
+                                    egui::Label::new(rich_text).sense(egui::Sense::click());
+                                let response = ui.add(label);
+                                if response.clicked() {
                                     *clicked_entry = Some(global_idx);
+                                }
+                                if mcts_disagrees {
+                                    let mcts_choice = &batch_mcts_results[&global_idx].mcts_best_choice;
+                                    response.on_hover_text(format!(
+                                        "MCTS prefers: {}",
+                                        format_choice(mcts_choice)
+                                    ));
                                 }
                             });
                         }
