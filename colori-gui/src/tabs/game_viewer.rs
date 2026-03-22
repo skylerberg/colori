@@ -510,13 +510,16 @@ impl GameViewerState {
                             if let Some(state) = replayed_state {
                                 render_replayed_state(ui, state, game);
                                 ui.add_space(12.0);
-                                // Use batch tree if available for selected entry,
-                                // otherwise fall back to manual single-step result
-                                let batch_result = selected_entry
-                                    .and_then(|idx| batch_mcts_results.get(&idx))
-                                    .map(|b| &b.analysis);
-                                let effective_result =
-                                    mcts_result.or(batch_result);
+                                // While a manual MCTS run is in progress, don't
+                                // show the stale batch result underneath the spinner
+                                let effective_result = if mcts_receiver.is_some() {
+                                    None
+                                } else {
+                                    let batch_result = selected_entry
+                                        .and_then(|idx| batch_mcts_results.get(&idx))
+                                        .map(|b| &b.analysis);
+                                    mcts_result.or(batch_result)
+                                };
                                 render_mcts_section(
                                     ui,
                                     mcts_config,
