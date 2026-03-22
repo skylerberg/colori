@@ -250,10 +250,13 @@ impl MctsNode {
         if depth > acc.max_depth {
             acc.max_depth = depth;
         }
-        if !self.children.is_empty() {
+        let visited_children: Vec<&MctsNode> = self.children.iter()
+            .filter(|c| c.visit_count > 0)
+            .collect();
+        if !visited_children.is_empty() {
             acc.internal_nodes += 1;
-            acc.total_children += self.children.len();
-            for child in &self.children {
+            acc.total_children += visited_children.len();
+            for child in visited_children {
                 child.tree_stats_recurse(acc, depth + 1);
             }
         }
