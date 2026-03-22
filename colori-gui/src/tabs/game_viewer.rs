@@ -54,6 +54,7 @@ pub struct MctsAnalysisResult {
 pub struct GameViewerState {
     pub game: Option<StructuredGameLog>,
     pub loaded_path: Option<String>,
+    pub game_logs_dir: Option<std::path::PathBuf>,
     pub error: Option<String>,
     pub selected_player: Option<usize>,
     card_map: Option<HashMap<u32, CardInstance>>,
@@ -120,6 +121,7 @@ impl GameViewerState {
         Self {
             game: None,
             loaded_path: None,
+            game_logs_dir: None,
             error: None,
             selected_player: None,
             card_map: None,
@@ -134,6 +136,7 @@ impl GameViewerState {
     }
 
     pub fn load_latest_from_dir(&mut self, dir: &std::path::Path) {
+        self.game_logs_dir = Some(dir.to_path_buf());
         let latest = std::fs::read_dir(dir)
             .ok()
             .and_then(|entries| {
@@ -282,6 +285,10 @@ impl GameViewerState {
                 {
                     self.load_file(&path);
                 }
+            }
+            if self.game_logs_dir.is_some() && ui.button("Load Latest").clicked() {
+                let dir = self.game_logs_dir.clone().unwrap();
+                self.load_latest_from_dir(&dir);
             }
             if let Some(ref path) = self.loaded_path {
                 ui.add(egui::Label::new(egui::RichText::new(path).monospace().small()).selectable(true));
