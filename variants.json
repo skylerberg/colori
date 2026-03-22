@@ -1,14 +1,15 @@
 [
   {
-    "name": "4k rqo1vv",
+    "name": "100k rqo1vv heuristic rollout",
     "useHeuristicEval": true,
     "heuristicParamsFile": "genetic-algorithm/batch-rqo1vv-gen-18.json",
-    "iterations": 4000
+    "heuristicRollout": true,
+    "iterations": 100000
   },
   {
-    "name": "4k rqo1vv",
+    "name": "100k rqo1vv",
     "useHeuristicEval": true,
     "heuristicParamsFile": "genetic-algorithm/batch-rqo1vv-gen-18.json",
-    "iterations": 4000
+    "iterations": 100000
   }
 ]
