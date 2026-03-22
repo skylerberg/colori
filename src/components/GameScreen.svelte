@@ -1,6 +1,7 @@
 <script lang="ts">
-  import type { GameState, CardInstance, Choice } from '../data/types';
+  import type { GameState, CardInstance, Choice, Card } from '../data/types';
   import { executeDrawPhase, applyChoice, simultaneousPick, advanceDraft, getChoiceLogMessage, cloneGameState } from '../engine/wasmEngine';
+  import { getCardData } from '../data/cards';
   import { AIController, type PrecomputeRequest } from '../ai/aiController';
   import type { GameLogAccumulator } from '../gameLog';
   import { getActivePlayerIndex, isCurrentPlayerAI, orderByDraftOrder } from '../gameUtils';
@@ -58,6 +59,7 @@
   function performUndo() {
     if (undoStack.length === 0) return;
     const snapshot = undoStack.pop()!;
+    pendingDestroyCard = null;
     gameState = snapshot.gameState;
     gameLog = gameLog.slice(0, snapshot.logLength);
     draftCardOrder = snapshot.draftCardOrder;
@@ -130,6 +132,39 @@
     selectedPlayerIndex = index;
   }
 
+  // ── Compound choice tracking ──
+  // When a human destroys a drafted card with a compound-able ability,
+  // we remember it so the follow-up choice can be combined into a single
+  // compound choice in the game log. The UI flow is unchanged.
+  let pendingDestroyCard: Card | null = $state(null);
+
+  const COMPOUND_ABILITY_TYPES = new Set(['mixColors', 'sell', 'workshop', 'destroyCards']);
+
+  function isCompoundableDestroy(choice: Choice): choice is { type: 'destroyDraftedCard'; card: Card } {
+    if (choice.type !== 'destroyDraftedCard') return false;
+    const data = getCardData(choice.card as Card);
+    return data != null && data.kind !== 'sellCard' && COMPOUND_ABILITY_TYPES.has(data.ability.type);
+  }
+
+  function buildCompoundChoice(destroyCard: Card, followUp: Choice): Choice | null {
+    switch (followUp.type) {
+      case 'mixAll':
+        return { type: 'destroyAndMix', card: destroyCard, mixes: followUp.mixes };
+      case 'selectSellCard':
+        return { type: 'destroyAndSell', card: destroyCard, sellCard: followUp.sellCard };
+      case 'selectGlass':
+        return { type: 'destroyAndSelectGlass', card: destroyCard, glass: followUp.glass, payColor: followUp.payColor };
+      case 'workshop':
+        return { type: 'destroyAndWorkshop', card: destroyCard, workshopCards: followUp.cardTypes };
+      case 'skipWorkshop':
+        return { type: 'destroyAndWorkshop', card: destroyCard, workshopCards: [] };
+      case 'destroyDrawnCards':
+        return { type: 'destroyAndDestroyCards', card: destroyCard, target: followUp.card };
+      default:
+        return null;
+    }
+  }
+
   // Unified action handler for both human UI and AI choices
   function handleAction(choice: Choice) {
     // Draft picks use simultaneous picking
@@ -140,9 +175,35 @@
 
     const playerIdx = getActivePlayerIndex(gameState);
 
+    // Check if this follow-up can be combined with a pending destroy
+    if (pendingDestroyCard !== null) {
+      const compound = buildCompoundChoice(pendingDestroyCard, choice);
+      if (compound !== null) {
+        pendingDestroyCard = null;
+        // Replace the destroy log entry + this follow-up with the compound choice
+        gameLogAccumulator?.replaceLastEntry(gameState, compound, playerIdx);
+        const draws = applyChoice(gameState, choice);
+        gameLogAccumulator?.attachDrawsToLastEntry(draws);
+        // Replace log message: remove the destroy message and add compound message
+        const compoundLogMsg = getChoiceLogMessage(gameState, compound, playerIdx);
+        // Pop the destroy log message we added earlier
+        gameLog.pop();
+        if (compoundLogMsg) addLog(compoundLogMsg);
+        onGameUpdated(gameState, gameLog);
+        return;
+      }
+      // Follow-up wasn't compound-able (e.g. gainPrimary from a workshopped action card)
+      pendingDestroyCard = null;
+    }
+
     // Push undo snapshot for action phase choices (except endTurn)
     if (gameState.phase.type === 'action' && choice.type !== 'endTurn') {
       pushUndoSnapshot();
+    }
+
+    // Check if this is a destroy that starts a compound sequence
+    if (isCompoundableDestroy(choice)) {
+      pendingDestroyCard = choice.card as Card;
     }
 
     const logMsg = getChoiceLogMessage(gameState, choice, playerIdx);

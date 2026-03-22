@@ -42,6 +42,14 @@ export class GameLogAccumulator {
     }
   }
 
+  /** Replace the last entry's choice with a compound choice (preserving draws). */
+  replaceLastEntry(_state: GameState, compoundChoice: Choice, _playerIndex: number) {
+    const lastEntry = this.log.entries[this.log.entries.length - 1];
+    if (lastEntry) {
+      lastEntry.choice = compoundChoice;
+    }
+  }
+
   recordChoice(state: GameState, choice: Choice, playerIndex: number, draws?: DrawEvent[]) {
     let phase: string;
     if (state.phase.type === 'draft') {
