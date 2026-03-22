@@ -534,8 +534,23 @@ pub fn ismcts<R: Rng>(
             if config.early_termination {
                 let remaining = new_iterations - iterations_used;
                 if remaining > 0 && root.children.len() >= 2 {
+                    // Cheap check: gap exceeds remaining iterations
                     let (best, second) = top_two_visit_counts(&root.children);
                     if best - second > remaining {
+                        break;
+                    }
+                    // Periodic worst-case UCB simulation: even with optimal rewards
+                    // for challengers (1.0) and worst rewards for leader (0.0),
+                    // can any challenger overtake the leader by visit count?
+                    if iterations_used % 1024 == 0
+                        && !can_challenger_overtake(
+                            &root.children,
+                            root.visit_count,
+                            remaining,
+                            config.exploration_constant,
+                            config.progressive_bias_weight,
+                        )
+                    {
                         break;
                     }
                 }
@@ -575,6 +590,78 @@ fn top_two_visit_counts(children: &[MctsNode]) -> (u32, u32) {
         }
     }
     (best, second)
+}
+
+/// Worst-case simulation to check if any challenger can overtake the visit-count leader.
+/// Assumes all non-leader children receive reward 1.0 and the leader receives reward 0.0.
+/// Returns true if any challenger could possibly end up with >= the leader's visit count.
+fn can_challenger_overtake(
+    children: &[MctsNode],
+    root_visit_count: u32,
+    remaining: u32,
+    exploration_constant: f64,
+    progressive_bias_weight: f64,
+) -> bool {
+    let k = children.len();
+    if k < 2 || remaining == 0 {
+        return false;
+    }
+
+    let leader_idx = children.iter()
+        .enumerate()
+        .max_by_key(|(_, c)| c.visit_count)
+        .unwrap()
+        .0;
+
+    let mut sim_visits: SmallVec<[u32; 16]> = children.iter().map(|c| c.visit_count).collect();
+    let mut sim_cumulative: SmallVec<[f64; 16]> = children.iter().map(|c| c.cumulative_reward).collect();
+    let heuristic_biases: SmallVec<[f64; 16]> = children.iter().map(|c| c.heuristic_bias).collect();
+    let mut sim_root_visits = root_visit_count;
+
+    let mut max_challenger_visits = 0u32;
+    for j in 0..k {
+        if j != leader_idx {
+            max_challenger_visits = max_challenger_visits.max(sim_visits[j]);
+        }
+    }
+
+    for step in 0..remaining {
+        sim_root_visits += 1;
+        let ln_total = (sim_root_visits as f64).ln();
+
+        let mut best_idx = 0;
+        let mut best_ucb = f64::NEG_INFINITY;
+
+        for j in 0..k {
+            let ucb = if sim_visits[j] == 0 {
+                f64::INFINITY
+            } else {
+                let v = sim_visits[j] as f64;
+                sim_cumulative[j] / v
+                    + exploration_constant * (ln_total / v).sqrt()
+                    + progressive_bias_weight * heuristic_biases[j] / (1.0 + v)
+            };
+            if ucb > best_ucb {
+                best_ucb = ucb;
+                best_idx = j;
+            }
+        }
+
+        sim_visits[best_idx] += 1;
+        if best_idx != leader_idx {
+            sim_cumulative[best_idx] += 1.0;
+            max_challenger_visits = max_challenger_visits.max(sim_visits[best_idx]);
+        }
+
+        // Fast exit: if the leader's gap exceeds remaining simulation steps,
+        // no challenger can catch up even in this worst-case scenario
+        let sim_remaining = remaining - step - 1;
+        if sim_visits[leader_idx].saturating_sub(max_challenger_visits) > sim_remaining {
+            return false;
+        }
+    }
+
+    max_challenger_visits >= sim_visits[leader_idx]
 }
 
 fn eval_scores(
