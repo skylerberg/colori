@@ -85,6 +85,8 @@ struct VariantFileEntry {
     subtree_reuse: Option<bool>,
     #[serde(default)]
     time_limit_ms: Option<u64>,
+    #[serde(default)]
+    draft_information_tracking: Option<bool>,
 }
 
 impl VariantFileEntry {
@@ -133,6 +135,7 @@ impl VariantFileEntry {
                 early_termination: self.early_termination.unwrap_or(defaults.early_termination),
                 subtree_reuse: self.subtree_reuse.unwrap_or(defaults.subtree_reuse),
                 time_limit_ms: self.time_limit_ms,
+                draft_information_tracking: self.draft_information_tracking.unwrap_or(defaults.draft_information_tracking),
             },
         }
     }

@@ -59,6 +59,7 @@ pub fn determinize_in_place<R: Rng>(
     source: &GameState,
     perspective_player: usize,
     known_draft_hands: &Option<Vec<Vec<CardInstance>>>,
+    draft_information_tracking: bool,
     cached_scores: &[u32; MAX_PLAYERS],
     rng: &mut R,
 ) {
@@ -135,6 +136,17 @@ pub fn determinize_in_place<R: Rng>(
                         break;
                     }
                 }
+            }
+        }
+
+        // Positional deduction: at pick_number P, the perspective player has
+        // seen P+1 distinct original hands through draft rotation. Mark the
+        // corresponding current-hand positions as known.
+        if draft_information_tracking {
+            let pick = draft_state.pick_number as usize;
+            let limit = pick.min(num_players - 1);
+            for m in 0..=limit {
+                known_hands[(perspective_player + m) % num_players] = true;
             }
         }
 
