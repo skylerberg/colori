@@ -46,38 +46,7 @@ fn phase_name(phase: &str) -> &str {
 pub struct MctsAnalysisResult {
     pub iterations_used: u32,
     pub tree_stats: TreeStats,
-    pub children: Vec<MctsChildInfo>,
-}
-
-pub struct MctsChildInfo {
-    pub choice_text: String,
-    pub visit_count: u32,
-    pub average_reward: f64,
-    pub max_depth: usize,
-}
-
-fn compute_analysis(root: &MctsNode) -> MctsAnalysisResult {
-    let tree_stats = root.tree_stats();
-    let mut children: Vec<MctsChildInfo> = root
-        .children()
-        .iter()
-        .filter(|c| c.visit_count() > 0)
-        .map(|c| MctsChildInfo {
-            choice_text: c
-                .choice()
-                .map(|ch| format_choice(ch))
-                .unwrap_or_else(|| "?".to_string()),
-            visit_count: c.visit_count(),
-            average_reward: c.average_reward(),
-            max_depth: c.max_depth(),
-        })
-        .collect();
-    children.sort_by(|a, b| b.visit_count.cmp(&a.visit_count));
-    MctsAnalysisResult {
-        iterations_used: root.visit_count(),
-        tree_stats,
-        children,
-    }
+    pub root: MctsNode,
 }
 
 // ── Main state ──
@@ -119,7 +88,7 @@ impl Default for MctsGuiConfig {
             use_heuristic_eval: defaults.use_heuristic_eval,
             heuristic_rollout: defaults.heuristic_rollout,
             early_termination: defaults.early_termination,
-            heuristic_params_path: String::new(),
+            heuristic_params_path: "genetic-algorithm/batch-rqo1vv-gen-18.json".to_string(),
         }
     }
 }
@@ -264,9 +233,14 @@ impl GameViewerState {
                 None,
                 &mut rng,
             );
-            if let Some(tree) = &result.tree {
-                let analysis = compute_analysis(tree);
-                let _ = tx.send(analysis);
+            if let Some(root) = result.tree {
+                let tree_stats = root.tree_stats();
+                let iterations_used = root.visit_count();
+                let _ = tx.send(MctsAnalysisResult {
+                    iterations_used,
+                    tree_stats,
+                    root,
+                });
             }
         });
     }
@@ -827,24 +801,65 @@ fn render_mcts_section(
         ));
 
         ui.add_space(4.0);
+        render_mcts_children(ui, &result.root, 0);
+    }
+}
 
-        egui::Grid::new("mcts_results_grid")
-            .striped(true)
+fn render_mcts_children(ui: &mut egui::Ui, node: &MctsNode, depth: usize) {
+    let mut children: Vec<&MctsNode> = node
+        .children()
+        .iter()
+        .filter(|c| c.visit_count() > 0)
+        .collect();
+    children.sort_by(|a, b| b.visit_count().cmp(&a.visit_count()));
+
+    if depth == 0 {
+        // Header row
+        egui::Grid::new("mcts_header")
             .min_col_width(60.0)
             .show(ui, |ui| {
                 ui.strong("Choice");
                 ui.strong("Visits");
                 ui.strong("Avg Reward");
                 ui.strong("Max Depth");
+                ui.strong("Avg Branch");
                 ui.end_row();
-
-                for child in &result.children {
-                    ui.label(&child.choice_text);
-                    ui.label(format!("{}", child.visit_count));
-                    ui.label(format!("{:.3}", child.average_reward));
-                    ui.label(format!("{}", child.max_depth));
-                    ui.end_row();
-                }
             });
+    }
+
+    for (i, child) in children.iter().enumerate() {
+        let choice_text = child
+            .choice()
+            .map(|ch| format_choice(ch))
+            .unwrap_or_else(|| "?".to_string());
+        let stats = child.tree_stats();
+        let has_children = !child.children().is_empty();
+
+        if has_children {
+            egui::CollapsingHeader::new(
+                egui::RichText::new(&choice_text).monospace(),
+            )
+            .id_salt(format!("mcts_d{}_c{}", depth, i))
+            .default_open(false)
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(format!("Visits: {}", child.visit_count()));
+                    ui.separator();
+                    ui.label(format!("Avg reward: {:.3}", child.average_reward()));
+                    ui.separator();
+                    ui.label(format!("Max depth: {}", stats.max_depth));
+                    ui.separator();
+                    ui.label(format!("Avg branch: {:.1}", stats.avg_branching_factor));
+                });
+                ui.add_space(4.0);
+                render_mcts_children(ui, child, depth + 1);
+            });
+        } else {
+            ui.horizontal(|ui| {
+                ui.label(egui::RichText::new(&choice_text).monospace());
+                ui.label(format!("{}", child.visit_count()));
+                ui.label(format!("{:.3}", child.average_reward()));
+            });
+        }
     }
 }
