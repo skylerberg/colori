@@ -190,6 +190,10 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
                         label: "Avg Rounds".into(),
                     },
                     StatCard {
+                        value: format!("{:.0}", analysis.game_length.avg_choices),
+                        label: "Avg Plies".into(),
+                    },
+                    StatCard {
                         value: format!("{:.1}", analysis.deck_stats.mean),
                         label: "Avg Deck Size".into(),
                     },
