@@ -1,12 +1,15 @@
 <script lang="ts">
-  import type { GameState, Choice, Ability, GlassCard, Color, MaterialType } from '../data/types';
+  import type { GameState, Choice, Ability, Card, GlassCard, Color, MaterialType } from '../data/types';
   import { ALL_MATERIAL_TYPES } from '../data/types';
   import { orderByDraftOrder } from '../gameUtils';
   import { getGlassCardData, GLASS_CARD_ORDER } from '../data/glassCards';
-  import { getAnyCardData } from '../data/cards';
+  import { getAnyCardData, getCardData, PRIMARIES } from '../data/cards';
   import { colorToHex, textColorForBackground } from '../data/colors';
+  import { canSell } from '../engine/wasmEngine';
   import CardList from './CardList.svelte';
   import AbilityPrompt from './AbilityPrompt.svelte';
+  import MixColorPrompt from './MixColorPrompt.svelte';
+  import SellCardSelectPrompt from './SellCardSelectPrompt.svelte';
 
   let { gameState, onAction, onUndo, undoAvailable, draftCardOrder }: {
     gameState: GameState;
@@ -43,6 +46,89 @@
     topAbility?.type === 'workshop' || topAbility?.type === 'destroyCards'
       ? topAbility : null
   );
+
+  // ── Compound destroy state ──
+  let pendingDestroyCard: { card: Card; instanceId: number } | null = $state(null);
+  let pendingDestroyAbility: Ability | null = $state(null);
+  let compoundWorkshopSelectedIds: number[] = $state([]);
+  let compoundDestroySelectedIds: number[] = $state([]);
+
+  let hasPendingCompound = $derived(pendingDestroyCard !== null);
+
+  $effect(() => {
+    // Reset pending destroy when ability stack changes (e.g. after action resolves)
+    topAbility;
+    pendingDestroyCard = null;
+    pendingDestroyAbility = null;
+    compoundWorkshopSelectedIds = [];
+    compoundDestroySelectedIds = [];
+  });
+
+  function cancelPendingDestroy() {
+    pendingDestroyCard = null;
+    pendingDestroyAbility = null;
+    compoundWorkshopSelectedIds = [];
+    compoundDestroySelectedIds = [];
+  }
+
+  function compoundAction(choice: Choice) {
+    const card = pendingDestroyCard!.card;
+    cancelPendingDestroy();
+    if (choice.type === 'mixAll') {
+      onAction({ type: 'destroyAndMix', card, mixes: choice.mixes });
+    } else if (choice.type === 'selectSellCard') {
+      onAction({ type: 'destroyAndSell', card, sellCard: choice.sellCard });
+    } else if (choice.type === 'selectGlass') {
+      onAction({ type: 'destroyAndSelectGlass', card, glass: choice.glass, payColor: choice.payColor });
+    }
+  }
+
+  function toggleCompoundWorkshopCard(instanceId: number) {
+    if (!pendingDestroyAbility || pendingDestroyAbility.type !== 'workshop') return;
+    const idx = compoundWorkshopSelectedIds.indexOf(instanceId);
+    if (idx >= 0) {
+      compoundWorkshopSelectedIds = compoundWorkshopSelectedIds.filter(id => id !== instanceId);
+    } else if (compoundWorkshopSelectedIds.length < pendingDestroyAbility.count) {
+      compoundWorkshopSelectedIds = [...compoundWorkshopSelectedIds, instanceId];
+    }
+  }
+
+  function confirmCompoundWorkshop() {
+    if (!currentPlayer || !pendingDestroyCard) return;
+    const card = pendingDestroyCard.card;
+    const workshopCards = compoundWorkshopSelectedIds.map(id => {
+      const ci = currentPlayer!.workshopCards.find(c => c.instanceId === id);
+      return ci!.card;
+    });
+    cancelPendingDestroy();
+    onAction({ type: 'destroyAndWorkshop', card, workshopCards });
+  }
+
+  function skipCompoundWorkshop() {
+    if (!pendingDestroyCard) return;
+    const card = pendingDestroyCard.card;
+    cancelPendingDestroy();
+    onAction({ type: 'destroyAndWorkshop', card, workshopCards: [] });
+  }
+
+  function toggleCompoundDestroyCard(instanceId: number) {
+    const idx = compoundDestroySelectedIds.indexOf(instanceId);
+    if (idx >= 0) {
+      compoundDestroySelectedIds = compoundDestroySelectedIds.filter(id => id !== instanceId);
+    } else if (compoundDestroySelectedIds.length < 1) {
+      compoundDestroySelectedIds = [...compoundDestroySelectedIds, instanceId];
+    }
+  }
+
+  function confirmCompoundDestroy() {
+    if (!currentPlayer || !pendingDestroyCard) return;
+    const card = pendingDestroyCard.card;
+    const target = compoundDestroySelectedIds.length > 0
+      ? currentPlayer.workshopCards.find(c => c.instanceId === compoundDestroySelectedIds[0])!.card
+      : null;
+    cancelPendingDestroy();
+    onAction({ type: 'destroyAndDestroyCards', card, target });
+  }
 
   let selectedWorkshopIds: number[] = $state([]);
   let selectedDestroyIds: number[] = $state([]);
@@ -111,10 +197,36 @@
   }
 
   function handleDestroyDrafted(cardInstanceId: number) {
-    if (hasPendingChoice || !currentPlayer) return;
+    if (hasPendingChoice || hasPendingCompound || !currentPlayer) return;
     const ci = currentPlayer.draftedCards.find(c => c.instanceId === cardInstanceId);
     if (!ci) return;
-    onAction({ type: 'destroyDraftedCard', card: ci.card });
+
+    const cardData = getCardData(ci.card as Card);
+    if (!cardData || cardData.kind === 'sellCard') {
+      onAction({ type: 'destroyDraftedCard', card: ci.card });
+      return;
+    }
+
+    const ability = cardData.ability;
+    if (ability.type === 'mixColors' || ability.type === 'workshop' || ability.type === 'destroyCards') {
+      pendingDestroyCard = { card: ci.card as Card, instanceId: cardInstanceId };
+      pendingDestroyAbility = ability;
+      compoundWorkshopSelectedIds = [];
+      compoundDestroySelectedIds = [];
+    } else if (ability.type === 'sell') {
+      const canSellAny = gameState.sellCardDisplay.some(g => canSell(gameState, g.instanceId));
+      const canBuyGlass = gameState.expansions?.glass
+        && gameState.glassDisplay.length > 0
+        && PRIMARIES.some(c => currentPlayer!.colorWheel[c] >= 4);
+      if (canSellAny || canBuyGlass) {
+        pendingDestroyCard = { card: ci.card as Card, instanceId: cardInstanceId };
+        pendingDestroyAbility = ability;
+      } else {
+        onAction({ type: 'destroyDraftedCard', card: ci.card });
+      }
+    } else {
+      onAction({ type: 'destroyDraftedCard', card: ci.card });
+    }
   }
 
   function handleEndTurn() {
@@ -253,7 +365,7 @@
       {#if hasAbilitiesQueued}
         <span class="queue-info">Abilities queued: {actionState.abilityStack.length}</span>
       {/if}
-      {#if hasPendingChoice}
+      {#if hasPendingChoice || hasPendingCompound}
         <span class="pending-info">Awaiting your choice...</span>
       {/if}
     </div>
@@ -262,12 +374,67 @@
       <AbilityPrompt {gameState} {onAction} />
     {/if}
 
+    {#if hasPendingCompound && pendingDestroyAbility}
+      {@const cardName = (() => { const d = getAnyCardData(pendingDestroyCard!.card); return d && 'name' in d ? d.name : pendingDestroyCard!.card; })()}
+      <div class="ability-prompt">
+        <div class="compound-header">
+          <span class="compound-title">Destroying {cardName}</span>
+          <button class="confirm-btn skip-btn compound-cancel" onclick={cancelPendingDestroy}>Cancel</button>
+        </div>
+        {#if pendingDestroyAbility.type === 'mixColors'}
+          <MixColorPrompt
+            colorWheel={currentPlayer.colorWheel}
+            remaining={pendingDestroyAbility.count}
+            onAction={compoundAction}
+          />
+        {:else if pendingDestroyAbility.type === 'sell'}
+          <SellCardSelectPrompt {gameState} onAction={compoundAction} />
+        {:else if pendingDestroyAbility.type === 'workshop'}
+          <h3>Workshop — Select cards ({pendingDestroyAbility.count} available)</h3>
+          <CardList
+            cards={workshopAndWorkshopped}
+            selectable={true}
+            selectedIds={compoundWorkshopSelectedIds}
+            rotatedIds={workshoppedIds}
+            onCardClick={toggleCompoundWorkshopCard}
+          />
+          <div class="workshop-actions">
+            <button class="confirm-btn" onclick={confirmCompoundWorkshop}>
+              Confirm Workshop ({compoundWorkshopSelectedIds.length} selected)
+            </button>
+            {#if compoundWorkshopSelectedIds.length === 0}
+              <button class="confirm-btn skip-btn" onclick={skipCompoundWorkshop}>
+                Skip Workshop
+              </button>
+            {/if}
+          </div>
+        {:else if pendingDestroyAbility.type === 'destroyCards'}
+          <h3>Workshop — Select a card to destroy</h3>
+          {#if currentPlayer.workshopCards.length > 0}
+            <CardList
+              cards={workshopAndWorkshopped}
+              selectable={true}
+              selectedIds={compoundDestroySelectedIds}
+              rotatedIds={workshoppedIds}
+              onCardClick={toggleCompoundDestroyCard}
+            />
+          {/if}
+          <button class="confirm-btn" onclick={confirmCompoundDestroy}>
+            {currentPlayer.workshopCards.length > 0
+              ? `Confirm Destroy (${compoundDestroySelectedIds.length} selected)`
+              : 'Confirm (nothing to destroy)'}
+          </button>
+        {/if}
+      </div>
+    {/if}
+
     <div class="sections">
       <div class="section">
         <h3>Drafted Cards <span class="hint">(click to destroy and activate ability)</span></h3>
         <CardList
           cards={draftCardOrder && actionState ? orderByDraftOrder(currentPlayer.draftedCards, draftCardOrder[actionState.currentPlayerIndex]) : currentPlayer.draftedCards}
-          selectable={!hasPendingChoice}
+          selectable={!hasPendingChoice && !hasPendingCompound}
+          destroyingIds={pendingDestroyCard ? [pendingDestroyCard.instanceId] : []}
           onCardClick={handleDestroyDrafted}
         />
       </div>
@@ -350,7 +517,7 @@
         {/if}
       </div>
 
-      {#if gameState.expansions?.glass && availableGlass.length > 0 && !hasPendingChoice}
+      {#if gameState.expansions?.glass && availableGlass.length > 0 && !hasPendingChoice && !hasPendingCompound}
         <div class="section glass-section">
           <h3>Glass Abilities</h3>
           <div class="glass-buttons">
@@ -477,7 +644,7 @@
       <button
         class="end-turn-btn"
         onclick={handleEndTurn}
-        disabled={hasPendingChoice}
+        disabled={hasPendingChoice || hasPendingCompound}
       >
         End Turn
       </button>
@@ -546,6 +713,38 @@
     font-size: 0.65rem;
     color: rgba(245, 237, 224, 0.4);
     font-weight: 400;
+  }
+
+  .ability-prompt {
+    border: 2px solid var(--accent-gold, #c9a84c);
+    border-radius: 8px;
+    padding: 0.5rem;
+    background: rgba(201, 168, 76, 0.06);
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .compound-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .compound-title {
+    font-family: 'Cinzel', serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #c9a84c;
+  }
+
+  .compound-cancel {
+    width: auto;
+    margin-top: 0;
+    padding: 6px 14px;
+    font-size: 0.75rem;
+    min-height: unset;
   }
 
   .active-choice {

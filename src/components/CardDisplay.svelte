@@ -4,10 +4,11 @@
   import { getCardArtUrl, getSellCardArtUrl } from '../data/cardArt';
   import { cardPreviewState } from '../stores/cardPreviewState.svelte';
 
-  let { card, selected = false, rotated = false, onclick }: {
+  let { card, selected = false, rotated = false, destroying = false, onclick }: {
     card: string;
     selected?: boolean;
     rotated?: boolean;
+    destroying?: boolean;
     onclick?: () => void;
   } = $props();
 
@@ -65,6 +66,7 @@
   class:selected
   class:clickable={!!onclick && !rotated}
   class:rotated
+  class:destroying
   class:inactive={rotated || !onclick}
   style="background-image: url('{artUrl}')"
   title={cardLabel}
@@ -122,6 +124,21 @@
   .card.inactive {
     opacity: 1;
     cursor: default;
+  }
+
+  .card.destroying::after {
+    content: '\00d7';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+    font-weight: 900;
+    color: rgba(200, 30, 30, 0.9);
+    background: rgba(0, 0, 0, 0.35);
+    pointer-events: none;
+    line-height: 1;
   }
 
   .card.rotated {
