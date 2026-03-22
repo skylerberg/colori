@@ -747,10 +747,12 @@ dependencies = [
  "egui-snarl",
  "egui_extras",
  "egui_plot",
+ "rand 0.10.0",
  "regex",
  "rfd",
  "serde",
  "serde_json",
+ "wyrand",
 ]
 
 [[package]]

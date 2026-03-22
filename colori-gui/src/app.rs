@@ -422,7 +422,7 @@ impl eframe::App for ColoriGuiApp {
                     render_card_reference_tab(ui);
                 }
                 Tab::GameViewer => {
-                    self.game_viewer.render(ui);
+                    self.game_viewer.render(ui, ctx);
                 }
                 Tab::GeneticAlgorithm => {
                     self.ga_state.render(ui);

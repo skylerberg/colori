@@ -22,6 +22,12 @@ pub enum DrawEvent {
     },
 }
 
+#[derive(Debug, Clone)]
+pub enum DrawLog {
+    Recording(Vec<DrawEvent>),
+    Replaying(std::collections::VecDeque<DrawEvent>),
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StructuredGameLog {

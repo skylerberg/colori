@@ -1,6 +1,6 @@
 use colori_core::colori_game::apply_choice_to_state;
 use colori_core::draw_phase::execute_draw_phase;
-use colori_core::game_log::{DrawEvent, FinalPlayerStats, FinalScore, PlayerVariant};
+use colori_core::game_log::{DrawEvent, DrawLog, FinalPlayerStats, FinalScore, PlayerVariant};
 use colori_core::ismcts::{ismcts, MctsConfig, MctsNode};
 use colori_core::scoring::{calculate_score, HeuristicParams};
 use colori_core::setup::create_initial_game_state_with_expansions;
@@ -229,9 +229,12 @@ pub fn run_game(
     let game_started_at = now_epoch_secs_string();
 
     // Start first round (draw phase -> draft phase)
-    state.draw_log = Some(Vec::new());
+    state.draw_log = Some(DrawLog::Recording(Vec::new()));
     execute_draw_phase(&mut state, rng);
-    let initial_draws = state.draw_log.take().unwrap_or_default();
+    let initial_draws = match state.draw_log.take() {
+        Some(DrawLog::Recording(events)) => events,
+        _ => Vec::new(),
+    };
 
     let mut entries: Vec<StructuredLogEntry> = Vec::new();
     let mut seq: u32 = 0;
@@ -279,9 +282,12 @@ pub fn run_game(
         let prev_glass_deck_len = state.glass_deck.len();
 
         // Enable draw recording before applying the choice
-        state.draw_log = Some(Vec::new());
+        state.draw_log = Some(DrawLog::Recording(Vec::new()));
         apply_choice_to_state(&mut state, &result.choice, rng);
-        let draws = state.draw_log.take().unwrap_or_default();
+        let draws = match state.draw_log.take() {
+            Some(DrawLog::Recording(events)) => events,
+            _ => Vec::new(),
+        };
 
         entries.push(StructuredLogEntry {
             seq,

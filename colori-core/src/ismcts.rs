@@ -35,6 +35,12 @@ pub struct MctsResult {
     pub tree: Option<MctsNode>,
 }
 
+pub struct TreeStats {
+    pub total_nodes: usize,
+    pub max_depth: usize,
+    pub avg_branching_factor: f64,
+}
+
 impl Default for MctsConfig {
     fn default() -> Self {
         MctsConfig {
@@ -194,6 +200,71 @@ impl MctsNode {
             self.children.push(new_node);
         }
     }
+
+    pub fn visit_count(&self) -> u32 {
+        self.visit_count
+    }
+
+    pub fn average_reward(&self) -> f64 {
+        if self.visit_count == 0 {
+            0.0
+        } else {
+            self.cumulative_reward / self.visit_count as f64
+        }
+    }
+
+    pub fn choice(&self) -> Option<&Choice> {
+        self.choice.as_ref()
+    }
+
+    pub fn children(&self) -> &[MctsNode] {
+        &self.children
+    }
+
+    /// Maximum depth from this node to any leaf.
+    pub fn max_depth(&self) -> usize {
+        if self.children.is_empty() {
+            0
+        } else {
+            1 + self.children.iter().map(|c| c.max_depth()).max().unwrap_or(0)
+        }
+    }
+
+    /// Compute aggregate tree statistics.
+    pub fn tree_stats(&self) -> TreeStats {
+        let mut stats = TreeStatsAccum { total_nodes: 0, internal_nodes: 0, total_children: 0, max_depth: 0 };
+        self.tree_stats_recurse(&mut stats, 0);
+        TreeStats {
+            total_nodes: stats.total_nodes,
+            max_depth: stats.max_depth,
+            avg_branching_factor: if stats.internal_nodes == 0 {
+                0.0
+            } else {
+                stats.total_children as f64 / stats.internal_nodes as f64
+            },
+        }
+    }
+
+    fn tree_stats_recurse(&self, acc: &mut TreeStatsAccum, depth: usize) {
+        acc.total_nodes += 1;
+        if depth > acc.max_depth {
+            acc.max_depth = depth;
+        }
+        if !self.children.is_empty() {
+            acc.internal_nodes += 1;
+            acc.total_children += self.children.len();
+            for child in &self.children {
+                child.tree_stats_recurse(acc, depth + 1);
+            }
+        }
+    }
+}
+
+struct TreeStatsAccum {
+    total_nodes: usize,
+    internal_nodes: usize,
+    total_children: usize,
+    max_depth: usize,
 }
 
 fn upper_confidence_bound(

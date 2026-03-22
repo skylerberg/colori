@@ -1,7 +1,7 @@
 use crate::colors::{can_pay_cost, pay_cost, perform_mix, perform_mix_unchecked, PRIMARIES, TERTIARIES};
 use crate::deck_utils::draw_from_deck;
-use crate::draw_log_helpers::record_player_deck_draw;
-use crate::game_log::DrawEvent;
+use crate::draw_log_helpers::{is_replaying, record_player_deck_draw, replay_player_deck_draw, replay_sell_card_reveal};
+use crate::game_log::{DrawEvent, DrawLog};
 use crate::types::{
     Ability, AbilityStack, ActionState, Card, Color, GamePhase, GameState, GlassCard,
     PlayerState, SellCard, SellCardInstance,
@@ -218,10 +218,14 @@ pub fn process_ability_stack<R: Rng>(state: &mut GameState, rng: &mut R) {
         match ability {
             Ability::DrawCards { count } => {
                 get_action_state_mut(state).ability_stack.pop();
-                let before = state.players[player_index].workshop_cards;
-                let player = &mut state.players[player_index];
-                draw_from_deck(&mut player.deck, &mut player.discard, &mut player.workshop_cards, count as usize, rng);
-                record_player_deck_draw(state, player_index, before);
+                if is_replaying(state) {
+                    replay_player_deck_draw(state, player_index);
+                } else {
+                    let before = state.players[player_index].workshop_cards;
+                    let player = &mut state.players[player_index];
+                    draw_from_deck(&mut player.deck, &mut player.discard, &mut player.workshop_cards, count as usize, rng);
+                    record_player_deck_draw(state, player_index, before);
+                }
                 continue;
             }
             Ability::Workshop { .. } => {
@@ -508,12 +512,14 @@ pub fn resolve_select_sell_card<R: Rng>(
     player.completed_sell_cards.push(sell_card_instance);
 
     // Refill sell card display from sell_card_deck
-    if let Some(id) = state.sell_card_deck.draw(rng) {
+    if is_replaying(state) {
+        replay_sell_card_reveal(state);
+    } else if let Some(id) = state.sell_card_deck.draw(rng) {
         let revealed = SellCardInstance {
             instance_id: id as u32,
             sell_card: state.sell_card_lookup[id as usize],
         };
-        if let Some(log) = &mut state.draw_log {
+        if let Some(DrawLog::Recording(log)) = &mut state.draw_log {
             log.push(DrawEvent::SellCardReveal {
                 sell_card: revealed,
             });

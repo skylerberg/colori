@@ -11,6 +11,7 @@ pub mod draw_phase;
 pub mod fixed_vec;
 pub mod game_log;
 pub mod ismcts;
+pub mod replay;
 pub(crate) mod rollout;
 pub mod scoring;
 pub mod setup;
