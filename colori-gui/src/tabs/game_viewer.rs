@@ -53,6 +53,7 @@ pub struct MctsAnalysisResult {
 
 pub struct GameViewerState {
     pub game: Option<StructuredGameLog>,
+    pub loaded_path: Option<String>,
     pub error: Option<String>,
     pub selected_player: Option<usize>,
     card_map: Option<HashMap<u32, CardInstance>>,
@@ -121,6 +122,7 @@ impl GameViewerState {
     pub fn new() -> Self {
         Self {
             game: None,
+            loaded_path: None,
             error: None,
             selected_player: None,
             card_map: None,
@@ -152,6 +154,7 @@ impl GameViewerState {
                         self.sell_card_map = Some(sell_card_map);
                         self.initial_state_json = initial_state_json;
                         self.game = Some(game);
+                        self.loaded_path = Some(path.display().to_string());
                         self.error = None;
                         self.selected_player = None;
                         self.selected_entry_index = None;
@@ -256,14 +259,19 @@ impl GameViewerState {
             }
         }
 
-        if ui.button("Load Game Log...").clicked() {
-            if let Some(path) = rfd::FileDialog::new()
-                .add_filter("JSON", &["json"])
-                .pick_file()
-            {
-                self.load_file(&path);
+        ui.horizontal(|ui| {
+            if ui.button("Load Game Log...").clicked() {
+                if let Some(path) = rfd::FileDialog::new()
+                    .add_filter("JSON", &["json"])
+                    .pick_file()
+                {
+                    self.load_file(&path);
+                }
             }
-        }
+            if let Some(ref path) = self.loaded_path {
+                ui.add(egui::Label::new(egui::RichText::new(path).monospace().small()).selectable(true));
+            }
+        });
 
         if let Some(ref error) = self.error {
             ui.colored_label(egui::Color32::RED, error);
