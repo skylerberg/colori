@@ -821,53 +821,57 @@ fn render_mcts_children(ui: &mut egui::Ui, node: &MctsNode, depth: usize) {
         .collect();
     children.sort_by(|a, b| b.visit_count().cmp(&a.visit_count()));
 
-    if depth == 0 {
-        // Header row
-        egui::Grid::new("mcts_header")
-            .min_col_width(60.0)
-            .show(ui, |ui| {
-                ui.strong("Choice");
-                ui.strong("Visits");
-                ui.strong("Avg Reward");
-                ui.strong("Max Depth");
-                ui.strong("Avg Branch");
-                ui.end_row();
-            });
-    }
+    let max_choice_chars = 30;
 
+    egui::Grid::new(format!("mcts_grid_d{}", depth))
+        .striped(true)
+        .min_col_width(40.0)
+        .show(ui, |ui| {
+            ui.strong("Choice");
+            ui.strong("Visits");
+            ui.strong("Avg Reward");
+            ui.strong("Max Depth");
+            ui.strong("Avg Branch");
+            ui.end_row();
+
+            for child in &children {
+                let choice_text = child
+                    .choice()
+                    .map(|ch| format_choice(ch))
+                    .unwrap_or_else(|| "?".to_string());
+                let stats = child.tree_stats();
+
+                let truncated = if choice_text.len() > max_choice_chars {
+                    format!("{}…", &choice_text[..max_choice_chars])
+                } else {
+                    choice_text.clone()
+                };
+                ui.label(egui::RichText::new(&truncated).monospace());
+                ui.label(format!("{}", child.visit_count()));
+                ui.label(format!("{:.3}", child.average_reward()));
+                ui.label(format!("{}", stats.max_depth));
+                ui.label(format!("{:.1}", stats.avg_branching_factor));
+                ui.end_row();
+            }
+        });
+
+    // Expandable subtrees below the table
     for (i, child) in children.iter().enumerate() {
+        if child.children().is_empty() {
+            continue;
+        }
         let choice_text = child
             .choice()
             .map(|ch| format_choice(ch))
             .unwrap_or_else(|| "?".to_string());
-        let stats = child.tree_stats();
-        let has_children = !child.children().is_empty();
 
-        if has_children {
-            egui::CollapsingHeader::new(
-                egui::RichText::new(&choice_text).monospace(),
-            )
-            .id_salt(format!("mcts_d{}_c{}", depth, i))
-            .default_open(false)
-            .show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label(format!("Visits: {}", child.visit_count()));
-                    ui.separator();
-                    ui.label(format!("Avg reward: {:.3}", child.average_reward()));
-                    ui.separator();
-                    ui.label(format!("Max depth: {}", stats.max_depth));
-                    ui.separator();
-                    ui.label(format!("Avg branch: {:.1}", stats.avg_branching_factor));
-                });
-                ui.add_space(4.0);
-                render_mcts_children(ui, child, depth + 1);
-            });
-        } else {
-            ui.horizontal(|ui| {
-                ui.label(egui::RichText::new(&choice_text).monospace());
-                ui.label(format!("{}", child.visit_count()));
-                ui.label(format!("{:.3}", child.average_reward()));
-            });
-        }
+        egui::CollapsingHeader::new(
+            egui::RichText::new(format!("▶ {}", choice_text)).monospace().small(),
+        )
+        .id_salt(format!("mcts_d{}_c{}", depth, i))
+        .default_open(false)
+        .show(ui, |ui| {
+            render_mcts_children(ui, child, depth + 1);
+        });
     }
 }
