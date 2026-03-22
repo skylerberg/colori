@@ -4,6 +4,25 @@ use crate::scoring::HeuristicParams;
 use crate::types::{SellCardInstance, CardInstance, Choice, ColorWheel, Materials};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum DrawEvent {
+    #[serde(rename = "playerDeckDraw", rename_all = "camelCase")]
+    PlayerDeckDraw {
+        player_index: usize,
+        cards: Vec<CardInstance>,
+    },
+    #[serde(rename = "draftDeal", rename_all = "camelCase")]
+    DraftDeal {
+        player_index: usize,
+        cards: Vec<CardInstance>,
+    },
+    #[serde(rename = "sellCardReveal", rename_all = "camelCase")]
+    SellCardReveal {
+        sell_card: SellCardInstance,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StructuredGameLog {
     pub version: u32,
@@ -15,6 +34,8 @@ pub struct StructuredGameLog {
     pub final_scores: Option<Vec<FinalScore>>,
     pub final_player_stats: Option<Vec<FinalPlayerStats>>,
     pub entries: Vec<StructuredLogEntry>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub initial_draws: Vec<DrawEvent>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub duration_ms: Option<u64>,
     #[serde(default)]
@@ -90,6 +111,8 @@ pub struct StructuredLogEntry {
     pub phase: String,
     pub player_index: usize,
     pub choice: Choice,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub draws: Vec<DrawEvent>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

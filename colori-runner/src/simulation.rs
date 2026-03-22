@@ -1,6 +1,6 @@
 use colori_core::colori_game::apply_choice_to_state;
 use colori_core::draw_phase::execute_draw_phase;
-use colori_core::game_log::{FinalPlayerStats, FinalScore, PlayerVariant};
+use colori_core::game_log::{DrawEvent, FinalPlayerStats, FinalScore, PlayerVariant};
 use colori_core::ismcts::{ismcts, MctsConfig, MctsNode};
 use colori_core::scoring::{calculate_score, HeuristicParams};
 use colori_core::setup::create_initial_game_state_with_expansions;
@@ -27,6 +27,8 @@ pub struct GameRunOutput {
     pub final_scores: Option<Vec<FinalScore>>,
     pub final_player_stats: Option<Vec<FinalPlayerStats>>,
     pub entries: Vec<StructuredLogEntry>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub initial_draws: Vec<DrawEvent>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub duration_ms: Option<u64>,
     pub player_time_ms: Vec<u64>,
@@ -54,6 +56,8 @@ pub struct StructuredLogEntry {
     pub phase: String,
     pub player_index: usize,
     pub choice: Choice,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub draws: Vec<DrawEvent>,
 }
 
 // ── Helpers ──
@@ -225,7 +229,9 @@ pub fn run_game(
     let game_started_at = now_epoch_secs_string();
 
     // Start first round (draw phase -> draft phase)
+    state.draw_log = Some(Vec::new());
     execute_draw_phase(&mut state, rng);
+    let initial_draws = state.draw_log.take().unwrap_or_default();
 
     let mut entries: Vec<StructuredLogEntry> = Vec::new();
     let mut seq: u32 = 0;
@@ -266,6 +272,17 @@ pub fn run_game(
         total_reused_iterations += result.reused_iterations as u64;
 
         seq += 1;
+
+        // Snapshot state for information revelation check
+        let prev_workshop_len = state.players[player_index].workshop_cards.len();
+        let prev_sell_deck_len = state.sell_card_deck.len();
+        let prev_glass_deck_len = state.glass_deck.len();
+
+        // Enable draw recording before applying the choice
+        state.draw_log = Some(Vec::new());
+        apply_choice_to_state(&mut state, &result.choice, rng);
+        let draws = state.draw_log.take().unwrap_or_default();
+
         entries.push(StructuredLogEntry {
             seq,
             timestamp: now_epoch_millis(),
@@ -273,14 +290,8 @@ pub fn run_game(
             phase: phase_str.to_string(),
             player_index,
             choice: result.choice.clone(),
+            draws,
         });
-
-        // Snapshot state for information revelation check
-        let prev_workshop_len = state.players[player_index].workshop_cards.len();
-        let prev_sell_deck_len = state.sell_card_deck.len();
-        let prev_glass_deck_len = state.glass_deck.len();
-
-        apply_choice_to_state(&mut state, &result.choice, rng);
 
         // Reuse subtree only if same player is still active and no information was revealed
         let same_player_action = matches!(&state.phase, GamePhase::Action { action_state }
@@ -369,6 +380,7 @@ pub fn run_game(
         final_scores,
         final_player_stats,
         entries,
+        initial_draws,
         duration_ms,
         player_time_ms,
         player_iterations: player_iterations_count,

@@ -104,7 +104,8 @@
     if (gameState.phase.type === 'draw' && drawExecutedForRound !== gameState.round) {
       drawExecutedForRound = gameState.round;
       addLog(`Round ${gameState.round} began`);
-      executeDrawPhase(gameState);
+      const drawPhaseDraws = executeDrawPhase(gameState);
+      gameLogAccumulator?.recordDrawPhaseDraws(drawPhaseDraws);
       // Reset draft state for the new round
       aiDraftKnowledge = new Map();
       submittedDraftPicks = new Set();
@@ -144,10 +145,11 @@
       pushUndoSnapshot();
     }
 
-    gameLogAccumulator?.recordChoice(gameState, choice, playerIdx);
     const logMsg = getChoiceLogMessage(gameState, choice, playerIdx);
+    gameLogAccumulator?.recordChoice(gameState, choice, playerIdx);
+    const draws = applyChoice(gameState, choice);
+    gameLogAccumulator?.attachDrawsToLastEntry(draws);
     if (logMsg) addLog(logMsg);
-    applyChoice(gameState, choice);
 
     onGameUpdated(gameState, gameLog);
   }

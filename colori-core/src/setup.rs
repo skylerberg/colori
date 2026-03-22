@@ -174,5 +174,6 @@ pub fn create_initial_game_state_with_expansions<R: Rng>(num_players: usize, ai_
         ai_players: FixedVec::from_slice(ai_players),
         card_lookup,
         sell_card_lookup,
+        draw_log: None,
     }
 }

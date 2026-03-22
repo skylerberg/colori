@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
 use crate::fixed_vec::FixedVec;
+use crate::game_log::DrawEvent;
 use crate::unordered_cards::{UnorderedSellCards, UnorderedCards};
 
 pub type AbilityStack = SmallVec<[Ability; 4]>;
@@ -762,6 +763,8 @@ pub struct GameState {
     pub card_lookup: [Card; 256],
     #[serde(skip, default = "default_sell_card_lookup")]
     pub sell_card_lookup: [SellCard; 256],
+    #[serde(skip)]
+    pub draw_log: Option<Vec<DrawEvent>>,
 }
 
 fn default_card_lookup() -> [Card; 256] {

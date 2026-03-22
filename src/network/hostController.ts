@@ -296,7 +296,8 @@ export class HostController {
     const logMsg = getChoiceLogMessage(this.gameState, choice, playerIndex);
     const newLogEntries: string[] = logMsg ? [logMsg] : [];
 
-    applyChoice(this.gameState, choice);
+    const draws = applyChoice(this.gameState, choice);
+    this.structuredLog?.attachDrawsToLastEntry(draws);
 
     this.gameLog.push(...newLogEntries);
     this.executeDrawIfNeeded();
@@ -309,7 +310,8 @@ export class HostController {
     if (!this.gameState) return;
     if (this.gameState.phase.type === 'draw') {
       this.gameLog.push(`Round ${this.gameState.round} began`);
-      executeDrawPhase(this.gameState);
+      const draws = executeDrawPhase(this.gameState);
+      this.structuredLog?.recordDrawPhaseDraws(draws);
     }
   }
 

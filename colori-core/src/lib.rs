@@ -5,6 +5,7 @@ pub mod choices;
 pub mod colori_game;
 pub mod colors;
 pub(crate) mod deck_utils;
+pub(crate) mod draw_log_helpers;
 pub mod draft_phase;
 pub mod draw_phase;
 pub mod fixed_vec;

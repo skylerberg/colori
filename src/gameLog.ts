@@ -1,4 +1,4 @@
-import type { GameState, Choice, StructuredGameLog } from './data/types';
+import type { GameState, Choice, DrawEvent, StructuredGameLog } from './data/types';
 import { calculateScores } from './engine/wasmEngine';
 
 export class GameLogAccumulator {
@@ -22,7 +22,27 @@ export class GameLogAccumulator {
     }
   }
 
-  recordChoice(state: GameState, choice: Choice, playerIndex: number) {
+  recordDrawPhaseDraws(draws: DrawEvent[]) {
+    if (draws.length === 0) return;
+    // For round 1, store as initialDraws. For later rounds, attach to the
+    // preceding EndTurn entry that triggered the draw phase.
+    const lastEntry = this.log.entries[this.log.entries.length - 1];
+    if (lastEntry && lastEntry.choice.type === 'endTurn') {
+      lastEntry.draws = [...(lastEntry.draws ?? []), ...draws];
+    } else {
+      this.log.initialDraws = draws;
+    }
+  }
+
+  attachDrawsToLastEntry(draws: DrawEvent[]) {
+    if (draws.length === 0) return;
+    const lastEntry = this.log.entries[this.log.entries.length - 1];
+    if (lastEntry) {
+      lastEntry.draws = [...(lastEntry.draws ?? []), ...draws];
+    }
+  }
+
+  recordChoice(state: GameState, choice: Choice, playerIndex: number, draws?: DrawEvent[]) {
     let phase: string;
     if (state.phase.type === 'draft') {
       phase = 'draft';
@@ -39,6 +59,7 @@ export class GameLogAccumulator {
       phase,
       playerIndex,
       choice,
+      draws: draws && draws.length > 0 ? draws : undefined,
     });
   }
 

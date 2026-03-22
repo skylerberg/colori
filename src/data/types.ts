@@ -195,6 +195,13 @@ export type Choice =
   | { type: 'destroyAndSelectGlass'; card: Card; glass: GlassCard; payColor: Color }
   | { type: 'workshopWithReworkshop'; reworkshopCard: Card; otherCards: Card[] };
 
+// ── Draw Event Types ──
+
+export type DrawEvent =
+  | { type: 'playerDeckDraw'; playerIndex: number; cards: CardInstance[] }
+  | { type: 'draftDeal'; playerIndex: number; cards: CardInstance[] }
+  | { type: 'sellCardReveal'; sellCard: SellCardInstance };
+
 // ── Game Log Types ──
 
 export interface StructuredLogEntry {
@@ -204,6 +211,7 @@ export interface StructuredLogEntry {
   phase: string;
   playerIndex: number;
   choice: Choice;
+  draws?: DrawEvent[];
 }
 
 export interface PlayerVariant {
@@ -223,6 +231,7 @@ export interface StructuredGameLog {
   finalScores: { name: string; score: number; completedSellCards?: number; colorWheelTotal?: number }[] | null;
   finalPlayerStats: FinalPlayerStats[] | null;
   entries: StructuredLogEntry[];
+  initialDraws?: DrawEvent[];
   durationMs?: number;
   iterations?: number;
   playerVariants?: PlayerVariant[];

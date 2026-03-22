@@ -1,5 +1,7 @@
 use crate::colors::{can_pay_cost, pay_cost, perform_mix, perform_mix_unchecked, PRIMARIES, TERTIARIES};
 use crate::deck_utils::draw_from_deck;
+use crate::draw_log_helpers::record_player_deck_draw;
+use crate::game_log::DrawEvent;
 use crate::types::{
     Ability, AbilityStack, ActionState, Card, Color, GamePhase, GameState, GlassCard,
     PlayerState, SellCard, SellCardInstance,
@@ -216,8 +218,10 @@ pub fn process_ability_stack<R: Rng>(state: &mut GameState, rng: &mut R) {
         match ability {
             Ability::DrawCards { count } => {
                 get_action_state_mut(state).ability_stack.pop();
+                let before = state.players[player_index].workshop_cards;
                 let player = &mut state.players[player_index];
                 draw_from_deck(&mut player.deck, &mut player.discard, &mut player.workshop_cards, count as usize, rng);
+                record_player_deck_draw(state, player_index, before);
                 continue;
             }
             Ability::Workshop { .. } => {
@@ -505,10 +509,16 @@ pub fn resolve_select_sell_card<R: Rng>(
 
     // Refill sell card display from sell_card_deck
     if let Some(id) = state.sell_card_deck.draw(rng) {
-        state.sell_card_display.push(SellCardInstance {
+        let revealed = SellCardInstance {
             instance_id: id as u32,
             sell_card: state.sell_card_lookup[id as usize],
-        });
+        };
+        if let Some(log) = &mut state.draw_log {
+            log.push(DrawEvent::SellCardReveal {
+                sell_card: revealed,
+            });
+        }
+        state.sell_card_display.push(revealed);
     }
 
     process_ability_stack(state, rng);

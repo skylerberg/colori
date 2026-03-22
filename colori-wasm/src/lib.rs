@@ -2,6 +2,7 @@ use colori_core::apply_choice::apply_choice;
 use colori_core::colori_game::enumerate_choices;
 use colori_core::draft_phase::{advance_draft, simultaneous_pick};
 use colori_core::draw_phase::execute_draw_phase;
+use colori_core::game_log::DrawEvent;
 use colori_core::ismcts::{ismcts, MctsConfig};
 use colori_core::scoring::{calculate_score, DiffEvalParams, HeuristicParams};
 use colori_core::setup::{create_initial_game_state, create_initial_game_state_with_expansions};
@@ -10,6 +11,7 @@ use colori_core::unordered_cards::{
     get_card_registry, get_sell_card_registry, set_card_registry, set_sell_card_registry,
 };
 use rand::SeedableRng;
+use serde::Serialize;
 use wyrand::WyRand;
 use wasm_bindgen::prelude::*;
 
@@ -104,12 +106,30 @@ pub fn wasm_create_initial_game_state_with_expansions(
     serialize_state(&state)
 }
 
+#[derive(Serialize)]
+struct StateWithDraws {
+    state: serde_json::Value,
+    draws: Vec<DrawEvent>,
+}
+
+fn serialize_state_with_draws(state: &mut GameState) -> String {
+    let draws = state.draw_log.take().unwrap_or_default();
+    let state_json = {
+        set_card_registry(&state.card_lookup);
+        set_sell_card_registry(&state.sell_card_lookup);
+        serde_json::to_value(state).expect("Failed to serialize game state")
+    };
+    serde_json::to_string(&StateWithDraws { state: state_json, draws })
+        .expect("Failed to serialize state with draws")
+}
+
 #[wasm_bindgen]
 pub fn wasm_execute_draw_phase(state_json: &str) -> String {
     let mut state = deserialize_state(state_json);
     let mut rng = WyRand::from_rng(&mut rand::rng());
+    state.draw_log = Some(Vec::new());
     execute_draw_phase(&mut state, &mut rng);
-    serialize_state(&state)
+    serialize_state_with_draws(&mut state)
 }
 
 #[wasm_bindgen]
@@ -118,8 +138,9 @@ pub fn wasm_apply_choice(state_json: &str, choice_json: &str) -> String {
     let choice: Choice =
         serde_json::from_str(choice_json).expect("Failed to parse choice JSON");
     let mut rng = WyRand::from_rng(&mut rand::rng());
+    state.draw_log = Some(Vec::new());
     apply_choice(&mut state, &choice, &mut rng);
-    serialize_state(&state)
+    serialize_state_with_draws(&mut state)
 }
 
 #[wasm_bindgen]

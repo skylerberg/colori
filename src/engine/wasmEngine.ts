@@ -1,4 +1,4 @@
-import type { GameState, Choice, PlayerState, Color, Card, Expansions } from '../data/types';
+import type { GameState, Choice, PlayerState, Color, Card, Expansions, DrawEvent } from '../data/types';
 import { mixResult } from '../data/colors';
 import { getCardData, getSellCardData, getAnyCardData } from '../data/cards';
 import init, {
@@ -45,16 +45,18 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
 // properties on `state` that are absent from the WASM output. If you change this to
 // direct assignment or structuredClone, those fields will be silently lost.
 
-export function executeDrawPhase(state: GameState): void {
+export function executeDrawPhase(state: GameState): DrawEvent[] {
   const resultJson = wasm_execute_draw_phase(JSON.stringify(state));
-  const newState: GameState = JSON.parse(resultJson);
-  Object.assign(state, newState);
+  const result: { state: GameState; draws: DrawEvent[] } = JSON.parse(resultJson);
+  Object.assign(state, result.state);
+  return result.draws;
 }
 
-export function applyChoice(state: GameState, choice: Choice): void {
+export function applyChoice(state: GameState, choice: Choice): DrawEvent[] {
   const resultJson = wasm_apply_choice(JSON.stringify(state), JSON.stringify(choice));
-  const newState: GameState = JSON.parse(resultJson);
-  Object.assign(state, newState);
+  const result: { state: GameState; draws: DrawEvent[] } = JSON.parse(resultJson);
+  Object.assign(state, result.state);
+  return result.draws;
 }
 
 export function simultaneousPick(state: GameState, playerIndex: number, card: Card): void {
