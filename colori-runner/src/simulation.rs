@@ -281,6 +281,9 @@ pub fn run_game(
         let prev_sell_deck_len = state.sell_card_deck.len();
         let prev_glass_deck_len = state.glass_deck.len();
 
+        // Capture round before applying choice (end_round may increment it)
+        let round = state.round;
+
         // Enable draw recording before applying the choice
         state.draw_log = Some(DrawLog::Recording(Vec::new()));
         apply_choice_to_state(&mut state, &result.choice, rng);
@@ -292,7 +295,7 @@ pub fn run_game(
         entries.push(StructuredLogEntry {
             seq,
             timestamp: now_epoch_millis(),
-            round: state.round,
+            round,
             phase: phase_str.to_string(),
             player_index,
             choice: result.choice.clone(),

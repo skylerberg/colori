@@ -26,7 +26,6 @@ pub struct MctsConfig {
     pub early_termination: bool,
     pub subtree_reuse: bool,
     pub time_limit_ms: Option<u64>,
-    pub draft_information_tracking: bool,
 }
 
 pub struct MctsResult {
@@ -58,7 +57,6 @@ impl Default for MctsConfig {
             early_termination: true,
             subtree_reuse: true,
             time_limit_ms: None,
-            draft_information_tracking: true,
         }
     }
 }
@@ -93,8 +91,6 @@ impl<'de> Deserialize<'de> for MctsConfig {
             subtree_reuse: bool,
             #[serde(default)]
             time_limit_ms: Option<u64>,
-            #[serde(default = "default_draft_information_tracking")]
-            draft_information_tracking: bool,
         }
 
         fn default_iterations() -> u32 { 100 }
@@ -103,7 +99,6 @@ impl<'de> Deserialize<'de> for MctsConfig {
         fn default_use_heuristic_eval() -> bool { true }
         fn default_progressive_bias_weight() -> f64 { 0.0 }
         fn default_heuristic_rollout() -> bool { true }
-        fn default_draft_information_tracking() -> bool { true }
 
         let helper = MctsConfigHelper::deserialize(deserializer)?;
         Ok(MctsConfig {
@@ -120,7 +115,6 @@ impl<'de> Deserialize<'de> for MctsConfig {
             early_termination: helper.early_termination,
             subtree_reuse: helper.subtree_reuse,
             time_limit_ms: helper.time_limit_ms,
-            draft_information_tracking: helper.draft_information_tracking,
         })
     }
 }
@@ -495,7 +489,7 @@ pub fn ismcts<R: Rng>(
         while Instant::now() < deadline {
             iterations_used += 1;
             pick_log.clear();
-            determinize_in_place(&mut det_state, state, player_index, known_draft_hands, config.draft_information_tracking, &cached_scores, rng);
+            determinize_in_place(&mut det_state, state, player_index, known_draft_hands, &cached_scores, rng);
             advance_past_opponent_draft_picks(
                 &mut det_state, player_index, &mut opponent_stats,
                 &mut pick_log, config.exploration_constant, rng,
@@ -515,7 +509,7 @@ pub fn ismcts<R: Rng>(
         for i in 0..new_iterations {
             iterations_used = i + 1;
             pick_log.clear();
-            determinize_in_place(&mut det_state, state, player_index, known_draft_hands, config.draft_information_tracking, &cached_scores, rng);
+            determinize_in_place(&mut det_state, state, player_index, known_draft_hands, &cached_scores, rng);
             advance_past_opponent_draft_picks(
                 &mut det_state, player_index, &mut opponent_stats,
                 &mut pick_log, config.exploration_constant, rng,
