@@ -386,17 +386,22 @@ impl GameViewerState {
 
         // Poll for batch MCTS results
         if let Some(rx) = &self.batch_mcts_receiver {
-            let mut got_any = false;
-            while let Ok((idx, entry)) = rx.try_recv() {
-                self.batch_mcts_results.insert(idx, entry);
-                got_any = true;
+            let mut disconnected = false;
+            loop {
+                match rx.try_recv() {
+                    Ok((idx, entry)) => {
+                        self.batch_mcts_results.insert(idx, entry);
+                    }
+                    Err(mpsc::TryRecvError::Disconnected) => {
+                        disconnected = true;
+                        break;
+                    }
+                    Err(mpsc::TryRecvError::Empty) => break,
+                }
             }
-            if self.batch_mcts_results.len() >= self.batch_mcts_total {
+            if disconnected {
                 self.batch_mcts_receiver = None;
-            } else if !got_any {
-                ctx.request_repaint();
-            }
-            if got_any {
+            } else {
                 ctx.request_repaint();
             }
         }
