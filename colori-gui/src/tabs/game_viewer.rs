@@ -72,7 +72,6 @@ pub struct GameViewerState {
 struct MctsGuiConfig {
     iterations: u32,
     exploration_constant: f64,
-    max_rollout_steps: u32,
     use_heuristic_eval: bool,
     heuristic_rollout: bool,
     early_termination: bool,
@@ -85,7 +84,6 @@ impl Default for MctsGuiConfig {
         Self {
             iterations: 10_000,
             exploration_constant: defaults.exploration_constant,
-            max_rollout_steps: defaults.max_rollout_steps,
             use_heuristic_eval: defaults.use_heuristic_eval,
             heuristic_rollout: defaults.heuristic_rollout,
             early_termination: defaults.early_termination,
@@ -107,7 +105,6 @@ impl MctsGuiConfig {
         MctsConfig {
             iterations: self.iterations,
             exploration_constant: self.exploration_constant,
-            max_rollout_steps: self.max_rollout_steps,
             use_heuristic_eval: self.use_heuristic_eval,
             heuristic_rollout: self.heuristic_rollout,
             early_termination: self.early_termination,
@@ -782,10 +779,6 @@ fn render_mcts_section(
                         .speed(0.01)
                         .range(0.0..=10.0),
                 );
-            });
-            ui.horizontal(|ui| {
-                ui.label("Max rollout steps:");
-                ui.add(egui::DragValue::new(&mut config.max_rollout_steps).range(1..=10000));
             });
             ui.checkbox(&mut config.use_heuristic_eval, "Heuristic eval");
             ui.checkbox(&mut config.heuristic_rollout, "Heuristic rollout");
