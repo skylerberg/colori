@@ -30,7 +30,6 @@ pub struct SimulationArgs {
     pub train_replay_buffer_epochs: usize,
     pub baseline_heuristic_params: Option<HeuristicParams>,
     pub distill_from: Option<String>,
-    pub optimize_opening_book: bool,
 }
 
 pub struct CmaEsArgs {
@@ -69,8 +68,6 @@ struct VariantFileEntry {
     heuristic_params_file: Option<String>,
     #[serde(default)]
     diff_eval_params_file: Option<String>,
-    #[serde(default)]
-    opening_book_params_file: Option<String>,
     // Overrides for diff eval control params (applied on top of params file values)
     #[serde(default)]
     heuristic_round_threshold: Option<u32>,
@@ -120,13 +117,6 @@ impl VariantFileEntry {
             }
             Box::new(params)
         });
-        let opening_book_params = self.opening_book_params_file.as_ref().map(|path| {
-            let contents = std::fs::read_to_string(path)
-                .unwrap_or_else(|_| panic!("Failed to read opening book params file: {}", path));
-            let params = serde_json::from_str::<colori_core::opening_book::OpeningBookParams>(&contents)
-                .unwrap_or_else(|_| panic!("Failed to parse opening book params file: {}", path));
-            Box::new(params)
-        });
         NamedVariant {
             name: self.name,
             ai: MctsConfig {
@@ -137,7 +127,6 @@ impl VariantFileEntry {
                 progressive_bias_weight: self.progressive_bias_weight.unwrap_or(defaults.progressive_bias_weight),
                 heuristic_params,
                 diff_eval_params,
-                opening_book_params,
                 no_rollout: self.no_rollout.unwrap_or(defaults.no_rollout),
                 heuristic_rollout: self.heuristic_rollout.unwrap_or(defaults.heuristic_rollout),
                 heuristic_draft: self.heuristic_draft.unwrap_or(defaults.heuristic_draft),
@@ -174,7 +163,6 @@ pub fn parse_args() -> SimulationArgs {
 
     let mut distill_from: Option<String> = None;
 
-    let mut optimize_opening_book = false;
     let mut genetic = false;
     let mut population = 14usize;
     let mut generations = 50usize;
@@ -233,12 +221,6 @@ pub fn parse_args() -> SimulationArgs {
                 continue;
             }
             "--genetic" => {
-                genetic = true;
-                i += 1;
-                continue;
-            }
-            "--optimize-opening-book" => {
-                optimize_opening_book = true;
                 genetic = true;
                 i += 1;
                 continue;
@@ -368,7 +350,7 @@ pub fn parse_args() -> SimulationArgs {
     };
 
     let variants = variants.unwrap_or_else(|| {
-        if genetic || train_diff_eval || optimize_opening_book {
+        if genetic || train_diff_eval {
             // In genetic/training mode, variants file is not required
             vec![NamedVariant { name: None, ai: MctsConfig::default() }; 2]
         } else {
@@ -410,6 +392,5 @@ pub fn parse_args() -> SimulationArgs {
         train_replay_buffer_epochs,
         baseline_heuristic_params,
         distill_from,
-        optimize_opening_book,
     }
 }

@@ -20,7 +20,6 @@ pub struct MctsConfig {
     pub progressive_bias_weight: f64,
     pub heuristic_params: HeuristicParams,
     pub diff_eval_params: Option<Box<DiffEvalParams>>,
-    pub opening_book_params: Option<Box<crate::opening_book::OpeningBookParams>>,
     pub no_rollout: bool,
     pub heuristic_rollout: bool,
     pub heuristic_draft: bool,
@@ -46,7 +45,6 @@ impl Default for MctsConfig {
             progressive_bias_weight: 0.0,
             heuristic_params: HeuristicParams::default(),
             diff_eval_params: None,
-            opening_book_params: None,
             no_rollout: false,
             heuristic_rollout: true,
             heuristic_draft: false,
@@ -105,7 +103,6 @@ impl<'de> Deserialize<'de> for MctsConfig {
             progressive_bias_weight: helper.progressive_bias_weight,
             heuristic_params: helper.heuristic_params,
             diff_eval_params: None,
-            opening_book_params: None,
             no_rollout: false,
             heuristic_rollout: helper.heuristic_rollout,
             heuristic_draft: helper.heuristic_draft,
@@ -364,31 +361,6 @@ pub fn ismcts<R: Rng>(
     enumerate_choices_into(state, &mut choices_buf);
     if choices_buf.len() == 1 {
         return MctsResult { choice: choices_buf.swap_remove(0), iterations_used: 0, reused_iterations: 0, tree: None };
-    }
-
-    // Opening book: use learned draft policy for round 1 draft picks
-    if let Some(ref book_params) = config.opening_book_params {
-        if state.round == 1 {
-            if let GamePhase::Draft { ref draft_state } = state.phase {
-                if draft_state.current_player_index == player_index {
-                    let hand = draft_state.hands[player_index];
-                    let drafted = &state.players[player_index].drafted_cards;
-                    let card = crate::opening_book::opening_book_pick(
-                        &hand,
-                        drafted,
-                        &state.sell_card_display,
-                        &state.card_lookup,
-                        book_params,
-                    );
-                    return MctsResult {
-                        choice: Choice::DraftPick { card },
-                        iterations_used: 0,
-                        reused_iterations: 0,
-                        tree: None,
-                    };
-                }
-            }
-        }
     }
 
     let mut root = previous_tree.unwrap_or_else(|| MctsNode::new(player_index, None));

@@ -31,11 +31,7 @@ fn main() {
     let args = parse_args();
 
     if let Some(ref ga) = args.genetic {
-        if args.optimize_opening_book {
-            cmaes::run_opening_book_optimization(&args, ga);
-        } else {
-            run_genetic_algorithm(&args, ga);
-        }
+        run_genetic_algorithm(&args, ga);
         return;
     }
 
