@@ -5,11 +5,10 @@ use eframe::egui;
 use rand::SeedableRng;
 use wyrand::WyRand;
 
-use colori_core::colori_game::{apply_choice_to_state, enumerate_choices};
-use colori_core::draw_phase::execute_draw_phase;
-use colori_core::game_log::{DrawEvent, DrawLog, StructuredGameLog, StructuredLogEntry};
+use colori_core::colori_game::enumerate_choices;
+use colori_core::game_log::{DrawEvent, StructuredGameLog, StructuredLogEntry};
 use colori_core::ismcts::{ismcts, MctsConfig, MctsNode, TreeStats};
-use colori_core::replay::{reconstruct_initial_state, replay_to};
+use colori_core::replay::{GameReplay, replay_to};
 use colori_core::scoring::{calculate_score, HeuristicParams};
 use colori_core::types::{
     CardInstance, Choice, GamePhase, GameState, SellCardInstance, ALL_COLORS, ALL_MATERIAL_TYPES,
@@ -304,30 +303,24 @@ impl GameViewerState {
         self.batch_mcts_receiver = Some(rx);
 
         std::thread::spawn(move || {
-            let mut state = reconstruct_initial_state(&initial_state_json);
-            let mut rng = WyRand::seed_from_u64(0);
-
-            // Apply initial draw phase
-            let queue: std::collections::VecDeque<DrawEvent> =
-                initial_draws.iter().cloned().collect();
-            state.draw_log = Some(DrawLog::Replaying(queue));
-            execute_draw_phase(&mut state, &mut rng);
-            state.draw_log = None;
-
+            let mut replay = GameReplay::new(&initial_state_json, &initial_draws);
             let mut mcts_rng = WyRand::seed_from_u64(42);
 
             for (entry_index, entry) in entries.iter().enumerate() {
+                // Fix current_player_index for draft entries before running MCTS
+                replay.fix_current_player_for_next(entry);
+
                 // Run MCTS if the state is in a decision phase
-                let player_index = match &state.phase {
+                let player_index = match &replay.state.phase {
                     GamePhase::Draft { draft_state } => Some(draft_state.current_player_index),
                     GamePhase::Action { action_state } => Some(action_state.current_player_index),
                     _ => None,
                 };
 
                 if let Some(player_index) = player_index {
-                    let max_rollout_round = std::cmp::max(8, state.round + 2);
+                    let max_rollout_round = std::cmp::max(8, replay.state.round + 2);
                     let result = ismcts(
-                        &state,
+                        &replay.state,
                         player_index,
                         &config,
                         &None,
@@ -336,39 +329,27 @@ impl GameViewerState {
                         &mut mcts_rng,
                     );
                     let agrees = result.choice == entry.choice;
-                    let analysis = if let Some(root) = result.tree {
+                    if let Some(root) = result.tree {
                         let tree_stats = root.tree_stats();
                         let iterations_used = root.visit_count();
-                        MctsAnalysisResult {
+                        let analysis = MctsAnalysisResult {
                             iterations_used,
                             tree_stats,
                             root,
+                        };
+                        let batch_entry = BatchMctsEntry {
+                            mcts_best_choice: result.choice,
+                            agrees,
+                            analysis,
+                        };
+                        if tx.send((entry_index, batch_entry)).is_err() {
+                            return; // Receiver dropped, stop
                         }
-                    } else {
-                        // Advance state and skip (single-choice case, no tree)
-                        let queue: std::collections::VecDeque<DrawEvent> =
-                            entry.draws.iter().cloned().collect();
-                        state.draw_log = Some(DrawLog::Replaying(queue));
-                        apply_choice_to_state(&mut state, &entry.choice, &mut rng);
-                        state.draw_log = None;
-                        continue;
-                    };
-                    let batch_entry = BatchMctsEntry {
-                        mcts_best_choice: result.choice,
-                        agrees,
-                        analysis,
-                    };
-                    if tx.send((entry_index, batch_entry)).is_err() {
-                        return; // Receiver dropped, stop
                     }
                 }
 
                 // Advance state by applying this entry's choice
-                let queue: std::collections::VecDeque<DrawEvent> =
-                    entry.draws.iter().cloned().collect();
-                state.draw_log = Some(DrawLog::Replaying(queue));
-                apply_choice_to_state(&mut state, &entry.choice, &mut rng);
-                state.draw_log = None;
+                replay.apply_entry(entry);
             }
         });
     }
