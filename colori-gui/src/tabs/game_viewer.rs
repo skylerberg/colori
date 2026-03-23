@@ -11,7 +11,7 @@ use colori_core::ismcts::{ismcts, MctsConfig, MctsNode, TreeStats};
 use colori_core::replay::{GameReplay, replay_to};
 use colori_core::scoring::{calculate_score, HeuristicParams};
 use colori_core::types::{
-    CardInstance, Choice, GamePhase, GameState, SellCardInstance, ALL_COLORS, ALL_MATERIAL_TYPES,
+    Card, CardInstance, Choice, GamePhase, GameState, SellCardInstance, ALL_COLORS, ALL_MATERIAL_TYPES,
 };
 
 use crate::analysis::computations::{
@@ -328,7 +328,7 @@ impl GameViewerState {
                         None,
                         &mut mcts_rng,
                     );
-                    let agrees = result.choice == entry.choice;
+                    let agrees = choices_equivalent(&result.choice, &entry.choice);
                     if let Some(root) = result.tree {
                         let tree_stats = root.tree_stats();
                         let iterations_used = root.visit_count();
@@ -1057,4 +1057,28 @@ fn render_mcts_children(ui: &mut egui::Ui, node: &MctsNode, depth: usize) {
             render_mcts_children(ui, child, depth + 1);
         });
     }
+}
+
+/// Compare two choices for equivalence, treating workshop card order as irrelevant.
+fn choices_equivalent(a: &Choice, b: &Choice) -> bool {
+    match (a, b) {
+        (Choice::Workshop { card_types: a }, Choice::Workshop { card_types: b }) => {
+            sorted_cards(a) == sorted_cards(b)
+        }
+        (
+            Choice::DestroyAndWorkshop { card: ca, workshop_cards: a },
+            Choice::DestroyAndWorkshop { card: cb, workshop_cards: b },
+        ) => ca == cb && sorted_cards(a) == sorted_cards(b),
+        (
+            Choice::WorkshopWithReworkshop { reworkshop_card: ra, other_cards: a },
+            Choice::WorkshopWithReworkshop { reworkshop_card: rb, other_cards: b },
+        ) => ra == rb && sorted_cards(a) == sorted_cards(b),
+        _ => a == b,
+    }
+}
+
+fn sorted_cards(cards: &[Card]) -> Vec<Card> {
+    let mut sorted: Vec<Card> = cards.to_vec();
+    sorted.sort_by_key(|c| *c as u32);
+    sorted
 }
