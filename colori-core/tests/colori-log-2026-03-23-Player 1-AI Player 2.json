@@ -1,0 +1,2494 @@
+{
+  "version": 1,
+  "gameStartedAt": "2026-03-23T00:16:00.493Z",
+  "gameEndedAt": "2026-03-23T00:31:20.868Z",
+  "playerNames": [
+    "Player 1",
+    "AI Player 2"
+  ],
+  "aiPlayers": [
+    false,
+    true
+  ],
+  "initialState": {
+    "players": [
+      {
+        "deck": [
+          {
+            "instanceId": 0,
+            "card": "BasicRed"
+          },
+          {
+            "instanceId": 1,
+            "card": "BasicYellow"
+          },
+          {
+            "instanceId": 2,
+            "card": "BasicBlue"
+          },
+          {
+            "instanceId": 3,
+            "card": "StarterCeramics"
+          },
+          {
+            "instanceId": 4,
+            "card": "StarterPaintings"
+          },
+          {
+            "instanceId": 5,
+            "card": "StarterTextiles"
+          },
+          {
+            "instanceId": 6,
+            "card": "Chalk"
+          }
+        ],
+        "discard": [],
+        "workshoppedCards": [],
+        "workshopCards": [],
+        "draftedCards": [],
+        "colorWheel": {
+          "Red": 1,
+          "Vermilion": 0,
+          "Orange": 0,
+          "Amber": 0,
+          "Yellow": 1,
+          "Chartreuse": 0,
+          "Green": 0,
+          "Teal": 0,
+          "Blue": 1,
+          "Indigo": 0,
+          "Purple": 0,
+          "Magenta": 0
+        },
+        "materials": {
+          "Textiles": 0,
+          "Ceramics": 0,
+          "Paintings": 0
+        },
+        "completedSellCards": [],
+        "completedGlass": [],
+        "ducats": 0
+      },
+      {
+        "deck": [
+          {
+            "instanceId": 7,
+            "card": "BasicRed"
+          },
+          {
+            "instanceId": 8,
+            "card": "BasicYellow"
+          },
+          {
+            "instanceId": 9,
+            "card": "BasicBlue"
+          },
+          {
+            "instanceId": 10,
+            "card": "StarterCeramics"
+          },
+          {
+            "instanceId": 11,
+            "card": "StarterPaintings"
+          },
+          {
+            "instanceId": 12,
+            "card": "StarterTextiles"
+          },
+          {
+            "instanceId": 13,
+            "card": "Chalk"
+          }
+        ],
+        "discard": [],
+        "workshoppedCards": [],
+        "workshopCards": [],
+        "draftedCards": [],
+        "colorWheel": {
+          "Red": 1,
+          "Vermilion": 0,
+          "Orange": 0,
+          "Amber": 0,
+          "Yellow": 1,
+          "Chartreuse": 0,
+          "Green": 0,
+          "Teal": 0,
+          "Blue": 1,
+          "Indigo": 0,
+          "Purple": 0,
+          "Magenta": 0
+        },
+        "materials": {
+          "Textiles": 0,
+          "Ceramics": 0,
+          "Paintings": 0
+        },
+        "completedSellCards": [],
+        "completedGlass": [],
+        "ducats": 0
+      }
+    ],
+    "draftDeck": [
+      {
+        "instanceId": 14,
+        "card": "Kermes"
+      },
+      {
+        "instanceId": 15,
+        "card": "Kermes"
+      },
+      {
+        "instanceId": 16,
+        "card": "Kermes"
+      },
+      {
+        "instanceId": 17,
+        "card": "Weld"
+      },
+      {
+        "instanceId": 18,
+        "card": "Weld"
+      },
+      {
+        "instanceId": 19,
+        "card": "Weld"
+      },
+      {
+        "instanceId": 20,
+        "card": "Woad"
+      },
+      {
+        "instanceId": 21,
+        "card": "Woad"
+      },
+      {
+        "instanceId": 22,
+        "card": "Woad"
+      },
+      {
+        "instanceId": 23,
+        "card": "Lac"
+      },
+      {
+        "instanceId": 24,
+        "card": "Lac"
+      },
+      {
+        "instanceId": 25,
+        "card": "Lac"
+      },
+      {
+        "instanceId": 26,
+        "card": "Brazilwood"
+      },
+      {
+        "instanceId": 27,
+        "card": "Brazilwood"
+      },
+      {
+        "instanceId": 28,
+        "card": "Brazilwood"
+      },
+      {
+        "instanceId": 29,
+        "card": "Pomegranate"
+      },
+      {
+        "instanceId": 30,
+        "card": "Pomegranate"
+      },
+      {
+        "instanceId": 31,
+        "card": "Pomegranate"
+      },
+      {
+        "instanceId": 32,
+        "card": "Sumac"
+      },
+      {
+        "instanceId": 33,
+        "card": "Sumac"
+      },
+      {
+        "instanceId": 34,
+        "card": "Sumac"
+      },
+      {
+        "instanceId": 35,
+        "card": "Elderberry"
+      },
+      {
+        "instanceId": 36,
+        "card": "Elderberry"
+      },
+      {
+        "instanceId": 37,
+        "card": "Elderberry"
+      },
+      {
+        "instanceId": 38,
+        "card": "Turnsole"
+      },
+      {
+        "instanceId": 39,
+        "card": "Turnsole"
+      },
+      {
+        "instanceId": 40,
+        "card": "Turnsole"
+      },
+      {
+        "instanceId": 41,
+        "card": "Madder"
+      },
+      {
+        "instanceId": 42,
+        "card": "Madder"
+      },
+      {
+        "instanceId": 43,
+        "card": "Madder"
+      },
+      {
+        "instanceId": 44,
+        "card": "Turmeric"
+      },
+      {
+        "instanceId": 45,
+        "card": "Turmeric"
+      },
+      {
+        "instanceId": 46,
+        "card": "Turmeric"
+      },
+      {
+        "instanceId": 47,
+        "card": "DyersGreenweed"
+      },
+      {
+        "instanceId": 48,
+        "card": "DyersGreenweed"
+      },
+      {
+        "instanceId": 49,
+        "card": "DyersGreenweed"
+      },
+      {
+        "instanceId": 50,
+        "card": "Verdigris"
+      },
+      {
+        "instanceId": 51,
+        "card": "Verdigris"
+      },
+      {
+        "instanceId": 52,
+        "card": "Verdigris"
+      },
+      {
+        "instanceId": 53,
+        "card": "Orchil"
+      },
+      {
+        "instanceId": 54,
+        "card": "Orchil"
+      },
+      {
+        "instanceId": 55,
+        "card": "Orchil"
+      },
+      {
+        "instanceId": 56,
+        "card": "Logwood"
+      },
+      {
+        "instanceId": 57,
+        "card": "Logwood"
+      },
+      {
+        "instanceId": 58,
+        "card": "Logwood"
+      },
+      {
+        "instanceId": 59,
+        "card": "VermilionDye"
+      },
+      {
+        "instanceId": 60,
+        "card": "VermilionDye"
+      },
+      {
+        "instanceId": 61,
+        "card": "VermilionDye"
+      },
+      {
+        "instanceId": 62,
+        "card": "Saffron"
+      },
+      {
+        "instanceId": 63,
+        "card": "Saffron"
+      },
+      {
+        "instanceId": 64,
+        "card": "Saffron"
+      },
+      {
+        "instanceId": 65,
+        "card": "PersianBerries"
+      },
+      {
+        "instanceId": 66,
+        "card": "PersianBerries"
+      },
+      {
+        "instanceId": 67,
+        "card": "PersianBerries"
+      },
+      {
+        "instanceId": 68,
+        "card": "Azurite"
+      },
+      {
+        "instanceId": 69,
+        "card": "Azurite"
+      },
+      {
+        "instanceId": 70,
+        "card": "Azurite"
+      },
+      {
+        "instanceId": 71,
+        "card": "IndigoDye"
+      },
+      {
+        "instanceId": 72,
+        "card": "IndigoDye"
+      },
+      {
+        "instanceId": 73,
+        "card": "IndigoDye"
+      },
+      {
+        "instanceId": 74,
+        "card": "Cochineal"
+      },
+      {
+        "instanceId": 75,
+        "card": "Cochineal"
+      },
+      {
+        "instanceId": 76,
+        "card": "Cochineal"
+      },
+      {
+        "instanceId": 77,
+        "card": "TerraCotta"
+      },
+      {
+        "instanceId": 78,
+        "card": "OchreWare"
+      },
+      {
+        "instanceId": 79,
+        "card": "CobaltWare"
+      },
+      {
+        "instanceId": 80,
+        "card": "CinnabarCanvas"
+      },
+      {
+        "instanceId": 81,
+        "card": "OrpimentCanvas"
+      },
+      {
+        "instanceId": 82,
+        "card": "UltramarineCanvas"
+      },
+      {
+        "instanceId": 83,
+        "card": "AlizarinFabric"
+      },
+      {
+        "instanceId": 84,
+        "card": "FusticFabric"
+      },
+      {
+        "instanceId": 85,
+        "card": "PastelFabric"
+      },
+      {
+        "instanceId": 86,
+        "card": "ClayCanvas"
+      },
+      {
+        "instanceId": 87,
+        "card": "ClayFabric"
+      },
+      {
+        "instanceId": 88,
+        "card": "CanvasFabric"
+      },
+      {
+        "instanceId": 89,
+        "card": "Alum"
+      },
+      {
+        "instanceId": 90,
+        "card": "Alum"
+      },
+      {
+        "instanceId": 91,
+        "card": "Alum"
+      },
+      {
+        "instanceId": 92,
+        "card": "Alum"
+      },
+      {
+        "instanceId": 93,
+        "card": "CreamOfTartar"
+      },
+      {
+        "instanceId": 94,
+        "card": "CreamOfTartar"
+      },
+      {
+        "instanceId": 95,
+        "card": "CreamOfTartar"
+      },
+      {
+        "instanceId": 96,
+        "card": "CreamOfTartar"
+      },
+      {
+        "instanceId": 97,
+        "card": "GumArabic"
+      },
+      {
+        "instanceId": 98,
+        "card": "GumArabic"
+      },
+      {
+        "instanceId": 99,
+        "card": "GumArabic"
+      },
+      {
+        "instanceId": 100,
+        "card": "GumArabic"
+      },
+      {
+        "instanceId": 101,
+        "card": "Potash"
+      },
+      {
+        "instanceId": 102,
+        "card": "Potash"
+      },
+      {
+        "instanceId": 103,
+        "card": "Potash"
+      },
+      {
+        "instanceId": 104,
+        "card": "Potash"
+      }
+    ],
+    "destroyedPile": [],
+    "sellCardDeck": [
+      {
+        "instanceId": 0,
+        "card": "Textiles2Vermilion"
+      },
+      {
+        "instanceId": 1,
+        "card": "Textiles2Amber"
+      },
+      {
+        "instanceId": 2,
+        "card": "Textiles2Chartreuse"
+      },
+      {
+        "instanceId": 3,
+        "card": "Textiles2Teal"
+      },
+      {
+        "instanceId": 4,
+        "card": "Textiles2Indigo"
+      },
+      {
+        "instanceId": 6,
+        "card": "Textiles2OrangeRed"
+      },
+      {
+        "instanceId": 7,
+        "card": "Textiles2OrangeYellow"
+      },
+      {
+        "instanceId": 8,
+        "card": "Textiles2OrangeBlue"
+      },
+      {
+        "instanceId": 9,
+        "card": "Textiles2GreenRed"
+      },
+      {
+        "instanceId": 11,
+        "card": "Textiles2GreenBlue"
+      },
+      {
+        "instanceId": 12,
+        "card": "Textiles2PurpleRed"
+      },
+      {
+        "instanceId": 13,
+        "card": "Textiles2PurpleYellow"
+      },
+      {
+        "instanceId": 14,
+        "card": "Textiles2PurpleBlue"
+      },
+      {
+        "instanceId": 16,
+        "card": "Textiles2YellowYellowYellow"
+      },
+      {
+        "instanceId": 17,
+        "card": "Textiles2BlueBlueBlue"
+      },
+      {
+        "instanceId": 18,
+        "card": "Ceramics3VermilionRed"
+      },
+      {
+        "instanceId": 19,
+        "card": "Ceramics3VermilionYellow"
+      },
+      {
+        "instanceId": 20,
+        "card": "Ceramics3VermilionBlue"
+      },
+      {
+        "instanceId": 21,
+        "card": "Ceramics3AmberRed"
+      },
+      {
+        "instanceId": 22,
+        "card": "Ceramics3AmberYellow"
+      },
+      {
+        "instanceId": 23,
+        "card": "Ceramics3AmberBlue"
+      },
+      {
+        "instanceId": 24,
+        "card": "Ceramics3ChartreuseRed"
+      },
+      {
+        "instanceId": 25,
+        "card": "Ceramics3ChartreuseYellow"
+      },
+      {
+        "instanceId": 26,
+        "card": "Ceramics3ChartreuseBlue"
+      },
+      {
+        "instanceId": 27,
+        "card": "Ceramics3TealRed"
+      },
+      {
+        "instanceId": 28,
+        "card": "Ceramics3TealYellow"
+      },
+      {
+        "instanceId": 29,
+        "card": "Ceramics3TealBlue"
+      },
+      {
+        "instanceId": 30,
+        "card": "Ceramics3IndigoRed"
+      },
+      {
+        "instanceId": 31,
+        "card": "Ceramics3IndigoYellow"
+      },
+      {
+        "instanceId": 33,
+        "card": "Ceramics3MagentaRed"
+      },
+      {
+        "instanceId": 34,
+        "card": "Ceramics3MagentaYellow"
+      },
+      {
+        "instanceId": 35,
+        "card": "Ceramics3MagentaBlue"
+      },
+      {
+        "instanceId": 36,
+        "card": "Paintings4VermilionOrange"
+      },
+      {
+        "instanceId": 37,
+        "card": "Paintings4VermilionGreen"
+      },
+      {
+        "instanceId": 38,
+        "card": "Paintings4VermilionPurple"
+      },
+      {
+        "instanceId": 39,
+        "card": "Paintings4AmberOrange"
+      },
+      {
+        "instanceId": 40,
+        "card": "Paintings4AmberGreen"
+      },
+      {
+        "instanceId": 41,
+        "card": "Paintings4AmberPurple"
+      },
+      {
+        "instanceId": 42,
+        "card": "Paintings4ChartreuseOrange"
+      },
+      {
+        "instanceId": 43,
+        "card": "Paintings4ChartreuseGreen"
+      },
+      {
+        "instanceId": 44,
+        "card": "Paintings4ChartreusePurple"
+      },
+      {
+        "instanceId": 45,
+        "card": "Paintings4TealOrange"
+      },
+      {
+        "instanceId": 47,
+        "card": "Paintings4TealPurple"
+      },
+      {
+        "instanceId": 49,
+        "card": "Paintings4IndigoGreen"
+      },
+      {
+        "instanceId": 50,
+        "card": "Paintings4IndigoPurple"
+      },
+      {
+        "instanceId": 51,
+        "card": "Paintings4MagentaOrange"
+      },
+      {
+        "instanceId": 52,
+        "card": "Paintings4MagentaGreen"
+      },
+      {
+        "instanceId": 53,
+        "card": "Paintings4MagentaPurple"
+      }
+    ],
+    "sellCardDisplay": [
+      {
+        "instanceId": 5,
+        "card": "Textiles2Magenta"
+      },
+      {
+        "instanceId": 10,
+        "card": "Textiles2GreenYellow"
+      },
+      {
+        "instanceId": 15,
+        "card": "Textiles2RedRedRed"
+      },
+      {
+        "instanceId": 32,
+        "card": "Ceramics3IndigoBlue"
+      },
+      {
+        "instanceId": 46,
+        "card": "Paintings4TealGreen"
+      },
+      {
+        "instanceId": 48,
+        "card": "Paintings4IndigoOrange"
+      }
+    ],
+    "expansions": {
+      "glass": false
+    },
+    "glassDeck": [],
+    "glassDisplay": [],
+    "phase": {
+      "type": "draw"
+    },
+    "round": 1,
+    "aiPlayers": [
+      false,
+      true
+    ],
+    "playerNames": [
+      "Player 1",
+      "AI Player 2"
+    ]
+  },
+  "finalScores": [
+    {
+      "name": "Player 1",
+      "score": 16,
+      "completedSellCards": 5,
+      "colorWheelTotal": 3
+    },
+    {
+      "name": "AI Player 2",
+      "score": 6,
+      "completedSellCards": 2,
+      "colorWheelTotal": 10
+    }
+  ],
+  "finalPlayerStats": [
+    {
+      "name": "Player 1",
+      "deckSize": 11,
+      "completedSellCards": [
+        {
+          "card": "Textiles2Magenta",
+          "instanceId": 5
+        },
+        {
+          "card": "Paintings4IndigoOrange",
+          "instanceId": 48
+        },
+        {
+          "card": "Paintings4TealGreen",
+          "instanceId": 46
+        },
+        {
+          "card": "Ceramics3MagentaBlue",
+          "instanceId": 35
+        },
+        {
+          "card": "Ceramics3AmberBlue",
+          "instanceId": 23
+        }
+      ],
+      "ducats": 0,
+      "colorWheel": {
+        "Amber": 0,
+        "Blue": 1,
+        "Chartreuse": 0,
+        "Green": 1,
+        "Indigo": 0,
+        "Magenta": 0,
+        "Orange": 0,
+        "Purple": 0,
+        "Red": 1,
+        "Teal": 0,
+        "Vermilion": 0,
+        "Yellow": 0
+      },
+      "materials": {
+        "Ceramics": 0,
+        "Paintings": 0,
+        "Textiles": 2
+      }
+    },
+    {
+      "name": "AI Player 2",
+      "deckSize": 10,
+      "completedSellCards": [
+        {
+          "card": "Textiles2RedRedRed",
+          "instanceId": 15
+        },
+        {
+          "card": "Ceramics3IndigoBlue",
+          "instanceId": 32
+        }
+      ],
+      "ducats": 1,
+      "colorWheel": {
+        "Amber": 0,
+        "Blue": 1,
+        "Chartreuse": 0,
+        "Green": 2,
+        "Indigo": 1,
+        "Magenta": 0,
+        "Orange": 1,
+        "Purple": 0,
+        "Red": 2,
+        "Teal": 1,
+        "Vermilion": 0,
+        "Yellow": 2
+      },
+      "materials": {
+        "Ceramics": 1,
+        "Paintings": 2,
+        "Textiles": 1
+      }
+    }
+  ],
+  "entries": [
+    {
+      "seq": 0,
+      "timestamp": 1774224994305,
+      "round": 1,
+      "phase": "draft",
+      "playerIndex": 0,
+      "choice": {
+        "type": "draftPick",
+        "card": "IndigoDye"
+      }
+    },
+    {
+      "seq": 1,
+      "timestamp": 1774224994314,
+      "round": 1,
+      "phase": "draft",
+      "playerIndex": 1,
+      "choice": {
+        "type": "draftPick",
+        "card": "Turnsole"
+      }
+    },
+    {
+      "seq": 2,
+      "timestamp": 1774224998037,
+      "round": 1,
+      "phase": "draft",
+      "playerIndex": 0,
+      "choice": {
+        "type": "draftPick",
+        "card": "GumArabic"
+      }
+    },
+    {
+      "seq": 3,
+      "timestamp": 1774224998042,
+      "round": 1,
+      "phase": "draft",
+      "playerIndex": 1,
+      "choice": {
+        "type": "draftPick",
+        "card": "Sumac"
+      }
+    },
+    {
+      "seq": 4,
+      "timestamp": 1774225007970,
+      "round": 1,
+      "phase": "draft",
+      "playerIndex": 0,
+      "choice": {
+        "type": "draftPick",
+        "card": "Pomegranate"
+      }
+    },
+    {
+      "seq": 5,
+      "timestamp": 1774225007973,
+      "round": 1,
+      "phase": "draft",
+      "playerIndex": 1,
+      "choice": {
+        "type": "draftPick",
+        "card": "Turmeric"
+      }
+    },
+    {
+      "seq": 6,
+      "timestamp": 1774225012821,
+      "round": 1,
+      "phase": "draft",
+      "playerIndex": 0,
+      "choice": {
+        "type": "draftPick",
+        "card": "Cochineal"
+      }
+    },
+    {
+      "seq": 7,
+      "timestamp": 1774225012825,
+      "round": 1,
+      "phase": "draft",
+      "playerIndex": 1,
+      "choice": {
+        "type": "draftPick",
+        "card": "UltramarineCanvas"
+      }
+    },
+    {
+      "seq": 8,
+      "timestamp": 1774225015053,
+      "round": 1,
+      "phase": "action",
+      "playerIndex": 0,
+      "choice": {
+        "type": "destroyAndWorkshop",
+        "card": "Pomegranate",
+        "workshopCards": [
+          "StarterPaintings",
+          "StarterCeramics",
+          "BasicBlue"
+        ]
+      }
+    },
+    {
+      "seq": 9,
+      "timestamp": 1774225043031,
+      "round": 1,
+      "phase": "action",
+      "playerIndex": 0,
+      "choice": {
+        "type": "endTurn"
+      }
+    },
+    {
+      "seq": 10,
+      "timestamp": 1774225045945,
+      "round": 1,
+      "phase": "action",
+      "playerIndex": 1,
+      "choice": {
+        "type": "destroyAndMix",
+        "card": "Turmeric",
+        "mixes": [
+          [
+            "Red",
+            "Blue"
+          ]
+        ]
+      }
+    },
+    {
+      "seq": 11,
+      "timestamp": 1774225048232,
+      "round": 1,
+      "phase": "action",
+      "playerIndex": 1,
+      "choice": {
+        "type": "destroyAndWorkshop",
+        "card": "Sumac",
+        "workshopCards": [
+          "BasicRed",
+          "BasicYellow",
+          "BasicBlue"
+        ]
+      }
+    },
+    {
+      "seq": 12,
+      "timestamp": 1774225049327,
+      "round": 1,
+      "phase": "action",
+      "playerIndex": 1,
+      "choice": {
+        "type": "destroyAndWorkshop",
+        "card": "UltramarineCanvas",
+        "workshopCards": [
+          "StarterCeramics",
+          "StarterTextiles"
+        ]
+      }
+    },
+    {
+      "seq": 13,
+      "timestamp": 1774225050187,
+      "round": 1,
+      "phase": "action",
+      "playerIndex": 1,
+      "choice": {
+        "type": "endTurn"
+      },
+      "draws": [
+        {
+          "type": "playerDeckDraw",
+          "playerIndex": 0,
+          "cards": [
+            {
+              "instanceId": 3,
+              "card": "StarterCeramics"
+            },
+            {
+              "instanceId": 5,
+              "card": "StarterTextiles"
+            },
+            {
+              "instanceId": 6,
+              "card": "Chalk"
+            },
+            {
+              "instanceId": 75,
+              "card": "Cochineal"
+            },
+            {
+              "instanceId": 97,
+              "card": "GumArabic"
+            }
+          ]
+        },
+        {
+          "type": "playerDeckDraw",
+          "playerIndex": 1,
+          "cards": [
+            {
+              "instanceId": 10,
+              "card": "StarterCeramics"
+            },
+            {
+              "instanceId": 11,
+              "card": "StarterPaintings"
+            },
+            {
+              "instanceId": 12,
+              "card": "StarterTextiles"
+            },
+            {
+              "instanceId": 13,
+              "card": "Chalk"
+            },
+            {
+              "instanceId": 39,
+              "card": "Turnsole"
+            }
+          ]
+        },
+        {
+          "type": "draftDeal",
+          "playerIndex": 0,
+          "cards": [
+            {
+              "instanceId": 28,
+              "card": "Brazilwood"
+            },
+            {
+              "instanceId": 42,
+              "card": "Madder"
+            },
+            {
+              "instanceId": 48,
+              "card": "DyersGreenweed"
+            },
+            {
+              "instanceId": 49,
+              "card": "DyersGreenweed"
+            },
+            {
+              "instanceId": 57,
+              "card": "Logwood"
+            }
+          ]
+        },
+        {
+          "type": "draftDeal",
+          "playerIndex": 1,
+          "cards": [
+            {
+              "instanceId": 18,
+              "card": "Weld"
+            },
+            {
+              "instanceId": 27,
+              "card": "Brazilwood"
+            },
+            {
+              "instanceId": 89,
+              "card": "Alum"
+            },
+            {
+              "instanceId": 96,
+              "card": "CreamOfTartar"
+            },
+            {
+              "instanceId": 103,
+              "card": "Potash"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "seq": 14,
+      "timestamp": 1774225061894,
+      "round": 2,
+      "phase": "draft",
+      "playerIndex": 0,
+      "choice": {
+        "type": "draftPick",
+        "card": "Brazilwood"
+      }
+    },
+    {
+      "seq": 15,
+      "timestamp": 1774225061898,
+      "round": 2,
+      "phase": "draft",
+      "playerIndex": 1,
+      "choice": {
+        "type": "draftPick",
+        "card": "Brazilwood"
+      }
+    },
+    {
+      "seq": 16,
+      "timestamp": 1774225085754,
+      "round": 2,
+      "phase": "draft",
+      "playerIndex": 0,
+      "choice": {
+        "type": "draftPick",
+        "card": "CreamOfTartar"
+      }
+    },
+    {
+      "seq": 17,
+      "timestamp": 1774225085757,
+      "round": 2,
+      "phase": "draft",
+      "playerIndex": 1,
+      "choice": {
+        "type": "draftPick",
+        "card": "Logwood"
+      }
+    },
+    {
+      "seq": 18,
+      "timestamp": 1774225087152,
+      "round": 2,
+      "phase": "draft",
+      "playerIndex": 0,
+      "choice": {
+        "type": "draftPick",
+        "card": "DyersGreenweed"
+      }
+    },
+    {
+      "seq": 19,
+      "timestamp": 1774225087875,
+      "round": 2,
+      "phase": "draft",
+      "playerIndex": 1,
+      "choice": {
+        "type": "draftPick",
+        "card": "Alum"
+      }
+    },
+    {
+      "seq": 20,
+      "timestamp": 1774225089569,
+      "round": 2,
+      "phase": "draft",
+      "playerIndex": 0,
+      "choice": {
+        "type": "draftPick",
+        "card": "Potash"
+      }
+    },
+    {
+      "seq": 21,
+      "timestamp": 1774225090452,
+      "round": 2,
+      "phase": "draft",
+      "playerIndex": 1,
+      "choice": {
+        "type": "draftPick",
+        "card": "Madder"
+      }
+    },
+    {
+      "seq": 22,
+      "timestamp": 1774225092623,
+      "round": 2,
+      "phase": "action",
+      "playerIndex": 1,
+      "choice": {
+        "type": "destroyAndWorkshop",
+        "card": "Brazilwood",
+        "workshopCards": [
+          "Turnsole",
+          "StarterPaintings",
+          "Chalk"
+        ]
+      }
+    },
+    {
+      "seq": 23,
+      "timestamp": 1774225094321,
+      "round": 2,
+      "phase": "action",
+      "playerIndex": 1,
+      "choice": {
+        "type": "gainPrimary",
+        "color": "Red"
+      }
+    },
+    {
+      "seq": 24,
+      "timestamp": 1774225096523,
+      "round": 2,
+      "phase": "action",
+      "playerIndex": 1,
+      "choice": {
+        "type": "endTurn"
+      }
+    },
+    {
+      "seq": 25,
+      "timestamp": 1774225128030,
+      "round": 2,
+      "phase": "action",
+      "playerIndex": 0,
+      "choice": {
+        "type": "destroyAndWorkshop",
+        "card": "Brazilwood",
+        "workshopCards": [
+          "StarterTextiles",
+          "GumArabic",
+          "Cochineal"
+        ]
+      }
+    },
+    {
+      "seq": 26,
+      "timestamp": 1774225145942,
+      "round": 2,
+      "phase": "action",
+      "playerIndex": 0,
+      "choice": {
+        "type": "gainSecondary",
+        "color": "Orange"
+      }
+    },
+    {
+      "seq": 27,
+      "timestamp": 1774225169969,
+      "round": 2,
+      "phase": "action",
+      "playerIndex": 0,
+      "choice": {
+        "type": "destroyAndDestroyCards",
+        "card": "CreamOfTartar",
+        "target": "Chalk"
+      }
+    },
+    {
+      "seq": 28,
+      "timestamp": 1774225174833,
+      "round": 2,
+      "phase": "action",
+      "playerIndex": 0,
+      "choice": {
+        "type": "selectSellCard",
+        "sellCard": "Textiles2Magenta"
+      },
+      "draws": [
+        {
+          "type": "sellCardReveal",
+          "sellCard": {
+            "instanceId": 23,
+            "card": "Ceramics3AmberBlue"
+          }
+        }
+      ]
+    },
+    {
+      "seq": 29,
+      "timestamp": 1774225178546,
+      "round": 2,
+      "phase": "action",
+      "playerIndex": 0,
+      "choice": {
+        "type": "endTurn"
+      },
+      "draws": [
+        {
+          "type": "playerDeckDraw",
+          "playerIndex": 0,
+          "cards": [
+            {
+              "instanceId": 0,
+              "card": "BasicRed"
+            },
+            {
+              "instanceId": 1,
+              "card": "BasicYellow"
+            },
+            {
+              "instanceId": 2,
+              "card": "BasicBlue"
+            },
+            {
+              "instanceId": 4,
+              "card": "StarterPaintings"
+            },
+            {
+              "instanceId": 72,
+              "card": "IndigoDye"
+            }
+          ]
+        },
+        {
+          "type": "playerDeckDraw",
+          "playerIndex": 1,
+          "cards": [
+            {
+              "instanceId": 7,
+              "card": "BasicRed"
+            },
+            {
+              "instanceId": 8,
+              "card": "BasicYellow"
+            },
+            {
+              "instanceId": 9,
+              "card": "BasicBlue"
+            },
+            {
+              "instanceId": 13,
+              "card": "Chalk"
+            },
+            {
+              "instanceId": 89,
+              "card": "Alum"
+            }
+          ]
+        },
+        {
+          "type": "draftDeal",
+          "playerIndex": 0,
+          "cards": [
+            {
+              "instanceId": 50,
+              "card": "Verdigris"
+            },
+            {
+              "instanceId": 61,
+              "card": "VermilionDye"
+            },
+            {
+              "instanceId": 80,
+              "card": "CinnabarCanvas"
+            },
+            {
+              "instanceId": 83,
+              "card": "AlizarinFabric"
+            },
+            {
+              "instanceId": 95,
+              "card": "CreamOfTartar"
+            }
+          ]
+        },
+        {
+          "type": "draftDeal",
+          "playerIndex": 1,
+          "cards": [
+            {
+              "instanceId": 19,
+              "card": "Weld"
+            },
+            {
+              "instanceId": 46,
+              "card": "Turmeric"
+            },
+            {
+              "instanceId": 47,
+              "card": "DyersGreenweed"
+            },
+            {
+              "instanceId": 74,
+              "card": "Cochineal"
+            },
+            {
+              "instanceId": 88,
+              "card": "CanvasFabric"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "seq": 30,
+      "timestamp": 1774225196455,
+      "round": 3,
+      "phase": "draft",
+      "playerIndex": 0,
+      "choice": {
+        "type": "draftPick",
+        "card": "CreamOfTartar"
+      }
+    },
+    {
+      "seq": 31,
+      "timestamp": 1774225196459,
+      "round": 3,
+      "phase": "draft",
+      "playerIndex": 1,
+      "choice": {
+        "type": "draftPick",
+        "card": "Turmeric"
+      }
+    },
+    {
+      "seq": 32,
+      "timestamp": 1774225221296,
+      "round": 3,
+      "phase": "draft",
+      "playerIndex": 0,
+      "choice": {
+        "type": "draftPick",
+        "card": "CanvasFabric"
+      }
+    },
+    {
+      "seq": 33,
+      "timestamp": 1774225221302,
+      "round": 3,
+      "phase": "draft",
+      "playerIndex": 1,
+      "choice": {
+        "type": "draftPick",
+        "card": "CinnabarCanvas"
+      }
+    },
+    {
+      "seq": 34,
+      "timestamp": 1774225230969,
+      "round": 3,
+      "phase": "draft",
+      "playerIndex": 0,
+      "choice": {
+        "type": "draftPick",
+        "card": "Verdigris"
+      }
+    },
+    {
+      "seq": 35,
+      "timestamp": 1774225230972,
+      "round": 3,
+      "phase": "draft",
+      "playerIndex": 1,
+      "choice": {
+        "type": "draftPick",
+        "card": "Weld"
+      }
+    },
+    {
+      "seq": 36,
+      "timestamp": 1774225232567,
+      "round": 3,
+      "phase": "draft",
+      "playerIndex": 0,
+      "choice": {
+        "type": "draftPick",
+        "card": "Cochineal"
+      }
+    },
+    {
+      "seq": 37,
+      "timestamp": 1774225232718,
+      "round": 3,
+      "phase": "draft",
+      "playerIndex": 1,
+      "choice": {
+        "type": "draftPick",
+        "card": "AlizarinFabric"
+      }
+    },
+    {
+      "seq": 38,
+      "timestamp": 1774225241144,
+      "round": 3,
+      "phase": "action",
+      "playerIndex": 0,
+      "choice": {
+        "type": "destroyAndDestroyCards",
+        "card": "CreamOfTartar",
+        "target": "StarterPaintings"
+      }
+    },
+    {
+      "seq": 39,
+      "timestamp": 1774225256372,
+      "round": 3,
+      "phase": "action",
+      "playerIndex": 0,
+      "choice": {
+        "type": "workshop",
+        "cardTypes": [
+          "BasicRed",
+          "BasicYellow",
+          "IndigoDye",
+          "BasicBlue"
+        ]
+      }
+    },
+    {
+      "seq": 40,
+      "timestamp": 1774225263114,
+      "round": 3,
+      "phase": "action",
+      "playerIndex": 0,
+      "choice": {
+        "type": "destroyAndSell",
+        "card": "Cochineal",
+        "sellCard": "Paintings4IndigoOrange"
+      },
+      "draws": [
+        {
+          "type": "sellCardReveal",
+          "sellCard": {
+            "instanceId": 34,
+            "card": "Ceramics3MagentaYellow"
+          }
+        }
+      ]
+    },
+    {
+      "seq": 41,
+      "timestamp": 1774225271504,
+      "round": 3,
+      "phase": "action",
+      "playerIndex": 0,
+      "choice": {
+        "type": "endTurn"
+      }
+    },
+    {
+      "seq": 42,
+      "timestamp": 1774225273557,
+      "round": 3,
+      "phase": "action",
+      "playerIndex": 1,
+      "choice": {
+        "type": "destroyAndMix",
+        "card": "Turmeric",
+        "mixes": [
+          [
+            "Yellow",
+            "Blue"
+          ],
+          [
+            "Blue",
+            "Purple"
+          ]
+        ]
+      }
+    },
+    {
+      "seq": 43,
+      "timestamp": 1774225275002,
+      "round": 3,
+      "phase": "action",
+      "playerIndex": 1,
+      "choice": {
+        "type": "destroyAndWorkshop",
+        "card": "CinnabarCanvas",
+        "workshopCards": [
+          "BasicRed",
+          "Alum"
+        ]
+      }
+    },
+    {
+      "seq": 44,
+      "timestamp": 1774225276198,
+      "round": 3,
+      "phase": "action",
+      "playerIndex": 1,
+      "choice": {
+        "type": "destroyAndDestroyCards",
+        "card": "Weld",
+        "target": "Chalk"
+      }
+    },
+    {
+      "seq": 45,
+      "timestamp": 1774225277220,
+      "round": 3,
+      "phase": "action",
+      "playerIndex": 1,
+      "choice": {
+        "type": "selectSellCard",
+        "sellCard": "Textiles2RedRedRed"
+      },
+      "draws": [
+        {
+          "type": "sellCardReveal",
+          "sellCard": {
+            "instanceId": 17,
+            "card": "Textiles2BlueBlueBlue"
+          }
+        }
+      ]
+    },
+    {
+      "seq": 46,
+      "timestamp": 1774225278349,
+      "round": 3,
+      "phase": "action",
+      "playerIndex": 1,
+      "choice": {
+        "type": "destroyAndWorkshop",
+        "card": "AlizarinFabric",
+        "workshopCards": [
+          "BasicBlue"
+        ]
+      }
+    },
+    {
+      "seq": 47,
+      "timestamp": 1774225278352,
+      "round": 3,
+      "phase": "action",
+      "playerIndex": 1,
+      "choice": {
+        "type": "endTurn"
+      },
+      "draws": [
+        {
+          "type": "playerDeckDraw",
+          "playerIndex": 0,
+          "cards": [
+            {
+              "instanceId": 1,
+              "card": "BasicYellow"
+            },
+            {
+              "instanceId": 50,
+              "card": "Verdigris"
+            },
+            {
+              "instanceId": 72,
+              "card": "IndigoDye"
+            },
+            {
+              "instanceId": 75,
+              "card": "Cochineal"
+            },
+            {
+              "instanceId": 88,
+              "card": "CanvasFabric"
+            }
+          ]
+        },
+        {
+          "type": "playerDeckDraw",
+          "playerIndex": 1,
+          "cards": [
+            {
+              "instanceId": 10,
+              "card": "StarterCeramics"
+            },
+            {
+              "instanceId": 11,
+              "card": "StarterPaintings"
+            },
+            {
+              "instanceId": 12,
+              "card": "StarterTextiles"
+            },
+            {
+              "instanceId": 39,
+              "card": "Turnsole"
+            },
+            {
+              "instanceId": 57,
+              "card": "Logwood"
+            }
+          ]
+        },
+        {
+          "type": "draftDeal",
+          "playerIndex": 0,
+          "cards": [
+            {
+              "instanceId": 21,
+              "card": "Woad"
+            },
+            {
+              "instanceId": 40,
+              "card": "Turnsole"
+            },
+            {
+              "instanceId": 44,
+              "card": "Turmeric"
+            },
+            {
+              "instanceId": 64,
+              "card": "Saffron"
+            },
+            {
+              "instanceId": 94,
+              "card": "CreamOfTartar"
+            }
+          ]
+        },
+        {
+          "type": "draftDeal",
+          "playerIndex": 1,
+          "cards": [
+            {
+              "instanceId": 23,
+              "card": "Lac"
+            },
+            {
+              "instanceId": 54,
+              "card": "Orchil"
+            },
+            {
+              "instanceId": 67,
+              "card": "PersianBerries"
+            },
+            {
+              "instanceId": 85,
+              "card": "PastelFabric"
+            },
+            {
+              "instanceId": 86,
+              "card": "ClayCanvas"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "seq": 48,
+      "timestamp": 1774225299399,
+      "round": 4,
+      "phase": "draft",
+      "playerIndex": 0,
+      "choice": {
+        "type": "draftPick",
+        "card": "Turnsole"
+      }
+    },
+    {
+      "seq": 49,
+      "timestamp": 1774225299403,
+      "round": 4,
+      "phase": "draft",
+      "playerIndex": 1,
+      "choice": {
+        "type": "draftPick",
+        "card": "Lac"
+      }
+    },
+    {
+      "seq": 50,
+      "timestamp": 1774225304938,
+      "round": 4,
+      "phase": "draft",
+      "playerIndex": 0,
+      "choice": {
+        "type": "draftPick",
+        "card": "Orchil"
+      }
+    },
+    {
+      "seq": 51,
+      "timestamp": 1774225304942,
+      "round": 4,
+      "phase": "draft",
+      "playerIndex": 1,
+      "choice": {
+        "type": "draftPick",
+        "card": "Saffron"
+      }
+    },
+    {
+      "seq": 52,
+      "timestamp": 1774225310885,
+      "round": 4,
+      "phase": "draft",
+      "playerIndex": 0,
+      "choice": {
+        "type": "draftPick",
+        "card": "Woad"
+      }
+    },
+    {
+      "seq": 53,
+      "timestamp": 1774225310888,
+      "round": 4,
+      "phase": "draft",
+      "playerIndex": 1,
+      "choice": {
+        "type": "draftPick",
+        "card": "PastelFabric"
+      }
+    },
+    {
+      "seq": 54,
+      "timestamp": 1774225313138,
+      "round": 4,
+      "phase": "draft",
+      "playerIndex": 0,
+      "choice": {
+        "type": "draftPick",
+        "card": "PersianBerries"
+      }
+    },
+    {
+      "seq": 55,
+      "timestamp": 1774225313142,
+      "round": 4,
+      "phase": "draft",
+      "playerIndex": 1,
+      "choice": {
+        "type": "draftPick",
+        "card": "Turmeric"
+      }
+    },
+    {
+      "seq": 56,
+      "timestamp": 1774225314535,
+      "round": 4,
+      "phase": "action",
+      "playerIndex": 1,
+      "choice": {
+        "type": "destroyAndMix",
+        "card": "Turmeric",
+        "mixes": [
+          [
+            "Yellow",
+            "Blue"
+          ],
+          [
+            "Blue",
+            "Green"
+          ]
+        ]
+      }
+    },
+    {
+      "seq": 57,
+      "timestamp": 1774225316157,
+      "round": 4,
+      "phase": "action",
+      "playerIndex": 1,
+      "choice": {
+        "type": "destroyAndWorkshop",
+        "card": "Lac",
+        "workshopCards": [
+          "Turnsole",
+          "Logwood",
+          "StarterTextiles"
+        ]
+      }
+    },
+    {
+      "seq": 58,
+      "timestamp": 1774225317360,
+      "round": 4,
+      "phase": "action",
+      "playerIndex": 1,
+      "choice": {
+        "type": "destroyAndSell",
+        "card": "Saffron",
+        "sellCard": "Ceramics3IndigoBlue"
+      },
+      "draws": [
+        {
+          "type": "sellCardReveal",
+          "sellCard": {
+            "instanceId": 35,
+            "card": "Ceramics3MagentaBlue"
+          }
+        }
+      ]
+    },
+    {
+      "seq": 59,
+      "timestamp": 1774225318778,
+      "round": 4,
+      "phase": "action",
+      "playerIndex": 1,
+      "choice": {
+        "type": "destroyAndWorkshop",
+        "card": "PastelFabric",
+        "workshopCards": [
+          "StarterCeramics",
+          "StarterPaintings"
+        ]
+      }
+    },
+    {
+      "seq": 60,
+      "timestamp": 1774225318780,
+      "round": 4,
+      "phase": "action",
+      "playerIndex": 1,
+      "choice": {
+        "type": "endTurn"
+      }
+    },
+    {
+      "seq": 61,
+      "timestamp": 1774225342906,
+      "round": 4,
+      "phase": "action",
+      "playerIndex": 0,
+      "choice": {
+        "type": "destroyAndWorkshop",
+        "card": "Turnsole",
+        "workshopCards": [
+          "Cochineal",
+          "CanvasFabric",
+          "Verdigris"
+        ]
+      }
+    },
+    {
+      "seq": 62,
+      "timestamp": 1774225395954,
+      "round": 4,
+      "phase": "action",
+      "playerIndex": 0,
+      "choice": {
+        "type": "destroyAndMix",
+        "card": "Orchil",
+        "mixes": [
+          [
+            "Green",
+            "Blue"
+          ],
+          [
+            "Blue",
+            "Yellow"
+          ]
+        ]
+      }
+    },
+    {
+      "seq": 63,
+      "timestamp": 1774225414670,
+      "round": 4,
+      "phase": "action",
+      "playerIndex": 0,
+      "choice": {
+        "type": "destroyAndDestroyCards",
+        "card": "Woad",
+        "target": "IndigoDye"
+      }
+    },
+    {
+      "seq": 64,
+      "timestamp": 1774225423554,
+      "round": 4,
+      "phase": "action",
+      "playerIndex": 0,
+      "choice": {
+        "type": "selectSellCard",
+        "sellCard": "Paintings4TealGreen"
+      },
+      "draws": [
+        {
+          "type": "sellCardReveal",
+          "sellCard": {
+            "instanceId": 43,
+            "card": "Paintings4ChartreuseGreen"
+          }
+        }
+      ]
+    },
+    {
+      "seq": 65,
+      "timestamp": 1774225424271,
+      "round": 4,
+      "phase": "action",
+      "playerIndex": 0,
+      "choice": {
+        "type": "destroyAndSell",
+        "card": "PersianBerries",
+        "sellCard": "Ceramics3MagentaBlue"
+      },
+      "draws": [
+        {
+          "type": "sellCardReveal",
+          "sellCard": {
+            "instanceId": 7,
+            "card": "Textiles2OrangeYellow"
+          }
+        }
+      ]
+    },
+    {
+      "seq": 66,
+      "timestamp": 1774225457344,
+      "round": 4,
+      "phase": "action",
+      "playerIndex": 0,
+      "choice": {
+        "type": "endTurn"
+      },
+      "draws": [
+        {
+          "type": "playerDeckDraw",
+          "playerIndex": 0,
+          "cards": [
+            {
+              "instanceId": 2,
+              "card": "BasicBlue"
+            },
+            {
+              "instanceId": 3,
+              "card": "StarterCeramics"
+            },
+            {
+              "instanceId": 5,
+              "card": "StarterTextiles"
+            },
+            {
+              "instanceId": 48,
+              "card": "DyersGreenweed"
+            },
+            {
+              "instanceId": 103,
+              "card": "Potash"
+            }
+          ]
+        },
+        {
+          "type": "playerDeckDraw",
+          "playerIndex": 1,
+          "cards": [
+            {
+              "instanceId": 7,
+              "card": "BasicRed"
+            },
+            {
+              "instanceId": 8,
+              "card": "BasicYellow"
+            },
+            {
+              "instanceId": 9,
+              "card": "BasicBlue"
+            },
+            {
+              "instanceId": 11,
+              "card": "StarterPaintings"
+            },
+            {
+              "instanceId": 42,
+              "card": "Madder"
+            }
+          ]
+        },
+        {
+          "type": "draftDeal",
+          "playerIndex": 0,
+          "cards": [
+            {
+              "instanceId": 34,
+              "card": "Sumac"
+            },
+            {
+              "instanceId": 55,
+              "card": "Orchil"
+            },
+            {
+              "instanceId": 59,
+              "card": "VermilionDye"
+            },
+            {
+              "instanceId": 69,
+              "card": "Azurite"
+            },
+            {
+              "instanceId": 92,
+              "card": "Alum"
+            }
+          ]
+        },
+        {
+          "type": "draftDeal",
+          "playerIndex": 1,
+          "cards": [
+            {
+              "instanceId": 26,
+              "card": "Brazilwood"
+            },
+            {
+              "instanceId": 30,
+              "card": "Pomegranate"
+            },
+            {
+              "instanceId": 36,
+              "card": "Elderberry"
+            },
+            {
+              "instanceId": 37,
+              "card": "Elderberry"
+            },
+            {
+              "instanceId": 51,
+              "card": "Verdigris"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "seq": 67,
+      "timestamp": 1774225716461,
+      "round": 5,
+      "phase": "draft",
+      "playerIndex": 0,
+      "choice": {
+        "type": "draftPick",
+        "card": "Orchil"
+      }
+    },
+    {
+      "seq": 68,
+      "timestamp": 1774225716469,
+      "round": 5,
+      "phase": "draft",
+      "playerIndex": 1,
+      "choice": {
+        "type": "draftPick",
+        "card": "Brazilwood"
+      }
+    },
+    {
+      "seq": 69,
+      "timestamp": 1774225735580,
+      "round": 5,
+      "phase": "draft",
+      "playerIndex": 0,
+      "choice": {
+        "type": "draftPick",
+        "card": "Elderberry"
+      }
+    },
+    {
+      "seq": 70,
+      "timestamp": 1774225735585,
+      "round": 5,
+      "phase": "draft",
+      "playerIndex": 1,
+      "choice": {
+        "type": "draftPick",
+        "card": "Sumac"
+      }
+    },
+    {
+      "seq": 71,
+      "timestamp": 1774225799513,
+      "round": 5,
+      "phase": "draft",
+      "playerIndex": 0,
+      "choice": {
+        "type": "draftPick",
+        "card": "VermilionDye"
+      }
+    },
+    {
+      "seq": 72,
+      "timestamp": 1774225799518,
+      "round": 5,
+      "phase": "draft",
+      "playerIndex": 1,
+      "choice": {
+        "type": "draftPick",
+        "card": "Verdigris"
+      }
+    },
+    {
+      "seq": 73,
+      "timestamp": 1774225801714,
+      "round": 5,
+      "phase": "draft",
+      "playerIndex": 0,
+      "choice": {
+        "type": "draftPick",
+        "card": "Pomegranate"
+      }
+    },
+    {
+      "seq": 74,
+      "timestamp": 1774225801719,
+      "round": 5,
+      "phase": "draft",
+      "playerIndex": 1,
+      "choice": {
+        "type": "draftPick",
+        "card": "Alum"
+      }
+    },
+    {
+      "seq": 75,
+      "timestamp": 1774225821007,
+      "round": 5,
+      "phase": "action",
+      "playerIndex": 0,
+      "choice": {
+        "type": "destroyAndWorkshop",
+        "card": "Pomegranate",
+        "workshopCards": [
+          "StarterCeramics",
+          "StarterTextiles",
+          "DyersGreenweed"
+        ]
+      }
+    },
+    {
+      "seq": 76,
+      "timestamp": 1774225828445,
+      "round": 5,
+      "phase": "action",
+      "playerIndex": 0,
+      "choice": {
+        "type": "destroyAndWorkshop",
+        "card": "Elderberry",
+        "workshopCards": [
+          "BasicBlue",
+          "Potash"
+        ]
+      }
+    },
+    {
+      "seq": 77,
+      "timestamp": 1774225863691,
+      "round": 5,
+      "phase": "action",
+      "playerIndex": 0,
+      "choice": {
+        "type": "destroyAndMix",
+        "card": "Orchil",
+        "mixes": [
+          [
+            "Red",
+            "Yellow"
+          ],
+          [
+            "Orange",
+            "Yellow"
+          ]
+        ]
+      }
+    },
+    {
+      "seq": 78,
+      "timestamp": 1774225872343,
+      "round": 5,
+      "phase": "action",
+      "playerIndex": 0,
+      "choice": {
+        "type": "destroyAndSell",
+        "card": "VermilionDye",
+        "sellCard": "Ceramics3AmberBlue"
+      },
+      "draws": [
+        {
+          "type": "sellCardReveal",
+          "sellCard": {
+            "instanceId": 20,
+            "card": "Ceramics3VermilionBlue"
+          }
+        }
+      ]
+    },
+    {
+      "seq": 79,
+      "timestamp": 1774225878821,
+      "round": 5,
+      "phase": "action",
+      "playerIndex": 0,
+      "choice": {
+        "type": "endTurn"
+      }
+    },
+    {
+      "seq": 80,
+      "timestamp": 1774225880206,
+      "round": 5,
+      "phase": "action",
+      "playerIndex": 1,
+      "choice": {
+        "type": "destroyAndWorkshop",
+        "card": "Brazilwood",
+        "workshopCards": [
+          "BasicRed",
+          "BasicYellow",
+          "BasicBlue"
+        ]
+      }
+    },
+    {
+      "seq": 81,
+      "timestamp": 1774225880685,
+      "round": 5,
+      "phase": "action",
+      "playerIndex": 1,
+      "choice": {
+        "type": "destroyAndMix",
+        "card": "Verdigris",
+        "mixes": [
+          [
+            "Blue",
+            "Purple"
+          ],
+          [
+            "Yellow",
+            "Blue"
+          ]
+        ]
+      }
+    },
+    {
+      "seq": 82,
+      "timestamp": 1774225880774,
+      "round": 5,
+      "phase": "action",
+      "playerIndex": 1,
+      "choice": {
+        "type": "destroyAndDestroyCards",
+        "card": "Alum",
+        "target": "StarterPaintings"
+      }
+    },
+    {
+      "seq": 83,
+      "timestamp": 1774225880830,
+      "round": 5,
+      "phase": "action",
+      "playerIndex": 1,
+      "choice": {
+        "type": "workshop",
+        "cardTypes": [
+          "Madder"
+        ]
+      }
+    },
+    {
+      "seq": 84,
+      "timestamp": 1774225880868,
+      "round": 5,
+      "phase": "action",
+      "playerIndex": 1,
+      "choice": {
+        "type": "endTurn"
+      }
+    }
+  ],
+  "playerVariants": [
+    {
+      "iterations": 100000,
+      "aiStyle": "ga"
+    },
+    {
+      "iterations": 100000,
+      "aiStyle": "ga"
+    }
+  ],
+  "initialDraws": [
+    {
+      "type": "playerDeckDraw",
+      "playerIndex": 0,
+      "cards": [
+        {
+          "instanceId": 0,
+          "card": "BasicRed"
+        },
+        {
+          "instanceId": 1,
+          "card": "BasicYellow"
+        },
+        {
+          "instanceId": 2,
+          "card": "BasicBlue"
+        },
+        {
+          "instanceId": 3,
+          "card": "StarterCeramics"
+        },
+        {
+          "instanceId": 4,
+          "card": "StarterPaintings"
+        }
+      ]
+    },
+    {
+      "type": "playerDeckDraw",
+      "playerIndex": 1,
+      "cards": [
+        {
+          "instanceId": 7,
+          "card": "BasicRed"
+        },
+        {
+          "instanceId": 8,
+          "card": "BasicYellow"
+        },
+        {
+          "instanceId": 9,
+          "card": "BasicBlue"
+        },
+        {
+          "instanceId": 10,
+          "card": "StarterCeramics"
+        },
+        {
+          "instanceId": 12,
+          "card": "StarterTextiles"
+        }
+      ]
+    },
+    {
+      "type": "draftDeal",
+      "playerIndex": 0,
+      "cards": [
+        {
+          "instanceId": 31,
+          "card": "Pomegranate"
+        },
+        {
+          "instanceId": 32,
+          "card": "Sumac"
+        },
+        {
+          "instanceId": 60,
+          "card": "VermilionDye"
+        },
+        {
+          "instanceId": 72,
+          "card": "IndigoDye"
+        },
+        {
+          "instanceId": 82,
+          "card": "UltramarineCanvas"
+        }
+      ]
+    },
+    {
+      "type": "draftDeal",
+      "playerIndex": 1,
+      "cards": [
+        {
+          "instanceId": 22,
+          "card": "Woad"
+        },
+        {
+          "instanceId": 39,
+          "card": "Turnsole"
+        },
+        {
+          "instanceId": 45,
+          "card": "Turmeric"
+        },
+        {
+          "instanceId": 75,
+          "card": "Cochineal"
+        },
+        {
+          "instanceId": 97,
+          "card": "GumArabic"
+        }
+      ]
+    }
+  ]
+}

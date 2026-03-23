@@ -3,7 +3,7 @@ use crate::draft_phase::{simultaneous_pick, advance_draft};
 use crate::draw_phase::execute_draw_phase;
 use crate::game_log::{DrawEvent, DrawLog, StructuredLogEntry};
 use crate::scoring::calculate_score;
-use crate::types::{Choice, GameState};
+use crate::types::{Choice, GamePhase, GameState};
 use std::collections::VecDeque;
 use wyrand::WyRand;
 use rand::SeedableRng;
@@ -71,6 +71,17 @@ pub fn replay_to(
         state.draw_log = None;
     }
 
+    // If we stopped mid-draft, fix current_player_index so that MCTS and
+    // enumerate_choices see the correct player's hand. simultaneous_pick
+    // doesn't update current_player_index, so it may point to the wrong player.
+    if let GamePhase::Draft { ref mut draft_state } = state.phase {
+        if stop_before_index < entries.len() {
+            if let Choice::DraftPick { .. } = &entries[stop_before_index].choice {
+                draft_state.current_player_index = entries[stop_before_index].player_index;
+            }
+        }
+    }
+
     state
 }
 
@@ -109,5 +120,39 @@ mod tests {
         assert!(p0_drafted.contains(&crate::types::Card::PersianBerries));
         assert!(p0_drafted.contains(&crate::types::Card::Turnsole));
         assert_eq!(p0_drafted.len(), 4);
+    }
+
+    #[test]
+    fn test_replay_mid_draft_sets_correct_current_player() {
+        use crate::types::GamePhase;
+        use crate::colori_game::enumerate_choices;
+
+        let contents = include_str!("../tests/colori-log-2026-03-23-Player 1-AI Player 2.json");
+        let raw: serde_json::Value = serde_json::from_str(contents).unwrap();
+        let game: StructuredGameLog = serde_json::from_str(contents).unwrap();
+        let initial_state_json = raw.get("initialState").unwrap().clone();
+
+        // Find all draft entries and verify that stopping before each one
+        // produces a state where current_player_index matches the entry's player
+        for (i, entry) in game.entries.iter().enumerate() {
+            if let Choice::DraftPick { card } = &entry.choice {
+                let state = replay_to(&initial_state_json, &game.initial_draws, &game.entries, i);
+                if let GamePhase::Draft { ref draft_state } = state.phase {
+                    assert_eq!(
+                        draft_state.current_player_index, entry.player_index,
+                        "At entry {} (seq {}, round {}): current_player_index is {}, expected {}",
+                        i, entry.seq, entry.round, draft_state.current_player_index, entry.player_index,
+                    );
+
+                    // Verify the card is actually in the available choices
+                    let choices = enumerate_choices(&state);
+                    assert!(
+                        choices.iter().any(|c| matches!(c, Choice::DraftPick { card: c } if c == card)),
+                        "At entry {} (seq {}): card {:?} not in available choices",
+                        i, entry.seq, card,
+                    );
+                }
+            }
+        }
     }
 }
