@@ -328,7 +328,22 @@ impl GameViewerState {
                         None,
                         &mut mcts_rng,
                     );
-                    let agrees = choices_equivalent(&result.choice, &entry.choice);
+                    let mut agrees = choices_equivalent(&result.choice, &entry.choice);
+
+                    // If the MCTS disagrees but its preferred choice appears later
+                    // in the same player's action turn, treat it as a reordering
+                    if !agrees && entry.phase == "action" {
+                        let mcts_choice = &result.choice;
+                        agrees = entries[entry_index + 1..]
+                            .iter()
+                            .take_while(|e| {
+                                e.phase == "action"
+                                    && e.player_index == entry.player_index
+                                    && e.round == entry.round
+                            })
+                            .any(|e| choices_equivalent(mcts_choice, &e.choice));
+                    }
+
                     if let Some(root) = result.tree {
                         let tree_stats = root.tree_stats();
                         let iterations_used = root.visit_count();
