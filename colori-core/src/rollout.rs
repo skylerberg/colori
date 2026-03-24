@@ -7,7 +7,7 @@ use crate::action_phase::{
     skip_workshop,
 };
 use crate::colors::{
-    can_pay_cost, is_primary, mix_result, pay_cost, perform_mix_unchecked, perform_unmix, PRIMARIES,
+    is_primary, mix_result, pay_cost, perform_mix_unchecked, perform_unmix, PRIMARIES,
     SECONDARIES, TERTIARIES, VALID_MIX_PAIRS,
 };
 use crate::choices::is_glass_ability_available;
@@ -869,72 +869,15 @@ fn heuristic_draft_loop<R: Rng>(state: &mut GameState, rng: &mut R) {
     }
 }
 
-/// Score a color by how useful it is for sell cards in the display, weighted by ducats.
-#[inline(always)]
-fn sell_card_color_demand(color: Color, sell_card_display: &[SellCardInstance]) -> u32 {
-    let mut score = 0u32;
-    for sc in sell_card_display {
-        for &c in sc.sell_card.color_cost() {
-            if c == color {
-                score += sc.sell_card.ducats();
-            }
-        }
-    }
-    score
-}
-
-/// Dispatch to either proximity-weighted or basic sell card color demand.
-#[inline(always)]
-fn effective_color_demand(
-    color: Color,
-    sell_card_display: &[SellCardInstance],
-    wheel: &ColorWheel,
-    materials: &Materials,
-    use_proximity: bool,
-) -> u32 {
-    if use_proximity {
-        // Inline the proximity logic for non-cached callers
-        let mut score = 0u32;
-        for sc in sell_card_display {
-            let mut color_matches = 0u32;
-            for &c in sc.sell_card.color_cost() {
-                if c == color {
-                    color_matches += 1;
-                }
-            }
-            if color_matches == 0 {
-                continue;
-            }
-            let mut missing = 0u32;
-            let mut used = [0u32; 12];
-            for &c in sc.sell_card.color_cost() {
-                let idx = c.index();
-                let needed = used[idx] + 1;
-                if wheel.get(c) < needed {
-                    missing += 1;
-                }
-                used[idx] = needed;
-            }
-            if materials.get(sc.sell_card.required_material()) < 1 {
-                missing += 2;
-            }
-            score += sc.sell_card.ducats() * color_matches * 10 / (missing + 1);
-        }
-        score
-    } else {
-        sell_card_color_demand(color, sell_card_display)
-    }
-}
-
 // ── Sell card cache for heuristic rollout performance ──
 
+#[derive(Clone, Copy)]
 struct SellCardCacheEntry {
     ducats: u32,
     required_material: MaterialType,
     colors_met: bool,
     have_colors: u32,
     total_colors: u32,
-    instance_id: u32,
 }
 
 struct SellCardCache {
@@ -942,27 +885,20 @@ struct SellCardCache {
     proximity_demand: [u32; 12],
     best_affordable_ducats: u32,
     best_affordable_id: Option<u32>,
-    best_affordable_owned: u32,
     entries: [SellCardCacheEntry; MAX_SELL_CARD_DISPLAY],
     len: usize,
 }
 
 impl SellCardCache {
+    #[inline(always)]
     fn new(sell_card_display: &[SellCardInstance], wheel: &ColorWheel, materials: &Materials) -> Self {
         let mut flat_demand = [0u32; 12];
         let mut proximity_demand = [0u32; 12];
         let mut best_affordable_ducats = 0u32;
         let mut best_affordable_id: Option<u32> = None;
-        let mut best_affordable_owned = 0u32;
-        let mut entries = [
-            SellCardCacheEntry { ducats: 0, required_material: MaterialType::Textiles, colors_met: false, have_colors: 0, total_colors: 0, instance_id: 0 },
-            SellCardCacheEntry { ducats: 0, required_material: MaterialType::Textiles, colors_met: false, have_colors: 0, total_colors: 0, instance_id: 0 },
-            SellCardCacheEntry { ducats: 0, required_material: MaterialType::Textiles, colors_met: false, have_colors: 0, total_colors: 0, instance_id: 0 },
-            SellCardCacheEntry { ducats: 0, required_material: MaterialType::Textiles, colors_met: false, have_colors: 0, total_colors: 0, instance_id: 0 },
-            SellCardCacheEntry { ducats: 0, required_material: MaterialType::Textiles, colors_met: false, have_colors: 0, total_colors: 0, instance_id: 0 },
-            SellCardCacheEntry { ducats: 0, required_material: MaterialType::Textiles, colors_met: false, have_colors: 0, total_colors: 0, instance_id: 0 },
-        ];
         let len = sell_card_display.len();
+        const EMPTY_ENTRY: SellCardCacheEntry = SellCardCacheEntry { ducats: 0, required_material: MaterialType::Textiles, colors_met: false, have_colors: 0, total_colors: 0 };
+        let mut entries: [SellCardCacheEntry; MAX_SELL_CARD_DISPLAY] = [EMPTY_ENTRY; MAX_SELL_CARD_DISPLAY];
 
         for (i, sc) in sell_card_display.iter().enumerate() {
             let ducats = sc.sell_card.ducats();
@@ -970,49 +906,79 @@ impl SellCardCache {
             let total_colors = cost.len() as u32;
             let has_material = materials.get(sc.sell_card.required_material()) >= 1;
 
-            // Count missing colors and color occurrences
+            // Count missing colors — iterate cost directly (max 4 colors)
+            // instead of using a [0u32; 12] tracking array. Sell card costs
+            // have at most 3 distinct colors with at most 1 duplicate.
             let mut missing = 0u32;
             let mut have = 0u32;
-            let mut used = [0u32; 12];
-            let mut color_counts = [0u8; 12];
-            for &c in cost {
-                let idx = c.index();
-                color_counts[idx] += 1;
-                let needed = used[idx] + 1;
-                if wheel.get(c) < needed {
-                    missing += 1;
-                } else {
-                    have += 1;
+            let counts = &wheel.counts;
+            match cost.len() {
+                1 => {
+                    if counts[cost[0].index()] >= 1 { have = 1; } else { missing = 1; }
                 }
-                used[idx] = needed;
+                2 => {
+                    let (c0, c1) = (cost[0].index(), cost[1].index());
+                    if c0 == c1 {
+                        let avail = counts[c0];
+                        have = avail.min(2);
+                        missing = 2 - have;
+                    } else {
+                        if counts[c0] >= 1 { have += 1; } else { missing += 1; }
+                        if counts[c1] >= 1 { have += 1; } else { missing += 1; }
+                    }
+                }
+                3 => {
+                    let (c0, c1, c2) = (cost[0].index(), cost[1].index(), cost[2].index());
+                    if c0 == c1 && c1 == c2 {
+                        // All three same: need count >= 3
+                        let avail = counts[c0];
+                        have = avail.min(3); missing = 3 - have;
+                    } else if c0 == c1 {
+                        let avail = counts[c0];
+                        have += avail.min(2); missing += 2 - avail.min(2);
+                        if counts[c2] >= 1 { have += 1; } else { missing += 1; }
+                    } else if c1 == c2 {
+                        if counts[c0] >= 1 { have += 1; } else { missing += 1; }
+                        let avail = counts[c1];
+                        have += avail.min(2); missing += 2 - avail.min(2);
+                    } else if c0 == c2 {
+                        let avail = counts[c0];
+                        have += avail.min(2); missing += 2 - avail.min(2);
+                        if counts[c1] >= 1 { have += 1; } else { missing += 1; }
+                    } else {
+                        if counts[c0] >= 1 { have += 1; } else { missing += 1; }
+                        if counts[c1] >= 1 { have += 1; } else { missing += 1; }
+                        if counts[c2] >= 1 { have += 1; } else { missing += 1; }
+                    }
+                }
+                _ => {
+                    // Fallback for 4+ colors (shouldn't happen in current card set)
+                    let mut used = [0u32; 12];
+                    for &c in cost {
+                        let idx = c.index();
+                        let needed = used[idx] + 1;
+                        if counts[idx] < needed { missing += 1; } else { have += 1; }
+                        used[idx] = needed;
+                    }
+                }
             }
 
             let colors_met = missing == 0;
             let can_afford = has_material && colors_met;
 
-            // Build flat demand
-            for idx in 0..12 {
-                if color_counts[idx] > 0 {
-                    flat_demand[idx] += ducats * color_counts[idx] as u32;
-                }
-            }
-
-            // Build proximity demand
+            // Build flat and proximity demand — iterate cost directly (max 4 entries)
             let total_missing = missing + if has_material { 0 } else { 2 };
-            for idx in 0..12 {
-                if color_counts[idx] > 0 {
-                    proximity_demand[idx] += ducats * color_counts[idx] as u32 * 10 / (total_missing + 1);
-                }
+            let prox_weight = ducats * 10 / (total_missing + 1);
+            for &c in cost {
+                let idx = c.index();
+                flat_demand[idx] += ducats;
+                proximity_demand[idx] += prox_weight;
             }
 
             // Track best affordable
-            if can_afford {
-                let owned = have; // all colors are owned since colors_met
-                if ducats > best_affordable_ducats || (ducats == best_affordable_ducats && owned > best_affordable_owned) {
-                    best_affordable_ducats = ducats;
-                    best_affordable_id = Some(sc.instance_id);
-                    best_affordable_owned = owned;
-                }
+            if can_afford && ducats > best_affordable_ducats {
+                best_affordable_ducats = ducats;
+                best_affordable_id = Some(sc.instance_id);
             }
 
             entries[i] = SellCardCacheEntry {
@@ -1021,7 +987,6 @@ impl SellCardCache {
                 colors_met,
                 have_colors: have,
                 total_colors,
-                instance_id: sc.instance_id,
             };
         }
 
@@ -1030,7 +995,6 @@ impl SellCardCache {
             proximity_demand,
             best_affordable_ducats,
             best_affordable_id,
-            best_affordable_owned,
             entries,
             len,
         }
@@ -1349,7 +1313,7 @@ fn two_step_heuristic_mix_seq<R: Rng>(
 }
 
 #[inline(always)]
-fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize, heuristic_draft: bool, flags: RolloutHeuristicFlags, rng: &mut impl Rng) {
+fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize, heuristic_draft: bool, flags: RolloutHeuristicFlags, cache: &SellCardCache, rng: &mut impl Rng) {
     // Glass: use same random policy (glass strategy is complex, not worth heuristic overhead)
     if try_activate_random_glass(state, player_index, rng) {
         return;
@@ -1374,7 +1338,6 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
         return;
     }
 
-    let cache = SellCardCache::new(&state.sell_card_display, &state.players[player_index].color_wheel, &state.players[player_index].materials);
     let can_sell = cache.can_sell();
     let has_workshop_targets = !state.players[player_index].workshop_cards.is_empty();
 
@@ -1484,9 +1447,10 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
     match &state.phase {
         GamePhase::Action { action_state } => {
             let player_index = action_state.current_player_index;
+            let cache = SellCardCache::new(&state.sell_card_display, &state.players[player_index].color_wheel, &state.players[player_index].materials);
             match action_state.ability_stack.last() {
                 None => {
-                    handle_action_no_pending_heuristic(state, player_index, heuristic_draft, flags, rng);
+                    handle_action_no_pending_heuristic(state, player_index, heuristic_draft, flags, &cache, rng);
                 }
                 Some(Ability::Workshop { count }) => {
                     let count = *count;
@@ -1505,7 +1469,6 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
 
                     // Score each workshop card and pick the top N
                     let workshop = state.players[player_index].workshop_cards;
-                    let cache = SellCardCache::new(&state.sell_card_display, &state.players[player_index].color_wheel, &state.players[player_index].materials);
                     let mut scored: [(u8, u32); 16] = [(0, 0); 16];
                     let mut scored_count = 0usize;
                     for id in workshop.iter() {
@@ -1556,7 +1519,6 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                     let mut best_id: Option<u8> = None;
                     let mut best_score = 0u32;
                     if flags.dynamic_destruction {
-                        let cache = SellCardCache::new(&state.sell_card_display, &state.players[player_index].color_wheel, &state.players[player_index].materials);
                         for id in workshop.iter() {
                             let card = state.card_lookup[id as usize];
                             let score = dynamic_destruction_priority(card, &state.players[player_index], &cache);
@@ -1589,12 +1551,10 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                 }
                 Some(Ability::MixColors { count }) => {
                     let remaining_mixes = *count;
-                    let player = &state.players[player_index];
-                    let cache = SellCardCache::new(&state.sell_card_display, &player.color_wheel, &player.materials);
                     let (mixes, mix_count) = if flags.two_step_mix {
-                        two_step_heuristic_mix_seq(&player.color_wheel, remaining_mixes, &cache, flags.proximity_demand, rng)
+                        two_step_heuristic_mix_seq(&state.players[player_index].color_wheel, remaining_mixes, &cache, flags.proximity_demand, rng)
                     } else {
-                        heuristic_mix_seq(&player.color_wheel, remaining_mixes, &cache, flags.proximity_demand, rng)
+                        heuristic_mix_seq(&state.players[player_index].color_wheel, remaining_mixes, &cache, flags.proximity_demand, rng)
                     };
                     for i in 0..mix_count {
                         let (a, b) = mixes[i];
@@ -1667,7 +1627,6 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                     }
 
                     // Heuristic: pick best sell card
-                    let cache = SellCardCache::new(&state.sell_card_display, &state.players[player_index].color_wheel, &state.players[player_index].materials);
                     let sell_card_id_opt = cache.best_affordable_id;
                     let glass_available = state.expansions.glass
                         && !state.glass_display.is_empty()
@@ -1718,14 +1677,10 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                     }
                 }
                 Some(Ability::GainSecondary) => {
-                    let player = &state.players[player_index];
-                    let cache = SellCardCache::new(&state.sell_card_display, &player.color_wheel, &player.materials);
                     let color = pick_best_color(&SECONDARIES, &cache, flags.proximity_demand, rng);
                     resolve_gain_color(state, color, rng);
                 }
                 Some(Ability::GainPrimary) => {
-                    let player = &state.players[player_index];
-                    let cache = SellCardCache::new(&state.sell_card_display, &player.color_wheel, &player.materials);
                     let color = pick_best_color(&PRIMARIES, &cache, flags.proximity_demand, rng);
                     resolve_gain_color(state, color, rng);
                 }
@@ -1763,8 +1718,6 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                         resolve_choose_tertiary_to_gain(state, gain_color, rng);
                     } else {
                         // Heuristic: lose the least useful, gain the most useful
-                        let player = &state.players[player_index];
-                        let cache = SellCardCache::new(&state.sell_card_display, &player.color_wheel, &player.materials);
                         let mut best_lose = owned_tertiaries[0];
                         let mut best_lose_score = u32::MAX;
                         for i in 0..own_count {

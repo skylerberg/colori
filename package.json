@@ -13,7 +13,7 @@
     "benchmark": "vitest bench",
     "build:wasm": "cd colori-wasm && wasm-pack build --target web --out-dir ../src/wasm-pkg",
     "run-games": "cargo run --release --manifest-path colori-runner/Cargo.toml --",
-    "profile": "samply record cargo run --release --manifest-path colori-runner/Cargo.toml -- --games 1 --threads 1"
+    "profile": "samply record cargo run --release --manifest-path colori-runner/Cargo.toml -- --threads 1 simulate --games 1"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
