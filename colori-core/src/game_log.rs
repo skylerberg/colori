@@ -137,4 +137,6 @@ pub struct PlayerVariant {
     pub max_rollout_steps: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub heuristic_params: Option<HeuristicParams>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub random_first_pick: Option<bool>,
 }

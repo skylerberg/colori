@@ -1,4 +1,4 @@
-use colori_core::colori_game::apply_choice_to_state;
+use colori_core::colori_game::{apply_choice_to_state, enumerate_choices};
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::game_log::{DrawEvent, DrawLog, FinalPlayerStats, FinalScore, PlayerVariant};
 use colori_core::ismcts::{ismcts, MctsConfig, MctsNode};
@@ -6,6 +6,7 @@ use colori_core::scoring::{calculate_score, HeuristicParams};
 use colori_core::setup::create_initial_game_state_with_expansions;
 use colori_core::types::*;
 
+use rand::prelude::IndexedRandom;
 use rand::seq::SliceRandom;
 use wyrand::WyRand;
 use serde::Serialize;
@@ -189,6 +190,7 @@ fn variant_to_player_variant(variant: &NamedVariant) -> PlayerVariant {
         } else {
             None
         },
+        random_first_pick: if config.random_first_pick { Some(true) } else { None },
     }
 }
 
@@ -263,16 +265,28 @@ pub fn run_game(
         };
 
         let config = &shuffled_variants[player_index].ai;
-        let max_rollout_round = std::cmp::max(8, state.round + 2);
-        let mcts_start = std::time::Instant::now();
-        let result = ismcts(&state, player_index, config, &None, Some(max_rollout_round), reuse_tree.take(), rng);
-        player_time[player_index] += mcts_start.elapsed();
-        player_iterations_count[player_index] += result.iterations_used as u64;
-        if config.time_limit_ms.is_none() {
-            total_iterations_budget += config.iterations as u64;
-        }
-        total_iterations_used += result.iterations_used as u64;
-        total_reused_iterations += result.reused_iterations as u64;
+
+        // Check if this is the first draft pick of round 1 and random_first_pick is enabled
+        let use_random = config.random_first_pick
+            && state.round == 1
+            && matches!(&state.phase, GamePhase::Draft { draft_state } if draft_state.pick_number == 0);
+
+        let (choice, mcts_tree): (Choice, Option<MctsNode>) = if use_random {
+            let choices = enumerate_choices(&state);
+            (choices.choose(rng).expect("No choices available").clone(), None)
+        } else {
+            let max_rollout_round = std::cmp::max(8, state.round + 2);
+            let mcts_start = std::time::Instant::now();
+            let result = ismcts(&state, player_index, config, &None, Some(max_rollout_round), reuse_tree.take(), rng);
+            player_time[player_index] += mcts_start.elapsed();
+            player_iterations_count[player_index] += result.iterations_used as u64;
+            if config.time_limit_ms.is_none() {
+                total_iterations_budget += config.iterations as u64;
+            }
+            total_iterations_used += result.iterations_used as u64;
+            total_reused_iterations += result.reused_iterations as u64;
+            (result.choice.clone(), result.tree)
+        };
 
         seq += 1;
 
@@ -286,7 +300,7 @@ pub fn run_game(
 
         // Enable draw recording before applying the choice
         state.draw_log = Some(DrawLog::Recording(Vec::new()));
-        apply_choice_to_state(&mut state, &result.choice, rng);
+        apply_choice_to_state(&mut state, &choice, rng);
         let draws = match state.draw_log.take() {
             Some(DrawLog::Recording(events)) => events,
             _ => Vec::new(),
@@ -298,7 +312,7 @@ pub fn run_game(
             round,
             phase: phase_str.to_string(),
             player_index,
-            choice: result.choice.clone(),
+            choice: choice.clone(),
             draws,
         });
 
@@ -310,7 +324,7 @@ pub fn run_game(
             state.sell_card_deck.len() != prev_sell_deck_len ||
             state.glass_deck.len() != prev_glass_deck_len;
         reuse_tree = if same_player_action && !info_revealed {
-            result.tree.and_then(|t| t.into_subtree(&result.choice))
+            mcts_tree.and_then(|t| t.into_subtree(&choice))
         } else {
             None
         };
