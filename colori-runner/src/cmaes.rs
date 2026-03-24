@@ -16,6 +16,13 @@ use std::time::Instant;
 use crate::cli::{TrainHeuristicEvalArgs, TrainFirstPickArgs, load_heuristic_params};
 use crate::generate_batch_id;
 
+pub trait CmaEsTarget: Clone {
+    fn to_genes(&self) -> Vec<f64>;
+    fn from_genes(genes: &[f64]) -> Self;
+    /// Gene indices that should be rounded to integers and clamped >= 1
+    fn integer_gene_indices() -> Vec<usize>;
+}
+
 /// Box-Muller transform: generate a sample from N(0, std_dev)
 fn sample_normal(rng: &mut WyRand, std_dev: f64) -> f64 {
     let u1: f64 = rng.random::<f64>();
@@ -63,79 +70,85 @@ pub enum Gene {
 
 pub const NUM_GENES: usize = 30;
 
-pub fn heuristic_params_to_vec(params: &HeuristicParams) -> Vec<f64> {
-    use Gene::*;
-    let mut v = vec![0.0; NUM_GENES];
-    v[PrimaryColorValue as usize] = params.primary_color_value;
-    v[SecondaryColorValue as usize] = params.secondary_color_value;
-    v[TertiaryColorValue as usize] = params.tertiary_color_value;
-    v[StoredMaterialWeight as usize] = params.stored_material_weight;
-    v[ChalkQuality as usize] = params.chalk_quality;
-    v[AlumQuality as usize] = params.alum_quality.unwrap_or(params.action_quality);
-    v[CreamOfTartarQuality as usize] = params.cream_of_tartar_quality.unwrap_or(params.action_quality);
-    v[GumArabicQuality as usize] = params.gum_arabic_quality.unwrap_or(params.action_quality);
-    v[PotashQuality as usize] = params.potash_quality.unwrap_or(params.action_quality);
-    v[VinegarQuality as usize] = params.vinegar_quality.unwrap_or(params.action_quality);
-    v[ArgolQuality as usize] = params.argol_quality.unwrap_or(params.action_quality);
-    v[PurePrimaryDyeQuality as usize] = params.pure_primary_dye_quality.unwrap_or(params.dye_quality);
-    v[PrimaryDyeQuality as usize] = params.primary_dye_quality.unwrap_or(params.dye_quality);
-    v[SecondaryDyeQuality as usize] = params.secondary_dye_quality.unwrap_or(params.dye_quality);
-    v[TertiaryDyeQuality as usize] = params.tertiary_dye_quality.unwrap_or(params.dye_quality);
-    v[BasicDyeQuality as usize] = params.basic_dye_quality;
-    v[StarterMaterialQuality as usize] = params.starter_material_quality;
-    v[DraftMaterialQuality as usize] = params.draft_material_quality;
-    v[DualMaterialQuality as usize] = params.dual_material_quality;
-    v[SellCardMaterialAlignment as usize] = params.sell_card_material_alignment;
-    v[SellCardColorAlignment as usize] = params.sell_card_color_alignment;
-    v[GlassWeight as usize] = params.glass_weight;
-    v[PrimaryColorCoverage as usize] = params.primary_color_coverage_weight;
-    v[SecondaryColorCoverage as usize] = params.secondary_color_coverage_weight;
-    v[CardsInDeck as usize] = params.cards_in_deck_weight;
-    v[CardsInDeckSquared as usize] = params.cards_in_deck_squared_weight;
-    v[MaterialTypeCount as usize] = params.material_type_count_weight;
-    v[MaterialCoverage as usize] = params.material_coverage_weight;
-    v[HeuristicScoreThreshold as usize] = params.heuristic_score_threshold.unwrap_or(10.0);
-    v[HeuristicLookahead as usize] = params.heuristic_lookahead as f64;
-    v
-}
+impl CmaEsTarget for HeuristicParams {
+    fn to_genes(&self) -> Vec<f64> {
+        use Gene::*;
+        let mut v = vec![0.0; NUM_GENES];
+        v[PrimaryColorValue as usize] = self.primary_color_value;
+        v[SecondaryColorValue as usize] = self.secondary_color_value;
+        v[TertiaryColorValue as usize] = self.tertiary_color_value;
+        v[StoredMaterialWeight as usize] = self.stored_material_weight;
+        v[ChalkQuality as usize] = self.chalk_quality;
+        v[AlumQuality as usize] = self.alum_quality.unwrap_or(self.action_quality);
+        v[CreamOfTartarQuality as usize] = self.cream_of_tartar_quality.unwrap_or(self.action_quality);
+        v[GumArabicQuality as usize] = self.gum_arabic_quality.unwrap_or(self.action_quality);
+        v[PotashQuality as usize] = self.potash_quality.unwrap_or(self.action_quality);
+        v[VinegarQuality as usize] = self.vinegar_quality.unwrap_or(self.action_quality);
+        v[ArgolQuality as usize] = self.argol_quality.unwrap_or(self.action_quality);
+        v[PurePrimaryDyeQuality as usize] = self.pure_primary_dye_quality.unwrap_or(self.dye_quality);
+        v[PrimaryDyeQuality as usize] = self.primary_dye_quality.unwrap_or(self.dye_quality);
+        v[SecondaryDyeQuality as usize] = self.secondary_dye_quality.unwrap_or(self.dye_quality);
+        v[TertiaryDyeQuality as usize] = self.tertiary_dye_quality.unwrap_or(self.dye_quality);
+        v[BasicDyeQuality as usize] = self.basic_dye_quality;
+        v[StarterMaterialQuality as usize] = self.starter_material_quality;
+        v[DraftMaterialQuality as usize] = self.draft_material_quality;
+        v[DualMaterialQuality as usize] = self.dual_material_quality;
+        v[SellCardMaterialAlignment as usize] = self.sell_card_material_alignment;
+        v[SellCardColorAlignment as usize] = self.sell_card_color_alignment;
+        v[GlassWeight as usize] = self.glass_weight;
+        v[PrimaryColorCoverage as usize] = self.primary_color_coverage_weight;
+        v[SecondaryColorCoverage as usize] = self.secondary_color_coverage_weight;
+        v[CardsInDeck as usize] = self.cards_in_deck_weight;
+        v[CardsInDeckSquared as usize] = self.cards_in_deck_squared_weight;
+        v[MaterialTypeCount as usize] = self.material_type_count_weight;
+        v[MaterialCoverage as usize] = self.material_coverage_weight;
+        v[HeuristicScoreThreshold as usize] = self.heuristic_score_threshold.unwrap_or(10.0);
+        v[HeuristicLookahead as usize] = self.heuristic_lookahead as f64;
+        v
+    }
 
-pub fn vec_to_heuristic_params(v: &[f64]) -> HeuristicParams {
-    use Gene::*;
-    let defaults = HeuristicParams::default();
-    HeuristicParams {
-        primary_color_value: v[PrimaryColorValue as usize],
-        secondary_color_value: v[SecondaryColorValue as usize],
-        tertiary_color_value: v[TertiaryColorValue as usize],
-        stored_material_weight: v[StoredMaterialWeight as usize],
-        chalk_quality: v[ChalkQuality as usize],
-        action_quality: defaults.action_quality,
-        dye_quality: defaults.dye_quality,
-        basic_dye_quality: v[BasicDyeQuality as usize],
-        starter_material_quality: v[StarterMaterialQuality as usize],
-        draft_material_quality: v[DraftMaterialQuality as usize],
-        dual_material_quality: v[DualMaterialQuality as usize],
-        sell_card_material_alignment: v[SellCardMaterialAlignment as usize],
-        sell_card_color_alignment: v[SellCardColorAlignment as usize],
-        glass_weight: v[GlassWeight as usize],
-        heuristic_round_threshold: defaults.heuristic_round_threshold,
-        heuristic_lookahead: (v[HeuristicLookahead as usize].round() as u32).max(1),
-        alum_quality: Some(v[AlumQuality as usize]),
-        cream_of_tartar_quality: Some(v[CreamOfTartarQuality as usize]),
-        gum_arabic_quality: Some(v[GumArabicQuality as usize]),
-        potash_quality: Some(v[PotashQuality as usize]),
-        vinegar_quality: Some(v[VinegarQuality as usize]),
-        argol_quality: Some(v[ArgolQuality as usize]),
-        pure_primary_dye_quality: Some(v[PurePrimaryDyeQuality as usize]),
-        primary_dye_quality: Some(v[PrimaryDyeQuality as usize]),
-        secondary_dye_quality: Some(v[SecondaryDyeQuality as usize]),
-        tertiary_dye_quality: Some(v[TertiaryDyeQuality as usize]),
-        primary_color_coverage_weight: v[PrimaryColorCoverage as usize],
-        secondary_color_coverage_weight: v[SecondaryColorCoverage as usize],
-        cards_in_deck_weight: v[CardsInDeck as usize],
-        cards_in_deck_squared_weight: v[CardsInDeckSquared as usize],
-        material_type_count_weight: v[MaterialTypeCount as usize],
-        material_coverage_weight: v[MaterialCoverage as usize],
-        heuristic_score_threshold: Some(v[HeuristicScoreThreshold as usize]),
+    fn from_genes(v: &[f64]) -> Self {
+        use Gene::*;
+        let defaults = HeuristicParams::default();
+        HeuristicParams {
+            primary_color_value: v[PrimaryColorValue as usize],
+            secondary_color_value: v[SecondaryColorValue as usize],
+            tertiary_color_value: v[TertiaryColorValue as usize],
+            stored_material_weight: v[StoredMaterialWeight as usize],
+            chalk_quality: v[ChalkQuality as usize],
+            action_quality: defaults.action_quality,
+            dye_quality: defaults.dye_quality,
+            basic_dye_quality: v[BasicDyeQuality as usize],
+            starter_material_quality: v[StarterMaterialQuality as usize],
+            draft_material_quality: v[DraftMaterialQuality as usize],
+            dual_material_quality: v[DualMaterialQuality as usize],
+            sell_card_material_alignment: v[SellCardMaterialAlignment as usize],
+            sell_card_color_alignment: v[SellCardColorAlignment as usize],
+            glass_weight: v[GlassWeight as usize],
+            heuristic_round_threshold: defaults.heuristic_round_threshold,
+            heuristic_lookahead: (v[HeuristicLookahead as usize].round() as u32).max(1),
+            alum_quality: Some(v[AlumQuality as usize]),
+            cream_of_tartar_quality: Some(v[CreamOfTartarQuality as usize]),
+            gum_arabic_quality: Some(v[GumArabicQuality as usize]),
+            potash_quality: Some(v[PotashQuality as usize]),
+            vinegar_quality: Some(v[VinegarQuality as usize]),
+            argol_quality: Some(v[ArgolQuality as usize]),
+            pure_primary_dye_quality: Some(v[PurePrimaryDyeQuality as usize]),
+            primary_dye_quality: Some(v[PrimaryDyeQuality as usize]),
+            secondary_dye_quality: Some(v[SecondaryDyeQuality as usize]),
+            tertiary_dye_quality: Some(v[TertiaryDyeQuality as usize]),
+            primary_color_coverage_weight: v[PrimaryColorCoverage as usize],
+            secondary_color_coverage_weight: v[SecondaryColorCoverage as usize],
+            cards_in_deck_weight: v[CardsInDeck as usize],
+            cards_in_deck_squared_weight: v[CardsInDeckSquared as usize],
+            material_type_count_weight: v[MaterialTypeCount as usize],
+            material_coverage_weight: v[MaterialCoverage as usize],
+            heuristic_score_threshold: Some(v[HeuristicScoreThreshold as usize]),
+        }
+    }
+
+    fn integer_gene_indices() -> Vec<usize> {
+        vec![Gene::HeuristicLookahead as usize]
     }
 }
 
@@ -218,10 +231,11 @@ struct CmaEsState {
     d_vec: DVector<f64>,
     inv_sqrt_c: DMatrix<f64>,
     frozen_genes: Vec<usize>,
+    integer_genes: Vec<usize>,
 }
 
 impl CmaEsState {
-    fn new(seed_genes: &[f64], lambda: usize, initial_sigma: f64, frozen_genes: Vec<usize>) -> Self {
+    fn new(seed_genes: &[f64], lambda: usize, initial_sigma: f64, frozen_genes: Vec<usize>, integer_genes: Vec<usize>) -> Self {
         let n = seed_genes.len();
         let mu = lambda / 2;
 
@@ -289,6 +303,7 @@ impl CmaEsState {
             d_vec,
             inv_sqrt_c,
             frozen_genes,
+            integer_genes,
         }
     }
 
@@ -307,8 +322,9 @@ impl CmaEsState {
                 genes[idx] = self.mean[idx];
             }
 
-            // Clamp heuristic_lookahead >= 1
-            genes[Gene::HeuristicLookahead as usize] = genes[Gene::HeuristicLookahead as usize].round().max(1.0);
+            for &idx in &self.integer_genes {
+                genes[idx] = genes[idx].round().max(1.0);
+            }
 
             offspring.push(genes);
         }
@@ -391,7 +407,7 @@ pub fn run_genetic_algorithm(args: &TrainHeuristicEvalArgs, threads: usize, outp
     let seed_params = args.seed_params.as_ref().map(|p| load_heuristic_params(p));
     let default_params = HeuristicParams::default();
     let seed = seed_params.as_ref().unwrap_or(&default_params);
-    let seed_genes = heuristic_params_to_vec(seed);
+    let seed_genes = seed.to_genes();
 
     if seed_params.is_some() {
         eprintln!("Seeding CMA-ES from provided params file");
@@ -414,7 +430,7 @@ pub fn run_genetic_algorithm(args: &TrainHeuristicEvalArgs, threads: usize, outp
         frozen_genes.push(Gene::GlassWeight as usize);
     }
 
-    let mut cma = CmaEsState::new(&seed_genes, args.population, args.initial_sigma, frozen_genes);
+    let mut cma = CmaEsState::new(&seed_genes, args.population, args.initial_sigma, frozen_genes, HeuristicParams::integer_gene_indices());
     let baseline_params = baseline_heuristic_params.as_ref().unwrap_or(seed).clone();
 
     for gen in 0..args.generations {
@@ -427,7 +443,7 @@ pub fn run_genetic_algorithm(args: &TrainHeuristicEvalArgs, threads: usize, outp
         // Evaluate all individuals against baseline
         let eval_params: Vec<HeuristicParams> = offspring
             .iter()
-            .map(|g| vec_to_heuristic_params(g))
+            .map(|g| HeuristicParams::from_genes(g))
             .collect();
 
         let baseline_ref = &baseline_params;
@@ -496,7 +512,7 @@ pub fn run_genetic_algorithm(args: &TrainHeuristicEvalArgs, threads: usize, outp
 
         let best_idx = fitness[0].0;
         let best_fitness = fitness[0].1;
-        let best_params = vec_to_heuristic_params(&offspring[best_idx]);
+        let best_params = HeuristicParams::from_genes(&offspring[best_idx]);
 
         // Save best individual
         let output_path = format!("{}/batch-{}-gen-{}.json", output, batch_id, gen);
@@ -554,41 +570,47 @@ pub fn run_genetic_algorithm(args: &TrainHeuristicEvalArgs, threads: usize, outp
 
 // ── First Pick CMA-ES ──
 
-pub fn first_pick_params_to_vec(params: &FirstPickParams) -> Vec<f64> {
-    vec![
-        params.is_tertiary_dye,
-        params.is_secondary_dye,
-        params.is_primary_dye,
-        params.is_pure_primary_dye,
-        params.is_alum,
-        params.is_gum_arabic,
-        params.is_cream_of_tartar,
-        params.is_potash,
-        params.is_dual_material,
-        params.is_material_plus_color,
-        params.matching_tertiary_colors,
-        params.matching_secondary_colors,
-        params.matching_primary_colors,
-        params.matching_materials,
-    ]
-}
+impl CmaEsTarget for FirstPickParams {
+    fn to_genes(&self) -> Vec<f64> {
+        vec![
+            self.is_tertiary_dye,
+            self.is_secondary_dye,
+            self.is_primary_dye,
+            self.is_pure_primary_dye,
+            self.is_alum,
+            self.is_gum_arabic,
+            self.is_cream_of_tartar,
+            self.is_potash,
+            self.is_dual_material,
+            self.is_material_plus_color,
+            self.matching_tertiary_colors,
+            self.matching_secondary_colors,
+            self.matching_primary_colors,
+            self.matching_materials,
+        ]
+    }
 
-pub fn vec_to_first_pick_params(v: &[f64]) -> FirstPickParams {
-    FirstPickParams {
-        is_tertiary_dye: v[0],
-        is_secondary_dye: v[1],
-        is_primary_dye: v[2],
-        is_pure_primary_dye: v[3],
-        is_alum: v[4],
-        is_gum_arabic: v[5],
-        is_cream_of_tartar: v[6],
-        is_potash: v[7],
-        is_dual_material: v[8],
-        is_material_plus_color: v[9],
-        matching_tertiary_colors: v[10],
-        matching_secondary_colors: v[11],
-        matching_primary_colors: v[12],
-        matching_materials: v[13],
+    fn from_genes(v: &[f64]) -> Self {
+        FirstPickParams {
+            is_tertiary_dye: v[0],
+            is_secondary_dye: v[1],
+            is_primary_dye: v[2],
+            is_pure_primary_dye: v[3],
+            is_alum: v[4],
+            is_gum_arabic: v[5],
+            is_cream_of_tartar: v[6],
+            is_potash: v[7],
+            is_dual_material: v[8],
+            is_material_plus_color: v[9],
+            matching_tertiary_colors: v[10],
+            matching_secondary_colors: v[11],
+            matching_primary_colors: v[12],
+            matching_materials: v[13],
+        }
+    }
+
+    fn integer_gene_indices() -> Vec<usize> {
+        vec![]
     }
 }
 
@@ -674,9 +696,9 @@ pub fn run_first_pick_cmaes(args: &TrainFirstPickArgs, threads: usize, output: &
     let mut rng = WyRand::from_rng(&mut rand::rng());
 
     let seed = FirstPickParams::default();
-    let seed_genes = first_pick_params_to_vec(&seed);
+    let seed_genes = seed.to_genes();
 
-    let mut cma = CmaEsState::new(&seed_genes, args.population, args.initial_sigma, vec![]);
+    let mut cma = CmaEsState::new(&seed_genes, args.population, args.initial_sigma, vec![], FirstPickParams::integer_gene_indices());
 
     for gen in 0..args.generations {
         let gen_start = Instant::now();
@@ -686,7 +708,7 @@ pub fn run_first_pick_cmaes(args: &TrainFirstPickArgs, threads: usize, output: &
 
         let eval_params: Vec<FirstPickParams> = offspring
             .iter()
-            .map(|g| vec_to_first_pick_params(g))
+            .map(|g| FirstPickParams::from_genes(g))
             .collect();
 
         let eval_iterations = args.eval_iterations;
@@ -754,7 +776,7 @@ pub fn run_first_pick_cmaes(args: &TrainFirstPickArgs, threads: usize, output: &
 
         let best_idx = fitness[0].0;
         let best_fitness = fitness[0].1;
-        let best_params = vec_to_first_pick_params(&offspring[best_idx]);
+        let best_params = FirstPickParams::from_genes(&offspring[best_idx]);
 
         let output_path = format!("{}/batch-{}-gen-{}.json", output, batch_id, gen);
         let json = serde_json::to_string_pretty(&best_params).unwrap();
