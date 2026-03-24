@@ -27,6 +27,7 @@ pub struct MctsConfig {
     pub time_limit_ms: Option<u64>,
     pub random_first_pick: bool,
     pub first_pick_params: Option<Box<FirstPickParams>>,
+    pub rollout_heuristics: RolloutHeuristicFlags,
 }
 
 pub struct MctsResult {
@@ -59,6 +60,7 @@ impl Default for MctsConfig {
             time_limit_ms: None,
             random_first_pick: false,
             first_pick_params: None,
+            rollout_heuristics: RolloutHeuristicFlags::default(),
         }
     }
 }
@@ -93,6 +95,14 @@ impl<'de> Deserialize<'de> for MctsConfig {
             time_limit_ms: Option<u64>,
             #[serde(default)]
             random_first_pick: bool,
+            #[serde(default)]
+            proximity_demand: bool,
+            #[serde(default)]
+            dynamic_destruction: bool,
+            #[serde(default)]
+            two_step_mix: bool,
+            #[serde(default)]
+            workshop_player_state: bool,
         }
 
         fn default_iterations() -> u32 { 100 }
@@ -118,6 +128,12 @@ impl<'de> Deserialize<'de> for MctsConfig {
             time_limit_ms: helper.time_limit_ms,
             random_first_pick: helper.random_first_pick,
             first_pick_params: None,
+            rollout_heuristics: RolloutHeuristicFlags {
+                proximity_demand: helper.proximity_demand,
+                dynamic_destruction: helper.dynamic_destruction,
+                two_step_mix: helper.two_step_mix,
+                workshop_player_state: helper.workshop_player_state,
+            },
         })
     }
 }
@@ -777,7 +793,7 @@ fn iteration_simultaneous<R: Rng>(
         let scores = if config.no_rollout {
             eval_scores(state, true, &config.heuristic_params, card_table, de)
         } else {
-            rollout(state, max_rollout_round, config.max_rollout_steps, use_heuristic, config.heuristic_rollout, config.heuristic_draft, &config.heuristic_params, card_table, de, rng)
+            rollout(state, max_rollout_round, config.max_rollout_steps, use_heuristic, config.heuristic_rollout, config.heuristic_draft, config.rollout_heuristics, &config.heuristic_params, card_table, de, rng)
         };
         record_outcome(&mut node.children[best_idx], &scores);
         scores
@@ -831,7 +847,7 @@ fn select(
     best_idx
 }
 
-fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_rollout_steps: u32, use_heuristic: bool, heuristic_rollout: bool, heuristic_draft: bool, params: &HeuristicParams, card_table: &CardHeuristicTable, diff_eval: Option<(&DiffEvalParams, &DiffEvalTable)>, rng: &mut R) -> [f64; MAX_PLAYERS] {
+fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_rollout_steps: u32, use_heuristic: bool, heuristic_rollout: bool, heuristic_draft: bool, flags: RolloutHeuristicFlags, params: &HeuristicParams, card_table: &CardHeuristicTable, diff_eval: Option<(&DiffEvalParams, &DiffEvalTable)>, rng: &mut R) -> [f64; MAX_PLAYERS] {
     for _ in 0..max_rollout_steps {
         if matches!(state.phase, GamePhase::GameOver) {
             return compute_terminal_rewards(&state.players);
@@ -840,7 +856,7 @@ fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_ro
             return eval_scores(state, use_heuristic, params, card_table, diff_eval);
         }
         if heuristic_rollout {
-            apply_heuristic_rollout_step(state, heuristic_draft, rng);
+            apply_heuristic_rollout_step(state, heuristic_draft, flags, rng);
         } else {
             apply_rollout_step(state, heuristic_draft, rng);
         }
@@ -1029,6 +1045,106 @@ mod tests {
     fn test_ismcts_valid_moves_4_players_glass() {
         for seed in 0..5 {
             run_full_game_validating_choices_with_glass(4, seed);
+        }
+    }
+
+    fn run_full_game_with_config(num_players: usize, seed: u64, config: &MctsConfig) {
+        let mut rng = WyRand::seed_from_u64(seed);
+        let ai_players = vec![true; num_players];
+        let mut state = create_initial_game_state(num_players, &ai_players, &mut rng);
+
+        execute_draw_phase(&mut state, &mut rng);
+
+        let mut choices_buf: Vec<Choice> = Vec::new();
+        let max_steps = 5000;
+
+        for _step in 0..max_steps {
+            match &state.phase {
+                GamePhase::GameOver => return,
+                GamePhase::Draw => {
+                    execute_draw_phase(&mut state, &mut rng);
+                    continue;
+                }
+                _ => {}
+            }
+
+            let player_index = match get_game_status(&state, None) {
+                GameStatus::AwaitingAction { player_index } => player_index,
+                GameStatus::Terminated { .. } => return,
+            };
+
+            let choice = ismcts(&state, player_index, config, &None, None, None, &mut rng).choice;
+
+            enumerate_choices_into(&state, &mut choices_buf);
+            assert!(choices_buf.contains(&choice));
+
+            apply_choice_to_state(&mut state, &choice, &mut rng);
+        }
+
+        panic!("seed={seed}, players={num_players}: game did not finish within {max_steps} steps");
+    }
+
+    #[test]
+    fn test_ismcts_with_rollout_heuristic_flags() {
+        let config = MctsConfig {
+            iterations: 10,
+            rollout_heuristics: RolloutHeuristicFlags {
+                proximity_demand: true,
+                dynamic_destruction: true,
+                two_step_mix: true,
+                workshop_player_state: true,
+            },
+            ..MctsConfig::default()
+        };
+        for num_players in 2..=4 {
+            for seed in 0..3 {
+                run_full_game_with_config(num_players, seed, &config);
+            }
+        }
+    }
+
+    #[test]
+    fn test_ismcts_with_rollout_heuristic_flags_glass() {
+        let config = MctsConfig {
+            iterations: 10,
+            rollout_heuristics: RolloutHeuristicFlags {
+                proximity_demand: true,
+                dynamic_destruction: true,
+                two_step_mix: true,
+                workshop_player_state: true,
+            },
+            ..MctsConfig::default()
+        };
+        for seed in 0..3 {
+            let mut rng = WyRand::seed_from_u64(seed);
+            let ai_players = vec![true; 2];
+            let mut state = create_initial_game_state_with_expansions(
+                2, &ai_players, Expansions { glass: true }, &mut rng,
+            );
+
+            execute_draw_phase(&mut state, &mut rng);
+
+            let mut choices_buf: Vec<Choice> = Vec::new();
+            for _step in 0..5000 {
+                match &state.phase {
+                    GamePhase::GameOver => break,
+                    GamePhase::Draw => {
+                        execute_draw_phase(&mut state, &mut rng);
+                        continue;
+                    }
+                    _ => {}
+                }
+
+                let player_index = match get_game_status(&state, None) {
+                    GameStatus::AwaitingAction { player_index } => player_index,
+                    GameStatus::Terminated { .. } => break,
+                };
+
+                let choice = ismcts(&state, player_index, &config, &None, None, None, &mut rng).choice;
+                enumerate_choices_into(&state, &mut choices_buf);
+                assert!(choices_buf.contains(&choice));
+                apply_choice_to_state(&mut state, &choice, &mut rng);
+            }
         }
     }
 }

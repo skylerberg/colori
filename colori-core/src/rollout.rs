@@ -7,8 +7,8 @@ use crate::action_phase::{
     skip_workshop,
 };
 use crate::colors::{
-    is_primary, mix_result, pay_cost, perform_mix_unchecked, perform_unmix, PRIMARIES, SECONDARIES,
-    TERTIARIES, VALID_MIX_PAIRS,
+    can_pay_cost, is_primary, mix_result, pay_cost, perform_mix_unchecked, perform_unmix, PRIMARIES,
+    SECONDARIES, TERTIARIES, VALID_MIX_PAIRS,
 };
 use crate::choices::is_glass_ability_available;
 use crate::deck_utils::draw_from_deck;
@@ -883,6 +883,60 @@ fn sell_card_color_demand(color: Color, sell_card_display: &[SellCardInstance]) 
     score
 }
 
+/// Score a color by demand, weighting each sell card by proximity to completion.
+/// Weight = ducats * color_matches * 10 / (missing + 1).
+#[inline(always)]
+fn proximity_sell_card_color_demand(
+    color: Color,
+    sell_card_display: &[SellCardInstance],
+    wheel: &ColorWheel,
+    materials: &Materials,
+) -> u32 {
+    let mut score = 0u32;
+    for sc in sell_card_display {
+        let mut color_matches = 0u32;
+        for &c in sc.sell_card.color_cost() {
+            if c == color {
+                color_matches += 1;
+            }
+        }
+        if color_matches == 0 {
+            continue;
+        }
+        let mut missing = 0u32;
+        let mut used = [0u32; 12];
+        for &c in sc.sell_card.color_cost() {
+            let idx = c.index();
+            let needed = used[idx] + 1;
+            if wheel.get(c) < needed {
+                missing += 1;
+            }
+            used[idx] = needed;
+        }
+        if materials.get(sc.sell_card.required_material()) < 1 {
+            missing += 2;
+        }
+        score += sc.sell_card.ducats() * color_matches * 10 / (missing + 1);
+    }
+    score
+}
+
+/// Dispatch to either proximity-weighted or basic sell card color demand.
+#[inline(always)]
+fn effective_color_demand(
+    color: Color,
+    sell_card_display: &[SellCardInstance],
+    wheel: &ColorWheel,
+    materials: &Materials,
+    use_proximity: bool,
+) -> u32 {
+    if use_proximity {
+        proximity_sell_card_color_demand(color, sell_card_display, wheel, materials)
+    } else {
+        sell_card_color_demand(color, sell_card_display)
+    }
+}
+
 /// Pick the best affordable sell card (highest ducats, tie-break by fewest missing colors).
 #[inline(always)]
 fn pick_best_affordable_sell_card(
@@ -925,26 +979,107 @@ fn destruction_priority(card: Card, can_sell: bool, has_workshop_targets: bool) 
     }
 }
 
+/// Dynamic destruction priority considering actual game state.
+#[inline(always)]
+fn dynamic_destruction_priority(
+    card: Card,
+    player: &PlayerState,
+    sell_card_display: &[SellCardInstance],
+) -> u32 {
+    match card.ability() {
+        Ability::Sell => {
+            let mut best_ducats = 0u32;
+            for sc in sell_card_display {
+                if can_afford_sell_card(player, &sc.sell_card) {
+                    best_ducats = best_ducats.max(sc.sell_card.ducats());
+                }
+            }
+            if best_ducats > 0 {
+                best_ducats * 25
+            } else {
+                35
+            }
+        }
+        Ability::MixColors { count } => {
+            let mut valid_pairs = 0u32;
+            for &(a, b) in &VALID_MIX_PAIRS {
+                if player.color_wheel.get(a) > 0 && player.color_wheel.get(b) > 0 {
+                    valid_pairs += 1;
+                }
+            }
+            if valid_pairs == 0 {
+                20
+            } else {
+                50 + valid_pairs.min(4) * 3 + count.min(2) * 5
+            }
+        }
+        Ability::Workshop { count } => {
+            if player.workshop_cards.is_empty() {
+                15
+            } else {
+                60 + count.min(3) * 7
+            }
+        }
+        Ability::DestroyCards => {
+            if player.workshop_cards.is_empty() {
+                25
+            } else {
+                45
+            }
+        }
+        Ability::DrawCards { count } => 30 + count.min(3) * 2,
+        _ => 10,
+    }
+}
+
 /// Score a workshop card for selection priority.
 #[inline(always)]
 fn workshop_card_score(
     card: Card,
     sell_card_display: &[SellCardInstance],
+    wheel: &ColorWheel,
+    materials: &Materials,
+    use_proximity: bool,
+    use_player_state: bool,
 ) -> u32 {
     let mut score = 0u32;
 
     // Material cards: score by how much their material type is needed
     for &mt in card.material_types() {
-        for sc in sell_card_display {
-            if sc.sell_card.required_material() == mt {
-                score += sc.sell_card.ducats() * 3;
+        if use_player_state {
+            for sc in sell_card_display {
+                if sc.sell_card.required_material() == mt {
+                    let base = sc.sell_card.ducats() * 3;
+                    if can_pay_cost(wheel, sc.sell_card.color_cost()) {
+                        score += base * 3;
+                    } else {
+                        let total_colors = sc.sell_card.color_cost().len() as u32;
+                        let mut have = 0u32;
+                        let mut used = [0u32; 12];
+                        for &c in sc.sell_card.color_cost() {
+                            let idx = c.index();
+                            let needed = used[idx] + 1;
+                            if wheel.get(c) >= needed {
+                                have += 1;
+                            }
+                            used[idx] = needed;
+                        }
+                        score += base + base * have / (total_colors + 1);
+                    }
+                }
+            }
+        } else {
+            for sc in sell_card_display {
+                if sc.sell_card.required_material() == mt {
+                    score += sc.sell_card.ducats() * 3;
+                }
             }
         }
     }
 
     // Color cards: score by how much their colors are needed
     for &color in card.colors() {
-        score += sell_card_color_demand(color, sell_card_display);
+        score += effective_color_demand(color, sell_card_display, wheel, materials, use_proximity);
     }
 
     // Action cards get a moderate bonus
@@ -960,6 +1095,9 @@ fn workshop_card_score(
 fn pick_best_color<R: Rng>(
     colors: &[Color],
     sell_card_display: &[SellCardInstance],
+    wheel: &ColorWheel,
+    materials: &Materials,
+    use_proximity: bool,
     rng: &mut R,
 ) -> Color {
     if rng.random_bool(HEURISTIC_EPSILON) {
@@ -968,7 +1106,7 @@ fn pick_best_color<R: Rng>(
     let mut best_color = colors[0];
     let mut best_score = 0u32;
     for &c in colors {
-        let score = sell_card_color_demand(c, sell_card_display);
+        let score = effective_color_demand(c, sell_card_display, wheel, materials, use_proximity);
         if score > best_score {
             best_score = score;
             best_color = c;
@@ -983,6 +1121,8 @@ fn heuristic_mix_seq<R: Rng>(
     wheel: &ColorWheel,
     remaining: u32,
     sell_card_display: &[SellCardInstance],
+    materials: &Materials,
+    use_proximity: bool,
     rng: &mut R,
 ) -> ([(Color, Color); 2], usize) {
     if rng.random_bool(HEURISTIC_EPSILON) {
@@ -1003,7 +1143,7 @@ fn heuristic_mix_seq<R: Rng>(
             if sim_wheel.get(a) > 0 && sim_wheel.get(b) > 0 {
                 any_valid = true;
                 let output = mix_result(a, b);
-                let score = sell_card_color_demand(output, sell_card_display);
+                let score = effective_color_demand(output, sell_card_display, &sim_wheel, materials, use_proximity);
                 if score > best_score {
                     best_score = score;
                     best_pair = Some((a, b));
@@ -1041,8 +1181,82 @@ fn heuristic_mix_seq<R: Rng>(
     (mixes, count)
 }
 
+/// Two-step mix lookahead: evaluate all pair combinations when 2 mixes are available.
 #[inline(always)]
-fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize, heuristic_draft: bool, rng: &mut impl Rng) {
+fn two_step_heuristic_mix_seq<R: Rng>(
+    wheel: &ColorWheel,
+    remaining: u32,
+    sell_card_display: &[SellCardInstance],
+    materials: &Materials,
+    use_proximity: bool,
+    rng: &mut R,
+) -> ([(Color, Color); 2], usize) {
+    if remaining < 2 {
+        return heuristic_mix_seq(wheel, remaining, sell_card_display, materials, use_proximity, rng);
+    }
+
+    if rng.random_bool(HEURISTIC_EPSILON) {
+        return random_mix_seq(wheel, remaining, rng);
+    }
+
+    // Collect valid first-mix pairs
+    let mut pairs1: [(Color, Color); 9] = [(Color::Red, Color::Red); 9];
+    let mut pair1_count = 0usize;
+    for &(a, b) in &VALID_MIX_PAIRS {
+        if wheel.get(a) > 0 && wheel.get(b) > 0 {
+            pairs1[pair1_count] = (a, b);
+            pair1_count += 1;
+        }
+    }
+
+    if pair1_count == 0 {
+        return ([(Color::Red, Color::Red); 2], 0);
+    }
+
+    let mut best_score = 0u32;
+    let mut best_combo: ([(Color, Color); 2], usize) = ([(Color::Red, Color::Red); 2], 0);
+
+    for p1 in 0..pair1_count {
+        let (a1, b1) = pairs1[p1];
+        let output1 = mix_result(a1, b1);
+        let score1 = effective_color_demand(output1, sell_card_display, wheel, materials, use_proximity);
+
+        // Consider doing only the first mix
+        if score1 > best_score {
+            best_score = score1;
+            best_combo = ([(a1, b1), (Color::Red, Color::Red)], 1);
+        }
+
+        // Simulate first mix and evaluate second
+        let mut sim_wheel = wheel.clone();
+        perform_mix_unchecked(&mut sim_wheel, a1, b1);
+
+        for &(a2, b2) in &VALID_MIX_PAIRS {
+            if sim_wheel.get(a2) > 0 && sim_wheel.get(b2) > 0 {
+                let output2 = mix_result(a2, b2);
+                let score2 = effective_color_demand(output2, sell_card_display, &sim_wheel, materials, use_proximity);
+                let total = score1 + score2;
+                if total > best_score {
+                    best_score = total;
+                    best_combo = ([(a1, b1), (a2, b2)], 2);
+                }
+            }
+        }
+    }
+
+    // If no useful mixes, 50% chance to skip or fall back to random
+    if best_score == 0 {
+        if rng.random_bool(0.5) {
+            return ([(Color::Red, Color::Red); 2], 0);
+        }
+        return random_mix_seq(wheel, remaining, rng);
+    }
+
+    best_combo
+}
+
+#[inline(always)]
+fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize, heuristic_draft: bool, flags: RolloutHeuristicFlags, rng: &mut impl Rng) {
     // Glass: use same random policy (glass strategy is complex, not worth heuristic overhead)
     if try_activate_random_glass(state, player_index, rng) {
         return;
@@ -1082,7 +1296,11 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
         let bit = 1u64 << (card as u64);
         if seen & bit != 0 { continue; }
         seen |= bit;
-        let priority = destruction_priority(card, can_sell, has_workshop_targets);
+        let priority = if flags.dynamic_destruction {
+            dynamic_destruction_priority(card, &state.players[player_index], &state.sell_card_display)
+        } else {
+            destruction_priority(card, can_sell, has_workshop_targets)
+        };
         if priority > best_priority {
             best_priority = priority;
             best_id = Some(id);
@@ -1102,8 +1320,12 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     let card = state.card_lookup[card_id as usize];
     match card.ability() {
         Ability::MixColors { count } => {
-            let (mixes, mix_count) =
-                heuristic_mix_seq(&state.players[player_index].color_wheel, count, &state.sell_card_display, rng);
+            let player = &state.players[player_index];
+            let (mixes, mix_count) = if flags.two_step_mix {
+                two_step_heuristic_mix_seq(&player.color_wheel, count, &state.sell_card_display, &player.materials, flags.proximity_demand, rng)
+            } else {
+                heuristic_mix_seq(&player.color_wheel, count, &state.sell_card_display, &player.materials, flags.proximity_demand, rng)
+            };
             state.players[player_index].drafted_cards.remove(card_id);
             state.destroyed_pile.insert(card_id);
             for i in 0..mix_count {
@@ -1146,7 +1368,7 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     }
 }
 
-pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, rng: &mut R) {
+pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, flags: RolloutHeuristicFlags, rng: &mut R) {
     // Draft phase
     if matches!(&state.phase, GamePhase::Draft { .. }) {
         if heuristic_draft {
@@ -1176,7 +1398,7 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
             let player_index = action_state.current_player_index;
             match action_state.ability_stack.last() {
                 None => {
-                    handle_action_no_pending_heuristic(state, player_index, heuristic_draft, rng);
+                    handle_action_no_pending_heuristic(state, player_index, heuristic_draft, flags, rng);
                 }
                 Some(Ability::Workshop { count }) => {
                     let count = *count;
@@ -1199,7 +1421,7 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                     let mut scored_count = 0usize;
                     for id in workshop.iter() {
                         let card = state.card_lookup[id as usize];
-                        let score = workshop_card_score(card, &state.sell_card_display);
+                        let score = workshop_card_score(card, &state.sell_card_display, &state.players[player_index].color_wheel, &state.players[player_index].materials, flags.proximity_demand, flags.workshop_player_state);
                         scored[scored_count] = (id, score);
                         scored_count += 1;
                     }
@@ -1242,20 +1464,30 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                     }
 
                     // Pick the card whose destroy ability is most useful
-                    let can_sell = pick_best_affordable_sell_card(
-                        &state.players[player_index],
-                        &state.sell_card_display,
-                    ).is_some();
-                    let has_targets = workshop.len() > 1; // after destroying one, are there more?
-
                     let mut best_id: Option<u8> = None;
                     let mut best_score = 0u32;
-                    for id in workshop.iter() {
-                        let card = state.card_lookup[id as usize];
-                        let score = destruction_priority(card, can_sell, has_targets);
-                        if score > best_score || best_id.is_none() {
-                            best_score = score;
-                            best_id = Some(id);
+                    if flags.dynamic_destruction {
+                        for id in workshop.iter() {
+                            let card = state.card_lookup[id as usize];
+                            let score = dynamic_destruction_priority(card, &state.players[player_index], &state.sell_card_display);
+                            if score > best_score || best_id.is_none() {
+                                best_score = score;
+                                best_id = Some(id);
+                            }
+                        }
+                    } else {
+                        let can_sell = pick_best_affordable_sell_card(
+                            &state.players[player_index],
+                            &state.sell_card_display,
+                        ).is_some();
+                        let has_targets = workshop.len() > 1;
+                        for id in workshop.iter() {
+                            let card = state.card_lookup[id as usize];
+                            let score = destruction_priority(card, can_sell, has_targets);
+                            if score > best_score || best_id.is_none() {
+                                best_score = score;
+                                best_id = Some(id);
+                            }
                         }
                     }
 
@@ -1267,12 +1499,12 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                 }
                 Some(Ability::MixColors { count }) => {
                     let remaining_mixes = *count;
-                    let (mixes, mix_count) = heuristic_mix_seq(
-                        &state.players[player_index].color_wheel,
-                        remaining_mixes,
-                        &state.sell_card_display,
-                        rng,
-                    );
+                    let player = &state.players[player_index];
+                    let (mixes, mix_count) = if flags.two_step_mix {
+                        two_step_heuristic_mix_seq(&player.color_wheel, remaining_mixes, &state.sell_card_display, &player.materials, flags.proximity_demand, rng)
+                    } else {
+                        heuristic_mix_seq(&player.color_wheel, remaining_mixes, &state.sell_card_display, &player.materials, flags.proximity_demand, rng)
+                    };
                     for i in 0..mix_count {
                         let (a, b) = mixes[i];
                         perform_mix_unchecked(
@@ -1397,11 +1629,13 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                     }
                 }
                 Some(Ability::GainSecondary) => {
-                    let color = pick_best_color(&SECONDARIES, &state.sell_card_display, rng);
+                    let player = &state.players[player_index];
+                    let color = pick_best_color(&SECONDARIES, &state.sell_card_display, &player.color_wheel, &player.materials, flags.proximity_demand, rng);
                     resolve_gain_color(state, color, rng);
                 }
                 Some(Ability::GainPrimary) => {
-                    let color = pick_best_color(&PRIMARIES, &state.sell_card_display, rng);
+                    let player = &state.players[player_index];
+                    let color = pick_best_color(&PRIMARIES, &state.sell_card_display, &player.color_wheel, &player.materials, flags.proximity_demand, rng);
                     resolve_gain_color(state, color, rng);
                 }
                 Some(Ability::ChangeTertiary) => {
@@ -1439,11 +1673,13 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                     } else {
                         // Heuristic: lose the least useful, gain the most useful
                         let sell_display = &state.sell_card_display;
+                        let wheel = &state.players[player_index].color_wheel;
+                        let materials = &state.players[player_index].materials;
                         let mut best_lose = owned_tertiaries[0];
                         let mut best_lose_score = u32::MAX;
                         for i in 0..own_count {
                             let c = owned_tertiaries[i];
-                            let score = sell_card_color_demand(c, sell_display);
+                            let score = effective_color_demand(c, sell_display, wheel, materials, flags.proximity_demand);
                             if score < best_lose_score {
                                 best_lose_score = score;
                                 best_lose = c;
@@ -1453,7 +1689,7 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                         let mut best_gain_score = 0u32;
                         for &c in &TERTIARIES {
                             if c != best_lose {
-                                let score = sell_card_color_demand(c, sell_display);
+                                let score = effective_color_demand(c, sell_display, wheel, materials, flags.proximity_demand);
                                 if score > best_gain_score {
                                     best_gain_score = score;
                                     best_gain = c;
