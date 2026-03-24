@@ -24,7 +24,6 @@ pub struct MctsConfig {
     pub heuristic_rollout: bool,
     pub heuristic_draft: bool,
     pub early_termination: bool,
-    pub subtree_reuse: bool,
     pub time_limit_ms: Option<u64>,
     pub random_first_pick: bool,
 }
@@ -56,7 +55,6 @@ impl Default for MctsConfig {
             heuristic_rollout: true,
             heuristic_draft: false,
             early_termination: true,
-            subtree_reuse: true,
             time_limit_ms: None,
             random_first_pick: false,
         }
@@ -90,8 +88,6 @@ impl<'de> Deserialize<'de> for MctsConfig {
             #[serde(default)]
             early_termination: bool,
             #[serde(default)]
-            subtree_reuse: bool,
-            #[serde(default)]
             time_limit_ms: Option<u64>,
             #[serde(default)]
             random_first_pick: bool,
@@ -117,7 +113,6 @@ impl<'de> Deserialize<'de> for MctsConfig {
             heuristic_rollout: helper.heuristic_rollout,
             heuristic_draft: helper.heuristic_draft,
             early_termination: helper.early_termination,
-            subtree_reuse: helper.subtree_reuse,
             time_limit_ms: helper.time_limit_ms,
             random_first_pick: helper.random_first_pick,
         })
@@ -572,12 +567,11 @@ pub fn ismcts<R: Rng>(
         .unwrap()
         .choice.clone().unwrap();
 
-    let tree = if config.subtree_reuse { Some(root) } else { None };
     MctsResult {
         choice: best_choice,
         iterations_used,
         reused_iterations,
-        tree,
+        tree: Some(root),
     }
 }
 

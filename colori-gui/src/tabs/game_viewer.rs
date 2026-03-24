@@ -119,7 +119,6 @@ impl MctsGuiConfig {
             use_heuristic_eval: self.use_heuristic_eval,
             heuristic_rollout: self.heuristic_rollout,
             early_termination: self.early_termination,
-            subtree_reuse: true, // Always true so we get the tree back
             heuristic_params,
             ..MctsConfig::default()
         }

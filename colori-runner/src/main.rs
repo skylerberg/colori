@@ -90,7 +90,6 @@ fn main() {
     std::fs::create_dir_all(&args.output).expect("Failed to create output directory");
 
     let any_early_termination = player_variants.iter().any(|v| v.ai.early_termination);
-    let any_subtree_reuse = player_variants.iter().any(|v| v.ai.subtree_reuse);
     let batch_id = generate_batch_id();
     let completed = AtomicUsize::new(0);
     let agg_iterations_budget = AtomicU64::new(0);
@@ -180,7 +179,7 @@ fn main() {
             eprintln!("Early termination saved {:.1}% of iterations across all games", savings * 100.0);
         }
     }
-    if any_subtree_reuse {
+    {
         let budget = agg_reuse_budget.load(Ordering::Relaxed);
         let saved = agg_reuse_saved.load(Ordering::Relaxed);
         if budget > 0 {

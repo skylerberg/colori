@@ -244,7 +244,6 @@ pub fn run_game(
     let mut total_iterations_used: u64 = 0;
     let mut total_reused_iterations: u64 = 0;
     let any_early_termination = shuffled_variants.iter().any(|v| v.ai.early_termination);
-    let any_subtree_reuse = shuffled_variants.iter().any(|v| v.ai.subtree_reuse);
     let mut reuse_tree: Option<MctsNode> = None;
     let mut player_time = vec![std::time::Duration::ZERO; num_players];
     let mut player_iterations_count = vec![0u64; num_players];
@@ -387,7 +386,7 @@ pub fn run_game(
         None
     };
 
-    let subtree_reuse_savings = if any_subtree_reuse && total_iterations_budget > 0 {
+    let subtree_reuse_savings = if total_iterations_budget > 0 {
         Some(total_reused_iterations as f64 / total_iterations_budget as f64)
     } else {
         None
