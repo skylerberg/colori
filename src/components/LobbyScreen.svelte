@@ -212,6 +212,7 @@
     color: var(--text-primary, #2c1e12);
     letter-spacing: clamp(4px, 1.5vw, 6px);
     word-break: break-all;
+    user-select: all;
   }
 
   .room-code-hint {
