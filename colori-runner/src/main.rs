@@ -13,7 +13,7 @@ use wyrand::WyRand;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
 use cli::parse_args;
-use cmaes::run_genetic_algorithm;
+use cmaes::{run_genetic_algorithm, run_first_pick_cmaes};
 use simulation::{
     compute_differing_fields, format_variant_label, has_any_difference, now_epoch_millis,
     run_game,
@@ -29,6 +29,20 @@ pub(crate) fn generate_batch_id() -> String {
 
 fn main() {
     let args = parse_args();
+
+    if args.train_first_pick {
+        let ga = args.genetic.as_ref().cloned().unwrap_or(cli::CmaEsArgs {
+            population: 14,
+            generations: 50,
+            games_per_eval: 100,
+            initial_sigma: 0.3,
+            eval_iterations: 4000,
+            seed_params: None,
+            baseline_params: None,
+        });
+        run_first_pick_cmaes(&args, &ga);
+        return;
+    }
 
     if let Some(ref ga) = args.genetic {
         run_genetic_algorithm(&args, ga);

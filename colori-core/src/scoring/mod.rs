@@ -1,9 +1,11 @@
 pub mod diff_eval;
 pub mod diff_eval_grad;
+pub mod first_pick;
 mod heuristic_params;
 pub(crate) mod simd_ops;
 
 pub use diff_eval::{DiffEvalParams, DiffEvalTable, diff_eval_score, compute_diff_eval_rewards};
+pub use first_pick::FirstPickParams;
 pub use heuristic_params::HeuristicParams;
 
 use crate::colors::{PRIMARIES, SECONDARIES, TERTIARIES};

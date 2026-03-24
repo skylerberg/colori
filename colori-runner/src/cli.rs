@@ -1,5 +1,5 @@
 use colori_core::ismcts::MctsConfig;
-use colori_core::scoring::{DiffEvalParams, HeuristicParams};
+use colori_core::scoring::{DiffEvalParams, FirstPickParams, HeuristicParams};
 
 use serde::Deserialize;
 
@@ -30,8 +30,10 @@ pub struct SimulationArgs {
     pub train_replay_buffer_epochs: usize,
     pub baseline_heuristic_params: Option<HeuristicParams>,
     pub distill_from: Option<String>,
+    pub train_first_pick: bool,
 }
 
+#[derive(Clone)]
 pub struct CmaEsArgs {
     pub population: usize,
     pub generations: usize,
@@ -85,6 +87,8 @@ struct VariantFileEntry {
     time_limit_ms: Option<u64>,
     #[serde(default)]
     random_first_pick: Option<bool>,
+    #[serde(default)]
+    first_pick_params_file: Option<String>,
 }
 
 impl VariantFileEntry {
@@ -100,6 +104,12 @@ impl VariantFileEntry {
         } else {
             HeuristicParams::default()
         };
+        let first_pick_params = self.first_pick_params_file.as_ref().map(|path| {
+            let contents = std::fs::read_to_string(path)
+                .unwrap_or_else(|_| panic!("Failed to read first pick params file: {}", path));
+            Box::new(serde_json::from_str::<FirstPickParams>(&contents)
+                .unwrap_or_else(|_| panic!("Failed to parse first pick params file: {}", path)))
+        });
         let diff_eval_params = self.diff_eval_params_file.as_ref().map(|path| {
             let contents = std::fs::read_to_string(path)
                 .unwrap_or_else(|_| panic!("Failed to read diff eval params file: {}", path));
@@ -133,6 +143,7 @@ impl VariantFileEntry {
                 early_termination: self.early_termination.unwrap_or(defaults.early_termination),
                 time_limit_ms: self.time_limit_ms,
                 random_first_pick: self.random_first_pick.unwrap_or(defaults.random_first_pick),
+                first_pick_params,
             },
         }
     }
@@ -150,6 +161,7 @@ pub fn parse_args() -> SimulationArgs {
     let mut tournament = false;
 
     let mut train_diff_eval = false;
+    let mut train_first_pick = false;
     let mut train_self_play = false;
     let mut train_vs_baseline = false;
     let mut train_no_rollout = false;
@@ -227,6 +239,11 @@ pub fn parse_args() -> SimulationArgs {
             }
             "--train-diff-eval" => {
                 train_diff_eval = true;
+                i += 1;
+                continue;
+            }
+            "--train-first-pick" => {
+                train_first_pick = true;
                 i += 1;
                 continue;
             }
@@ -350,7 +367,7 @@ pub fn parse_args() -> SimulationArgs {
     };
 
     let variants = variants.unwrap_or_else(|| {
-        if genetic || train_diff_eval {
+        if genetic || train_diff_eval || train_first_pick {
             // In genetic/training mode, variants file is not required
             vec![NamedVariant { name: None, ai: MctsConfig::default() }; 2]
         } else {
@@ -367,6 +384,9 @@ pub fn parse_args() -> SimulationArgs {
 
     if train_diff_eval && output == "game-logs" {
         output = "diff-eval-training".to_string();
+    }
+    if train_first_pick && output == "game-logs" {
+        output = "first-pick-training".to_string();
     }
 
     SimulationArgs {
@@ -392,5 +412,6 @@ pub fn parse_args() -> SimulationArgs {
         train_replay_buffer_epochs,
         baseline_heuristic_params,
         distill_from,
+        train_first_pick,
     }
 }

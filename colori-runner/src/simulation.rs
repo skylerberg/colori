@@ -191,6 +191,7 @@ fn variant_to_player_variant(variant: &NamedVariant) -> PlayerVariant {
             None
         },
         random_first_pick: if config.random_first_pick { Some(true) } else { None },
+        first_pick_params: config.first_pick_params.as_ref().map(|p| (**p).clone()),
     }
 }
 
@@ -265,12 +266,23 @@ pub fn run_game(
 
         let config = &shuffled_variants[player_index].ai;
 
-        // Check if this is the first draft pick of round 1 and random_first_pick is enabled
-        let use_random = config.random_first_pick
-            && state.round == 1
+        // Check if this is the first draft pick of round 1
+        let is_first_pick = state.round == 1
             && matches!(&state.phase, GamePhase::Draft { draft_state } if draft_state.pick_number == 0);
 
-        let (choice, mcts_tree): (Choice, Option<MctsNode>) = if use_random {
+        let (choice, mcts_tree): (Choice, Option<MctsNode>) = if is_first_pick && config.first_pick_params.is_some() {
+            let fpp = config.first_pick_params.as_ref().unwrap();
+            let choices = enumerate_choices(&state);
+            let best = choices.iter()
+                .max_by(|a, b| {
+                    let score_a = match a { Choice::DraftPick { card } => fpp.score_card(*card, &state.sell_card_display), _ => f64::NEG_INFINITY };
+                    let score_b = match b { Choice::DraftPick { card } => fpp.score_card(*card, &state.sell_card_display), _ => f64::NEG_INFINITY };
+                    score_a.partial_cmp(&score_b).unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .expect("No choices available")
+                .clone();
+            (best, None)
+        } else if is_first_pick && config.random_first_pick {
             let choices = enumerate_choices(&state);
             (choices.choose(rng).expect("No choices available").clone(), None)
         } else {

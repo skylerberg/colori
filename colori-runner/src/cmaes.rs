@@ -1,7 +1,7 @@
-use colori_core::colori_game::apply_choice_to_state;
+use colori_core::colori_game::{apply_choice_to_state, enumerate_choices};
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::ismcts::{ismcts, MctsConfig};
-use colori_core::scoring::{calculate_score, HeuristicParams};
+use colori_core::scoring::{calculate_score, FirstPickParams, HeuristicParams};
 use colori_core::setup::create_initial_game_state_with_expansions;
 use colori_core::types::*;
 
@@ -548,4 +548,308 @@ pub fn run_genetic_algorithm(args: &SimulationArgs, ga: &CmaEsArgs) {
     }
 
     eprintln!("CMA-ES optimization complete. Results in {}/", args.output);
+}
+
+// ── First Pick CMA-ES ──
+
+pub fn first_pick_params_to_vec(params: &FirstPickParams) -> Vec<f64> {
+    vec![
+        params.is_tertiary_dye,
+        params.is_secondary_dye,
+        params.is_primary_dye,
+        params.is_pure_primary_dye,
+        params.is_alum,
+        params.is_gum_arabic,
+        params.is_cream_of_tartar,
+        params.is_potash,
+        params.is_dual_material,
+        params.is_material_plus_color,
+        params.matching_tertiary_colors,
+        params.matching_secondary_colors,
+        params.matching_primary_colors,
+        params.matching_materials,
+    ]
+}
+
+pub fn vec_to_first_pick_params(v: &[f64]) -> FirstPickParams {
+    FirstPickParams {
+        is_tertiary_dye: v[0],
+        is_secondary_dye: v[1],
+        is_primary_dye: v[2],
+        is_pure_primary_dye: v[3],
+        is_alum: v[4],
+        is_gum_arabic: v[5],
+        is_cream_of_tartar: v[6],
+        is_potash: v[7],
+        is_dual_material: v[8],
+        is_material_plus_color: v[9],
+        matching_tertiary_colors: v[10],
+        matching_secondary_colors: v[11],
+        matching_primary_colors: v[12],
+        matching_materials: v[13],
+    }
+}
+
+fn run_first_pick_eval_game(
+    first_pick: &FirstPickParams,
+    eval_iterations: u32,
+    glass: bool,
+    rng: &mut WyRand,
+) -> (f64, f64) {
+    let num_players = 2;
+    let ai_players = vec![true; num_players];
+    let expansions = Expansions { glass };
+    let mut state = create_initial_game_state_with_expansions(num_players, &ai_players, expansions, rng);
+
+    let configs = [
+        MctsConfig {
+            iterations: eval_iterations,
+            first_pick_params: Some(Box::new(first_pick.clone())),
+            ..MctsConfig::default()
+        },
+        MctsConfig {
+            iterations: eval_iterations,
+            ..MctsConfig::default()
+        },
+    ];
+
+    execute_draw_phase(&mut state, rng);
+
+    while !matches!(state.phase, GamePhase::GameOver) {
+        let player_index = match &state.phase {
+            GamePhase::Draft { draft_state } => draft_state.current_player_index,
+            GamePhase::Action { action_state } => action_state.current_player_index,
+            GamePhase::Draw => break,
+            GamePhase::GameOver => break,
+        };
+
+        let config = &configs[player_index];
+
+        // Check for first pick heuristic
+        let is_first_pick = state.round == 1
+            && matches!(&state.phase, GamePhase::Draft { draft_state } if draft_state.pick_number == 0);
+
+        if is_first_pick && config.first_pick_params.is_some() {
+            let fpp = config.first_pick_params.as_ref().unwrap();
+            let choices = enumerate_choices(&state);
+            let best = choices.iter()
+                .max_by(|a, b| {
+                    let sa = match a { Choice::DraftPick { card } => fpp.score_card(*card, &state.sell_card_display), _ => f64::NEG_INFINITY };
+                    let sb = match b { Choice::DraftPick { card } => fpp.score_card(*card, &state.sell_card_display), _ => f64::NEG_INFINITY };
+                    sa.partial_cmp(&sb).unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .unwrap()
+                .clone();
+            apply_choice_to_state(&mut state, &best, rng);
+        } else {
+            let max_rollout_round = std::cmp::max(8, state.round + 2);
+            let result = ismcts(&state, player_index, config, &None, Some(max_rollout_round), None, rng);
+            apply_choice_to_state(&mut state, &result.choice, rng);
+        }
+    }
+
+    let score_a = calculate_score(&state.players[0]);
+    let score_b = calculate_score(&state.players[1]);
+    if score_a > score_b {
+        (1.0, 0.0)
+    } else if score_b > score_a {
+        (0.0, 1.0)
+    } else {
+        (0.5, 0.5)
+    }
+}
+
+pub fn run_first_pick_cmaes(args: &SimulationArgs, ga: &CmaEsArgs) {
+    let batch_id = generate_batch_id();
+
+    eprintln!(
+        "First Pick CMA-ES: lambda={}, generations={}, games_per_eval={}, eval_iterations={}, initial_sigma={}, threads={}",
+        ga.population, ga.generations, ga.games_per_eval, ga.eval_iterations, ga.initial_sigma, args.threads
+    );
+
+    std::fs::create_dir_all(&args.output).expect("Failed to create output directory");
+
+    let mut rng = WyRand::from_rng(&mut rand::rng());
+
+    let seed = FirstPickParams::default();
+    let seed_genes = first_pick_params_to_vec(&seed);
+
+    let mut cma = CmaEsState::new(&seed_genes, ga.population, ga.initial_sigma, vec![]);
+
+    for gen in 0..ga.generations {
+        let gen_start = Instant::now();
+
+        let offspring = cma.sample_offspring(&mut rng);
+        let pop_size = offspring.len();
+
+        let eval_params: Vec<FirstPickParams> = offspring
+            .iter()
+            .map(|g| vec_to_first_pick_params(g))
+            .collect();
+
+        let eval_iterations = ga.eval_iterations;
+        let games_per_eval = ga.games_per_eval;
+        let glass = args.glass;
+        let num_threads = args.threads;
+
+        let wins: Vec<std::sync::atomic::AtomicU64> = (0..pop_size)
+            .map(|_| std::sync::atomic::AtomicU64::new(0))
+            .collect();
+
+        for i in 0..pop_size {
+            let params = &eval_params[i];
+            let wins_for_individual = std::sync::atomic::AtomicU64::new(0);
+            let wins_ind_ref = &wins_for_individual;
+
+            std::thread::scope(|s| {
+                let games_per_thread = games_per_eval / num_threads;
+                let remainder = games_per_eval % num_threads;
+                let mut handles = Vec::new();
+
+                for t in 0..num_threads {
+                    let count = games_per_thread + if t < remainder { 1 } else { 0 };
+
+                    handles.push(s.spawn(move || {
+                        let mut rng = WyRand::from_rng(&mut rand::rng());
+                        let mut thread_wins = 0.0f64;
+
+                        for game_idx in 0..count {
+                            if game_idx % 2 == 0 {
+                                let (w, _) = run_first_pick_eval_game(params, eval_iterations, glass, &mut rng);
+                                thread_wins += w;
+                            } else {
+                                // Swap positions: baseline is player 0, candidate is player 1
+                                let (_, w) = run_first_pick_eval_game_swapped(params, eval_iterations, glass, &mut rng);
+                                thread_wins += w;
+                            }
+                        }
+
+                        wins_ind_ref.fetch_add((thread_wins * 1000.0) as u64, Ordering::Relaxed);
+                    }));
+                }
+
+                for h in handles {
+                    h.join().unwrap();
+                }
+            });
+
+            let total_wins = wins_for_individual.load(Ordering::Relaxed) as f64 / 1000.0;
+            wins[i].store((total_wins * 1000.0) as u64, Ordering::Relaxed);
+            let wr = total_wins / games_per_eval as f64;
+            eprintln!(
+                "  Gen {} [{}/{}] individual {}: win_rate={:.4}",
+                gen + 1, i + 1, pop_size, i, wr
+            );
+        }
+
+        let mut fitness: Vec<(usize, f64)> = (0..pop_size)
+            .map(|i| {
+                let w = wins[i].load(Ordering::Relaxed) as f64 / 1000.0;
+                let wr = w / games_per_eval as f64;
+                (i, wr)
+            })
+            .collect();
+        fitness.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+        let best_idx = fitness[0].0;
+        let best_fitness = fitness[0].1;
+        let best_params = vec_to_first_pick_params(&offspring[best_idx]);
+
+        let output_path = format!("{}/batch-{}-gen-{}.json", args.output, batch_id, gen);
+        let json = serde_json::to_string_pretty(&best_params).unwrap();
+        std::fs::write(&output_path, json).unwrap();
+
+        let avg_fitness = fitness.iter().map(|(_, wr)| wr).sum::<f64>() / pop_size as f64;
+
+        let elapsed = gen_start.elapsed();
+        eprintln!(
+            "Gen {}/{}: best={:.4}, avg={:.4}, worst={:.4}, sigma={:.6}, elapsed={:.1}s, saved {}",
+            gen + 1,
+            ga.generations,
+            best_fitness,
+            avg_fitness,
+            fitness.last().unwrap().1,
+            cma.sigma,
+            elapsed.as_secs_f64(),
+            output_path,
+        );
+
+        let offspring_fitnesses: Vec<f64> = (0..ga.population)
+            .map(|i| {
+                let w = wins[i].load(Ordering::Relaxed) as f64 / 1000.0;
+                w / games_per_eval as f64
+            })
+            .collect();
+        cma.update(&offspring, &offspring_fitnesses, gen);
+    }
+
+    eprintln!("First Pick CMA-ES complete. Results in {}/", args.output);
+}
+
+fn run_first_pick_eval_game_swapped(
+    first_pick: &FirstPickParams,
+    eval_iterations: u32,
+    glass: bool,
+    rng: &mut WyRand,
+) -> (f64, f64) {
+    let num_players = 2;
+    let ai_players = vec![true; num_players];
+    let expansions = Expansions { glass };
+    let mut state = create_initial_game_state_with_expansions(num_players, &ai_players, expansions, rng);
+
+    let configs = [
+        MctsConfig {
+            iterations: eval_iterations,
+            ..MctsConfig::default()
+        },
+        MctsConfig {
+            iterations: eval_iterations,
+            first_pick_params: Some(Box::new(first_pick.clone())),
+            ..MctsConfig::default()
+        },
+    ];
+
+    execute_draw_phase(&mut state, rng);
+
+    while !matches!(state.phase, GamePhase::GameOver) {
+        let player_index = match &state.phase {
+            GamePhase::Draft { draft_state } => draft_state.current_player_index,
+            GamePhase::Action { action_state } => action_state.current_player_index,
+            GamePhase::Draw => break,
+            GamePhase::GameOver => break,
+        };
+
+        let config = &configs[player_index];
+
+        let is_first_pick = state.round == 1
+            && matches!(&state.phase, GamePhase::Draft { draft_state } if draft_state.pick_number == 0);
+
+        if is_first_pick && config.first_pick_params.is_some() {
+            let fpp = config.first_pick_params.as_ref().unwrap();
+            let choices = enumerate_choices(&state);
+            let best = choices.iter()
+                .max_by(|a, b| {
+                    let sa = match a { Choice::DraftPick { card } => fpp.score_card(*card, &state.sell_card_display), _ => f64::NEG_INFINITY };
+                    let sb = match b { Choice::DraftPick { card } => fpp.score_card(*card, &state.sell_card_display), _ => f64::NEG_INFINITY };
+                    sa.partial_cmp(&sb).unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .unwrap()
+                .clone();
+            apply_choice_to_state(&mut state, &best, rng);
+        } else {
+            let max_rollout_round = std::cmp::max(8, state.round + 2);
+            let result = ismcts(&state, player_index, config, &None, Some(max_rollout_round), None, rng);
+            apply_choice_to_state(&mut state, &result.choice, rng);
+        }
+    }
+
+    let score_a = calculate_score(&state.players[0]);
+    let score_b = calculate_score(&state.players[1]);
+    if score_a > score_b {
+        (1.0, 0.0)
+    } else if score_b > score_a {
+        (0.0, 1.0)
+    } else {
+        (0.5, 0.5)
+    }
 }

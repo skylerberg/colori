@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::scoring::HeuristicParams;
+use crate::scoring::{HeuristicParams, FirstPickParams};
 use crate::types::{SellCardInstance, CardInstance, Choice, ColorWheel, Materials};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -139,4 +139,6 @@ pub struct PlayerVariant {
     pub heuristic_params: Option<HeuristicParams>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub random_first_pick: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub first_pick_params: Option<FirstPickParams>,
 }
