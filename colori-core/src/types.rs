@@ -891,13 +891,3 @@ pub enum Choice {
         other_cards: SmallVec<[Card; 4]>,
     },
 }
-
-// ── Rollout heuristic flags ──
-
-#[derive(Clone, Copy, Debug, Default)]
-pub struct RolloutHeuristicFlags {
-    pub proximity_demand: bool,
-    pub dynamic_destruction: bool,
-    pub two_step_mix: bool,
-    pub workshop_player_state: bool,
-}

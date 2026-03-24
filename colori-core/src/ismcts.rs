@@ -27,7 +27,6 @@ pub struct MctsConfig {
     pub time_limit_ms: Option<u64>,
     pub random_first_pick: bool,
     pub first_pick_params: Option<Box<FirstPickParams>>,
-    pub rollout_heuristics: RolloutHeuristicFlags,
 }
 
 pub struct MctsResult {
@@ -60,7 +59,6 @@ impl Default for MctsConfig {
             time_limit_ms: None,
             random_first_pick: false,
             first_pick_params: None,
-            rollout_heuristics: RolloutHeuristicFlags::default(),
         }
     }
 }
@@ -95,14 +93,6 @@ impl<'de> Deserialize<'de> for MctsConfig {
             time_limit_ms: Option<u64>,
             #[serde(default)]
             random_first_pick: bool,
-            #[serde(default)]
-            proximity_demand: bool,
-            #[serde(default)]
-            dynamic_destruction: bool,
-            #[serde(default)]
-            two_step_mix: bool,
-            #[serde(default)]
-            workshop_player_state: bool,
         }
 
         fn default_iterations() -> u32 { 100 }
@@ -128,12 +118,6 @@ impl<'de> Deserialize<'de> for MctsConfig {
             time_limit_ms: helper.time_limit_ms,
             random_first_pick: helper.random_first_pick,
             first_pick_params: None,
-            rollout_heuristics: RolloutHeuristicFlags {
-                proximity_demand: helper.proximity_demand,
-                dynamic_destruction: helper.dynamic_destruction,
-                two_step_mix: helper.two_step_mix,
-                workshop_player_state: helper.workshop_player_state,
-            },
         })
     }
 }
@@ -793,7 +777,7 @@ fn iteration_simultaneous<R: Rng>(
         let scores = if config.no_rollout {
             eval_scores(state, true, &config.heuristic_params, card_table, de)
         } else {
-            rollout(state, max_rollout_round, config.max_rollout_steps, use_heuristic, config.heuristic_rollout, config.heuristic_draft, config.rollout_heuristics, &config.heuristic_params, card_table, de, rng)
+            rollout(state, max_rollout_round, config.max_rollout_steps, use_heuristic, config.heuristic_rollout, config.heuristic_draft, &config.heuristic_params, card_table, de, rng)
         };
         record_outcome(&mut node.children[best_idx], &scores);
         scores
@@ -847,7 +831,7 @@ fn select(
     best_idx
 }
 
-fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_rollout_steps: u32, use_heuristic: bool, heuristic_rollout: bool, heuristic_draft: bool, flags: RolloutHeuristicFlags, params: &HeuristicParams, card_table: &CardHeuristicTable, diff_eval: Option<(&DiffEvalParams, &DiffEvalTable)>, rng: &mut R) -> [f64; MAX_PLAYERS] {
+fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_rollout_steps: u32, use_heuristic: bool, heuristic_rollout: bool, heuristic_draft: bool, params: &HeuristicParams, card_table: &CardHeuristicTable, diff_eval: Option<(&DiffEvalParams, &DiffEvalTable)>, rng: &mut R) -> [f64; MAX_PLAYERS] {
     for _ in 0..max_rollout_steps {
         if matches!(state.phase, GamePhase::GameOver) {
             return compute_terminal_rewards(&state.players);
@@ -856,7 +840,7 @@ fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_ro
             return eval_scores(state, use_heuristic, params, card_table, diff_eval);
         }
         if heuristic_rollout {
-            apply_heuristic_rollout_step(state, heuristic_draft, flags, rng);
+            apply_heuristic_rollout_step(state, heuristic_draft, rng);
         } else {
             apply_rollout_step(state, heuristic_draft, rng);
         }
@@ -1085,15 +1069,9 @@ mod tests {
     }
 
     #[test]
-    fn test_ismcts_with_rollout_heuristic_flags() {
+    fn test_ismcts_with_heuristic_rollout() {
         let config = MctsConfig {
             iterations: 10,
-            rollout_heuristics: RolloutHeuristicFlags {
-                proximity_demand: true,
-                dynamic_destruction: true,
-                two_step_mix: true,
-                workshop_player_state: true,
-            },
             ..MctsConfig::default()
         };
         for num_players in 2..=4 {
@@ -1104,15 +1082,9 @@ mod tests {
     }
 
     #[test]
-    fn test_ismcts_with_rollout_heuristic_flags_glass() {
+    fn test_ismcts_with_heuristic_rollout_glass() {
         let config = MctsConfig {
             iterations: 10,
-            rollout_heuristics: RolloutHeuristicFlags {
-                proximity_demand: true,
-                dynamic_destruction: true,
-                two_step_mix: true,
-                workshop_player_state: true,
-            },
             ..MctsConfig::default()
         };
         for seed in 0..3 {

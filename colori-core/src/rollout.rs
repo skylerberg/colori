@@ -1001,65 +1001,15 @@ impl SellCardCache {
     }
 
     #[inline(always)]
-    fn color_demand(&self, color: Color, use_proximity: bool) -> u32 {
-        if use_proximity {
-            self.proximity_demand[color.index()]
-        } else {
-            self.flat_demand[color.index()]
-        }
+    fn color_demand(&self, color: Color) -> u32 {
+        self.proximity_demand[color.index()]
     }
 
-    #[inline(always)]
-    fn can_sell(&self) -> bool {
-        self.best_affordable_ducats > 0
-    }
 }
 
-/// Pick the best affordable sell card (highest ducats, tie-break by fewest missing colors).
+/// Destruction priority considering actual game state.
 #[inline(always)]
-fn pick_best_affordable_sell_card(
-    player: &PlayerState,
-    sell_card_display: &[SellCardInstance],
-) -> Option<u32> {
-    let mut best_id: Option<u32> = None;
-    let mut best_ducats = 0u32;
-    let mut best_owned_colors = 0u32; // tie-break: more owned = fewer missing
-
-    for sell_card in sell_card_display {
-        if !can_afford_sell_card(player, &sell_card.sell_card) {
-            continue;
-        }
-        let ducats = sell_card.sell_card.ducats();
-        let owned = sell_card.sell_card.color_cost().iter()
-            .filter(|&&c| player.color_wheel.get(c) > 0)
-            .count() as u32;
-        if ducats > best_ducats || (ducats == best_ducats && owned > best_owned_colors) {
-            best_ducats = ducats;
-            best_owned_colors = owned;
-            best_id = Some(sell_card.instance_id);
-        }
-    }
-    best_id
-}
-
-/// Score a card for destruction priority. Higher = destroy first.
-#[inline(always)]
-fn destruction_priority(card: Card, can_sell: bool, has_workshop_targets: bool) -> u32 {
-    match card.ability() {
-        Ability::Sell if can_sell => 100,
-        Ability::Workshop { .. } if has_workshop_targets => 80,
-        Ability::MixColors { .. } => 60,
-        Ability::DestroyCards => 50,
-        Ability::Sell => 40, // sell but can't afford anything
-        Ability::DrawCards { .. } => 30,
-        Ability::Workshop { .. } => 20, // workshop but no targets
-        _ => 10,
-    }
-}
-
-/// Dynamic destruction priority considering actual game state.
-#[inline(always)]
-fn dynamic_destruction_priority(
+fn destruction_priority(
     card: Card,
     player: &PlayerState,
     cache: &SellCardCache,
@@ -1109,30 +1059,19 @@ fn dynamic_destruction_priority(
 fn workshop_card_score(
     card: Card,
     cache: &SellCardCache,
-    use_proximity: bool,
-    use_player_state: bool,
 ) -> u32 {
     let mut score = 0u32;
 
     // Material cards: score by how much their material type is needed
     for &mt in card.material_types() {
-        if use_player_state {
-            for i in 0..cache.len {
-                let entry = &cache.entries[i];
-                if entry.required_material == mt {
-                    let base = entry.ducats * 3;
-                    if entry.colors_met {
-                        score += base * 3;
-                    } else {
-                        score += base + base * entry.have_colors / (entry.total_colors + 1);
-                    }
-                }
-            }
-        } else {
-            for i in 0..cache.len {
-                let entry = &cache.entries[i];
-                if entry.required_material == mt {
-                    score += entry.ducats * 3;
+        for i in 0..cache.len {
+            let entry = &cache.entries[i];
+            if entry.required_material == mt {
+                let base = entry.ducats * 3;
+                if entry.colors_met {
+                    score += base * 3;
+                } else {
+                    score += base + base * entry.have_colors / (entry.total_colors + 1);
                 }
             }
         }
@@ -1140,7 +1079,7 @@ fn workshop_card_score(
 
     // Color cards: score by how much their colors are needed
     for &color in card.colors() {
-        score += cache.color_demand(color, use_proximity);
+        score += cache.color_demand(color);
     }
 
     // Action cards get a moderate bonus
@@ -1156,7 +1095,6 @@ fn workshop_card_score(
 fn pick_best_color<R: Rng>(
     colors: &[Color],
     cache: &SellCardCache,
-    use_proximity: bool,
     rng: &mut R,
 ) -> Color {
     if rng.random_bool(HEURISTIC_EPSILON) {
@@ -1165,7 +1103,7 @@ fn pick_best_color<R: Rng>(
     let mut best_color = colors[0];
     let mut best_score = 0u32;
     for &c in colors {
-        let score = cache.color_demand(c, use_proximity);
+        let score = cache.color_demand(c);
         if score > best_score {
             best_score = score;
             best_color = c;
@@ -1180,7 +1118,6 @@ fn heuristic_mix_seq<R: Rng>(
     wheel: &ColorWheel,
     remaining: u32,
     cache: &SellCardCache,
-    use_proximity: bool,
     rng: &mut R,
 ) -> ([(Color, Color); 2], usize) {
     if rng.random_bool(HEURISTIC_EPSILON) {
@@ -1201,7 +1138,7 @@ fn heuristic_mix_seq<R: Rng>(
             if sim_wheel.get(a) > 0 && sim_wheel.get(b) > 0 {
                 any_valid = true;
                 let output = mix_result(a, b);
-                let score = cache.color_demand(output, use_proximity);
+                let score = cache.color_demand(output);
                 if score > best_score {
                     best_score = score;
                     best_pair = Some((a, b));
@@ -1245,11 +1182,10 @@ fn two_step_heuristic_mix_seq<R: Rng>(
     wheel: &ColorWheel,
     remaining: u32,
     cache: &SellCardCache,
-    use_proximity: bool,
     rng: &mut R,
 ) -> ([(Color, Color); 2], usize) {
     if remaining < 2 {
-        return heuristic_mix_seq(wheel, remaining, cache, use_proximity, rng);
+        return heuristic_mix_seq(wheel, remaining, cache, rng);
     }
 
     if rng.random_bool(HEURISTIC_EPSILON) {
@@ -1276,7 +1212,7 @@ fn two_step_heuristic_mix_seq<R: Rng>(
     for p1 in 0..pair1_count {
         let (a1, b1) = pairs1[p1];
         let output1 = mix_result(a1, b1);
-        let score1 = cache.color_demand(output1, use_proximity);
+        let score1 = cache.color_demand(output1);
 
         // Consider doing only the first mix
         if score1 > best_score {
@@ -1313,7 +1249,7 @@ fn two_step_heuristic_mix_seq<R: Rng>(
 }
 
 #[inline(always)]
-fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize, heuristic_draft: bool, flags: RolloutHeuristicFlags, cache: &SellCardCache, rng: &mut impl Rng) {
+fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize, heuristic_draft: bool, cache: &SellCardCache, rng: &mut impl Rng) {
     // Glass: use same random policy (glass strategy is complex, not worth heuristic overhead)
     if try_activate_random_glass(state, player_index, rng) {
         return;
@@ -1338,9 +1274,6 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
         return;
     }
 
-    let can_sell = cache.can_sell();
-    let has_workshop_targets = !state.players[player_index].workshop_cards.is_empty();
-
     // Score each drafted card and pick the best to destroy
     let mut best_id: Option<u8> = None;
     let mut best_priority = 0u32;
@@ -1350,11 +1283,7 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
         let bit = 1u64 << (card as u64);
         if seen & bit != 0 { continue; }
         seen |= bit;
-        let priority = if flags.dynamic_destruction {
-            dynamic_destruction_priority(card, &state.players[player_index], &cache)
-        } else {
-            destruction_priority(card, can_sell, has_workshop_targets)
-        };
+        let priority = destruction_priority(card, &state.players[player_index], &cache);
         if priority > best_priority {
             best_priority = priority;
             best_id = Some(id);
@@ -1375,11 +1304,7 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     match card.ability() {
         Ability::MixColors { count } => {
             let player = &state.players[player_index];
-            let (mixes, mix_count) = if flags.two_step_mix {
-                two_step_heuristic_mix_seq(&player.color_wheel, count, &cache, flags.proximity_demand, rng)
-            } else {
-                heuristic_mix_seq(&player.color_wheel, count, &cache, flags.proximity_demand, rng)
-            };
+            let (mixes, mix_count) = two_step_heuristic_mix_seq(&player.color_wheel, count, &cache, rng);
             state.players[player_index].drafted_cards.remove(card_id);
             state.destroyed_pile.insert(card_id);
             for i in 0..mix_count {
@@ -1419,7 +1344,7 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     }
 }
 
-pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, flags: RolloutHeuristicFlags, rng: &mut R) {
+pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, rng: &mut R) {
     // Draft phase
     if matches!(&state.phase, GamePhase::Draft { .. }) {
         if heuristic_draft {
@@ -1450,7 +1375,7 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
             let cache = SellCardCache::new(&state.sell_card_display, &state.players[player_index].color_wheel, &state.players[player_index].materials);
             match action_state.ability_stack.last() {
                 None => {
-                    handle_action_no_pending_heuristic(state, player_index, heuristic_draft, flags, &cache, rng);
+                    handle_action_no_pending_heuristic(state, player_index, heuristic_draft, &cache, rng);
                 }
                 Some(Ability::Workshop { count }) => {
                     let count = *count;
@@ -1473,7 +1398,7 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                     let mut scored_count = 0usize;
                     for id in workshop.iter() {
                         let card = state.card_lookup[id as usize];
-                        let score = workshop_card_score(card, &cache, flags.proximity_demand, flags.workshop_player_state);
+                        let score = workshop_card_score(card, &cache);
                         scored[scored_count] = (id, score);
                         scored_count += 1;
                     }
@@ -1518,28 +1443,12 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                     // Pick the card whose destroy ability is most useful
                     let mut best_id: Option<u8> = None;
                     let mut best_score = 0u32;
-                    if flags.dynamic_destruction {
-                        for id in workshop.iter() {
-                            let card = state.card_lookup[id as usize];
-                            let score = dynamic_destruction_priority(card, &state.players[player_index], &cache);
-                            if score > best_score || best_id.is_none() {
-                                best_score = score;
-                                best_id = Some(id);
-                            }
-                        }
-                    } else {
-                        let can_sell = pick_best_affordable_sell_card(
-                            &state.players[player_index],
-                            &state.sell_card_display,
-                        ).is_some();
-                        let has_targets = workshop.len() > 1;
-                        for id in workshop.iter() {
-                            let card = state.card_lookup[id as usize];
-                            let score = destruction_priority(card, can_sell, has_targets);
-                            if score > best_score || best_id.is_none() {
-                                best_score = score;
-                                best_id = Some(id);
-                            }
+                    for id in workshop.iter() {
+                        let card = state.card_lookup[id as usize];
+                        let score = destruction_priority(card, &state.players[player_index], &cache);
+                        if score > best_score || best_id.is_none() {
+                            best_score = score;
+                            best_id = Some(id);
                         }
                     }
 
@@ -1551,11 +1460,7 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                 }
                 Some(Ability::MixColors { count }) => {
                     let remaining_mixes = *count;
-                    let (mixes, mix_count) = if flags.two_step_mix {
-                        two_step_heuristic_mix_seq(&state.players[player_index].color_wheel, remaining_mixes, &cache, flags.proximity_demand, rng)
-                    } else {
-                        heuristic_mix_seq(&state.players[player_index].color_wheel, remaining_mixes, &cache, flags.proximity_demand, rng)
-                    };
+                    let (mixes, mix_count) = two_step_heuristic_mix_seq(&state.players[player_index].color_wheel, remaining_mixes, &cache, rng);
                     for i in 0..mix_count {
                         let (a, b) = mixes[i];
                         perform_mix_unchecked(
@@ -1677,11 +1582,11 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                     }
                 }
                 Some(Ability::GainSecondary) => {
-                    let color = pick_best_color(&SECONDARIES, &cache, flags.proximity_demand, rng);
+                    let color = pick_best_color(&SECONDARIES, &cache, rng);
                     resolve_gain_color(state, color, rng);
                 }
                 Some(Ability::GainPrimary) => {
-                    let color = pick_best_color(&PRIMARIES, &cache, flags.proximity_demand, rng);
+                    let color = pick_best_color(&PRIMARIES, &cache, rng);
                     resolve_gain_color(state, color, rng);
                 }
                 Some(Ability::ChangeTertiary) => {
@@ -1722,7 +1627,7 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                         let mut best_lose_score = u32::MAX;
                         for i in 0..own_count {
                             let c = owned_tertiaries[i];
-                            let score = cache.color_demand(c, flags.proximity_demand);
+                            let score = cache.color_demand(c);
                             if score < best_lose_score {
                                 best_lose_score = score;
                                 best_lose = c;
@@ -1732,7 +1637,7 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                         let mut best_gain_score = 0u32;
                         for &c in &TERTIARIES {
                             if c != best_lose {
-                                let score = cache.color_demand(c, flags.proximity_demand);
+                                let score = cache.color_demand(c);
                                 if score > best_gain_score {
                                     best_gain_score = score;
                                     best_gain = c;

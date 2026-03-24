@@ -1,8 +1,6 @@
 use clap::{Parser, Subcommand};
 use colori_core::ismcts::MctsConfig;
 use colori_core::scoring::{DiffEvalParams, FirstPickParams, HeuristicParams};
-use colori_core::types::RolloutHeuristicFlags;
-
 use serde::Deserialize;
 
 const DEFAULT_EVAL_ITERATIONS: u32 = 4_000;
@@ -233,14 +231,6 @@ struct VariantFileEntry {
     random_first_pick: Option<bool>,
     #[serde(default)]
     first_pick_params_file: Option<String>,
-    #[serde(default)]
-    proximity_demand: Option<bool>,
-    #[serde(default)]
-    dynamic_destruction: Option<bool>,
-    #[serde(default)]
-    two_step_mix: Option<bool>,
-    #[serde(default)]
-    workshop_player_state: Option<bool>,
 }
 
 impl VariantFileEntry {
@@ -295,12 +285,6 @@ impl VariantFileEntry {
                 time_limit_ms: self.time_limit_ms,
                 random_first_pick: self.random_first_pick.unwrap_or(defaults.random_first_pick),
                 first_pick_params,
-                rollout_heuristics: RolloutHeuristicFlags {
-                    proximity_demand: self.proximity_demand.unwrap_or(false),
-                    dynamic_destruction: self.dynamic_destruction.unwrap_or(false),
-                    two_step_mix: self.two_step_mix.unwrap_or(false),
-                    workshop_player_state: self.workshop_player_state.unwrap_or(false),
-                },
             },
         }
     }
