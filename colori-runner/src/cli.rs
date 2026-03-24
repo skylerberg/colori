@@ -35,7 +35,7 @@ pub enum Commands {
     /// Run a round-robin tournament between variants
     Tournament(TournamentArgs),
     /// Train heuristic eval params using CMA-ES optimization
-    CmaEsHeuristicEval(CmaEsHeuristicEvalArgs),
+    TrainHeuristicEval(TrainHeuristicEvalArgs),
     /// Train first pick params using CMA-ES optimization
     TrainFirstPick(TrainFirstPickArgs),
     /// Train diff eval params using gradient descent
@@ -79,7 +79,7 @@ pub struct TournamentArgs {
 }
 
 #[derive(Parser)]
-pub struct CmaEsHeuristicEvalArgs {
+pub struct TrainHeuristicEvalArgs {
     /// Population size (lambda)
     #[arg(long, default_value_t = 14)]
     pub population: usize,

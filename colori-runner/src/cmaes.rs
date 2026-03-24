@@ -13,7 +13,7 @@ use wyrand::WyRand;
 use std::sync::atomic::Ordering;
 use std::time::Instant;
 
-use crate::cli::{CmaEsHeuristicEvalArgs, TrainFirstPickArgs, load_heuristic_params};
+use crate::cli::{TrainHeuristicEvalArgs, TrainFirstPickArgs, load_heuristic_params};
 use crate::generate_batch_id;
 
 /// Box-Muller transform: generate a sample from N(0, std_dev)
@@ -376,7 +376,7 @@ impl CmaEsState {
     }
 }
 
-pub fn run_genetic_algorithm(args: &CmaEsHeuristicEvalArgs, threads: usize, output: &str, glass: bool) {
+pub fn run_genetic_algorithm(args: &TrainHeuristicEvalArgs, threads: usize, output: &str, glass: bool) {
     let batch_id = generate_batch_id();
 
     eprintln!(

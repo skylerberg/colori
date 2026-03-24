@@ -35,7 +35,7 @@ fn main() {
             let output = cli.output.unwrap_or_else(|| "game-logs".to_string());
             tournament::run_tournament(&args, threads, &output, glass);
         }
-        Some(Commands::CmaEsHeuristicEval(args)) => {
+        Some(Commands::TrainHeuristicEval(args)) => {
             let output = cli.output.unwrap_or_else(|| "genetic-algorithm".to_string());
             run_genetic_algorithm(&args, threads, &output, glass);
         }
