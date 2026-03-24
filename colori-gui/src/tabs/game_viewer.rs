@@ -11,7 +11,7 @@ use colori_core::ismcts::{ismcts, MctsConfig, MctsNode, TreeStats};
 use colori_core::replay::{GameReplay, replay_to};
 use colori_core::scoring::{calculate_score, HeuristicParams};
 use colori_core::types::{
-    Card, CardInstance, Choice, GamePhase, GameState, SellCardInstance, ALL_COLORS, ALL_MATERIAL_TYPES,
+    Card, CardInstance, Choice, Color, GamePhase, GameState, SellCardInstance, ALL_COLORS, ALL_MATERIAL_TYPES,
 };
 
 use crate::analysis::computations::{
@@ -1074,7 +1074,7 @@ fn render_mcts_children(ui: &mut egui::Ui, node: &MctsNode, depth: usize) {
     }
 }
 
-/// Compare two choices for equivalence, treating workshop card order as irrelevant.
+/// Compare two choices for equivalence, ignoring order of workshop cards and mix pairs.
 fn choices_equivalent(a: &Choice, b: &Choice) -> bool {
     match (a, b) {
         (Choice::Workshop { card_types: a }, Choice::Workshop { card_types: b }) => {
@@ -1088,6 +1088,13 @@ fn choices_equivalent(a: &Choice, b: &Choice) -> bool {
             Choice::WorkshopWithReworkshop { reworkshop_card: ra, other_cards: a },
             Choice::WorkshopWithReworkshop { reworkshop_card: rb, other_cards: b },
         ) => ra == rb && sorted_cards(a) == sorted_cards(b),
+        (Choice::MixAll { mixes: a }, Choice::MixAll { mixes: b }) => {
+            sorted_mixes(a) == sorted_mixes(b)
+        }
+        (
+            Choice::DestroyAndMix { card: ca, mixes: a },
+            Choice::DestroyAndMix { card: cb, mixes: b },
+        ) => ca == cb && sorted_mixes(a) == sorted_mixes(b),
         _ => a == b,
     }
 }
@@ -1095,5 +1102,11 @@ fn choices_equivalent(a: &Choice, b: &Choice) -> bool {
 fn sorted_cards(cards: &[Card]) -> Vec<Card> {
     let mut sorted: Vec<Card> = cards.to_vec();
     sorted.sort_by_key(|c| *c as u32);
+    sorted
+}
+
+fn sorted_mixes(mixes: &[(Color, Color)]) -> Vec<(Color, Color)> {
+    let mut sorted: Vec<(Color, Color)> = mixes.to_vec();
+    sorted.sort_by_key(|&(a, b)| (a as u32, b as u32));
     sorted
 }
