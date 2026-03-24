@@ -6,7 +6,7 @@ use rand::RngExt;
 use rand::SeedableRng;
 use wyrand::WyRand;
 
-use crate::cli::{NamedVariant, SimulationArgs};
+use crate::cli::{NamedVariant, TournamentArgs, load_variants_from_file};
 use crate::generate_batch_id;
 use crate::simulation::{now_epoch_millis, run_game};
 
@@ -33,16 +33,16 @@ impl TournamentStats {
     }
 }
 
-pub fn run_tournament(args: &SimulationArgs) {
-    let num_variants = args.variants.len();
+pub fn run_tournament(args: &TournamentArgs, threads: usize, output: &str, glass: bool) {
+    let loaded_variants = load_variants_from_file(&args.variants_file);
+    let num_variants = loaded_variants.len();
     if num_variants < 2 {
         eprintln!("Tournament mode requires at least 2 variants");
         std::process::exit(1);
     }
 
     // Build unique labels for all variants
-    let mut labels: Vec<String> = args
-        .variants
+    let mut labels: Vec<String> = loaded_variants
         .iter()
         .enumerate()
         .map(|(i, v)| v.name.clone().unwrap_or_else(|| format!("variant_{}", i)))
@@ -67,8 +67,7 @@ pub fn run_tournament(args: &SimulationArgs) {
     }
 
     // Create variants with guaranteed-unique names
-    let variants: Vec<NamedVariant> = args
-        .variants
+    let variants: Vec<NamedVariant> = loaded_variants
         .iter()
         .zip(labels.iter())
         .map(|(v, label)| NamedVariant {
@@ -86,22 +85,21 @@ pub fn run_tournament(args: &SimulationArgs) {
 
     eprintln!(
         "Tournament: {} games, {} variants, {} threads",
-        args.games, num_variants, args.threads
+        args.games, num_variants, threads
     );
     for (i, label) in labels.iter().enumerate() {
         eprintln!("  [{}] {}", i, label);
     }
 
-    std::fs::create_dir_all(&args.output).expect("Failed to create output directory");
+    std::fs::create_dir_all(output).expect("Failed to create output directory");
 
     let batch_id = generate_batch_id();
     let stats = TournamentStats::new(labels.clone());
     let total_games = args.games;
-    let num_threads = args.threads;
-    let output_dir = &args.output;
+    let num_threads = threads;
+    let output_dir = output;
     let batch_id_str = batch_id.as_str();
     let note = &args.note;
-    let glass = args.glass;
     let variants = variants.as_slice();
     let stats = &stats;
     let name_to_index = &name_to_index;
@@ -195,7 +193,7 @@ pub fn run_tournament(args: &SimulationArgs) {
         }
     });
 
-    eprintln!("All {} games written to {}/", total_games, args.output);
+    eprintln!("All {} games written to {}/", total_games, output);
     print_summary(stats);
 }
 

@@ -1,3 +1,4 @@
+use clap::{Parser, Subcommand};
 use colori_core::ismcts::MctsConfig;
 use colori_core::scoring::{DiffEvalParams, FirstPickParams, HeuristicParams};
 use colori_core::types::RolloutHeuristicFlags;
@@ -6,44 +7,187 @@ use serde::Deserialize;
 
 const DEFAULT_EVAL_ITERATIONS: u32 = 4_000;
 
-// ── CLI args ──
+// ── Top-level CLI ──
 
-pub struct SimulationArgs {
-    pub games: usize,
+#[derive(Parser)]
+#[command(name = "colori-runner", about = "Colori game simulation and AI training tool")]
+pub struct Cli {
+    /// Number of threads to use
+    #[arg(long, default_value_t = 10, global = true)]
     pub threads: usize,
-    pub output: String,
-    pub note: Option<String>,
-    pub variants: Vec<NamedVariant>,
+
+    /// Output directory
+    #[arg(long, global = true)]
+    pub output: Option<String>,
+
+    /// Enable glass expansion
+    #[arg(long, default_value_t = false, global = true)]
     pub glass: bool,
-    pub genetic: Option<CmaEsArgs>,
-    pub tournament: bool,
-    pub train_diff_eval: bool,
-    pub train_games_per_epoch: usize,
-    pub train_epochs: usize,
-    pub train_batch_size: usize,
-    pub train_passes: usize,
-    pub train_lr: f64,
-    pub train_self_play: bool,
-    pub train_vs_baseline: bool,
-    pub train_no_rollout: bool,
-    pub train_eval_iterations: u32,
-    pub train_baseline_iterations: Option<u32>,
-    pub train_replay_buffer_epochs: usize,
-    pub baseline_heuristic_params: Option<HeuristicParams>,
-    pub distill_from: Option<String>,
-    pub train_first_pick: bool,
+
+    #[command(subcommand)]
+    pub command: Option<Commands>,
 }
 
-#[derive(Clone)]
-pub struct CmaEsArgs {
-    pub population: usize,
-    pub generations: usize,
-    pub games_per_eval: usize,
-    pub initial_sigma: f64,
-    pub eval_iterations: u32,
-    pub seed_params: Option<HeuristicParams>,
-    pub baseline_params: Option<HeuristicParams>,
+#[derive(Subcommand)]
+pub enum Commands {
+    /// Run batch game simulations
+    Simulate(SimulateArgs),
+    /// Run a round-robin tournament between variants
+    Tournament(TournamentArgs),
+    /// Train heuristic eval params using CMA-ES optimization
+    CmaEsHeuristicEval(CmaEsHeuristicEvalArgs),
+    /// Train first pick params using CMA-ES optimization
+    TrainFirstPick(TrainFirstPickArgs),
+    /// Train diff eval params using gradient descent
+    TrainDiffEval(TrainDiffEvalArgs),
 }
+
+// ── Subcommand args ──
+
+#[derive(Parser)]
+pub struct SimulateArgs {
+    /// Number of games to simulate
+    #[arg(long, default_value_t = 10_000)]
+    pub games: usize,
+
+    /// Optional note to include in game logs
+    #[arg(long)]
+    pub note: Option<String>,
+
+    /// Comma-separated MCTS iteration counts for quick variant comparison
+    #[arg(long)]
+    pub variants: Option<String>,
+
+    /// Path to variants JSON file
+    #[arg(long, default_value = "variants.json")]
+    pub variants_file: String,
+}
+
+#[derive(Parser)]
+pub struct TournamentArgs {
+    /// Number of games to simulate
+    #[arg(long, default_value_t = 10_000)]
+    pub games: usize,
+
+    /// Optional note to include in game logs
+    #[arg(long)]
+    pub note: Option<String>,
+
+    /// Path to variants JSON file
+    #[arg(long, default_value = "variants.json")]
+    pub variants_file: String,
+}
+
+#[derive(Parser)]
+pub struct CmaEsHeuristicEvalArgs {
+    /// Population size (lambda)
+    #[arg(long, default_value_t = 14)]
+    pub population: usize,
+
+    /// Number of generations
+    #[arg(long, default_value_t = 50)]
+    pub generations: usize,
+
+    /// Games per fitness evaluation
+    #[arg(long, default_value_t = 100)]
+    pub games_per_eval: usize,
+
+    /// Initial step size (sigma)
+    #[arg(long, default_value_t = 0.3)]
+    pub initial_sigma: f64,
+
+    /// MCTS iterations for evaluation games
+    #[arg(long, default_value_t = DEFAULT_EVAL_ITERATIONS)]
+    pub eval_iterations: u32,
+
+    /// Path to seed heuristic params JSON file
+    #[arg(long)]
+    pub seed_params: Option<String>,
+
+    /// Path to baseline heuristic params JSON file
+    #[arg(long)]
+    pub baseline_params: Option<String>,
+}
+
+#[derive(Parser)]
+pub struct TrainFirstPickArgs {
+    /// Population size (lambda)
+    #[arg(long, default_value_t = 14)]
+    pub population: usize,
+
+    /// Number of generations
+    #[arg(long, default_value_t = 50)]
+    pub generations: usize,
+
+    /// Games per fitness evaluation
+    #[arg(long, default_value_t = 100)]
+    pub games_per_eval: usize,
+
+    /// Initial step size (sigma)
+    #[arg(long, default_value_t = 0.3)]
+    pub initial_sigma: f64,
+
+    /// MCTS iterations for evaluation games
+    #[arg(long, default_value_t = DEFAULT_EVAL_ITERATIONS)]
+    pub eval_iterations: u32,
+}
+
+#[derive(Parser)]
+pub struct TrainDiffEvalArgs {
+    /// Training games per epoch
+    #[arg(long, default_value_t = 500)]
+    pub games_per_epoch: usize,
+
+    /// Number of training epochs
+    #[arg(long, default_value_t = 100_000)]
+    pub epochs: usize,
+
+    /// Mini-batch size
+    #[arg(long, default_value_t = 256)]
+    pub batch_size: usize,
+
+    /// Number of passes over data per epoch
+    #[arg(long, default_value_t = 1)]
+    pub passes: usize,
+
+    /// Learning rate
+    #[arg(long, default_value_t = 1e-3)]
+    pub lr: f64,
+
+    /// MCTS iterations for evaluation
+    #[arg(long, default_value_t = DEFAULT_EVAL_ITERATIONS)]
+    pub eval_iterations: u32,
+
+    /// MCTS iterations for baseline player (defaults to eval-iterations)
+    #[arg(long)]
+    pub baseline_iterations: Option<u32>,
+
+    /// Use self-play training mode
+    #[arg(long, default_value_t = false)]
+    pub self_play: bool,
+
+    /// Train against baseline heuristic player
+    #[arg(long, default_value_t = false)]
+    pub vs_baseline: bool,
+
+    /// Disable rollouts (use direct eval)
+    #[arg(long, default_value_t = false)]
+    pub no_rollout: bool,
+
+    /// Path to baseline heuristic params JSON file
+    #[arg(long)]
+    pub baseline_params: Option<String>,
+
+    /// Number of recent epochs to keep in replay buffer
+    #[arg(long, default_value_t = 5)]
+    pub replay_buffer_epochs: usize,
+
+    /// Path to teacher model for distillation
+    #[arg(long)]
+    pub distill_from: Option<String>,
+}
+
+// ── Variant types ──
 
 #[derive(Clone)]
 pub struct NamedVariant {
@@ -71,7 +215,6 @@ struct VariantFileEntry {
     heuristic_params_file: Option<String>,
     #[serde(default)]
     diff_eval_params_file: Option<String>,
-    // Overrides for diff eval control params (applied on top of params file values)
     #[serde(default)]
     heuristic_round_threshold: Option<u32>,
     #[serde(default)]
@@ -124,7 +267,6 @@ impl VariantFileEntry {
                 .unwrap_or_else(|_| panic!("Failed to read diff eval params file: {}", path));
             let mut params = serde_json::from_str::<DiffEvalParams>(&contents)
                 .unwrap_or_else(|_| panic!("Failed to parse diff eval params file: {}", path));
-            // Variant-level overrides take precedence over params file values
             if let Some(v) = self.progressive_bias_weight {
                 params.set_progressive_bias_weight(v);
             }
@@ -164,269 +306,35 @@ impl VariantFileEntry {
     }
 }
 
-pub fn parse_args() -> SimulationArgs {
-    let args: Vec<String> = std::env::args().collect();
-    let mut games = 10_000usize;
-    let mut threads = 10usize;
-    let mut output = "game-logs".to_string();
-    let mut note: Option<String> = None;
-    let mut variants: Option<Vec<NamedVariant>> = None;
-    let mut variants_file = "variants.json".to_string();
-    let mut glass = false;
-    let mut tournament = false;
+// ── Variant loading helpers ──
 
-    let mut train_diff_eval = false;
-    let mut train_first_pick = false;
-    let mut train_self_play = false;
-    let mut train_vs_baseline = false;
-    let mut train_no_rollout = false;
-    let mut train_baseline_iterations: Option<u32> = None;
-    let mut train_games_per_epoch = 500usize;
-    let mut train_epochs = 100_000usize;
-    let mut train_batch_size = 256usize;
-    let mut train_passes = 1usize;
-    let mut train_lr = 1e-3f64;
-    let mut train_replay_buffer_epochs = 5usize;
+pub fn load_variants_from_file(variants_file: &str) -> Vec<NamedVariant> {
+    let contents = std::fs::read_to_string(variants_file)
+        .unwrap_or_else(|_| panic!("Failed to read variants file: {}", variants_file));
+    let entries: Vec<VariantFileEntry> = serde_json::from_str(&contents)
+        .unwrap_or_else(|_| panic!("Failed to parse variants file: {}", variants_file));
+    entries
+        .into_iter()
+        .map(|e| e.into_named_variant())
+        .collect()
+}
 
-    let mut distill_from: Option<String> = None;
-
-    let mut genetic = false;
-    let mut population = 14usize;
-    let mut generations = 50usize;
-    let mut games_per_eval = 100usize;
-    let mut initial_sigma = 0.3f64;
-    let mut eval_iterations = DEFAULT_EVAL_ITERATIONS;
-    let mut seed_params_file: Option<String> = None;
-    let mut baseline_params_file: Option<String> = None;
-
-    let mut i = 1;
-    while i < args.len() {
-        match args[i].as_str() {
-            "--games" => {
-                i += 1;
-                games = args[i].parse().expect("Invalid --games value");
+pub fn parse_inline_variants(variants_str: &str) -> Vec<NamedVariant> {
+    variants_str
+        .split(',')
+        .map(|s| {
+            let iters: u32 = s.trim().parse().expect("Invalid --variants value");
+            NamedVariant {
+                name: None,
+                ai: MctsConfig { iterations: iters, ..MctsConfig::default() },
             }
-            "--threads" => {
-                i += 1;
-                threads = args[i].parse().expect("Invalid --threads value");
-            }
-            "--output" => {
-                i += 1;
-                output = args[i].clone();
-            }
-            "--note" => {
-                i += 1;
-                note = Some(args[i].clone());
-            }
-            "--variants" => {
-                i += 1;
-                variants = Some(
-                    args[i]
-                        .split(',')
-                        .map(|s| {
-                            let iters: u32 = s.trim().parse().expect("Invalid --variants value");
-                            NamedVariant {
-                                name: None,
-                                ai: MctsConfig { iterations: iters, ..MctsConfig::default() },
-                            }
-                        })
-                        .collect(),
-                );
-            }
-            "--variants-file" => {
-                i += 1;
-                variants_file = args[i].clone();
-            }
-            "--glass" => {
-                glass = true;
-                i += 1;
-                continue;
-            }
-            "--tournament" => {
-                tournament = true;
-                i += 1;
-                continue;
-            }
-            "--genetic" => {
-                genetic = true;
-                i += 1;
-                continue;
-            }
-            "--train-diff-eval" => {
-                train_diff_eval = true;
-                i += 1;
-                continue;
-            }
-            "--train-first-pick" => {
-                train_first_pick = true;
-                i += 1;
-                continue;
-            }
-            "--train-vs-baseline" => {
-                train_vs_baseline = true;
-                i += 1;
-                continue;
-            }
-            "--self-play" => {
-                train_self_play = true;
-                i += 1;
-                continue;
-            }
-            "--no-rollout" => {
-                train_no_rollout = true;
-                i += 1;
-                continue;
-            }
-            "--baseline-iterations" => {
-                i += 1;
-                train_baseline_iterations = Some(args[i].parse().expect("Invalid --baseline-iterations value"));
-            }
-            "--games-per-epoch" => {
-                i += 1;
-                train_games_per_epoch = args[i].parse().expect("Invalid --games-per-epoch value");
-            }
-            "--train-epochs" => {
-                i += 1;
-                train_epochs = args[i].parse().expect("Invalid --train-epochs value");
-            }
-            "--train-batch-size" => {
-                i += 1;
-                train_batch_size = args[i].parse().expect("Invalid --train-batch-size value");
-            }
-            "--train-passes" => {
-                i += 1;
-                train_passes = args[i].parse().expect("Invalid --train-passes value");
-            }
-            "--train-lr" => {
-                i += 1;
-                train_lr = args[i].parse().expect("Invalid --train-lr value");
-            }
-            "--replay-buffer-epochs" => {
-                i += 1;
-                train_replay_buffer_epochs = args[i].parse().expect("Invalid --replay-buffer-epochs value");
-            }
-            "--distill-from" => {
-                i += 1;
-                distill_from = Some(args[i].clone());
-            }
-            "--population" => {
-                i += 1;
-                population = args[i].parse().expect("Invalid --population value");
-            }
-            "--generations" => {
-                i += 1;
-                generations = args[i].parse().expect("Invalid --generations value");
-            }
-            "--games-per-eval" => {
-                i += 1;
-                games_per_eval = args[i].parse().expect("Invalid --games-per-eval value");
-            }
-            "--initial-sigma" => {
-                i += 1;
-                initial_sigma = args[i].parse().expect("Invalid --initial-sigma value");
-            }
-            "--eval-iterations" => {
-                i += 1;
-                eval_iterations = args[i].parse().expect("Invalid --eval-iterations value");
-            }
-            "--seed-params" => {
-                i += 1;
-                seed_params_file = Some(args[i].clone());
-            }
-            "--baseline-params" => {
-                i += 1;
-                baseline_params_file = Some(args[i].clone());
-            }
-            other => {
-                eprintln!("Unknown argument: {}", other);
-                std::process::exit(1);
-            }
-        }
-        i += 1;
-    }
-
-    let baseline_heuristic_params = baseline_params_file.map(|path| {
-        let contents = std::fs::read_to_string(&path)
-            .unwrap_or_else(|_| panic!("Failed to read baseline params file: {}", path));
-        serde_json::from_str::<HeuristicParams>(&contents)
-            .unwrap_or_else(|_| panic!("Failed to parse baseline params file: {}", path))
-    });
-
-    // Auto-enable vs-baseline mode when baseline params are provided
-    if baseline_heuristic_params.is_some() {
-        train_vs_baseline = true;
-    }
-
-    let genetic_args = if genetic {
-        // In genetic mode, default output to "genetic-algorithm"
-        if output == "game-logs" {
-            output = "genetic-algorithm".to_string();
-        }
-        let seed_params = seed_params_file.map(|path| {
-            let contents = std::fs::read_to_string(&path)
-                .unwrap_or_else(|_| panic!("Failed to read seed params file: {}", path));
-            serde_json::from_str::<HeuristicParams>(&contents)
-                .unwrap_or_else(|_| panic!("Failed to parse seed params file: {}", path))
-        });
-        Some(CmaEsArgs {
-            population,
-            generations,
-            games_per_eval,
-            initial_sigma,
-            eval_iterations,
-            seed_params,
-            baseline_params: baseline_heuristic_params.clone(),
         })
-    } else {
-        None
-    };
+        .collect()
+}
 
-    let variants = variants.unwrap_or_else(|| {
-        if genetic || train_diff_eval || train_first_pick {
-            // In genetic/training mode, variants file is not required
-            vec![NamedVariant { name: None, ai: MctsConfig::default() }; 2]
-        } else {
-            let contents = std::fs::read_to_string(&variants_file)
-                .unwrap_or_else(|_| panic!("Failed to read variants file: {}", variants_file));
-            let entries: Vec<VariantFileEntry> = serde_json::from_str(&contents)
-                .unwrap_or_else(|_| panic!("Failed to parse variants file: {}", variants_file));
-            entries
-                .into_iter()
-                .map(|e| e.into_named_variant())
-                .collect()
-        }
-    });
-
-    if train_diff_eval && output == "game-logs" {
-        output = "diff-eval-training".to_string();
-    }
-    if train_first_pick && output == "game-logs" {
-        output = "first-pick-training".to_string();
-    }
-
-    SimulationArgs {
-        games,
-        threads,
-        output,
-        note,
-        variants,
-        glass,
-        genetic: genetic_args,
-        tournament,
-        train_diff_eval,
-        train_self_play,
-        train_vs_baseline,
-        train_no_rollout,
-        train_games_per_epoch,
-        train_epochs,
-        train_batch_size,
-        train_passes,
-        train_lr,
-        train_eval_iterations: eval_iterations,
-        train_baseline_iterations,
-        train_replay_buffer_epochs,
-        baseline_heuristic_params,
-        distill_from,
-        train_first_pick,
-    }
+pub fn load_heuristic_params(path: &str) -> HeuristicParams {
+    let contents = std::fs::read_to_string(path)
+        .unwrap_or_else(|_| panic!("Failed to read heuristic params file: {}", path));
+    serde_json::from_str::<HeuristicParams>(&contents)
+        .unwrap_or_else(|_| panic!("Failed to parse heuristic params file: {}", path))
 }

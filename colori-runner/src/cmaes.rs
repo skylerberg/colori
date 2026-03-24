@@ -13,7 +13,7 @@ use wyrand::WyRand;
 use std::sync::atomic::Ordering;
 use std::time::Instant;
 
-use crate::cli::{SimulationArgs, CmaEsArgs};
+use crate::cli::{CmaEsHeuristicEvalArgs, TrainFirstPickArgs, load_heuristic_params};
 use crate::generate_batch_id;
 
 /// Box-Muller transform: generate a sample from N(0, std_dev)
@@ -376,26 +376,29 @@ impl CmaEsState {
     }
 }
 
-pub fn run_genetic_algorithm(args: &SimulationArgs, ga: &CmaEsArgs) {
+pub fn run_genetic_algorithm(args: &CmaEsHeuristicEvalArgs, threads: usize, output: &str, glass: bool) {
     let batch_id = generate_batch_id();
 
     eprintln!(
         "CMA-ES: lambda={}, generations={}, games_per_eval={}, eval_iterations={}, initial_sigma={}, threads={}",
-        ga.population, ga.generations, ga.games_per_eval, ga.eval_iterations, ga.initial_sigma, args.threads
+        args.population, args.generations, args.games_per_eval, args.eval_iterations, args.initial_sigma, threads
     );
 
-    std::fs::create_dir_all(&args.output).expect("Failed to create output directory");
+    std::fs::create_dir_all(output).expect("Failed to create output directory");
 
     let mut rng = WyRand::from_rng(&mut rand::rng());
 
+    let seed_params = args.seed_params.as_ref().map(|p| load_heuristic_params(p));
     let default_params = HeuristicParams::default();
-    let seed = ga.seed_params.as_ref().unwrap_or(&default_params);
+    let seed = seed_params.as_ref().unwrap_or(&default_params);
     let seed_genes = heuristic_params_to_vec(seed);
 
-    if ga.seed_params.is_some() {
+    if seed_params.is_some() {
         eprintln!("Seeding CMA-ES from provided params file");
     }
-    if ga.baseline_params.is_some() {
+
+    let baseline_heuristic_params = args.baseline_params.as_ref().map(|p| load_heuristic_params(p));
+    if baseline_heuristic_params.is_some() {
         eprintln!("Using provided baseline params file");
     }
 
@@ -407,14 +410,14 @@ pub fn run_genetic_algorithm(args: &SimulationArgs, ga: &CmaEsArgs) {
         Gene::CardsInDeck as usize,
         Gene::CardsInDeckSquared as usize,
     ];
-    if !args.glass {
+    if !glass {
         frozen_genes.push(Gene::GlassWeight as usize);
     }
 
-    let mut cma = CmaEsState::new(&seed_genes, ga.population, ga.initial_sigma, frozen_genes);
-    let baseline_params = ga.baseline_params.as_ref().unwrap_or(seed).clone();
+    let mut cma = CmaEsState::new(&seed_genes, args.population, args.initial_sigma, frozen_genes);
+    let baseline_params = baseline_heuristic_params.as_ref().unwrap_or(seed).clone();
 
-    for gen in 0..ga.generations {
+    for gen in 0..args.generations {
         let gen_start = Instant::now();
 
         // Sample lambda offspring from CMA-ES distribution
@@ -428,10 +431,9 @@ pub fn run_genetic_algorithm(args: &SimulationArgs, ga: &CmaEsArgs) {
             .collect();
 
         let baseline_ref = &baseline_params;
-        let eval_iterations = ga.eval_iterations;
-        let games_per_eval = ga.games_per_eval;
-        let glass = args.glass;
-        let num_threads = args.threads;
+        let eval_iterations = args.eval_iterations;
+        let games_per_eval = args.games_per_eval;
+        let num_threads = threads;
 
         let wins: Vec<std::sync::atomic::AtomicU64> = (0..pop_size)
             .map(|_| std::sync::atomic::AtomicU64::new(0))
@@ -497,7 +499,7 @@ pub fn run_genetic_algorithm(args: &SimulationArgs, ga: &CmaEsArgs) {
         let best_params = vec_to_heuristic_params(&offspring[best_idx]);
 
         // Save best individual
-        let output_path = format!("{}/batch-{}-gen-{}.json", args.output, batch_id, gen);
+        let output_path = format!("{}/batch-{}-gen-{}.json", output, batch_id, gen);
         let json = serde_json::to_string_pretty(&best_params).unwrap();
         std::fs::write(&output_path, json).unwrap();
 
@@ -511,9 +513,9 @@ pub fn run_genetic_algorithm(args: &SimulationArgs, ga: &CmaEsArgs) {
                 let dist: f64 = offspring[a]
                     .iter()
                     .zip(offspring[b].iter())
-                    .map(|(ga, gb)| {
-                        let scale = ga.abs().max(gb.abs()).max(0.1);
-                        ((ga - gb) / scale).powi(2)
+                    .map(|(gene_a, gene_b)| {
+                        let scale = gene_a.abs().max(gene_b.abs()).max(0.1);
+                        ((gene_a - gene_b) / scale).powi(2)
                     })
                     .sum::<f64>()
                     .sqrt();
@@ -527,7 +529,7 @@ pub fn run_genetic_algorithm(args: &SimulationArgs, ga: &CmaEsArgs) {
         eprintln!(
             "Gen {}/{}: best={:.4}, avg={:.4}, worst={:.4}, diversity={:.3}, sigma={:.6}, elapsed={:.1}s, saved {}",
             gen + 1,
-            ga.generations,
+            args.generations,
             best_fitness,
             avg_fitness,
             fitness.last().unwrap().1,
@@ -538,7 +540,7 @@ pub fn run_genetic_algorithm(args: &SimulationArgs, ga: &CmaEsArgs) {
         );
 
         // Update CMA-ES distribution
-        let offspring_fitnesses: Vec<f64> = (0..ga.population)
+        let offspring_fitnesses: Vec<f64> = (0..args.population)
             .map(|i| {
                 let w = wins[i].load(Ordering::Relaxed) as f64 / 1000.0;
                 w / games_per_eval as f64
@@ -547,7 +549,7 @@ pub fn run_genetic_algorithm(args: &SimulationArgs, ga: &CmaEsArgs) {
         cma.update(&offspring, &offspring_fitnesses, gen);
     }
 
-    eprintln!("CMA-ES optimization complete. Results in {}/", args.output);
+    eprintln!("CMA-ES optimization complete. Results in {}/", output);
 }
 
 // ── First Pick CMA-ES ──
@@ -659,24 +661,24 @@ fn run_first_pick_eval_game(
     }
 }
 
-pub fn run_first_pick_cmaes(args: &SimulationArgs, ga: &CmaEsArgs) {
+pub fn run_first_pick_cmaes(args: &TrainFirstPickArgs, threads: usize, output: &str, glass: bool) {
     let batch_id = generate_batch_id();
 
     eprintln!(
         "First Pick CMA-ES: lambda={}, generations={}, games_per_eval={}, eval_iterations={}, initial_sigma={}, threads={}",
-        ga.population, ga.generations, ga.games_per_eval, ga.eval_iterations, ga.initial_sigma, args.threads
+        args.population, args.generations, args.games_per_eval, args.eval_iterations, args.initial_sigma, threads
     );
 
-    std::fs::create_dir_all(&args.output).expect("Failed to create output directory");
+    std::fs::create_dir_all(output).expect("Failed to create output directory");
 
     let mut rng = WyRand::from_rng(&mut rand::rng());
 
     let seed = FirstPickParams::default();
     let seed_genes = first_pick_params_to_vec(&seed);
 
-    let mut cma = CmaEsState::new(&seed_genes, ga.population, ga.initial_sigma, vec![]);
+    let mut cma = CmaEsState::new(&seed_genes, args.population, args.initial_sigma, vec![]);
 
-    for gen in 0..ga.generations {
+    for gen in 0..args.generations {
         let gen_start = Instant::now();
 
         let offspring = cma.sample_offspring(&mut rng);
@@ -687,10 +689,9 @@ pub fn run_first_pick_cmaes(args: &SimulationArgs, ga: &CmaEsArgs) {
             .map(|g| vec_to_first_pick_params(g))
             .collect();
 
-        let eval_iterations = ga.eval_iterations;
-        let games_per_eval = ga.games_per_eval;
-        let glass = args.glass;
-        let num_threads = args.threads;
+        let eval_iterations = args.eval_iterations;
+        let games_per_eval = args.games_per_eval;
+        let num_threads = threads;
 
         let wins: Vec<std::sync::atomic::AtomicU64> = (0..pop_size)
             .map(|_| std::sync::atomic::AtomicU64::new(0))
@@ -755,7 +756,7 @@ pub fn run_first_pick_cmaes(args: &SimulationArgs, ga: &CmaEsArgs) {
         let best_fitness = fitness[0].1;
         let best_params = vec_to_first_pick_params(&offspring[best_idx]);
 
-        let output_path = format!("{}/batch-{}-gen-{}.json", args.output, batch_id, gen);
+        let output_path = format!("{}/batch-{}-gen-{}.json", output, batch_id, gen);
         let json = serde_json::to_string_pretty(&best_params).unwrap();
         std::fs::write(&output_path, json).unwrap();
 
@@ -765,7 +766,7 @@ pub fn run_first_pick_cmaes(args: &SimulationArgs, ga: &CmaEsArgs) {
         eprintln!(
             "Gen {}/{}: best={:.4}, avg={:.4}, worst={:.4}, sigma={:.6}, elapsed={:.1}s, saved {}",
             gen + 1,
-            ga.generations,
+            args.generations,
             best_fitness,
             avg_fitness,
             fitness.last().unwrap().1,
@@ -774,7 +775,7 @@ pub fn run_first_pick_cmaes(args: &SimulationArgs, ga: &CmaEsArgs) {
             output_path,
         );
 
-        let offspring_fitnesses: Vec<f64> = (0..ga.population)
+        let offspring_fitnesses: Vec<f64> = (0..args.population)
             .map(|i| {
                 let w = wins[i].load(Ordering::Relaxed) as f64 / 1000.0;
                 w / games_per_eval as f64
@@ -783,7 +784,7 @@ pub fn run_first_pick_cmaes(args: &SimulationArgs, ga: &CmaEsArgs) {
         cma.update(&offspring, &offspring_fitnesses, gen);
     }
 
-    eprintln!("First Pick CMA-ES complete. Results in {}/", args.output);
+    eprintln!("First Pick CMA-ES complete. Results in {}/", output);
 }
 
 fn run_first_pick_eval_game_swapped(

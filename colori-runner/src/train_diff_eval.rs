@@ -12,7 +12,7 @@ use colori_core::types::*;
 use rand::SeedableRng;
 use wyrand::WyRand;
 
-use crate::cli::SimulationArgs;
+use crate::cli::{TrainDiffEvalArgs, load_heuristic_params};
 use crate::legacy_eval::LegacyDiffEvalParams;
 
 // ── Training sample ──
@@ -453,31 +453,17 @@ fn compute_distill_loss_and_grads(
 
 // ── Public entry point ──
 
-pub struct TrainArgs {
-    pub games: usize,
-    pub epochs: usize,
-    pub batch_size: usize,
-    pub passes: usize,
-    pub lr: f64,
-    pub eval_iterations: u32,
-    pub baseline_iterations: Option<u32>,
-    pub self_play: bool,
-    pub vs_baseline: bool,
-    pub no_rollout: bool,
-    pub threads: usize,
-    pub output: String,
-    pub replay_buffer_epochs: usize,
-    pub distill_from: Option<String>,
-}
+pub fn run_training(args: &TrainDiffEvalArgs, threads: usize, output: &str) {
+    // Auto-enable vs-baseline mode when baseline params are provided
+    let vs_baseline = args.vs_baseline || args.baseline_params.is_some();
 
-pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
     eprintln!("=== Diff Eval Training ===");
     eprintln!("Games/epoch: {}, Epochs: {}, Batch size: {}, Passes: {}, LR: {}, Replay buffer: {} epochs",
-        train.games, train.epochs, train.batch_size, train.passes, train.lr, train.replay_buffer_epochs);
-    let baseline_iters_display = train.baseline_iterations.unwrap_or(train.eval_iterations);
-    let game_play_mode = if train.self_play {
+        args.games_per_epoch, args.epochs, args.batch_size, args.passes, args.lr, args.replay_buffer_epochs);
+    let baseline_iters_display = args.baseline_iterations.unwrap_or(args.eval_iterations);
+    let game_play_mode = if args.self_play {
         GamePlayMode::SelfPlay
-    } else if train.vs_baseline {
+    } else if vs_baseline {
         GamePlayMode::VsBaseline
     } else {
         GamePlayMode::Heuristic
@@ -488,19 +474,20 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
         GamePlayMode::SelfPlay => "self-play",
     };
     eprintln!("MCTS iterations: {} (baseline: {}), Threads: {}, Mode: {}, Rollout: {}",
-        train.eval_iterations, baseline_iters_display, train.threads,
+        args.eval_iterations, baseline_iters_display, threads,
         mode_name,
-        if train.no_rollout { "none (direct eval)" } else { "standard" });
+        if args.no_rollout { "none (direct eval)" } else { "standard" });
 
-    let baseline_params = args.baseline_heuristic_params.clone().unwrap_or_default();
-    if args.baseline_heuristic_params.is_some() {
+    let baseline_heuristic_params = args.baseline_params.as_ref().map(|p| load_heuristic_params(p));
+    let baseline_params = baseline_heuristic_params.clone().unwrap_or_default();
+    if baseline_heuristic_params.is_some() {
         eprintln!("Baseline: custom heuristic params from --baseline-params");
     } else {
         eprintln!("Baseline: default heuristic params (use --baseline-params to override)");
     }
 
     // Load teacher params for distillation if requested
-    let teacher_params = train.distill_from.as_ref().map(|path| {
+    let teacher_params = args.distill_from.as_ref().map(|path| {
         eprintln!("Distillation: loading teacher model from {}", path);
         LegacyDiffEvalParams::load(path)
     });
@@ -509,10 +496,10 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
     }
 
     // Create output directory
-    std::fs::create_dir_all(&train.output).expect("Failed to create output directory");
+    std::fs::create_dir_all(output).expect("Failed to create output directory");
 
     // Try to resume from latest checkpoint
-    let (mut params, mut optimizer, start_epoch) = load_checkpoint(&train.output, train.lr);
+    let (mut params, mut optimizer, start_epoch) = load_checkpoint(output, args.lr);
     let mut table = DiffEvalTable::new(&params);
 
     if start_epoch > 0 {
@@ -527,7 +514,7 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
     let mut replay_buffer: VecDeque<Vec<TrainingSample>> = VecDeque::new();
 
     // Training loop
-    for epoch in start_epoch..train.epochs {
+    for epoch in start_epoch..args.epochs {
         let epoch_start = std::time::Instant::now();
 
         // Recreate table each epoch for self-play (weights change between epochs)
@@ -539,9 +526,9 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
             GamePlayMode::Heuristic => None,
             GamePlayMode::VsBaseline | GamePlayMode::SelfPlay => Some(&params),
         };
-        let baseline_iters = train.baseline_iterations.unwrap_or(train.eval_iterations);
+        let baseline_iters = args.baseline_iterations.unwrap_or(args.eval_iterations);
         let data = generate_training_data(
-            train.games, train.eval_iterations, baseline_iters, train.threads, &baseline_params, dep, train.no_rollout, game_play_mode, epoch,
+            args.games_per_epoch, args.eval_iterations, baseline_iters, threads, &baseline_params, dep, args.no_rollout, game_play_mode, epoch,
         );
         let new_samples = data.samples;
         if new_samples.is_empty() {
@@ -551,7 +538,7 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
 
         // Add new samples to replay buffer, evict oldest if over capacity
         replay_buffer.push_back(new_samples);
-        while replay_buffer.len() > train.replay_buffer_epochs {
+        while replay_buffer.len() > args.replay_buffer_epochs {
             replay_buffer.pop_front();
         }
 
@@ -572,9 +559,9 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
             .flat_map(|(slot, samples)| (0..samples.len()).map(move |i| (slot, i)))
             .collect();
 
-        for _ in 0..train.passes {
+        for _ in 0..args.passes {
             indices.shuffle(&mut rng);
-            for chunk in indices.chunks(train.batch_size) {
+            for chunk in indices.chunks(args.batch_size) {
                 let batch: Vec<&TrainingSample> = chunk.iter()
                     .map(|&i| {
                         let (slot, idx) = flat_refs[i];
@@ -606,17 +593,17 @@ pub fn run_training(args: &SimulationArgs, train: &TrainArgs) {
         prev_loss = Some(avg_loss);
 
         eprintln!("Epoch {}/{}: loss={:.4}{} ({} samples from {} epochs, {:.0}s train, {:.0}s total)",
-            epoch + 1, train.epochs, avg_loss, trend, total_samples, replay_buffer.len(), train_secs, total_secs);
+            epoch + 1, args.epochs, avg_loss, trend, total_samples, replay_buffer.len(), train_secs, total_secs);
 
         // Save checkpoint + params after every epoch
-        save_checkpoint(&train.output, &params, &optimizer, epoch + 1);
-        let path = format!("{}/diff-eval-epoch-{}.json", train.output, epoch + 1);
+        save_checkpoint(output, &params, &optimizer, epoch + 1);
+        let path = format!("{}/diff-eval-epoch-{}.json", output, epoch + 1);
         let json = serde_json::to_string_pretty(&params).unwrap();
         std::fs::write(&path, json).unwrap();
     }
 
     // Save final params
-    let path = format!("{}/latest-diff-eval.json", train.output);
+    let path = format!("{}/latest-diff-eval.json", output);
     let json = serde_json::to_string_pretty(&params).unwrap();
     std::fs::write(&path, json).unwrap();
     eprintln!("\nTraining complete. Final params saved to {}", path);
