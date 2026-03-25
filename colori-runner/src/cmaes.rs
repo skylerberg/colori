@@ -193,7 +193,7 @@ fn run_eval_game(
 
         let config = &configs[player_index];
         let max_rollout_round = std::cmp::max(8, state.round + 2);
-        let result = ismcts(&state, player_index, config, &None, Some(max_rollout_round), None, rng);
+        let result = ismcts(&state, player_index, config, Some(max_rollout_round), None, rng);
         apply_choice_to_state(&mut state, &result.choice, rng);
     }
 
@@ -667,7 +667,7 @@ fn run_first_pick_eval_game(
             apply_choice_to_state(&mut state, &best, rng);
         } else {
             let max_rollout_round = std::cmp::max(8, state.round + 2);
-            let result = ismcts(&state, player_index, config, &None, Some(max_rollout_round), None, rng);
+            let result = ismcts(&state, player_index, config, Some(max_rollout_round), None, rng);
             apply_choice_to_state(&mut state, &result.choice, rng);
         }
     }
@@ -861,7 +861,7 @@ fn run_first_pick_eval_game_swapped(
             apply_choice_to_state(&mut state, &best, rng);
         } else {
             let max_rollout_round = std::cmp::max(8, state.round + 2);
-            let result = ismcts(&state, player_index, config, &None, Some(max_rollout_round), None, rng);
+            let result = ismcts(&state, player_index, config, Some(max_rollout_round), None, rng);
             apply_choice_to_state(&mut state, &result.choice, rng);
         }
     }

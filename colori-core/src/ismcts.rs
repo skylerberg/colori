@@ -428,7 +428,6 @@ pub fn ismcts<R: Rng>(
     state: &GameState,
     player_index: usize,
     config: &MctsConfig,
-    known_draft_hands: &Option<Vec<Vec<CardInstance>>>,
     max_rollout_round: Option<u32>,
     previous_tree: Option<MctsNode>,
     rng: &mut R,
@@ -492,7 +491,7 @@ pub fn ismcts<R: Rng>(
         while Instant::now() < deadline {
             iterations_used += 1;
             pick_log.clear();
-            determinize_in_place(&mut det_state, state, player_index, known_draft_hands, &cached_scores, rng);
+            determinize_in_place(&mut det_state, state, player_index, &cached_scores, rng);
             advance_past_opponent_draft_picks(
                 &mut det_state, player_index, &mut opponent_stats,
                 &mut pick_log, config.exploration_constant, rng,
@@ -512,7 +511,7 @@ pub fn ismcts<R: Rng>(
         for i in 0..new_iterations {
             iterations_used = i + 1;
             pick_log.clear();
-            determinize_in_place(&mut det_state, state, player_index, known_draft_hands, &cached_scores, rng);
+            determinize_in_place(&mut det_state, state, player_index, &cached_scores, rng);
             advance_past_opponent_draft_picks(
                 &mut det_state, player_index, &mut opponent_stats,
                 &mut pick_log, config.exploration_constant, rng,
@@ -898,7 +897,7 @@ mod tests {
                 GameStatus::Terminated { .. } => return,
             };
 
-            let choice = ismcts(&state, player_index, &config, &None, None, None, &mut rng).choice;
+            let choice = ismcts(&state, player_index, &config, None, None, &mut rng).choice;
 
             enumerate_choices_into(&state, &mut choices_buf);
             assert!(
@@ -983,7 +982,7 @@ mod tests {
                 GameStatus::Terminated { .. } => return,
             };
 
-            let choice = ismcts(&state, player_index, &config, &None, None, None, &mut rng).choice;
+            let choice = ismcts(&state, player_index, &config, None, None, &mut rng).choice;
 
             enumerate_choices_into(&state, &mut choices_buf);
             assert!(
@@ -1057,7 +1056,7 @@ mod tests {
                 GameStatus::Terminated { .. } => return,
             };
 
-            let choice = ismcts(&state, player_index, config, &None, None, None, &mut rng).choice;
+            let choice = ismcts(&state, player_index, config, None, None, &mut rng).choice;
 
             enumerate_choices_into(&state, &mut choices_buf);
             assert!(choices_buf.contains(&choice));
@@ -1112,7 +1111,7 @@ mod tests {
                     GameStatus::Terminated { .. } => break,
                 };
 
-                let choice = ismcts(&state, player_index, &config, &None, None, None, &mut rng).choice;
+                let choice = ismcts(&state, player_index, &config, None, None, &mut rng).choice;
                 enumerate_choices_into(&state, &mut choices_buf);
                 assert!(choices_buf.contains(&choice));
                 apply_choice_to_state(&mut state, &choice, &mut rng);

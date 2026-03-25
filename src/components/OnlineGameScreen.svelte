@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { GameState, CardInstance, Choice, StructuredGameLog } from '../data/types';
+  import type { GameState, Choice, StructuredGameLog } from '../data/types';
   import type { SanitizedGameState } from '../network/types';
   import type { HostController } from '../network/hostController';
   import type { GuestController } from '../network/guestController';
@@ -44,7 +44,6 @@
 
   // AI controller (host only)
   const aiController = role === 'host' ? new AIController() : null;
-  let aiDraftKnowledge: Map<number, CardInstance[][]> = $state(new Map());
 
   // Derive the GameState for rendering (works for both host and guest)
   let gameState = $derived.by(() => {
@@ -190,23 +189,10 @@
 
       if (aiPlayerIndices.length === 0) return;
 
-      // Record seen hands for all AI players
-      for (const playerIdx of aiPlayerIndices) {
-        const hand = ds.hands[playerIdx];
-        if (!aiDraftKnowledge.has(playerIdx)) {
-          aiDraftKnowledge.set(playerIdx, []);
-        }
-        const playerSeenHands = aiDraftKnowledge.get(playerIdx)!;
-        if (playerSeenHands.length <= ds.pickNumber) {
-          playerSeenHands.push([...hand]);
-        }
-      }
-
       aiThinking = true;
       Promise.all(
         aiPlayerIndices.map(playerIdx => {
-          const playerSeenHands = aiDraftKnowledge.get(playerIdx);
-          return aiController!.getAIChoice(gameState!, playerIdx, 100000, playerSeenHands).then(choice => ({
+          return aiController!.getAIChoice(gameState!, playerIdx, 100000).then(choice => ({
             playerIdx,
             choice,
           }));
@@ -228,9 +214,8 @@
 
     const playerIdx = getActivePlayerIndex(gameState);
     aiThinking = true;
-    const playerSeenHands = aiDraftKnowledge.get(playerIdx);
 
-    aiController!.getAIChoice(gameState, playerIdx, 100000, playerSeenHands).then((choice) => {
+    aiController!.getAIChoice(gameState, playerIdx, 100000).then((choice) => {
       aiThinking = false;
       hostController?.applyAction(choice, playerIdx);
     }).catch((e) => {
@@ -239,13 +224,6 @@
     });
   });
 
-  // Reset aiDraftKnowledge when entering draft phase (host only)
-  $effect(() => {
-    if (role !== 'host' || !gameState) return;
-    if (gameState.phase.type === 'draft' && gameState.phase.draftState.pickNumber === 0) {
-      aiDraftKnowledge = new Map();
-    }
-  });
 </script>
 
 {#if gameState}

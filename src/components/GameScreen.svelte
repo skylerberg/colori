@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { GameState, CardInstance, Choice, Card } from '../data/types';
+  import type { GameState, Choice, Card } from '../data/types';
   import { executeDrawPhase, applyChoice, simultaneousPick, advanceDraft, getChoiceLogMessage, cloneGameState } from '../engine/wasmEngine';
   import { getCardData } from '../data/cards';
   import { AIController, type PrecomputeRequest } from '../ai/aiController';
@@ -96,9 +96,6 @@
   const aiController = new AIController();
   aiController.aiStyle = aiStyle;
 
-  // Per-AI-player seen hands for draft knowledge tracking
-  let aiDraftKnowledge: Map<number, CardInstance[][]> = $state(new Map());
-
   // Simultaneous draft state
   let submittedDraftPicks: Set<number> = $state(new Set());
   let humanPlayerIndex = $derived(gameState.aiPlayers.findIndex(ai => !ai));
@@ -111,7 +108,6 @@
       const drawPhaseDraws = executeDrawPhase(gameState);
       gameLogAccumulator?.recordDrawPhaseDraws(drawPhaseDraws);
       // Reset draft state for the new round
-      aiDraftKnowledge = new Map();
       submittedDraftPicks = new Set();
       draftCardOrder = gameState.players.map(() => []);
       onGameUpdated(gameState, gameLog);
@@ -247,18 +243,6 @@
         .filter(idx => !submittedDraftPicks.has(idx))
         .filter(idx => ds.hands[idx].length > 0);
 
-      // Record seen hands for AI draft knowledge
-      for (const playerIdx of aiIndices) {
-        const hand = ds.hands[playerIdx];
-        if (!aiDraftKnowledge.has(playerIdx)) {
-          aiDraftKnowledge.set(playerIdx, []);
-        }
-        const playerSeenHands = aiDraftKnowledge.get(playerIdx)!;
-        if (playerSeenHands.length <= ds.pickNumber) {
-          playerSeenHands.push([...hand]);
-        }
-      }
-
       // Resolve all AI picks in parallel
       const results = await Promise.all(
         aiIndices.map(async (playerIdx) => {
@@ -266,8 +250,7 @@
           if (precomputed !== null) {
             return { playerIdx, choice: await precomputed };
           }
-          const playerSeenHands = aiDraftKnowledge.get(playerIdx);
-          const choice = await aiController.getAIChoice(gameState, playerIdx, aiIterations[playerIdx], playerSeenHands);
+          const choice = await aiController.getAIChoice(gameState, playerIdx, aiIterations[playerIdx]);
           return { playerIdx, choice };
         })
       );
@@ -328,21 +311,11 @@
         const cloneDs = (clone.phase as { type: 'draft'; draftState: typeof ds }).draftState;
         cloneDs.currentPlayerIndex = idx;
 
-        // Build aiDraftKnowledge snapshot for the AI player
-        const aiSeenHands = aiDraftKnowledge.has(idx)
-          ? [...aiDraftKnowledge.get(idx)!.map(h => [...h])]
-          : [];
-        const hand = ds.hands[idx];
-        if (aiSeenHands.length <= ds.pickNumber) {
-          aiSeenHands.push([...hand]);
-        }
-
         requests.push({
           gameState: clone,
           playerIndex: idx,
           pickNumber: ds.pickNumber,
           iterations: aiIterations[idx],
-          aiDraftKnowledge: aiSeenHands,
         });
       }
     }

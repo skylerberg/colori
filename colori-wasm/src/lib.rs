@@ -6,7 +6,7 @@ use colori_core::game_log::{DrawEvent, DrawLog};
 use colori_core::ismcts::{ismcts, MctsConfig};
 use colori_core::scoring::{calculate_score, DiffEvalParams, HeuristicParams};
 use colori_core::setup::{create_initial_game_state, create_initial_game_state_with_expansions};
-use colori_core::types::{Card, CardInstance, Choice, Expansions, GameState, PlayerState};
+use colori_core::types::{Card, Choice, Expansions, GameState, PlayerState};
 use colori_core::unordered_cards::{
     get_card_registry, get_sell_card_registry, set_card_registry, set_sell_card_registry,
 };
@@ -40,16 +40,9 @@ pub fn wasm_run_ismcts(
     game_state_json: &str,
     player_index: u32,
     iterations: u32,
-    known_draft_hands_json: &str,
     ai_style: &str,
 ) -> String {
     let game_state = deserialize_state(game_state_json);
-
-    let known_draft_hands: Option<Vec<Vec<CardInstance>>> = if known_draft_hands_json.is_empty() {
-        None
-    } else {
-        serde_json::from_str(known_draft_hands_json).ok()
-    };
 
     let max_rollout_round = std::cmp::max(8, game_state.round + 2);
 
@@ -68,7 +61,6 @@ pub fn wasm_run_ismcts(
         &game_state,
         player_index as usize,
         &config,
-        &known_draft_hands,
         Some(max_rollout_round),
         None,
         &mut rng,

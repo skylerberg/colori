@@ -1,4 +1,4 @@
-import type { GameState, CardInstance, Choice } from '../data/types';
+import type { GameState, Choice } from '../data/types';
 import type { AIWorkerResponse } from './aiWorker';
 import AIWorkerModule from './aiWorker?worker';
 
@@ -7,7 +7,6 @@ export interface PrecomputeRequest {
   playerIndex: number;
   pickNumber: number;
   iterations: number;
-  aiDraftKnowledge?: CardInstance[][];
 }
 
 interface PrecomputeEntry {
@@ -32,7 +31,6 @@ export class AIController {
     gameState: GameState,
     playerIndex: number,
     iterations: number,
-    aiDraftKnowledge?: CardInstance[][],
   ): Promise<Choice> {
     return new Promise((resolve, reject) => {
       this.worker.onmessage = (event: MessageEvent<AIWorkerResponse>) => {
@@ -46,7 +44,6 @@ export class AIController {
         gameState,
         playerIndex,
         iterations,
-        aiDraftKnowledge,
         aiStyle: this.aiStyle,
       }));
       this.worker.postMessage(plain);
@@ -86,7 +83,6 @@ export class AIController {
         gameState: req.gameState,
         playerIndex: req.playerIndex,
         iterations: req.iterations,
-        aiDraftKnowledge: req.aiDraftKnowledge,
         aiStyle: this.aiStyle,
       }));
       worker.postMessage(plain);

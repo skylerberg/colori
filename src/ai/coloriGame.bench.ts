@@ -11,7 +11,7 @@ initSync({ module: new WebAssembly.Module(wasmBytes) });
 
 function runWasm(state: object, playerIndex: number, iterations: number): object {
   const json = JSON.stringify(state);
-  const resultJson = wasm_run_ismcts(json, playerIndex, iterations, '');
+  const resultJson = wasm_run_ismcts(json, playerIndex, iterations);
   return JSON.parse(resultJson);
 }
 

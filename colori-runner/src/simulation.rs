@@ -293,7 +293,7 @@ pub fn run_game(
         } else {
             let max_rollout_round = std::cmp::max(8, state.round + 2);
             let mcts_start = std::time::Instant::now();
-            let result = ismcts(&state, player_index, config, &None, Some(max_rollout_round), reuse_tree.take(), rng);
+            let result = ismcts(&state, player_index, config, Some(max_rollout_round), reuse_tree.take(), rng);
             player_time[player_index] += mcts_start.elapsed();
             player_iterations_count[player_index] += result.iterations_used as u64;
             if config.time_limit_ms.is_none() {
