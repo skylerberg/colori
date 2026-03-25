@@ -45,10 +45,6 @@ pub struct GameRunOutput {
     pub player_variants: Option<Vec<PlayerVariant>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub early_termination_savings: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub subtree_reuse_savings: Option<f64>,
     #[serde(skip)]
     pub variant_order: Vec<usize>,
 }
@@ -246,10 +242,6 @@ pub fn run_game(
 
     let mut entries: Vec<StructuredLogEntry> = Vec::new();
     let mut seq: u32 = 0;
-    let mut total_iterations_budget: u64 = 0;
-    let mut total_iterations_used: u64 = 0;
-    let mut total_reused_iterations: u64 = 0;
-    let any_early_termination = shuffled_variants.iter().any(|v| v.ai.early_termination);
     let mut reuse_tree: Option<MctsNode> = None;
     let mut player_time = vec![std::time::Duration::ZERO; num_players];
     let mut player_iterations_count = vec![0u64; num_players];
@@ -296,11 +288,6 @@ pub fn run_game(
             let result = ismcts(&state, player_index, config, Some(max_rollout_round), reuse_tree.take(), rng);
             player_time[player_index] += mcts_start.elapsed();
             player_iterations_count[player_index] += result.iterations_used as u64;
-            if config.time_limit_ms.is_none() {
-                total_iterations_budget += config.iterations as u64;
-            }
-            total_iterations_used += result.iterations_used as u64;
-            total_reused_iterations += result.reused_iterations as u64;
             (result.choice.clone(), result.tree)
         };
 
@@ -397,18 +384,6 @@ pub fn run_game(
         (Some(shuffled_variants[0].ai.iterations), None)
     };
 
-    let early_termination_savings = if any_early_termination && total_iterations_budget > 0 {
-        Some(1.0 - (total_iterations_used as f64 / total_iterations_budget as f64))
-    } else {
-        None
-    };
-
-    let subtree_reuse_savings = if total_iterations_budget > 0 {
-        Some(total_reused_iterations as f64 / total_iterations_budget as f64)
-    } else {
-        None
-    };
-
     GameRunOutput {
         version: 1,
         game_started_at,
@@ -426,8 +401,6 @@ pub fn run_game(
         iterations: log_iterations,
         player_variants: log_player_variants,
         note,
-        early_termination_savings,
-        subtree_reuse_savings,
         variant_order,
     }
 }
@@ -465,13 +438,8 @@ pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str, glass: 
 
     std::fs::create_dir_all(output).expect("Failed to create output directory");
 
-    let any_early_termination = player_variants.iter().any(|v| v.ai.early_termination);
     let batch_id = generate_batch_id();
     let completed = AtomicUsize::new(0);
-    let agg_iterations_budget = AtomicU64::new(0);
-    let agg_iterations_used = AtomicU64::new(0);
-    let agg_reuse_budget = AtomicU64::new(0);
-    let agg_reuse_saved = AtomicU64::new(0);
     let variant_time_ms: Vec<AtomicU64> = (0..num_players).map(|_| AtomicU64::new(0)).collect();
     let variant_iterations: Vec<AtomicU64> = (0..num_players).map(|_| AtomicU64::new(0)).collect();
     let total_games = args.games;
@@ -488,10 +456,6 @@ pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str, glass: 
         for t in 0..num_threads {
             let count = games_per_thread + if t < remainder { 1 } else { 0 };
             let completed = &completed;
-            let agg_iterations_budget = &agg_iterations_budget;
-            let agg_iterations_used = &agg_iterations_used;
-            let agg_reuse_budget = &agg_reuse_budget;
-            let agg_reuse_saved = &agg_reuse_saved;
             let variant_time_ms = &variant_time_ms;
             let variant_iterations = &variant_iterations;
 
@@ -506,18 +470,6 @@ pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str, glass: 
                         glass,
                         &mut rng,
                     );
-                    if let Some(savings) = log.early_termination_savings {
-                        let scale = 10000u64;
-                        let used_frac = ((1.0 - savings) * scale as f64).round() as u64;
-                        agg_iterations_budget.fetch_add(scale, Ordering::Relaxed);
-                        agg_iterations_used.fetch_add(used_frac, Ordering::Relaxed);
-                    }
-                    if let Some(savings) = log.subtree_reuse_savings {
-                        let scale = 10000u64;
-                        let saved_frac = (savings * scale as f64).round() as u64;
-                        agg_reuse_budget.fetch_add(scale, Ordering::Relaxed);
-                        agg_reuse_saved.fetch_add(saved_frac, Ordering::Relaxed);
-                    }
                     for (player_pos, &orig_idx) in log.variant_order.iter().enumerate() {
                         variant_time_ms[orig_idx].fetch_add(log.player_time_ms[player_pos], Ordering::Relaxed);
                         variant_iterations[orig_idx].fetch_add(log.player_iterations[player_pos], Ordering::Relaxed);
@@ -545,22 +497,6 @@ pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str, glass: 
         }
     });
 
-    if any_early_termination {
-        let budget = agg_iterations_budget.load(Ordering::Relaxed);
-        let used = agg_iterations_used.load(Ordering::Relaxed);
-        if budget > 0 {
-            let savings = 1.0 - (used as f64 / budget as f64);
-            eprintln!("Early termination saved {:.1}% of iterations across all games", savings * 100.0);
-        }
-    }
-    {
-        let budget = agg_reuse_budget.load(Ordering::Relaxed);
-        let saved = agg_reuse_saved.load(Ordering::Relaxed);
-        if budget > 0 {
-            let savings = saved as f64 / budget as f64;
-            eprintln!("Subtree reuse saved {:.1}% of iterations across all games", savings * 100.0);
-        }
-    }
     if has_any_difference(player_variants) {
         let differing = compute_differing_fields(player_variants);
         for (i, v) in player_variants.iter().enumerate() {

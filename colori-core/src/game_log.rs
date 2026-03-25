@@ -54,10 +54,6 @@ pub struct StructuredGameLog {
     pub player_variants: Option<Vec<PlayerVariant>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub early_termination_savings: Option<f64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub subtree_reuse_savings: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

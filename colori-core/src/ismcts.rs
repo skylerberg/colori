@@ -32,7 +32,6 @@ pub struct MctsConfig {
 pub struct MctsResult {
     pub choice: Choice,
     pub iterations_used: u32,
-    pub reused_iterations: u32,
     pub tree: Option<MctsNode>,
 }
 
@@ -436,7 +435,7 @@ pub fn ismcts<R: Rng>(
     let mut choices_buf: Vec<Choice> = Vec::new();
     enumerate_choices_into(state, &mut choices_buf);
     if choices_buf.len() == 1 {
-        return MctsResult { choice: choices_buf.swap_remove(0), iterations_used: 0, reused_iterations: 0, tree: None };
+        return MctsResult { choice: choices_buf.swap_remove(0), iterations_used: 0, tree: None };
     }
 
     let mut root = previous_tree.unwrap_or_else(|| MctsNode::new(player_index, None));
@@ -561,7 +560,7 @@ pub fn ismcts<R: Rng>(
     if root.children.is_empty() {
         enumerate_choices_into(state, &mut choices_buf);
         let idx = rng.random_range(0..choices_buf.len());
-        return MctsResult { choice: choices_buf[idx].clone(), iterations_used, reused_iterations, tree: None };
+        return MctsResult { choice: choices_buf[idx].clone(), iterations_used, tree: None };
     }
 
     let best_choice = root.children.iter()
@@ -572,7 +571,6 @@ pub fn ismcts<R: Rng>(
     MctsResult {
         choice: best_choice,
         iterations_used,
-        reused_iterations,
         tree: Some(root),
     }
 }
