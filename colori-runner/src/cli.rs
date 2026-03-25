@@ -224,6 +224,8 @@ struct VariantFileEntry {
     #[serde(default)]
     heuristic_draft: Option<bool>,
     #[serde(default)]
+    priority_draft: Option<bool>,
+    #[serde(default)]
     early_termination: Option<bool>,
     #[serde(default)]
     time_limit_ms: Option<u64>,
@@ -281,6 +283,7 @@ impl VariantFileEntry {
                 no_rollout: self.no_rollout.unwrap_or(defaults.no_rollout),
                 heuristic_rollout: self.heuristic_rollout.unwrap_or(defaults.heuristic_rollout),
                 heuristic_draft: self.heuristic_draft.unwrap_or(defaults.heuristic_draft),
+                priority_draft: self.priority_draft.unwrap_or(defaults.priority_draft),
                 early_termination: self.early_termination.unwrap_or(defaults.early_termination),
                 time_limit_ms: self.time_limit_ms,
                 random_first_pick: self.random_first_pick.unwrap_or(defaults.random_first_pick),

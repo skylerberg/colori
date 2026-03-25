@@ -331,7 +331,7 @@ fn try_activate_random_glass(
 }
 
 #[inline(always)]
-fn handle_action_no_pending(state: &mut GameState, player_index: usize, heuristic_draft: bool, rng: &mut impl Rng) {
+fn handle_action_no_pending(state: &mut GameState, player_index: usize, heuristic_draft: bool, priority_draft: bool, rng: &mut impl Rng) {
     // Try activating a random glass ability before picking a drafted card
     if try_activate_random_glass(state, player_index, rng) {
         return;
@@ -343,7 +343,9 @@ fn handle_action_no_pending(state: &mut GameState, player_index: usize, heuristi
         // No drafted cards left — end turn and advance to next round
         end_player_turn(state, rng);
         if matches!(state.phase, GamePhase::Draw) {
-            if heuristic_draft {
+            if priority_draft {
+                priority_rollout_draw_and_draft(state, rng);
+            } else if heuristic_draft {
                 heuristic_rollout_draw_and_draft(state, rng);
             } else {
                 rollout_draw_and_draft(state, rng);
@@ -468,10 +470,12 @@ fn fused_glass_acquire<R: Rng>(
     }
 }
 
-pub fn apply_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, rng: &mut R) {
+pub fn apply_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, priority_draft: bool, rng: &mut R) {
     // Fast path: complete entire draft in one step
     if matches!(&state.phase, GamePhase::Draft { .. }) {
-        if heuristic_draft {
+        if priority_draft {
+            priority_draft_loop(state, rng);
+        } else if heuristic_draft {
             heuristic_draft_loop(state, rng);
         } else {
             loop {
@@ -498,7 +502,7 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, 
             let player_index = action_state.current_player_index;
             match action_state.ability_stack.last() {
                 None => {
-                    handle_action_no_pending(state, player_index, heuristic_draft, rng);
+                    handle_action_no_pending(state, player_index, heuristic_draft, priority_draft, rng);
                 }
                 Some(Ability::Workshop { count }) => {
                     let count = *count;
@@ -867,6 +871,169 @@ fn heuristic_draft_loop<R: Rng>(state: &mut GameState, rng: &mut R) {
 
         player_pick(state, card_id);
     }
+}
+
+// ── Priority-based draft ──
+
+/// Map an ability to a draft priority (lower = higher priority).
+#[inline(always)]
+fn draft_priority(ability: Ability) -> u8 {
+    match ability {
+        Ability::Workshop { count } if count >= 3 => 0,
+        Ability::MixColors { .. } => 1,
+        Ability::DestroyCards => 2,
+        Ability::Sell => 3,
+        Ability::Workshop { .. } => 4, // count >= 2 (Workshop { count: 1 } shouldn't exist but falls here)
+        Ability::DrawCards { .. } => 5,
+        _ => 6,
+    }
+}
+
+/// Pick the best card from a hand using priority-based draft heuristic.
+/// `drafted_mask` is a bitmask where bit i means priority i has already been drafted.
+#[inline(always)]
+fn pick_priority_draft_card(
+    hand: &UnorderedCards,
+    card_lookup: &[Card; 256],
+    drafted_mask: u8,
+) -> u8 {
+    let mut best_new: Option<(u8, u8)> = None; // (priority, card_id)
+    let mut best_dup: Option<(u8, u8)> = None;
+
+    for id in hand.iter() {
+        let card = card_lookup[id as usize];
+        let prio = draft_priority(card.ability());
+        // Check if this priority category is already drafted.
+        // Special: if prio==4 (2x workshop) and bit 0 (3x workshop) is set, count as drafted.
+        let already = (drafted_mask & (1 << prio)) != 0
+            || (prio == 4 && (drafted_mask & 1) != 0);
+        if already {
+            if best_dup.is_none() || prio < best_dup.unwrap().0 {
+                best_dup = Some((prio, id));
+            }
+        } else {
+            if best_new.is_none() || prio < best_new.unwrap().0 {
+                best_new = Some((prio, id));
+            }
+        }
+    }
+    best_new.or(best_dup).unwrap().1
+}
+
+/// Priority-based draft loop: at each pick, select the highest-priority
+/// action the player hasn't drafted yet this round.
+fn priority_draft_loop<R: Rng>(state: &mut GameState, _rng: &mut R) {
+    // Track drafted ability priorities per player
+    let mut drafted_masks = [0u8; MAX_PLAYERS];
+
+    loop {
+        let (hand, drafted_mask) = {
+            if let GamePhase::Draft { ref draft_state } = state.phase {
+                let player = draft_state.current_player_index;
+                let hand = draft_state.hands[player];
+                if hand.is_empty() {
+                    break;
+                }
+                (hand, drafted_masks[player])
+            } else {
+                break;
+            }
+        };
+
+        let card_id = pick_priority_draft_card(&hand, &state.card_lookup, drafted_mask);
+
+        // Update the drafted mask for this player
+        let prio = draft_priority(state.card_lookup[card_id as usize].ability());
+        let player = match &state.phase {
+            GamePhase::Draft { draft_state } => draft_state.current_player_index,
+            _ => break,
+        };
+        drafted_masks[player] |= 1 << prio;
+
+        player_pick(state, card_id as u32);
+    }
+}
+
+/// Like `heuristic_rollout_draw_and_draft` but uses priority-based selection
+/// to pick the best 4 cards from 5 dealt.
+fn priority_rollout_draw_and_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
+    let num_players = state.players.len();
+
+    // Step 1: Draw 5 cards from each player's personal deck
+    for i in 0..num_players {
+        let player = &mut state.players[i];
+        draw_from_deck(
+            &mut player.deck,
+            &mut player.discard,
+            &mut player.workshop_cards,
+            5,
+            rng,
+        );
+    }
+
+    // Step 2: Draw 5 cards per player from draft_deck
+    let mut dealt = [UnorderedCards::new(); MAX_PLAYERS];
+    for i in 0..num_players {
+        let deck_len = state.draft_deck.len();
+        if deck_len >= 5 {
+            dealt[i] = state.draft_deck.draw_multiple(5, rng);
+        } else {
+            dealt[i] = state.draft_deck;
+            state.draft_deck = UnorderedCards::new();
+            let remaining = 5 - deck_len;
+            if remaining > 0 && !state.destroyed_pile.is_empty() {
+                state.draft_deck = state.destroyed_pile;
+                state.destroyed_pile = UnorderedCards::new();
+                let available = state.draft_deck.len().min(remaining);
+                if available > 0 {
+                    let drawn = state.draft_deck.draw_multiple(available, rng);
+                    dealt[i] = dealt[i].union(drawn);
+                }
+            }
+        }
+    }
+
+    // Step 3: If any player got 0 cards, return all to destroyed_pile
+    if (0..num_players).any(|i| dealt[i].is_empty()) {
+        for i in 0..num_players {
+            state.destroyed_pile = state.destroyed_pile.union(dealt[i]);
+        }
+        state.destroyed_pile = state.destroyed_pile.union(state.draft_deck);
+        state.draft_deck = UnorderedCards::new();
+        initialize_action_phase(state);
+        return;
+    }
+
+    // Step 4: For each player, iteratively pick 4 best cards using priority
+    for i in 0..num_players {
+        if dealt[i].len() <= 4 {
+            continue;
+        }
+        let mut drafted_mask = 0u8;
+        let mut kept = UnorderedCards::new();
+        for _ in 0..4 {
+            let card_id = pick_priority_draft_card(&dealt[i], &state.card_lookup, drafted_mask);
+            let prio = draft_priority(state.card_lookup[card_id as usize].ability());
+            drafted_mask |= 1 << prio;
+            dealt[i].remove(card_id);
+            kept.insert(card_id);
+        }
+        // Remaining card(s) go to destroyed pile
+        state.destroyed_pile = state.destroyed_pile.union(dealt[i]);
+        dealt[i] = kept;
+    }
+
+    // Step 5: Assign remaining cards as drafted_cards
+    for i in 0..num_players {
+        state.players[i].drafted_cards = dealt[i];
+    }
+
+    // Step 6: Remaining draft_deck cards go to destroyed_pile
+    state.destroyed_pile = state.destroyed_pile.union(state.draft_deck);
+    state.draft_deck = UnorderedCards::new();
+
+    // Step 7: Go directly to action phase
+    initialize_action_phase(state);
 }
 
 // ── Sell card cache for heuristic rollout performance ──
@@ -1249,7 +1416,7 @@ fn two_step_heuristic_mix_seq<R: Rng>(
 }
 
 #[inline(always)]
-fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize, heuristic_draft: bool, cache: &SellCardCache, rng: &mut impl Rng) {
+fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize, heuristic_draft: bool, priority_draft: bool, cache: &SellCardCache, rng: &mut impl Rng) {
     // Glass: use same random policy (glass strategy is complex, not worth heuristic overhead)
     if try_activate_random_glass(state, player_index, rng) {
         return;
@@ -1259,7 +1426,9 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     if drafted.is_empty() {
         end_player_turn(state, rng);
         if matches!(state.phase, GamePhase::Draw) {
-            if heuristic_draft {
+            if priority_draft {
+                priority_rollout_draw_and_draft(state, rng);
+            } else if heuristic_draft {
                 heuristic_rollout_draw_and_draft(state, rng);
             } else {
                 rollout_draw_and_draft(state, rng);
@@ -1270,7 +1439,7 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
 
     // Epsilon: random fallback
     if rng.random_bool(HEURISTIC_EPSILON) {
-        handle_action_no_pending(state, player_index, heuristic_draft, rng);
+        handle_action_no_pending(state, player_index, heuristic_draft, priority_draft, rng);
         return;
     }
 
@@ -1344,10 +1513,12 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     }
 }
 
-pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, rng: &mut R) {
+pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, priority_draft: bool, rng: &mut R) {
     // Draft phase
     if matches!(&state.phase, GamePhase::Draft { .. }) {
-        if heuristic_draft {
+        if priority_draft {
+            priority_draft_loop(state, rng);
+        } else if heuristic_draft {
             heuristic_draft_loop(state, rng);
         } else {
             loop {
@@ -1375,7 +1546,7 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
             let cache = SellCardCache::new(&state.sell_card_display, &state.players[player_index].color_wheel, &state.players[player_index].materials);
             match action_state.ability_stack.last() {
                 None => {
-                    handle_action_no_pending_heuristic(state, player_index, heuristic_draft, &cache, rng);
+                    handle_action_no_pending_heuristic(state, player_index, heuristic_draft, priority_draft, &cache, rng);
                 }
                 Some(Ability::Workshop { count }) => {
                     let count = *count;
