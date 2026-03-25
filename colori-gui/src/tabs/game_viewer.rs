@@ -12,6 +12,7 @@ use colori_core::replay::{GameReplay, replay_to};
 use colori_core::scoring::{calculate_score, HeuristicParams};
 use colori_core::types::{
     Card, CardInstance, Choice, Color, GamePhase, GameState, SellCardInstance, ALL_COLORS, ALL_MATERIAL_TYPES,
+    MAX_PLAYERS,
 };
 
 use crate::analysis::computations::{
@@ -121,6 +122,36 @@ impl MctsGuiConfig {
             early_termination: self.early_termination,
             heuristic_params,
             ..MctsConfig::default()
+        }
+    }
+}
+
+/// Extract the current draft hand for `player_index` as `Vec<CardInstance>`.
+fn extract_draft_hand(state: &GameState, player_index: usize) -> Vec<CardInstance> {
+    if let GamePhase::Draft { ref draft_state } = state.phase {
+        draft_state.hands[player_index]
+            .iter()
+            .map(|id| CardInstance {
+                instance_id: id as u32,
+                card: state.card_lookup[id as usize],
+            })
+            .collect()
+    } else {
+        Vec::new()
+    }
+}
+
+/// Record the current draft hand into `draft_knowledge` for the given player,
+/// if we haven't already recorded a hand for this pick number.
+fn record_draft_hand(
+    draft_knowledge: &mut [Vec<Vec<CardInstance>>; MAX_PLAYERS],
+    state: &GameState,
+    player_index: usize,
+) {
+    if let GamePhase::Draft { ref draft_state } = state.phase {
+        let pick = draft_state.pick_number as usize;
+        if draft_knowledge[player_index].len() <= pick {
+            draft_knowledge[player_index].push(extract_draft_hand(state, player_index));
         }
     }
 }
@@ -251,6 +282,39 @@ impl GameViewerState {
             _ => return,
         };
 
+        // Reconstruct draft knowledge by replaying up to the selected entry
+        let known_draft_hands = if matches!(state.phase, GamePhase::Draft { .. }) {
+            if let (Some(initial_state_json), Some(game), Some(entry_index)) =
+                (&self.initial_state_json, &self.game, self.selected_entry_index)
+            {
+                let mut replay = GameReplay::new(initial_state_json, &game.initial_draws);
+                let mut dk: [Vec<Vec<CardInstance>>; MAX_PLAYERS] = Default::default();
+                let mut last_draft_round: Option<u32> = None;
+                for entry in &game.entries[..entry_index] {
+                    replay.fix_current_player_for_next(entry);
+                    if let Choice::DraftPick { .. } = &entry.choice {
+                        // Reset draft knowledge when a new draft round starts
+                        if last_draft_round != Some(entry.round) {
+                            for hands in dk.iter_mut() {
+                                hands.clear();
+                            }
+                            last_draft_round = Some(entry.round);
+                        }
+                        record_draft_hand(&mut dk, &replay.state, entry.player_index);
+                    }
+                    replay.apply_entry(entry);
+                }
+                // Record the current hand for the current pick
+                record_draft_hand(&mut dk, &state, player_index);
+                let hands = dk[player_index].clone();
+                if hands.is_empty() { None } else { Some(hands) }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
         let config = self.mcts_config.to_mcts_config();
         let max_rollout_round = std::cmp::max(8, state.round + 2);
 
@@ -259,12 +323,12 @@ impl GameViewerState {
         self.mcts_result = None;
 
         std::thread::spawn(move || {
-            let mut rng = WyRand::seed_from_u64(42);
+            let mut rng = WyRand::from_rng(&mut rand::rng());
             let result = ismcts(
                 &state,
                 player_index,
                 &config,
-                &None,
+                &known_draft_hands,
                 Some(max_rollout_round),
                 None,
                 &mut rng,
@@ -303,11 +367,24 @@ impl GameViewerState {
 
         std::thread::spawn(move || {
             let mut replay = GameReplay::new(&initial_state_json, &initial_draws);
-            let mut mcts_rng = WyRand::seed_from_u64(42);
+            let mut mcts_rng = WyRand::from_rng(&mut rand::rng());
+            let mut draft_knowledge: [Vec<Vec<CardInstance>>; MAX_PLAYERS] = Default::default();
+            let mut last_draft_round: Option<u32> = None;
 
             for (entry_index, entry) in entries.iter().enumerate() {
                 // Fix current_player_index for draft entries before running MCTS
                 replay.fix_current_player_for_next(entry);
+
+                // Track draft knowledge
+                if let Choice::DraftPick { .. } = &entry.choice {
+                    if last_draft_round != Some(entry.round) {
+                        for hands in draft_knowledge.iter_mut() {
+                            hands.clear();
+                        }
+                        last_draft_round = Some(entry.round);
+                    }
+                    record_draft_hand(&mut draft_knowledge, &replay.state, entry.player_index);
+                }
 
                 // Run MCTS if the state is in a decision phase
                 let player_index = match &replay.state.phase {
@@ -317,12 +394,18 @@ impl GameViewerState {
                 };
 
                 if let Some(player_index) = player_index {
+                    let known_draft_hands = if matches!(replay.state.phase, GamePhase::Draft { .. }) {
+                        let hands = draft_knowledge[player_index].clone();
+                        if hands.is_empty() { None } else { Some(hands) }
+                    } else {
+                        None
+                    };
                     let max_rollout_round = std::cmp::max(8, replay.state.round + 2);
                     let result = ismcts(
                         &replay.state,
                         player_index,
                         &config,
-                        &None,
+                        &known_draft_hands,
                         Some(max_rollout_round),
                         None,
                         &mut mcts_rng,
