@@ -93,7 +93,7 @@ impl Default for MctsGuiConfig {
     fn default() -> Self {
         let defaults = MctsConfig::default();
         Self {
-            iterations: 10_000,
+            iterations: 100_000,
             exploration_constant: defaults.exploration_constant,
             use_heuristic_eval: defaults.use_heuristic_eval,
             heuristic_rollout: defaults.heuristic_rollout,
@@ -956,7 +956,7 @@ fn render_mcts_section(
         .show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label("Iterations:");
-                ui.add(egui::DragValue::new(&mut config.iterations).range(100..=1_000_000));
+                ui.add(egui::DragValue::new(&mut config.iterations).range(100..=u32::MAX));
             });
             ui.horizontal(|ui| {
                 ui.label("Exploration constant:");
