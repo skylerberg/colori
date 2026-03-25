@@ -16,8 +16,6 @@ pub struct FirstPickParams {
     pub is_gum_arabic: f64,
     pub is_cream_of_tartar: f64,
     pub is_potash: f64,
-    pub is_linseed_oil: f64,
-    pub is_lye: f64,
     pub is_dual_material: f64,
     pub is_material_plus_color: f64,
     pub matching_tertiary_colors: f64,
@@ -37,8 +35,6 @@ impl Default for FirstPickParams {
             is_gum_arabic: 0.0,
             is_cream_of_tartar: 0.0,
             is_potash: 0.0,
-            is_linseed_oil: 0.0,
-            is_lye: 0.0,
             is_dual_material: 0.0,
             is_material_plus_color: 0.0,
             matching_tertiary_colors: 0.0,
@@ -79,8 +75,6 @@ impl FirstPickParams {
                     Card::GumArabic => score += self.is_gum_arabic,
                     Card::CreamOfTartar => score += self.is_cream_of_tartar,
                     Card::Potash => score += self.is_potash,
-                    Card::LinseedOil => score += self.is_linseed_oil,
-                    Card::Lye => score += self.is_lye,
                     _ => {}
                 }
             }

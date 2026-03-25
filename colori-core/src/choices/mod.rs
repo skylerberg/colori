@@ -161,12 +161,6 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                         }
                     }
                 }
-                Some(Ability::MoveToDrafted) => {
-                    choices.push(Choice::SkipMoveToDrafted);
-                    for_each_unique_card_type(&player.workshop_cards, &state.card_lookup, |card| {
-                        choices.push(Choice::SelectMoveToDrafted { card });
-                    });
-                }
                 // Instant abilities (DrawCards, GainDucats) should never be on top
                 // when waiting for a choice — they get processed immediately.
                 Some(_) => {}
@@ -571,24 +565,6 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
                 return false;
             }
             state.glass_display.iter().any(|g| g.card == *glass)
-        }
-        Choice::SelectMoveToDrafted { card } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                matches!(action_state.ability_stack.last(), Some(Ability::MoveToDrafted))
-                    && state.players[action_state.current_player_index]
-                        .workshop_cards
-                        .iter()
-                        .any(|id| state.card_lookup[id as usize] == *card)
-            } else {
-                false
-            }
-        }
-        Choice::SkipMoveToDrafted => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                matches!(action_state.ability_stack.last(), Some(Ability::MoveToDrafted))
-            } else {
-                false
-            }
         }
     }
 }

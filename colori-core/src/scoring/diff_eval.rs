@@ -3,13 +3,13 @@ use serde::{Deserialize, Serialize};
 use crate::types::*;
 
 /// MLP architecture constants
-pub const MLP_INPUT_SIZE: usize = 633;
+pub const MLP_INPUT_SIZE: usize = 613;
 pub const MLP_HIDDEN_SIZE: usize = 256;
 pub const MLP_HIDDEN2_SIZE: usize = 64;
 
 // Per-player feature counts
 const NUM_SELL_CARD_TYPES: usize = 54;
-const PER_PLAYER_FEATURES: usize = 259;
+const PER_PLAYER_FEATURES: usize = 249;
 
 // ── Parameter indices ──
 
@@ -149,7 +149,7 @@ impl DiffEvalParams {
 // ── Card type table ──
 
 #[allow(dead_code)]
-const ALL_CARDS: [Card; 48] = [
+const ALL_CARDS: [Card; 46] = [
     Card::BasicRed, Card::BasicYellow, Card::BasicBlue,
     Card::Kermes, Card::Weld, Card::Woad,
     Card::Lac, Card::Brazilwood, Card::Pomegranate,
@@ -165,7 +165,6 @@ const ALL_CARDS: [Card; 48] = [
     Card::ClayCanvas, Card::ClayFabric, Card::CanvasFabric,
     Card::Alum, Card::CreamOfTartar, Card::GumArabic,
     Card::Potash, Card::Vinegar, Card::Argol, Card::Chalk,
-    Card::LinseedOil, Card::Lye,
 ];
 
 /// Precomputed f32 MLP weights for fast inference.
@@ -314,20 +313,20 @@ pub(crate) fn compute_features(
         features[base + 18] = if has_acted { 1.0 } else { 0.0 };
 
         // Card counts per zone, using card_lookup to map instance IDs to card types
-        // [19..67] deck
+        // [19..65] deck
         count_cards_into(&player.deck, &state.card_lookup, &mut features, base + 19);
-        // [67..115] discard
-        count_cards_into(&player.discard, &state.card_lookup, &mut features, base + 67);
-        // [115..163] drafted
-        count_cards_into(&player.drafted_cards, &state.card_lookup, &mut features, base + 115);
-        // [163..211] workshop
-        count_cards_into(&player.workshop_cards, &state.card_lookup, &mut features, base + 163);
-        // [211..259] workshopped
-        count_cards_into(&player.workshopped_cards, &state.card_lookup, &mut features, base + 211);
+        // [65..111] discard
+        count_cards_into(&player.discard, &state.card_lookup, &mut features, base + 65);
+        // [111..157] drafted
+        count_cards_into(&player.drafted_cards, &state.card_lookup, &mut features, base + 111);
+        // [157..203] workshop
+        count_cards_into(&player.workshop_cards, &state.card_lookup, &mut features, base + 157);
+        // [203..249] workshopped
+        count_cards_into(&player.workshopped_cards, &state.card_lookup, &mut features, base + 203);
     }
 
-    // Shared state at offset 518
-    let shared_base = 518;
+    // Shared state at offset 498
+    let shared_base = 498;
 
     // [498..552] Sell card display: 54 binary flags
     for sci in state.sell_card_display.iter() {
@@ -343,25 +342,25 @@ pub(crate) fn compute_features(
         }
     }
 
-    // [626] Sell cards remaining in deck
+    // [606] Sell cards remaining in deck
     features[shared_base + 2 * NUM_SELL_CARD_TYPES] = state.sell_card_deck.len() as f32;
 
-    // [627] Round
+    // [607] Round
     features[shared_base + 2 * NUM_SELL_CARD_TYPES + 1] = state.round as f32;
 
-    // [628] Is draft phase
+    // [608] Is draft phase
     features[shared_base + 2 * NUM_SELL_CARD_TYPES + 2] = if is_draft_phase { 1.0 } else { 0.0 };
 
-    // [629] Is action phase
+    // [609] Is action phase
     features[shared_base + 2 * NUM_SELL_CARD_TYPES + 3] = if is_action_phase { 1.0 } else { 0.0 };
 
-    // [630] Draft deck size
+    // [610] Draft deck size
     features[shared_base + 2 * NUM_SELL_CARD_TYPES + 4] = state.draft_deck.len() as f32;
 
-    // [631] Destroyed pile size
+    // [611] Destroyed pile size
     features[shared_base + 2 * NUM_SELL_CARD_TYPES + 5] = state.destroyed_pile.len() as f32;
 
-    // [632] First player offset: 0 = perspective player goes first, 1 = opponent goes first
+    // [612] First player offset: 0 = perspective player goes first, 1 = opponent goes first
     let first_player_offset = if first_player == perspective_player { 0.0 } else { 1.0 };
     features[shared_base + 2 * NUM_SELL_CARD_TYPES + 6] = first_player_offset;
 

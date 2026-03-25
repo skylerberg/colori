@@ -383,10 +383,6 @@ pub fn format_choice(choice: &Choice) -> String {
                 )
             }
         }
-        Choice::SelectMoveToDrafted { card } => {
-            format!("Moved {} to drafted", card_name(card))
-        }
-        Choice::SkipMoveToDrafted => "Skipped move to drafted".to_string(),
     }
 }
 
@@ -443,8 +439,6 @@ fn choice_type_name(choice: &Choice) -> String {
         Choice::ActivateGlassDestroyClean { .. } => "activateGlassDestroyClean".to_string(),
         Choice::DestroyAndSelectGlass { .. } => "destroyAndSelectGlass".to_string(),
         Choice::WorkshopWithReworkshop { .. } => "workshopWithReworkshop".to_string(),
-        Choice::SelectMoveToDrafted { .. } => "selectMoveToDrafted".to_string(),
-        Choice::SkipMoveToDrafted => "skipMoveToDrafted".to_string(),
     }
 }
 

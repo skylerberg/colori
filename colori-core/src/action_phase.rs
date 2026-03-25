@@ -272,14 +272,6 @@ pub fn process_ability_stack<R: Rng>(state: &mut GameState, rng: &mut R) {
                     continue;
                 }
             }
-            Ability::MoveToDrafted => {
-                if state.players[player_index].workshop_cards.is_empty() {
-                    get_action_state_mut(state).ability_stack.pop();
-                    continue;
-                } else {
-                    return; // waiting for input
-                }
-            }
         }
     }
 }

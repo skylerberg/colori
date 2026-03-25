@@ -311,17 +311,5 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
             all_cards.insert(reworkshop_id as u8);
             resolve_workshop_with_reworkshop(state, all_cards, reworkshop_id as u8, rng);
         }
-        Choice::SelectMoveToDrafted { card } => {
-            get_action_state_mut(state).ability_stack.pop();
-            let player_index = get_action_state(state).current_player_index;
-            let id = find_card_instance(state, card, &state.players[player_index].workshop_cards);
-            state.players[player_index].workshop_cards.remove(id as u8);
-            state.players[player_index].drafted_cards.insert(id as u8);
-            process_ability_stack(state, rng);
-        }
-        Choice::SkipMoveToDrafted => {
-            get_action_state_mut(state).ability_stack.pop();
-            process_ability_stack(state, rng);
-        }
     }
 }

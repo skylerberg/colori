@@ -1,5 +1,5 @@
 use colori_core::cards::{
-    action_cards, draft_dye_cards, draft_material_cards, ACTION_COPIES, DYE_COPIES, MATERIAL_COPIES,
+    action_cards, dye_cards, draft_material_cards, ACTION_COPIES, DYE_COPIES, MATERIAL_COPIES,
 };
 use colori_core::types::{Ability, SellCard, Card};
 
@@ -40,7 +40,7 @@ pub fn get_draft_copies(card: Card) -> u32 {
 /// Get draft copies by card name string (used in normalization).
 /// For cards not in the draft deck, returns 1 as default.
 pub fn get_draft_copies_by_name(name: &str) -> u32 {
-    for card in draft_dye_cards() {
+    for card in dye_cards() {
         if card.name() == name {
             return DYE_COPIES as u32;
         }
@@ -71,6 +71,5 @@ pub fn format_ability(ability: &Ability) -> String {
         Ability::GainSecondary => "Gain Secondary".to_string(),
         Ability::GainPrimary => "Gain Primary".to_string(),
         Ability::ChangeTertiary => "Change Tertiary".to_string(),
-        Ability::MoveToDrafted => "Move to Drafted".to_string(),
     }
 }

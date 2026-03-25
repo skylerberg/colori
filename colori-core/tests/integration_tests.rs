@@ -265,7 +265,6 @@ fn generate_invalid_choices(state: &GameState) -> Vec<Choice> {
                 Card::StarterCeramics, Card::StarterPaintings, Card::StarterTextiles,
                 Card::Alum, Card::CreamOfTartar, Card::GumArabic,
                 Card::Potash, Card::Vinegar, Card::Argol, Card::Chalk,
-                Card::LinseedOil, Card::Lye,
             ];
             for &card in &all_cards {
                 let in_hand = hand.iter().any(|id| state.card_lookup[id as usize] == card);
@@ -393,10 +392,6 @@ fn generate_invalid_choices(state: &GameState) -> Vec<Choice> {
                     Ability::GainDucats { .. } => {
                         // GainDucats is auto-resolved, but just in case
                         invalid.push(Choice::EndTurn);
-                    }
-                    Ability::MoveToDrafted => {
-                        invalid.push(Choice::EndTurn);
-                        invalid.push(Choice::SkipWorkshop);
                     }
                 }
             }
@@ -926,8 +921,8 @@ fn test_draft_deck_card_count() {
     let state = create_initial_game_state(2, &[true, true], &mut rng);
     assert_eq!(
         state.draft_deck.len(),
-        90,
-        "Draft deck should have 90 cards (54 dye + 12 material + 24 action)"
+        91,
+        "Draft deck should have 91 cards (63 dye + 12 material + 16 action)"
     );
 }
 
