@@ -42,6 +42,11 @@ export class GameLogAccumulator {
     }
   }
 
+  truncateEntries(length: number) {
+    this.log.entries = this.log.entries.slice(0, length);
+    this.seq = length;
+  }
+
   /** Replace the last entry's choice with a compound choice (preserving draws). */
   replaceLastEntry(_state: GameState, compoundChoice: Choice, _playerIndex: number) {
     const lastEntry = this.log.entries[this.log.entries.length - 1];

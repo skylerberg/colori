@@ -39,7 +39,7 @@
   let aiError: string | null = $state(null);
   let gameLog: string[] = $state(initialGameLog);
 
-  let undoStack: { gameState: GameState; logLength: number; draftCardOrder: number[][] }[] = $state([]);
+  let undoStack: { gameState: GameState; logLength: number; accumulatorLength: number; draftCardOrder: number[][] }[] = $state([]);
   let undoPlayerIndex: number | null = $state(null);
 
   function pushUndoSnapshot() {
@@ -52,6 +52,7 @@
     undoStack.push({
       gameState: cloneGameState(gameState),
       logLength: gameLog.length,
+      accumulatorLength: gameLogAccumulator?.getLog().entries.length ?? 0,
       draftCardOrder: draftCardOrder.map(order => [...order]),
     });
   }
@@ -62,6 +63,7 @@
     pendingDestroyCard = null;
     gameState = snapshot.gameState;
     gameLog = gameLog.slice(0, snapshot.logLength);
+    gameLogAccumulator?.truncateEntries(snapshot.accumulatorLength);
     draftCardOrder = snapshot.draftCardOrder;
     onGameUpdated(gameState, gameLog);
   }
