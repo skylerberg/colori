@@ -93,7 +93,7 @@ pub fn create_initial_game_state_with_expansions<R: Rng>(num_players: usize, ai_
     // Build draft deck
     let mut draft_deck = UnorderedCards::new();
 
-    for dye in dye_cards() {
+    for dye in draft_dye_cards() {
         for _ in 0..DYE_COPIES {
             let id = next_card_id();
             card_lookup[id as usize] = dye;

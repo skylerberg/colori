@@ -7,11 +7,6 @@ pub struct CardCategory {
 pub fn draft_card_categories() -> Vec<CardCategory> {
     vec![
         CardCategory {
-            label: "Pure Primary Dyes",
-            card_names: vec!["Kermes", "Weld", "Woad"],
-            total_copies: 9,
-        },
-        CardCategory {
             label: "Primary Dyes",
             card_names: vec![
                 "Lac",
@@ -49,8 +44,8 @@ pub fn draft_card_categories() -> Vec<CardCategory> {
         },
         CardCategory {
             label: "Action Cards",
-            card_names: vec!["Alum", "Cream of Tartar", "Gum Arabic", "Potash"],
-            total_copies: 16,
+            card_names: vec!["Alum", "Cream of Tartar", "Gum Arabic", "Potash", "Linseed Oil", "Lye"],
+            total_copies: 24,
         },
         CardCategory {
             label: "Material + Color",

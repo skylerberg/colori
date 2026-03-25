@@ -281,6 +281,18 @@ export const ACTION_CARDS: ActionCardData[] = [
     ability: { type: 'drawCards', count: 2 },
     workshopAbilities: [{ type: 'workshop', count: 3 }],
   },
+  {
+    kind: 'action',
+    name: 'Linseed Oil',
+    ability: { type: 'destroyCards' },
+    workshopAbilities: [{ type: 'mixColors', count: 1 }],
+  },
+  {
+    kind: 'action',
+    name: 'Lye',
+    ability: { type: 'destroyCards' },
+    workshopAbilities: [{ type: 'moveToDrafted' }],
+  },
 ];
 
 export const PRIMARIES: Color[] = ['Red', 'Yellow', 'Blue'];
@@ -400,6 +412,8 @@ CARD_LOOKUP['Alum'] = ACTION_CARDS[0];
 CARD_LOOKUP['CreamOfTartar'] = ACTION_CARDS[1];
 CARD_LOOKUP['GumArabic'] = ACTION_CARDS[2];
 CARD_LOOKUP['Potash'] = ACTION_CARDS[3];
+CARD_LOOKUP['LinseedOil'] = ACTION_CARDS[4];
+CARD_LOOKUP['Lye'] = ACTION_CARDS[5];
 CARD_LOOKUP['Chalk'] = CHALK_CARD;
 
 const SELL_CARD_LOOKUP: Record<string, SellCardData> = {};
@@ -483,9 +497,6 @@ export function getCardColors(card: string): Color[] {
 }
 
 export const DRAFT_COPY_COUNTS: Record<string, number> = {};
-DRAFT_COPY_COUNTS['Kermes'] = 3;
-DRAFT_COPY_COUNTS['Weld'] = 3;
-DRAFT_COPY_COUNTS['Woad'] = 3;
 DRAFT_COPY_COUNTS['Lac'] = 3;
 DRAFT_COPY_COUNTS['Brazilwood'] = 3;
 DRAFT_COPY_COUNTS['Pomegranate'] = 3;
@@ -520,6 +531,8 @@ DRAFT_COPY_COUNTS['Alum'] = 4;
 DRAFT_COPY_COUNTS['Cream of Tartar'] = 4;
 DRAFT_COPY_COUNTS['Gum Arabic'] = 4;
 DRAFT_COPY_COUNTS['Potash'] = 4;
+DRAFT_COPY_COUNTS['Linseed Oil'] = 4;
+DRAFT_COPY_COUNTS['Lye'] = 4;
 
 export function getDraftCopies(name: string): number {
   return DRAFT_COPY_COUNTS[name] ?? 1;
@@ -532,11 +545,11 @@ export interface CardCategory {
 }
 
 export const DRAFT_CARD_CATEGORIES: CardCategory[] = [
-  { label: 'Pure Primary Dyes', cardNames: ['Kermes', 'Weld', 'Woad'], totalCopies: 9 },
+  { label: 'Pure Primary Dyes', cardNames: [], totalCopies: 0 },
   { label: 'Primary Dyes', cardNames: ['Lac', 'Brazilwood', 'Pomegranate', 'Sumac', 'Elderberry', 'Turnsole'], totalCopies: 18 },
   { label: 'Secondary Dyes', cardNames: ['Madder', 'Turmeric', 'Dyer\'s Greenweed', 'Verdigris', 'Orchil', 'Logwood'], totalCopies: 18 },
   { label: 'Tertiary Dyes', cardNames: ['Vermilion', 'Saffron', 'Persian Berries', 'Azurite', 'Indigo', 'Cochineal'], totalCopies: 18 },
-  { label: 'Action Cards', cardNames: ['Alum', 'Cream of Tartar', 'Gum Arabic', 'Potash'], totalCopies: 16 },
+  { label: 'Action Cards', cardNames: ['Alum', 'Cream of Tartar', 'Gum Arabic', 'Potash', 'Linseed Oil', 'Lye'], totalCopies: 24 },
   { label: 'Double Materials', cardNames: [], totalCopies: 0 },
   { label: 'Material + Color', cardNames: ['Terra Cotta', 'Ochre Ware', 'Cobalt Ware', 'Cinnabar & Canvas', 'Orpiment & Canvas', 'Ultramarine & Canvas', 'Alizarin & Fabric', 'Fustic & Fabric', 'Pastel & Fabric'], totalCopies: 9 },
   { label: 'Dual Materials', cardNames: ['Clay & Canvas', 'Clay & Fabric', 'Canvas & Fabric'], totalCopies: 3 },

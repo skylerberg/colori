@@ -14,6 +14,7 @@ fn format_ability(ability: &Ability) -> String {
         Ability::GainSecondary => "{ type: 'gainSecondary' }".to_string(),
         Ability::GainPrimary => "{ type: 'gainPrimary' }".to_string(),
         Ability::ChangeTertiary => "{ type: 'changeTertiary' }".to_string(),
+        Ability::MoveToDrafted => "{ type: 'moveToDrafted' }".to_string(),
     }
 }
 
@@ -353,7 +354,7 @@ fn main() {
 
     // DRAFT_COPY_COUNTS
     out.push_str("export const DRAFT_COPY_COUNTS: Record<string, number> = {};\n");
-    for card in dye_cards() {
+    for card in draft_dye_cards() {
         write!(
             out,
             "DRAFT_COPY_COUNTS['{}'] = {};\n",
@@ -395,7 +396,7 @@ fn main() {
     let mut secondary_dye_names: Vec<String> = Vec::new();
     let mut tertiary_dye_names: Vec<String> = Vec::new();
 
-    for card in dye_cards() {
+    for card in draft_dye_cards() {
         let name = card.name().replace('\'', "\\'");
         let colors = card.colors();
         if colors.len() == 3 && colors[0] == colors[1] && colors[1] == colors[2] {

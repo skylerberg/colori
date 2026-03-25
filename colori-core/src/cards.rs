@@ -33,6 +33,17 @@ pub fn dye_cards() -> [Card; 21] {
     ]
 }
 
+pub fn draft_dye_cards() -> [Card; 18] {
+    [
+        Card::Lac, Card::Brazilwood, Card::Pomegranate,
+        Card::Sumac, Card::Elderberry, Card::Turnsole,
+        Card::Madder, Card::Turmeric, Card::DyersGreenweed,
+        Card::Verdigris, Card::Orchil, Card::Logwood,
+        Card::VermilionDye, Card::Saffron, Card::PersianBerries,
+        Card::Azurite, Card::IndigoDye, Card::Cochineal,
+    ]
+}
+
 pub fn draft_material_cards() -> [Card; 12] {
     [
         Card::TerraCotta, Card::OchreWare, Card::CobaltWare,
@@ -42,9 +53,9 @@ pub fn draft_material_cards() -> [Card; 12] {
     ]
 }
 
-pub fn action_cards() -> [Card; 4] {
+pub fn action_cards() -> [Card; 6] {
     // Vinegar is temporarily removed from the draft deck and will be added back
-    [Card::Alum, Card::CreamOfTartar, Card::GumArabic, Card::Potash]
+    [Card::Alum, Card::CreamOfTartar, Card::GumArabic, Card::Potash, Card::LinseedOil, Card::Lye]
 }
 
 pub fn generate_all_glass() -> [GlassCard; 11] {

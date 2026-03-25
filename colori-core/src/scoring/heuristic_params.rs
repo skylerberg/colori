@@ -32,6 +32,8 @@ pub struct HeuristicParams {
     pub potash_quality: Option<f64>,
     pub vinegar_quality: Option<f64>,
     pub argol_quality: Option<f64>,
+    pub linseed_oil_quality: Option<f64>,
+    pub lye_quality: Option<f64>,
     // Per-dye-type quality overrides
     pub pure_primary_dye_quality: Option<f64>,
     pub primary_dye_quality: Option<f64>,
@@ -74,6 +76,8 @@ impl Default for HeuristicParams {
             potash_quality: None,
             vinegar_quality: None,
             argol_quality: None,
+            linseed_oil_quality: None,
+            lye_quality: None,
             pure_primary_dye_quality: None,
             primary_dye_quality: None,
             secondary_dye_quality: None,
