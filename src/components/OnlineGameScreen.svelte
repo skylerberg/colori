@@ -43,6 +43,7 @@
   });
 
   // AI controller (host only)
+  // svelte-ignore state_referenced_locally
   const aiController = role === 'host' ? new AIController() : null;
 
   // Derive the GameState for rendering (works for both host and guest)
@@ -85,6 +86,7 @@
   );
 
   // Setup host controller callbacks
+  // svelte-ignore state_referenced_locally
   if (role === 'host' && hostController) {
     hostController.onGameStateChanged = (state) => {
       hostGameState = state;
@@ -103,6 +105,7 @@
   }
 
   // Setup guest controller callbacks
+  // svelte-ignore state_referenced_locally
   if (role === 'guest' && guestController) {
     guestController.onSanitizedStateChanged = (state) => {
       guestSanitizedState = state;

@@ -175,6 +175,9 @@
             class:clickable={interactive && wheel[region.color] > 0}
             class:selected={isSelected(region.color)}
             onclick={() => handleClick(region.color)}
+            onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(region.color); } }}
+            role="button"
+            tabindex="0"
           />
         {/each}
       {/if}

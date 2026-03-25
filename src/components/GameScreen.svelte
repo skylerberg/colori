@@ -33,10 +33,12 @@
     return () => clearInterval(interval);
   });
 
+  // svelte-ignore state_referenced_locally
   let draftCardOrder: number[][] = $state(gameState.players.map(() => []));
   let drawExecutedForRound: number | null = $state(null);
   let aiThinking = $state(false);
   let aiError: string | null = $state(null);
+  // svelte-ignore state_referenced_locally
   let gameLog: string[] = $state(initialGameLog);
 
   let undoStack: { gameState: GameState; logLength: number; accumulatorLength: number; draftCardOrder: number[][] }[] = $state([]);
@@ -94,6 +96,7 @@
   }
 
   const aiController = new AIController();
+  // svelte-ignore state_referenced_locally
   aiController.aiStyle = aiStyle;
 
   // Simultaneous draft state
@@ -373,29 +376,6 @@
 </GameLayout>
 
 <style>
-  .readonly-cards {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .section-box {
-    border: 1px solid rgba(201, 168, 76, 0.4);
-    border-radius: 6px;
-    padding: 6px 8px;
-    background: rgba(20, 15, 10, 0.6);
-    text-align: left;
-  }
-
-  .section-box h3 {
-    font-family: var(--font-display, 'Cinzel', serif);
-    font-size: 0.75rem;
-    color: #c9a84c;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 4px;
-  }
-
   .waiting-indicator {
     display: flex;
     align-items: center;
@@ -440,14 +420,6 @@
     .waiting-spinner {
       width: 16px;
       height: 16px;
-    }
-
-    .section-box {
-      padding: 6px 8px;
-    }
-
-    .section-box h3 {
-      font-size: 0.75rem;
     }
   }
 </style>

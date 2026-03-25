@@ -244,8 +244,9 @@
   </div>
 
   {#if showLog}
-    <div class="log-overlay" onclick={() => showLog = false}>
-      <div class="log-modal" onclick={(e) => e.stopPropagation()}>
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <div class="log-overlay" onclick={() => showLog = false} role="presentation">
+      <div class="log-modal" onclick={(e) => e.stopPropagation()} role="dialog" tabindex="-1">
         <div class="log-modal-header">
           <span class="log-modal-title">Game Log</span>
           <button class="log-close-btn" onclick={() => showLog = false}>&times;</button>

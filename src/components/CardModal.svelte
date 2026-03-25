@@ -22,8 +22,9 @@
   );
 </script>
 
-<div class="modal-overlay" onclick={onClose}>
-  <div class="modal-box" onclick={(e) => e.stopPropagation()}>
+<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+<div class="modal-overlay" onclick={onClose} role="presentation">
+  <div class="modal-box" onclick={(e) => e.stopPropagation()} role="dialog" tabindex="-1">
     <div class="modal-header">
       <span class="modal-title">{title}</span>
       <button class="close-btn" onclick={onClose}>&times;</button>
