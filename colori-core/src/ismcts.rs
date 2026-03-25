@@ -235,15 +235,15 @@ impl MctsNode {
 
     /// Compute aggregate tree statistics.
     pub fn tree_stats(&self) -> TreeStats {
-        let mut stats = TreeStatsAccum { total_nodes: 0, internal_nodes: 0, total_children: 0, max_depth: 0 };
+        let mut stats = TreeStatsAccum { total_nodes: 0, max_depth: 0 };
         self.tree_stats_recurse(&mut stats, 0);
         TreeStats {
             total_nodes: stats.total_nodes,
             max_depth: stats.max_depth,
-            avg_branching_factor: if stats.internal_nodes == 0 {
+            avg_branching_factor: if stats.max_depth == 0 {
                 0.0
             } else {
-                stats.total_children as f64 / stats.internal_nodes as f64
+                (stats.total_nodes as f64).powf(1.0 / stats.max_depth as f64)
             },
         }
     }
@@ -253,23 +253,14 @@ impl MctsNode {
         if depth > acc.max_depth {
             acc.max_depth = depth;
         }
-        let visited_children: Vec<&MctsNode> = self.children.iter()
-            .filter(|c| c.visit_count > 0)
-            .collect();
-        if !visited_children.is_empty() {
-            acc.internal_nodes += 1;
-            acc.total_children += visited_children.len();
-            for child in visited_children {
-                child.tree_stats_recurse(acc, depth + 1);
-            }
+        for child in self.children.iter().filter(|c| c.visit_count > 0) {
+            child.tree_stats_recurse(acc, depth + 1);
         }
     }
 }
 
 struct TreeStatsAccum {
     total_nodes: usize,
-    internal_nodes: usize,
-    total_children: usize,
     max_depth: usize,
 }
 
