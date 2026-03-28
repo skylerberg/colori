@@ -320,7 +320,7 @@ const CARD_DATA: [CardProperties; 48] = [
     // Chalk
     CardProperties { name: "Chalk", kind: CardKind::Action, ability: Ability::Sell, colors: &[], material_types: &[], workshop_abilities: &[Ability::GainPrimary] },
     // LinseedOil
-    CardProperties { name: "Linseed Oil", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::MixColors { count: 1 }] },
+    CardProperties { name: "Linseed Oil", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::MixColors { count: 2 }] },
     // Lye — not currently in draft deck
     CardProperties { name: "Lye", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::MoveToDrafted] },
 ];

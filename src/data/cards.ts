@@ -285,7 +285,7 @@ export const ACTION_CARDS: ActionCardData[] = [
     kind: 'action',
     name: 'Linseed Oil',
     ability: { type: 'destroyCards' },
-    workshopAbilities: [{ type: 'mixColors', count: 1 }],
+    workshopAbilities: [{ type: 'mixColors', count: 2 }],
   },
   {
     kind: 'action',

@@ -265,7 +265,7 @@ Their workshop abilities (triggered when chosen during Workshop resolution) are:
 | Cream of Tartar | Destroy Cards ×1 | Draw Cards ×3 | Draft deck |
 | Gum Arabic | Destroy Cards ×1 | Any Secondary | Draft deck |
 | Potash | Draw Cards ×2 | Workshop ×3 | Draft deck |
-| Linseed Oil | Destroy Cards ×1 | Mix Colors ×1 | Draft deck |
+| Linseed Oil | Destroy Cards ×1 | Mix Colors ×2 | Draft deck |
 | Vinegar | Destroy Cards ×1 | Change Tertiary | Draft deck |
 | Lye | Destroy Cards ×1 | Move to Drafted | Not in draft deck |
 
