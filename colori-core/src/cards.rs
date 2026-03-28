@@ -54,8 +54,8 @@ pub fn draft_material_cards() -> [Card; 12] {
 }
 
 pub fn action_cards() -> [Card; 6] {
-    // Vinegar is temporarily removed from the draft deck and will be added back
-    [Card::Alum, Card::CreamOfTartar, Card::GumArabic, Card::Potash, Card::LinseedOil, Card::Lye]
+    // Lye is not currently in the draft deck
+    [Card::Alum, Card::CreamOfTartar, Card::GumArabic, Card::Potash, Card::LinseedOil, Card::Vinegar]
 }
 
 pub fn generate_all_glass() -> [GlassCard; 11] {

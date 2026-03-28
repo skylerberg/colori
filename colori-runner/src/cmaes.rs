@@ -420,10 +420,9 @@ pub fn run_genetic_algorithm(args: &TrainHeuristicEvalArgs, threads: usize, outp
         eprintln!("Using provided baseline params file");
     }
 
-    // Always freeze vinegar/argol (not in draft deck); freeze glass_weight when glass expansion is disabled
+    // Always freeze argol (not in draft deck); freeze glass_weight when glass expansion is disabled
     // Freezing deck size genes for our current test
     let mut frozen_genes: Vec<usize> = vec![
-        Gene::VinegarQuality as usize,
         Gene::ArgolQuality as usize,
         Gene::CardsInDeck as usize,
         Gene::CardsInDeckSquared as usize,

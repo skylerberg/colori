@@ -313,7 +313,7 @@ const CARD_DATA: [CardProperties; 48] = [
     CardProperties { name: "Gum Arabic", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::GainSecondary] },
     // Potash
     CardProperties { name: "Potash", kind: CardKind::Action, ability: Ability::DrawCards { count: 2 }, colors: &[], material_types: &[], workshop_abilities: &[Ability::Workshop { count: 3 }] },
-    // Vinegar — temporarily removed from draft deck, will be added back
+    // Vinegar
     CardProperties { name: "Vinegar", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::ChangeTertiary] },
     // Argol — not currently used
     CardProperties { name: "Argol", kind: CardKind::Action, ability: Ability::Sell, colors: &[], material_types: &[], workshop_abilities: &[Ability::DrawCards { count: 2 }] },
@@ -321,7 +321,7 @@ const CARD_DATA: [CardProperties; 48] = [
     CardProperties { name: "Chalk", kind: CardKind::Action, ability: Ability::Sell, colors: &[], material_types: &[], workshop_abilities: &[Ability::GainPrimary] },
     // LinseedOil
     CardProperties { name: "Linseed Oil", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::MixColors { count: 1 }] },
-    // Lye
+    // Lye — not currently in draft deck
     CardProperties { name: "Lye", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::MoveToDrafted] },
 ];
 

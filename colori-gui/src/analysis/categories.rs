@@ -44,7 +44,7 @@ pub fn draft_card_categories() -> Vec<CardCategory> {
         },
         CardCategory {
             label: "Action Cards",
-            card_names: vec!["Alum", "Cream of Tartar", "Gum Arabic", "Potash", "Linseed Oil", "Lye"],
+            card_names: vec!["Alum", "Cream of Tartar", "Gum Arabic", "Potash", "Linseed Oil", "Vinegar"],
             total_copies: 24,
         },
         CardCategory {

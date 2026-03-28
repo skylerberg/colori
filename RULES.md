@@ -25,8 +25,7 @@ Each player has their own color wheel that tracks how many of each color they ha
 - Basic Yellow — 1 Yellow color | Destroy: Sell
 - Basic Blue — 1 Blue color | Destroy: Sell
 
-**Dye Cards** (21 unique, 3 copies each, 63 total in draft deck):
-- 3 Pure primary dyes — 3 colors of one primary color | Destroy: Mix Colors ×3
+**Dye Cards** (18 unique in draft deck, 3 copies each, 54 total in draft deck):
 - 6 Primary dyes — 2 colors of one primary + 1 color of a different primary | Destroy: Workshop ×3
 - 6 Secondary dyes — 2 colors of two adjacent primary/secondary colors | Destroy: Mix Colors ×2
 - 6 Tertiary dyes — 1 color of a tertiary color | Destroy: Sell
@@ -37,7 +36,7 @@ Starting deck materials gain 1 material when workshopped. Draft material cards o
 - Paintings | Destroy: Sell
 - Textiles | Destroy: Draw Cards ×2
 
-**Action Cards** (4 unique in draft deck, 4 copies each, 16 total; plus Chalk as a starter card):
+**Action Cards** (6 unique in draft deck, 4 copies each, 24 total; plus Chalk as a starter card):
 Each action card has a destroy ability plus workshop abilities that trigger when the card is chosen during Workshop resolution. See the card reference below.
 
 **Sell Cards** (54 total, single deck):
@@ -45,7 +44,7 @@ Each sell card requires 1 of a specific material type and a set of colors as its
 
 ### Decks
 
-- **Draft Deck**: Contains 63 dye cards + 15 draft material cards + 16 action cards (94 total). When the draft deck runs out, shuffle all destroyed cards back in.
+- **Draft Deck**: Contains 54 dye cards + 12 draft material cards + 24 action cards (90 total). When the draft deck runs out, shuffle all destroyed cards back in.
 - **Sell Card Deck**: Contains all sell cards. numPlayers + 1 sell cards are displayed face-up at all times.
 - **Personal Deck**: Each player has their own deck that they draw from and build over the course of the game.
 
@@ -53,7 +52,7 @@ Each sell card requires 1 of a specific material type and a set of colors as its
 
 1. Each player receives a starting personal deck of 7 cards: 1 Basic Red, 1 Basic Yellow, 1 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles, 1 Chalk. Shuffle it.
 2. Each player starts with 1 Red, 1 Yellow, and 1 Blue already stored on their color wheel.
-3. Place all dye cards (3 copies each), 15 unique draft material cards, and action cards (4 copies each) into the draft deck. Shuffle it.
+3. Place 18 draft dye cards (3 copies each), 12 unique draft material cards, and 6 action cards (4 copies each) into the draft deck. Shuffle it.
 4. Shuffle the sell card deck and reveal numPlayers + 1 sell cards face-up in the sell card display.
 
 ## Player Area
@@ -187,9 +186,9 @@ Each player's score = total ducats (from sell cards + Gain Ducats ability). The 
 | Basic Yellow | 1 Yellow | Sell |
 | Basic Blue | 1 Blue | Sell |
 
-### Dye Cards (21 unique, 3 copies each in draft deck)
+### Dye Cards (18 unique in draft deck, 3 copies each)
 
-**Pure Primary Dyes** (3 colors of one primary color):
+**Pure Primary Dyes** (not in draft deck):
 
 | Name | Colors | Destroy Ability |
 |------|--------|-----------------|
@@ -255,7 +254,7 @@ Each player's score = total ducats (from sell cards + Gain Ducats ability). The 
 | Clay & Fabric | 1 Ceramics + 1 Textiles | — | Sell |
 | Canvas & Fabric | 1 Paintings + 1 Textiles | — | Sell |
 
-### Action Cards (4 unique in draft deck, 4 copies each; plus Chalk as a starter)
+### Action Cards (6 unique in draft deck, 4 copies each; plus Chalk as a starter)
 
 Their workshop abilities (triggered when chosen during Workshop resolution) are:
 
@@ -266,7 +265,9 @@ Their workshop abilities (triggered when chosen during Workshop resolution) are:
 | Cream of Tartar | Destroy Cards ×1 | Draw Cards ×3 | Draft deck |
 | Gum Arabic | Destroy Cards ×1 | Any Secondary | Draft deck |
 | Potash | Draw Cards ×2 | Workshop ×3 | Draft deck |
-| Vinegar | Destroy Cards ×1 | Change Tertiary | Temporarily removed from draft deck |
+| Linseed Oil | Destroy Cards ×1 | Mix Colors ×1 | Draft deck |
+| Vinegar | Destroy Cards ×1 | Change Tertiary | Draft deck |
+| Lye | Destroy Cards ×1 | Move to Drafted | Not in draft deck |
 
 ### Sell Cards (54 total, single deck)
 
