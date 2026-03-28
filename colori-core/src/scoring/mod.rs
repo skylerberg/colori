@@ -12,7 +12,7 @@ use crate::colors::{PRIMARIES, SECONDARIES, TERTIARIES};
 use crate::fixed_vec::FixedVec;
 use crate::types::*;
 
-const ALL_CARDS: [Card; 46] = [
+const ALL_CARDS: [Card; 48] = [
     Card::BasicRed, Card::BasicYellow, Card::BasicBlue,
     Card::Kermes, Card::Weld, Card::Woad,
     Card::Lac, Card::Brazilwood, Card::Pomegranate,
@@ -28,21 +28,22 @@ const ALL_CARDS: [Card; 46] = [
     Card::ClayCanvas, Card::ClayFabric, Card::CanvasFabric,
     Card::Alum, Card::CreamOfTartar, Card::GumArabic,
     Card::Potash, Card::Vinegar, Card::Argol, Card::Chalk,
+    Card::LinseedOil, Card::Lye,
 ];
 
 pub struct CardHeuristicTable {
-    quality: [f64; 46],
-    primary_mask: [u8; 46],
-    secondary_mask: [u8; 46],
-    material_mask: [u8; 46],
+    quality: [f64; 48],
+    primary_mask: [u8; 48],
+    secondary_mask: [u8; 48],
+    material_mask: [u8; 48],
 }
 
 impl CardHeuristicTable {
     pub fn new(params: &HeuristicParams) -> Self {
-        let mut quality = [0.0f64; 46];
-        let mut primary_mask = [0u8; 46];
-        let mut secondary_mask = [0u8; 46];
-        let mut material_mask = [0u8; 46];
+        let mut quality = [0.0f64; 48];
+        let mut primary_mask = [0u8; 48];
+        let mut secondary_mask = [0u8; 48];
+        let mut material_mask = [0u8; 48];
         for &card in &ALL_CARDS {
             let idx = card as usize;
             quality[idx] = card_quality(card, params);
@@ -114,6 +115,8 @@ fn card_quality(card: Card, params: &HeuristicParams) -> f64 {
                 Card::Potash => params.potash_quality,
                 Card::Vinegar => params.vinegar_quality,
                 Card::Argol => params.argol_quality,
+                Card::LinseedOil => params.linseed_oil_quality,
+                Card::Lye => params.lye_quality,
                 _ => None,
             }
             .unwrap_or(params.action_quality)

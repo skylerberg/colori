@@ -135,6 +135,8 @@ pub enum Ability {
     GainPrimary,
     #[serde(rename = "changeTertiary")]
     ChangeTertiary,
+    #[serde(rename = "moveToDrafted")]
+    MoveToDrafted,
 }
 
 // ── CardKind ──
@@ -203,7 +205,7 @@ pub enum Card {
     ClayCanvas,
     ClayFabric,
     CanvasFabric,
-    // Actions (6)
+    // Actions (8)
     Alum,
     CreamOfTartar,
     GumArabic,
@@ -211,6 +213,8 @@ pub enum Card {
     Vinegar,
     Argol,
     Chalk,
+    LinseedOil,
+    Lye,
 }
 
 struct CardProperties {
@@ -222,7 +226,7 @@ struct CardProperties {
     workshop_abilities: &'static [Ability],
 }
 
-const CARD_DATA: [CardProperties; 46] = [
+const CARD_DATA: [CardProperties; 48] = [
     // BasicRed
     CardProperties { name: "Basic Red", kind: CardKind::BasicDye, ability: Ability::Sell, colors: &[Color::Red], material_types: &[], workshop_abilities: &[] },
     // BasicYellow
@@ -315,6 +319,10 @@ const CARD_DATA: [CardProperties; 46] = [
     CardProperties { name: "Argol", kind: CardKind::Action, ability: Ability::Sell, colors: &[], material_types: &[], workshop_abilities: &[Ability::DrawCards { count: 2 }] },
     // Chalk
     CardProperties { name: "Chalk", kind: CardKind::Action, ability: Ability::Sell, colors: &[], material_types: &[], workshop_abilities: &[Ability::GainPrimary] },
+    // LinseedOil
+    CardProperties { name: "Linseed Oil", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::MixColors { count: 1 }] },
+    // Lye
+    CardProperties { name: "Lye", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::MoveToDrafted] },
 ];
 
 impl Card {
@@ -890,4 +898,10 @@ pub enum Choice {
         #[serde(rename = "otherCards")]
         other_cards: SmallVec<[Card; 4]>,
     },
+
+    // MoveToDrafted ability (Lye workshop ability)
+    #[serde(rename = "selectMoveToDrafted")]
+    SelectMoveToDrafted { card: Card },
+    #[serde(rename = "skipMoveToDrafted")]
+    SkipMoveToDrafted,
 }

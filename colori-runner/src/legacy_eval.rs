@@ -141,7 +141,7 @@ fn classify_card(card: Card) -> LegacyCardCategory {
         Card::GumArabic => LegacyCardCategory::ActionGumArabic,
         Card::Potash => LegacyCardCategory::ActionPotash,
         Card::Chalk => LegacyCardCategory::ActionChalk,
-        Card::Vinegar | Card::Argol => LegacyCardCategory::ActionOther,
+        Card::Vinegar | Card::Argol | Card::LinseedOil | Card::Lye => LegacyCardCategory::ActionOther,
 
         // Starter materials (no colors, single mat type)
         Card::StarterCeramics | Card::StarterPaintings | Card::StarterTextiles => {

@@ -18,7 +18,8 @@ export type Ability =
   | { type: 'gainDucats'; count: number }
   | { type: 'gainSecondary' }
   | { type: 'gainPrimary' }
-  | { type: 'changeTertiary' };
+  | { type: 'changeTertiary' }
+  | { type: 'moveToDrafted' };
 
 // Card variant name strings from Rust
 export type Card = 'BasicRed' | 'BasicYellow' | 'BasicBlue'
@@ -31,7 +32,8 @@ export type Card = 'BasicRed' | 'BasicYellow' | 'BasicBlue'
   | 'CinnabarCanvas' | 'OrpimentCanvas' | 'UltramarineCanvas'
   | 'AlizarinFabric' | 'FusticFabric' | 'PastelFabric'
   | 'ClayCanvas' | 'ClayFabric' | 'CanvasFabric'
-  | 'Alum' | 'CreamOfTartar' | 'GumArabic' | 'Potash' | 'Vinegar' | 'Argol' | 'Chalk';
+  | 'Alum' | 'CreamOfTartar' | 'GumArabic' | 'Potash' | 'Vinegar' | 'Argol' | 'Chalk'
+  | 'LinseedOil' | 'Lye';
 
 export type SellCard = 'Textiles2Vermilion' | 'Textiles2Amber' | 'Textiles2Chartreuse'
   | 'Textiles2Teal' | 'Textiles2Indigo' | 'Textiles2Magenta'

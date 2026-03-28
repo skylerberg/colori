@@ -11,6 +11,7 @@ export function formatSingleAbility(a: Ability): string {
     case 'gainSecondary': return 'Any Secondary';
     case 'gainPrimary': return 'Any Primary';
     case 'changeTertiary': return 'Change Tertiary';
+    case 'moveToDrafted': return 'Move to Drafted';
   }
 }
 
