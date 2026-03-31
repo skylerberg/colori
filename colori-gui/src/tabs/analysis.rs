@@ -266,7 +266,7 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
                         if let Some((lo, hi)) = wilson_confidence_interval(entry.wins, entry.games) {
                             ui.label(format!(
                                 "{:.0} / {:.0} wins ({:.1}%, 95% CI: {:.1}%-{:.1}%)",
-                                entry.wins, entry.games, pct, lo * 100.0, hi * 100.0
+                                entry.wins, entry.games, pct, lo, hi
                             ));
                         } else {
                             ui.label(format!("{:.0} / {:.0} wins ({:.1}%)", entry.wins, entry.games, pct));
