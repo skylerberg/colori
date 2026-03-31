@@ -495,6 +495,7 @@ pub fn ismcts<R: Rng>(
             iterations_used += 1;
             pick_log.clear();
             determinize_in_place(&mut det_state, state, player_index, &cached_scores, rng);
+            det_state.force_max_workshop = config.force_max_workshop;
             advance_past_opponent_draft_picks(
                 &mut det_state, player_index, &mut opponent_stats,
                 &mut pick_log, config.exploration_constant, rng,
@@ -515,6 +516,7 @@ pub fn ismcts<R: Rng>(
             iterations_used = i + 1;
             pick_log.clear();
             determinize_in_place(&mut det_state, state, player_index, &cached_scores, rng);
+            det_state.force_max_workshop = config.force_max_workshop;
             advance_past_opponent_draft_picks(
                 &mut det_state, player_index, &mut opponent_stats,
                 &mut pick_log, config.exploration_constant, rng,
