@@ -237,6 +237,8 @@ struct VariantFileEntry {
     first_pick_params_file: Option<String>,
     #[serde(default)]
     force_max_workshop: Option<bool>,
+    #[serde(default)]
+    abstract_draft: Option<bool>,
 }
 
 impl VariantFileEntry {
@@ -292,6 +294,7 @@ impl VariantFileEntry {
                 random_first_pick: self.random_first_pick.unwrap_or(defaults.random_first_pick),
                 first_pick_params,
                 force_max_workshop: self.force_max_workshop.unwrap_or(defaults.force_max_workshop),
+                abstract_draft: self.abstract_draft.unwrap_or(defaults.abstract_draft),
             },
         }
     }

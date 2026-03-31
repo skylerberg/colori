@@ -87,6 +87,20 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
             let card_instance_id = find_card_instance(state, card, &hand);
             player_pick(state, card_instance_id, rng);
         }
+        Choice::DraftPickAbility { ability } => {
+            let (hand, card_instance_id) = match &state.phase {
+                GamePhase::Draft { draft_state } => {
+                    let hand = draft_state.hands[draft_state.current_player_index];
+                    let id = hand.iter()
+                        .find(|&id| state.card_lookup[id as usize].ability() == *ability)
+                        .expect("No card with matching ability in hand");
+                    (hand, id as u32)
+                }
+                _ => panic!("Expected draft phase"),
+            };
+            let _ = hand;
+            player_pick(state, card_instance_id, rng);
+        }
         Choice::DestroyDraftedCard { card } => {
             let card_instance_id = get_drafted_card_instance(state, card);
             destroy_drafted_card(state, card_instance_id, rng);

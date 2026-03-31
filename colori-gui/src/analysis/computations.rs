@@ -254,6 +254,9 @@ pub fn format_choice(choice: &Choice) -> String {
         Choice::DraftPick { card } => {
             format!("Drafted {}", card_name(card))
         }
+        Choice::DraftPickAbility { ability } => {
+            format!("Drafted by ability {:?}", ability)
+        }
         Choice::DestroyDraftedCard { card } => {
             format!("Destroyed {} from draft", card_name(card))
         }
@@ -422,6 +425,7 @@ pub fn compute_action_distribution(
 fn choice_type_name(choice: &Choice) -> String {
     match choice {
         Choice::DraftPick { .. } => "draftPick".to_string(),
+        Choice::DraftPickAbility { .. } => "draftPickAbility".to_string(),
         Choice::DestroyDraftedCard { .. } => "destroyDraftedCard".to_string(),
         Choice::EndTurn => "endTurn".to_string(),
         Choice::Workshop { .. } => "workshop".to_string(),

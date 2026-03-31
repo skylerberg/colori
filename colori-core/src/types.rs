@@ -777,6 +777,10 @@ pub struct GameState {
     pub draw_log: Option<DrawLog>,
     #[serde(skip)]
     pub force_max_workshop: bool,
+    #[serde(skip)]
+    pub abstract_draft_perspective: Option<usize>,
+    #[serde(skip)]
+    pub abstract_draft_initial_pick: u32,
 }
 
 fn default_max_rounds() -> u32 {
@@ -798,6 +802,8 @@ fn default_sell_card_lookup() -> [SellCard; 256] {
 pub enum Choice {
     #[serde(rename = "draftPick")]
     DraftPick { card: Card },
+    #[serde(rename = "draftPickAbility")]
+    DraftPickAbility { ability: Ability },
     #[serde(rename = "destroyDraftedCard")]
     DestroyDraftedCard { card: Card },
     #[serde(rename = "endTurn")]

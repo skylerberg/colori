@@ -177,5 +177,7 @@ pub fn create_initial_game_state_with_expansions<R: Rng>(num_players: usize, ai_
         sell_card_lookup,
         draw_log: None,
         force_max_workshop: false,
+        abstract_draft_perspective: None,
+        abstract_draft_initial_pick: 0,
     }
 }

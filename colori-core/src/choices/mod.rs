@@ -53,6 +53,49 @@ pub(crate) fn should_force_max_workshop(state: &GameState, player: &PlayerState)
     true
 }
 
+/// Map an ability to a unique bit for deduplication in abstract draft enumeration.
+fn ability_bit(ability: Ability) -> u32 {
+    match ability {
+        Ability::Workshop { count } => count, // 1..=4 for workshop counts
+        Ability::DrawCards { count } => 5 + count,
+        Ability::MixColors { count } => 10 + count,
+        Ability::DestroyCards => 1 << 15,
+        Ability::Sell => 1 << 16,
+        Ability::GainDucats { .. } => 1 << 17,
+        Ability::GainSecondary => 1 << 18,
+        Ability::GainPrimary => 1 << 19,
+        Ability::ChangeTertiary => 1 << 20,
+        Ability::MoveToDrafted => 1 << 21,
+    }
+}
+
+/// Check if the current draft hand should use abstract (ability-based) picks.
+/// Returns true when the hand at the perspective player's position contains
+/// randomized cards that differ across determinizations.
+fn is_draft_hand_abstract(state: &GameState, draft_state: &DraftState) -> bool {
+    let perspective = match state.abstract_draft_perspective {
+        Some(p) => p,
+        None => return false,
+    };
+    let n = state.players.len();
+    let initial_pick = state.abstract_draft_initial_pick;
+    let current_pick = draft_state.pick_number;
+    if current_pick <= initial_pick {
+        return false; // no rotations yet, hand is known
+    }
+    let k = (current_pick - initial_pick) as usize; // rotations since determinization
+    // Hand at position perspective came from original position (perspective - k + n*big) % n
+    let orig_pos = (perspective + n - (k % n)) % n;
+    // Known positions at determinization: {(perspective + m) % n : m = 0..=min(initial_pick, n-1)}
+    let known_count = (initial_pick as usize + 1).min(n);
+    for m in 0..known_count {
+        if (perspective + m) % n == orig_pos {
+            return false; // found in known set — hand is known, not abstract
+        }
+    }
+    true // not found in known set — hand is abstract
+}
+
 // ── Choice enumeration ──
 
 pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
@@ -60,9 +103,22 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
     match &state.phase {
         GamePhase::Draft { draft_state } => {
             let hand = draft_state.hands[draft_state.current_player_index];
-            for_each_unique_card_type(&hand, &state.card_lookup, |card| {
-                choices.push(Choice::DraftPick { card });
-            });
+            if is_draft_hand_abstract(state, draft_state) {
+                // Enumerate unique abilities in the hand
+                let mut seen_abilities: u32 = 0;
+                for id in hand.iter() {
+                    let ability = state.card_lookup[id as usize].ability();
+                    let bit = ability_bit(ability);
+                    if seen_abilities & bit == 0 {
+                        seen_abilities |= bit;
+                        choices.push(Choice::DraftPickAbility { ability });
+                    }
+                }
+            } else {
+                for_each_unique_card_type(&hand, &state.card_lookup, |card| {
+                    choices.push(Choice::DraftPick { card });
+                });
+            }
         }
         GamePhase::Action { action_state } => {
             let player = &state.players[action_state.current_player_index];
@@ -254,6 +310,14 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
             if let GamePhase::Draft { ref draft_state } = state.phase {
                 let hand = draft_state.hands[draft_state.current_player_index];
                 hand.iter().any(|id| state.card_lookup[id as usize] == *card)
+            } else {
+                false
+            }
+        }
+        Choice::DraftPickAbility { ability } => {
+            if let GamePhase::Draft { ref draft_state } = state.phase {
+                let hand = draft_state.hands[draft_state.current_player_index];
+                hand.iter().any(|id| state.card_lookup[id as usize].ability() == *ability)
             } else {
                 false
             }
