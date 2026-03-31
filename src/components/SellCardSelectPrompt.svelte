@@ -11,7 +11,6 @@
     onAction: (choice: Choice) => void;
   } = $props();
 
-  let selectedSellCardId: number | undefined = $state(undefined);
   let selectedGlassId: number | undefined = $state(undefined);
   let selectedPayColor: Color | undefined = $state(undefined);
 
@@ -35,19 +34,17 @@
   // Reset when gameState changes
   $effect(() => {
     const _gs = gameState;
-    selectedSellCardId = undefined;
     selectedGlassId = undefined;
     selectedPayColor = undefined;
   });
 
-  function toggleSellCardSelect(sellCardInstanceId: number) {
-    selectedGlassId = undefined;
-    selectedPayColor = undefined;
-    selectedSellCardId = selectedSellCardId === sellCardInstanceId ? undefined : sellCardInstanceId;
+  function handleSellCardSelect(sellCardInstanceId: number) {
+    const sellCardInstance = gameState.sellCardDisplay.find(b => b.instanceId === sellCardInstanceId);
+    if (!sellCardInstance) return;
+    onAction({ type: 'selectSellCard', sellCard: sellCardInstance.card });
   }
 
   function toggleGlassSelect(glassInstanceId: number) {
-    selectedSellCardId = undefined;
     if (selectedGlassId === glassInstanceId) {
       selectedGlassId = undefined;
       selectedPayColor = undefined;
@@ -55,13 +52,6 @@
       selectedGlassId = glassInstanceId;
       selectedPayColor = payableColors.length === 1 ? payableColors[0] : undefined;
     }
-  }
-
-  function confirmSellCard() {
-    if (selectedSellCardId === undefined) return;
-    const sellCardInstance = gameState.sellCardDisplay.find(b => b.instanceId === selectedSellCardId);
-    if (!sellCardInstance) return;
-    onAction({ type: 'selectSellCard', sellCard: sellCardInstance.card });
   }
 
   function confirmGlass() {
@@ -79,16 +69,8 @@
       <SellCardDisplay
         sellCards={gameState.sellCardDisplay.filter(g => canSell(gameState, g.instanceId))}
         selectable={true}
-        selectedId={selectedSellCardId}
-        onSelect={toggleSellCardSelect}
+        onSelect={handleSellCardSelect}
       />
-      <button
-        class="confirm-btn"
-        disabled={selectedSellCardId === undefined}
-        onclick={confirmSellCard}
-      >
-        Confirm Sell Card
-      </button>
     </div>
 
     {#if glassEnabled}

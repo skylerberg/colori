@@ -45,13 +45,11 @@
   );
 
   let selectedWorkshopIds: number[] = $state([]);
-  let selectedDestroyIds: number[] = $state([]);
   let reworkshopCardId: number | null = $state(null);
 
   $effect(() => {
     topAbility;
     selectedWorkshopIds = [];
-    selectedDestroyIds = [];
     reworkshopCardId = null;
   });
 
@@ -92,22 +90,15 @@
     onAction({ type: 'skipWorkshop' });
   }
 
-  function toggleDestroyCard(instanceId: number) {
-    if (!topAbility || topAbility.type !== 'destroyCards') return;
-    const idx = selectedDestroyIds.indexOf(instanceId);
-    if (idx >= 0) {
-      selectedDestroyIds = selectedDestroyIds.filter(id => id !== instanceId);
-    } else if (selectedDestroyIds.length < 1) {
-      selectedDestroyIds = [...selectedDestroyIds, instanceId];
-    }
+  function handleDestroyCard(instanceId: number) {
+    if (!topAbility || topAbility.type !== 'destroyCards' || !currentPlayer) return;
+    const card = currentPlayer.workshopCards.find(c => c.instanceId === instanceId);
+    if (!card) return;
+    onAction({ type: 'destroyDrawnCards', card: card.card });
   }
 
-  function confirmDestroy() {
-    if (!currentPlayer) return;
-    const card = selectedDestroyIds.length > 0
-      ? currentPlayer.workshopCards.find(c => c.instanceId === selectedDestroyIds[0])!.card
-      : null;
-    onAction({ type: 'destroyDrawnCards', card });
+  function handleSkipDestroy() {
+    onAction({ type: 'destroyDrawnCards', card: null });
   }
 
   function handleDestroyDrafted(cardInstanceId: number) {
@@ -333,16 +324,15 @@
             {/if}
           </div>
         {:else if topAbility?.type === 'destroyCards'}
-          <h3>Workshop — Select a card to destroy</h3>
+          <h3>Workshop — Click a card to destroy it</h3>
           <CardList
             cards={workshopAndWorkshopped}
             selectable={true}
-            selectedIds={selectedDestroyIds}
             rotatedIds={workshoppedIds}
-            onCardClick={toggleDestroyCard}
+            onCardClick={handleDestroyCard}
           />
-          <button class="confirm-btn" onclick={confirmDestroy}>
-            Confirm Destroy ({selectedDestroyIds.length} selected)
+          <button class="confirm-btn skip-btn" onclick={handleSkipDestroy}>
+            Skip Destroy
           </button>
         {:else}
           <h3>Workshop</h3>
