@@ -416,8 +416,15 @@ pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str, glass: 
         load_variants_from_file(&args.variants_file)
     };
     let num_players = player_variants.len();
+    let solo = num_players == 1;
+    let max_rounds = if solo { Some(args.max_rounds) } else { None };
 
-    if has_any_difference(&player_variants) {
+    if solo {
+        eprintln!(
+            "Running {} solo games ({} rounds, {} MCTS iterations, {} threads)",
+            args.games, args.max_rounds, player_variants[0].ai.iterations, threads
+        );
+    } else if has_any_difference(&player_variants) {
         let differing = compute_differing_fields(&player_variants);
         let labels: Vec<String> = player_variants.iter().map(|v| format_variant_label(v, &differing)).collect();
         eprintln!(
@@ -446,6 +453,8 @@ pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str, glass: 
     let completed = AtomicUsize::new(0);
     let variant_time_ms: Vec<AtomicU64> = (0..num_players).map(|_| AtomicU64::new(0)).collect();
     let variant_iterations: Vec<AtomicU64> = (0..num_players).map(|_| AtomicU64::new(0)).collect();
+    let solo_wins = AtomicUsize::new(0);
+    let solo_total_score = AtomicU64::new(0);
     let total_games = args.games;
     let num_threads = threads;
     let batch_id = batch_id.as_str();
@@ -462,6 +471,8 @@ pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str, glass: 
             let completed = &completed;
             let variant_time_ms = &variant_time_ms;
             let variant_iterations = &variant_iterations;
+            let solo_wins = &solo_wins;
+            let solo_total_score = &solo_total_score;
 
             handles.push(s.spawn(move || {
                 let mut rng = WyRand::from_rng(&mut rand::rng());
@@ -472,12 +483,22 @@ pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str, glass: 
                         player_variants,
                         note.clone(),
                         glass,
-                        None,
+                        max_rounds,
                         &mut rng,
                     );
                     for (player_pos, &orig_idx) in log.variant_order.iter().enumerate() {
                         variant_time_ms[orig_idx].fetch_add(log.player_time_ms[player_pos], Ordering::Relaxed);
                         variant_iterations[orig_idx].fetch_add(log.player_iterations[player_pos], Ordering::Relaxed);
+                    }
+                    if solo {
+                        let score = log.final_scores.as_ref()
+                            .and_then(|fs| fs.first())
+                            .map(|fs| fs.score)
+                            .unwrap_or(0);
+                        if score >= 16 {
+                            solo_wins.fetch_add(1, Ordering::Relaxed);
+                        }
+                        solo_total_score.fetch_add(score as u64, Ordering::Relaxed);
                     }
                     set_card_registry(&log.initial_state.card_lookup);
                     set_sell_card_registry(&log.initial_state.sell_card_lookup);
@@ -492,7 +513,17 @@ pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str, glass: 
                     let json = serde_json::to_string_pretty(&log).unwrap();
                     std::fs::write(&path, json).unwrap();
                     let done = completed.fetch_add(1, Ordering::Relaxed) + 1;
-                    eprintln!("Game {}/{} complete", done, total_games);
+                    if solo {
+                        if done % 100 == 0 || done == total_games {
+                            let w = solo_wins.load(Ordering::Relaxed);
+                            eprintln!(
+                                "Game {}/{} — win rate: {:.1}%",
+                                done, total_games, w as f64 / done as f64 * 100.0
+                            );
+                        }
+                    } else {
+                        eprintln!("Game {}/{} complete", done, total_games);
+                    }
                 }
             }));
         }
@@ -502,7 +533,17 @@ pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str, glass: 
         }
     });
 
-    if has_any_difference(player_variants) {
+    if solo {
+        let total_wins = solo_wins.load(Ordering::Relaxed);
+        let total_score = solo_total_score.load(Ordering::Relaxed);
+        let avg_ducats = total_score as f64 / total_games as f64;
+        let win_rate = total_wins as f64 / total_games as f64 * 100.0;
+        eprintln!();
+        eprintln!("=== Solo Results ({} rounds) ===", args.max_rounds);
+        eprintln!("Games:      {}", total_games);
+        eprintln!("Wins:       {} ({:.1}%)", total_wins, win_rate);
+        eprintln!("Avg ducats: {:.1}", avg_ducats);
+    } else if has_any_difference(player_variants) {
         let differing = compute_differing_fields(player_variants);
         for (i, v) in player_variants.iter().enumerate() {
             let total_ms = variant_time_ms[i].load(Ordering::Relaxed);
