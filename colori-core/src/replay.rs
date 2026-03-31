@@ -56,7 +56,12 @@ impl GameReplay {
         let queue: VecDeque<DrawEvent> = entry.draws.iter().cloned().collect();
         self.state.draw_log = Some(DrawLog::Replaying(queue));
 
-        if let Choice::DraftPick { card } = &entry.choice {
+        if self.num_players == 1 {
+            // Solo mode: use apply_choice_to_state so phantom draft removals
+            // are replayed correctly via player_pick's draw log handling.
+            self.draft_picks_in_round = 0;
+            apply_choice_to_state(&mut self.state, &entry.choice, &mut self.rng);
+        } else if let Choice::DraftPick { card } = &entry.choice {
             simultaneous_pick(&mut self.state, entry.player_index, *card);
             self.draft_picks_in_round += 1;
             if self.draft_picks_in_round >= self.num_players {
