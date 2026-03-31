@@ -25,10 +25,10 @@ pub fn execute_draw_phase<R: Rng>(state: &mut GameState, rng: &mut R) {
         }
         initialize_draft(state, rng);
 
-        // Record draft hands that were dealt
+        // Record draft hands that were dealt (includes phantom hands for solo)
         if let Some(DrawLog::Recording(log)) = &mut state.draw_log {
             if let GamePhase::Draft { ref draft_state } = state.phase {
-                for i in 0..num_players {
+                for i in 0..draft_state.num_hands {
                     let cards: Vec<CardInstance> = draft_state.hands[i]
                         .iter()
                         .map(|id| CardInstance {
@@ -52,6 +52,7 @@ pub fn execute_draw_phase<R: Rng>(state: &mut GameState, rng: &mut R) {
 fn replay_draft_deals(state: &mut GameState) {
     let num_players = state.players.len();
     let mut hands = [UnorderedCards::new(); MAX_PLAYERS];
+    let mut num_hands = 0;
 
     // Pop DraftDeal events from the replay queue
     loop {
@@ -72,12 +73,15 @@ fn replay_draft_deals(state: &mut GameState) {
                 state.draft_deck.remove(id);
                 hands[player_index].insert(id);
             }
+            if player_index + 1 > num_hands {
+                num_hands = player_index + 1;
+            }
         }
     }
 
     // Check if any hands are empty (same logic as initialize_draft)
-    if (0..num_players).any(|i| hands[i].is_empty()) {
-        for i in 0..num_players {
+    if (0..num_hands).any(|i| hands[i].is_empty()) {
+        for i in 0..num_hands {
             state.destroyed_pile = state.destroyed_pile.union(hands[i]);
         }
         crate::action_phase::initialize_action_phase(state);
@@ -88,7 +92,7 @@ fn replay_draft_deals(state: &mut GameState) {
         pick_number: 0,
         current_player_index: ((state.round - 1) as usize) % num_players,
         hands,
-        num_hands: num_players,
+        num_hands,
     };
     state.phase = GamePhase::Draft { draft_state };
 }
