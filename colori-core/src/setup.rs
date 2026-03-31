@@ -171,6 +171,7 @@ pub fn create_initial_game_state_with_expansions<R: Rng>(num_players: usize, ai_
         glass_display,
         phase: GamePhase::Draw,
         round: 1,
+        max_rounds: 20,
         ai_players: FixedVec::from_slice(ai_players),
         card_lookup,
         sell_card_lookup,

@@ -38,6 +38,8 @@ pub enum Commands {
     TrainFirstPick(TrainFirstPickArgs),
     /// Train diff eval params using gradient descent
     TrainDiffEval(TrainDiffEvalArgs),
+    /// Run solo mode: 1 player trying to reach 16 ducats in 5 rounds
+    Solo(SoloArgs),
 }
 
 // ── Subcommand args ──
@@ -59,6 +61,25 @@ pub struct SimulateArgs {
     /// Path to variants JSON file
     #[arg(long, default_value = "variants.json")]
     pub variants_file: String,
+}
+
+#[derive(Parser)]
+pub struct SoloArgs {
+    /// Number of games to simulate
+    #[arg(long, default_value_t = 10_000)]
+    pub games: usize,
+
+    /// Max rounds to reach 16 ducats
+    #[arg(long, default_value_t = 5)]
+    pub max_rounds: u32,
+
+    /// MCTS iterations
+    #[arg(long, default_value_t = 4_000)]
+    pub iterations: u32,
+
+    /// Path to variant JSON file (uses first entry)
+    #[arg(long)]
+    pub variant_file: Option<String>,
 }
 
 #[derive(Parser)]

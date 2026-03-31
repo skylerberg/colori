@@ -45,7 +45,7 @@ Each sell card requires 1 of a specific material type and a set of colors as its
 ### Decks
 
 - **Draft Deck**: Contains 54 dye cards + 12 draft material cards + 24 action cards (90 total). When the draft deck runs out, shuffle all destroyed cards back in.
-- **Sell Card Deck**: Contains all sell cards. numPlayers + 1 sell cards are displayed face-up at all times.
+- **Sell Card Deck**: Contains all sell cards. 6 sell cards are displayed face-up at all times.
 - **Personal Deck**: Each player has their own deck that they draw from and build over the course of the game.
 
 ## Setup
@@ -53,7 +53,7 @@ Each sell card requires 1 of a specific material type and a set of colors as its
 1. Each player receives a starting personal deck of 7 cards: 1 Basic Red, 1 Basic Yellow, 1 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles, 1 Chalk. Shuffle it.
 2. Each player starts with 1 Red, 1 Yellow, and 1 Blue already stored on their color wheel.
 3. Place 18 draft dye cards (3 copies each), 12 unique draft material cards, and 6 action cards (4 copies each) into the draft deck. Shuffle it.
-4. Shuffle the sell card deck and reveal numPlayers + 1 sell cards face-up in the sell card display.
+4. Shuffle the sell card deck and reveal 6 sell cards face-up in the sell card display.
 
 ## Player Area
 

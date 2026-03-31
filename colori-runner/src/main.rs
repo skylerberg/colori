@@ -2,6 +2,7 @@ mod cli;
 mod cmaes;
 pub(crate) mod legacy_eval;
 mod simulation;
+mod solo;
 mod tournament;
 mod train_diff_eval;
 
@@ -46,6 +47,9 @@ fn main() {
         Some(Commands::TrainDiffEval(args)) => {
             let output = cli.output.unwrap_or_else(|| "diff-eval-training".to_string());
             train_diff_eval::run_training(&args, threads, &output);
+        }
+        Some(Commands::Solo(args)) => {
+            solo::run_solo(&args, threads, glass);
         }
         None => {
             // Default: simulate with default args

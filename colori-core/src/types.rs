@@ -766,6 +766,8 @@ pub struct GameState {
     pub glass_display: FixedVec<GlassInstance, MAX_GLASS_DISPLAY>,
     pub phase: GamePhase,
     pub round: u32,
+    #[serde(default = "default_max_rounds")]
+    pub max_rounds: u32,
     pub ai_players: FixedVec<bool, MAX_PLAYERS>,
     #[serde(skip, default = "default_card_lookup")]
     pub card_lookup: [Card; 256],
@@ -773,6 +775,10 @@ pub struct GameState {
     pub sell_card_lookup: [SellCard; 256],
     #[serde(skip)]
     pub draw_log: Option<DrawLog>,
+}
+
+fn default_max_rounds() -> u32 {
+    20
 }
 
 fn default_card_lookup() -> [Card; 256] {
