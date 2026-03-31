@@ -74,6 +74,8 @@ fn process_non_action_cards(
 struct CollectedAbilities {
     regular: [Ability; 8],
     regular_count: usize,
+    mix_colors: [Ability; 8],
+    mix_colors_count: usize,
     draw_card: [Ability; 8],
     draw_card_count: usize,
     change_tertiary: [Ability; 8],
@@ -87,6 +89,8 @@ impl CollectedAbilities {
         Self {
             regular: [Ability::Sell; 8],
             regular_count: 0,
+            mix_colors: [Ability::Sell; 8],
+            mix_colors_count: 0,
             draw_card: [Ability::Sell; 8],
             draw_card_count: 0,
             change_tertiary: [Ability::Sell; 8],
@@ -110,6 +114,10 @@ impl CollectedAbilities {
                 self.has_draw_cards = true;
                 self.draw_card[self.draw_card_count] = ability;
                 self.draw_card_count += 1;
+            }
+            Ability::MixColors { .. } => {
+                self.mix_colors[self.mix_colors_count] = ability;
+                self.mix_colors_count += 1;
             }
             _ => {
                 self.regular[self.regular_count] = ability;
@@ -171,6 +179,10 @@ fn push_abilities_to_stack(
 
     for i in 0..collected.draw_card_count {
         stack.push(collected.draw_card[i]);
+    }
+
+    for i in 0..collected.mix_colors_count {
+        stack.push(collected.mix_colors[i]);
     }
 
     for i in 0..collected.regular_count {
