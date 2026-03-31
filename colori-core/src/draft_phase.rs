@@ -5,9 +5,11 @@ use rand::Rng;
 
 pub fn initialize_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
     let num_players = state.players.len();
+    // Solo mode: deal 2 hands so the player gets hand rotation
+    let num_hands = if num_players == 1 { 2 } else { num_players };
     let mut hands = [UnorderedCards::new(); MAX_PLAYERS];
 
-    for i in 0..num_players {
+    for i in 0..num_hands {
         let deck_len = state.draft_deck.len();
         if deck_len >= 5 {
             hands[i] = state.draft_deck.draw_multiple(5, rng);
@@ -30,8 +32,8 @@ pub fn initialize_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
         }
     }
 
-    if (0..num_players).any(|i| hands[i].is_empty()) {
-        for i in 0..num_players {
+    if (0..num_hands).any(|i| hands[i].is_empty()) {
+        for i in 0..num_hands {
             state.destroyed_pile = state.destroyed_pile.union(hands[i]);
         }
         initialize_action_phase(state);
@@ -42,13 +44,13 @@ pub fn initialize_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
         pick_number: 0,
         current_player_index: ((state.round - 1) as usize) % num_players,
         hands,
-        num_hands: num_players,
+        num_hands,
     };
 
     state.phase = GamePhase::Draft { draft_state };
 }
 
-pub fn player_pick(state: &mut GameState, card_instance_id: u32) {
+pub fn player_pick<R: Rng>(state: &mut GameState, card_instance_id: u32, rng: &mut R) {
     let num_players = state.players.len();
     let starting_player = ((state.round - 1) as usize) % num_players;
     let id = card_instance_id as u8;
@@ -80,9 +82,67 @@ pub fn player_pick(state: &mut GameState, card_instance_id: u32) {
     };
     state.players[pi].drafted_cards.insert(id);
 
+    // Solo mode: remove a random card from each phantom hand
+    if num_players == 1 {
+        let num_hands = match &state.phase {
+            GamePhase::Draft { draft_state } => draft_state.num_hands,
+            _ => 0,
+        };
+        for hand_idx in 1..num_hands {
+            let is_empty = match &state.phase {
+                GamePhase::Draft { draft_state } => draft_state.hands[hand_idx].is_empty(),
+                _ => true,
+            };
+            if is_empty {
+                continue;
+            }
+            let removed_id = phantom_draft_removal(state, hand_idx, rng);
+            if let GamePhase::Draft { ref mut draft_state } = state.phase {
+                draft_state.hands[hand_idx].remove(removed_id);
+            }
+            state.destroyed_pile.insert(removed_id);
+        }
+    }
+
     if should_advance {
         advance_draft(state);
     }
+}
+
+/// Remove a card from a phantom hand, recording/replaying via draw log.
+fn phantom_draft_removal<R: Rng>(state: &mut GameState, hand_idx: usize, rng: &mut R) -> u8 {
+    use crate::game_log::{DrawEvent, DrawLog};
+    use crate::types::CardInstance;
+
+    // Check if replaying
+    if let Some(DrawLog::Replaying(events)) = &mut state.draw_log {
+        if let Some(pos) = events.iter().position(|e| matches!(e, DrawEvent::PhantomDraftRemoval { hand_index, .. } if *hand_index == hand_idx)) {
+            if let DrawEvent::PhantomDraftRemoval { card, .. } = events.remove(pos).unwrap() {
+                return card.instance_id as u8;
+            }
+        }
+    }
+
+    // Pick randomly
+    let removed_id = match &state.phase {
+        GamePhase::Draft { draft_state } => {
+            draft_state.hands[hand_idx].pick_random(rng).expect("Phantom hand should not be empty")
+        }
+        _ => panic!("Expected draft phase"),
+    };
+
+    // Record if recording
+    if let Some(DrawLog::Recording(events)) = &mut state.draw_log {
+        events.push(DrawEvent::PhantomDraftRemoval {
+            hand_index: hand_idx,
+            card: CardInstance {
+                instance_id: removed_id as u32,
+                card: state.card_lookup[removed_id as usize],
+            },
+        });
+    }
+
+    removed_id
 }
 
 pub fn advance_draft(state: &mut GameState) {

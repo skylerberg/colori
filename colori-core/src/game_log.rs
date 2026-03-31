@@ -20,6 +20,11 @@ pub enum DrawEvent {
     SellCardReveal {
         sell_card: SellCardInstance,
     },
+    #[serde(rename = "phantomDraftRemoval", rename_all = "camelCase")]
+    PhantomDraftRemoval {
+        hand_index: usize,
+        card: CardInstance,
+    },
 }
 
 #[derive(Debug, Clone)]

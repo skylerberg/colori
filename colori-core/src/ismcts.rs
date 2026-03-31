@@ -419,7 +419,7 @@ fn advance_past_opponent_draft_picks<R: Rng>(
 
         let card_id = find_card_id(state, card);
         pick_log.push((pick_number, current_player, card));
-        player_pick(state, card_id);
+        player_pick(state, card_id, rng);
     }
 }
 

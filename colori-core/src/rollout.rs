@@ -487,7 +487,7 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, 
                         break;
                     }
                 };
-                player_pick(state, card_id);
+                player_pick(state, card_id, rng);
             }
         }
         return;
@@ -883,7 +883,7 @@ fn heuristic_draft_loop<R: Rng>(state: &mut GameState, rng: &mut R) {
             hand.iter().next().unwrap() as u32
         };
 
-        player_pick(state, card_id);
+        player_pick(state, card_id, rng);
     }
 }
 
@@ -1381,7 +1381,7 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                         break;
                     }
                 };
-                player_pick(state, card_id);
+                player_pick(state, card_id, rng);
             }
         }
         return;

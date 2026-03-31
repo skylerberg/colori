@@ -85,7 +85,7 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
                 _ => panic!("Expected draft phase"),
             };
             let card_instance_id = find_card_instance(state, card, &hand);
-            player_pick(state, card_instance_id);
+            player_pick(state, card_instance_id, rng);
         }
         Choice::DestroyDraftedCard { card } => {
             let card_instance_id = get_drafted_card_instance(state, card);
