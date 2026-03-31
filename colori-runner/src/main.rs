@@ -49,7 +49,8 @@ fn main() {
             train_diff_eval::run_training(&args, threads, &output);
         }
         Some(Commands::Solo(args)) => {
-            solo::run_solo(&args, threads, glass);
+            let output = cli.output.unwrap_or_else(|| "game-logs".to_string());
+            solo::run_solo(&args, threads, &output, glass);
         }
         None => {
             // Default: simulate with default args

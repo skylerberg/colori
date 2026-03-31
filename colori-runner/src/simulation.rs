@@ -203,6 +203,7 @@ pub fn run_game(
     player_variants: &[NamedVariant],
     note: Option<String>,
     glass: bool,
+    max_rounds: Option<u32>,
     rng: &mut WyRand,
 ) -> GameRunOutput {
     let start = std::time::Instant::now();
@@ -228,6 +229,9 @@ pub fn run_game(
     let ai_players = vec![true; num_players];
     let expansions = Expansions { glass };
     let mut state = create_initial_game_state_with_expansions(num_players, &ai_players, expansions, rng);
+    if let Some(mr) = max_rounds {
+        state.max_rounds = mr;
+    }
     let initial_state = state.clone();
 
     let game_started_at = now_epoch_secs_string();
@@ -468,6 +472,7 @@ pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str, glass: 
                         player_variants,
                         note.clone(),
                         glass,
+                        None,
                         &mut rng,
                     );
                     for (player_pos, &orig_idx) in log.variant_order.iter().enumerate() {

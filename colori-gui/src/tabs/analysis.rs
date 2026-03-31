@@ -46,6 +46,7 @@ pub struct CachedAnalysis {
     pub glass_acquisitions: Option<HashMap<String, usize>>,
     pub glass_win_rate: Option<HashMap<String, WinRateEntry>>,
     pub num_games: usize,
+    pub num_players: usize,
 }
 
 impl CachedAnalysis {
@@ -166,6 +167,7 @@ impl CachedAnalysis {
             glass_acquisitions,
             glass_win_rate,
             num_games,
+            num_players,
         }
     }
 }
@@ -250,26 +252,48 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
             );
         });
 
-        // 5. Win Rate by Position
-        let id = ui.make_persistent_id("win_rate_position");
-        egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, true)
-            .show_header(ui, |ui| {
-                ui.strong("Win Rate by Position");
-            })
-            .body(|ui| {
-                let mut positions: Vec<usize> =
-                    analysis.win_rate_position.keys().cloned().collect();
-                positions.sort();
-                let rows: Vec<_> = positions
-                    .iter()
-                    .map(|&pos| {
-                        let entry = &analysis.win_rate_position[&pos];
-                        let ci = wilson_confidence_interval(entry.wins, entry.games);
-                        (format!("Player {}", pos + 1), entry.wins, entry.games, ci)
+        // 5. Win Rate by Position (skip for solo)
+        if analysis.num_players == 1 {
+            // Solo: show win rate (score >= 16)
+            if let Some(entry) = analysis.win_rate_position.get(&0) {
+                let id = ui.make_persistent_id("solo_win_rate");
+                egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, true)
+                    .show_header(ui, |ui| {
+                        ui.strong("Solo Win Rate");
                     })
-                    .collect();
-                win_rate_table(ui, "Position", "Games", &rows);
-            });
+                    .body(|ui| {
+                        let pct = if entry.games > 0.0 { entry.wins / entry.games * 100.0 } else { 0.0 };
+                        if let Some((lo, hi)) = wilson_confidence_interval(entry.wins, entry.games) {
+                            ui.label(format!(
+                                "{:.0} / {:.0} wins ({:.1}%, 95% CI: {:.1}%-{:.1}%)",
+                                entry.wins, entry.games, pct, lo * 100.0, hi * 100.0
+                            ));
+                        } else {
+                            ui.label(format!("{:.0} / {:.0} wins ({:.1}%)", entry.wins, entry.games, pct));
+                        }
+                    });
+            }
+        } else {
+            let id = ui.make_persistent_id("win_rate_position");
+            egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, true)
+                .show_header(ui, |ui| {
+                    ui.strong("Win Rate by Position");
+                })
+                .body(|ui| {
+                    let mut positions: Vec<usize> =
+                        analysis.win_rate_position.keys().cloned().collect();
+                    positions.sort();
+                    let rows: Vec<_> = positions
+                        .iter()
+                        .map(|&pos| {
+                            let entry = &analysis.win_rate_position[&pos];
+                            let ci = wilson_confidence_interval(entry.wins, entry.games);
+                            (format!("Player {}", pos + 1), entry.wins, entry.games, ci)
+                        })
+                        .collect();
+                    win_rate_table(ui, "Position", "Games", &rows);
+                });
+        }
 
         // 6. Win Rate by Variant (conditional)
         if let Some(ref variant_wr) = analysis.variant_win_rate {

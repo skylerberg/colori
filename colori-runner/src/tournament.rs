@@ -126,7 +126,7 @@ pub fn run_tournament(args: &TournamentArgs, threads: usize, output: &str, glass
                     }
 
                     let pair = vec![variants[i].clone(), variants[j].clone()];
-                    let log = run_game(0, &pair, note.clone(), glass, &mut rng);
+                    let log = run_game(0, &pair, note.clone(), glass, None, &mut rng);
 
                     set_card_registry(&log.initial_state.card_lookup);
                     set_sell_card_registry(&log.initial_state.sell_card_lookup);

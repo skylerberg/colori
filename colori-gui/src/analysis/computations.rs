@@ -143,13 +143,19 @@ pub fn final_score_ranking(fs: &FinalScore) -> (u32, u32, u32) {
     (fs.score, fs.completed_sell_cards, fs.color_wheel_total)
 }
 
-fn compute_winners(final_scores: &[FinalScore]) -> (impl Fn(&str) -> bool + '_, usize) {
+fn compute_winners(final_scores: &[FinalScore]) -> (Box<dyn Fn(&str) -> bool + '_>, usize) {
+    if final_scores.len() == 1 {
+        // Solo mode: win = score >= 16
+        let won = final_scores[0].score >= 16;
+        let num_winners = if won { 1 } else { 0 };
+        return (Box::new(move |_name: &str| won), num_winners);
+    }
     let best = final_scores.iter().map(|fs| final_score_ranking(fs)).max().unwrap_or((0, 0, 0));
     let num_winners = final_scores.iter().filter(|fs| final_score_ranking(fs) == best).count();
     let is_winner = move |name: &str| {
         final_scores.iter().any(|fs| fs.name == name && final_score_ranking(fs) == best)
     };
-    (is_winner, num_winners)
+    (Box::new(is_winner), num_winners)
 }
 
 // ── Player filtering ──

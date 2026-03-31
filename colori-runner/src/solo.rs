@@ -1,76 +1,16 @@
-use colori_core::colori_game::apply_choice_to_state;
-use colori_core::draw_phase::execute_draw_phase;
-use colori_core::ismcts::{ismcts, MctsConfig, MctsNode};
-use colori_core::scoring::calculate_score;
-use colori_core::setup::create_initial_game_state_with_expansions;
-use colori_core::types::*;
+use colori_core::ismcts::MctsConfig;
+use colori_core::unordered_cards::{set_sell_card_registry, set_card_registry};
 
+use rand::RngExt;
 use rand::SeedableRng;
 use wyrand::WyRand;
 use std::sync::atomic::{AtomicUsize, AtomicU64, Ordering};
 
-use crate::cli::{SoloArgs, load_variants_from_file};
+use crate::cli::{SoloArgs, NamedVariant, load_variants_from_file};
+use crate::generate_batch_id;
+use crate::simulation::{run_game, now_epoch_millis};
 
-fn run_solo_game(
-    config: &MctsConfig,
-    max_rounds: u32,
-    glass: bool,
-    rng: &mut WyRand,
-) -> (bool, u32, u32) {
-    let ai_players = vec![true];
-    let expansions = Expansions { glass };
-    let mut state = create_initial_game_state_with_expansions(1, &ai_players, expansions, rng);
-    state.max_rounds = max_rounds;
-
-    execute_draw_phase(&mut state, rng);
-
-    let mut reuse_tree: Option<MctsNode> = None;
-
-    while !matches!(state.phase, GamePhase::GameOver) {
-        let player_index = match &state.phase {
-            GamePhase::Draft { draft_state } => draft_state.current_player_index,
-            GamePhase::Action { action_state } => action_state.current_player_index,
-            GamePhase::Draw => {
-                break;
-            }
-            GamePhase::GameOver => break,
-        };
-
-        let max_rollout_round = std::cmp::min(
-            max_rounds,
-            std::cmp::max(state.round + 2, 4),
-        );
-        let mcts_start = std::time::Instant::now();
-        let result = ismcts(&state, player_index, config, Some(max_rollout_round), reuse_tree.take(), rng);
-        let _ = mcts_start.elapsed();
-        let choice = result.choice.clone();
-        let mcts_tree = result.tree;
-
-        let prev_workshop_len = state.players[player_index].workshop_cards.len();
-        let prev_sell_deck_len = state.sell_card_deck.len();
-        let prev_glass_deck_len = state.glass_deck.len();
-
-        apply_choice_to_state(&mut state, &choice, rng);
-
-        let same_player_action = matches!(&state.phase, GamePhase::Action { action_state }
-            if action_state.current_player_index == player_index);
-        let info_revealed =
-            state.players[player_index].workshop_cards.len() != prev_workshop_len
-                || state.sell_card_deck.len() != prev_sell_deck_len
-                || state.glass_deck.len() != prev_glass_deck_len;
-        reuse_tree = if same_player_action && !info_revealed {
-            mcts_tree.and_then(|t| t.into_subtree(&choice))
-        } else {
-            None
-        };
-    }
-
-    let score = calculate_score(&state.players[0]);
-    let final_round = state.round - 1;
-    (score >= 16, score, final_round)
-}
-
-pub fn run_solo(args: &SoloArgs, threads: usize, glass: bool) {
+pub fn run_solo(args: &SoloArgs, threads: usize, output: &str, glass: bool) {
     let config = if let Some(ref path) = args.variant_file {
         let variants = load_variants_from_file(path);
         variants.into_iter().next().expect("Variant file is empty").ai
@@ -81,16 +21,28 @@ pub fn run_solo(args: &SoloArgs, threads: usize, glass: bool) {
         }
     };
 
+    let player_variants = vec![NamedVariant {
+        name: None,
+        ai: config,
+    }];
+
     eprintln!(
         "Running {} solo games ({} rounds, {} MCTS iterations, {} threads)",
-        args.games, args.max_rounds, config.iterations, threads
+        args.games, args.max_rounds, player_variants[0].ai.iterations, threads
     );
 
+    std::fs::create_dir_all(output).expect("Failed to create output directory");
+
+    let batch_id = generate_batch_id();
     let wins = AtomicUsize::new(0);
     let completed = AtomicUsize::new(0);
     let total_ducats = AtomicU64::new(0);
     let total_games = args.games;
     let max_rounds = args.max_rounds;
+    let note_text = format!("solo-{}r", max_rounds);
+    let batch_id = batch_id.as_str();
+    let player_variants = player_variants.as_slice();
+    let note_text = note_text.as_str();
 
     std::thread::scope(|s| {
         let games_per_thread = total_games / threads;
@@ -102,17 +54,42 @@ pub fn run_solo(args: &SoloArgs, threads: usize, glass: bool) {
             let wins = &wins;
             let completed = &completed;
             let total_ducats = &total_ducats;
-            let config = &config;
 
             handles.push(s.spawn(move || {
                 let mut rng = WyRand::from_rng(&mut rand::rng());
 
                 for _ in 0..count {
-                    let (won, ducats, _final_round) = run_solo_game(config, max_rounds, glass, &mut rng);
-                    if won {
+                    let log = run_game(
+                        0,
+                        player_variants,
+                        Some(note_text.to_string()),
+                        glass,
+                        Some(max_rounds),
+                        &mut rng,
+                    );
+
+                    let score = log.final_scores.as_ref()
+                        .and_then(|fs| fs.first())
+                        .map(|fs| fs.score)
+                        .unwrap_or(0);
+                    if score >= 16 {
                         wins.fetch_add(1, Ordering::Relaxed);
                     }
-                    total_ducats.fetch_add(ducats as u64, Ordering::Relaxed);
+                    total_ducats.fetch_add(score as u64, Ordering::Relaxed);
+
+                    set_card_registry(&log.initial_state.card_lookup);
+                    set_sell_card_registry(&log.initial_state.sell_card_lookup);
+                    let epoch_millis = now_epoch_millis();
+                    let game_id: String = {
+                        const CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
+                        (0..4)
+                            .map(|_| CHARSET[rng.random_range(0..CHARSET.len())] as char)
+                            .collect()
+                    };
+                    let path = format!("{}/game-{}-{}-{}.json", output, epoch_millis, batch_id, game_id);
+                    let json = serde_json::to_string_pretty(&log).unwrap();
+                    std::fs::write(&path, json).unwrap();
+
                     let done = completed.fetch_add(1, Ordering::Relaxed) + 1;
                     if done % 100 == 0 || done == total_games {
                         let w = wins.load(Ordering::Relaxed);
@@ -142,4 +119,5 @@ pub fn run_solo(args: &SoloArgs, threads: usize, glass: bool) {
     eprintln!("Games:      {}", total_games);
     eprintln!("Wins:       {} ({:.1}%)", total_wins, win_rate);
     eprintln!("Avg ducats: {:.1}", avg_ducats);
+    eprintln!("Logs written to {}/", output);
 }

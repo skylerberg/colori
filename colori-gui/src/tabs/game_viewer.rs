@@ -561,17 +561,23 @@ fn render_summary(ui: &mut egui::Ui, game: &StructuredGameLog) {
         ui.separator();
 
         if let Some(ref final_scores) = game.final_scores {
-            let best = final_scores
-                .iter()
-                .map(|fs| final_score_ranking(fs))
-                .max()
-                .unwrap_or((0, 0, 0));
-            let winners: Vec<&str> = final_scores
-                .iter()
-                .filter(|fs| final_score_ranking(fs) == best)
-                .map(|fs| fs.name.as_str())
-                .collect();
-            ui.label(format!("Winner: {}", winners.join(", ")));
+            if final_scores.len() == 1 {
+                let score = final_scores[0].score;
+                let result = if score >= 16 { "Win" } else { "Loss" };
+                ui.label(format!("Result: {} ({})", result, score));
+            } else {
+                let best = final_scores
+                    .iter()
+                    .map(|fs| final_score_ranking(fs))
+                    .max()
+                    .unwrap_or((0, 0, 0));
+                let winners: Vec<&str> = final_scores
+                    .iter()
+                    .filter(|fs| final_score_ranking(fs) == best)
+                    .map(|fs| fs.name.as_str())
+                    .collect();
+                ui.label(format!("Winner: {}", winners.join(", ")));
+            }
             ui.separator();
         }
 
