@@ -474,7 +474,7 @@ pub fn diff_eval_score(
 /// Each player gets P(win) = softmax(logit_i).
 ///
 /// Evaluates from each player's perspective to get their logits, then softmaxes.
-/// Solo mode: sigmoid(logit) since softmax over 1 value is always 1.0.
+/// Solo mode: win bonus + score/100, same as terminal rewards.
 pub fn compute_diff_eval_rewards(
     state: &GameState,
     _perspective_player: usize,
@@ -492,7 +492,8 @@ pub fn compute_diff_eval_rewards(
 
     if n == 1 {
         let mut result = [0.0; MAX_PLAYERS];
-        result[0] = 1.0 / (1.0 + (-logits[0]).exp());
+        let score = state.players[0].cached_score as f64;
+        result[0] = if score >= 16.0 { 1.0 } else { 0.0 } + score / 100.0;
         return result;
     }
 

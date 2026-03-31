@@ -84,11 +84,12 @@ pub fn player_ranking(player: &PlayerState) -> (u32, usize, u32) {
 
 /// Compute terminal rewards using tiebreakers. Uses cached_score for consistency with ISMCTS.
 /// Each true-tied winner gets 1.0 / num_winners, losers get 0.0.
-/// Solo mode: reward = min(score / 16, 1) to reflect progress toward the 16-ducat goal.
+/// Solo mode: 1.0 for reaching 16 ducats (win) + score/100 for gradient signal.
 pub fn compute_terminal_rewards(players: &FixedVec<PlayerState, MAX_PLAYERS>) -> [f64; MAX_PLAYERS] {
     if players.len() == 1 {
         let mut result = [0.0; MAX_PLAYERS];
-        result[0] = (players[0].cached_score as f64 / 16.0).min(1.0);
+        let score = players[0].cached_score as f64;
+        result[0] = if score >= 16.0 { 1.0 } else { 0.0 } + score / 100.0;
         return result;
     }
     let mut rankings = [(0u32, 0usize, 0u32); MAX_PLAYERS];
@@ -237,7 +238,7 @@ pub fn heuristic_score(
 
 /// Compute heuristic rewards for truncated early-game rollouts.
 /// Highest heuristic score gets 1.0, others get 0.0. Ties split evenly.
-/// Solo mode: clamp(heuristic_score / 20, 0, 1) as absolute progress estimate.
+/// Solo mode: same formula as terminal (win bonus + score/100) using cached_score.
 pub fn compute_heuristic_rewards(
     players: &FixedVec<PlayerState, MAX_PLAYERS>,
     sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
@@ -252,7 +253,8 @@ pub fn compute_heuristic_rewards(
 
     if players.len() == 1 {
         let mut result = [0.0; MAX_PLAYERS];
-        result[0] = (scores[0] / 20.0).clamp(0.0, 1.0);
+        let score = players[0].cached_score as f64;
+        result[0] = if score >= 16.0 { 1.0 } else { 0.0 } + score / 100.0;
         return result;
     }
 
