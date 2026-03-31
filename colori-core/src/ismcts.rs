@@ -27,6 +27,7 @@ pub struct MctsConfig {
     pub time_limit_ms: Option<u64>,
     pub random_first_pick: bool,
     pub first_pick_params: Option<Box<FirstPickParams>>,
+    pub force_max_workshop: bool,
 }
 
 pub struct MctsResult {
@@ -58,6 +59,7 @@ impl Default for MctsConfig {
             time_limit_ms: None,
             random_first_pick: false,
             first_pick_params: None,
+            force_max_workshop: false,
         }
     }
 }
@@ -117,6 +119,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
             time_limit_ms: helper.time_limit_ms,
             random_first_pick: helper.random_first_pick,
             first_pick_params: None,
+            force_max_workshop: false,
         })
     }
 }
@@ -441,6 +444,7 @@ pub fn ismcts<R: Rng>(
     let mut root = previous_tree.unwrap_or_else(|| MctsNode::new(player_index, None));
     let reused_iterations = root.visit_count;
     let mut det_state = state.clone();
+    det_state.force_max_workshop = config.force_max_workshop;
 
     let mut cached_scores = [0u32; MAX_PLAYERS];
     for (i, p) in state.players.iter().enumerate() {

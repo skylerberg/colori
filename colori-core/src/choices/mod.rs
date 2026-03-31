@@ -13,7 +13,7 @@ use smallvec::SmallVec;
 use destroy::enumerate_destroy_choices;
 use glass::enumerate_glass_choices;
 use mix_sequences::enumerate_mix_sequences;
-use multiset::{count_card_types, enumerate_multiset_subsets};
+use multiset::{count_card_types, enumerate_multiset_subsets, enumerate_multiset_subsets_exact};
 
 pub(crate) fn is_glass_ability_available(state: &GameState, player: &PlayerState, glass: GlassCard) -> bool {
     let action_state = match &state.phase {
@@ -25,6 +25,32 @@ pub(crate) fn is_glass_ability_available(state: &GameState, player: &PlayerState
         return false;
     }
     player.completed_glass.iter().any(|g| g.card == glass)
+}
+
+/// Check if we can skip enumerating sub-maximum workshop subsets.
+/// Returns true when the player has no reason to workshop fewer than the max:
+/// - No DestroyCards abilities in drafted cards (no need to keep workshop targets)
+/// - No DrawCards abilities in drafted cards (destroying won't draw to workshop)
+/// - No DrawCards workshop abilities in workshop cards (workshopping won't draw new cards)
+pub(crate) fn should_force_max_workshop(state: &GameState, player: &PlayerState) -> bool {
+    if !state.force_max_workshop {
+        return false;
+    }
+    for id in player.drafted_cards.iter() {
+        match state.card_lookup[id as usize].ability() {
+            Ability::DestroyCards | Ability::DrawCards { .. } => return false,
+            _ => {}
+        }
+    }
+    for id in player.workshop_cards.iter() {
+        let card = state.card_lookup[id as usize];
+        for &wa in card.workshop_abilities() {
+            if matches!(wa, Ability::DrawCards { .. }) {
+                return false;
+            }
+        }
+    }
+    true
 }
 
 // ── Choice enumeration ──
@@ -53,16 +79,40 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                     choices.push(Choice::EndTurn);
                 }
                 Some(Ability::Workshop { count }) => {
-                    choices.push(Choice::SkipWorkshop);
+                    let force_max = should_force_max_workshop(state, player);
                     let (card_types, type_counts, len) = count_card_types(player.workshop_cards, &state.card_lookup);
-                    enumerate_multiset_subsets(
-                        &card_types[..len],
-                        &type_counts[..len],
-                        *count as usize,
-                        &mut SmallVec::new(),
-                        choices,
-                        &|card_types| Choice::Workshop { card_types },
-                    );
+                    let total_available: usize = type_counts[..len].iter().map(|&c| c as usize).sum();
+                    if force_max {
+                        if total_available <= *count as usize {
+                            // Only one option: workshop everything
+                            let mut all_cards = SmallVec::new();
+                            for i in 0..len {
+                                for _ in 0..type_counts[i] {
+                                    all_cards.push(card_types[i]);
+                                }
+                            }
+                            choices.push(Choice::Workshop { card_types: all_cards });
+                        } else {
+                            enumerate_multiset_subsets_exact(
+                                &card_types[..len],
+                                &type_counts[..len],
+                                *count as usize,
+                                &mut SmallVec::new(),
+                                choices,
+                                &|card_types| Choice::Workshop { card_types },
+                            );
+                        }
+                    } else {
+                        choices.push(Choice::SkipWorkshop);
+                        enumerate_multiset_subsets(
+                            &card_types[..len],
+                            &type_counts[..len],
+                            *count as usize,
+                            &mut SmallVec::new(),
+                            choices,
+                            &|card_types| Choice::Workshop { card_types },
+                        );
+                    }
                     // GlassReworkshop can also be used during Workshop
                     if state.expansions.glass && is_glass_ability_available(state, player, GlassCard::GlassReworkshop) {
                         for_each_unique_card_type(&player.workshopped_cards, &state.card_lookup, |card| {

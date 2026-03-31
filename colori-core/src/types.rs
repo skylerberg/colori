@@ -775,6 +775,8 @@ pub struct GameState {
     pub sell_card_lookup: [SellCard; 256],
     #[serde(skip)]
     pub draw_log: Option<DrawLog>,
+    #[serde(skip)]
+    pub force_max_workshop: bool,
 }
 
 fn default_max_rounds() -> u32 {

@@ -74,3 +74,46 @@ pub(super) fn enumerate_multiset_subsets(
     }
     current_subset.truncate(base_len);
 }
+
+/// Like `enumerate_multiset_subsets` but only emits subsets of exactly `max_remaining` size.
+/// Used when we know the player should always workshop the maximum number of cards.
+pub(super) fn enumerate_multiset_subsets_exact(
+    types: &[Card],
+    counts: &[u8],
+    max_remaining: usize,
+    current_subset: &mut SmallVec<[Card; 4]>,
+    choices: &mut Vec<Choice>,
+    make_choice: &impl Fn(SmallVec<[Card; 4]>) -> Choice,
+) {
+    if max_remaining == 0 {
+        if !current_subset.is_empty() {
+            choices.push(make_choice(current_subset.clone()));
+        }
+        return;
+    }
+    if types.is_empty() {
+        return;
+    }
+    let card = types[0];
+    let count = counts[0] as usize;
+    let max_take = max_remaining.min(count);
+    // Compute total available in remaining types (excluding current)
+    let remaining_available: usize = counts[1..].iter().map(|&c| c as usize).sum();
+    let base_len = current_subset.len();
+    for take in 0..=max_take {
+        // Prune: can we still reach exactly max_remaining with remaining types?
+        let needed = max_remaining - take;
+        if needed <= remaining_available {
+            enumerate_multiset_subsets_exact(
+                &types[1..],
+                &counts[1..],
+                needed,
+                current_subset,
+                choices,
+                make_choice,
+            );
+        }
+        current_subset.push(card);
+    }
+    current_subset.truncate(base_len);
+}
