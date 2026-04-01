@@ -27,7 +27,6 @@ pub struct MctsConfig {
     pub random_first_pick: bool,
     pub first_pick_params: Option<Box<FirstPickParams>>,
     pub force_max_workshop: bool,
-    pub abstract_draft: bool,
     pub solver_rollout: bool,
 }
 
@@ -60,7 +59,6 @@ impl Default for MctsConfig {
             random_first_pick: false,
             first_pick_params: None,
             force_max_workshop: false,
-            abstract_draft: false,
             solver_rollout: false,
         }
     }
@@ -121,7 +119,6 @@ impl<'de> Deserialize<'de> for MctsConfig {
             random_first_pick: helper.random_first_pick,
             first_pick_params: None,
             force_max_workshop: false,
-            abstract_draft: false,
             solver_rollout: false,
         })
     }
@@ -449,11 +446,6 @@ pub fn ismcts<R: Rng>(
     let mut det_state = state.clone();
     det_state.force_max_workshop = config.force_max_workshop;
 
-    let initial_pick = match &state.phase {
-        GamePhase::Draft { draft_state } => draft_state.pick_number,
-        _ => 0,
-    };
-
     let mut cached_scores = [0u32; MAX_PLAYERS];
     for (i, p) in state.players.iter().enumerate() {
         cached_scores[i] = calculate_score(p);
@@ -491,10 +483,6 @@ pub fn ismcts<R: Rng>(
             pick_log.clear();
             determinize_in_place(&mut det_state, state, player_index, &cached_scores, rng);
             det_state.force_max_workshop = config.force_max_workshop;
-            if config.abstract_draft {
-                det_state.abstract_draft_perspective = Some(player_index);
-                det_state.abstract_draft_initial_pick = initial_pick;
-            }
             advance_past_opponent_draft_picks(
                 &mut det_state, player_index, &mut opponent_stats,
                 &mut pick_log, config.exploration_constant, rng,
@@ -516,10 +504,6 @@ pub fn ismcts<R: Rng>(
             pick_log.clear();
             determinize_in_place(&mut det_state, state, player_index, &cached_scores, rng);
             det_state.force_max_workshop = config.force_max_workshop;
-            if config.abstract_draft {
-                det_state.abstract_draft_perspective = Some(player_index);
-                det_state.abstract_draft_initial_pick = initial_pick;
-            }
             advance_past_opponent_draft_picks(
                 &mut det_state, player_index, &mut opponent_stats,
                 &mut pick_log, config.exploration_constant, rng,
