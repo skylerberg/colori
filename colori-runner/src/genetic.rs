@@ -235,12 +235,14 @@ pub fn run_genetic_algorithm(args: &TrainGaArgs, threads: usize, output: &str) {
         let json = serde_json::to_string_pretty(&best_params).unwrap();
         std::fs::write(&output_path, json).unwrap();
 
+        let avg_fitness: f64 = fitness.iter().map(|(_, f)| f).sum::<f64>() / fitness.len() as f64;
         let elapsed = gen_start.elapsed();
         eprintln!(
-            "Gen {}/{}: best_fitness={:.4}, worst_fitness={:.4}, elapsed={:.1}s, saved {}",
+            "Gen {}/{}: best={:.4}, avg={:.4}, worst={:.4}, elapsed={:.1}s, saved {}",
             gen + 1,
             args.generations,
             best_fitness,
+            avg_fitness,
             fitness.last().unwrap().1,
             elapsed.as_secs_f64(),
             output_path,
