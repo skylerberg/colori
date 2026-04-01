@@ -57,7 +57,7 @@ impl MctsConfig {
             time_limit_ms: None,
             random_first_pick: false,
             first_pick_params: None,
-            force_max_workshop: false,
+            force_max_workshop: true,
         }
     }
 }
@@ -115,7 +115,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
             time_limit_ms: helper.time_limit_ms,
             random_first_pick: helper.random_first_pick,
             first_pick_params: None,
-            force_max_workshop: false,
+            force_max_workshop: true,
         })
     }
 }

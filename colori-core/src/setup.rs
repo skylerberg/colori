@@ -135,6 +135,6 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
         card_lookup,
         sell_card_lookup,
         draw_log: None,
-        force_max_workshop: false,
+        force_max_workshop: true,
     }
 }
