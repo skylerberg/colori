@@ -1776,7 +1776,27 @@ fn compute_sell_plan(
     let mut reserved_ws = UnorderedCards::new(); // workshop cards reserved for destruction
     let mut used_destroy = [false; 8];
 
-    // Pass 1: DestroyCards → Workshop (most common: starter materials have Workshop{2-4})
+    // Pass 1: DestroyCards → Sell
+    for di in 0..draft_destroy_count {
+        if used_destroy[di] { continue; }
+        for id in workshop_cards.iter() {
+            if reserved_ws.contains(id) { continue; }
+            let card = card_lookup[id as usize];
+            if matches!(card.ability(), Ability::Sell) {
+                destroy_assignments[destroy_assign_count] = Some(DestroyAssignment {
+                    draft_id: draft_destroy[di],
+                    workshop_id: id,
+                    ability: Ability::Sell,
+                });
+                destroy_assign_count += 1;
+                reserved_ws.insert(id);
+                used_destroy[di] = true;
+                break;
+            }
+        }
+    }
+
+    // Pass 2: DestroyCards → Workshop
     for di in 0..draft_destroy_count {
         if used_destroy[di] { continue; }
         let mut best_id: Option<u8> = None;
@@ -1803,7 +1823,7 @@ fn compute_sell_plan(
         }
     }
 
-    // Pass 2: DestroyCards → MixColors
+    // Pass 3: DestroyCards → MixColors
     for di in 0..draft_destroy_count {
         if used_destroy[di] { continue; }
         let mut best_id: Option<u8> = None;
@@ -1827,26 +1847,6 @@ fn compute_sell_plan(
             destroy_assign_count += 1;
             reserved_ws.insert(ws_id);
             used_destroy[di] = true;
-        }
-    }
-
-    // Pass 3: DestroyCards → Sell
-    for di in 0..draft_destroy_count {
-        if used_destroy[di] { continue; }
-        for id in workshop_cards.iter() {
-            if reserved_ws.contains(id) { continue; }
-            let card = card_lookup[id as usize];
-            if matches!(card.ability(), Ability::Sell) {
-                destroy_assignments[destroy_assign_count] = Some(DestroyAssignment {
-                    draft_id: draft_destroy[di],
-                    workshop_id: id,
-                    ability: Ability::Sell,
-                });
-                destroy_assign_count += 1;
-                reserved_ws.insert(id);
-                used_destroy[di] = true;
-                break;
-            }
         }
     }
 
