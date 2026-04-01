@@ -1689,3 +1689,754 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
         _ => panic!("Cannot apply heuristic rollout step for current state"),
     }
 }
+
+// ── Backward sell solver ──
+
+enum SellPlanActionType {
+    Workshop { selected_cards: UnorderedCards },
+    Mix { mixes: [(Color, Color); 2], mix_count: usize },
+    Sell { sell_card_instance_id: u32 },
+}
+
+struct SellPlanAction {
+    draft_card_id: u8,
+    action_type: SellPlanActionType,
+}
+
+struct SellPlan {
+    actions: [Option<SellPlanAction>; 8],
+    action_count: usize,
+    consumed_draft_ids: [u8; 8],
+    consumed_count: usize,
+}
+
+fn compute_sell_plan(
+    player: &PlayerState,
+    sell_card_display: &[SellCardInstance],
+    card_lookup: &[Card; 256],
+    workshop_cards: &UnorderedCards,
+) -> SellPlan {
+    let mut plan = SellPlan {
+        actions: [const { None }; 8],
+        action_count: 0,
+        consumed_draft_ids: [0; 8],
+        consumed_count: 0,
+    };
+
+    // Step 1: Categorize drafted cards by ability
+    let mut draft_workshop: [(u8, u32); 8] = [(0, 0); 8]; // (card_id, count)
+    let mut draft_workshop_count = 0usize;
+    let mut draft_mix: [(u8, u32); 8] = [(0, 0); 8];
+    let mut draft_mix_count = 0usize;
+    let mut draft_sell: [u8; 8] = [0; 8];
+    let mut draft_sell_count = 0usize;
+
+    for id in player.drafted_cards.iter() {
+        let card = card_lookup[id as usize];
+        match card.ability() {
+            Ability::Workshop { count } => {
+                draft_workshop[draft_workshop_count] = (id, count);
+                draft_workshop_count += 1;
+            }
+            Ability::MixColors { count } => {
+                draft_mix[draft_mix_count] = (id, count);
+                draft_mix_count += 1;
+            }
+            Ability::Sell => {
+                draft_sell[draft_sell_count] = id;
+                draft_sell_count += 1;
+            }
+            _ => {}
+        }
+    }
+
+    if draft_sell_count == 0 {
+        return plan; // No sell abilities, nothing for the solver to do
+    }
+
+    // Step 2: Compute total workshop capacity
+    let total_workshop_slots: u32 = draft_workshop[..draft_workshop_count].iter().map(|(_, c)| c).sum();
+
+    // Step 3: Build projected state — what we'd have after workshopping best cards
+    let mut projected_wheel = player.color_wheel.clone();
+    let mut projected_materials = player.materials.clone();
+    let mut ws_cards_selected = UnorderedCards::new();
+
+    // Score each workshop card and pick top N
+    let mut ws_scored: [(u8, u32); 16] = [(0, 0); 16];
+    let mut ws_scored_count = 0usize;
+    for id in workshop_cards.iter() {
+        let card = card_lookup[id as usize];
+        // Simple scoring: colors contribute to sell cards, materials contribute
+        let mut score = 0u32;
+        for &color in card.colors() {
+            for sc in sell_card_display {
+                for &cc in sc.sell_card.color_cost() {
+                    if cc == color {
+                        score += sc.sell_card.ducats() * 5;
+                    }
+                }
+            }
+        }
+        for &mt in card.material_types() {
+            for sc in sell_card_display {
+                if sc.sell_card.required_material() == mt {
+                    score += sc.sell_card.ducats() * 10;
+                }
+            }
+        }
+        ws_scored[ws_scored_count] = (id, score);
+        ws_scored_count += 1;
+    }
+
+    // Sort descending by score
+    for i in 1..ws_scored_count {
+        let mut j = i;
+        while j > 0 && ws_scored[j].1 > ws_scored[j - 1].1 {
+            ws_scored.swap(j, j - 1);
+            j -= 1;
+        }
+    }
+
+    // Project top workshop cards
+    let take = (total_workshop_slots as usize).min(ws_scored_count);
+    for i in 0..take {
+        let id = ws_scored[i].0;
+        let card = card_lookup[id as usize];
+        for &color in card.colors() {
+            projected_wheel.increment(color);
+        }
+        for &mt in card.material_types() {
+            projected_materials.increment(mt);
+        }
+        ws_cards_selected.insert(id);
+    }
+
+    // Step 4: Project mixes
+    let total_mix_slots: u32 = draft_mix[..draft_mix_count].iter().map(|(_, c)| c).sum();
+    let mut projected_mixes: [(Color, Color); 4] = [(Color::Red, Color::Red); 4];
+    let mut projected_mix_count = 0usize;
+
+    // Greedily pick best mixes for sell card requirements
+    for _ in 0..total_mix_slots {
+        if projected_mix_count >= 4 {
+            break;
+        }
+        let mut best_pair: Option<(Color, Color)> = None;
+        let mut best_score = 0u32;
+        for &(a, b) in &VALID_MIX_PAIRS {
+            if projected_wheel.get(a) > 0 && projected_wheel.get(b) > 0 {
+                let output = mix_result(a, b);
+                let mut score = 0u32;
+                for sc in sell_card_display.iter() {
+                    for &cc in sc.sell_card.color_cost() {
+                        if cc == output {
+                            score += sc.sell_card.ducats();
+                        }
+                    }
+                }
+                if score > best_score {
+                    best_score = score;
+                    best_pair = Some((a, b));
+                }
+            }
+        }
+        match best_pair {
+            Some((a, b)) => {
+                projected_mixes[projected_mix_count] = (a, b);
+                projected_mix_count += 1;
+                perform_mix_unchecked(&mut projected_wheel, a, b);
+            }
+            None => break,
+        }
+    }
+
+    // Step 5: Find achievable sell cards (backward check)
+    // Sort sell card display indices by ducats descending
+    let mut sell_indices: [usize; MAX_SELL_CARD_DISPLAY] = [0; MAX_SELL_CARD_DISPLAY];
+    let sell_len = sell_card_display.len();
+    for i in 0..sell_len {
+        sell_indices[i] = i;
+    }
+    for i in 1..sell_len {
+        let mut j = i;
+        while j > 0 && sell_card_display[sell_indices[j]].sell_card.ducats() > sell_card_display[sell_indices[j - 1]].sell_card.ducats() {
+            sell_indices.swap(j, j - 1);
+            j -= 1;
+        }
+    }
+
+    let mut sells_planned = 0usize;
+    let mut used_sell_draft: [bool; 8] = [false; 8];
+    // Track consumed colors from projected_wheel for sell costs
+    let mut consumed_colors = [0u32; 12];
+    let mut consumed_materials = [0u32; 3];
+
+    let mut target_sells: [(u32, usize); 4] = [(0, 0); 4]; // (instance_id, sell_display_index)
+    let mut target_sell_count = 0usize;
+
+    for si in 0..sell_len {
+        if sells_planned >= draft_sell_count {
+            break;
+        }
+        let idx = sell_indices[si];
+        let sc = &sell_card_display[idx];
+
+        // Check material
+        let mat = sc.sell_card.required_material();
+        let mat_available = projected_materials.get(mat).saturating_sub(consumed_materials[mat as usize]);
+        if mat_available == 0 {
+            continue;
+        }
+
+        // Check colors
+        let cost = sc.sell_card.color_cost();
+        let mut color_needed = [0u32; 12];
+        for &c in cost {
+            color_needed[c.index()] += 1;
+        }
+        let mut can_afford = true;
+        for i in 0..12 {
+            if color_needed[i] > 0 {
+                let avail = projected_wheel.get(Color::from_index(i)).saturating_sub(consumed_colors[i]);
+                if avail < color_needed[i] {
+                    can_afford = false;
+                    break;
+                }
+            }
+        }
+        if !can_afford {
+            continue;
+        }
+
+        // Find unused sell draft card
+        let mut sell_draft_idx = None;
+        for i in 0..draft_sell_count {
+            if !used_sell_draft[i] {
+                sell_draft_idx = Some(i);
+                break;
+            }
+        }
+        let sell_draft_idx = match sell_draft_idx {
+            Some(i) => i,
+            None => break,
+        };
+
+        // Commit this sell
+        used_sell_draft[sell_draft_idx] = true;
+        consumed_materials[mat as usize] += 1;
+        for &c in cost {
+            consumed_colors[c.index()] += 1;
+        }
+        target_sells[target_sell_count] = (sc.instance_id, idx);
+        target_sell_count += 1;
+        sells_planned += 1;
+    }
+
+    if target_sell_count == 0 {
+        return plan; // No achievable sells
+    }
+
+    // Step 6: Build the action plan
+    // Determine which workshop cards are actually needed for the target sells
+    // Recompute: which workshop cards provide material/colors for target sell cards
+    let mut needed_colors = [0u32; 12];
+    let mut needed_materials = [0u32; 3];
+    for i in 0..target_sell_count {
+        let (_, idx) = target_sells[i];
+        let sc = &sell_card_display[idx];
+        needed_materials[sc.sell_card.required_material() as usize] += 1;
+        for &c in sc.sell_card.color_cost() {
+            needed_colors[c.index()] += 1;
+        }
+    }
+    // Subtract what we already have
+    for i in 0..3 {
+        needed_materials[i] = needed_materials[i].saturating_sub(player.materials.counts[i]);
+    }
+    for i in 0..12 {
+        needed_colors[i] = needed_colors[i].saturating_sub(player.color_wheel.counts[i]);
+    }
+
+    // Select workshop cards that provide needed resources
+    let mut ws_for_plan = UnorderedCards::new();
+    let mut ws_plan_slots = 0u32;
+    // Prioritize material cards first, then color cards
+    for i in 0..ws_scored_count {
+        if ws_plan_slots >= total_workshop_slots {
+            break;
+        }
+        let id = ws_scored[i].0;
+        let card = card_lookup[id as usize];
+        let mut useful = false;
+        for &mt in card.material_types() {
+            if needed_materials[mt as usize] > 0 {
+                useful = true;
+            }
+        }
+        for &color in card.colors() {
+            if needed_colors[color.index()] > 0 {
+                useful = true;
+            }
+        }
+        if useful {
+            ws_for_plan.insert(id);
+            ws_plan_slots += 1;
+            for &mt in card.material_types() {
+                needed_materials[mt as usize] = needed_materials[mt as usize].saturating_sub(1);
+            }
+            for &color in card.colors() {
+                needed_colors[color.index()] = needed_colors[color.index()].saturating_sub(1);
+            }
+        }
+    }
+
+    // Determine which mixes are needed for target sell colors
+    // Recompute on actual wheel + planned workshops
+    let mut plan_wheel = player.color_wheel.clone();
+    for id in ws_for_plan.iter() {
+        let card = card_lookup[id as usize];
+        for &color in card.colors() {
+            plan_wheel.increment(color);
+        }
+    }
+
+    let mut plan_mixes: [(Color, Color); 4] = [(Color::Red, Color::Red); 4];
+    let mut plan_mix_count = 0usize;
+    let mut plan_mix_slots_used = 0u32;
+
+    // For each target sell, check if we need mixes for its colors
+    let mut wheel_after_mixes = plan_wheel.clone();
+    for i in 0..target_sell_count {
+        let (_, idx) = target_sells[i];
+        let sc = &sell_card_display[idx];
+        for &color in sc.sell_card.color_cost() {
+            if wheel_after_mixes.get(color) > 0 {
+                // Already have it, will consume later
+                continue;
+            }
+            // Need to produce via mix
+            if plan_mix_slots_used >= total_mix_slots || plan_mix_count >= 4 {
+                break;
+            }
+            // Find a mix that produces this color
+            for &(a, b) in &VALID_MIX_PAIRS {
+                if mix_result(a, b) == color && wheel_after_mixes.get(a) > 0 && wheel_after_mixes.get(b) > 0 {
+                    plan_mixes[plan_mix_count] = (a, b);
+                    plan_mix_count += 1;
+                    plan_mix_slots_used += 1;
+                    perform_mix_unchecked(&mut wheel_after_mixes, a, b);
+                    break;
+                }
+            }
+        }
+    }
+
+    // Build action sequence: Workshop → Mix → Sell
+    let mut action_idx = 0usize;
+
+    // Add Workshop actions (one per drafted Workshop card)
+    if !ws_for_plan.is_empty() {
+        let mut ws_remaining = ws_for_plan;
+        for i in 0..draft_workshop_count {
+            if ws_remaining.is_empty() {
+                break;
+            }
+            let (draft_id, count) = draft_workshop[i];
+            let selected = take_first_n(&ws_remaining, count);
+            if selected.is_empty() {
+                continue;
+            }
+            ws_remaining = ws_remaining.difference(selected);
+            plan.actions[action_idx] = Some(SellPlanAction {
+                draft_card_id: draft_id,
+                action_type: SellPlanActionType::Workshop { selected_cards: selected },
+            });
+            plan.consumed_draft_ids[plan.consumed_count] = draft_id;
+            plan.consumed_count += 1;
+            action_idx += 1;
+        }
+    }
+
+    // Add Mix actions
+    if plan_mix_count > 0 {
+        let mut mixes_assigned = 0usize;
+        for i in 0..draft_mix_count {
+            if mixes_assigned >= plan_mix_count {
+                break;
+            }
+            let (draft_id, count) = draft_mix[i];
+            let mut mixes = [(Color::Red, Color::Red); 2];
+            let mut mc = 0usize;
+            for _ in 0..(count as usize).min(2) {
+                if mixes_assigned >= plan_mix_count {
+                    break;
+                }
+                mixes[mc] = plan_mixes[mixes_assigned];
+                mc += 1;
+                mixes_assigned += 1;
+            }
+            if mc > 0 {
+                plan.actions[action_idx] = Some(SellPlanAction {
+                    draft_card_id: draft_id,
+                    action_type: SellPlanActionType::Mix { mixes, mix_count: mc },
+                });
+                plan.consumed_draft_ids[plan.consumed_count] = draft_id;
+                plan.consumed_count += 1;
+                action_idx += 1;
+            }
+        }
+    }
+
+    // Add Sell actions
+    let mut sell_target_idx = 0usize;
+    for i in 0..draft_sell_count {
+        if sell_target_idx >= target_sell_count {
+            break;
+        }
+        if !used_sell_draft[i] {
+            continue;
+        }
+        let (instance_id, _) = target_sells[sell_target_idx];
+        plan.actions[action_idx] = Some(SellPlanAction {
+            draft_card_id: draft_sell[i],
+            action_type: SellPlanActionType::Sell { sell_card_instance_id: instance_id },
+        });
+        plan.consumed_draft_ids[plan.consumed_count] = draft_sell[i];
+        plan.consumed_count += 1;
+        action_idx += 1;
+        sell_target_idx += 1;
+    }
+
+    plan.action_count = action_idx;
+    plan
+}
+
+/// Take the first N items from an UnorderedCards set (deterministic, no RNG).
+fn take_first_n(cards: &UnorderedCards, n: u32) -> UnorderedCards {
+    let mut result = UnorderedCards::new();
+    let mut count = 0u32;
+    for id in cards.iter() {
+        if count >= n {
+            break;
+        }
+        result.insert(id);
+        count += 1;
+    }
+    result
+}
+
+/// Resolve pending abilities on the stack using heuristic logic.
+/// Loops until the ability stack is empty.
+fn resolve_pending_abilities_heuristic(state: &mut GameState, rng: &mut impl Rng) {
+    loop {
+        let (player_index, ability) = match &state.phase {
+            GamePhase::Action { action_state } => {
+                match action_state.ability_stack.last() {
+                    Some(ability) => (action_state.current_player_index, *ability),
+                    None => return,
+                }
+            }
+            _ => return,
+        };
+
+        let cache = SellCardCache::new(
+            &state.sell_card_display,
+            &state.players[player_index].color_wheel,
+            &state.players[player_index].materials,
+        );
+
+        match ability {
+            Ability::Workshop { count } => {
+                let workshop = state.players[player_index].workshop_cards;
+                if workshop.is_empty() {
+                    skip_workshop(state, rng);
+                } else {
+                    // Score and pick best workshop cards
+                    let mut scored: [(u8, u32); 16] = [(0, 0); 16];
+                    let mut scored_count = 0usize;
+                    for id in workshop.iter() {
+                        let card = state.card_lookup[id as usize];
+                        let score = workshop_card_score(card, &cache);
+                        scored[scored_count] = (id, score);
+                        scored_count += 1;
+                    }
+                    for i in 1..scored_count {
+                        let mut j = i;
+                        while j > 0 && scored[j].1 > scored[j - 1].1 {
+                            scored.swap(j, j - 1);
+                            j -= 1;
+                        }
+                    }
+                    let take = (count as usize).min(scored_count);
+                    let mut selected = UnorderedCards::new();
+                    for i in 0..take {
+                        selected.insert(scored[i].0);
+                    }
+                    resolve_workshop_choice(state, selected, rng);
+                }
+            }
+            Ability::MixColors { count } => {
+                let (mixes, mix_count) = two_step_heuristic_mix_seq(
+                    &state.players[player_index].color_wheel, count, &cache, rng,
+                );
+                for i in 0..mix_count {
+                    let (a, b) = mixes[i];
+                    perform_mix_unchecked(&mut state.players[player_index].color_wheel, a, b);
+                }
+                if let GamePhase::Action { ref mut action_state } = state.phase {
+                    action_state.ability_stack.pop();
+                }
+                process_ability_stack(state, rng);
+            }
+            Ability::Sell => {
+                let sell_card_id_opt = cache.best_affordable_id;
+                match sell_card_id_opt {
+                    Some(sell_card_id) => {
+                        resolve_select_sell_card(state, sell_card_id, rng);
+                    }
+                    None => {
+                        if let GamePhase::Action { ref mut action_state } = state.phase {
+                            action_state.ability_stack.pop();
+                        }
+                        process_ability_stack(state, rng);
+                    }
+                }
+            }
+            Ability::DestroyCards => {
+                let workshop = state.players[player_index].workshop_cards;
+                if workshop.is_empty() {
+                    resolve_destroy_cards(state, UnorderedCards::new(), rng);
+                } else {
+                    let mut copy = workshop;
+                    let selected = copy.draw_up_to(1, rng);
+                    resolve_destroy_cards(state, selected, rng);
+                }
+            }
+            Ability::GainSecondary => {
+                let color = pick_best_color(&SECONDARIES, &cache, rng);
+                resolve_gain_color(state, color, rng);
+            }
+            Ability::GainPrimary => {
+                let color = pick_best_color(&PRIMARIES, &cache, rng);
+                resolve_gain_color(state, color, rng);
+            }
+            Ability::ChangeTertiary => {
+                let player = &state.players[player_index];
+                let mut owned_tertiaries = [Color::Red; 6];
+                let mut own_count = 0usize;
+                for &c in &TERTIARIES {
+                    if player.color_wheel.get(c) > 0 {
+                        owned_tertiaries[own_count] = c;
+                        own_count += 1;
+                    }
+                }
+                if own_count == 0 {
+                    if let GamePhase::Action { ref mut action_state } = state.phase {
+                        action_state.ability_stack.pop();
+                    }
+                    process_ability_stack(state, rng);
+                } else {
+                    let mut best_lose = owned_tertiaries[0];
+                    let mut best_lose_score = u32::MAX;
+                    for i in 0..own_count {
+                        let score = cache.color_demand(owned_tertiaries[i]);
+                        if score < best_lose_score {
+                            best_lose_score = score;
+                            best_lose = owned_tertiaries[i];
+                        }
+                    }
+                    let mut best_gain = TERTIARIES[0];
+                    let mut best_gain_score = 0u32;
+                    for &c in &TERTIARIES {
+                        if c != best_lose {
+                            let score = cache.color_demand(c);
+                            if score > best_gain_score {
+                                best_gain_score = score;
+                                best_gain = c;
+                            }
+                        }
+                    }
+                    resolve_choose_tertiary_to_lose(state, best_lose);
+                    resolve_choose_tertiary_to_gain(state, best_gain, rng);
+                }
+            }
+            Ability::MoveToDrafted => {
+                let player = &mut state.players[player_index];
+                if player.workshop_cards.is_empty() {
+                    if let GamePhase::Action { ref mut action_state } = state.phase {
+                        action_state.ability_stack.pop();
+                    }
+                    process_ability_stack(state, rng);
+                } else {
+                    let card_id = player.workshop_cards.pick_random(rng).unwrap();
+                    player.workshop_cards.remove(card_id);
+                    player.drafted_cards.insert(card_id);
+                    if let GamePhase::Action { ref mut action_state } = state.phase {
+                        action_state.ability_stack.pop();
+                    }
+                    process_ability_stack(state, rng);
+                }
+            }
+            _ => {
+                // DrawCards, GainDucats handled by process_ability_stack
+                process_ability_stack(state, rng);
+            }
+        }
+    }
+}
+
+fn execute_solver_turn(state: &mut GameState, player_index: usize, heuristic_draft: bool, rng: &mut impl Rng) {
+    let plan = compute_sell_plan(
+        &state.players[player_index],
+        &state.sell_card_display,
+        &state.card_lookup,
+        &state.players[player_index].workshop_cards,
+    );
+
+    // Phase 1: Execute sell plan actions
+    for i in 0..plan.action_count {
+        let action = match &plan.actions[i] {
+            Some(a) => a,
+            None => continue,
+        };
+
+        // Verify the drafted card is still available
+        if !state.players[player_index].drafted_cards.contains(action.draft_card_id) {
+            continue;
+        }
+
+        match &action.action_type {
+            SellPlanActionType::Workshop { selected_cards } => {
+                // Destroy the drafted card to get the Workshop ability
+                destroy_drafted_card(state, action.draft_card_id as u32, rng);
+                // Now Workshop ability should be on the stack
+                if let GamePhase::Action { ref action_state } = state.phase {
+                    if matches!(action_state.ability_stack.last(), Some(Ability::Workshop { .. })) {
+                        // Intersect planned selection with actual workshop cards
+                        let actual_available = state.players[player_index].workshop_cards;
+                        let valid_selection = selected_cards.intersection(actual_available);
+                        if valid_selection.is_empty() {
+                            skip_workshop(state, rng);
+                        } else {
+                            resolve_workshop_choice(state, valid_selection, rng);
+                        }
+                    }
+                }
+                // Resolve any nested abilities from action workshop cards
+                resolve_pending_abilities_heuristic(state, rng);
+            }
+            SellPlanActionType::Mix { mixes, mix_count } => {
+                // Fused mix: skip ability stack
+                state.players[player_index].drafted_cards.remove(action.draft_card_id);
+                state.destroyed_pile.insert(action.draft_card_id);
+                for j in 0..*mix_count {
+                    let (a, b) = mixes[j];
+                    // Verify mix is still valid
+                    let wheel = &state.players[player_index].color_wheel;
+                    if wheel.get(a) > 0 && wheel.get(b) > 0 {
+                        perform_mix_unchecked(&mut state.players[player_index].color_wheel, a, b);
+                    }
+                }
+            }
+            SellPlanActionType::Sell { sell_card_instance_id } => {
+                // Destroy the drafted card to get the Sell ability
+                destroy_drafted_card(state, action.draft_card_id as u32, rng);
+                // Verify the sell card is still affordable and available
+                if let GamePhase::Action { ref action_state } = state.phase {
+                    if matches!(action_state.ability_stack.last(), Some(Ability::Sell)) {
+                        let still_valid = state.sell_card_display.iter().any(|sc| {
+                            sc.instance_id == *sell_card_instance_id
+                                && can_afford_sell_card(&state.players[player_index], &sc.sell_card)
+                        });
+                        if still_valid {
+                            resolve_select_sell_card(state, *sell_card_instance_id, rng);
+                        } else {
+                            // Fall through to heuristic sell
+                            resolve_pending_abilities_heuristic(state, rng);
+                        }
+                    }
+                }
+                resolve_pending_abilities_heuristic(state, rng);
+            }
+        }
+    }
+
+    // Phase 2: Handle remaining drafted cards with heuristic
+    loop {
+        match &state.phase {
+            GamePhase::Action { action_state } => {
+                if !action_state.ability_stack.is_empty() {
+                    resolve_pending_abilities_heuristic(state, rng);
+                    continue;
+                }
+                let player_idx = action_state.current_player_index;
+                if player_idx != player_index {
+                    break; // Turn has ended, moved to next player
+                }
+                let drafted = state.players[player_index].drafted_cards;
+                if drafted.is_empty() {
+                    // Try glass then end turn
+                    if !try_activate_random_glass(state, player_index, rng) {
+                        end_player_turn(state, rng);
+                        if matches!(state.phase, GamePhase::Draw) {
+                            if heuristic_draft {
+                                heuristic_rollout_draw_and_draft(state, rng);
+                            } else {
+                                rollout_draw_and_draft(state, rng);
+                            }
+                        }
+                    }
+                    break;
+                }
+                // Use heuristic for remaining cards
+                let cache = SellCardCache::new(
+                    &state.sell_card_display,
+                    &state.players[player_index].color_wheel,
+                    &state.players[player_index].materials,
+                );
+                handle_action_no_pending_heuristic(state, player_index, heuristic_draft, &cache, rng);
+            }
+            _ => break,
+        }
+    }
+}
+
+pub fn apply_solver_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, rng: &mut R) {
+    // Draft phase: same as heuristic
+    if matches!(&state.phase, GamePhase::Draft { .. }) {
+        if heuristic_draft {
+            heuristic_draft_loop(state, rng);
+        } else {
+            loop {
+                let card_id = {
+                    if let GamePhase::Draft { ref draft_state } = state.phase {
+                        let player = draft_state.current_player_index;
+                        let hand = draft_state.hands[player];
+                        match hand.pick_random(rng) {
+                            Some(id) => id as u32,
+                            None => break,
+                        }
+                    } else {
+                        break;
+                    }
+                };
+                player_pick(state, card_id, rng);
+            }
+        }
+        return;
+    }
+
+    match &state.phase {
+        GamePhase::Action { action_state } => {
+            let player_index = action_state.current_player_index;
+            if action_state.ability_stack.is_empty() {
+                execute_solver_turn(state, player_index, heuristic_draft, rng);
+            } else {
+                // Shouldn't normally happen, but fallback
+                apply_heuristic_rollout_step(state, heuristic_draft, rng);
+            }
+        }
+        _ => {}
+    }
+}

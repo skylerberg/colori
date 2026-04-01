@@ -239,6 +239,8 @@ struct VariantFileEntry {
     force_max_workshop: Option<bool>,
     #[serde(default)]
     abstract_draft: Option<bool>,
+    #[serde(default)]
+    solver_rollout: Option<bool>,
 }
 
 impl VariantFileEntry {
@@ -295,6 +297,7 @@ impl VariantFileEntry {
                 first_pick_params,
                 force_max_workshop: self.force_max_workshop.unwrap_or(defaults.force_max_workshop),
                 abstract_draft: self.abstract_draft.unwrap_or(defaults.abstract_draft),
+                solver_rollout: self.solver_rollout.unwrap_or(defaults.solver_rollout),
             },
         }
     }

@@ -1,5 +1,5 @@
 use crate::colori_game::{
-    apply_choice_to_state, apply_rollout_step, apply_heuristic_rollout_step,
+    apply_choice_to_state, apply_rollout_step, apply_heuristic_rollout_step, apply_solver_rollout_step,
     determinize_in_place, enumerate_choices_into,
 };
 use crate::draft_phase::player_pick;
@@ -29,6 +29,7 @@ pub struct MctsConfig {
     pub first_pick_params: Option<Box<FirstPickParams>>,
     pub force_max_workshop: bool,
     pub abstract_draft: bool,
+    pub solver_rollout: bool,
 }
 
 pub struct MctsResult {
@@ -62,6 +63,7 @@ impl Default for MctsConfig {
             first_pick_params: None,
             force_max_workshop: false,
             abstract_draft: false,
+            solver_rollout: false,
         }
     }
 }
@@ -123,6 +125,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
             first_pick_params: None,
             force_max_workshop: false,
             abstract_draft: false,
+            solver_rollout: false,
         })
     }
 }
@@ -796,7 +799,7 @@ fn iteration_simultaneous<R: Rng>(
         let scores = if config.no_rollout {
             eval_scores(state, true, &config.heuristic_params, card_table, de)
         } else {
-            rollout(state, max_rollout_round, config.max_rollout_steps, use_heuristic, config.heuristic_rollout, config.heuristic_draft, &config.heuristic_params, card_table, de, rng)
+            rollout(state, max_rollout_round, config.max_rollout_steps, use_heuristic, config.heuristic_rollout, config.solver_rollout, config.heuristic_draft, &config.heuristic_params, card_table, de, rng)
         };
         record_outcome(&mut node.children[best_idx], &scores);
         scores
@@ -850,7 +853,7 @@ fn select(
     best_idx
 }
 
-fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_rollout_steps: u32, use_heuristic: bool, heuristic_rollout: bool, heuristic_draft: bool, params: &HeuristicParams, card_table: &CardHeuristicTable, diff_eval: Option<(&DiffEvalParams, &DiffEvalTable)>, rng: &mut R) -> [f64; MAX_PLAYERS] {
+fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_rollout_steps: u32, use_heuristic: bool, heuristic_rollout: bool, solver_rollout: bool, heuristic_draft: bool, params: &HeuristicParams, card_table: &CardHeuristicTable, diff_eval: Option<(&DiffEvalParams, &DiffEvalTable)>, rng: &mut R) -> [f64; MAX_PLAYERS] {
     for _ in 0..max_rollout_steps {
         if matches!(state.phase, GamePhase::GameOver) {
             return compute_terminal_rewards(&state.players);
@@ -858,7 +861,9 @@ fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_ro
         if max_rollout_round.is_some_and(|mr| state.round > mr) {
             return eval_scores(state, use_heuristic, params, card_table, diff_eval);
         }
-        if heuristic_rollout {
+        if solver_rollout {
+            apply_solver_rollout_step(state, heuristic_draft, rng);
+        } else if heuristic_rollout {
             apply_heuristic_rollout_step(state, heuristic_draft, rng);
         } else {
             apply_rollout_step(state, heuristic_draft, rng);
@@ -1091,6 +1096,20 @@ mod tests {
     fn test_ismcts_with_heuristic_rollout() {
         let config = MctsConfig {
             iterations: 10,
+            ..MctsConfig::default()
+        };
+        for num_players in 2..=4 {
+            for seed in 0..3 {
+                run_full_game_with_config(num_players, seed, &config);
+            }
+        }
+    }
+
+    #[test]
+    fn test_ismcts_solver_rollout() {
+        let config = MctsConfig {
+            iterations: 10,
+            solver_rollout: true,
             ..MctsConfig::default()
         };
         for num_players in 2..=4 {
