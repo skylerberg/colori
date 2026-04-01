@@ -82,10 +82,5 @@ pub fn get_starter_card_categories(num_players: usize) -> Vec<CardCategory> {
             card_names: vec!["Ceramics", "Paintings", "Textiles"],
             total_copies: 3 * num_players as u32,
         },
-        CardCategory {
-            label: "Argol",
-            card_names: vec!["Argol"],
-            total_copies: 1 * num_players as u32,
-        },
     ]
 }

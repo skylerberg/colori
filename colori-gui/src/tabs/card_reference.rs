@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use eframe::egui;
 use colori_core::cards::{
-    action_cards, argol_card, basic_dye_cards, draft_material_cards, dye_cards,
+    action_cards, basic_dye_cards, draft_material_cards, dye_cards,
     generate_all_sell_cards, starter_material_cards, ACTION_COPIES, DYE_COPIES, MATERIAL_COPIES,
 };
 use colori_core::types::{Card, CardKind, Color, MaterialType};
@@ -395,24 +395,6 @@ fn render_starter_cards(ui: &mut egui::Ui) {
                         ui.end_row();
                     }
 
-                    // Argol
-                    let argol = argol_card();
-                    let workshop_str = argol
-                        .workshop_abilities()
-                        .iter()
-                        .map(|a| format_ability(&a))
-                        .collect::<Vec<_>>()
-                        .join(", ");
-                    let argol_details = if workshop_str.is_empty() {
-                        "--".to_string()
-                    } else {
-                        format!("Workshop: {}", workshop_str)
-                    };
-                    ui.label(argol.name());
-                    ui.label("Action");
-                    ui.label(argol_details);
-                    ui.label(format_ability(&argol.ability()));
-                    ui.end_row();
                 });
         });
 }

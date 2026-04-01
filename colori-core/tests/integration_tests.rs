@@ -264,7 +264,7 @@ fn generate_invalid_choices(state: &GameState) -> Vec<Choice> {
                 Card::VermilionDye, Card::Saffron, Card::PersianBerries,
                 Card::StarterCeramics, Card::StarterPaintings, Card::StarterTextiles,
                 Card::Alum, Card::CreamOfTartar, Card::GumArabic,
-                Card::Potash, Card::Vinegar, Card::Argol, Card::Chalk,
+                Card::Potash, Card::Vinegar, Card::Chalk,
                 Card::LinseedOil, Card::Lye,
             ];
             for &card in &all_cards {

@@ -284,7 +284,7 @@ fn upper_confidence_bound(
 
 // ── DUCT (Decoupled UCT) for opponent draft modeling ──
 
-const NUM_CARDS: usize = 48;
+const NUM_CARDS: usize = 47;
 
 #[derive(Clone, Copy, Default)]
 struct OpponentPickStat {

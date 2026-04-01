@@ -56,7 +56,7 @@ const PARAM_GROUPS: &[(&str, &[&str])] = &[
     ]),
     ("Action Card Overrides", &[
         "alum_quality", "cream_of_tartar_quality", "gum_arabic_quality",
-        "potash_quality", "vinegar_quality", "argol_quality",
+        "potash_quality", "vinegar_quality",
         "linseed_oil_quality", "lye_quality",
     ]),
     ("Dye Type Overrides", &[
@@ -118,7 +118,6 @@ fn get_param_value(params: &HeuristicParams, name: &str) -> Option<f64> {
         "gum_arabic_quality" => params.gum_arabic_quality,
         "potash_quality" => params.potash_quality,
         "vinegar_quality" => params.vinegar_quality,
-        "argol_quality" => params.argol_quality,
         "linseed_oil_quality" => params.linseed_oil_quality,
         "lye_quality" => params.lye_quality,
         "pure_primary_dye_quality" => params.pure_primary_dye_quality,
@@ -161,7 +160,7 @@ fn get_param_value(params: &HeuristicParams, name: &str) -> Option<f64> {
 fn baseline_fallback(param_name: &str) -> Option<f64> {
     match param_name {
         "alum_quality" | "cream_of_tartar_quality" | "gum_arabic_quality"
-        | "potash_quality" | "vinegar_quality" | "argol_quality"
+        | "potash_quality" | "vinegar_quality"
         | "linseed_oil_quality" | "lye_quality" => {
             Some(BASELINE_PARAMS.action_quality)
         }

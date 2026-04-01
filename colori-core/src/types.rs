@@ -107,7 +107,7 @@ pub enum CardKind {
     Action,
 }
 
-// ── Card enum (46 variants) ──
+// ── Card enum (47 variants) ──
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Card {
@@ -165,7 +165,6 @@ pub enum Card {
     GumArabic,
     Potash,
     Vinegar,
-    Argol,
     Chalk,
     LinseedOil,
     Lye,
@@ -180,7 +179,7 @@ struct CardProperties {
     workshop_abilities: &'static [Ability],
 }
 
-const CARD_DATA: [CardProperties; 48] = [
+const CARD_DATA: [CardProperties; 47] = [
     // BasicRed
     CardProperties { name: "Basic Red", kind: CardKind::BasicDye, ability: Ability::Sell, colors: &[Color::Red], material_types: &[], workshop_abilities: &[] },
     // BasicYellow
@@ -269,8 +268,6 @@ const CARD_DATA: [CardProperties; 48] = [
     CardProperties { name: "Potash", kind: CardKind::Action, ability: Ability::DrawCards { count: 2 }, colors: &[], material_types: &[], workshop_abilities: &[Ability::Workshop { count: 3 }] },
     // Vinegar
     CardProperties { name: "Vinegar", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::ChangeTertiary] },
-    // Argol — not currently used
-    CardProperties { name: "Argol", kind: CardKind::Action, ability: Ability::Sell, colors: &[], material_types: &[], workshop_abilities: &[Ability::DrawCards { count: 2 }] },
     // Chalk
     CardProperties { name: "Chalk", kind: CardKind::Action, ability: Ability::Sell, colors: &[], material_types: &[], workshop_abilities: &[Ability::GainPrimary] },
     // LinseedOil

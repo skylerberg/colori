@@ -12,11 +12,6 @@ pub fn starter_material_cards() -> [Card; 3] {
     [Card::StarterCeramics, Card::StarterPaintings, Card::StarterTextiles]
 }
 
-// argol_card — not in the draft deck
-pub fn argol_card() -> Card {
-    Card::Argol
-}
-
 pub fn chalk_card() -> Card {
     Card::Chalk
 }
