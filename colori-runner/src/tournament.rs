@@ -33,7 +33,7 @@ impl TournamentStats {
     }
 }
 
-pub fn run_tournament(args: &TournamentArgs, threads: usize, output: &str, glass: bool) {
+pub fn run_tournament(args: &TournamentArgs, threads: usize, output: &str) {
     let loaded_variants = load_variants_from_file(&args.variants_file);
     let num_variants = loaded_variants.len();
     if num_variants < 2 {
@@ -126,7 +126,7 @@ pub fn run_tournament(args: &TournamentArgs, threads: usize, output: &str, glass
                     }
 
                     let pair = vec![variants[i].clone(), variants[j].clone()];
-                    let log = run_game(0, &pair, note.clone(), glass, None, &mut rng);
+                    let log = run_game(0, &pair, note.clone(), None, &mut rng);
 
                     set_card_registry(&log.initial_state.card_lookup);
                     set_sell_card_registry(&log.initial_state.sell_card_lookup);

@@ -1,9 +1,9 @@
-use crate::colors::{can_pay_cost, pay_cost, perform_mix, perform_mix_unchecked, PRIMARIES, TERTIARIES};
+use crate::colors::{can_pay_cost, pay_cost, perform_mix, perform_mix_unchecked, TERTIARIES};
 use crate::deck_utils::draw_from_deck;
 use crate::draw_log_helpers::{is_replaying, record_player_deck_draw, replay_player_deck_draw, replay_sell_card_reveal};
 use crate::game_log::{DrawEvent, DrawLog};
 use crate::types::{
-    Ability, AbilityStack, ActionState, Card, Color, GamePhase, GameState, GlassCard,
+    Ability, AbilityStack, ActionState, Card, Color, GamePhase, GameState,
     PlayerState, SellCard, SellCardInstance,
 };
 use crate::unordered_cards::UnorderedCards;
@@ -194,7 +194,6 @@ pub fn initialize_action_phase(state: &mut GameState) {
     let action_state = ActionState {
         current_player_index: ((state.round - 1) as usize) % state.players.len(),
         ability_stack: SmallVec::new(),
-        used_glass: 0,
     };
     state.phase = GamePhase::Action { action_state };
 }
@@ -261,7 +260,7 @@ pub fn process_ability_stack<R: Rng>(state: &mut GameState, rng: &mut R) {
                 return; // always needs input
             }
             Ability::Sell => {
-                if can_sell_to_any_sell_card(state) || can_sell_to_any_glass(state) {
+                if can_sell_to_any_sell_card(state) {
                     return; // waiting for input
                 } else {
                     get_action_state_mut(state).ability_stack.pop();
@@ -312,17 +311,6 @@ pub fn can_sell_to_any_sell_card(state: &GameState) -> bool {
         .any(|b| can_afford_sell_card(player, &b.sell_card))
 }
 
-pub fn can_afford_glass(player: &PlayerState) -> bool {
-    PRIMARIES.iter().any(|&c| player.color_wheel.get(c) >= 4)
-}
-
-pub fn can_sell_to_any_glass(state: &GameState) -> bool {
-    if !state.expansions.glass || state.glass_display.is_empty() {
-        return false;
-    }
-    let player_index = get_action_state(state).current_player_index;
-    can_afford_glass(&state.players[player_index])
-}
 
 pub fn resolve_workshop_choice<R: Rng>(
     state: &mut GameState,
@@ -363,66 +351,6 @@ pub fn resolve_workshop_choice<R: Rng>(
     process_ability_stack(state, rng);
 }
 
-/// Workshop cards including one card that gets workshopped twice via GlassReworkshop.
-/// The reworkshop_id card is processed with all others first, then un-rotated and processed again.
-pub fn resolve_workshop_with_reworkshop<R: Rng>(
-    state: &mut GameState,
-    selected_cards: UnorderedCards,
-    reworkshop_id: u8,
-    rng: &mut R,
-) {
-    let action_state = get_action_state(state);
-    let player_index = action_state.current_player_index;
-
-    // Pop the Workshop ability from the stack
-    get_action_state_mut(state).ability_stack.pop();
-
-    let (action_ids, action_count, non_action_ids, non_action_count) =
-        partition_action_cards(&selected_cards, &state.card_lookup);
-
-    process_non_action_cards(
-        &mut state.players[player_index],
-        &state.card_lookup,
-        &non_action_ids,
-        non_action_count,
-    );
-
-    let mut collected = collect_abilities_from_action_cards(
-        &mut state.players[player_index],
-        &state.card_lookup,
-        &action_ids,
-        action_count,
-    );
-
-    // Now un-rotate the reworkshop card and process it a second time
-    let player = &mut state.players[player_index];
-    player.workshopped_cards.remove(reworkshop_id);
-    player.workshop_cards.insert(reworkshop_id);
-
-    let reworkshop_card = state.card_lookup[reworkshop_id as usize];
-    let player = &mut state.players[player_index];
-    player.workshop_cards.remove(reworkshop_id);
-    if reworkshop_card.is_action() {
-        for &ability in reworkshop_card.workshop_abilities() {
-            collected.add_ability(ability);
-        }
-    } else {
-        for mt in reworkshop_card.material_types() {
-            player.materials.increment(*mt);
-        }
-        for color in reworkshop_card.colors() {
-            player.color_wheel.increment(*color);
-        }
-    }
-    player.workshopped_cards.insert(reworkshop_id);
-
-    // Push abilities onto LIFO stack in reverse resolution order
-    // No remaining slots for reworkshop path
-    let stack = &mut get_action_state_mut(state).ability_stack;
-    push_abilities_to_stack(stack, &collected, None);
-
-    process_ability_stack(state, rng);
-}
 
 pub fn skip_workshop<R: Rng>(state: &mut GameState, rng: &mut R) {
     get_action_state_mut(state).ability_stack.pop();
@@ -573,37 +501,6 @@ pub fn resolve_choose_tertiary_to_gain<R: Rng>(
     process_ability_stack(state, rng);
 }
 
-pub(crate) fn mark_glass_used(state: &mut GameState, glass: GlassCard) {
-    let action_state = get_action_state_mut(state);
-    action_state.used_glass |= 1u16 << (glass as u16);
-}
-
-pub fn resolve_select_glass<R: Rng>(
-    state: &mut GameState,
-    glass_card: GlassCard,
-    pay_color: Color,
-    rng: &mut R,
-) {
-    let player_index = get_action_state(state).current_player_index;
-    get_action_state_mut(state).ability_stack.pop();
-
-    let glass_index = state.glass_display.iter()
-        .position(|g| g.card == glass_card)
-        .expect("Glass card not found in display");
-    let glass_instance = state.glass_display.swap_remove(glass_index);
-
-    let player = &mut state.players[player_index];
-    for _ in 0..4 {
-        assert!(player.color_wheel.decrement(pay_color), "Not enough color to pay");
-    }
-    player.completed_glass.push(glass_instance);
-
-    if let Some(next) = state.glass_deck.pop() {
-        state.glass_display.push(next);
-    }
-
-    process_ability_stack(state, rng);
-}
 
 pub fn end_player_turn<R: Rng>(state: &mut GameState, rng: &mut R) {
     let player_index = get_action_state(state).current_player_index;
@@ -626,7 +523,6 @@ pub fn end_player_turn<R: Rng>(state: &mut GameState, rng: &mut R) {
     } else {
         let action_state = get_action_state_mut(state);
         action_state.ability_stack.clear();
-        action_state.used_glass = 0;
     }
 }
 

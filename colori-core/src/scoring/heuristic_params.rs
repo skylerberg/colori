@@ -22,7 +22,6 @@ pub struct HeuristicParams {
     pub sell_card_material_alignment: f64,
     #[serde(alias = "buyerColorWeight")]
     pub sell_card_color_alignment: f64,
-    pub glass_weight: f64,
     pub heuristic_round_threshold: u32,
     pub heuristic_lookahead: u32,
     // Per-action-card quality overrides
@@ -88,7 +87,6 @@ impl Default for HeuristicParams {
             dual_material_quality: 0.42737233013877646,
             sell_card_material_alignment: 0.5103003108821427,
             sell_card_color_alignment: 1.5172566875413194,
-            glass_weight: 1.0,
             heuristic_round_threshold: 6,
             heuristic_lookahead: 9,
             alum_quality: None,

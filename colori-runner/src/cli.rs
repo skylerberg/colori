@@ -18,10 +18,6 @@ pub struct Cli {
     #[arg(long, global = true)]
     pub output: Option<String>,
 
-    /// Enable glass expansion
-    #[arg(long, default_value_t = false, global = true)]
-    pub glass: bool,
-
     #[command(subcommand)]
     pub command: Option<Commands>,
 }

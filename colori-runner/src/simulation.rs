@@ -3,7 +3,7 @@ use colori_core::draw_phase::execute_draw_phase;
 use colori_core::game_log::{DrawEvent, DrawLog, FinalPlayerStats, FinalScore, PlayerVariant};
 use colori_core::ismcts::{ismcts, MctsConfig, MctsNode};
 use colori_core::scoring::{calculate_score, HeuristicParams};
-use colori_core::setup::create_initial_game_state_with_expansions;
+use colori_core::setup::create_initial_game_state;
 use colori_core::types::*;
 use colori_core::unordered_cards::{set_sell_card_registry, set_card_registry};
 
@@ -202,7 +202,6 @@ pub fn run_game(
     _game_index: usize,
     player_variants: &[NamedVariant],
     note: Option<String>,
-    glass: bool,
     max_rounds: Option<u32>,
     rng: &mut WyRand,
 ) -> GameRunOutput {
@@ -227,8 +226,7 @@ pub fn run_game(
         .collect();
 
     let ai_players = vec![true; num_players];
-    let expansions = Expansions { glass };
-    let mut state = create_initial_game_state_with_expansions(num_players, &ai_players, expansions, rng);
+    let mut state = create_initial_game_state(num_players, &ai_players, rng);
     if let Some(mr) = max_rounds {
         state.max_rounds = mr;
     }
@@ -300,7 +298,6 @@ pub fn run_game(
         // Snapshot state for information revelation check
         let prev_workshop_len = state.players[player_index].workshop_cards.len();
         let prev_sell_deck_len = state.sell_card_deck.len();
-        let prev_glass_deck_len = state.glass_deck.len();
 
         // Capture round before applying choice (end_round may increment it)
         let round = state.round;
@@ -328,8 +325,7 @@ pub fn run_game(
             if action_state.current_player_index == player_index);
         let info_revealed =
             state.players[player_index].workshop_cards.len() != prev_workshop_len ||
-            state.sell_card_deck.len() != prev_sell_deck_len ||
-            state.glass_deck.len() != prev_glass_deck_len;
+            state.sell_card_deck.len() != prev_sell_deck_len;
         reuse_tree = if same_player_action && !info_revealed {
             mcts_tree.and_then(|t| t.into_subtree(&choice))
         } else {
@@ -409,7 +405,7 @@ pub fn run_game(
     }
 }
 
-pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str, glass: bool) {
+pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str) {
     let player_variants = if let Some(ref v) = args.variants {
         parse_inline_variants(v)
     } else {
@@ -482,7 +478,6 @@ pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str, glass: 
                         0,
                         player_variants,
                         note.clone(),
-                        glass,
                         max_rounds,
                         &mut rng,
                     );

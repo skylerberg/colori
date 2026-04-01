@@ -216,14 +216,12 @@ pub fn heuristic_score(
         best_alignment = best_alignment.max(alignment);
     }
 
-    let glass_score = params.glass_weight * player.completed_glass.len() as f64;
-
     let primary_coverage = primary_seen.count_ones() as f64 / 3.0;
     let secondary_coverage = secondary_seen.count_ones() as f64 / 3.0;
     let material_type_count = player.materials.counts.iter().filter(|&&c| c > 0).count() as f64;
     let material_coverage = material_seen.count_ones() as f64 / 3.0;
 
-    score + color_score + material_score + deck_quality + best_alignment + glass_score
+    score + color_score + material_score + deck_quality + best_alignment
         + params.primary_color_coverage_weight * primary_coverage
         + params.secondary_color_coverage_weight * secondary_coverage
         + params.cards_in_deck_weight * card_count as f64
@@ -288,7 +286,6 @@ mod tests {
             color_wheel: ColorWheel { counts: color_counts },
             materials: Materials::new(),
             completed_sell_cards,
-            completed_glass: SmallVec::new(),
             ducats,
             cached_score: 0,
         };

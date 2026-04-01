@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use colori_core::game_log::{FinalScore, PlayerVariant, StructuredGameLog};
-use colori_core::types::{SellCard, SellCardInstance, CardInstance, Choice, GlassCard, MaterialType, ALL_COLORS};
+use colori_core::types::{SellCard, SellCardInstance, CardInstance, Choice, MaterialType, ALL_COLORS};
 
 use super::card_names::{sell_card_display_name, card_display_name, get_draft_copies_by_name};
 use super::categories::CardCategory;
@@ -350,45 +350,6 @@ pub fn format_choice(choice: &Choice) -> String {
                 ),
             }
         }
-        Choice::SelectGlass { glass, pay_color } => {
-            format!("Acquired {:?} (paid 4 {:?})", glass, pay_color)
-        }
-        Choice::ActivateGlassWorkshop => "Activated Glass Workshop".to_string(),
-        Choice::ActivateGlassDraw => "Activated Glass Draw".to_string(),
-        Choice::ActivateGlassMix => "Activated Glass Mix".to_string(),
-        Choice::ActivateGlassGainPrimary => "Activated Glass Gain Primary".to_string(),
-        Choice::ActivateGlassExchange { lose, gain } => {
-            format!("Activated Glass Exchange: {:?} for {:?}", lose, gain)
-        }
-        Choice::ActivateGlassMoveDrafted { card } => {
-            format!("Activated Glass Move Drafted: {}", card_name(card))
-        }
-        Choice::ActivateGlassUnmix { color } => {
-            format!("Activated Glass Unmix: {:?}", color)
-        }
-        Choice::ActivateGlassTertiaryDucat { color } => {
-            format!("Activated Glass Tertiary Ducat: {:?}", color)
-        }
-        Choice::ActivateGlassReworkshop { card } => {
-            format!("Activated Glass Reworkshop: {}", card_name(card))
-        }
-        Choice::ActivateGlassDestroyClean { card } => {
-            format!("Activated Glass Destroy: {}", card_name(card))
-        }
-        Choice::DestroyAndSelectGlass { card, glass, pay_color } => {
-            format!("Destroyed {} and acquired {:?} (paid 4 {:?})", card_name(card), glass, pay_color)
-        }
-        Choice::WorkshopWithReworkshop { reworkshop_card, other_cards } => {
-            if other_cards.is_empty() {
-                format!("Workshopped {} x2 (Glass Reworkshop)", card_name(reworkshop_card))
-            } else {
-                format!(
-                    "Workshopped {} x2, {} (Glass Reworkshop)",
-                    card_name(reworkshop_card),
-                    card_names(other_cards)
-                )
-            }
-        }
         Choice::SelectMoveToDrafted { card } => {
             format!("Moved {} to drafted", card_name(card))
         }
@@ -436,19 +397,6 @@ fn choice_type_name(choice: &Choice) -> String {
         Choice::DestroyAndSell { .. } => "destroyAndSell".to_string(),
         Choice::DestroyAndWorkshop { .. } => "destroyAndWorkshop".to_string(),
         Choice::DestroyAndDestroyCards { .. } => "destroyAndDestroyCards".to_string(),
-        Choice::SelectGlass { .. } => "selectGlass".to_string(),
-        Choice::ActivateGlassWorkshop => "activateGlassWorkshop".to_string(),
-        Choice::ActivateGlassDraw => "activateGlassDraw".to_string(),
-        Choice::ActivateGlassMix => "activateGlassMix".to_string(),
-        Choice::ActivateGlassGainPrimary => "activateGlassGainPrimary".to_string(),
-        Choice::ActivateGlassExchange { .. } => "activateGlassExchange".to_string(),
-        Choice::ActivateGlassMoveDrafted { .. } => "activateGlassMoveDrafted".to_string(),
-        Choice::ActivateGlassUnmix { .. } => "activateGlassUnmix".to_string(),
-        Choice::ActivateGlassTertiaryDucat { .. } => "activateGlassTertiaryDucat".to_string(),
-        Choice::ActivateGlassReworkshop { .. } => "activateGlassReworkshop".to_string(),
-        Choice::ActivateGlassDestroyClean { .. } => "activateGlassDestroyClean".to_string(),
-        Choice::DestroyAndSelectGlass { .. } => "destroyAndSelectGlass".to_string(),
-        Choice::WorkshopWithReworkshop { .. } => "workshopWithReworkshop".to_string(),
         Choice::SelectMoveToDrafted { .. } => "selectMoveToDrafted".to_string(),
         Choice::SkipMoveToDrafted => "skipMoveToDrafted".to_string(),
     }
@@ -507,8 +455,7 @@ pub fn compute_cards_added_to_deck(
                 | Choice::DestroyAndMix { card, .. }
                 | Choice::DestroyAndSell { card, .. }
                 | Choice::DestroyAndWorkshop { card, .. }
-                | Choice::DestroyAndDestroyCards { card, .. }
-                | Choice::DestroyAndSelectGlass { card, .. } => {
+                | Choice::DestroyAndDestroyCards { card, .. } => {
                     let name = card_name_from_instance(*card);
                     *player_destroyed.entry(pi).or_default().entry(name).or_insert(0) += 1;
                 }
@@ -591,8 +538,7 @@ pub fn compute_destroyed_from_draft(
                 | Choice::DestroyAndMix { card, .. }
                 | Choice::DestroyAndSell { card, .. }
                 | Choice::DestroyAndWorkshop { card, .. }
-                | Choice::DestroyAndDestroyCards { card, .. }
-                | Choice::DestroyAndSelectGlass { card, .. } => Some(card),
+                | Choice::DestroyAndDestroyCards { card, .. } => Some(card),
                 _ => None,
             };
             if let Some(card) = card {
@@ -681,8 +627,7 @@ pub fn compute_win_rate_by_card(
                 | Choice::DestroyAndMix { card, .. }
                 | Choice::DestroyAndSell { card, .. }
                 | Choice::DestroyAndWorkshop { card, .. }
-                | Choice::DestroyAndDestroyCards { card, .. }
-                | Choice::DestroyAndSelectGlass { card, .. } => {
+                | Choice::DestroyAndDestroyCards { card, .. } => {
                     let name = card_name_from_instance(*card);
                     *player_destroyed.entry(pi).or_default().entry(name).or_insert(0) += 1;
                 }
@@ -1411,8 +1356,7 @@ pub fn compute_penultimate_round_deck_sizes(
                 | Choice::DestroyAndMix { .. }
                 | Choice::DestroyAndSell { .. }
                 | Choice::DestroyAndWorkshop { .. }
-                | Choice::DestroyAndDestroyCards { .. }
-                | Choice::DestroyAndSelectGlass { .. } => {
+                | Choice::DestroyAndDestroyCards { .. } => {
                     player_deck_sizes[pi] -= 1;
                 }
                 Choice::DestroyDrawnCards { card } => {
@@ -1611,96 +1555,3 @@ pub fn compute_color_wheel_stats(
     averages
 }
 
-// ── Glass analysis ──
-
-fn extract_glass(choice: &Choice) -> Option<GlassCard> {
-    match choice {
-        Choice::SelectGlass { glass, .. } | Choice::DestroyAndSelectGlass { glass, .. } => {
-            Some(*glass)
-        }
-        _ => None,
-    }
-}
-
-/// Count how many times each glass card was acquired.
-pub fn compute_glass_acquisitions(
-    logs: &[StructuredGameLog],
-    filter: Option<&PlayerFilter>,
-) -> HashMap<String, usize> {
-    let mut counts = HashMap::new();
-    for (log_idx, log) in logs.iter().enumerate() {
-        let allowed = filter.and_then(|f| f.get(&log_idx));
-        for entry in &log.entries {
-            if let Some(allowed) = allowed {
-                if !allowed.contains(&entry.player_index) {
-                    continue;
-                }
-            }
-            if let Some(glass) = extract_glass(&entry.choice) {
-                *counts.entry(glass.name().to_string()).or_insert(0) += 1;
-            }
-        }
-    }
-    counts
-}
-
-/// Compute win rate for players who acquired each glass card.
-pub fn compute_glass_win_rate(
-    logs: &[StructuredGameLog],
-    filter: Option<&PlayerFilter>,
-) -> HashMap<String, WinRateEntry> {
-    let mut stats: HashMap<String, WinRateEntry> = HashMap::new();
-
-    for (log_idx, log) in logs.iter().enumerate() {
-        let final_scores = match &log.final_scores {
-            Some(fs) => fs,
-            None => continue,
-        };
-        let allowed = filter.and_then(|f| f.get(&log_idx));
-
-        // Track per-player glass card acquisitions (unique names)
-        let mut player_glass: HashMap<usize, HashSet<String>> = HashMap::new();
-
-        for entry in &log.entries {
-            if let Some(allowed) = allowed {
-                if !allowed.contains(&entry.player_index) {
-                    continue;
-                }
-            }
-            if let Some(glass) = extract_glass(&entry.choice) {
-                player_glass
-                    .entry(entry.player_index)
-                    .or_default()
-                    .insert(glass.name().to_string());
-            }
-        }
-
-        let (is_winner_fn, num_winners) = compute_winners(final_scores);
-
-        for i in 0..log.player_names.len() {
-            if let Some(allowed) = allowed {
-                if !allowed.contains(&i) {
-                    continue;
-                }
-            }
-            let glass_names = match player_glass.get(&i) {
-                Some(names) => names,
-                None => continue,
-            };
-            let player_name = &log.player_names[i];
-            let is_winner = is_winner_fn(player_name);
-
-            for name in glass_names {
-                let entry = stats
-                    .entry(name.clone())
-                    .or_insert(WinRateEntry { wins: 0.0, games: 0.0 });
-                entry.games += 1.0;
-                if is_winner {
-                    entry.wins += 1.0 / num_winners as f64;
-                }
-            }
-        }
-    }
-
-    stats
-}

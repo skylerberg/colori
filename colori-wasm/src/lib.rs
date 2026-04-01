@@ -5,8 +5,8 @@ use colori_core::draw_phase::execute_draw_phase;
 use colori_core::game_log::{DrawEvent, DrawLog};
 use colori_core::ismcts::{ismcts, MctsConfig};
 use colori_core::scoring::{calculate_score, HeuristicParams};
-use colori_core::setup::{create_initial_game_state, create_initial_game_state_with_expansions};
-use colori_core::types::{Card, Choice, Expansions, GameState, PlayerState};
+use colori_core::setup::create_initial_game_state;
+use colori_core::types::{Card, Choice, GameState, PlayerState};
 use colori_core::unordered_cards::{
     get_card_registry, get_sell_card_registry, set_card_registry, set_sell_card_registry,
 };
@@ -68,26 +68,6 @@ pub fn wasm_create_initial_game_state(num_players: u32, ai_players_json: &str) -
         serde_json::from_str(ai_players_json).expect("Failed to parse ai players JSON");
     let mut rng = WyRand::from_rng(&mut rand::rng());
     let state = create_initial_game_state(num_players as usize, &ai_players, &mut rng);
-    serialize_state(&state)
-}
-
-#[wasm_bindgen]
-pub fn wasm_create_initial_game_state_with_expansions(
-    num_players: u32,
-    ai_players_json: &str,
-    expansions_json: &str,
-) -> String {
-    let ai_players: Vec<bool> =
-        serde_json::from_str(ai_players_json).expect("Failed to parse ai players JSON");
-    let expansions: Expansions =
-        serde_json::from_str(expansions_json).expect("Failed to parse expansions JSON");
-    let mut rng = WyRand::from_rng(&mut rand::rng());
-    let state = create_initial_game_state_with_expansions(
-        num_players as usize,
-        &ai_players,
-        expansions,
-        &mut rng,
-    );
     serialize_state(&state)
 }
 

@@ -1,4 +1,4 @@
-import type { CardInstance, SellCardInstance, GlassInstance, Color, MaterialType, Ability, Expansions } from '../data/types';
+import type { CardInstance, SellCardInstance, Color, MaterialType, Ability } from '../data/types';
 import type { Choice } from '../data/types';
 
 export interface SanitizedPlayerState {
@@ -10,7 +10,6 @@ export interface SanitizedPlayerState {
   colorWheel: Record<Color, number>;
   materials: Record<MaterialType, number>;
   completedSellCards: SellCardInstance[];
-  completedGlass: GlassInstance[];
   ducats: number;
 }
 
@@ -23,7 +22,6 @@ export interface SanitizedDraftState {
 export interface SanitizedActionState {
   currentPlayerIndex: number;
   abilityStack: Ability[];
-  usedGlass: number;
 }
 
 export type SanitizedGamePhase =
@@ -39,9 +37,6 @@ export interface SanitizedGameState {
   destroyedPile: CardInstance[];
   sellCardDeckCount: number;
   sellCardDisplay: SellCardInstance[];
-  glassDeckCount: number;
-  glassDisplay: GlassInstance[];
-  expansions: Expansions;
   phase: SanitizedGamePhase;
   round: number;
   aiPlayers: boolean[];

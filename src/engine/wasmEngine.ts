@@ -1,9 +1,8 @@
-import type { GameState, Choice, PlayerState, Color, Card, Expansions, DrawEvent } from '../data/types';
+import type { GameState, Choice, PlayerState, Color, Card, DrawEvent } from '../data/types';
 import { mixResult } from '../data/colors';
 import { getCardData, getSellCardData, getAnyCardData } from '../data/cards';
 import init, {
   wasm_create_initial_game_state,
-  wasm_create_initial_game_state_with_expansions,
   wasm_execute_draw_phase,
   wasm_apply_choice,
   wasm_simultaneous_pick,
@@ -19,21 +18,12 @@ export async function initEngine(): Promise<void> {
   initialized = true;
 }
 
-export function createInitialGameState(playerNames: string[], aiPlayers?: boolean[], expansions?: Expansions): GameState {
+export function createInitialGameState(playerNames: string[], aiPlayers?: boolean[]): GameState {
   const ai = aiPlayers ?? playerNames.map(() => false);
-  let resultJson: string;
-  if (expansions) {
-    resultJson = wasm_create_initial_game_state_with_expansions(
-      playerNames.length,
-      JSON.stringify(ai),
-      JSON.stringify(expansions),
-    );
-  } else {
-    resultJson = wasm_create_initial_game_state(
-      playerNames.length,
-      JSON.stringify(ai),
-    );
-  }
+  const resultJson = wasm_create_initial_game_state(
+    playerNames.length,
+    JSON.stringify(ai),
+  );
   const state: GameState = JSON.parse(resultJson);
   state.playerNames = playerNames;
   return state;
@@ -154,44 +144,6 @@ export function getChoiceLogMessage(
       }
       const targetName = (getAnyCardData(choice.target) as { name?: string })?.name ?? 'a card';
       return `${name} destroyed ${cardName} from drafted cards, destroyed ${targetName} from workshop`;
-    }
-    case 'selectGlass':
-      return `${name} selected glass ${choice.glass} (paid ${choice.payColor})`;
-    case 'activateGlassWorkshop':
-      return `${name} activated Glass Workshop`;
-    case 'activateGlassDraw':
-      return `${name} activated Glass Draw`;
-    case 'activateGlassMix':
-      return `${name} activated Glass Mix`;
-    case 'activateGlassGainPrimary':
-      return `${name} activated Glass Gain Primary`;
-    case 'activateGlassExchange':
-      return `${name} exchanged ${choice.lose} for ${choice.gain}`;
-    case 'activateGlassMoveDrafted': {
-      const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
-      return `${name} moved ${cardName} from drafted cards`;
-    }
-    case 'activateGlassUnmix':
-      return `${name} unmixed ${choice.color}`;
-    case 'activateGlassTertiaryDucat':
-      return `${name} converted ${choice.color} to a ducat`;
-    case 'activateGlassReworkshop': {
-      const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
-      return `${name} reworkshopped ${cardName}`;
-    }
-    case 'activateGlassDestroyClean': {
-      const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
-      return `${name} destroyed ${cardName}`;
-    }
-    case 'destroyAndSelectGlass': {
-      const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
-      return `${name} destroyed ${cardName} from drafted cards, selected glass ${choice.glass} (paid ${choice.payColor})`;
-    }
-    case 'workshopWithReworkshop': {
-      const reworkshopName = (getAnyCardData(choice.reworkshopCard) as { name?: string })?.name ?? 'a card';
-      const otherNames = choice.otherCards.map(c => (getAnyCardData(c) as { name?: string })?.name ?? 'a card');
-      const all = [reworkshopName + ' x2', ...otherNames];
-      return `${name} workshopped ${all.join(', ')} (used Glass Reworkshop)`;
     }
     default:
       return assertNever(choice);

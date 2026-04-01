@@ -1,31 +1,16 @@
 mod destroy;
-mod glass;
 mod mix_sequences;
 mod multiset;
 
 use crate::action_phase::{can_afford_sell_card, can_sell_to_any_sell_card, for_each_unique_card_type};
 use crate::apply_choice::resolve_card_types_to_ids;
-use crate::colors::{can_mix, is_primary, is_tertiary, perform_mix_unchecked, PRIMARIES, SECONDARIES, TERTIARIES, VALID_MIX_PAIRS};
+use crate::colors::{can_mix, perform_mix_unchecked, PRIMARIES, SECONDARIES, TERTIARIES};
 use crate::types::*;
-use crate::unordered_cards::UnorderedCards;
 use smallvec::SmallVec;
 
 use destroy::enumerate_destroy_choices;
-use glass::enumerate_glass_choices;
 use mix_sequences::enumerate_mix_sequences;
 use multiset::{count_card_types, enumerate_multiset_subsets, enumerate_multiset_subsets_exact};
-
-pub(crate) fn is_glass_ability_available(state: &GameState, player: &PlayerState, glass: GlassCard) -> bool {
-    let action_state = match &state.phase {
-        GamePhase::Action { action_state } => action_state,
-        _ => return false,
-    };
-    let bit = 1u16 << (glass as u16);
-    if action_state.used_glass & bit != 0 {
-        return false;
-    }
-    player.completed_glass.iter().any(|g| g.card == glass)
-}
 
 /// Check if we can skip enumerating sub-maximum workshop subsets.
 /// Returns true when the player has no reason to workshop fewer than the max:
@@ -72,10 +57,6 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                     for_each_unique_card_type(&player.drafted_cards, &state.card_lookup, |card| {
                         enumerate_destroy_choices(state, player, card, choices);
                     });
-                    // Glass ability choices (when stack is empty)
-                    if state.expansions.glass {
-                        enumerate_glass_choices(state, player, choices);
-                    }
                     choices.push(Choice::EndTurn);
                 }
                 Some(Ability::Workshop { count }) => {
@@ -113,42 +94,6 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                             &|card_types| Choice::Workshop { card_types },
                         );
                     }
-                    // GlassReworkshop can also be used during Workshop
-                    if state.expansions.glass && is_glass_ability_available(state, player, GlassCard::GlassReworkshop) {
-                        for_each_unique_card_type(&player.workshopped_cards, &state.card_lookup, |card| {
-                            choices.push(Choice::ActivateGlassReworkshop { card });
-                        });
-
-                        // WorkshopWithReworkshop: workshop a card x2 via GlassReworkshop
-                        if *count >= 2 {
-                            let (card_types, type_counts, len) = count_card_types(player.workshop_cards, &state.card_lookup);
-                            for i in 0..len {
-                                let reworkshop_card = card_types[i];
-                                // Size-0 case: just the reworkshop card x2 (uses 2 workshop slots)
-                                choices.push(Choice::WorkshopWithReworkshop {
-                                    reworkshop_card,
-                                    other_cards: SmallVec::new(),
-                                });
-                                let remaining_slots = (*count as usize) - 2;
-                                if remaining_slots > 0 {
-                                    // Build reduced pool: same cards minus one instance of reworkshop_card
-                                    let mut reduced_counts = type_counts;
-                                    reduced_counts[i] -= 1;
-                                    enumerate_multiset_subsets(
-                                        &card_types[..len],
-                                        &reduced_counts[..len],
-                                        remaining_slots,
-                                        &mut SmallVec::new(),
-                                        choices,
-                                        &|other_cards| Choice::WorkshopWithReworkshop {
-                                            reworkshop_card,
-                                            other_cards,
-                                        },
-                                    );
-                                }
-                            }
-                        }
-                    }
                 }
                 Some(Ability::DestroyCards) => {
                     if player.workshop_cards.is_empty() {
@@ -173,20 +118,6 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                             choices.push(Choice::SelectSellCard {
                                 sell_card: sell_card.sell_card,
                             });
-                        }
-                    }
-                    // Glass card acquisition
-                    if state.expansions.glass {
-                        let player_index = action_state.current_player_index;
-                        for gi in state.glass_display.iter() {
-                            for &color in &PRIMARIES {
-                                if state.players[player_index].color_wheel.get(color) >= 4 {
-                                    choices.push(Choice::SelectGlass {
-                                        glass: gi.card,
-                                        pay_color: color,
-                                    });
-                                }
-                            }
                         }
                     }
                 }
@@ -449,178 +380,6 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
                     player.workshop_cards.iter().any(|id| state.card_lookup[id as usize] == *target_card)
                 }
             }
-        }
-        Choice::SelectGlass { glass, pay_color } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if !matches!(action_state.ability_stack.last(), Some(Ability::Sell)) {
-                    return false;
-                }
-                if !state.expansions.glass {
-                    return false;
-                }
-                let player = &state.players[action_state.current_player_index];
-                if !is_primary(*pay_color) || player.color_wheel.get(*pay_color) < 4 {
-                    return false;
-                }
-                state.glass_display.iter().any(|g| g.card == *glass)
-            } else {
-                false
-            }
-        }
-        Choice::ActivateGlassWorkshop => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                action_state.ability_stack.is_empty()
-                    && is_glass_ability_available(state, &state.players[action_state.current_player_index], GlassCard::GlassWorkshop)
-                    && !state.players[action_state.current_player_index].workshop_cards.is_empty()
-            } else {
-                false
-            }
-        }
-        Choice::ActivateGlassDraw => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                action_state.ability_stack.is_empty()
-                    && is_glass_ability_available(state, &state.players[action_state.current_player_index], GlassCard::GlassDraw)
-            } else {
-                false
-            }
-        }
-        Choice::ActivateGlassMix => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if !action_state.ability_stack.is_empty() { return false; }
-                let player = &state.players[action_state.current_player_index];
-                is_glass_ability_available(state, player, GlassCard::GlassMix)
-                    && VALID_MIX_PAIRS.iter().any(|&(a, b)| player.color_wheel.get(a) > 0 && player.color_wheel.get(b) > 0)
-            } else {
-                false
-            }
-        }
-        Choice::ActivateGlassGainPrimary => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                action_state.ability_stack.is_empty()
-                    && is_glass_ability_available(state, &state.players[action_state.current_player_index], GlassCard::GlassGainPrimary)
-            } else {
-                false
-            }
-        }
-        Choice::ActivateGlassExchange { lose, gain } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if !action_state.ability_stack.is_empty() { return false; }
-                let player = &state.players[action_state.current_player_index];
-                *lose != *gain
-                    && player.materials.get(*lose) >= 1
-                    && is_glass_ability_available(state, player, GlassCard::GlassExchange)
-            } else {
-                false
-            }
-        }
-        Choice::ActivateGlassMoveDrafted { card } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if !action_state.ability_stack.is_empty() { return false; }
-                let player = &state.players[action_state.current_player_index];
-                is_glass_ability_available(state, player, GlassCard::GlassMoveDrafted)
-                    && player.drafted_cards.iter().any(|id| state.card_lookup[id as usize] == *card)
-            } else {
-                false
-            }
-        }
-        Choice::ActivateGlassUnmix { color } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if !action_state.ability_stack.is_empty() { return false; }
-                let player = &state.players[action_state.current_player_index];
-                !is_primary(*color)
-                    && player.color_wheel.get(*color) > 0
-                    && is_glass_ability_available(state, player, GlassCard::GlassUnmix)
-            } else {
-                false
-            }
-        }
-        Choice::ActivateGlassTertiaryDucat { color } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if !action_state.ability_stack.is_empty() { return false; }
-                let player = &state.players[action_state.current_player_index];
-                is_tertiary(*color)
-                    && player.color_wheel.get(*color) > 0
-                    && is_glass_ability_available(state, player, GlassCard::GlassTertiaryDucat)
-            } else {
-                false
-            }
-        }
-        Choice::ActivateGlassReworkshop { card } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                // Can be used when stack is empty OR when Workshop is on top
-                let stack_ok = action_state.ability_stack.is_empty()
-                    || matches!(action_state.ability_stack.last(), Some(Ability::Workshop { .. }));
-                if !stack_ok { return false; }
-                let player = &state.players[action_state.current_player_index];
-                is_glass_ability_available(state, player, GlassCard::GlassReworkshop)
-                    && player.workshopped_cards.iter().any(|id| state.card_lookup[id as usize] == *card)
-            } else {
-                false
-            }
-        }
-        Choice::ActivateGlassDestroyClean { card } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if !action_state.ability_stack.is_empty() { return false; }
-                let player = &state.players[action_state.current_player_index];
-                is_glass_ability_available(state, player, GlassCard::GlassDestroyClean)
-                    && player.workshop_cards.iter().any(|id| state.card_lookup[id as usize] == *card)
-            } else {
-                false
-            }
-        }
-        Choice::WorkshopWithReworkshop { reworkshop_card, other_cards } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                let count = match action_state.ability_stack.last() {
-                    Some(Ability::Workshop { count }) => *count as usize,
-                    _ => return false,
-                };
-                let total = 2 + other_cards.len();
-                if total > count { return false; }
-                let player = &state.players[action_state.current_player_index];
-                if !is_glass_ability_available(state, player, GlassCard::GlassReworkshop) { return false; }
-                // Verify reworkshop_card exists in workshop_cards
-                if !player.workshop_cards.iter().any(|id| state.card_lookup[id as usize] == *reworkshop_card) {
-                    return false;
-                }
-                // Verify other_cards can all be resolved from workshop_cards minus one instance of reworkshop_card
-                let mut used = UnorderedCards::new();
-                for id in player.workshop_cards.iter() {
-                    if state.card_lookup[id as usize] == *reworkshop_card {
-                        used.insert(id);
-                        break;
-                    }
-                }
-                for &ct in other_cards.iter() {
-                    let mut found = false;
-                    for id in player.workshop_cards.iter() {
-                        if !used.contains(id) && state.card_lookup[id as usize] == ct {
-                            used.insert(id);
-                            found = true;
-                            break;
-                        }
-                    }
-                    if !found { return false; }
-                }
-                true
-            } else {
-                false
-            }
-        }
-        Choice::DestroyAndSelectGlass { card, glass, pay_color } => {
-            if !check_destroy_preconditions(state, card) {
-                return false;
-            }
-            if !state.expansions.glass {
-                return false;
-            }
-            let player = &state.players[match &state.phase {
-                GamePhase::Action { action_state } => action_state.current_player_index,
-                _ => return false,
-            }];
-            if !is_primary(*pay_color) || player.color_wheel.get(*pay_color) < 4 {
-                return false;
-            }
-            state.glass_display.iter().any(|g| g.card == *glass)
         }
         Choice::SelectMoveToDrafted { card } => {
             if let GamePhase::Action { ref action_state } = state.phase {

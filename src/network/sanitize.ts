@@ -15,7 +15,6 @@ export function sanitizeGameState(
     colorWheel: { ...p.colorWheel },
     materials: { ...p.materials },
     completedSellCards: [...p.completedSellCards],
-    completedGlass: [...(p.completedGlass ?? [])],
     ducats: p.ducats,
   }));
 
@@ -39,7 +38,6 @@ export function sanitizeGameState(
       actionState: {
         currentPlayerIndex: actionState.currentPlayerIndex,
         abilityStack: actionState.abilityStack.map(a => ({ ...a })),
-        usedGlass: actionState.usedGlass,
       },
     };
   } else if (fullState.phase.type === 'gameOver') {
@@ -55,9 +53,6 @@ export function sanitizeGameState(
     destroyedPile: [...fullState.destroyedPile],
     sellCardDeckCount: fullState.sellCardDeck.length,
     sellCardDisplay: [...fullState.sellCardDisplay],
-    glassDeckCount: (fullState.glassDeck ?? []).length,
-    glassDisplay: [...(fullState.glassDisplay ?? [])],
-    expansions: fullState.expansions ?? { glass: false },
     phase,
     round: fullState.round,
     aiPlayers: [...fullState.aiPlayers],

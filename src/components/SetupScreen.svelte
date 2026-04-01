@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { GameState, Expansions } from '../data/types';
+  import type { GameState } from '../data/types';
   import { createInitialGameState } from '../engine/wasmEngine';
 
   const DIFFICULTY_LEVELS: { label: string; iterations: number }[] = [
@@ -17,7 +17,6 @@
   let playerNames: string[] = $state(['Player 1', 'AI Player 2', 'AI Player 3', 'AI Player 4', 'AI Player 5']);
   let isAI: boolean[] = $state([false, true, true, true, true]);
   let aiIterations: number[] = $state([100000, 100000, 100000, 100000, 100000]);
-  let glassExpansion = $state(false);
   let aiStyle: 'ga' | 'nn' = $state('ga');
   let experimentalOpen = $state(false);
 
@@ -50,8 +49,7 @@
   function startGame() {
     const names = playerNames.slice(0, playerCount).map((n, i) => n.trim() || `Player ${i + 1}`);
     const aiPlayers = isAI.slice(0, playerCount);
-    const expansions: Expansions | undefined = glassExpansion ? { glass: true } : undefined;
-    const state = createInitialGameState(names, aiPlayers, expansions);
+    const state = createInitialGameState(names, aiPlayers);
     onGameStarted(state, aiIterations.slice(0, playerCount), aiStyle);
   }
 </script>
@@ -116,11 +114,6 @@
 
     {#if experimentalOpen}
       <div class="experimental-content">
-        <label class="expansion-toggle">
-          <input type="checkbox" bind:checked={glassExpansion} />
-          <span>Glass Expansion</span>
-        </label>
-
         <div class="ai-style-row">
           <!-- svelte-ignore a11y_label_has_associated_control -->
           <label class="ai-style-label">AI Evaluation:</label>
@@ -295,23 +288,6 @@
     flex-direction: column;
     gap: 12px;
     padding: 0 16px 12px;
-  }
-
-  .expansion-toggle {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 0.95rem;
-    font-weight: 600;
-    cursor: pointer;
-    min-height: 44px;
-  }
-
-  .expansion-toggle input[type="checkbox"] {
-    width: 22px;
-    height: 22px;
-    accent-color: var(--accent-gold, #c9a84c);
-    cursor: pointer;
   }
 
   .ai-style-row {

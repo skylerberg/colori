@@ -1,4 +1,4 @@
-use crate::types::{Card, SellCard, GlassCard};
+use crate::types::{Card, SellCard};
 
 pub const DYE_COPIES: usize = 3;
 pub const ACTION_COPIES: usize = 4;
@@ -56,22 +56,6 @@ pub fn draft_material_cards() -> [Card; 12] {
 pub fn action_cards() -> [Card; 6] {
     // Lye is not currently in the draft deck
     [Card::Alum, Card::CreamOfTartar, Card::GumArabic, Card::Potash, Card::LinseedOil, Card::Vinegar]
-}
-
-pub fn generate_all_glass() -> [GlassCard; 11] {
-    [
-        GlassCard::GlassWorkshop,
-        GlassCard::GlassDraw,
-        GlassCard::GlassMix,
-        GlassCard::GlassExchange,
-        GlassCard::GlassMoveDrafted,
-        GlassCard::GlassUnmix,
-        GlassCard::GlassTertiaryDucat,
-        GlassCard::GlassReworkshop,
-        GlassCard::GlassGainPrimary,
-        GlassCard::GlassDestroyClean,
-        GlassCard::GlassKeepBoth,
-    ]
 }
 
 pub fn generate_all_sell_cards() -> [SellCard; 54] {

@@ -153,8 +153,6 @@
         return { type: 'destroyAndMix', card: destroyCard, mixes: followUp.mixes };
       case 'selectSellCard':
         return { type: 'destroyAndSell', card: destroyCard, sellCard: followUp.sellCard };
-      case 'selectGlass':
-        return { type: 'destroyAndSelectGlass', card: destroyCard, glass: followUp.glass, payColor: followUp.payColor };
       case 'workshop':
         return { type: 'destroyAndWorkshop', card: destroyCard, workshopCards: followUp.cardTypes };
       case 'skipWorkshop':
@@ -278,16 +276,6 @@
       advanceDraft(gameState);
       submittedDraftPicks = new Set();
       onGameUpdated(gameState, gameLog);
-
-      // If still in draft and human's hand is empty (GlassKeepBoth), auto-advance
-      if (gameState.phase.type === 'draft') {
-        const ds2 = gameState.phase.draftState;
-        if (ds2.hands[humanPlayerIndex].length === 0) {
-          submittedDraftPicks.add(humanPlayerIndex);
-          await resolveAIDraftPicks();
-          return;
-        }
-      }
     } catch (e) {
       console.error('AI draft error:', e);
       aiError = String(e);

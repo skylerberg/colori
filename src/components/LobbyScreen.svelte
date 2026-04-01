@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { LobbyPlayer } from '../network/types';
-  import type { Expansions } from '../data/types';
 
   let { role, roomCode, lobbyPlayers, playerCount, hostName = '', onSetHostName, onSetPlayerCount, onStartGame, onJoin, onBack }: {
     role: 'host' | 'guest';
@@ -10,7 +9,7 @@
     hostName?: string;
     onSetHostName?: (name: string) => void;
     onSetPlayerCount?: (count: number) => void;
-    onStartGame?: (expansions?: Expansions) => void;
+    onStartGame?: () => void;
     onJoin?: (name: string, code: string) => void;
     onBack: () => void;
   } = $props();
@@ -18,7 +17,6 @@
   let guestName = $state('');
   let joinCode = $state('');
   let joined = $state(false);
-  let glassExpansion = $state(false);
 
   function handleJoin() {
     const name = guestName.trim() || 'Player';
@@ -72,13 +70,6 @@
       </div>
     </div>
 
-    <div class="expansions-section">
-      <label class="expansion-toggle">
-        <input type="checkbox" bind:checked={glassExpansion} />
-        <span>Glass Expansion</span>
-      </label>
-    </div>
-
     <div class="players-section">
       <h3>Players ({humanPlayerCount} / {playerCount})</h3>
       <div class="player-list">
@@ -102,7 +93,7 @@
       </div>
     </div>
 
-    <button class="start-btn" onclick={() => onStartGame?.(glassExpansion ? { glass: true } : undefined)} disabled={!canStart}>
+    <button class="start-btn" onclick={() => onStartGame?.()} disabled={!canStart}>
       Start Game
     </button>
 
@@ -254,33 +245,6 @@
     border-color: var(--accent-gold, #c9a84c);
     background: var(--accent-gold, #c9a84c);
     color: var(--bg-deep, #2c1e12);
-  }
-
-  .expansions-section {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 12px 16px;
-    border: 2px solid var(--border-gold, rgba(201, 168, 76, 0.3));
-    border-radius: 8px;
-    background: var(--bg-panel, #ebe3d3);
-  }
-
-  .expansion-toggle {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 0.95rem;
-    font-weight: 600;
-    cursor: pointer;
-    min-height: 44px;
-  }
-
-  .expansion-toggle input[type="checkbox"] {
-    width: 22px;
-    height: 22px;
-    accent-color: var(--accent-gold, #c9a84c);
-    cursor: pointer;
   }
 
   .players-section {

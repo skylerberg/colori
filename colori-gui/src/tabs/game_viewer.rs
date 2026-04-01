@@ -1087,10 +1087,6 @@ fn choices_equivalent(a: &Choice, b: &Choice) -> bool {
             Choice::DestroyAndWorkshop { card: ca, workshop_cards: a },
             Choice::DestroyAndWorkshop { card: cb, workshop_cards: b },
         ) => ca == cb && sorted_cards(a) == sorted_cards(b),
-        (
-            Choice::WorkshopWithReworkshop { reworkshop_card: ra, other_cards: a },
-            Choice::WorkshopWithReworkshop { reworkshop_card: rb, other_cards: b },
-        ) => ra == rb && sorted_cards(a) == sorted_cards(b),
         (Choice::MixAll { mixes: a }, Choice::MixAll { mixes: b }) => {
             sorted_mixes(a) == sorted_mixes(b)
         }

@@ -51,8 +51,8 @@ const PARAM_GROUPS: &[(&str, &[&str])] = &[
     ("Card Type Quality", &[
         "basic_dye_quality",
     ]),
-    ("Sell Card & Glass Weights", &[
-        "sell_card_material_alignment", "sell_card_color_alignment", "glass_weight",
+    ("Sell Card Weights", &[
+        "sell_card_material_alignment", "sell_card_color_alignment",
     ]),
     ("Action Card Overrides", &[
         "alum_quality", "cream_of_tartar_quality", "gum_arabic_quality",
@@ -89,7 +89,6 @@ fn get_param_value(params: &HeuristicParams, name: &str) -> Option<f64> {
         "dual_material_quality" => Some(params.dual_material_quality),
         "sell_card_material_alignment" => Some(params.sell_card_material_alignment),
         "sell_card_color_alignment" => Some(params.sell_card_color_alignment),
-        "glass_weight" => Some(params.glass_weight),
         "heuristic_round_threshold" => Some(params.heuristic_round_threshold as f64),
         "heuristic_lookahead" => Some(params.heuristic_lookahead as f64),
         "alum_quality" => params.alum_quality,

@@ -3,14 +3,12 @@ use crate::fixed_vec::FixedVec;
 use crate::types::*;
 use crate::unordered_cards::{set_sell_card_registry, set_card_registry, UnorderedSellCards, UnorderedCards};
 use rand::Rng;
-use rand::seq::SliceRandom;
 use smallvec::SmallVec;
 use std::cell::Cell;
 
 thread_local! {
     static NEXT_CARD_ID: Cell<u32> = const { Cell::new(0) };
     static NEXT_SELL_CARD_ID: Cell<u32> = const { Cell::new(0) };
-    static NEXT_GLASS_ID: Cell<u32> = const { Cell::new(0) };
 }
 
 fn next_card_id() -> u8 {
@@ -29,25 +27,12 @@ fn next_sell_card_id() -> u8 {
     })
 }
 
-fn next_glass_id() -> u32 {
-    NEXT_GLASS_ID.with(|c| {
-        let id = c.get();
-        c.set(id + 1);
-        id
-    })
-}
-
 fn reset_id_counters() {
     NEXT_CARD_ID.with(|c| c.set(0));
     NEXT_SELL_CARD_ID.with(|c| c.set(0));
-    NEXT_GLASS_ID.with(|c| c.set(0));
 }
 
 pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool], rng: &mut R) -> GameState {
-    create_initial_game_state_with_expansions(num_players, ai_players, Expansions::default(), rng)
-}
-
-pub fn create_initial_game_state_with_expansions<R: Rng>(num_players: usize, ai_players: &[bool], expansions: Expansions, rng: &mut R) -> GameState {
     reset_id_counters();
 
     let mut card_lookup = [Card::BasicRed; 256];
@@ -83,7 +68,6 @@ pub fn create_initial_game_state_with_expansions<R: Rng>(num_players: usize, ai_
                 color_wheel,
                 materials: Materials::new(),
                 completed_sell_cards: SmallVec::new(),
-                completed_glass: SmallVec::new(),
                 ducats: 0,
                 cached_score: 0,
             }
@@ -135,28 +119,6 @@ pub fn create_initial_game_state_with_expansions<R: Rng>(num_players: usize, ai_
         });
     }
 
-    // Build glass deck and display
-    let mut glass_deck: SmallVec<[GlassInstance; 11]> = SmallVec::new();
-    let mut glass_display: FixedVec<GlassInstance, MAX_GLASS_DISPLAY> = FixedVec::new();
-
-    if expansions.glass {
-        let mut glass_cards: Vec<GlassInstance> = generate_all_glass()
-            .iter()
-            .map(|&card| GlassInstance {
-                instance_id: next_glass_id(),
-                card,
-            })
-            .collect();
-        glass_cards.shuffle(rng);
-        for gi in glass_cards {
-            if glass_display.len() < MAX_GLASS_DISPLAY {
-                glass_display.push(gi);
-            } else {
-                glass_deck.push(gi);
-            }
-        }
-    }
-
     set_card_registry(&card_lookup);
     set_sell_card_registry(&sell_card_lookup);
 
@@ -166,9 +128,6 @@ pub fn create_initial_game_state_with_expansions<R: Rng>(num_players: usize, ai_
         destroyed_pile: UnorderedCards::new(),
         sell_card_deck,
         sell_card_display,
-        expansions,
-        glass_deck,
-        glass_display,
         phase: GamePhase::Draw,
         round: 1,
         max_rounds: 20,

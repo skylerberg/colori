@@ -2,7 +2,6 @@
   import type { GameState } from '../data/types';
   import { formatTime, orderByDraftOrder } from '../gameUtils';
   import { getSellCardData } from '../data/cards';
-  import { getGlassCardData, GLASS_CARD_ORDER } from '../data/glassCards';
   import type { Snippet } from 'svelte';
   import SellCardDisplay from './SellCardDisplay.svelte';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
@@ -117,25 +116,6 @@
         <div class="left-col">
           <SellCardDisplay sellCards={gameState.sellCardDisplay} />
 
-          {#if gameState.expansions?.glass}
-            <div class="section-panel glass-display-panel">
-              <div class="section-title">Glass Display</div>
-              <div class="glass-cards">
-                {#if gameState.glassDisplay.length > 0}
-                  {#each gameState.glassDisplay as glass}
-                    {@const data = getGlassCardData(glass.card)}
-                    <div class="glass-card" title={data.description}>
-                      <span class="glass-card-name">{data.name}</span>
-                      <span class="glass-card-desc">{data.description}</span>
-                    </div>
-                  {/each}
-                {:else}
-                  <div class="empty-text">No glass cards available</div>
-                {/if}
-              </div>
-            </div>
-          {/if}
-
           <div class="player-info-row">
             <div class="info-left-col">
               <div class="section-panel completed-sell-cards-panel">
@@ -148,29 +128,6 @@
                   {/if}
                 </div>
               </div>
-
-              {#if gameState.expansions?.glass}
-                <div class="section-panel completed-glass-panel">
-                  <div class="section-title">Completed Glass</div>
-                  <div class="glass-cards">
-                    {#if currentPlayer.completedGlass && currentPlayer.completedGlass.length > 0}
-                      {#each currentPlayer.completedGlass as glass}
-                        {@const data = getGlassCardData(glass.card)}
-                        {@const used = gameState.phase.type === 'action' && (() => {
-                          const idx = GLASS_CARD_ORDER.indexOf(glass.card);
-                          return idx >= 0 && (gameState.phase.actionState.usedGlass & (1 << idx)) !== 0;
-                        })()}
-                        <div class="glass-card" class:glass-used={used} title={data.description}>
-                          <span class="glass-card-name">{data.name}</span>
-                          <span class="glass-card-desc">{data.description}</span>
-                        </div>
-                      {/each}
-                    {:else}
-                      <div class="empty-text">None yet</div>
-                    {/if}
-                  </div>
-                </div>
-              {/if}
 
               <div class="section-panel materials-panel">
                 <div class="section-title">Materials</div>
@@ -701,46 +658,6 @@
     letter-spacing: 0.5px;
   }
 
-  .glass-cards {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 6px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    padding-bottom: 4px;
-  }
-
-  .glass-cards::-webkit-scrollbar {
-    display: none;
-  }
-
-  .glass-card {
-    display: flex;
-    flex-direction: column;
-    padding: 4px 10px;
-    font-family: 'Cormorant Garamond', serif;
-    color: rgba(245, 237, 224, 0.9);
-    background: rgba(100, 160, 200, 0.25);
-    border: 1px solid rgba(100, 160, 200, 0.5);
-    border-radius: 4px;
-    flex-shrink: 0;
-  }
-
-  .glass-card-name {
-    font-size: 0.8rem;
-    font-weight: 600;
-  }
-
-  .glass-card-desc {
-    font-size: 0.65rem;
-    color: rgba(245, 237, 224, 0.5);
-  }
-
-  .glass-used {
-    opacity: 0.4;
-  }
-
   .empty-text {
     color: rgba(245, 237, 224, 0.4);
     font-style: italic;
@@ -917,11 +834,6 @@
 
     .material-label {
       font-size: 0.85rem;
-    }
-
-    .glass-cards {
-      flex-wrap: wrap;
-      overflow-x: visible;
     }
 
     .completed-sell-cards-content {

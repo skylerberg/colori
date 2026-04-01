@@ -23,28 +23,27 @@ pub(crate) fn generate_batch_id() -> String {
 fn main() {
     let cli = Cli::parse();
     let threads = cli.threads;
-    let glass = cli.glass;
 
     match cli.command {
         Some(Commands::Simulate(args)) => {
             let output = cli.output.unwrap_or_else(|| "game-logs".to_string());
-            simulation::run_simulation(&args, threads, &output, glass);
+            simulation::run_simulation(&args, threads, &output);
         }
         Some(Commands::Tournament(args)) => {
             let output = cli.output.unwrap_or_else(|| "game-logs".to_string());
-            tournament::run_tournament(&args, threads, &output, glass);
+            tournament::run_tournament(&args, threads, &output);
         }
         Some(Commands::TrainHeuristicEval(args)) => {
             let output = cli.output.unwrap_or_else(|| "genetic-algorithm".to_string());
-            run_genetic_algorithm(&args, threads, &output, glass);
+            run_genetic_algorithm(&args, threads, &output);
         }
         Some(Commands::TrainFirstPick(args)) => {
             let output = cli.output.unwrap_or_else(|| "first-pick-training".to_string());
-            run_first_pick_cmaes(&args, threads, &output, glass);
+            run_first_pick_cmaes(&args, threads, &output);
         }
         Some(Commands::TrainGa(args)) => {
             let output = cli.output.unwrap_or_else(|| "genetic-algorithm".to_string());
-            genetic::run_genetic_algorithm(&args, threads, &output, glass);
+            genetic::run_genetic_algorithm(&args, threads, &output);
         }
         None => {
             // Default: simulate with default args
@@ -56,7 +55,7 @@ fn main() {
                 max_rounds: 5,
             };
             let output = cli.output.unwrap_or_else(|| "game-logs".to_string());
-            simulation::run_simulation(&args, threads, &output, glass);
+            simulation::run_simulation(&args, threads, &output);
         }
     }
 }

@@ -1,5 +1,4 @@
 use crate::action_phase::{can_afford_sell_card, for_each_unique_card_type};
-use crate::colors::PRIMARIES;
 use crate::types::*;
 use smallvec::SmallVec;
 
@@ -33,21 +32,7 @@ pub(super) fn enumerate_destroy_choices(
                     });
                 }
             }
-            // Glass card acquisition
-            if state.expansions.glass {
-                for gi in state.glass_display.iter() {
-                    for &color in &PRIMARIES {
-                        if player.color_wheel.get(color) >= 4 {
-                            has_sell_card = true;
-                            choices.push(Choice::DestroyAndSelectGlass {
-                                card,
-                                glass: gi.card,
-                                pay_color: color,
-                            });
-                        }
-                    }
-                }
-            }
+
             if !has_sell_card {
                 choices.push(Choice::DestroyDraftedCard { card });
             }

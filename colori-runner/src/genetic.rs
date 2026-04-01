@@ -4,8 +4,8 @@ use colori_core::colori_game::apply_choice_to_state;
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::ismcts::{ismcts, MctsConfig};
 use colori_core::scoring::{calculate_score, HeuristicParams};
-use colori_core::setup::create_initial_game_state_with_expansions;
-use colori_core::types::{Expansions, GamePhase};
+use colori_core::setup::create_initial_game_state;
+use colori_core::types::GamePhase;
 use rand::RngExt;
 use rand::SeedableRng;
 use std::sync::atomic::Ordering;
@@ -43,13 +43,11 @@ fn run_ga_game(
     params_a: &HeuristicParams,
     params_b: &HeuristicParams,
     eval_iterations: u32,
-    glass: bool,
     rng: &mut WyRand,
 ) -> (f64, f64) {
     let num_players = 2;
     let ai_players = vec![true; num_players];
-    let expansions = Expansions { glass };
-    let mut state = create_initial_game_state_with_expansions(num_players, &ai_players, expansions, rng);
+    let mut state = create_initial_game_state(num_players, &ai_players, rng);
 
     let configs = [
         MctsConfig {
@@ -110,7 +108,7 @@ fn generate_batch_id() -> String {
         .collect()
 }
 
-pub fn run_genetic_algorithm(args: &TrainGaArgs, threads: usize, output: &str, glass: bool) {
+pub fn run_genetic_algorithm(args: &TrainGaArgs, threads: usize, output: &str) {
     let batch_id = generate_batch_id();
     let num_genes = <HeuristicParams as CmaEsTarget>::to_genes(&HeuristicParams::default()).len();
 
@@ -196,7 +194,7 @@ pub fn run_genetic_algorithm(args: &TrainGaArgs, threads: usize, output: &str, g
                         let mut thread_wins = 0.0f64;
 
                         for _ in 0..count {
-                            let (w, _) = run_ga_game(params, baseline_ref, eval_iterations, glass, &mut rng);
+                            let (w, _) = run_ga_game(params, baseline_ref, eval_iterations, &mut rng);
                             thread_wins += w;
                         }
 

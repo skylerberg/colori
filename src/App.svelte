@@ -260,9 +260,9 @@
     hostController?.setPlayerCount(count);
   }
 
-  function handleStartOnlineGame(expansions?: import('./data/types').Expansions) {
+  function handleStartOnlineGame() {
     if (!hostController) return;
-    hostController.startGame(expansions);
+    hostController.startGame();
     gameState = hostController.getGameState();
     gameStartTime = Date.now();
     replaceScreen({ type: 'onlineGame', role: 'host' });

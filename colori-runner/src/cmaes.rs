@@ -2,7 +2,7 @@ use colori_core::colori_game::{apply_choice_to_state, enumerate_choices};
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::ismcts::{ismcts, MctsConfig};
 use colori_core::scoring::{calculate_score, FirstPickParams, HeuristicParams};
-use colori_core::setup::create_initial_game_state_with_expansions;
+use colori_core::setup::create_initial_game_state;
 use colori_core::types::*;
 
 use nalgebra::{DMatrix, DVector};
@@ -57,38 +57,37 @@ pub enum Gene {
     DualMaterialQuality = 18,
     SellCardMaterialAlignment = 19,
     SellCardColorAlignment = 20,
-    GlassWeight = 21,
-    PrimaryColorCoverage = 22,
-    SecondaryColorCoverage = 23,
-    CardsInDeck = 24,
-    CardsInDeckSquared = 25,
-    MaterialTypeCount = 26,
-    MaterialCoverage = 27,
-    HeuristicScoreThreshold = 28,
-    HeuristicLookahead = 29,
-    RolloutEpsilon = 30,
-    RolloutSellAffordableMultiplier = 31,
-    RolloutSellBase = 32,
-    RolloutMixBase = 33,
-    RolloutMixPairWeight = 34,
-    RolloutMixCountWeight = 35,
-    RolloutMixNoPairs = 36,
-    RolloutWorkshopBase = 37,
-    RolloutWorkshopCountWeight = 38,
-    RolloutWorkshopEmpty = 39,
-    RolloutDestroyWithTargets = 40,
-    RolloutDestroyNoTargets = 41,
-    RolloutDrawBase = 42,
-    RolloutDrawCountWeight = 43,
-    RolloutOtherPriority = 44,
-    RolloutEndTurnThreshold = 45,
-    RolloutEndTurnProbability = 46,
-    RolloutWsMaterialBaseMultiplier = 47,
-    RolloutWsMaterialColorsMetMultiplier = 48,
-    RolloutWsActionBonus = 49,
+    PrimaryColorCoverage = 21,
+    SecondaryColorCoverage = 22,
+    CardsInDeck = 23,
+    CardsInDeckSquared = 24,
+    MaterialTypeCount = 25,
+    MaterialCoverage = 26,
+    HeuristicScoreThreshold = 27,
+    HeuristicLookahead = 28,
+    RolloutEpsilon = 29,
+    RolloutSellAffordableMultiplier = 30,
+    RolloutSellBase = 31,
+    RolloutMixBase = 32,
+    RolloutMixPairWeight = 33,
+    RolloutMixCountWeight = 34,
+    RolloutMixNoPairs = 35,
+    RolloutWorkshopBase = 36,
+    RolloutWorkshopCountWeight = 37,
+    RolloutWorkshopEmpty = 38,
+    RolloutDestroyWithTargets = 39,
+    RolloutDestroyNoTargets = 40,
+    RolloutDrawBase = 41,
+    RolloutDrawCountWeight = 42,
+    RolloutOtherPriority = 43,
+    RolloutEndTurnThreshold = 44,
+    RolloutEndTurnProbability = 45,
+    RolloutWsMaterialBaseMultiplier = 46,
+    RolloutWsMaterialColorsMetMultiplier = 47,
+    RolloutWsActionBonus = 48,
 }
 
-pub const NUM_GENES: usize = 50;
+pub const NUM_GENES: usize = 49;
 
 impl CmaEsTarget for HeuristicParams {
     fn to_genes(&self) -> Vec<f64> {
@@ -115,7 +114,6 @@ impl CmaEsTarget for HeuristicParams {
         v[DualMaterialQuality as usize] = self.dual_material_quality;
         v[SellCardMaterialAlignment as usize] = self.sell_card_material_alignment;
         v[SellCardColorAlignment as usize] = self.sell_card_color_alignment;
-        v[GlassWeight as usize] = self.glass_weight;
         v[PrimaryColorCoverage as usize] = self.primary_color_coverage_weight;
         v[SecondaryColorCoverage as usize] = self.secondary_color_coverage_weight;
         v[CardsInDeck as usize] = self.cards_in_deck_weight;
@@ -164,7 +162,6 @@ impl CmaEsTarget for HeuristicParams {
             dual_material_quality: v[DualMaterialQuality as usize],
             sell_card_material_alignment: v[SellCardMaterialAlignment as usize],
             sell_card_color_alignment: v[SellCardColorAlignment as usize],
-            glass_weight: v[GlassWeight as usize],
             heuristic_round_threshold: defaults.heuristic_round_threshold,
             heuristic_lookahead: (v[HeuristicLookahead as usize].round() as u32).max(1),
             alum_quality: Some(v[AlumQuality as usize]),
@@ -238,13 +235,11 @@ fn run_eval_game(
     params_a: &HeuristicParams,
     params_b: &HeuristicParams,
     eval_iterations: u32,
-    glass: bool,
     rng: &mut WyRand,
 ) -> (f64, f64) {
     let num_players = 2;
     let ai_players = vec![true; num_players];
-    let expansions = Expansions { glass };
-    let mut state = create_initial_game_state_with_expansions(num_players, &ai_players, expansions, rng);
+    let mut state = create_initial_game_state(num_players, &ai_players, rng);
 
     let configs = [
         MctsConfig {
@@ -474,7 +469,7 @@ impl CmaEsState {
     }
 }
 
-pub fn run_genetic_algorithm(args: &TrainHeuristicEvalArgs, threads: usize, output: &str, glass: bool) {
+pub fn run_genetic_algorithm(args: &TrainHeuristicEvalArgs, threads: usize, output: &str) {
     let batch_id = generate_batch_id();
 
     eprintln!(
@@ -500,16 +495,13 @@ pub fn run_genetic_algorithm(args: &TrainHeuristicEvalArgs, threads: usize, outp
         eprintln!("Using provided baseline params file");
     }
 
-    // Always freeze argol (not in draft deck); freeze glass_weight when glass expansion is disabled
+    // Always freeze argol (not in draft deck)
     // Freezing deck size genes for our current test
-    let mut frozen_genes: Vec<usize> = vec![
+    let frozen_genes: Vec<usize> = vec![
         Gene::ArgolQuality as usize,
         Gene::CardsInDeck as usize,
         Gene::CardsInDeckSquared as usize,
     ];
-    if !glass {
-        frozen_genes.push(Gene::GlassWeight as usize);
-    }
 
     let mut cma = CmaEsState::new(&seed_genes, args.population, args.initial_sigma, frozen_genes, HeuristicParams::integer_gene_indices());
     let baseline_params = baseline_heuristic_params.as_ref().unwrap_or(seed).clone();
@@ -555,10 +547,10 @@ pub fn run_genetic_algorithm(args: &TrainHeuristicEvalArgs, threads: usize, outp
 
                         for game_idx in 0..count {
                             if game_idx % 2 == 0 {
-                                let (w, _) = run_eval_game(params, baseline_ref, eval_iterations, glass, &mut rng);
+                                let (w, _) = run_eval_game(params, baseline_ref, eval_iterations, &mut rng);
                                 thread_wins += w;
                             } else {
-                                let (_, w) = run_eval_game(baseline_ref, params, eval_iterations, glass, &mut rng);
+                                let (_, w) = run_eval_game(baseline_ref, params, eval_iterations, &mut rng);
                                 thread_wins += w;
                             }
                         }
@@ -700,13 +692,11 @@ impl CmaEsTarget for FirstPickParams {
 fn run_first_pick_eval_game(
     first_pick: &FirstPickParams,
     eval_iterations: u32,
-    glass: bool,
     rng: &mut WyRand,
 ) -> (f64, f64) {
     let num_players = 2;
     let ai_players = vec![true; num_players];
-    let expansions = Expansions { glass };
-    let mut state = create_initial_game_state_with_expansions(num_players, &ai_players, expansions, rng);
+    let mut state = create_initial_game_state(num_players, &ai_players, rng);
 
     let configs = [
         MctsConfig {
@@ -766,7 +756,7 @@ fn run_first_pick_eval_game(
     }
 }
 
-pub fn run_first_pick_cmaes(args: &TrainFirstPickArgs, threads: usize, output: &str, glass: bool) {
+pub fn run_first_pick_cmaes(args: &TrainFirstPickArgs, threads: usize, output: &str) {
     let batch_id = generate_batch_id();
 
     eprintln!(
@@ -821,11 +811,11 @@ pub fn run_first_pick_cmaes(args: &TrainFirstPickArgs, threads: usize, output: &
 
                         for game_idx in 0..count {
                             if game_idx % 2 == 0 {
-                                let (w, _) = run_first_pick_eval_game(params, eval_iterations, glass, &mut rng);
+                                let (w, _) = run_first_pick_eval_game(params, eval_iterations, &mut rng);
                                 thread_wins += w;
                             } else {
                                 // Swap positions: baseline is player 0, candidate is player 1
-                                let (_, w) = run_first_pick_eval_game_swapped(params, eval_iterations, glass, &mut rng);
+                                let (_, w) = run_first_pick_eval_game_swapped(params, eval_iterations, &mut rng);
                                 thread_wins += w;
                             }
                         }
@@ -895,13 +885,11 @@ pub fn run_first_pick_cmaes(args: &TrainFirstPickArgs, threads: usize, output: &
 fn run_first_pick_eval_game_swapped(
     first_pick: &FirstPickParams,
     eval_iterations: u32,
-    glass: bool,
     rng: &mut WyRand,
 ) -> (f64, f64) {
     let num_players = 2;
     let ai_players = vec![true; num_players];
-    let expansions = Expansions { glass };
-    let mut state = create_initial_game_state_with_expansions(num_players, &ai_players, expansions, rng);
+    let mut state = create_initial_game_state(num_players, &ai_players, rng);
 
     let configs = [
         MctsConfig {
