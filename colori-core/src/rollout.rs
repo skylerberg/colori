@@ -1696,6 +1696,10 @@ enum SellPlanActionType {
     Workshop { selected_cards: UnorderedCards },
     Mix { mixes: [(Color, Color); 2], mix_count: usize },
     Sell { sell_card_instance_id: u32 },
+    /// Destroy a workshop card via DestroyCards ability; heuristic resolves the resulting ability.
+    Destroy { target_workshop_id: u8 },
+    /// Destroy a Sell-ability workshop card via DestroyCards, then sell to a specific target.
+    DestroyForSell { target_workshop_id: u8, sell_card_instance_id: u32 },
 }
 
 struct SellPlanAction {
@@ -1730,6 +1734,8 @@ fn compute_sell_plan(
     let mut draft_mix_count = 0usize;
     let mut draft_sell: [u8; 8] = [0; 8];
     let mut draft_sell_count = 0usize;
+    let mut draft_destroy: [u8; 8] = [0; 8];
+    let mut draft_destroy_count = 0usize;
 
     for id in player.drafted_cards.iter() {
         let card = card_lookup[id as usize];
@@ -1746,19 +1752,126 @@ fn compute_sell_plan(
                 draft_sell[draft_sell_count] = id;
                 draft_sell_count += 1;
             }
+            Ability::DestroyCards => {
+                draft_destroy[draft_destroy_count] = id;
+                draft_destroy_count += 1;
+            }
             _ => {}
         }
     }
 
-    if draft_sell_count == 0 {
-        return plan; // No sell abilities, nothing for the solver to do
+    // Step 2: Assign DestroyCards drafted cards to workshop card targets.
+    // Each assignment consumes one DestroyCards card and one workshop card,
+    // producing a virtual ability (Sell, Workshop, or MixColors).
+    //
+    // Priority: Workshop (most common target — starter materials give Workshop{2-4})
+    //           then MixColors, then Sell (Sell-ability cards are rarer in workshop)
+    struct DestroyAssignment {
+        draft_id: u8,
+        workshop_id: u8,
+        ability: Ability,
+    }
+    let mut destroy_assignments: [Option<DestroyAssignment>; 8] = [const { None }; 8];
+    let mut destroy_assign_count = 0usize;
+    let mut reserved_ws = UnorderedCards::new(); // workshop cards reserved for destruction
+    let mut used_destroy = [false; 8];
+
+    // Pass 1: DestroyCards → Workshop (most common: starter materials have Workshop{2-4})
+    for di in 0..draft_destroy_count {
+        if used_destroy[di] { continue; }
+        let mut best_id: Option<u8> = None;
+        let mut best_count = 0u32;
+        for id in workshop_cards.iter() {
+            if reserved_ws.contains(id) { continue; }
+            let card = card_lookup[id as usize];
+            if let Ability::Workshop { count } = card.ability() {
+                if count > best_count {
+                    best_count = count;
+                    best_id = Some(id);
+                }
+            }
+        }
+        if let Some(ws_id) = best_id {
+            destroy_assignments[destroy_assign_count] = Some(DestroyAssignment {
+                draft_id: draft_destroy[di],
+                workshop_id: ws_id,
+                ability: Ability::Workshop { count: best_count },
+            });
+            destroy_assign_count += 1;
+            reserved_ws.insert(ws_id);
+            used_destroy[di] = true;
+        }
     }
 
-    // Step 2: Compute total workshop capacity
-    let total_workshop_slots: u32 = draft_workshop[..draft_workshop_count].iter().map(|(_, c)| c).sum();
-    let total_mix_slots: u32 = draft_mix[..draft_mix_count].iter().map(|(_, c)| c).sum();
+    // Pass 2: DestroyCards → MixColors
+    for di in 0..draft_destroy_count {
+        if used_destroy[di] { continue; }
+        let mut best_id: Option<u8> = None;
+        let mut best_count = 0u32;
+        for id in workshop_cards.iter() {
+            if reserved_ws.contains(id) { continue; }
+            let card = card_lookup[id as usize];
+            if let Ability::MixColors { count } = card.ability() {
+                if count > best_count {
+                    best_count = count;
+                    best_id = Some(id);
+                }
+            }
+        }
+        if let Some(ws_id) = best_id {
+            destroy_assignments[destroy_assign_count] = Some(DestroyAssignment {
+                draft_id: draft_destroy[di],
+                workshop_id: ws_id,
+                ability: Ability::MixColors { count: best_count },
+            });
+            destroy_assign_count += 1;
+            reserved_ws.insert(ws_id);
+            used_destroy[di] = true;
+        }
+    }
 
-    // Step 3: Build projected state — what we'd have after workshopping best cards
+    // Pass 3: DestroyCards → Sell
+    for di in 0..draft_destroy_count {
+        if used_destroy[di] { continue; }
+        for id in workshop_cards.iter() {
+            if reserved_ws.contains(id) { continue; }
+            let card = card_lookup[id as usize];
+            if matches!(card.ability(), Ability::Sell) {
+                destroy_assignments[destroy_assign_count] = Some(DestroyAssignment {
+                    draft_id: draft_destroy[di],
+                    workshop_id: id,
+                    ability: Ability::Sell,
+                });
+                destroy_assign_count += 1;
+                reserved_ws.insert(id);
+                used_destroy[di] = true;
+                break;
+            }
+        }
+    }
+
+    // Step 3: Compute total capacity including virtual abilities from DestroyCards
+    let mut total_workshop_slots: u32 = draft_workshop[..draft_workshop_count].iter().map(|(_, c)| c).sum();
+    let mut total_mix_slots: u32 = draft_mix[..draft_mix_count].iter().map(|(_, c)| c).sum();
+    let mut total_sell_abilities = draft_sell_count;
+
+    for i in 0..destroy_assign_count {
+        if let Some(ref a) = destroy_assignments[i] {
+            match a.ability {
+                Ability::Workshop { count } => total_workshop_slots += count,
+                Ability::MixColors { count } => total_mix_slots += count,
+                Ability::Sell => total_sell_abilities += 1,
+                _ => {}
+            }
+        }
+    }
+
+    if total_sell_abilities == 0 {
+        return plan; // No sell abilities (direct or via destroy), nothing to do
+    }
+
+    // Step 4: Build projected state — what we'd have after workshopping best cards
+    // Exclude reserved workshop cards (they'll be destroyed, not workshopped)
     let mut projected_wheel = player.color_wheel.clone();
     let mut projected_materials = player.materials.clone();
 
@@ -1766,8 +1879,8 @@ fn compute_sell_plan(
     let mut ws_scored: [(u8, u32); 16] = [(0, 0); 16];
     let mut ws_scored_count = 0usize;
     for id in workshop_cards.iter() {
+        if reserved_ws.contains(id) { continue; } // skip cards reserved for destruction
         let card = card_lookup[id as usize];
-        // Simple scoring: colors contribute to sell cards, materials contribute
         let mut score = 0u32;
         for &color in card.colors() {
             for sc in sell_card_display {
@@ -1830,6 +1943,7 @@ fn compute_sell_plan(
 
     let mut sells_planned = 0usize;
     let mut used_sell_draft: [bool; 8] = [false; 8];
+    let mut used_destroy_sell: [bool; 8] = [false; 8]; // tracks which destroy assignments provide Sell
     // Track state as we commit sells: simulate on a copy of the projected wheel
     let mut sim_wheel = projected_wheel.clone();
     let mut sim_materials = projected_materials.clone();
@@ -1840,9 +1954,12 @@ fn compute_sell_plan(
     // Track which mixes are needed for each target sell
     let mut sell_mixes: [[(Color, Color); 2]; 4] = [[(Color::Red, Color::Red); 2]; 4];
     let mut sell_mix_counts: [usize; 4] = [0; 4];
+    // Track whether each target sell uses a direct Sell card or a DestroyForSell
+    let mut sell_is_destroy: [bool; 4] = [false; 4];
+    let mut sell_destroy_idx: [usize; 4] = [0; 4]; // index into destroy_assignments
 
     for si in 0..sell_len {
-        if sells_planned >= draft_sell_count {
+        if sells_planned >= total_sell_abilities {
             break;
         }
         let idx = sell_indices[si];
@@ -1897,26 +2014,45 @@ fn compute_sell_plan(
             continue;
         }
 
-        // Find unused sell draft card
-        let mut sell_draft_idx = None;
+        // Find a sell ability source: prefer direct Sell drafted cards, then DestroyCards→Sell
+        let mut found_source = false;
+        let mut is_destroy = false;
+        let mut destroy_idx = 0usize;
+
         for i in 0..draft_sell_count {
             if !used_sell_draft[i] {
-                sell_draft_idx = Some(i);
+                used_sell_draft[i] = true;
+                found_source = true;
                 break;
             }
         }
-        let sell_draft_idx = match sell_draft_idx {
-            Some(i) => i,
-            None => break,
-        };
+        if !found_source {
+            // Try DestroyCards→Sell assignments
+            for i in 0..destroy_assign_count {
+                if used_destroy_sell[i] { continue; }
+                if let Some(ref a) = destroy_assignments[i] {
+                    if matches!(a.ability, Ability::Sell) {
+                        used_destroy_sell[i] = true;
+                        found_source = true;
+                        is_destroy = true;
+                        destroy_idx = i;
+                        break;
+                    }
+                }
+            }
+        }
+        if !found_source {
+            break;
+        }
 
         // Commit this sell — update simulation state
-        used_sell_draft[sell_draft_idx] = true;
         sim_wheel = temp_wheel;
         sim_materials.decrement(mat);
         mix_slots_remaining = mix_budget;
         sell_mixes[target_sell_count] = mixes_for_this;
         sell_mix_counts[target_sell_count] = mix_count_for_this;
+        sell_is_destroy[target_sell_count] = is_destroy;
+        sell_destroy_idx[target_sell_count] = destroy_idx;
         target_sells[target_sell_count] = (sc.instance_id, idx);
         target_sell_count += 1;
         sells_planned += 1;
@@ -2003,11 +2139,16 @@ fn compute_sell_plan(
         }
     }
 
-    // Build action sequence: Workshop → Mix → Sell
+    // Build action sequence:
+    // 1. Workshop (from drafted Workshop cards)
+    // 2. Destroy → Workshop (DestroyCards targeting Workshop-ability workshop cards)
+    // 3. Mix (from drafted MixColors cards)
+    // 4. Destroy → MixColors (DestroyCards targeting MixColors-ability workshop cards)
+    // 5. Sell (from drafted Sell cards)
+    // 6. Destroy → Sell (DestroyCards targeting Sell-ability workshop cards)
     let mut action_idx = 0usize;
 
-    // Add Workshop actions — allocate workshop cards to drafted Workshop cards
-    // in score order (highest-scored cards go first)
+    // 1. Add Workshop actions from drafted Workshop cards
     if ws_for_plan_count > 0 {
         let mut ws_assigned = 0usize;
         for i in 0..draft_workshop_count {
@@ -2034,7 +2175,22 @@ fn compute_sell_plan(
         }
     }
 
-    // Add Mix actions
+    // 2. Add Destroy → Workshop actions
+    for i in 0..destroy_assign_count {
+        if let Some(ref a) = destroy_assignments[i] {
+            if matches!(a.ability, Ability::Workshop { .. }) {
+                plan.actions[action_idx] = Some(SellPlanAction {
+                    draft_card_id: a.draft_id,
+                    action_type: SellPlanActionType::Destroy { target_workshop_id: a.workshop_id },
+                });
+                plan.consumed_draft_ids[plan.consumed_count] = a.draft_id;
+                plan.consumed_count += 1;
+                action_idx += 1;
+            }
+        }
+    }
+
+    // 3. Add Mix actions from drafted MixColors cards
     if plan_mix_count > 0 {
         let mut mixes_assigned = 0usize;
         for i in 0..draft_mix_count {
@@ -2064,14 +2220,37 @@ fn compute_sell_plan(
         }
     }
 
-    // Add Sell actions
+    // 4. Add Destroy → MixColors actions
+    for i in 0..destroy_assign_count {
+        if let Some(ref a) = destroy_assignments[i] {
+            if matches!(a.ability, Ability::MixColors { .. }) {
+                plan.actions[action_idx] = Some(SellPlanAction {
+                    draft_card_id: a.draft_id,
+                    action_type: SellPlanActionType::Destroy { target_workshop_id: a.workshop_id },
+                });
+                plan.consumed_draft_ids[plan.consumed_count] = a.draft_id;
+                plan.consumed_count += 1;
+                action_idx += 1;
+            }
+        }
+    }
+
+    // 5. Add Sell actions from drafted Sell cards
     let mut sell_target_idx = 0usize;
     for i in 0..draft_sell_count {
         if sell_target_idx >= target_sell_count {
             break;
         }
+        // Skip sells that aren't assigned to direct Sell cards
         if !used_sell_draft[i] {
             continue;
+        }
+        // Find the next target that uses a direct Sell card
+        while sell_target_idx < target_sell_count && sell_is_destroy[sell_target_idx] {
+            sell_target_idx += 1;
+        }
+        if sell_target_idx >= target_sell_count {
+            break;
         }
         let (instance_id, _) = target_sells[sell_target_idx];
         plan.actions[action_idx] = Some(SellPlanAction {
@@ -2082,6 +2261,27 @@ fn compute_sell_plan(
         plan.consumed_count += 1;
         action_idx += 1;
         sell_target_idx += 1;
+    }
+
+    // 6. Add Destroy → Sell actions
+    for i in 0..target_sell_count {
+        if !sell_is_destroy[i] {
+            continue;
+        }
+        let (instance_id, _) = target_sells[i];
+        let da_idx = sell_destroy_idx[i];
+        if let Some(ref a) = destroy_assignments[da_idx] {
+            plan.actions[action_idx] = Some(SellPlanAction {
+                draft_card_id: a.draft_id,
+                action_type: SellPlanActionType::DestroyForSell {
+                    target_workshop_id: a.workshop_id,
+                    sell_card_instance_id: instance_id,
+                },
+            });
+            plan.consumed_draft_ids[plan.consumed_count] = a.draft_id;
+            plan.consumed_count += 1;
+            action_idx += 1;
+        }
     }
 
     plan.action_count = action_idx;
@@ -2326,6 +2526,56 @@ fn execute_solver_turn(state: &mut GameState, player_index: usize, heuristic_dra
                             resolve_select_sell_card(state, *sell_card_instance_id, rng);
                         } else {
                             // Fall through to heuristic sell
+                            resolve_pending_abilities_heuristic(state, rng);
+                        }
+                    }
+                }
+                resolve_pending_abilities_heuristic(state, rng);
+            }
+            SellPlanActionType::Destroy { target_workshop_id } => {
+                // Destroy the drafted DestroyCards card, then target the planned workshop card
+                destroy_drafted_card(state, action.draft_card_id as u32, rng);
+                if let GamePhase::Action { ref action_state } = state.phase {
+                    if matches!(action_state.ability_stack.last(), Some(Ability::DestroyCards)) {
+                        let player = &state.players[player_index];
+                        if player.workshop_cards.contains(*target_workshop_id) {
+                            let mut selected = UnorderedCards::new();
+                            selected.insert(*target_workshop_id);
+                            resolve_destroy_cards(state, selected, rng);
+                        } else {
+                            // Target no longer available, let heuristic pick
+                            resolve_pending_abilities_heuristic(state, rng);
+                        }
+                    }
+                }
+                // Resolve the resulting ability (Workshop, MixColors, etc.) via heuristic
+                resolve_pending_abilities_heuristic(state, rng);
+            }
+            SellPlanActionType::DestroyForSell { target_workshop_id, sell_card_instance_id } => {
+                // Destroy the drafted DestroyCards card
+                destroy_drafted_card(state, action.draft_card_id as u32, rng);
+                if let GamePhase::Action { ref action_state } = state.phase {
+                    if matches!(action_state.ability_stack.last(), Some(Ability::DestroyCards)) {
+                        let player = &state.players[player_index];
+                        if player.workshop_cards.contains(*target_workshop_id) {
+                            let mut selected = UnorderedCards::new();
+                            selected.insert(*target_workshop_id);
+                            resolve_destroy_cards(state, selected, rng);
+                            // Now Sell should be on the stack
+                            if let GamePhase::Action { ref action_state } = state.phase {
+                                if matches!(action_state.ability_stack.last(), Some(Ability::Sell)) {
+                                    let still_valid = state.sell_card_display.iter().any(|sc| {
+                                        sc.instance_id == *sell_card_instance_id
+                                            && can_afford_sell_card(&state.players[player_index], &sc.sell_card)
+                                    });
+                                    if still_valid {
+                                        resolve_select_sell_card(state, *sell_card_instance_id, rng);
+                                    } else {
+                                        resolve_pending_abilities_heuristic(state, rng);
+                                    }
+                                }
+                            }
+                        } else {
                             resolve_pending_abilities_heuristic(state, rng);
                         }
                     }
