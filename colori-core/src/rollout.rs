@@ -144,7 +144,7 @@ fn pick_random_affordable_sell_card<R: Rng>(
 }
 
 #[inline(always)]
-fn handle_action_no_pending(state: &mut GameState, player_index: usize, heuristic_draft: bool, rng: &mut impl Rng) {
+fn handle_action_no_pending(state: &mut GameState, player_index: usize, heuristic_draft: bool, params: &HeuristicParams, rng: &mut impl Rng) {
     let mut copy = state.players[player_index].drafted_cards;
     let sel = copy.draw_up_to(1, rng);
     if sel.is_empty() {
@@ -152,7 +152,7 @@ fn handle_action_no_pending(state: &mut GameState, player_index: usize, heuristi
         end_player_turn(state, rng);
         if matches!(state.phase, GamePhase::Draw) {
             if heuristic_draft {
-                heuristic_rollout_draw_and_draft(state, &HeuristicParams::default(), rng);
+                heuristic_rollout_draw_and_draft(state, params, rng);
             } else {
                 rollout_draw_and_draft(state, rng);
             }
@@ -220,11 +220,11 @@ fn fused_buy<R: Rng>(
     }
 }
 
-pub fn apply_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, rng: &mut R) {
+pub fn apply_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, params: &HeuristicParams, rng: &mut R) {
     // Fast path: complete entire draft in one step
     if matches!(&state.phase, GamePhase::Draft { .. }) {
         if heuristic_draft {
-            heuristic_draft_loop(state, &HeuristicParams::default(), rng);
+            heuristic_draft_loop(state, params, rng);
         } else {
             loop {
                 let card_id = {
@@ -250,7 +250,7 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, 
             let player_index = action_state.current_player_index;
             match action_state.ability_stack.last() {
                 None => {
-                    handle_action_no_pending(state, player_index, heuristic_draft, rng);
+                    handle_action_no_pending(state, player_index, heuristic_draft, params, rng);
                 }
                 Some(Ability::Workshop { count }) => {
                     let count = *count;
@@ -977,7 +977,7 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
 
     // Epsilon: random fallback
     if rng.random_bool(params.rollout_epsilon) {
-        handle_action_no_pending(state, player_index, heuristic_draft, rng);
+        handle_action_no_pending(state, player_index, heuristic_draft, params, rng);
         return;
     }
 

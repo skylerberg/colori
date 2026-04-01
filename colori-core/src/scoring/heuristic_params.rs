@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[serde(default)]
 pub struct HeuristicParams {
     #[serde(alias = "primaryPipWeight")]
     pub primary_color_value: f64,
@@ -37,13 +36,6 @@ pub struct HeuristicParams {
     pub primary_dye_quality: Option<f64>,
     pub secondary_dye_quality: Option<f64>,
     pub tertiary_dye_quality: Option<f64>,
-    // New scoring terms
-    pub primary_color_coverage_weight: f64,
-    pub secondary_color_coverage_weight: f64,
-    pub cards_in_deck_weight: f64,
-    pub cards_in_deck_squared_weight: f64,
-    pub material_type_count_weight: f64,
-    pub material_coverage_weight: f64,
     // Score-based heuristic threshold
     pub heuristic_score_threshold: Option<f64>,
     // Rollout policy parameters
@@ -69,67 +61,4 @@ pub struct HeuristicParams {
     pub rollout_ws_material_base_multiplier: u32,
     pub rollout_ws_material_colors_met_multiplier: u32,
     pub rollout_ws_action_bonus: u32,
-}
-
-impl Default for HeuristicParams {
-    /// Trained values from genetic-algorithm/batch-rqo1vv-gen-18.json
-    fn default() -> Self {
-        HeuristicParams {
-            primary_color_value: 0.058344015021050195,
-            secondary_color_value: 0.16009515188384604,
-            tertiary_color_value: 0.039995983373095643,
-            stored_material_weight: 0.0852665976284885,
-            chalk_quality: 0.3252105643620574,
-            action_quality: 2.128632339864752,
-            dye_quality: 1.6849083982631334,
-            basic_dye_quality: 0.03440411806299383,
-            starter_material_quality: 0.35646705410956914,
-            draft_material_quality: 0.22841758712894503,
-            dual_material_quality: 0.42737233013877646,
-            sell_card_material_alignment: 0.5103003108821427,
-            sell_card_color_alignment: 1.5172566875413194,
-            heuristic_round_threshold: 6,
-            heuristic_lookahead: 9,
-            alum_quality: None,
-            cream_of_tartar_quality: None,
-            gum_arabic_quality: None,
-            potash_quality: None,
-            vinegar_quality: None,
-            linseed_oil_quality: None,
-            lye_quality: None,
-            pure_primary_dye_quality: None,
-            primary_dye_quality: None,
-            secondary_dye_quality: None,
-            tertiary_dye_quality: None,
-            primary_color_coverage_weight: 0.0,
-            secondary_color_coverage_weight: 0.0,
-            cards_in_deck_weight: 0.0,
-            cards_in_deck_squared_weight: 0.0,
-            material_type_count_weight: 0.0,
-            material_coverage_weight: 0.0,
-            heuristic_score_threshold: None,
-            rollout_epsilon: 0.2,
-            rollout_sell_affordable_multiplier: 25,
-            rollout_sell_base: 35,
-            rollout_mix_base: 50,
-            rollout_mix_pair_weight: 3,
-            rollout_mix_count_weight: 5,
-            rollout_mix_no_pairs: 20,
-            rollout_workshop_base: 60,
-            rollout_workshop_count_weight: 7,
-            rollout_workshop_empty: 15,
-            rollout_destroy_with_targets: 45,
-            rollout_destroy_no_targets: 25,
-            rollout_draw_base: 30,
-            rollout_draw_count_weight: 2,
-            rollout_other_priority: 10,
-            rollout_end_turn_threshold: 30,
-            rollout_end_turn_probability_early: 0.5,
-            rollout_end_turn_probability_late: 0.5,
-            rollout_end_turn_max_round: 12,
-            rollout_ws_material_base_multiplier: 3,
-            rollout_ws_material_colors_met_multiplier: 3,
-            rollout_ws_action_bonus: 5,
-        }
-    }
 }

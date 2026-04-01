@@ -46,6 +46,10 @@ pub struct SimulateArgs {
     #[arg(long)]
     pub variants: Option<String>,
 
+    /// Path to heuristic params JSON file (required when using --variants)
+    #[arg(long)]
+    pub heuristic_params_file: Option<String>,
+
     /// Path to variants JSON file
     #[arg(long, default_value = "variants.json")]
     pub variants_file: String,
@@ -151,7 +155,6 @@ struct VariantFileEntry {
 
 impl VariantFileEntry {
     fn into_named_variant(self) -> NamedVariant {
-        let defaults = MctsConfig::default();
         let heuristic_params = if let Some(params) = self.heuristic_params {
             params
         } else if let Some(path) = &self.heuristic_params_file {
@@ -160,7 +163,7 @@ impl VariantFileEntry {
             serde_json::from_str(&contents)
                 .unwrap_or_else(|_| panic!("Failed to parse heuristic params file: {}", path))
         } else {
-            HeuristicParams::default()
+            panic!("Variant must specify heuristicParams or heuristicParamsFile");
         };
         let first_pick_params = self.first_pick_params_file.as_ref().map(|path| {
             let contents = std::fs::read_to_string(path)
@@ -168,23 +171,24 @@ impl VariantFileEntry {
             Box::new(serde_json::from_str::<FirstPickParams>(&contents)
                 .unwrap_or_else(|_| panic!("Failed to parse first pick params file: {}", path)))
         });
+        let base = MctsConfig::new(heuristic_params);
         NamedVariant {
             name: self.name,
             ai: MctsConfig {
-                iterations: self.iterations.unwrap_or(defaults.iterations),
-                exploration_constant: self.exploration_constant.unwrap_or(defaults.exploration_constant),
-                max_rollout_steps: self.max_rollout_steps.unwrap_or(defaults.max_rollout_steps),
-                use_heuristic_eval: self.use_heuristic_eval.unwrap_or(defaults.use_heuristic_eval),
-                progressive_bias_weight: self.progressive_bias_weight.unwrap_or(defaults.progressive_bias_weight),
-                heuristic_params,
-                no_rollout: self.no_rollout.unwrap_or(defaults.no_rollout),
-                heuristic_rollout: self.heuristic_rollout.unwrap_or(defaults.heuristic_rollout),
-                heuristic_draft: self.heuristic_draft.unwrap_or(defaults.heuristic_draft),
-                early_termination: self.early_termination.unwrap_or(defaults.early_termination),
+                iterations: self.iterations.unwrap_or(base.iterations),
+                exploration_constant: self.exploration_constant.unwrap_or(base.exploration_constant),
+                max_rollout_steps: self.max_rollout_steps.unwrap_or(base.max_rollout_steps),
+                use_heuristic_eval: self.use_heuristic_eval.unwrap_or(base.use_heuristic_eval),
+                progressive_bias_weight: self.progressive_bias_weight.unwrap_or(base.progressive_bias_weight),
+                heuristic_params: base.heuristic_params,
+                no_rollout: self.no_rollout.unwrap_or(base.no_rollout),
+                heuristic_rollout: self.heuristic_rollout.unwrap_or(base.heuristic_rollout),
+                heuristic_draft: self.heuristic_draft.unwrap_or(base.heuristic_draft),
+                early_termination: self.early_termination.unwrap_or(base.early_termination),
                 time_limit_ms: self.time_limit_ms,
-                random_first_pick: self.random_first_pick.unwrap_or(defaults.random_first_pick),
+                random_first_pick: self.random_first_pick.unwrap_or(base.random_first_pick),
                 first_pick_params,
-                force_max_workshop: self.force_max_workshop.unwrap_or(defaults.force_max_workshop),
+                force_max_workshop: self.force_max_workshop.unwrap_or(base.force_max_workshop),
             },
         }
     }
@@ -203,14 +207,14 @@ pub fn load_variants_from_file(variants_file: &str) -> Vec<NamedVariant> {
         .collect()
 }
 
-pub fn parse_inline_variants(variants_str: &str) -> Vec<NamedVariant> {
+pub fn parse_inline_variants(variants_str: &str, heuristic_params: HeuristicParams) -> Vec<NamedVariant> {
     variants_str
         .split(',')
         .map(|s| {
             let iters: u32 = s.trim().parse().expect("Invalid --variants value");
             NamedVariant {
                 name: None,
-                ai: MctsConfig { iterations: iters, ..MctsConfig::default() },
+                ai: MctsConfig { iterations: iters, ..MctsConfig::new(heuristic_params.clone()) },
             }
         })
         .collect()

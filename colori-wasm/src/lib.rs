@@ -15,7 +15,7 @@ use serde::Serialize;
 use wyrand::WyRand;
 use wasm_bindgen::prelude::*;
 
-const TRAINED_PARAMS_JSON: &str = include_str!("../../genetic-algorithm/batch-rqo1vv-gen-18.json");
+const TRAINED_PARAMS_JSON: &str = include_str!("../../genetic-algorithm/batch-nocdm1-gen-7.json");
 
 fn deserialize_state(json: &str) -> GameState {
     let mut state: GameState =
@@ -49,7 +49,7 @@ pub fn wasm_run_ismcts(
 
     let heuristic_params: HeuristicParams = serde_json::from_str(TRAINED_PARAMS_JSON)
         .expect("Failed to parse trained heuristic params");
-    let config = MctsConfig { iterations, heuristic_params, ..MctsConfig::default() };
+    let config = MctsConfig { iterations, ..MctsConfig::new(heuristic_params) };
     let result = ismcts(
         &game_state,
         player_index as usize,

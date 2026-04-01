@@ -38,43 +38,37 @@ enum Gene {
     DualMaterialQuality = 17,
     SellCardMaterialAlignment = 18,
     SellCardColorAlignment = 19,
-    PrimaryColorCoverage = 20,
-    SecondaryColorCoverage = 21,
-    CardsInDeck = 22,
-    CardsInDeckSquared = 23,
-    MaterialTypeCount = 24,
-    MaterialCoverage = 25,
-    HeuristicScoreThreshold = 26,
-    HeuristicLookahead = 27,
-    RolloutEpsilon = 28,
-    RolloutSellAffordableMultiplier = 29,
-    RolloutSellBase = 30,
-    RolloutMixBase = 31,
-    RolloutMixPairWeight = 32,
-    RolloutMixCountWeight = 33,
-    RolloutMixNoPairs = 34,
-    RolloutWorkshopBase = 35,
-    RolloutWorkshopCountWeight = 36,
-    RolloutWorkshopEmpty = 37,
-    RolloutDestroyWithTargets = 38,
-    RolloutDestroyNoTargets = 39,
-    RolloutDrawBase = 40,
-    RolloutDrawCountWeight = 41,
-    RolloutOtherPriority = 42,
-    RolloutEndTurnThreshold = 43,
-    RolloutEndTurnProbabilityEarly = 44,
-    RolloutEndTurnProbabilityLate = 45,
-    RolloutEndTurnMaxRound = 46,
-    RolloutWsMaterialBaseMultiplier = 47,
-    RolloutWsMaterialColorsMetMultiplier = 48,
-    RolloutWsActionBonus = 49,
+    HeuristicScoreThreshold = 20,
+    HeuristicLookahead = 21,
+    RolloutEpsilon = 22,
+    RolloutSellAffordableMultiplier = 23,
+    RolloutSellBase = 24,
+    RolloutMixBase = 25,
+    RolloutMixPairWeight = 26,
+    RolloutMixCountWeight = 27,
+    RolloutMixNoPairs = 28,
+    RolloutWorkshopBase = 29,
+    RolloutWorkshopCountWeight = 30,
+    RolloutWorkshopEmpty = 31,
+    RolloutDestroyWithTargets = 32,
+    RolloutDestroyNoTargets = 33,
+    RolloutDrawBase = 34,
+    RolloutDrawCountWeight = 35,
+    RolloutOtherPriority = 36,
+    RolloutEndTurnThreshold = 37,
+    RolloutEndTurnProbabilityEarly = 38,
+    RolloutEndTurnProbabilityLate = 39,
+    RolloutEndTurnMaxRound = 40,
+    RolloutWsMaterialBaseMultiplier = 41,
+    RolloutWsMaterialColorsMetMultiplier = 42,
+    RolloutWsActionBonus = 43,
 }
 
-const NUM_GENES: usize = 50;
+const NUM_GENES: usize = 44;
 
 trait GeneTarget: Clone {
     fn to_genes(&self) -> Vec<f64>;
-    fn from_genes(genes: &[f64]) -> Self;
+    fn from_genes(genes: &[f64], base: &Self) -> Self;
     fn integer_gene_indices() -> Vec<usize>;
     fn probability_gene_indices() -> Vec<usize>;
 }
@@ -103,12 +97,6 @@ impl GeneTarget for HeuristicParams {
         v[DualMaterialQuality as usize] = self.dual_material_quality;
         v[SellCardMaterialAlignment as usize] = self.sell_card_material_alignment;
         v[SellCardColorAlignment as usize] = self.sell_card_color_alignment;
-        v[PrimaryColorCoverage as usize] = self.primary_color_coverage_weight;
-        v[SecondaryColorCoverage as usize] = self.secondary_color_coverage_weight;
-        v[CardsInDeck as usize] = self.cards_in_deck_weight;
-        v[CardsInDeckSquared as usize] = self.cards_in_deck_squared_weight;
-        v[MaterialTypeCount as usize] = self.material_type_count_weight;
-        v[MaterialCoverage as usize] = self.material_coverage_weight;
         v[HeuristicScoreThreshold as usize] = self.heuristic_score_threshold.unwrap_or(10.0);
         v[HeuristicLookahead as usize] = self.heuristic_lookahead as f64;
         v[RolloutEpsilon as usize] = self.rollout_epsilon;
@@ -136,24 +124,23 @@ impl GeneTarget for HeuristicParams {
         v
     }
 
-    fn from_genes(v: &[f64]) -> Self {
+    fn from_genes(v: &[f64], base: &Self) -> Self {
         use Gene::*;
-        let defaults = HeuristicParams::default();
         HeuristicParams {
             primary_color_value: v[PrimaryColorValue as usize],
             secondary_color_value: v[SecondaryColorValue as usize],
             tertiary_color_value: v[TertiaryColorValue as usize],
             stored_material_weight: v[StoredMaterialWeight as usize],
             chalk_quality: v[ChalkQuality as usize],
-            action_quality: defaults.action_quality,
-            dye_quality: defaults.dye_quality,
+            action_quality: base.action_quality,
+            dye_quality: base.dye_quality,
             basic_dye_quality: v[BasicDyeQuality as usize],
             starter_material_quality: v[StarterMaterialQuality as usize],
             draft_material_quality: v[DraftMaterialQuality as usize],
             dual_material_quality: v[DualMaterialQuality as usize],
             sell_card_material_alignment: v[SellCardMaterialAlignment as usize],
             sell_card_color_alignment: v[SellCardColorAlignment as usize],
-            heuristic_round_threshold: defaults.heuristic_round_threshold,
+            heuristic_round_threshold: base.heuristic_round_threshold,
             heuristic_lookahead: (v[HeuristicLookahead as usize].round() as u32).max(1),
             alum_quality: Some(v[AlumQuality as usize]),
             cream_of_tartar_quality: Some(v[CreamOfTartarQuality as usize]),
@@ -166,12 +153,6 @@ impl GeneTarget for HeuristicParams {
             primary_dye_quality: Some(v[PrimaryDyeQuality as usize]),
             secondary_dye_quality: Some(v[SecondaryDyeQuality as usize]),
             tertiary_dye_quality: Some(v[TertiaryDyeQuality as usize]),
-            primary_color_coverage_weight: v[PrimaryColorCoverage as usize],
-            secondary_color_coverage_weight: v[SecondaryColorCoverage as usize],
-            cards_in_deck_weight: v[CardsInDeck as usize],
-            cards_in_deck_squared_weight: v[CardsInDeckSquared as usize],
-            material_type_count_weight: v[MaterialTypeCount as usize],
-            material_coverage_weight: v[MaterialCoverage as usize],
             heuristic_score_threshold: Some(v[HeuristicScoreThreshold as usize]),
             rollout_epsilon: v[RolloutEpsilon as usize].clamp(0.0, 1.0),
             rollout_sell_affordable_multiplier: v[RolloutSellAffordableMultiplier as usize].round().max(0.0) as u32,
@@ -275,14 +256,12 @@ fn run_ga_game(
         MctsConfig {
             iterations: eval_iterations,
             use_heuristic_eval: true,
-            heuristic_params: params_a.clone(),
-            ..MctsConfig::default()
+            ..MctsConfig::new(params_a.clone())
         },
         MctsConfig {
             iterations: eval_iterations,
             use_heuristic_eval: true,
-            heuristic_params: params_b.clone(),
-            ..MctsConfig::default()
+            ..MctsConfig::new(params_b.clone())
         },
     ];
 
@@ -323,7 +302,6 @@ fn run_ga_game(
 
 pub fn run_genetic_algorithm(args: &TrainArgs, threads: usize, output: &str) {
     let batch_id = crate::generate_batch_id();
-    let num_genes = HeuristicParams::default().to_genes().len();
 
     eprintln!(
         "Genetic Algorithm: population={}, generations={}, games_per_eval={}, eval_iterations={}, \
@@ -336,14 +314,15 @@ pub fn run_genetic_algorithm(args: &TrainArgs, threads: usize, output: &str) {
 
     let mut rng = WyRand::from_rng(&mut rand::rng());
 
-    let seed_params = args.seed_params.as_ref().map(|p| load_heuristic_params(p));
-    let default_params = HeuristicParams::default();
-    let seed = seed_params.as_ref().unwrap_or(&default_params);
+    let seed_params = load_heuristic_params(
+        args.seed_params.as_ref().expect("--seed-params is required for training")
+    );
+    let seed = &seed_params;
     let seed_genes = seed.to_genes();
 
-    if seed_params.is_some() {
-        eprintln!("Seeding population from provided params file");
-    }
+    eprintln!("Seeding population from provided params file");
+
+    let num_genes = seed.to_genes().len();
 
     // Initialize population: first individual is seed, rest are perturbed
     let mut population: Vec<Vec<f64>> = Vec::with_capacity(args.population);
@@ -380,7 +359,7 @@ pub fn run_genetic_algorithm(args: &TrainArgs, threads: usize, output: &str) {
 
         let population_params: Vec<HeuristicParams> = population
             .iter()
-            .map(|g| HeuristicParams::from_genes(g))
+            .map(|g| HeuristicParams::from_genes(g, seed))
             .collect();
 
         let baseline_ref = &baseline_params;
@@ -445,7 +424,7 @@ pub fn run_genetic_algorithm(args: &TrainArgs, threads: usize, output: &str) {
 
         let best_idx = fitness[0].0;
         let best_fitness = fitness[0].1;
-        let best_params = HeuristicParams::from_genes(&population[best_idx]);
+        let best_params = HeuristicParams::from_genes(&population[best_idx], seed);
 
         // Save best individual
         let output_path = format!("{}/batch-{}-gen-{}.json", output, batch_id, gen);

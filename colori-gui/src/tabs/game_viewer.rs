@@ -9,7 +9,7 @@ use colori_core::colori_game::enumerate_choices;
 use colori_core::game_log::{DrawEvent, StructuredGameLog, StructuredLogEntry};
 use colori_core::ismcts::{ismcts, MctsConfig, MctsNode, TreeStats};
 use colori_core::replay::{GameReplay, replay_to};
-use colori_core::scoring::{calculate_score, HeuristicParams};
+use colori_core::scoring::calculate_score;
 use colori_core::types::{
     Card, CardInstance, Choice, Color, GamePhase, GameState, SellCardInstance, ALL_COLORS, ALL_MATERIAL_TYPES,
 };
@@ -91,14 +91,13 @@ struct MctsGuiConfig {
 
 impl Default for MctsGuiConfig {
     fn default() -> Self {
-        let defaults = MctsConfig::default();
         Self {
             iterations: 100_000,
-            exploration_constant: defaults.exploration_constant,
-            use_heuristic_eval: defaults.use_heuristic_eval,
-            heuristic_rollout: defaults.heuristic_rollout,
-            early_termination: defaults.early_termination,
-            heuristic_params_path: "genetic-algorithm/batch-rqo1vv-gen-18.json".to_string(),
+            exploration_constant: std::f64::consts::SQRT_2,
+            use_heuristic_eval: true,
+            heuristic_rollout: true,
+            early_termination: true,
+            heuristic_params_path: "genetic-algorithm/batch-nocdm1-gen-7.json".to_string(),
         }
     }
 }
@@ -106,12 +105,12 @@ impl Default for MctsGuiConfig {
 impl MctsGuiConfig {
     fn to_mcts_config(&self) -> MctsConfig {
         let heuristic_params = if !self.heuristic_params_path.is_empty() {
-            match std::fs::read_to_string(&self.heuristic_params_path) {
-                Ok(contents) => serde_json::from_str(&contents).unwrap_or_default(),
-                Err(_) => HeuristicParams::default(),
-            }
+            let contents = std::fs::read_to_string(&self.heuristic_params_path)
+                .unwrap_or_else(|_| panic!("Failed to read heuristic params file: {}", self.heuristic_params_path));
+            serde_json::from_str(&contents)
+                .unwrap_or_else(|_| panic!("Failed to parse heuristic params file: {}", self.heuristic_params_path))
         } else {
-            HeuristicParams::default()
+            panic!("Heuristic params path is required");
         };
         MctsConfig {
             iterations: self.iterations,
@@ -119,8 +118,7 @@ impl MctsGuiConfig {
             use_heuristic_eval: self.use_heuristic_eval,
             heuristic_rollout: self.heuristic_rollout,
             early_termination: self.early_termination,
-            heuristic_params,
-            ..MctsConfig::default()
+            ..MctsConfig::new(heuristic_params)
         }
     }
 }

@@ -8,7 +8,7 @@ use std::time::SystemTime;
 use colori_core::scoring::HeuristicParams;
 
 static BASELINE_PARAMS: std::sync::LazyLock<HeuristicParams> = std::sync::LazyLock::new(|| {
-    const JSON: &str = include_str!("../../../genetic-algorithm/batch-rqo1vv-gen-18.json");
+    const JSON: &str = include_str!("../../../genetic-algorithm/batch-nocdm1-gen-7.json");
     serde_json::from_str(JSON).expect("Failed to parse baseline params")
 });
 
@@ -62,13 +62,6 @@ const PARAM_GROUPS: &[(&str, &[&str])] = &[
     ("Dye Type Overrides", &[
         "pure_primary_dye_quality", "primary_dye_quality",
         "secondary_dye_quality", "tertiary_dye_quality",
-    ]),
-    ("Coverage Weights", &[
-        "primary_color_coverage_weight", "secondary_color_coverage_weight",
-    ]),
-    ("Deck Weights", &[
-        "cards_in_deck_weight", "cards_in_deck_squared_weight",
-        "material_type_count_weight", "material_coverage_weight",
     ]),
     ("Heuristic Control", &[
         "heuristic_round_threshold", "heuristic_lookahead", "heuristic_score_threshold",
@@ -124,12 +117,6 @@ fn get_param_value(params: &HeuristicParams, name: &str) -> Option<f64> {
         "primary_dye_quality" => params.primary_dye_quality,
         "secondary_dye_quality" => params.secondary_dye_quality,
         "tertiary_dye_quality" => params.tertiary_dye_quality,
-        "primary_color_coverage_weight" => Some(params.primary_color_coverage_weight),
-        "secondary_color_coverage_weight" => Some(params.secondary_color_coverage_weight),
-        "cards_in_deck_weight" => Some(params.cards_in_deck_weight),
-        "cards_in_deck_squared_weight" => Some(params.cards_in_deck_squared_weight),
-        "material_type_count_weight" => Some(params.material_type_count_weight),
-        "material_coverage_weight" => Some(params.material_coverage_weight),
         "heuristic_score_threshold" => params.heuristic_score_threshold,
         "rollout_epsilon" => Some(params.rollout_epsilon),
         "rollout_sell_affordable_multiplier" => Some(params.rollout_sell_affordable_multiplier as f64),

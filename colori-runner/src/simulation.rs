@@ -2,7 +2,7 @@ use colori_core::colori_game::{apply_choice_to_state, enumerate_choices};
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::game_log::{DrawEvent, DrawLog, FinalPlayerStats, FinalScore, PlayerVariant};
 use colori_core::ismcts::{ismcts, MctsConfig, MctsNode};
-use colori_core::scoring::{calculate_score, HeuristicParams};
+use colori_core::scoring::calculate_score;
 use colori_core::setup::create_initial_game_state;
 use colori_core::types::*;
 use colori_core::unordered_cards::{set_sell_card_registry, set_card_registry};
@@ -161,36 +161,25 @@ pub fn has_any_difference(variants: &[NamedVariant]) -> bool {
     diff.iterations_differs || diff.exploration_constant_differs || diff.max_rollout_steps_differs || diff.time_limit_differs
 }
 
-fn is_default_heuristic_params(params: &HeuristicParams) -> bool {
-    let d = HeuristicParams::default();
-    let json_params = serde_json::to_string(params).unwrap_or_default();
-    let json_default = serde_json::to_string(&d).unwrap_or_default();
-    json_params == json_default
-}
-
 fn variant_to_player_variant(variant: &NamedVariant) -> PlayerVariant {
-    let defaults = MctsConfig::default();
+    let base = MctsConfig::new(variant.ai.heuristic_params.clone());
     let config = &variant.ai;
     PlayerVariant {
         name: variant.name.clone(),
         algorithm: Some("ucb".to_string()),
         iterations: config.iterations,
         time_limit_ms: config.time_limit_ms,
-        exploration_constant: if config.exploration_constant != defaults.exploration_constant {
+        exploration_constant: if config.exploration_constant != base.exploration_constant {
             Some(config.exploration_constant)
         } else {
             None
         },
-        max_rollout_steps: if config.max_rollout_steps != defaults.max_rollout_steps {
+        max_rollout_steps: if config.max_rollout_steps != base.max_rollout_steps {
             Some(config.max_rollout_steps)
         } else {
             None
         },
-        heuristic_params: if !is_default_heuristic_params(&config.heuristic_params) {
-            Some(config.heuristic_params.clone())
-        } else {
-            None
-        },
+        heuristic_params: Some(config.heuristic_params.clone()),
         random_first_pick: if config.random_first_pick { Some(true) } else { None },
         first_pick_params: config.first_pick_params.as_ref().map(|p| (**p).clone()),
     }
@@ -407,7 +396,10 @@ pub fn run_game(
 
 pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str) {
     let player_variants = if let Some(ref v) = args.variants {
-        parse_inline_variants(v)
+        let heuristic_params = crate::cli::load_heuristic_params(
+            args.heuristic_params_file.as_ref().expect("--heuristic-params-file is required when using --variants")
+        );
+        parse_inline_variants(v, heuristic_params)
     } else {
         load_variants_from_file(&args.variants_file)
     };

@@ -41,6 +41,7 @@ fn main() {
                 games: 10_000,
                 note: None,
                 variants: None,
+                heuristic_params_file: None,
                 variants_file: "variants.json".to_string(),
                 max_rounds: 5,
             };

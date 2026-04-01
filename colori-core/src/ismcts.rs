@@ -41,15 +41,15 @@ pub struct TreeStats {
     pub avg_branching_factor: f64,
 }
 
-impl Default for MctsConfig {
-    fn default() -> Self {
+impl MctsConfig {
+    pub fn new(heuristic_params: HeuristicParams) -> Self {
         MctsConfig {
             iterations: 100,
             exploration_constant: std::f64::consts::SQRT_2,
             max_rollout_steps: 1000,
             use_heuristic_eval: true,
             progressive_bias_weight: 0.0,
-            heuristic_params: HeuristicParams::default(),
+            heuristic_params,
             no_rollout: false,
             heuristic_rollout: true,
             heuristic_draft: false,
@@ -80,7 +80,6 @@ impl<'de> Deserialize<'de> for MctsConfig {
             use_heuristic_eval: bool,
             #[serde(default = "default_progressive_bias_weight")]
             progressive_bias_weight: f64,
-            #[serde(default)]
             heuristic_params: HeuristicParams,
             #[serde(default = "default_heuristic_rollout")]
             heuristic_rollout: bool,
@@ -804,7 +803,7 @@ fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_ro
         if heuristic_rollout {
             apply_heuristic_rollout_step(state, heuristic_draft, params, rng);
         } else {
-            apply_rollout_step(state, heuristic_draft, rng);
+            apply_rollout_step(state, heuristic_draft, params, rng);
         }
     }
 
@@ -828,6 +827,11 @@ mod tests {
     use rand::SeedableRng;
     use wyrand::WyRand;
 
+    fn test_heuristic_params() -> HeuristicParams {
+        const PARAMS_JSON: &str = include_str!("../../genetic-algorithm/batch-nocdm1-gen-7.json");
+        serde_json::from_str(PARAMS_JSON).expect("Failed to parse test heuristic params")
+    }
+
     fn run_full_game_validating_choices(num_players: usize, seed: u64) {
         let mut rng = WyRand::seed_from_u64(seed);
         let ai_players = vec![true; num_players];
@@ -835,7 +839,7 @@ mod tests {
 
         let config = MctsConfig {
             iterations: 10,
-            ..MctsConfig::default()
+            ..MctsConfig::new(test_heuristic_params())
         };
 
         execute_draw_phase(&mut state, &mut rng);
@@ -948,7 +952,7 @@ mod tests {
     fn test_ismcts_with_heuristic_rollout() {
         let config = MctsConfig {
             iterations: 10,
-            ..MctsConfig::default()
+            ..MctsConfig::new(test_heuristic_params())
         };
         for num_players in 2..=4 {
             for seed in 0..3 {

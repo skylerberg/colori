@@ -29,37 +29,16 @@ const ALL_CARDS: [Card; 47] = [
 
 pub struct CardHeuristicTable {
     quality: [f64; 47],
-    primary_mask: [u8; 47],
-    secondary_mask: [u8; 47],
-    material_mask: [u8; 47],
 }
 
 impl CardHeuristicTable {
     pub fn new(params: &HeuristicParams) -> Self {
         let mut quality = [0.0f64; 47];
-        let mut primary_mask = [0u8; 47];
-        let mut secondary_mask = [0u8; 47];
-        let mut material_mask = [0u8; 47];
         for &card in &ALL_CARDS {
             let idx = card as usize;
             quality[idx] = card_quality(card, params);
-            for &color in card.colors() {
-                for (i, &p) in PRIMARIES.iter().enumerate() {
-                    if color == p {
-                        primary_mask[idx] |= 1 << i;
-                    }
-                }
-                for (i, &s) in SECONDARIES.iter().enumerate() {
-                    if color == s {
-                        secondary_mask[idx] |= 1 << i;
-                    }
-                }
-            }
-            for &mt in card.material_types() {
-                material_mask[idx] |= 1 << (mt as usize);
-            }
         }
-        CardHeuristicTable { quality, primary_mask, secondary_mask, material_mask }
+        CardHeuristicTable { quality }
     }
 }
 
@@ -175,17 +154,11 @@ pub fn heuristic_score(
 
     let mut total_quality = 0.0;
     let mut card_count = 0u32;
-    let mut primary_seen = 0u8;
-    let mut secondary_seen = 0u8;
-    let mut material_seen = 0u8;
     for cards in [&player.deck, &player.discard, &player.workshop_cards, &player.workshopped_cards, &player.drafted_cards] {
         for id in cards.iter() {
             let idx = card_lookup[id as usize] as usize;
             total_quality += card_table.quality[idx];
             card_count += 1;
-            primary_seen |= card_table.primary_mask[idx];
-            secondary_seen |= card_table.secondary_mask[idx];
-            material_seen |= card_table.material_mask[idx];
         }
     }
     let deck_quality = if card_count > 0 {
@@ -215,18 +188,7 @@ pub fn heuristic_score(
         best_alignment = best_alignment.max(alignment);
     }
 
-    let primary_coverage = primary_seen.count_ones() as f64 / 3.0;
-    let secondary_coverage = secondary_seen.count_ones() as f64 / 3.0;
-    let material_type_count = player.materials.counts.iter().filter(|&&c| c > 0).count() as f64;
-    let material_coverage = material_seen.count_ones() as f64 / 3.0;
-
     score + color_score + material_score + deck_quality + best_alignment
-        + params.primary_color_coverage_weight * primary_coverage
-        + params.secondary_color_coverage_weight * secondary_coverage
-        + params.cards_in_deck_weight * card_count as f64
-        + params.cards_in_deck_squared_weight * (card_count as f64) * (card_count as f64)
-        + params.material_type_count_weight * material_type_count
-        + params.material_coverage_weight * material_coverage
 }
 
 /// Compute heuristic rewards for truncated early-game rollouts.
