@@ -110,6 +110,23 @@ fn benchmarks(c: &mut Criterion) {
         );
     });
 
+    c.bench_function("bench_draw_multiple_5_of_90", |b| {
+        let mut rng = WyRand::seed_from_u64(42);
+        b.iter_batched(
+            || {
+                let mut set = UnorderedCards::new();
+                for i in 0..90u8 {
+                    set.insert(i);
+                }
+                set
+            },
+            |mut set| {
+                black_box(set.draw_multiple(black_box(5), &mut rng))
+            },
+            BatchSize::SmallInput,
+        );
+    });
+
     c.bench_function("bench_draw_up_to_5_of_50", |b| {
         let mut rng = WyRand::seed_from_u64(42);
         b.iter_batched(

@@ -183,30 +183,63 @@ impl<T> BitSet<T> {
             self.0 = [0; 2];
             return BitSet(all, PhantomData);
         }
-        // For small draws, use repeated single draws.
-        // Each draw() call needs one random_range call, so drawing `count`
-        // elements costs `count` calls vs ~n calls for selection sampling.
-        // Crossover heuristic: repeated draws (O(count) RNG + O(count*n/2) bit ops)
-        // beats selection sampling (O(n) RNG) when count^2 <= 6*n.
-        if count * count <= n * 6 {
-            let mut selected = Self::new();
-            for _ in 0..count {
-                if let Some(id) = self.draw(rng) {
-                    selected.insert(id);
-                }
+
+        let k = count as usize;
+        let n_usize = n as usize;
+
+        if k <= 9 {
+            // Combinadic approach: 1 RNG call + table-driven decoding.
+            // Collect set-bit positions into a flat array.
+            let mut positions = [0u8; 256];
+            let mut pos_count = 0usize;
+            let mut bits0 = self.0[0];
+            while bits0 != 0 {
+                positions[pos_count] = bits0.trailing_zeros() as u8;
+                pos_count += 1;
+                bits0 &= bits0 - 1;
             }
-            return selected;
+            let mut bits1 = self.0[1];
+            while bits1 != 0 {
+                positions[pos_count] = 128 + bits1.trailing_zeros() as u8;
+                pos_count += 1;
+                bits1 &= bits1 - 1;
+            }
+
+            // Single RNG call for the combination index.
+            let total = BINOM[n_usize][k];
+            let mut r = rng.random_range(0..total);
+
+            // Decode using the combinatorial number system.
+            let mut selected = [0u128; 2];
+            let mut upper = n_usize - 1;
+            for j in (1..=k).rev() {
+                let mut m = upper;
+                while BINOM[m][j] > r {
+                    m -= 1;
+                }
+                r -= BINOM[m][j];
+                let bit_pos = positions[m];
+                if bit_pos < 128 {
+                    selected[0] |= 1u128 << bit_pos;
+                } else {
+                    selected[1] |= 1u128 << (bit_pos - 128);
+                }
+                upper = if m > 0 { m - 1 } else { 0 };
+            }
+
+            self.0[0] &= !selected[0];
+            self.0[1] &= !selected[1];
+            return BitSet(selected, PhantomData);
         }
+
+        // Fallback: Algorithm S for k > 9.
         let mut remaining = n;
         let mut to_pick = count;
         let mut selected = [0u128; 2];
 
-        // Selection sampling (Algorithm S): for each element,
-        // include with probability to_pick/remaining.
         let mut bits0 = self.0[0];
         while to_pick > 0 && bits0 != 0 {
             if remaining == to_pick {
-                // Must take all remaining elements
                 selected[0] |= bits0;
                 selected[1] = self.0[1];
                 self.0[0] &= !selected[0];
