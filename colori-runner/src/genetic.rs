@@ -150,6 +150,10 @@ pub fn run_genetic_algorithm(args: &TrainGaArgs, threads: usize, output: &str) {
         for &idx in &HeuristicParams::integer_gene_indices() {
             genes[idx] = genes[idx].round().max(1.0);
         }
+        // Clamp probability genes
+        for &idx in &HeuristicParams::probability_gene_indices() {
+            genes[idx] = genes[idx].clamp(0.0, 1.0);
+        }
         population.push(genes);
     }
 
@@ -288,6 +292,10 @@ pub fn run_genetic_algorithm(args: &TrainGaArgs, threads: usize, output: &str) {
             // Clamp integer genes
             for &idx in &HeuristicParams::integer_gene_indices() {
                 child[idx] = child[idx].round().max(1.0);
+            }
+            // Clamp probability genes
+            for &idx in &HeuristicParams::probability_gene_indices() {
+                child[idx] = child[idx].clamp(0.0, 1.0);
             }
 
             new_population.push(child);

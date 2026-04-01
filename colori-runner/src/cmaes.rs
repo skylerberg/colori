@@ -21,6 +21,8 @@ pub trait CmaEsTarget: Clone {
     fn from_genes(genes: &[f64]) -> Self;
     /// Gene indices that should be rounded to integers and clamped >= 1
     fn integer_gene_indices() -> Vec<usize>;
+    /// Gene indices that represent probabilities and should be clamped to [0.0, 1.0]
+    fn probability_gene_indices() -> Vec<usize>;
 }
 
 /// Box-Muller transform: generate a sample from N(0, std_dev)
@@ -183,7 +185,7 @@ impl CmaEsTarget for HeuristicParams {
             material_type_count_weight: v[MaterialTypeCount as usize],
             material_coverage_weight: v[MaterialCoverage as usize],
             heuristic_score_threshold: Some(v[HeuristicScoreThreshold as usize]),
-            rollout_epsilon: v[RolloutEpsilon as usize],
+            rollout_epsilon: v[RolloutEpsilon as usize].clamp(0.0, 1.0),
             rollout_sell_affordable_multiplier: v[RolloutSellAffordableMultiplier as usize].round().max(0.0) as u32,
             rollout_sell_base: v[RolloutSellBase as usize].round().max(0.0) as u32,
             rollout_mix_base: v[RolloutMixBase as usize].round().max(0.0) as u32,
@@ -199,7 +201,7 @@ impl CmaEsTarget for HeuristicParams {
             rollout_draw_count_weight: v[RolloutDrawCountWeight as usize].round().max(0.0) as u32,
             rollout_other_priority: v[RolloutOtherPriority as usize].round().max(0.0) as u32,
             rollout_end_turn_threshold: v[RolloutEndTurnThreshold as usize].round().max(0.0) as u32,
-            rollout_end_turn_probability: v[RolloutEndTurnProbability as usize],
+            rollout_end_turn_probability: v[RolloutEndTurnProbability as usize].clamp(0.0, 1.0),
             rollout_ws_material_base_multiplier: v[RolloutWsMaterialBaseMultiplier as usize].round().max(0.0) as u32,
             rollout_ws_material_colors_met_multiplier: v[RolloutWsMaterialColorsMetMultiplier as usize].round().max(0.0) as u32,
             rollout_ws_action_bonus: v[RolloutWsActionBonus as usize].round().max(0.0) as u32,
@@ -227,6 +229,13 @@ impl CmaEsTarget for HeuristicParams {
             Gene::RolloutWsMaterialBaseMultiplier as usize,
             Gene::RolloutWsMaterialColorsMetMultiplier as usize,
             Gene::RolloutWsActionBonus as usize,
+        ]
+    }
+
+    fn probability_gene_indices() -> Vec<usize> {
+        vec![
+            Gene::RolloutEpsilon as usize,
+            Gene::RolloutEndTurnProbability as usize,
         ]
     }
 }
@@ -309,10 +318,11 @@ struct CmaEsState {
     inv_sqrt_c: DMatrix<f64>,
     frozen_genes: Vec<usize>,
     integer_genes: Vec<usize>,
+    probability_genes: Vec<usize>,
 }
 
 impl CmaEsState {
-    fn new(seed_genes: &[f64], lambda: usize, initial_sigma: f64, frozen_genes: Vec<usize>, integer_genes: Vec<usize>) -> Self {
+    fn new(seed_genes: &[f64], lambda: usize, initial_sigma: f64, frozen_genes: Vec<usize>, integer_genes: Vec<usize>, probability_genes: Vec<usize>) -> Self {
         let n = seed_genes.len();
         let mu = lambda / 2;
 
@@ -381,6 +391,7 @@ impl CmaEsState {
             inv_sqrt_c,
             frozen_genes,
             integer_genes,
+            probability_genes,
         }
     }
 
@@ -401,6 +412,10 @@ impl CmaEsState {
 
             for &idx in &self.integer_genes {
                 genes[idx] = genes[idx].round().max(1.0);
+            }
+
+            for &idx in &self.probability_genes {
+                genes[idx] = genes[idx].clamp(0.0, 1.0);
             }
 
             offspring.push(genes);
@@ -503,7 +518,7 @@ pub fn run_genetic_algorithm(args: &TrainHeuristicEvalArgs, threads: usize, outp
         Gene::CardsInDeckSquared as usize,
     ];
 
-    let mut cma = CmaEsState::new(&seed_genes, args.population, args.initial_sigma, frozen_genes, HeuristicParams::integer_gene_indices());
+    let mut cma = CmaEsState::new(&seed_genes, args.population, args.initial_sigma, frozen_genes, HeuristicParams::integer_gene_indices(), HeuristicParams::probability_gene_indices());
     let baseline_params = baseline_heuristic_params.as_ref().unwrap_or(seed).clone();
 
     for gen in 0..args.generations {
@@ -687,6 +702,10 @@ impl CmaEsTarget for FirstPickParams {
     fn integer_gene_indices() -> Vec<usize> {
         vec![]
     }
+
+    fn probability_gene_indices() -> Vec<usize> {
+        vec![]
+    }
 }
 
 fn run_first_pick_eval_game(
@@ -771,7 +790,7 @@ pub fn run_first_pick_cmaes(args: &TrainFirstPickArgs, threads: usize, output: &
     let seed = FirstPickParams::default();
     let seed_genes = seed.to_genes();
 
-    let mut cma = CmaEsState::new(&seed_genes, args.population, args.initial_sigma, vec![], FirstPickParams::integer_gene_indices());
+    let mut cma = CmaEsState::new(&seed_genes, args.population, args.initial_sigma, vec![], FirstPickParams::integer_gene_indices(), FirstPickParams::probability_gene_indices());
 
     for gen in 0..args.generations {
         let gen_start = Instant::now();
