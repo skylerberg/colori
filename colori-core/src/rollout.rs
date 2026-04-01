@@ -2485,14 +2485,49 @@ fn execute_solver_turn(state: &mut GameState, player_index: usize, heuristic_dra
                 destroy_drafted_card(state, action.draft_card_id as u32, rng);
                 // Now Workshop ability should be on the stack
                 if let GamePhase::Action { ref action_state } = state.phase {
-                    if matches!(action_state.ability_stack.last(), Some(Ability::Workshop { .. })) {
+                    if let Some(Ability::Workshop { count }) = action_state.ability_stack.last() {
+                        let ws_count = *count;
                         // Intersect planned selection with actual workshop cards
                         let actual_available = state.players[player_index].workshop_cards;
                         let valid_selection = selected_cards.intersection(actual_available);
-                        if valid_selection.is_empty() {
+                        if valid_selection.is_empty() && actual_available.is_empty() {
                             skip_workshop(state, rng);
                         } else {
-                            resolve_workshop_choice(state, valid_selection, rng);
+                            // Fill remaining capacity with heuristic-scored cards
+                            let remaining_slots = (ws_count - valid_selection.len().min(ws_count)) as usize;
+                            let mut full_selection = valid_selection;
+                            if remaining_slots > 0 {
+                                let pool = actual_available.difference(valid_selection);
+                                let cache = SellCardCache::new(
+                                    &state.sell_card_display,
+                                    &state.players[player_index].color_wheel,
+                                    &state.players[player_index].materials,
+                                );
+                                let mut scored: [(u8, u32); 16] = [(0, 0); 16];
+                                let mut scored_count = 0usize;
+                                for id in pool.iter() {
+                                    let card = state.card_lookup[id as usize];
+                                    let score = workshop_card_score(card, &cache);
+                                    scored[scored_count] = (id, score);
+                                    scored_count += 1;
+                                }
+                                for ii in 1..scored_count {
+                                    let mut jj = ii;
+                                    while jj > 0 && scored[jj].1 > scored[jj - 1].1 {
+                                        scored.swap(jj, jj - 1);
+                                        jj -= 1;
+                                    }
+                                }
+                                let fill = remaining_slots.min(scored_count);
+                                for fi in 0..fill {
+                                    full_selection.insert(scored[fi].0);
+                                }
+                            }
+                            if full_selection.is_empty() {
+                                skip_workshop(state, rng);
+                            } else {
+                                resolve_workshop_choice(state, full_selection, rng);
+                            }
                         }
                     }
                 }
@@ -2500,17 +2535,49 @@ fn execute_solver_turn(state: &mut GameState, player_index: usize, heuristic_dra
                 resolve_pending_abilities_heuristic(state, rng);
             }
             SellPlanActionType::Mix { mixes, mix_count } => {
-                // Fused mix: skip ability stack
-                state.players[player_index].drafted_cards.remove(action.draft_card_id);
-                state.destroyed_pile.insert(action.draft_card_id);
-                for j in 0..*mix_count {
-                    let (a, b) = mixes[j];
-                    // Verify mix is still valid
-                    let wheel = &state.players[player_index].color_wheel;
-                    if wheel.get(a) > 0 && wheel.get(b) > 0 {
-                        perform_mix_unchecked(&mut state.players[player_index].color_wheel, a, b);
+                // Destroy the drafted card to get the MixColors ability
+                destroy_drafted_card(state, action.draft_card_id as u32, rng);
+                // Now MixColors ability should be on the stack
+                if let GamePhase::Action { ref action_state } = state.phase {
+                    if let Some(Ability::MixColors { count }) = action_state.ability_stack.last() {
+                        let total_mixes = *count;
+                        // First, perform the planned mixes
+                        let mut done = 0usize;
+                        for j in 0..*mix_count {
+                            let (a, b) = mixes[j];
+                            let wheel = &state.players[player_index].color_wheel;
+                            if wheel.get(a) > 0 && wheel.get(b) > 0 {
+                                perform_mix_unchecked(&mut state.players[player_index].color_wheel, a, b);
+                                done += 1;
+                            }
+                        }
+                        // Fill remaining mix capacity with heuristic choices
+                        let remaining = (total_mixes as usize).saturating_sub(done);
+                        if remaining > 0 {
+                            let cache = SellCardCache::new(
+                                &state.sell_card_display,
+                                &state.players[player_index].color_wheel,
+                                &state.players[player_index].materials,
+                            );
+                            let (extra_mixes, extra_count) = heuristic_mix_seq(
+                                &state.players[player_index].color_wheel,
+                                remaining as u32,
+                                &cache,
+                                rng,
+                            );
+                            for j in 0..extra_count {
+                                let (a, b) = extra_mixes[j];
+                                perform_mix_unchecked(&mut state.players[player_index].color_wheel, a, b);
+                            }
+                        }
+                        // Pop the MixColors ability from the stack
+                        if let GamePhase::Action { ref mut action_state } = state.phase {
+                            action_state.ability_stack.pop();
+                        }
+                        process_ability_stack(state, rng);
                     }
                 }
+                resolve_pending_abilities_heuristic(state, rng);
             }
             SellPlanActionType::Sell { sell_card_instance_id } => {
                 // Destroy the drafted card to get the Sell ability
