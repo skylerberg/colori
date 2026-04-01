@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use colori_core::ismcts::MctsConfig;
-use colori_core::scoring::{FirstPickParams, HeuristicParams};
+use colori_core::scoring::HeuristicParams;
 use serde::Deserialize;
 
 // ── Top-level CLI ──
@@ -148,8 +148,6 @@ struct VariantFileEntry {
     #[serde(default)]
     random_first_pick: Option<bool>,
     #[serde(default)]
-    first_pick_params_file: Option<String>,
-    #[serde(default)]
     force_max_workshop: Option<bool>,
 }
 
@@ -165,12 +163,6 @@ impl VariantFileEntry {
         } else {
             panic!("Variant must specify heuristicParams or heuristicParamsFile");
         };
-        let first_pick_params = self.first_pick_params_file.as_ref().map(|path| {
-            let contents = std::fs::read_to_string(path)
-                .unwrap_or_else(|_| panic!("Failed to read first pick params file: {}", path));
-            Box::new(serde_json::from_str::<FirstPickParams>(&contents)
-                .unwrap_or_else(|_| panic!("Failed to parse first pick params file: {}", path)))
-        });
         let base = MctsConfig::new(heuristic_params);
         NamedVariant {
             name: self.name,
@@ -187,7 +179,6 @@ impl VariantFileEntry {
                 early_termination: self.early_termination.unwrap_or(base.early_termination),
                 time_limit_ms: self.time_limit_ms,
                 random_first_pick: self.random_first_pick.unwrap_or(base.random_first_pick),
-                first_pick_params,
                 force_max_workshop: self.force_max_workshop.unwrap_or(base.force_max_workshop),
             },
         }

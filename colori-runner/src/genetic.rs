@@ -81,15 +81,15 @@ impl GeneTarget for HeuristicParams {
         v[TertiaryColorValue as usize] = self.tertiary_color_value;
         v[StoredMaterialWeight as usize] = self.stored_material_weight;
         v[ChalkQuality as usize] = self.chalk_quality;
-        v[AlumQuality as usize] = self.alum_quality.unwrap_or(0.0);
-        v[CreamOfTartarQuality as usize] = self.cream_of_tartar_quality.unwrap_or(0.0);
-        v[GumArabicQuality as usize] = self.gum_arabic_quality.unwrap_or(0.0);
-        v[PotashQuality as usize] = self.potash_quality.unwrap_or(0.0);
-        v[VinegarQuality as usize] = self.vinegar_quality.unwrap_or(0.0);
+        v[AlumQuality as usize] = self.alum_quality;
+        v[CreamOfTartarQuality as usize] = self.cream_of_tartar_quality;
+        v[GumArabicQuality as usize] = self.gum_arabic_quality;
+        v[PotashQuality as usize] = self.potash_quality;
+        v[VinegarQuality as usize] = self.vinegar_quality;
         v[LinseedOilQuality as usize] = self.linseed_oil_quality;
-        v[PrimaryDyeQuality as usize] = self.primary_dye_quality.unwrap_or(0.0);
-        v[SecondaryDyeQuality as usize] = self.secondary_dye_quality.unwrap_or(0.0);
-        v[TertiaryDyeQuality as usize] = self.tertiary_dye_quality.unwrap_or(0.0);
+        v[PrimaryDyeQuality as usize] = self.primary_dye_quality;
+        v[SecondaryDyeQuality as usize] = self.secondary_dye_quality;
+        v[TertiaryDyeQuality as usize] = self.tertiary_dye_quality;
         v[BasicDyeQuality as usize] = self.basic_dye_quality;
         v[StarterMaterialQuality as usize] = self.starter_material_quality;
         v[DraftMaterialQuality as usize] = self.draft_material_quality;
@@ -138,15 +138,15 @@ impl GeneTarget for HeuristicParams {
             sell_card_color_alignment: v[SellCardColorAlignment as usize],
             heuristic_round_threshold: base.heuristic_round_threshold,
             heuristic_lookahead: (v[HeuristicLookahead as usize].round() as u32).max(1),
-            alum_quality: Some(v[AlumQuality as usize]),
-            cream_of_tartar_quality: Some(v[CreamOfTartarQuality as usize]),
-            gum_arabic_quality: Some(v[GumArabicQuality as usize]),
-            potash_quality: Some(v[PotashQuality as usize]),
-            vinegar_quality: Some(v[VinegarQuality as usize]),
+            alum_quality: v[AlumQuality as usize],
+            cream_of_tartar_quality: v[CreamOfTartarQuality as usize],
+            gum_arabic_quality: v[GumArabicQuality as usize],
+            potash_quality: v[PotashQuality as usize],
+            vinegar_quality: v[VinegarQuality as usize],
             linseed_oil_quality: v[LinseedOilQuality as usize],
-            primary_dye_quality: Some(v[PrimaryDyeQuality as usize]),
-            secondary_dye_quality: Some(v[SecondaryDyeQuality as usize]),
-            tertiary_dye_quality: Some(v[TertiaryDyeQuality as usize]),
+            primary_dye_quality: v[PrimaryDyeQuality as usize],
+            secondary_dye_quality: v[SecondaryDyeQuality as usize],
+            tertiary_dye_quality: v[TertiaryDyeQuality as usize],
             rollout_epsilon: v[RolloutEpsilon as usize].clamp(0.0, 1.0),
             rollout_sell_affordable_multiplier: v[RolloutSellAffordableMultiplier as usize].round().max(0.0) as u32,
             rollout_sell_base: v[RolloutSellBase as usize].round().max(0.0) as u32,

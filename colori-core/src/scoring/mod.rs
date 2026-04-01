@@ -1,7 +1,5 @@
-pub mod first_pick;
 mod heuristic_params;
 
-pub use first_pick::FirstPickParams;
 pub use heuristic_params::HeuristicParams;
 
 use crate::colors::{PRIMARIES, SECONDARIES, TERTIARIES};
@@ -90,11 +88,11 @@ fn card_quality(card: Card, params: &HeuristicParams) -> f64 {
     match card.kind() {
         CardKind::Action => {
             match card {
-                Card::Alum => params.alum_quality.unwrap_or(0.0),
-                Card::CreamOfTartar => params.cream_of_tartar_quality.unwrap_or(0.0),
-                Card::GumArabic => params.gum_arabic_quality.unwrap_or(0.0),
-                Card::Potash => params.potash_quality.unwrap_or(0.0),
-                Card::Vinegar => params.vinegar_quality.unwrap_or(0.0),
+                Card::Alum => params.alum_quality,
+                Card::CreamOfTartar => params.cream_of_tartar_quality,
+                Card::GumArabic => params.gum_arabic_quality,
+                Card::Potash => params.potash_quality,
+                Card::Vinegar => params.vinegar_quality,
                 Card::LinseedOil => params.linseed_oil_quality,
                 _ => 0.0,
             }
@@ -102,11 +100,11 @@ fn card_quality(card: Card, params: &HeuristicParams) -> f64 {
         CardKind::Dye => {
             match card {
                 Card::Lac | Card::Brazilwood | Card::Pomegranate
-                | Card::Sumac | Card::Elderberry | Card::Turnsole => params.primary_dye_quality.unwrap_or(0.0),
+                | Card::Sumac | Card::Elderberry | Card::Turnsole => params.primary_dye_quality,
                 Card::Madder | Card::Turmeric | Card::DyersGreenweed
-                | Card::Verdigris | Card::Orchil | Card::Logwood => params.secondary_dye_quality.unwrap_or(0.0),
+                | Card::Verdigris | Card::Orchil | Card::Logwood => params.secondary_dye_quality,
                 Card::VermilionDye | Card::Saffron | Card::PersianBerries
-                | Card::Azurite | Card::IndigoDye | Card::Cochineal => params.tertiary_dye_quality.unwrap_or(0.0),
+                | Card::Azurite | Card::IndigoDye | Card::Cochineal => params.tertiary_dye_quality,
                 _ => 0.0,
             }
         }

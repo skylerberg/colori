@@ -3,7 +3,7 @@ use crate::colori_game::{
     determinize_in_place, enumerate_choices_into,
 };
 use crate::draft_phase::player_pick;
-use crate::scoring::{calculate_score, CardHeuristicTable, compute_heuristic_rewards, compute_terminal_rewards, heuristic_score, HeuristicParams, FirstPickParams};
+use crate::scoring::{calculate_score, CardHeuristicTable, compute_heuristic_rewards, compute_terminal_rewards, heuristic_score, HeuristicParams};
 use crate::types::*;
 use rand::Rng;
 use rand::RngExt;
@@ -25,7 +25,6 @@ pub struct MctsConfig {
     pub early_termination: bool,
     pub time_limit_ms: Option<u64>,
     pub random_first_pick: bool,
-    pub first_pick_params: Option<Box<FirstPickParams>>,
     pub force_max_workshop: bool,
 }
 
@@ -56,7 +55,6 @@ impl MctsConfig {
             early_termination: true,
             time_limit_ms: None,
             random_first_pick: false,
-            first_pick_params: None,
             force_max_workshop: true,
         }
     }
@@ -114,7 +112,6 @@ impl<'de> Deserialize<'de> for MctsConfig {
             early_termination: helper.early_termination,
             time_limit_ms: helper.time_limit_ms,
             random_first_pick: helper.random_first_pick,
-            first_pick_params: None,
             force_max_workshop: true,
         })
     }

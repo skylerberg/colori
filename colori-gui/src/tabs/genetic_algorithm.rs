@@ -104,15 +104,15 @@ fn get_param_value(params: &HeuristicParams, name: &str) -> Option<f64> {
         "sell_card_color_alignment" => Some(params.sell_card_color_alignment),
         "heuristic_round_threshold" => Some(params.heuristic_round_threshold as f64),
         "heuristic_lookahead" => Some(params.heuristic_lookahead as f64),
-        "alum_quality" => params.alum_quality,
-        "cream_of_tartar_quality" => params.cream_of_tartar_quality,
-        "gum_arabic_quality" => params.gum_arabic_quality,
-        "potash_quality" => params.potash_quality,
-        "vinegar_quality" => params.vinegar_quality,
+        "alum_quality" => Some(params.alum_quality),
+        "cream_of_tartar_quality" => Some(params.cream_of_tartar_quality),
+        "gum_arabic_quality" => Some(params.gum_arabic_quality),
+        "potash_quality" => Some(params.potash_quality),
+        "vinegar_quality" => Some(params.vinegar_quality),
         "linseed_oil_quality" => Some(params.linseed_oil_quality),
-        "primary_dye_quality" => params.primary_dye_quality,
-        "secondary_dye_quality" => params.secondary_dye_quality,
-        "tertiary_dye_quality" => params.tertiary_dye_quality,
+        "primary_dye_quality" => Some(params.primary_dye_quality),
+        "secondary_dye_quality" => Some(params.secondary_dye_quality),
+        "tertiary_dye_quality" => Some(params.tertiary_dye_quality),
         "rollout_epsilon" => Some(params.rollout_epsilon),
         "rollout_sell_affordable_multiplier" => Some(params.rollout_sell_affordable_multiplier as f64),
         "rollout_sell_base" => Some(params.rollout_sell_base as f64),
@@ -139,18 +139,8 @@ fn get_param_value(params: &HeuristicParams, name: &str) -> Option<f64> {
     }
 }
 
-fn baseline_fallback(param_name: &str) -> Option<f64> {
-    match param_name {
-        "alum_quality" | "cream_of_tartar_quality" | "gum_arabic_quality"
-        | "potash_quality" | "vinegar_quality" => {
-            None
-        }
-        "primary_dye_quality"
-        | "secondary_dye_quality" | "tertiary_dye_quality" => {
-            None
-        }
-        _ => None,
-    }
+fn baseline_fallback(_param_name: &str) -> Option<f64> {
+    None
 }
 
 fn param_display_name(name: &str) -> String {
