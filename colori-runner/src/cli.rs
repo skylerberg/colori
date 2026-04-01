@@ -3,8 +3,6 @@ use colori_core::ismcts::MctsConfig;
 use colori_core::scoring::{FirstPickParams, HeuristicParams};
 use serde::Deserialize;
 
-const DEFAULT_EVAL_ITERATIONS: u32 = 4_000;
-
 // ── Top-level CLI ──
 
 #[derive(Parser)]
@@ -28,12 +26,8 @@ pub enum Commands {
     Simulate(SimulateArgs),
     /// Run a round-robin tournament between variants
     Tournament(TournamentArgs),
-    /// Train heuristic eval params using CMA-ES optimization
-    TrainHeuristicEval(TrainHeuristicEvalArgs),
-    /// Train first pick params using CMA-ES optimization
-    TrainFirstPick(TrainFirstPickArgs),
-    /// Train heuristic params using classic genetic algorithm
-    TrainGa(TrainGaArgs),
+    /// Train heuristic params using genetic algorithm
+    Train(TrainArgs),
 }
 
 // ── Subcommand args ──
@@ -77,61 +71,7 @@ pub struct TournamentArgs {
 }
 
 #[derive(Parser)]
-pub struct TrainHeuristicEvalArgs {
-    /// Population size (lambda)
-    #[arg(long, default_value_t = 14)]
-    pub population: usize,
-
-    /// Number of generations
-    #[arg(long, default_value_t = 50)]
-    pub generations: usize,
-
-    /// Games per fitness evaluation
-    #[arg(long, default_value_t = 100)]
-    pub games_per_eval: usize,
-
-    /// Initial step size (sigma)
-    #[arg(long, default_value_t = 0.3)]
-    pub initial_sigma: f64,
-
-    /// MCTS iterations for evaluation games
-    #[arg(long, default_value_t = DEFAULT_EVAL_ITERATIONS)]
-    pub eval_iterations: u32,
-
-    /// Path to seed heuristic params JSON file
-    #[arg(long)]
-    pub seed_params: Option<String>,
-
-    /// Path to baseline heuristic params JSON file
-    #[arg(long)]
-    pub baseline_params: Option<String>,
-}
-
-#[derive(Parser)]
-pub struct TrainFirstPickArgs {
-    /// Population size (lambda)
-    #[arg(long, default_value_t = 14)]
-    pub population: usize,
-
-    /// Number of generations
-    #[arg(long, default_value_t = 50)]
-    pub generations: usize,
-
-    /// Games per fitness evaluation
-    #[arg(long, default_value_t = 100)]
-    pub games_per_eval: usize,
-
-    /// Initial step size (sigma)
-    #[arg(long, default_value_t = 0.3)]
-    pub initial_sigma: f64,
-
-    /// MCTS iterations for evaluation games
-    #[arg(long, default_value_t = DEFAULT_EVAL_ITERATIONS)]
-    pub eval_iterations: u32,
-}
-
-#[derive(Parser)]
-pub struct TrainGaArgs {
+pub struct TrainArgs {
     /// Population size
     #[arg(long, default_value_t = 20)]
     pub population: usize,

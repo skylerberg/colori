@@ -1,5 +1,4 @@
-use crate::cli::{TrainGaArgs, load_heuristic_params};
-use crate::cmaes::CmaEsTarget;
+use crate::cli::{TrainArgs, load_heuristic_params};
 use colori_core::colori_game::apply_choice_to_state;
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::ismcts::{ismcts, MctsConfig};
@@ -11,6 +10,232 @@ use rand::SeedableRng;
 use std::sync::atomic::Ordering;
 use std::time::Instant;
 use wyrand::WyRand;
+
+// ── Gene conversion ──
+
+/// Gene indices for optimization. Each variant maps a gene vector
+/// position to a HeuristicParams field.
+#[repr(usize)]
+#[derive(Clone, Copy)]
+enum Gene {
+    PrimaryColorValue = 0,
+    SecondaryColorValue = 1,
+    TertiaryColorValue = 2,
+    StoredMaterialWeight = 3,
+    ChalkQuality = 4,
+    AlumQuality = 5,
+    CreamOfTartarQuality = 6,
+    GumArabicQuality = 7,
+    PotashQuality = 8,
+    VinegarQuality = 9,
+    ArgolQuality = 10,
+    PurePrimaryDyeQuality = 11,
+    PrimaryDyeQuality = 12,
+    SecondaryDyeQuality = 13,
+    TertiaryDyeQuality = 14,
+    BasicDyeQuality = 15,
+    StarterMaterialQuality = 16,
+    DraftMaterialQuality = 17,
+    DualMaterialQuality = 18,
+    SellCardMaterialAlignment = 19,
+    SellCardColorAlignment = 20,
+    PrimaryColorCoverage = 21,
+    SecondaryColorCoverage = 22,
+    CardsInDeck = 23,
+    CardsInDeckSquared = 24,
+    MaterialTypeCount = 25,
+    MaterialCoverage = 26,
+    HeuristicScoreThreshold = 27,
+    HeuristicLookahead = 28,
+    RolloutEpsilon = 29,
+    RolloutSellAffordableMultiplier = 30,
+    RolloutSellBase = 31,
+    RolloutMixBase = 32,
+    RolloutMixPairWeight = 33,
+    RolloutMixCountWeight = 34,
+    RolloutMixNoPairs = 35,
+    RolloutWorkshopBase = 36,
+    RolloutWorkshopCountWeight = 37,
+    RolloutWorkshopEmpty = 38,
+    RolloutDestroyWithTargets = 39,
+    RolloutDestroyNoTargets = 40,
+    RolloutDrawBase = 41,
+    RolloutDrawCountWeight = 42,
+    RolloutOtherPriority = 43,
+    RolloutEndTurnThreshold = 44,
+    RolloutEndTurnProbabilityEarly = 45,
+    RolloutEndTurnProbabilityLate = 46,
+    RolloutEndTurnMaxRound = 47,
+    RolloutWsMaterialBaseMultiplier = 48,
+    RolloutWsMaterialColorsMetMultiplier = 49,
+    RolloutWsActionBonus = 50,
+}
+
+const NUM_GENES: usize = 51;
+
+trait GeneTarget: Clone {
+    fn to_genes(&self) -> Vec<f64>;
+    fn from_genes(genes: &[f64]) -> Self;
+    fn integer_gene_indices() -> Vec<usize>;
+    fn probability_gene_indices() -> Vec<usize>;
+}
+
+impl GeneTarget for HeuristicParams {
+    fn to_genes(&self) -> Vec<f64> {
+        use Gene::*;
+        let mut v = vec![0.0; NUM_GENES];
+        v[PrimaryColorValue as usize] = self.primary_color_value;
+        v[SecondaryColorValue as usize] = self.secondary_color_value;
+        v[TertiaryColorValue as usize] = self.tertiary_color_value;
+        v[StoredMaterialWeight as usize] = self.stored_material_weight;
+        v[ChalkQuality as usize] = self.chalk_quality;
+        v[AlumQuality as usize] = self.alum_quality.unwrap_or(self.action_quality);
+        v[CreamOfTartarQuality as usize] = self.cream_of_tartar_quality.unwrap_or(self.action_quality);
+        v[GumArabicQuality as usize] = self.gum_arabic_quality.unwrap_or(self.action_quality);
+        v[PotashQuality as usize] = self.potash_quality.unwrap_or(self.action_quality);
+        v[VinegarQuality as usize] = self.vinegar_quality.unwrap_or(self.action_quality);
+        v[ArgolQuality as usize] = self.argol_quality.unwrap_or(self.action_quality);
+        v[PurePrimaryDyeQuality as usize] = self.pure_primary_dye_quality.unwrap_or(self.dye_quality);
+        v[PrimaryDyeQuality as usize] = self.primary_dye_quality.unwrap_or(self.dye_quality);
+        v[SecondaryDyeQuality as usize] = self.secondary_dye_quality.unwrap_or(self.dye_quality);
+        v[TertiaryDyeQuality as usize] = self.tertiary_dye_quality.unwrap_or(self.dye_quality);
+        v[BasicDyeQuality as usize] = self.basic_dye_quality;
+        v[StarterMaterialQuality as usize] = self.starter_material_quality;
+        v[DraftMaterialQuality as usize] = self.draft_material_quality;
+        v[DualMaterialQuality as usize] = self.dual_material_quality;
+        v[SellCardMaterialAlignment as usize] = self.sell_card_material_alignment;
+        v[SellCardColorAlignment as usize] = self.sell_card_color_alignment;
+        v[PrimaryColorCoverage as usize] = self.primary_color_coverage_weight;
+        v[SecondaryColorCoverage as usize] = self.secondary_color_coverage_weight;
+        v[CardsInDeck as usize] = self.cards_in_deck_weight;
+        v[CardsInDeckSquared as usize] = self.cards_in_deck_squared_weight;
+        v[MaterialTypeCount as usize] = self.material_type_count_weight;
+        v[MaterialCoverage as usize] = self.material_coverage_weight;
+        v[HeuristicScoreThreshold as usize] = self.heuristic_score_threshold.unwrap_or(10.0);
+        v[HeuristicLookahead as usize] = self.heuristic_lookahead as f64;
+        v[RolloutEpsilon as usize] = self.rollout_epsilon;
+        v[RolloutSellAffordableMultiplier as usize] = self.rollout_sell_affordable_multiplier as f64;
+        v[RolloutSellBase as usize] = self.rollout_sell_base as f64;
+        v[RolloutMixBase as usize] = self.rollout_mix_base as f64;
+        v[RolloutMixPairWeight as usize] = self.rollout_mix_pair_weight as f64;
+        v[RolloutMixCountWeight as usize] = self.rollout_mix_count_weight as f64;
+        v[RolloutMixNoPairs as usize] = self.rollout_mix_no_pairs as f64;
+        v[RolloutWorkshopBase as usize] = self.rollout_workshop_base as f64;
+        v[RolloutWorkshopCountWeight as usize] = self.rollout_workshop_count_weight as f64;
+        v[RolloutWorkshopEmpty as usize] = self.rollout_workshop_empty as f64;
+        v[RolloutDestroyWithTargets as usize] = self.rollout_destroy_with_targets as f64;
+        v[RolloutDestroyNoTargets as usize] = self.rollout_destroy_no_targets as f64;
+        v[RolloutDrawBase as usize] = self.rollout_draw_base as f64;
+        v[RolloutDrawCountWeight as usize] = self.rollout_draw_count_weight as f64;
+        v[RolloutOtherPriority as usize] = self.rollout_other_priority as f64;
+        v[RolloutEndTurnThreshold as usize] = self.rollout_end_turn_threshold as f64;
+        v[RolloutEndTurnProbabilityEarly as usize] = self.rollout_end_turn_probability_early;
+        v[RolloutEndTurnProbabilityLate as usize] = self.rollout_end_turn_probability_late;
+        v[RolloutEndTurnMaxRound as usize] = self.rollout_end_turn_max_round as f64;
+        v[RolloutWsMaterialBaseMultiplier as usize] = self.rollout_ws_material_base_multiplier as f64;
+        v[RolloutWsMaterialColorsMetMultiplier as usize] = self.rollout_ws_material_colors_met_multiplier as f64;
+        v[RolloutWsActionBonus as usize] = self.rollout_ws_action_bonus as f64;
+        v
+    }
+
+    fn from_genes(v: &[f64]) -> Self {
+        use Gene::*;
+        let defaults = HeuristicParams::default();
+        HeuristicParams {
+            primary_color_value: v[PrimaryColorValue as usize],
+            secondary_color_value: v[SecondaryColorValue as usize],
+            tertiary_color_value: v[TertiaryColorValue as usize],
+            stored_material_weight: v[StoredMaterialWeight as usize],
+            chalk_quality: v[ChalkQuality as usize],
+            action_quality: defaults.action_quality,
+            dye_quality: defaults.dye_quality,
+            basic_dye_quality: v[BasicDyeQuality as usize],
+            starter_material_quality: v[StarterMaterialQuality as usize],
+            draft_material_quality: v[DraftMaterialQuality as usize],
+            dual_material_quality: v[DualMaterialQuality as usize],
+            sell_card_material_alignment: v[SellCardMaterialAlignment as usize],
+            sell_card_color_alignment: v[SellCardColorAlignment as usize],
+            heuristic_round_threshold: defaults.heuristic_round_threshold,
+            heuristic_lookahead: (v[HeuristicLookahead as usize].round() as u32).max(1),
+            alum_quality: Some(v[AlumQuality as usize]),
+            cream_of_tartar_quality: Some(v[CreamOfTartarQuality as usize]),
+            gum_arabic_quality: Some(v[GumArabicQuality as usize]),
+            potash_quality: Some(v[PotashQuality as usize]),
+            vinegar_quality: Some(v[VinegarQuality as usize]),
+            argol_quality: Some(v[ArgolQuality as usize]),
+            linseed_oil_quality: None,
+            lye_quality: None,
+            pure_primary_dye_quality: Some(v[PurePrimaryDyeQuality as usize]),
+            primary_dye_quality: Some(v[PrimaryDyeQuality as usize]),
+            secondary_dye_quality: Some(v[SecondaryDyeQuality as usize]),
+            tertiary_dye_quality: Some(v[TertiaryDyeQuality as usize]),
+            primary_color_coverage_weight: v[PrimaryColorCoverage as usize],
+            secondary_color_coverage_weight: v[SecondaryColorCoverage as usize],
+            cards_in_deck_weight: v[CardsInDeck as usize],
+            cards_in_deck_squared_weight: v[CardsInDeckSquared as usize],
+            material_type_count_weight: v[MaterialTypeCount as usize],
+            material_coverage_weight: v[MaterialCoverage as usize],
+            heuristic_score_threshold: Some(v[HeuristicScoreThreshold as usize]),
+            rollout_epsilon: v[RolloutEpsilon as usize].clamp(0.0, 1.0),
+            rollout_sell_affordable_multiplier: v[RolloutSellAffordableMultiplier as usize].round().max(0.0) as u32,
+            rollout_sell_base: v[RolloutSellBase as usize].round().max(0.0) as u32,
+            rollout_mix_base: v[RolloutMixBase as usize].round().max(0.0) as u32,
+            rollout_mix_pair_weight: v[RolloutMixPairWeight as usize].round().max(0.0) as u32,
+            rollout_mix_count_weight: v[RolloutMixCountWeight as usize].round().max(0.0) as u32,
+            rollout_mix_no_pairs: v[RolloutMixNoPairs as usize].round().max(0.0) as u32,
+            rollout_workshop_base: v[RolloutWorkshopBase as usize].round().max(0.0) as u32,
+            rollout_workshop_count_weight: v[RolloutWorkshopCountWeight as usize].round().max(0.0) as u32,
+            rollout_workshop_empty: v[RolloutWorkshopEmpty as usize].round().max(0.0) as u32,
+            rollout_destroy_with_targets: v[RolloutDestroyWithTargets as usize].round().max(0.0) as u32,
+            rollout_destroy_no_targets: v[RolloutDestroyNoTargets as usize].round().max(0.0) as u32,
+            rollout_draw_base: v[RolloutDrawBase as usize].round().max(0.0) as u32,
+            rollout_draw_count_weight: v[RolloutDrawCountWeight as usize].round().max(0.0) as u32,
+            rollout_other_priority: v[RolloutOtherPriority as usize].round().max(0.0) as u32,
+            rollout_end_turn_threshold: v[RolloutEndTurnThreshold as usize].round().max(0.0) as u32,
+            rollout_end_turn_probability_early: v[RolloutEndTurnProbabilityEarly as usize].clamp(0.0, 1.0),
+            rollout_end_turn_probability_late: v[RolloutEndTurnProbabilityLate as usize].clamp(0.0, 1.0),
+            rollout_end_turn_max_round: v[RolloutEndTurnMaxRound as usize].round().max(2.0) as u32,
+            rollout_ws_material_base_multiplier: v[RolloutWsMaterialBaseMultiplier as usize].round().max(0.0) as u32,
+            rollout_ws_material_colors_met_multiplier: v[RolloutWsMaterialColorsMetMultiplier as usize].round().max(0.0) as u32,
+            rollout_ws_action_bonus: v[RolloutWsActionBonus as usize].round().max(0.0) as u32,
+        }
+    }
+
+    fn integer_gene_indices() -> Vec<usize> {
+        vec![
+            Gene::HeuristicLookahead as usize,
+            Gene::RolloutSellAffordableMultiplier as usize,
+            Gene::RolloutSellBase as usize,
+            Gene::RolloutMixBase as usize,
+            Gene::RolloutMixPairWeight as usize,
+            Gene::RolloutMixCountWeight as usize,
+            Gene::RolloutMixNoPairs as usize,
+            Gene::RolloutWorkshopBase as usize,
+            Gene::RolloutWorkshopCountWeight as usize,
+            Gene::RolloutWorkshopEmpty as usize,
+            Gene::RolloutDestroyWithTargets as usize,
+            Gene::RolloutDestroyNoTargets as usize,
+            Gene::RolloutDrawBase as usize,
+            Gene::RolloutDrawCountWeight as usize,
+            Gene::RolloutOtherPriority as usize,
+            Gene::RolloutEndTurnThreshold as usize,
+            Gene::RolloutEndTurnMaxRound as usize,
+            Gene::RolloutWsMaterialBaseMultiplier as usize,
+            Gene::RolloutWsMaterialColorsMetMultiplier as usize,
+            Gene::RolloutWsActionBonus as usize,
+        ]
+    }
+
+    fn probability_gene_indices() -> Vec<usize> {
+        vec![
+            Gene::RolloutEpsilon as usize,
+            Gene::RolloutEndTurnProbabilityEarly as usize,
+            Gene::RolloutEndTurnProbabilityLate as usize,
+        ]
+    }
+}
+
+// ── Genetic algorithm ──
 
 fn sample_normal(rng: &mut WyRand, scale: f64) -> f64 {
     // Box-Muller transform
@@ -99,18 +324,9 @@ fn run_ga_game(
     }
 }
 
-fn generate_batch_id() -> String {
-    use rand::RngExt;
-    const CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
-    let mut rng = WyRand::from_rng(&mut rand::rng());
-    (0..6)
-        .map(|_| CHARSET[rng.random_range(0..CHARSET.len())] as char)
-        .collect()
-}
-
-pub fn run_genetic_algorithm(args: &TrainGaArgs, threads: usize, output: &str) {
-    let batch_id = generate_batch_id();
-    let num_genes = <HeuristicParams as CmaEsTarget>::to_genes(&HeuristicParams::default()).len();
+pub fn run_genetic_algorithm(args: &TrainArgs, threads: usize, output: &str) {
+    let batch_id = crate::generate_batch_id();
+    let num_genes = HeuristicParams::default().to_genes().len();
 
     eprintln!(
         "Genetic Algorithm: population={}, generations={}, games_per_eval={}, eval_iterations={}, \

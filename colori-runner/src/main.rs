@@ -1,5 +1,4 @@
 mod cli;
-mod cmaes;
 mod genetic;
 mod simulation;
 mod tournament;
@@ -10,7 +9,6 @@ use rand::SeedableRng;
 use wyrand::WyRand;
 
 use cli::{Cli, Commands, SimulateArgs};
-use cmaes::{run_genetic_algorithm, run_first_pick_cmaes};
 
 pub(crate) fn generate_batch_id() -> String {
     const CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
@@ -33,15 +31,7 @@ fn main() {
             let output = cli.output.unwrap_or_else(|| "game-logs".to_string());
             tournament::run_tournament(&args, threads, &output);
         }
-        Some(Commands::TrainHeuristicEval(args)) => {
-            let output = cli.output.unwrap_or_else(|| "genetic-algorithm".to_string());
-            run_genetic_algorithm(&args, threads, &output);
-        }
-        Some(Commands::TrainFirstPick(args)) => {
-            let output = cli.output.unwrap_or_else(|| "first-pick-training".to_string());
-            run_first_pick_cmaes(&args, threads, &output);
-        }
-        Some(Commands::TrainGa(args)) => {
+        Some(Commands::Train(args)) => {
             let output = cli.output.unwrap_or_else(|| "genetic-algorithm".to_string());
             genetic::run_genetic_algorithm(&args, threads, &output);
         }
