@@ -1,9 +1,7 @@
 mod cli;
 mod cmaes;
-pub(crate) mod legacy_eval;
 mod simulation;
 mod tournament;
-mod train_diff_eval;
 
 use clap::Parser;
 use rand::RngExt;
@@ -42,10 +40,6 @@ fn main() {
         Some(Commands::TrainFirstPick(args)) => {
             let output = cli.output.unwrap_or_else(|| "first-pick-training".to_string());
             run_first_pick_cmaes(&args, threads, &output, glass);
-        }
-        Some(Commands::TrainDiffEval(args)) => {
-            let output = cli.output.unwrap_or_else(|| "diff-eval-training".to_string());
-            train_diff_eval::run_training(&args, threads, &output);
         }
         None => {
             // Default: simulate with default args

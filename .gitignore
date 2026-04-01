@@ -7,7 +7,4 @@ target/
 game-logs/
 game-log-archive/
 genetic-algorithm/
-diff-eval-training/*
-!diff-eval-training/diff-eval-epoch-213.json
-diff-eval-training-legacy/
 variants.json

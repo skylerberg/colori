@@ -4,7 +4,7 @@ use colori_core::draft_phase::{advance_draft, simultaneous_pick};
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::game_log::{DrawEvent, DrawLog};
 use colori_core::ismcts::{ismcts, MctsConfig};
-use colori_core::scoring::{calculate_score, DiffEvalParams, HeuristicParams};
+use colori_core::scoring::{calculate_score, HeuristicParams};
 use colori_core::setup::{create_initial_game_state, create_initial_game_state_with_expansions};
 use colori_core::types::{Card, Choice, Expansions, GameState, PlayerState};
 use colori_core::unordered_cards::{
@@ -16,7 +16,6 @@ use wyrand::WyRand;
 use wasm_bindgen::prelude::*;
 
 const TRAINED_PARAMS_JSON: &str = include_str!("../../genetic-algorithm/batch-rqo1vv-gen-18.json");
-const NN_PARAMS_JSON: &str = include_str!("../../diff-eval-training/diff-eval-epoch-213.json");
 
 fn deserialize_state(json: &str) -> GameState {
     let mut state: GameState =
@@ -40,7 +39,7 @@ pub fn wasm_run_ismcts(
     game_state_json: &str,
     player_index: u32,
     iterations: u32,
-    ai_style: &str,
+    _ai_style: &str,
 ) -> String {
     let game_state = deserialize_state(game_state_json);
 
@@ -50,13 +49,7 @@ pub fn wasm_run_ismcts(
 
     let heuristic_params: HeuristicParams = serde_json::from_str(TRAINED_PARAMS_JSON)
         .expect("Failed to parse trained heuristic params");
-    let diff_eval_params = if ai_style == "nn" {
-        Some(Box::new(serde_json::from_str::<DiffEvalParams>(NN_PARAMS_JSON)
-            .expect("Failed to parse NN eval params")))
-    } else {
-        None
-    };
-    let config = MctsConfig { iterations, heuristic_params, diff_eval_params, ..MctsConfig::default() };
+    let config = MctsConfig { iterations, heuristic_params, ..MctsConfig::default() };
     let result = ismcts(
         &game_state,
         player_index as usize,

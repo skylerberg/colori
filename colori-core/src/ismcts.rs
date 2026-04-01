@@ -3,7 +3,7 @@ use crate::colori_game::{
     determinize_in_place, enumerate_choices_into,
 };
 use crate::draft_phase::player_pick;
-use crate::scoring::{calculate_score, CardHeuristicTable, compute_heuristic_rewards, compute_terminal_rewards, heuristic_score, HeuristicParams, FirstPickParams, DiffEvalParams, DiffEvalTable, diff_eval_score, compute_diff_eval_rewards};
+use crate::scoring::{calculate_score, CardHeuristicTable, compute_heuristic_rewards, compute_terminal_rewards, heuristic_score, HeuristicParams, FirstPickParams};
 use crate::types::*;
 use rand::Rng;
 use rand::RngExt;
@@ -19,7 +19,6 @@ pub struct MctsConfig {
     pub use_heuristic_eval: bool,
     pub progressive_bias_weight: f64,
     pub heuristic_params: HeuristicParams,
-    pub diff_eval_params: Option<Box<DiffEvalParams>>,
     pub no_rollout: bool,
     pub heuristic_rollout: bool,
     pub heuristic_draft: bool,
@@ -53,7 +52,6 @@ impl Default for MctsConfig {
             use_heuristic_eval: true,
             progressive_bias_weight: 0.0,
             heuristic_params: HeuristicParams::default(),
-            diff_eval_params: None,
             no_rollout: false,
             heuristic_rollout: true,
             heuristic_draft: false,
@@ -115,7 +113,6 @@ impl<'de> Deserialize<'de> for MctsConfig {
             use_heuristic_eval: helper.use_heuristic_eval,
             progressive_bias_weight: helper.progressive_bias_weight,
             heuristic_params: helper.heuristic_params,
-            diff_eval_params: None,
             no_rollout: false,
             heuristic_rollout: helper.heuristic_rollout,
             heuristic_draft: helper.heuristic_draft,
@@ -462,27 +459,14 @@ pub fn ismcts<R: Rng>(
         cached_scores[i] = calculate_score(p);
     }
 
-    // If diff eval specifies a progressive bias weight, use it
-    let effective_progressive_bias = config.diff_eval_params.as_ref()
-        .map(|dep| dep.progressive_bias_weight())
-        .filter(|&w| w != 0.0)
-        .unwrap_or(config.progressive_bias_weight);
-    let config = &MctsConfig {
-        progressive_bias_weight: effective_progressive_bias,
-        ..config.clone()
-    };
-
     let mut availability_buf: Vec<bool> = Vec::new();
     let card_table = CardHeuristicTable::new(&config.heuristic_params);
-    let diff_table = config.diff_eval_params.as_ref().map(|p| DiffEvalTable::new(p));
 
     let mut opponent_stats = OpponentDraftStats::new();
     let mut pick_log: Vec<(u32, usize, Card)> = Vec::new();
 
     let (effective_max_rollout_round, use_heuristic) = if config.use_heuristic_eval {
-        let (should_use, lookahead) = if let Some(ref diff_params) = config.diff_eval_params {
-            (state.round <= diff_params.heuristic_round_threshold(), diff_params.heuristic_lookahead())
-        } else if let Some(score_threshold) = config.heuristic_params.heuristic_score_threshold {
+        let (should_use, lookahead) = if let Some(score_threshold) = config.heuristic_params.heuristic_score_threshold {
             let max_score = state.players.iter().map(|p| p.cached_score).max().unwrap_or(0);
             ((max_score as f64) < score_threshold, config.heuristic_params.heuristic_lookahead)
         } else {
@@ -518,7 +502,7 @@ pub fn ismcts<R: Rng>(
             let scores = iteration_simultaneous(
                 &mut root, &mut det_state, player_index,
                 &mut opponent_stats, &mut pick_log,
-                effective_max_rollout_round, use_heuristic, config, &mut choices_buf, &mut availability_buf, &card_table, &diff_table, rng,
+                effective_max_rollout_round, use_heuristic, config, &mut choices_buf, &mut availability_buf, &card_table, rng,
             );
             for &(pick_round, player, card) in &pick_log {
                 let reward = scores[player];
@@ -543,7 +527,7 @@ pub fn ismcts<R: Rng>(
             let scores = iteration_simultaneous(
                 &mut root, &mut det_state, player_index,
                 &mut opponent_stats, &mut pick_log,
-                effective_max_rollout_round, use_heuristic, config, &mut choices_buf, &mut availability_buf, &card_table, &diff_table, rng,
+                effective_max_rollout_round, use_heuristic, config, &mut choices_buf, &mut availability_buf, &card_table, rng,
             );
             for &(pick_round, player, card) in &pick_log {
                 let reward = scores[player];
@@ -691,25 +675,11 @@ fn eval_scores(
     use_heuristic: bool,
     params: &HeuristicParams,
     card_table: &CardHeuristicTable,
-    diff_eval: Option<(&DiffEvalParams, &DiffEvalTable)>,
 ) -> [f64; MAX_PLAYERS] {
     if use_heuristic {
-        if let Some((diff_params, diff_table)) = diff_eval {
-            compute_diff_eval_rewards(state, 0, diff_params, diff_table)
-        } else {
-            compute_heuristic_rewards(&state.players, &state.sell_card_display, &state.card_lookup, params, card_table)
-        }
+        compute_heuristic_rewards(&state.players, &state.sell_card_display, &state.card_lookup, params, card_table)
     } else {
         compute_terminal_rewards(&state.players)
-    }
-}
-
-/// Helper to create diff_eval tuple from config and optional table
-#[inline]
-fn diff_eval_ref<'a>(config: &'a MctsConfig, diff_table: &'a Option<DiffEvalTable>) -> Option<(&'a DiffEvalParams, &'a DiffEvalTable)> {
-    match (&config.diff_eval_params, diff_table) {
-        (Some(params), Some(table)) => Some((params.as_ref(), table)),
-        _ => None,
     }
 }
 
@@ -725,7 +695,6 @@ fn iteration_simultaneous<R: Rng>(
     choices_buf: &mut Vec<Choice>,
     availability_buf: &mut Vec<bool>,
     card_table: &CardHeuristicTable,
-    diff_table: &Option<DiffEvalTable>,
     rng: &mut R,
 ) -> [f64; MAX_PLAYERS] {
     let active_player = if matches!(state.phase, GamePhase::GameOver) {
@@ -733,7 +702,7 @@ fn iteration_simultaneous<R: Rng>(
         record_outcome(node, &scores);
         return scores;
     } else if max_rollout_round.is_some_and(|mr| state.round > mr) {
-        let scores = eval_scores(state, use_heuristic, &config.heuristic_params, card_table, diff_eval_ref(config, diff_table));
+        let scores = eval_scores(state, use_heuristic, &config.heuristic_params, card_table);
         record_outcome(node, &scores);
         return scores;
     } else {
@@ -776,30 +745,20 @@ fn iteration_simultaneous<R: Rng>(
     let should_rollout = node.children[best_idx].visit_count == 0;
 
     if should_rollout && config.progressive_bias_weight != 0.0 {
-        node.children[best_idx].heuristic_bias = if let Some((diff_params, dt)) = diff_eval_ref(config, diff_table) {
-            diff_eval_score(
-                state,
-                perspective_player,
-                diff_params,
-                dt,
-            )
-        } else {
-            heuristic_score(
-                &state.players[perspective_player],
-                &state.sell_card_display,
-                &state.card_lookup,
-                &config.heuristic_params,
-                card_table,
-            )
-        };
+        node.children[best_idx].heuristic_bias = heuristic_score(
+            &state.players[perspective_player],
+            &state.sell_card_display,
+            &state.card_lookup,
+            &config.heuristic_params,
+            card_table,
+        );
     }
 
     let scores = if should_rollout {
-        let de = diff_eval_ref(config, diff_table);
         let scores = if config.no_rollout {
-            eval_scores(state, true, &config.heuristic_params, card_table, de)
+            eval_scores(state, true, &config.heuristic_params, card_table)
         } else {
-            rollout(state, max_rollout_round, config.max_rollout_steps, use_heuristic, config.heuristic_rollout, config.solver_rollout, config.heuristic_draft, &config.heuristic_params, card_table, de, rng)
+            rollout(state, max_rollout_round, config.max_rollout_steps, use_heuristic, config.heuristic_rollout, config.solver_rollout, config.heuristic_draft, &config.heuristic_params, card_table, rng)
         };
         record_outcome(&mut node.children[best_idx], &scores);
         scores
@@ -808,7 +767,7 @@ fn iteration_simultaneous<R: Rng>(
         iteration_simultaneous(
             child, state, perspective_player,
             opponent_stats, pick_log,
-            max_rollout_round, use_heuristic, config, choices_buf, availability_buf, card_table, diff_table, rng,
+            max_rollout_round, use_heuristic, config, choices_buf, availability_buf, card_table, rng,
         )
     };
 
@@ -853,13 +812,13 @@ fn select(
     best_idx
 }
 
-fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_rollout_steps: u32, use_heuristic: bool, heuristic_rollout: bool, solver_rollout: bool, heuristic_draft: bool, params: &HeuristicParams, card_table: &CardHeuristicTable, diff_eval: Option<(&DiffEvalParams, &DiffEvalTable)>, rng: &mut R) -> [f64; MAX_PLAYERS] {
+fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_rollout_steps: u32, use_heuristic: bool, heuristic_rollout: bool, solver_rollout: bool, heuristic_draft: bool, params: &HeuristicParams, card_table: &CardHeuristicTable, rng: &mut R) -> [f64; MAX_PLAYERS] {
     for _ in 0..max_rollout_steps {
         if matches!(state.phase, GamePhase::GameOver) {
             return compute_terminal_rewards(&state.players);
         }
         if max_rollout_round.is_some_and(|mr| state.round > mr) {
-            return eval_scores(state, use_heuristic, params, card_table, diff_eval);
+            return eval_scores(state, use_heuristic, params, card_table);
         }
         if solver_rollout {
             apply_solver_rollout_step(state, heuristic_draft, rng);
@@ -870,7 +829,7 @@ fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_ro
         }
     }
 
-    eval_scores(state, use_heuristic, params, card_table, diff_eval)
+    eval_scores(state, use_heuristic, params, card_table)
 }
 
 fn record_outcome(node: &mut MctsNode, scores: &[f64; MAX_PLAYERS]) {

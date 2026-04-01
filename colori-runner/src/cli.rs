@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use colori_core::ismcts::MctsConfig;
-use colori_core::scoring::{DiffEvalParams, FirstPickParams, HeuristicParams};
+use colori_core::scoring::{FirstPickParams, HeuristicParams};
 use serde::Deserialize;
 
 const DEFAULT_EVAL_ITERATIONS: u32 = 4_000;
@@ -36,8 +36,6 @@ pub enum Commands {
     TrainHeuristicEval(TrainHeuristicEvalArgs),
     /// Train first pick params using CMA-ES optimization
     TrainFirstPick(TrainFirstPickArgs),
-    /// Train diff eval params using gradient descent
-    TrainDiffEval(TrainDiffEvalArgs),
 }
 
 // ── Subcommand args ──
@@ -134,61 +132,6 @@ pub struct TrainFirstPickArgs {
     pub eval_iterations: u32,
 }
 
-#[derive(Parser)]
-pub struct TrainDiffEvalArgs {
-    /// Training games per epoch
-    #[arg(long, default_value_t = 500)]
-    pub games_per_epoch: usize,
-
-    /// Number of training epochs
-    #[arg(long, default_value_t = 100_000)]
-    pub epochs: usize,
-
-    /// Mini-batch size
-    #[arg(long, default_value_t = 256)]
-    pub batch_size: usize,
-
-    /// Number of passes over data per epoch
-    #[arg(long, default_value_t = 1)]
-    pub passes: usize,
-
-    /// Learning rate
-    #[arg(long, default_value_t = 1e-3)]
-    pub lr: f64,
-
-    /// MCTS iterations for evaluation
-    #[arg(long, default_value_t = DEFAULT_EVAL_ITERATIONS)]
-    pub eval_iterations: u32,
-
-    /// MCTS iterations for baseline player (defaults to eval-iterations)
-    #[arg(long)]
-    pub baseline_iterations: Option<u32>,
-
-    /// Use self-play training mode
-    #[arg(long, default_value_t = false)]
-    pub self_play: bool,
-
-    /// Train against baseline heuristic player
-    #[arg(long, default_value_t = false)]
-    pub vs_baseline: bool,
-
-    /// Disable rollouts (use direct eval)
-    #[arg(long, default_value_t = false)]
-    pub no_rollout: bool,
-
-    /// Path to baseline heuristic params JSON file
-    #[arg(long)]
-    pub baseline_params: Option<String>,
-
-    /// Number of recent epochs to keep in replay buffer
-    #[arg(long, default_value_t = 5)]
-    pub replay_buffer_epochs: usize,
-
-    /// Path to teacher model for distillation
-    #[arg(long)]
-    pub distill_from: Option<String>,
-}
-
 // ── Variant types ──
 
 #[derive(Clone)]
@@ -215,12 +158,6 @@ struct VariantFileEntry {
     heuristic_params: Option<HeuristicParams>,
     #[serde(default)]
     heuristic_params_file: Option<String>,
-    #[serde(default)]
-    diff_eval_params_file: Option<String>,
-    #[serde(default)]
-    heuristic_round_threshold: Option<u32>,
-    #[serde(default)]
-    heuristic_lookahead: Option<u32>,
     #[serde(default)]
     no_rollout: Option<bool>,
     #[serde(default)]
@@ -262,22 +199,6 @@ impl VariantFileEntry {
             Box::new(serde_json::from_str::<FirstPickParams>(&contents)
                 .unwrap_or_else(|_| panic!("Failed to parse first pick params file: {}", path)))
         });
-        let diff_eval_params = self.diff_eval_params_file.as_ref().map(|path| {
-            let contents = std::fs::read_to_string(path)
-                .unwrap_or_else(|_| panic!("Failed to read diff eval params file: {}", path));
-            let mut params = serde_json::from_str::<DiffEvalParams>(&contents)
-                .unwrap_or_else(|_| panic!("Failed to parse diff eval params file: {}", path));
-            if let Some(v) = self.progressive_bias_weight {
-                params.set_progressive_bias_weight(v);
-            }
-            if let Some(v) = self.heuristic_round_threshold {
-                params.set_heuristic_round_threshold(v);
-            }
-            if let Some(v) = self.heuristic_lookahead {
-                params.set_heuristic_lookahead(v);
-            }
-            Box::new(params)
-        });
         NamedVariant {
             name: self.name,
             ai: MctsConfig {
@@ -287,7 +208,6 @@ impl VariantFileEntry {
                 use_heuristic_eval: self.use_heuristic_eval.unwrap_or(defaults.use_heuristic_eval),
                 progressive_bias_weight: self.progressive_bias_weight.unwrap_or(defaults.progressive_bias_weight),
                 heuristic_params,
-                diff_eval_params,
                 no_rollout: self.no_rollout.unwrap_or(defaults.no_rollout),
                 heuristic_rollout: self.heuristic_rollout.unwrap_or(defaults.heuristic_rollout),
                 heuristic_draft: self.heuristic_draft.unwrap_or(defaults.heuristic_draft),
