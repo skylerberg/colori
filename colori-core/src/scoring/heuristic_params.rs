@@ -9,11 +9,23 @@ pub struct HeuristicParams {
     pub secondary_color_value: f64,
     #[serde(alias = "tertiaryPipWeight")]
     pub tertiary_color_value: f64,
-    pub stored_material_weight: f64,
+    #[serde(default)]
+    pub stored_ceramics_weight: f64,
+    #[serde(default)]
+    pub stored_paintings_weight: f64,
+    #[serde(default)]
+    pub stored_textiles_weight: f64,
+    #[serde(default)]
+    pub deck_thinning_value: f64,
     pub chalk_quality: f64,
     pub basic_dye_quality: f64,
     pub starter_material_quality: f64,
-    pub draft_material_quality: f64,
+    #[serde(default)]
+    pub ceramics_material_quality: f64,
+    #[serde(default)]
+    pub paintings_material_quality: f64,
+    #[serde(default)]
+    pub textiles_material_quality: f64,
     pub dual_material_quality: f64,
     #[serde(alias = "buyerMaterialWeight")]
     pub sell_card_material_alignment: f64,

@@ -115,7 +115,11 @@ fn card_quality(card: Card, params: &HeuristicParams) -> f64 {
             if colors.is_empty() && mat_types.len() == 1 {
                 params.starter_material_quality
             } else if !colors.is_empty() {
-                params.draft_material_quality
+                match card.material_types()[0] {
+                    MaterialType::Ceramics => params.ceramics_material_quality,
+                    MaterialType::Paintings => params.paintings_material_quality,
+                    MaterialType::Textiles => params.textiles_material_quality,
+                }
             } else {
                 params.dual_material_quality
             }
@@ -143,7 +147,9 @@ pub fn heuristic_score(
         color_score += params.tertiary_color_value * player.color_wheel.get(c) as f64;
     }
 
-    let material_score = params.stored_material_weight * player.materials.counts.iter().sum::<u32>() as f64;
+    let material_score = params.stored_ceramics_weight * player.materials.get(MaterialType::Ceramics) as f64
+        + params.stored_paintings_weight * player.materials.get(MaterialType::Paintings) as f64
+        + params.stored_textiles_weight * player.materials.get(MaterialType::Textiles) as f64;
 
     let mut total_quality = 0.0;
     let mut card_count = 0u32;
@@ -159,6 +165,8 @@ pub fn heuristic_score(
     } else {
         0.0
     };
+
+    let deck_thinning_bonus = params.deck_thinning_value / (card_count as f64 + 1.0);
 
     let mut best_alignment = 0.0f64;
     for bi in sell_card_display.iter() {
@@ -181,7 +189,7 @@ pub fn heuristic_score(
         best_alignment = best_alignment.max(alignment);
     }
 
-    score + color_score + material_score + deck_quality + best_alignment
+    score + color_score + material_score + deck_quality + deck_thinning_bonus + best_alignment
 }
 
 /// Compute heuristic rewards for truncated early-game rollouts.

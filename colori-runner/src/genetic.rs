@@ -21,49 +21,54 @@ enum Gene {
     PrimaryColorValue = 0,
     SecondaryColorValue = 1,
     TertiaryColorValue = 2,
-    StoredMaterialWeight = 3,
-    ChalkQuality = 4,
-    AlumQuality = 5,
-    CreamOfTartarQuality = 6,
-    GumArabicQuality = 7,
-    PotashQuality = 8,
-    VinegarQuality = 9,
-    PrimaryDyeQuality = 10,
-    SecondaryDyeQuality = 11,
-    TertiaryDyeQuality = 12,
-    BasicDyeQuality = 13,
-    StarterMaterialQuality = 14,
-    DraftMaterialQuality = 15,
-    DualMaterialQuality = 16,
-    SellCardMaterialAlignment = 17,
-    SellCardColorAlignment = 18,
-    HeuristicLookahead = 19,
-    RolloutEpsilon = 20,
-    RolloutSellAffordableMultiplier = 21,
-    RolloutSellBase = 22,
-    RolloutMixBase = 23,
-    RolloutMixPairWeight = 24,
-    RolloutMixCountWeight = 25,
-    RolloutMixNoPairs = 26,
-    RolloutWorkshopBase = 27,
-    RolloutWorkshopCountWeight = 28,
-    RolloutWorkshopEmpty = 29,
-    RolloutDestroyWithTargets = 30,
-    RolloutDestroyNoTargets = 31,
-    RolloutDrawBase = 32,
-    RolloutDrawCountWeight = 33,
-    RolloutOtherPriority = 34,
-    RolloutEndTurnThreshold = 35,
-    RolloutEndTurnProbabilityEarly = 36,
-    RolloutEndTurnProbabilityLate = 37,
-    RolloutEndTurnMaxRound = 38,
-    RolloutWsMaterialBaseMultiplier = 39,
-    RolloutWsMaterialColorsMetMultiplier = 40,
-    RolloutWsActionBonus = 41,
-    LinseedOilQuality = 42,
+    StoredCeramicsWeight = 3,
+    StoredPaintingsWeight = 4,
+    StoredTextilesWeight = 5,
+    DeckThinningValue = 6,
+    ChalkQuality = 7,
+    AlumQuality = 8,
+    CreamOfTartarQuality = 9,
+    GumArabicQuality = 10,
+    PotashQuality = 11,
+    VinegarQuality = 12,
+    PrimaryDyeQuality = 13,
+    SecondaryDyeQuality = 14,
+    TertiaryDyeQuality = 15,
+    BasicDyeQuality = 16,
+    StarterMaterialQuality = 17,
+    CeramicsMaterialQuality = 18,
+    PaintingsMaterialQuality = 19,
+    TextilesMaterialQuality = 20,
+    DualMaterialQuality = 21,
+    SellCardMaterialAlignment = 22,
+    SellCardColorAlignment = 23,
+    HeuristicLookahead = 24,
+    RolloutEpsilon = 25,
+    RolloutSellAffordableMultiplier = 26,
+    RolloutSellBase = 27,
+    RolloutMixBase = 28,
+    RolloutMixPairWeight = 29,
+    RolloutMixCountWeight = 30,
+    RolloutMixNoPairs = 31,
+    RolloutWorkshopBase = 32,
+    RolloutWorkshopCountWeight = 33,
+    RolloutWorkshopEmpty = 34,
+    RolloutDestroyWithTargets = 35,
+    RolloutDestroyNoTargets = 36,
+    RolloutDrawBase = 37,
+    RolloutDrawCountWeight = 38,
+    RolloutOtherPriority = 39,
+    RolloutEndTurnThreshold = 40,
+    RolloutEndTurnProbabilityEarly = 41,
+    RolloutEndTurnProbabilityLate = 42,
+    RolloutEndTurnMaxRound = 43,
+    RolloutWsMaterialBaseMultiplier = 44,
+    RolloutWsMaterialColorsMetMultiplier = 45,
+    RolloutWsActionBonus = 46,
+    LinseedOilQuality = 47,
 }
 
-const NUM_GENES: usize = 43;
+const NUM_GENES: usize = 48;
 
 trait GeneTarget: Clone {
     fn to_genes(&self) -> Vec<f64>;
@@ -79,7 +84,10 @@ impl GeneTarget for HeuristicParams {
         v[PrimaryColorValue as usize] = self.primary_color_value;
         v[SecondaryColorValue as usize] = self.secondary_color_value;
         v[TertiaryColorValue as usize] = self.tertiary_color_value;
-        v[StoredMaterialWeight as usize] = self.stored_material_weight;
+        v[StoredCeramicsWeight as usize] = self.stored_ceramics_weight;
+        v[StoredPaintingsWeight as usize] = self.stored_paintings_weight;
+        v[StoredTextilesWeight as usize] = self.stored_textiles_weight;
+        v[DeckThinningValue as usize] = self.deck_thinning_value;
         v[ChalkQuality as usize] = self.chalk_quality;
         v[AlumQuality as usize] = self.alum_quality;
         v[CreamOfTartarQuality as usize] = self.cream_of_tartar_quality;
@@ -92,7 +100,9 @@ impl GeneTarget for HeuristicParams {
         v[TertiaryDyeQuality as usize] = self.tertiary_dye_quality;
         v[BasicDyeQuality as usize] = self.basic_dye_quality;
         v[StarterMaterialQuality as usize] = self.starter_material_quality;
-        v[DraftMaterialQuality as usize] = self.draft_material_quality;
+        v[CeramicsMaterialQuality as usize] = self.ceramics_material_quality;
+        v[PaintingsMaterialQuality as usize] = self.paintings_material_quality;
+        v[TextilesMaterialQuality as usize] = self.textiles_material_quality;
         v[DualMaterialQuality as usize] = self.dual_material_quality;
         v[SellCardMaterialAlignment as usize] = self.sell_card_material_alignment;
         v[SellCardColorAlignment as usize] = self.sell_card_color_alignment;
@@ -128,11 +138,16 @@ impl GeneTarget for HeuristicParams {
             primary_color_value: v[PrimaryColorValue as usize],
             secondary_color_value: v[SecondaryColorValue as usize],
             tertiary_color_value: v[TertiaryColorValue as usize],
-            stored_material_weight: v[StoredMaterialWeight as usize],
+            stored_ceramics_weight: v[StoredCeramicsWeight as usize],
+            stored_paintings_weight: v[StoredPaintingsWeight as usize],
+            stored_textiles_weight: v[StoredTextilesWeight as usize],
+            deck_thinning_value: v[DeckThinningValue as usize],
             chalk_quality: v[ChalkQuality as usize],
             basic_dye_quality: v[BasicDyeQuality as usize],
             starter_material_quality: v[StarterMaterialQuality as usize],
-            draft_material_quality: v[DraftMaterialQuality as usize],
+            ceramics_material_quality: v[CeramicsMaterialQuality as usize],
+            paintings_material_quality: v[PaintingsMaterialQuality as usize],
+            textiles_material_quality: v[TextilesMaterialQuality as usize],
             dual_material_quality: v[DualMaterialQuality as usize],
             sell_card_material_alignment: v[SellCardMaterialAlignment as usize],
             sell_card_color_alignment: v[SellCardColorAlignment as usize],
