@@ -83,13 +83,15 @@ pub enum Gene {
     RolloutDrawCountWeight = 42,
     RolloutOtherPriority = 43,
     RolloutEndTurnThreshold = 44,
-    RolloutEndTurnProbability = 45,
-    RolloutWsMaterialBaseMultiplier = 46,
-    RolloutWsMaterialColorsMetMultiplier = 47,
-    RolloutWsActionBonus = 48,
+    RolloutEndTurnProbabilityEarly = 45,
+    RolloutEndTurnProbabilityLate = 46,
+    RolloutEndTurnMaxRound = 47,
+    RolloutWsMaterialBaseMultiplier = 48,
+    RolloutWsMaterialColorsMetMultiplier = 49,
+    RolloutWsActionBonus = 50,
 }
 
-pub const NUM_GENES: usize = 49;
+pub const NUM_GENES: usize = 51;
 
 impl CmaEsTarget for HeuristicParams {
     fn to_genes(&self) -> Vec<f64> {
@@ -140,7 +142,9 @@ impl CmaEsTarget for HeuristicParams {
         v[RolloutDrawCountWeight as usize] = self.rollout_draw_count_weight as f64;
         v[RolloutOtherPriority as usize] = self.rollout_other_priority as f64;
         v[RolloutEndTurnThreshold as usize] = self.rollout_end_turn_threshold as f64;
-        v[RolloutEndTurnProbability as usize] = self.rollout_end_turn_probability;
+        v[RolloutEndTurnProbabilityEarly as usize] = self.rollout_end_turn_probability_early;
+        v[RolloutEndTurnProbabilityLate as usize] = self.rollout_end_turn_probability_late;
+        v[RolloutEndTurnMaxRound as usize] = self.rollout_end_turn_max_round as f64;
         v[RolloutWsMaterialBaseMultiplier as usize] = self.rollout_ws_material_base_multiplier as f64;
         v[RolloutWsMaterialColorsMetMultiplier as usize] = self.rollout_ws_material_colors_met_multiplier as f64;
         v[RolloutWsActionBonus as usize] = self.rollout_ws_action_bonus as f64;
@@ -201,7 +205,9 @@ impl CmaEsTarget for HeuristicParams {
             rollout_draw_count_weight: v[RolloutDrawCountWeight as usize].round().max(0.0) as u32,
             rollout_other_priority: v[RolloutOtherPriority as usize].round().max(0.0) as u32,
             rollout_end_turn_threshold: v[RolloutEndTurnThreshold as usize].round().max(0.0) as u32,
-            rollout_end_turn_probability: v[RolloutEndTurnProbability as usize].clamp(0.0, 1.0),
+            rollout_end_turn_probability_early: v[RolloutEndTurnProbabilityEarly as usize].clamp(0.0, 1.0),
+            rollout_end_turn_probability_late: v[RolloutEndTurnProbabilityLate as usize].clamp(0.0, 1.0),
+            rollout_end_turn_max_round: v[RolloutEndTurnMaxRound as usize].round().max(2.0) as u32,
             rollout_ws_material_base_multiplier: v[RolloutWsMaterialBaseMultiplier as usize].round().max(0.0) as u32,
             rollout_ws_material_colors_met_multiplier: v[RolloutWsMaterialColorsMetMultiplier as usize].round().max(0.0) as u32,
             rollout_ws_action_bonus: v[RolloutWsActionBonus as usize].round().max(0.0) as u32,
@@ -226,6 +232,7 @@ impl CmaEsTarget for HeuristicParams {
             Gene::RolloutDrawCountWeight as usize,
             Gene::RolloutOtherPriority as usize,
             Gene::RolloutEndTurnThreshold as usize,
+            Gene::RolloutEndTurnMaxRound as usize,
             Gene::RolloutWsMaterialBaseMultiplier as usize,
             Gene::RolloutWsMaterialColorsMetMultiplier as usize,
             Gene::RolloutWsActionBonus as usize,
@@ -235,7 +242,8 @@ impl CmaEsTarget for HeuristicParams {
     fn probability_gene_indices() -> Vec<usize> {
         vec![
             Gene::RolloutEpsilon as usize,
-            Gene::RolloutEndTurnProbability as usize,
+            Gene::RolloutEndTurnProbabilityEarly as usize,
+            Gene::RolloutEndTurnProbabilityLate as usize,
         ]
     }
 }

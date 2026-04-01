@@ -997,8 +997,11 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
         }
     }
 
-    // If best priority is low, chance to just end turn
-    if best_priority <= params.rollout_end_turn_threshold && rng.random_bool(params.rollout_end_turn_probability) {
+    // If best priority is low, chance to just end turn (probability varies by round)
+    let end_turn_max = params.rollout_end_turn_max_round.max(2) as f64;
+    let t = ((state.round as f64 - 1.0) / (end_turn_max - 1.0)).clamp(0.0, 1.0);
+    let end_turn_prob = params.rollout_end_turn_probability_early * (1.0 - t) + params.rollout_end_turn_probability_late * t;
+    if best_priority <= params.rollout_end_turn_threshold && rng.random_bool(end_turn_prob) {
         end_player_turn(state, rng);
         if matches!(state.phase, GamePhase::Draw) {
             rollout_draw_and_draft(state, rng);

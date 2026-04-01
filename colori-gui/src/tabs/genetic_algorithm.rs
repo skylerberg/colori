@@ -75,7 +75,8 @@ const PARAM_GROUPS: &[(&str, &[&str])] = &[
     ]),
     ("Rollout General", &[
         "rollout_epsilon", "rollout_end_turn_threshold",
-        "rollout_end_turn_probability", "rollout_other_priority",
+        "rollout_end_turn_probability_early", "rollout_end_turn_probability_late",
+        "rollout_end_turn_max_round", "rollout_other_priority",
     ]),
     ("Rollout Sell", &[
         "rollout_sell_affordable_multiplier", "rollout_sell_base",
@@ -147,7 +148,9 @@ fn get_param_value(params: &HeuristicParams, name: &str) -> Option<f64> {
         "rollout_draw_count_weight" => Some(params.rollout_draw_count_weight as f64),
         "rollout_other_priority" => Some(params.rollout_other_priority as f64),
         "rollout_end_turn_threshold" => Some(params.rollout_end_turn_threshold as f64),
-        "rollout_end_turn_probability" => Some(params.rollout_end_turn_probability),
+        "rollout_end_turn_probability_early" => Some(params.rollout_end_turn_probability_early),
+        "rollout_end_turn_probability_late" => Some(params.rollout_end_turn_probability_late),
+        "rollout_end_turn_max_round" => Some(params.rollout_end_turn_max_round as f64),
         "rollout_ws_material_base_multiplier" => Some(params.rollout_ws_material_base_multiplier as f64),
         "rollout_ws_material_colors_met_multiplier" => Some(params.rollout_ws_material_colors_met_multiplier as f64),
         "rollout_ws_action_bonus" => Some(params.rollout_ws_action_bonus as f64),
