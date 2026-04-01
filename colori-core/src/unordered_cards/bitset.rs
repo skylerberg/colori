@@ -183,64 +183,13 @@ impl<T> BitSet<T> {
             self.0 = [0; 2];
             return BitSet(all, PhantomData);
         }
-        // For small draws, use repeated single draws.
-        // Each draw() call needs one random_range call, so drawing `count`
-        // elements costs `count` calls vs ~n calls for selection sampling.
-        // Crossover heuristic: repeated draws (O(count) RNG + O(count*n/2) bit ops)
-        // beats selection sampling (O(n) RNG) when count^2 <= 6*n.
-        if count * count <= n * 6 {
-            let mut selected = Self::new();
-            for _ in 0..count {
-                if let Some(id) = self.draw(rng) {
-                    selected.insert(id);
-                }
+        let mut selected = Self::new();
+        for _ in 0..count {
+            if let Some(id) = self.draw(rng) {
+                selected.insert(id);
             }
-            return selected;
         }
-        let mut remaining = n;
-        let mut to_pick = count;
-        let mut selected = [0u128; 2];
-
-        // Selection sampling (Algorithm S): for each element,
-        // include with probability to_pick/remaining.
-        let mut bits0 = self.0[0];
-        while to_pick > 0 && bits0 != 0 {
-            if remaining == to_pick {
-                // Must take all remaining elements
-                selected[0] |= bits0;
-                selected[1] = self.0[1];
-                self.0[0] &= !selected[0];
-                self.0[1] = 0;
-                return BitSet(selected, PhantomData);
-            }
-            let pos = bits0.trailing_zeros();
-            bits0 &= bits0 - 1;
-            if rng.random_range(0..remaining) < to_pick {
-                selected[0] |= 1u128 << pos;
-                to_pick -= 1;
-            }
-            remaining -= 1;
-        }
-        let mut bits1 = self.0[1];
-        while to_pick > 0 && bits1 != 0 {
-            if remaining == to_pick {
-                selected[1] |= bits1;
-                self.0[0] &= !selected[0];
-                self.0[1] &= !selected[1];
-                return BitSet(selected, PhantomData);
-            }
-            let pos = bits1.trailing_zeros();
-            bits1 &= bits1 - 1;
-            if rng.random_range(0..remaining) < to_pick {
-                selected[1] |= 1u128 << pos;
-                to_pick -= 1;
-            }
-            remaining -= 1;
-        }
-
-        self.0[0] &= !selected[0];
-        self.0[1] &= !selected[1];
-        BitSet(selected, PhantomData)
+        return selected;
     }
 
     #[inline]
