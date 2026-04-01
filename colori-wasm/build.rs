@@ -102,6 +102,9 @@ fn write_material_card(out: &mut String, card: &Card) {
     write!(out, "  {{\n    kind: 'material',\n    name: '{}',\n    materialTypes: [{}],\n", name.replace('\'', "\\'"), mt_str.join(", ")).unwrap();
     if !colors.is_empty() {
         write!(out, "    color: '{}',\n", format_color(&colors[0])).unwrap();
+        if colors.len() > 1 {
+            write!(out, "    colorCount: {},\n", colors.len()).unwrap();
+        }
     }
     write!(out, "    ability: {},\n  }},\n", format_ability(&ability)).unwrap();
 }
@@ -345,7 +348,7 @@ fn main() {
          \x20 switch (data.kind) {\n\
          \x20   case 'dye': return data.colors;\n\
          \x20   case 'basicDye': return [data.color];\n\
-         \x20   case 'material': return data.color ? [data.color] : [];\n\
+         \x20   case 'material': return data.color ? Array(data.colorCount ?? 1).fill(data.color) : [];\n\
          \x20   case 'action': return [];\n\
          \x20   case 'sellCard': return [];\n\
          \x20 }\n\

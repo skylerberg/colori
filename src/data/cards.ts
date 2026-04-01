@@ -199,6 +199,7 @@ export const DRAFT_MATERIAL_CARDS: MaterialCardData[] = [
     name: 'Alizarin & Fabric',
     materialTypes: ['Textiles'],
     color: 'Red',
+    colorCount: 2,
     ability: { type: 'workshop', count: 2 },
   },
   {
@@ -206,6 +207,7 @@ export const DRAFT_MATERIAL_CARDS: MaterialCardData[] = [
     name: 'Fustic & Fabric',
     materialTypes: ['Textiles'],
     color: 'Yellow',
+    colorCount: 2,
     ability: { type: 'workshop', count: 2 },
   },
   {
@@ -213,6 +215,7 @@ export const DRAFT_MATERIAL_CARDS: MaterialCardData[] = [
     name: 'Pastel & Fabric',
     materialTypes: ['Textiles'],
     color: 'Blue',
+    colorCount: 2,
     ability: { type: 'workshop', count: 2 },
   },
   {
@@ -490,7 +493,7 @@ export function getCardColors(card: string): Color[] {
   switch (data.kind) {
     case 'dye': return data.colors;
     case 'basicDye': return [data.color];
-    case 'material': return data.color ? [data.color] : [];
+    case 'material': return data.color ? Array(data.colorCount ?? 1).fill(data.color) : [];
     case 'action': return [];
     case 'sellCard': return [];
   }

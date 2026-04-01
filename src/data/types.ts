@@ -70,6 +70,7 @@ export interface MaterialCardData {
   name: string;
   materialTypes: MaterialType[];
   color?: Color;
+  colorCount?: number;
   ability: Ability;
 }
 

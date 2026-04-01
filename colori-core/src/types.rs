@@ -248,11 +248,11 @@ const CARD_DATA: [CardProperties; 48] = [
     // UltramarineCanvas
     CardProperties { name: "Ultramarine & Canvas", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, colors: &[Color::Blue], material_types: &[MaterialType::Paintings], workshop_abilities: &[] },
     // AlizarinFabric
-    CardProperties { name: "Alizarin & Fabric", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, colors: &[Color::Red], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
+    CardProperties { name: "Alizarin & Fabric", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, colors: &[Color::Red, Color::Red], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
     // FusticFabric
-    CardProperties { name: "Fustic & Fabric", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, colors: &[Color::Yellow], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
+    CardProperties { name: "Fustic & Fabric", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, colors: &[Color::Yellow, Color::Yellow], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
     // PastelFabric
-    CardProperties { name: "Pastel & Fabric", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, colors: &[Color::Blue], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
+    CardProperties { name: "Pastel & Fabric", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, colors: &[Color::Blue, Color::Blue], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
     // ClayCanvas
     CardProperties { name: "Clay & Canvas", kind: CardKind::Material, ability: Ability::Sell, colors: &[], material_types: &[MaterialType::Ceramics, MaterialType::Paintings], workshop_abilities: &[] },
     // ClayFabric

@@ -247,9 +247,9 @@ Each player's score = total ducats (from sell cards + Gain Ducats ability). The 
 | Cinnabar & Canvas | 1 Paintings | Red | Workshop ×2 |
 | Orpiment & Canvas | 1 Paintings | Yellow | Workshop ×2 |
 | Ultramarine & Canvas | 1 Paintings | Blue | Workshop ×2 |
-| Alizarin & Fabric | 1 Textiles | Red | Workshop ×2 |
-| Fustic & Fabric | 1 Textiles | Yellow | Workshop ×2 |
-| Pastel & Fabric | 1 Textiles | Blue | Workshop ×2 |
+| Alizarin & Fabric | 1 Textiles | 2 Red | Workshop ×2 |
+| Fustic & Fabric | 1 Textiles | 2 Yellow | Workshop ×2 |
+| Pastel & Fabric | 1 Textiles | 2 Blue | Workshop ×2 |
 | Clay & Canvas | 1 Ceramics + 1 Paintings | — | Sell |
 | Clay & Fabric | 1 Ceramics + 1 Textiles | — | Sell |
 | Canvas & Fabric | 1 Paintings + 1 Textiles | — | Sell |
