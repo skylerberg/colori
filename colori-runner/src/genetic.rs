@@ -62,9 +62,10 @@ enum Gene {
     RolloutWsMaterialBaseMultiplier = 41,
     RolloutWsMaterialColorsMetMultiplier = 42,
     RolloutWsActionBonus = 43,
+    LinseedOilQuality = 44,
 }
 
-const NUM_GENES: usize = 44;
+const NUM_GENES: usize = 45;
 
 trait GeneTarget: Clone {
     fn to_genes(&self) -> Vec<f64>;
@@ -82,15 +83,16 @@ impl GeneTarget for HeuristicParams {
         v[TertiaryColorValue as usize] = self.tertiary_color_value;
         v[StoredMaterialWeight as usize] = self.stored_material_weight;
         v[ChalkQuality as usize] = self.chalk_quality;
-        v[AlumQuality as usize] = self.alum_quality.unwrap_or(self.action_quality);
-        v[CreamOfTartarQuality as usize] = self.cream_of_tartar_quality.unwrap_or(self.action_quality);
-        v[GumArabicQuality as usize] = self.gum_arabic_quality.unwrap_or(self.action_quality);
-        v[PotashQuality as usize] = self.potash_quality.unwrap_or(self.action_quality);
-        v[VinegarQuality as usize] = self.vinegar_quality.unwrap_or(self.action_quality);
-        v[PurePrimaryDyeQuality as usize] = self.pure_primary_dye_quality.unwrap_or(self.dye_quality);
-        v[PrimaryDyeQuality as usize] = self.primary_dye_quality.unwrap_or(self.dye_quality);
-        v[SecondaryDyeQuality as usize] = self.secondary_dye_quality.unwrap_or(self.dye_quality);
-        v[TertiaryDyeQuality as usize] = self.tertiary_dye_quality.unwrap_or(self.dye_quality);
+        v[AlumQuality as usize] = self.alum_quality.unwrap_or(0.0);
+        v[CreamOfTartarQuality as usize] = self.cream_of_tartar_quality.unwrap_or(0.0);
+        v[GumArabicQuality as usize] = self.gum_arabic_quality.unwrap_or(0.0);
+        v[PotashQuality as usize] = self.potash_quality.unwrap_or(0.0);
+        v[VinegarQuality as usize] = self.vinegar_quality.unwrap_or(0.0);
+        v[LinseedOilQuality as usize] = self.linseed_oil_quality;
+        v[PurePrimaryDyeQuality as usize] = self.pure_primary_dye_quality.unwrap_or(0.0);
+        v[PrimaryDyeQuality as usize] = self.primary_dye_quality.unwrap_or(0.0);
+        v[SecondaryDyeQuality as usize] = self.secondary_dye_quality.unwrap_or(0.0);
+        v[TertiaryDyeQuality as usize] = self.tertiary_dye_quality.unwrap_or(0.0);
         v[BasicDyeQuality as usize] = self.basic_dye_quality;
         v[StarterMaterialQuality as usize] = self.starter_material_quality;
         v[DraftMaterialQuality as usize] = self.draft_material_quality;
@@ -132,8 +134,6 @@ impl GeneTarget for HeuristicParams {
             tertiary_color_value: v[TertiaryColorValue as usize],
             stored_material_weight: v[StoredMaterialWeight as usize],
             chalk_quality: v[ChalkQuality as usize],
-            action_quality: base.action_quality,
-            dye_quality: base.dye_quality,
             basic_dye_quality: v[BasicDyeQuality as usize],
             starter_material_quality: v[StarterMaterialQuality as usize],
             draft_material_quality: v[DraftMaterialQuality as usize],
@@ -147,8 +147,7 @@ impl GeneTarget for HeuristicParams {
             gum_arabic_quality: Some(v[GumArabicQuality as usize]),
             potash_quality: Some(v[PotashQuality as usize]),
             vinegar_quality: Some(v[VinegarQuality as usize]),
-            linseed_oil_quality: None,
-            lye_quality: None,
+            linseed_oil_quality: v[LinseedOilQuality as usize],
             pure_primary_dye_quality: Some(v[PurePrimaryDyeQuality as usize]),
             primary_dye_quality: Some(v[PrimaryDyeQuality as usize]),
             secondary_dye_quality: Some(v[SecondaryDyeQuality as usize]),

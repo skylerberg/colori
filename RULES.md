@@ -267,7 +267,6 @@ Their workshop abilities (triggered when chosen during Workshop resolution) are:
 | Potash | Draw Cards ×2 | Workshop ×3 | Draft deck |
 | Linseed Oil | Destroy Cards ×1 | Mix Colors ×2 | Draft deck |
 | Vinegar | Destroy Cards ×1 | Change Tertiary | Draft deck |
-| Lye | Destroy Cards ×1 | Move to Drafted | Not in draft deck |
 
 ### Sell Cards (54 total, single deck)
 

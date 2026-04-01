@@ -49,7 +49,6 @@ pub fn draft_material_cards() -> [Card; 12] {
 }
 
 pub fn action_cards() -> [Card; 6] {
-    // Lye is not currently in the draft deck
     [Card::Alum, Card::CreamOfTartar, Card::GumArabic, Card::Potash, Card::LinseedOil, Card::Vinegar]
 }
 

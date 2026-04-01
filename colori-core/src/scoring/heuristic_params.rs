@@ -11,8 +11,6 @@ pub struct HeuristicParams {
     pub tertiary_color_value: f64,
     pub stored_material_weight: f64,
     pub chalk_quality: f64,
-    pub action_quality: f64,
-    pub dye_quality: f64,
     pub basic_dye_quality: f64,
     pub starter_material_quality: f64,
     pub draft_material_quality: f64,
@@ -29,8 +27,7 @@ pub struct HeuristicParams {
     pub gum_arabic_quality: Option<f64>,
     pub potash_quality: Option<f64>,
     pub vinegar_quality: Option<f64>,
-    pub linseed_oil_quality: Option<f64>,
-    pub lye_quality: Option<f64>,
+    pub linseed_oil_quality: f64,
     // Per-dye-type quality overrides
     pub pure_primary_dye_quality: Option<f64>,
     pub primary_dye_quality: Option<f64>,

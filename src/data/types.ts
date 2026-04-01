@@ -29,7 +29,7 @@ export type Card = 'BasicRed' | 'BasicYellow' | 'BasicBlue'
   | 'AlizarinFabric' | 'FusticFabric' | 'PastelFabric'
   | 'ClayCanvas' | 'ClayFabric' | 'CanvasFabric'
   | 'Alum' | 'CreamOfTartar' | 'GumArabic' | 'Potash' | 'Vinegar' | 'Chalk'
-  | 'LinseedOil' | 'Lye';
+  | 'LinseedOil';
 
 export type SellCard = 'Textiles2Vermilion' | 'Textiles2Amber' | 'Textiles2Chartreuse'
   | 'Textiles2Teal' | 'Textiles2Indigo' | 'Textiles2Magenta'

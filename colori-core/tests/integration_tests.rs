@@ -265,7 +265,7 @@ fn generate_invalid_choices(state: &GameState) -> Vec<Choice> {
                 Card::StarterCeramics, Card::StarterPaintings, Card::StarterTextiles,
                 Card::Alum, Card::CreamOfTartar, Card::GumArabic,
                 Card::Potash, Card::Vinegar, Card::Chalk,
-                Card::LinseedOil, Card::Lye,
+                Card::LinseedOil,
             ];
             for &card in &all_cards {
                 let in_hand = hand.iter().any(|id| state.card_lookup[id as usize] == card);

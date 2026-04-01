@@ -57,7 +57,7 @@ const PARAM_GROUPS: &[(&str, &[&str])] = &[
     ("Action Card Overrides", &[
         "alum_quality", "cream_of_tartar_quality", "gum_arabic_quality",
         "potash_quality", "vinegar_quality",
-        "linseed_oil_quality", "lye_quality",
+        "linseed_oil_quality",
     ]),
     ("Dye Type Overrides", &[
         "pure_primary_dye_quality", "primary_dye_quality",
@@ -96,8 +96,6 @@ fn get_param_value(params: &HeuristicParams, name: &str) -> Option<f64> {
         "tertiary_color_value" => Some(params.tertiary_color_value),
         "stored_material_weight" => Some(params.stored_material_weight),
         "chalk_quality" => Some(params.chalk_quality),
-        "action_quality" => Some(params.action_quality),
-        "dye_quality" => Some(params.dye_quality),
         "basic_dye_quality" => Some(params.basic_dye_quality),
         "starter_material_quality" => Some(params.starter_material_quality),
         "draft_material_quality" => Some(params.draft_material_quality),
@@ -111,8 +109,7 @@ fn get_param_value(params: &HeuristicParams, name: &str) -> Option<f64> {
         "gum_arabic_quality" => params.gum_arabic_quality,
         "potash_quality" => params.potash_quality,
         "vinegar_quality" => params.vinegar_quality,
-        "linseed_oil_quality" => params.linseed_oil_quality,
-        "lye_quality" => params.lye_quality,
+        "linseed_oil_quality" => Some(params.linseed_oil_quality),
         "pure_primary_dye_quality" => params.pure_primary_dye_quality,
         "primary_dye_quality" => params.primary_dye_quality,
         "secondary_dye_quality" => params.secondary_dye_quality,
@@ -147,13 +144,12 @@ fn get_param_value(params: &HeuristicParams, name: &str) -> Option<f64> {
 fn baseline_fallback(param_name: &str) -> Option<f64> {
     match param_name {
         "alum_quality" | "cream_of_tartar_quality" | "gum_arabic_quality"
-        | "potash_quality" | "vinegar_quality"
-        | "linseed_oil_quality" | "lye_quality" => {
-            Some(BASELINE_PARAMS.action_quality)
+        | "potash_quality" | "vinegar_quality" => {
+            None
         }
         "pure_primary_dye_quality" | "primary_dye_quality"
         | "secondary_dye_quality" | "tertiary_dye_quality" => {
-            Some(BASELINE_PARAMS.dye_quality)
+            None
         }
         _ => None,
     }

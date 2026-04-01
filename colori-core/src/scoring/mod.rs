@@ -8,7 +8,7 @@ use crate::colors::{PRIMARIES, SECONDARIES, TERTIARIES};
 use crate::fixed_vec::FixedVec;
 use crate::types::*;
 
-const ALL_CARDS: [Card; 47] = [
+const ALL_CARDS: [Card; 46] = [
     Card::BasicRed, Card::BasicYellow, Card::BasicBlue,
     Card::Kermes, Card::Weld, Card::Woad,
     Card::Lac, Card::Brazilwood, Card::Pomegranate,
@@ -24,16 +24,16 @@ const ALL_CARDS: [Card; 47] = [
     Card::ClayCanvas, Card::ClayFabric, Card::CanvasFabric,
     Card::Alum, Card::CreamOfTartar, Card::GumArabic,
     Card::Potash, Card::Vinegar, Card::Chalk,
-    Card::LinseedOil, Card::Lye,
+    Card::LinseedOil,
 ];
 
 pub struct CardHeuristicTable {
-    quality: [f64; 47],
+    quality: [f64; 46],
 }
 
 impl CardHeuristicTable {
     pub fn new(params: &HeuristicParams) -> Self {
-        let mut quality = [0.0f64; 47];
+        let mut quality = [0.0f64; 46];
         for &card in &ALL_CARDS {
             let idx = card as usize;
             quality[idx] = card_quality(card, params);
@@ -91,29 +91,26 @@ fn card_quality(card: Card, params: &HeuristicParams) -> f64 {
     match card.kind() {
         CardKind::Action => {
             match card {
-                Card::Alum => params.alum_quality,
-                Card::CreamOfTartar => params.cream_of_tartar_quality,
-                Card::GumArabic => params.gum_arabic_quality,
-                Card::Potash => params.potash_quality,
-                Card::Vinegar => params.vinegar_quality,
+                Card::Alum => params.alum_quality.unwrap_or(0.0),
+                Card::CreamOfTartar => params.cream_of_tartar_quality.unwrap_or(0.0),
+                Card::GumArabic => params.gum_arabic_quality.unwrap_or(0.0),
+                Card::Potash => params.potash_quality.unwrap_or(0.0),
+                Card::Vinegar => params.vinegar_quality.unwrap_or(0.0),
                 Card::LinseedOil => params.linseed_oil_quality,
-                Card::Lye => params.lye_quality,
-                _ => None,
+                _ => 0.0,
             }
-            .unwrap_or(params.action_quality)
         }
         CardKind::Dye => {
             match card {
-                Card::Kermes | Card::Weld | Card::Woad => params.pure_primary_dye_quality,
+                Card::Kermes | Card::Weld | Card::Woad => params.pure_primary_dye_quality.unwrap_or(0.0),
                 Card::Lac | Card::Brazilwood | Card::Pomegranate
-                | Card::Sumac | Card::Elderberry | Card::Turnsole => params.primary_dye_quality,
+                | Card::Sumac | Card::Elderberry | Card::Turnsole => params.primary_dye_quality.unwrap_or(0.0),
                 Card::Madder | Card::Turmeric | Card::DyersGreenweed
-                | Card::Verdigris | Card::Orchil | Card::Logwood => params.secondary_dye_quality,
+                | Card::Verdigris | Card::Orchil | Card::Logwood => params.secondary_dye_quality.unwrap_or(0.0),
                 Card::VermilionDye | Card::Saffron | Card::PersianBerries
-                | Card::Azurite | Card::IndigoDye | Card::Cochineal => params.tertiary_dye_quality,
-                _ => None,
+                | Card::Azurite | Card::IndigoDye | Card::Cochineal => params.tertiary_dye_quality.unwrap_or(0.0),
+                _ => 0.0,
             }
-            .unwrap_or(params.dye_quality)
         }
         CardKind::BasicDye => params.basic_dye_quality,
         CardKind::Material => {

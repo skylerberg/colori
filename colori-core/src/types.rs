@@ -159,7 +159,7 @@ pub enum Card {
     ClayCanvas,
     ClayFabric,
     CanvasFabric,
-    // Actions (8)
+    // Actions (7)
     Alum,
     CreamOfTartar,
     GumArabic,
@@ -167,7 +167,6 @@ pub enum Card {
     Vinegar,
     Chalk,
     LinseedOil,
-    Lye,
 }
 
 struct CardProperties {
@@ -179,7 +178,7 @@ struct CardProperties {
     workshop_abilities: &'static [Ability],
 }
 
-const CARD_DATA: [CardProperties; 47] = [
+const CARD_DATA: [CardProperties; 46] = [
     // BasicRed
     CardProperties { name: "Basic Red", kind: CardKind::BasicDye, ability: Ability::Sell, colors: &[Color::Red], material_types: &[], workshop_abilities: &[] },
     // BasicYellow
@@ -272,8 +271,6 @@ const CARD_DATA: [CardProperties; 47] = [
     CardProperties { name: "Chalk", kind: CardKind::Action, ability: Ability::Sell, colors: &[], material_types: &[], workshop_abilities: &[Ability::GainPrimary] },
     // LinseedOil
     CardProperties { name: "Linseed Oil", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::MixColors { count: 2 }] },
-    // Lye — not currently in draft deck
-    CardProperties { name: "Lye", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::MoveToDrafted] },
 ];
 
 impl Card {
