@@ -56,7 +56,8 @@ const PARAM_GROUPS: &[(&str, &[&str])] = &[
     ]),
     ("Action Card Overrides", &[
         "alum_quality", "cream_of_tartar_quality", "gum_arabic_quality",
-        "potash_quality",
+        "potash_quality", "vinegar_quality", "argol_quality",
+        "linseed_oil_quality", "lye_quality",
     ]),
     ("Dye Type Overrides", &[
         "pure_primary_dye_quality", "primary_dye_quality",
@@ -70,7 +71,27 @@ const PARAM_GROUPS: &[(&str, &[&str])] = &[
         "material_type_count_weight", "material_coverage_weight",
     ]),
     ("Heuristic Control", &[
-        "heuristic_lookahead", "heuristic_score_threshold",
+        "heuristic_round_threshold", "heuristic_lookahead", "heuristic_score_threshold",
+    ]),
+    ("Rollout General", &[
+        "rollout_epsilon", "rollout_end_turn_threshold",
+        "rollout_end_turn_probability", "rollout_other_priority",
+    ]),
+    ("Rollout Sell", &[
+        "rollout_sell_affordable_multiplier", "rollout_sell_base",
+    ]),
+    ("Rollout Mix", &[
+        "rollout_mix_base", "rollout_mix_pair_weight",
+        "rollout_mix_count_weight", "rollout_mix_no_pairs",
+    ]),
+    ("Rollout Workshop", &[
+        "rollout_workshop_base", "rollout_workshop_count_weight",
+        "rollout_workshop_empty", "rollout_ws_material_base_multiplier",
+        "rollout_ws_material_colors_met_multiplier", "rollout_ws_action_bonus",
+    ]),
+    ("Rollout Destroy & Draw", &[
+        "rollout_destroy_with_targets", "rollout_destroy_no_targets",
+        "rollout_draw_base", "rollout_draw_count_weight",
     ]),
 ];
 
@@ -97,6 +118,8 @@ fn get_param_value(params: &HeuristicParams, name: &str) -> Option<f64> {
         "potash_quality" => params.potash_quality,
         "vinegar_quality" => params.vinegar_quality,
         "argol_quality" => params.argol_quality,
+        "linseed_oil_quality" => params.linseed_oil_quality,
+        "lye_quality" => params.lye_quality,
         "pure_primary_dye_quality" => params.pure_primary_dye_quality,
         "primary_dye_quality" => params.primary_dye_quality,
         "secondary_dye_quality" => params.secondary_dye_quality,
@@ -108,6 +131,26 @@ fn get_param_value(params: &HeuristicParams, name: &str) -> Option<f64> {
         "material_type_count_weight" => Some(params.material_type_count_weight),
         "material_coverage_weight" => Some(params.material_coverage_weight),
         "heuristic_score_threshold" => params.heuristic_score_threshold,
+        "rollout_epsilon" => Some(params.rollout_epsilon),
+        "rollout_sell_affordable_multiplier" => Some(params.rollout_sell_affordable_multiplier as f64),
+        "rollout_sell_base" => Some(params.rollout_sell_base as f64),
+        "rollout_mix_base" => Some(params.rollout_mix_base as f64),
+        "rollout_mix_pair_weight" => Some(params.rollout_mix_pair_weight as f64),
+        "rollout_mix_count_weight" => Some(params.rollout_mix_count_weight as f64),
+        "rollout_mix_no_pairs" => Some(params.rollout_mix_no_pairs as f64),
+        "rollout_workshop_base" => Some(params.rollout_workshop_base as f64),
+        "rollout_workshop_count_weight" => Some(params.rollout_workshop_count_weight as f64),
+        "rollout_workshop_empty" => Some(params.rollout_workshop_empty as f64),
+        "rollout_destroy_with_targets" => Some(params.rollout_destroy_with_targets as f64),
+        "rollout_destroy_no_targets" => Some(params.rollout_destroy_no_targets as f64),
+        "rollout_draw_base" => Some(params.rollout_draw_base as f64),
+        "rollout_draw_count_weight" => Some(params.rollout_draw_count_weight as f64),
+        "rollout_other_priority" => Some(params.rollout_other_priority as f64),
+        "rollout_end_turn_threshold" => Some(params.rollout_end_turn_threshold as f64),
+        "rollout_end_turn_probability" => Some(params.rollout_end_turn_probability),
+        "rollout_ws_material_base_multiplier" => Some(params.rollout_ws_material_base_multiplier as f64),
+        "rollout_ws_material_colors_met_multiplier" => Some(params.rollout_ws_material_colors_met_multiplier as f64),
+        "rollout_ws_action_bonus" => Some(params.rollout_ws_action_bonus as f64),
         _ => None,
     }
 }
@@ -115,7 +158,8 @@ fn get_param_value(params: &HeuristicParams, name: &str) -> Option<f64> {
 fn baseline_fallback(param_name: &str) -> Option<f64> {
     match param_name {
         "alum_quality" | "cream_of_tartar_quality" | "gum_arabic_quality"
-        | "potash_quality" | "vinegar_quality" | "argol_quality" => {
+        | "potash_quality" | "vinegar_quality" | "argol_quality"
+        | "linseed_oil_quality" | "lye_quality" => {
             Some(BASELINE_PARAMS.action_quality)
         }
         "pure_primary_dye_quality" | "primary_dye_quality"
