@@ -1756,11 +1756,11 @@ fn compute_sell_plan(
 
     // Step 2: Compute total workshop capacity
     let total_workshop_slots: u32 = draft_workshop[..draft_workshop_count].iter().map(|(_, c)| c).sum();
+    let total_mix_slots: u32 = draft_mix[..draft_mix_count].iter().map(|(_, c)| c).sum();
 
     // Step 3: Build projected state — what we'd have after workshopping best cards
     let mut projected_wheel = player.color_wheel.clone();
     let mut projected_materials = player.materials.clone();
-    let mut ws_cards_selected = UnorderedCards::new();
 
     // Score each workshop card and pick top N
     let mut ws_scored: [(u8, u32); 16] = [(0, 0); 16];
@@ -1798,7 +1798,7 @@ fn compute_sell_plan(
         }
     }
 
-    // Project top workshop cards
+    // Project top workshop cards (for resource estimation only)
     let take = (total_workshop_slots as usize).min(ws_scored_count);
     for i in 0..take {
         let id = ws_scored[i].0;
@@ -1809,49 +1809,11 @@ fn compute_sell_plan(
         for &mt in card.material_types() {
             projected_materials.increment(mt);
         }
-        ws_cards_selected.insert(id);
     }
 
-    // Step 4: Project mixes
-    let total_mix_slots: u32 = draft_mix[..draft_mix_count].iter().map(|(_, c)| c).sum();
-    let mut projected_mixes: [(Color, Color); 4] = [(Color::Red, Color::Red); 4];
-    let mut projected_mix_count = 0usize;
-
-    // Greedily pick best mixes for sell card requirements
-    for _ in 0..total_mix_slots {
-        if projected_mix_count >= 4 {
-            break;
-        }
-        let mut best_pair: Option<(Color, Color)> = None;
-        let mut best_score = 0u32;
-        for &(a, b) in &VALID_MIX_PAIRS {
-            if projected_wheel.get(a) > 0 && projected_wheel.get(b) > 0 {
-                let output = mix_result(a, b);
-                let mut score = 0u32;
-                for sc in sell_card_display.iter() {
-                    for &cc in sc.sell_card.color_cost() {
-                        if cc == output {
-                            score += sc.sell_card.ducats();
-                        }
-                    }
-                }
-                if score > best_score {
-                    best_score = score;
-                    best_pair = Some((a, b));
-                }
-            }
-        }
-        match best_pair {
-            Some((a, b)) => {
-                projected_mixes[projected_mix_count] = (a, b);
-                projected_mix_count += 1;
-                perform_mix_unchecked(&mut projected_wheel, a, b);
-            }
-            None => break,
-        }
-    }
-
-    // Step 5: Find achievable sell cards (backward check)
+    // Step 4: Find achievable sell cards
+    // Check affordability against post-workshop wheel (before mixes),
+    // but account for colors that could be produced by mixes.
     // Sort sell card display indices by ducats descending
     let mut sell_indices: [usize; MAX_SELL_CARD_DISPLAY] = [0; MAX_SELL_CARD_DISPLAY];
     let sell_len = sell_card_display.len();
@@ -1868,12 +1830,16 @@ fn compute_sell_plan(
 
     let mut sells_planned = 0usize;
     let mut used_sell_draft: [bool; 8] = [false; 8];
-    // Track consumed colors from projected_wheel for sell costs
-    let mut consumed_colors = [0u32; 12];
-    let mut consumed_materials = [0u32; 3];
+    // Track state as we commit sells: simulate on a copy of the projected wheel
+    let mut sim_wheel = projected_wheel.clone();
+    let mut sim_materials = projected_materials.clone();
+    let mut mix_slots_remaining = total_mix_slots;
 
     let mut target_sells: [(u32, usize); 4] = [(0, 0); 4]; // (instance_id, sell_display_index)
     let mut target_sell_count = 0usize;
+    // Track which mixes are needed for each target sell
+    let mut sell_mixes: [[(Color, Color); 2]; 4] = [[(Color::Red, Color::Red); 2]; 4];
+    let mut sell_mix_counts: [usize; 4] = [0; 4];
 
     for si in 0..sell_len {
         if sells_planned >= draft_sell_count {
@@ -1884,28 +1850,50 @@ fn compute_sell_plan(
 
         // Check material
         let mat = sc.sell_card.required_material();
-        let mat_available = projected_materials.get(mat).saturating_sub(consumed_materials[mat as usize]);
-        if mat_available == 0 {
+        if sim_materials.get(mat) == 0 {
             continue;
         }
 
-        // Check colors
+        // Check colors — try to pay directly, plan mixes for missing colors
         let cost = sc.sell_card.color_cost();
-        let mut color_needed = [0u32; 12];
+        let mut temp_wheel = sim_wheel.clone();
+        let mut mixes_for_this: [(Color, Color); 2] = [(Color::Red, Color::Red); 2];
+        let mut mix_count_for_this = 0usize;
+        let mut mix_budget = mix_slots_remaining;
+        let mut affordable = true;
+
         for &c in cost {
-            color_needed[c.index()] += 1;
-        }
-        let mut can_afford = true;
-        for i in 0..12 {
-            if color_needed[i] > 0 {
-                let avail = projected_wheel.get(Color::from_index(i)).saturating_sub(consumed_colors[i]);
-                if avail < color_needed[i] {
-                    can_afford = false;
+            if temp_wheel.get(c) > 0 {
+                // Have it, consume it
+                temp_wheel.decrement(c);
+            } else if mix_budget > 0 && mix_count_for_this < 2 {
+                // Try to produce via mix
+                let mut found_mix = false;
+                for &(a, b) in &VALID_MIX_PAIRS {
+                    if mix_result(a, b) == c && temp_wheel.get(a) > 0 && temp_wheel.get(b) > 0 {
+                        mixes_for_this[mix_count_for_this] = (a, b);
+                        mix_count_for_this += 1;
+                        mix_budget -= 1;
+                        // Apply the mix to temp_wheel so subsequent cost checks
+                        // see the consumed inputs and produced output
+                        perform_mix_unchecked(&mut temp_wheel, a, b);
+                        // Now consume the output for this sell cost
+                        temp_wheel.decrement(c);
+                        found_mix = true;
+                        break;
+                    }
+                }
+                if !found_mix {
+                    affordable = false;
                     break;
                 }
+            } else {
+                affordable = false;
+                break;
             }
         }
-        if !can_afford {
+
+        if !affordable {
             continue;
         }
 
@@ -1922,12 +1910,13 @@ fn compute_sell_plan(
             None => break,
         };
 
-        // Commit this sell
+        // Commit this sell — update simulation state
         used_sell_draft[sell_draft_idx] = true;
-        consumed_materials[mat as usize] += 1;
-        for &c in cost {
-            consumed_colors[c.index()] += 1;
-        }
+        sim_wheel = temp_wheel;
+        sim_materials.decrement(mat);
+        mix_slots_remaining = mix_budget;
+        sell_mixes[target_sell_count] = mixes_for_this;
+        sell_mix_counts[target_sell_count] = mix_count_for_this;
         target_sells[target_sell_count] = (sc.instance_id, idx);
         target_sell_count += 1;
         sells_planned += 1;
@@ -1937,9 +1926,8 @@ fn compute_sell_plan(
         return plan; // No achievable sells
     }
 
-    // Step 6: Build the action plan
+    // Step 5: Build the action plan
     // Determine which workshop cards are actually needed for the target sells
-    // Recompute: which workshop cards provide material/colors for target sell cards
     let mut needed_colors = [0u32; 12];
     let mut needed_materials = [0u32; 3];
     for i in 0..target_sell_count {
@@ -1948,6 +1936,17 @@ fn compute_sell_plan(
         needed_materials[sc.sell_card.required_material() as usize] += 1;
         for &c in sc.sell_card.color_cost() {
             needed_colors[c.index()] += 1;
+        }
+        // Mixes consume inputs and produce outputs — account for net color needs
+        for j in 0..sell_mix_counts[i] {
+            let (a, b) = sell_mixes[i][j];
+            needed_colors[a.index()] += 1;
+            needed_colors[b.index()] += 1;
+            let output = mix_result(a, b);
+            // The mix output is consumed by the sell cost, which is already counted above,
+            // so we don't subtract it here — the sell cost entry covers the output.
+            // But we do need the inputs.
+            let _ = output;
         }
     }
     // Subtract what we already have
@@ -1958,10 +1957,10 @@ fn compute_sell_plan(
         needed_colors[i] = needed_colors[i].saturating_sub(player.color_wheel.counts[i]);
     }
 
-    // Select workshop cards that provide needed resources
-    let mut ws_for_plan = UnorderedCards::new();
+    // Select workshop cards that provide needed resources (in score order)
+    let mut ws_for_plan: [(u8, u32); 16] = [(0, 0); 16]; // (id, score) preserving order
+    let mut ws_for_plan_count = 0usize;
     let mut ws_plan_slots = 0u32;
-    // Prioritize material cards first, then color cards
     for i in 0..ws_scored_count {
         if ws_plan_slots >= total_workshop_slots {
             break;
@@ -1980,7 +1979,8 @@ fn compute_sell_plan(
             }
         }
         if useful {
-            ws_for_plan.insert(id);
+            ws_for_plan[ws_for_plan_count] = (id, ws_scored[i].1);
+            ws_for_plan_count += 1;
             ws_plan_slots += 1;
             for &mt in card.material_types() {
                 needed_materials[mt as usize] = needed_materials[mt as usize].saturating_sub(1);
@@ -1991,43 +1991,14 @@ fn compute_sell_plan(
         }
     }
 
-    // Determine which mixes are needed for target sell colors
-    // Recompute on actual wheel + planned workshops
-    let mut plan_wheel = player.color_wheel.clone();
-    for id in ws_for_plan.iter() {
-        let card = card_lookup[id as usize];
-        for &color in card.colors() {
-            plan_wheel.increment(color);
-        }
-    }
-
+    // Collect all planned mixes from the sell plans
     let mut plan_mixes: [(Color, Color); 4] = [(Color::Red, Color::Red); 4];
     let mut plan_mix_count = 0usize;
-    let mut plan_mix_slots_used = 0u32;
-
-    // For each target sell, check if we need mixes for its colors
-    let mut wheel_after_mixes = plan_wheel.clone();
     for i in 0..target_sell_count {
-        let (_, idx) = target_sells[i];
-        let sc = &sell_card_display[idx];
-        for &color in sc.sell_card.color_cost() {
-            if wheel_after_mixes.get(color) > 0 {
-                // Already have it, will consume later
-                continue;
-            }
-            // Need to produce via mix
-            if plan_mix_slots_used >= total_mix_slots || plan_mix_count >= 4 {
-                break;
-            }
-            // Find a mix that produces this color
-            for &(a, b) in &VALID_MIX_PAIRS {
-                if mix_result(a, b) == color && wheel_after_mixes.get(a) > 0 && wheel_after_mixes.get(b) > 0 {
-                    plan_mixes[plan_mix_count] = (a, b);
-                    plan_mix_count += 1;
-                    plan_mix_slots_used += 1;
-                    perform_mix_unchecked(&mut wheel_after_mixes, a, b);
-                    break;
-                }
+        for j in 0..sell_mix_counts[i] {
+            if plan_mix_count < 4 {
+                plan_mixes[plan_mix_count] = sell_mixes[i][j];
+                plan_mix_count += 1;
             }
         }
     }
@@ -2035,19 +2006,24 @@ fn compute_sell_plan(
     // Build action sequence: Workshop → Mix → Sell
     let mut action_idx = 0usize;
 
-    // Add Workshop actions (one per drafted Workshop card)
-    if !ws_for_plan.is_empty() {
-        let mut ws_remaining = ws_for_plan;
+    // Add Workshop actions — allocate workshop cards to drafted Workshop cards
+    // in score order (highest-scored cards go first)
+    if ws_for_plan_count > 0 {
+        let mut ws_assigned = 0usize;
         for i in 0..draft_workshop_count {
-            if ws_remaining.is_empty() {
+            if ws_assigned >= ws_for_plan_count {
                 break;
             }
             let (draft_id, count) = draft_workshop[i];
-            let selected = take_first_n(&ws_remaining, count);
+            let mut selected = UnorderedCards::new();
+            let take = (count as usize).min(ws_for_plan_count - ws_assigned);
+            for j in 0..take {
+                selected.insert(ws_for_plan[ws_assigned + j].0);
+            }
+            ws_assigned += take;
             if selected.is_empty() {
                 continue;
             }
-            ws_remaining = ws_remaining.difference(selected);
             plan.actions[action_idx] = Some(SellPlanAction {
                 draft_card_id: draft_id,
                 action_type: SellPlanActionType::Workshop { selected_cards: selected },
@@ -2110,20 +2086,6 @@ fn compute_sell_plan(
 
     plan.action_count = action_idx;
     plan
-}
-
-/// Take the first N items from an UnorderedCards set (deterministic, no RNG).
-fn take_first_n(cards: &UnorderedCards, n: u32) -> UnorderedCards {
-    let mut result = UnorderedCards::new();
-    let mut count = 0u32;
-    for id in cards.iter() {
-        if count >= n {
-            break;
-        }
-        result.insert(id);
-        count += 1;
-    }
-    result
 }
 
 /// Resolve pending abilities on the stack using heuristic logic.
@@ -2287,12 +2249,23 @@ fn resolve_pending_abilities_heuristic(state: &mut GameState, rng: &mut impl Rng
 }
 
 fn execute_solver_turn(state: &mut GameState, player_index: usize, heuristic_draft: bool, rng: &mut impl Rng) {
-    let plan = compute_sell_plan(
-        &state.players[player_index],
-        &state.sell_card_display,
-        &state.card_lookup,
-        &state.players[player_index].workshop_cards,
-    );
+    // Skip the solver in the first 2 rounds — early game is better spent
+    // building the engine (colors, materials) rather than selling
+    let plan = if state.round <= 2 {
+        SellPlan {
+            actions: [const { None }; 8],
+            action_count: 0,
+            consumed_draft_ids: [0; 8],
+            consumed_count: 0,
+        }
+    } else {
+        compute_sell_plan(
+            &state.players[player_index],
+            &state.sell_card_display,
+            &state.card_lookup,
+            &state.players[player_index].workshop_cards,
+        )
+    };
 
     // Phase 1: Execute sell plan actions
     for i in 0..plan.action_count {
