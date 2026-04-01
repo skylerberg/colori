@@ -29,6 +29,7 @@ pub struct MctsConfig {
     pub first_pick_params: Option<Box<FirstPickParams>>,
     pub force_max_workshop: bool,
     pub abstract_draft: bool,
+    pub cfr_opponent_model: bool,
 }
 
 pub struct MctsResult {
@@ -62,6 +63,7 @@ impl Default for MctsConfig {
             first_pick_params: None,
             force_max_workshop: false,
             abstract_draft: false,
+            cfr_opponent_model: false,
         }
     }
 }
@@ -123,6 +125,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
             first_pick_params: None,
             force_max_workshop: false,
             abstract_draft: false,
+            cfr_opponent_model: false,
         })
     }
 }
@@ -361,6 +364,97 @@ impl OpponentDraftStats {
     }
 }
 
+// ── CFR (Regret Matching+) for opponent draft modeling ──
+
+#[derive(Clone, Copy, Default)]
+struct CfrOpponentPickStat {
+    cumulative_regret: f64,
+    cumulative_reward: f64,
+    visit_count: u32,
+    availability_count: u32,
+}
+
+struct CfrOpponentDraftStats {
+    stats: [[[CfrOpponentPickStat; NUM_CARDS]; MAX_PLAYERS]; 4],
+}
+
+impl CfrOpponentDraftStats {
+    fn new() -> Self {
+        CfrOpponentDraftStats {
+            stats: [[[CfrOpponentPickStat::default(); NUM_CARDS]; MAX_PLAYERS]; 4],
+        }
+    }
+
+    fn update_availability(&mut self, pick_round: usize, player: usize, available_cards: &[Card]) {
+        let slot = &mut self.stats[pick_round][player];
+        for &card in available_cards {
+            slot[card as usize].availability_count += 1;
+        }
+    }
+
+    fn select<R: Rng>(
+        &self,
+        pick_round: usize,
+        player: usize,
+        available_cards: &[Card],
+        rng: &mut R,
+    ) -> Card {
+        let slot = &self.stats[pick_round][player];
+
+        let mut regret_sum = 0.0;
+        for &card in available_cards {
+            regret_sum += slot[card as usize].cumulative_regret.max(0.0);
+        }
+
+        if regret_sum <= 0.0 {
+            return available_cards[rng.random_range(0..available_cards.len())];
+        }
+
+        let threshold = rng.random_range(0.0..regret_sum);
+        let mut acc = 0.0;
+        for &card in available_cards {
+            acc += slot[card as usize].cumulative_regret.max(0.0);
+            if acc > threshold {
+                return card;
+            }
+        }
+        *available_cards.last().unwrap()
+    }
+
+    fn record_outcome(
+        &mut self,
+        pick_round: usize,
+        player: usize,
+        chosen_card: Card,
+        available_cards: &[Card],
+        reward: f64,
+    ) {
+        let slot = &mut self.stats[pick_round][player];
+
+        let chosen_stat = &mut slot[chosen_card as usize];
+        chosen_stat.visit_count += 1;
+        chosen_stat.cumulative_reward += reward;
+
+        for &card in available_cards {
+            let stat = &mut slot[card as usize];
+            let counterfactual = if card == chosen_card {
+                reward
+            } else if stat.visit_count > 0 {
+                stat.cumulative_reward / stat.visit_count as f64
+            } else {
+                reward
+            };
+            let instantaneous_regret = counterfactual - reward;
+            stat.cumulative_regret = (stat.cumulative_regret + instantaneous_regret).max(0.0);
+        }
+    }
+}
+
+enum OpponentModel {
+    Duct(OpponentDraftStats),
+    Cfr(CfrOpponentDraftStats),
+}
+
 fn get_opponent_draft_cards(state: &GameState) -> SmallVec<[Card; 8]> {
     let mut cards = SmallVec::new();
     if let GamePhase::Draft { ref draft_state } = state.phase {
@@ -392,8 +486,8 @@ fn find_card_id(state: &GameState, card: Card) -> u32 {
 fn advance_past_opponent_draft_picks<R: Rng>(
     state: &mut GameState,
     perspective_player: usize,
-    opponent_stats: &mut OpponentDraftStats,
-    pick_log: &mut Vec<(u32, usize, Card)>,
+    opponent_model: &mut OpponentModel,
+    pick_log: &mut Vec<(u32, usize, Card, SmallVec<[Card; 8]>)>,
     exploration_constant: f64,
     rng: &mut R,
 ) {
@@ -414,17 +508,30 @@ fn advance_past_opponent_draft_picks<R: Rng>(
             break;
         }
 
-        opponent_stats.update_availability(pick_number as usize, current_player, &available);
-        let card = opponent_stats.select(
-            pick_number as usize,
-            current_player,
-            &available,
-            exploration_constant,
-            rng,
-        );
+        let card = match opponent_model {
+            OpponentModel::Duct(stats) => {
+                stats.update_availability(pick_number as usize, current_player, &available);
+                stats.select(
+                    pick_number as usize,
+                    current_player,
+                    &available,
+                    exploration_constant,
+                    rng,
+                )
+            }
+            OpponentModel::Cfr(stats) => {
+                stats.update_availability(pick_number as usize, current_player, &available);
+                stats.select(
+                    pick_number as usize,
+                    current_player,
+                    &available,
+                    rng,
+                )
+            }
+        };
 
         let card_id = find_card_id(state, card);
-        pick_log.push((pick_number, current_player, card));
+        pick_log.push((pick_number, current_player, card, available));
         player_pick(state, card_id, rng);
     }
 }
@@ -473,8 +580,12 @@ pub fn ismcts<R: Rng>(
     let card_table = CardHeuristicTable::new(&config.heuristic_params);
     let diff_table = config.diff_eval_params.as_ref().map(|p| DiffEvalTable::new(p));
 
-    let mut opponent_stats = OpponentDraftStats::new();
-    let mut pick_log: Vec<(u32, usize, Card)> = Vec::new();
+    let mut opponent_model = if config.cfr_opponent_model {
+        OpponentModel::Cfr(CfrOpponentDraftStats::new())
+    } else {
+        OpponentModel::Duct(OpponentDraftStats::new())
+    };
+    let mut pick_log: Vec<(u32, usize, Card, SmallVec<[Card; 8]>)> = Vec::new();
 
     let (effective_max_rollout_round, use_heuristic) = if config.use_heuristic_eval {
         let (should_use, lookahead) = if let Some(ref diff_params) = config.diff_eval_params {
@@ -509,18 +620,15 @@ pub fn ismcts<R: Rng>(
                 det_state.abstract_draft_initial_pick = initial_pick;
             }
             advance_past_opponent_draft_picks(
-                &mut det_state, player_index, &mut opponent_stats,
+                &mut det_state, player_index, &mut opponent_model,
                 &mut pick_log, config.exploration_constant, rng,
             );
             let scores = iteration_simultaneous(
                 &mut root, &mut det_state, player_index,
-                &mut opponent_stats, &mut pick_log,
+                &mut opponent_model, &mut pick_log,
                 effective_max_rollout_round, use_heuristic, config, &mut choices_buf, &mut availability_buf, &card_table, &diff_table, rng,
             );
-            for &(pick_round, player, card) in &pick_log {
-                let reward = scores[player];
-                opponent_stats.record_outcome(pick_round as usize, player, card, reward);
-            }
+            record_opponent_outcomes(&mut opponent_model, &pick_log, &scores);
         }
     } else {
         let new_iterations = config.iterations.saturating_sub(reused_iterations);
@@ -534,18 +642,15 @@ pub fn ismcts<R: Rng>(
                 det_state.abstract_draft_initial_pick = initial_pick;
             }
             advance_past_opponent_draft_picks(
-                &mut det_state, player_index, &mut opponent_stats,
+                &mut det_state, player_index, &mut opponent_model,
                 &mut pick_log, config.exploration_constant, rng,
             );
             let scores = iteration_simultaneous(
                 &mut root, &mut det_state, player_index,
-                &mut opponent_stats, &mut pick_log,
+                &mut opponent_model, &mut pick_log,
                 effective_max_rollout_round, use_heuristic, config, &mut choices_buf, &mut availability_buf, &card_table, &diff_table, rng,
             );
-            for &(pick_round, player, card) in &pick_log {
-                let reward = scores[player];
-                opponent_stats.record_outcome(pick_round as usize, player, card, reward);
-            }
+            record_opponent_outcomes(&mut opponent_model, &pick_log, &scores);
 
             // Early termination: stop if the leader can't be overtaken
             if config.early_termination {
@@ -594,6 +699,25 @@ pub fn ismcts<R: Rng>(
         choice: best_choice,
         iterations_used,
         tree: Some(root),
+    }
+}
+
+fn record_opponent_outcomes(
+    opponent_model: &mut OpponentModel,
+    pick_log: &[(u32, usize, Card, SmallVec<[Card; 8]>)],
+    scores: &[f64; MAX_PLAYERS],
+) {
+    match opponent_model {
+        OpponentModel::Duct(stats) => {
+            for &(pick_round, player, card, _) in pick_log {
+                stats.record_outcome(pick_round as usize, player, card, scores[player]);
+            }
+        }
+        OpponentModel::Cfr(stats) => {
+            for (pick_round, player, card, available) in pick_log {
+                stats.record_outcome(*pick_round as usize, *player, *card, available, scores[*player]);
+            }
+        }
     }
 }
 
@@ -714,8 +838,8 @@ fn iteration_simultaneous<R: Rng>(
     node: &mut MctsNode,
     state: &mut GameState,
     perspective_player: usize,
-    opponent_stats: &mut OpponentDraftStats,
-    pick_log: &mut Vec<(u32, usize, Card)>,
+    opponent_model: &mut OpponentModel,
+    pick_log: &mut Vec<(u32, usize, Card, SmallVec<[Card; 8]>)>,
     max_rollout_round: Option<u32>,
     use_heuristic: bool,
     config: &MctsConfig,
@@ -766,7 +890,7 @@ fn iteration_simultaneous<R: Rng>(
 
     // After applying the perspective player's draft pick, advance past opponents
     advance_past_opponent_draft_picks(
-        state, perspective_player, opponent_stats,
+        state, perspective_player, opponent_model,
         pick_log, config.exploration_constant, rng,
     );
 
@@ -804,7 +928,7 @@ fn iteration_simultaneous<R: Rng>(
         let child = &mut node.children[best_idx];
         iteration_simultaneous(
             child, state, perspective_player,
-            opponent_stats, pick_log,
+            opponent_model, pick_log,
             max_rollout_round, use_heuristic, config, choices_buf, availability_buf, card_table, diff_table, rng,
         )
     };
@@ -1091,6 +1215,20 @@ mod tests {
     fn test_ismcts_with_heuristic_rollout() {
         let config = MctsConfig {
             iterations: 10,
+            ..MctsConfig::default()
+        };
+        for num_players in 2..=4 {
+            for seed in 0..3 {
+                run_full_game_with_config(num_players, seed, &config);
+            }
+        }
+    }
+
+    #[test]
+    fn test_ismcts_cfr_opponent_model() {
+        let config = MctsConfig {
+            iterations: 10,
+            cfr_opponent_model: true,
             ..MctsConfig::default()
         };
         for num_players in 2..=4 {
