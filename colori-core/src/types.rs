@@ -107,7 +107,7 @@ pub enum CardKind {
     Action,
 }
 
-// ── Card enum (47 variants) ──
+// ── Card enum (43 variants) ──
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Card {
@@ -115,10 +115,7 @@ pub enum Card {
     BasicRed,
     BasicYellow,
     BasicBlue,
-    // Primary dyes (9)
-    Kermes,
-    Weld,
-    Woad,
+    // Primary dyes (6)
     Lac,
     Brazilwood,
     Pomegranate,
@@ -178,19 +175,13 @@ struct CardProperties {
     workshop_abilities: &'static [Ability],
 }
 
-const CARD_DATA: [CardProperties; 46] = [
+const CARD_DATA: [CardProperties; 43] = [
     // BasicRed
     CardProperties { name: "Basic Red", kind: CardKind::BasicDye, ability: Ability::Sell, colors: &[Color::Red], material_types: &[], workshop_abilities: &[] },
     // BasicYellow
     CardProperties { name: "Basic Yellow", kind: CardKind::BasicDye, ability: Ability::Sell, colors: &[Color::Yellow], material_types: &[], workshop_abilities: &[] },
     // BasicBlue
     CardProperties { name: "Basic Blue", kind: CardKind::BasicDye, ability: Ability::Sell, colors: &[Color::Blue], material_types: &[], workshop_abilities: &[] },
-    // Kermes
-    CardProperties { name: "Kermes", kind: CardKind::Dye, ability: Ability::DestroyCards, colors: &[Color::Red, Color::Red, Color::Red], material_types: &[], workshop_abilities: &[] },
-    // Weld
-    CardProperties { name: "Weld", kind: CardKind::Dye, ability: Ability::DestroyCards, colors: &[Color::Yellow, Color::Yellow, Color::Yellow], material_types: &[], workshop_abilities: &[] },
-    // Woad
-    CardProperties { name: "Woad", kind: CardKind::Dye, ability: Ability::DestroyCards, colors: &[Color::Blue, Color::Blue, Color::Blue], material_types: &[], workshop_abilities: &[] },
     // Lac
     CardProperties { name: "Lac", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, colors: &[Color::Red, Color::Red, Color::Yellow], material_types: &[], workshop_abilities: &[] },
     // Brazilwood

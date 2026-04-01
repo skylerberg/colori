@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use eframe::egui;
 use colori_core::cards::{
-    action_cards, basic_dye_cards, draft_material_cards, dye_cards,
+    action_cards, basic_dye_cards, draft_dye_cards, draft_material_cards,
     generate_all_sell_cards, starter_material_cards, ACTION_COPIES, DYE_COPIES, MATERIAL_COPIES,
 };
 use colori_core::types::{Card, CardKind, Color, MaterialType};
@@ -79,7 +79,7 @@ fn render_ability_distribution(ui: &mut egui::Ui) {
         .show(ui, |ui| {
             let mut ability_counts: BTreeMap<String, u32> = BTreeMap::new();
 
-            for card in dye_cards() {
+            for card in draft_dye_cards() {
                 let ability_str = format_ability(&card.ability());
                 let copies = DYE_COPIES as u32;
                 *ability_counts.entry(ability_str).or_insert(0) += copies;
@@ -199,7 +199,7 @@ fn render_sell_card_summary(ui: &mut egui::Ui) {
 }
 
 fn find_card_by_name(name: &str) -> Option<Card> {
-    for card in dye_cards() {
+    for card in draft_dye_cards() {
         if card.name() == name {
             return Some(card);
         }

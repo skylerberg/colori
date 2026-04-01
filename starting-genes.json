@@ -18,7 +18,6 @@
   "gumArabicQuality": 1.9204988868489856,
   "potashQuality": 2.3328803975742756,
   "vinegarQuality": 0.0,
-  "purePrimaryDyeQuality": 1.599974987601617,
   "primaryDyeQuality": 1.6830285596727372,
   "secondaryDyeQuality": 2.1463760936336382,
   "tertiaryDyeQuality": 1.6839900965562682,
@@ -27,6 +26,5 @@
   "cardsInDeckWeight": 0.0,
   "cardsInDeckSquaredWeight": 0.0,
   "materialTypeCountWeight": 1.0,
-  "materialCoverageWeight": 1.0,
-  "heuristicScoreThreshold": 12.000150638884449
+  "materialCoverageWeight": 1.0
 }

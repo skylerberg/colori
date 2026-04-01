@@ -140,7 +140,7 @@ fn main() {
 
     // DYE_CARDS
     out.push_str("export const DYE_CARDS: DyeCardData[] = [\n");
-    for card in dye_cards() {
+    for card in draft_dye_cards() {
         write_dye_card(&mut out, &card);
     }
     out.push_str("];\n\n");
@@ -174,7 +174,7 @@ fn main() {
     out.push_str("];\n\n");
 
     // PRIMARIES, SECONDARIES, TERTIARIES — derived from dye card colors
-    let dyes = dye_cards();
+    let dyes = draft_dye_cards();
     let mut primaries: Vec<&'static str> = Vec::new();
     let mut secondaries: Vec<&'static str> = Vec::new();
     let mut tertiaries: Vec<&'static str> = Vec::new();
@@ -290,7 +290,7 @@ fn main() {
     out.push('\n');
 
     // Register dye cards
-    for (i, card) in dye_cards().iter().enumerate() {
+    for (i, card) in draft_dye_cards().iter().enumerate() {
         let variant = card_variant_name(card);
         write!(out, "CARD_LOOKUP['{}'] = DYE_CARDS[{}];\n", variant, i).unwrap();
     }
@@ -394,7 +394,6 @@ fn main() {
 
     // DRAFT_CARD_CATEGORIES
     // Build categories from the dye card data
-    let mut pure_primary_dye_names: Vec<String> = Vec::new();
     let mut primary_dye_names: Vec<String> = Vec::new();
     let mut secondary_dye_names: Vec<String> = Vec::new();
     let mut tertiary_dye_names: Vec<String> = Vec::new();
@@ -402,17 +401,11 @@ fn main() {
     for card in draft_dye_cards() {
         let name = card.name().replace('\'', "\\'");
         let colors = card.colors();
-        if colors.len() == 3 && colors[0] == colors[1] && colors[1] == colors[2] {
-            // 3 identical primary colors = pure primary dye
-            pure_primary_dye_names.push(name.to_string());
-        } else if colors.len() == 3 {
-            // 3 colors, not all same = primary dye (2+1)
+        if colors.len() == 3 {
             primary_dye_names.push(name.to_string());
         } else if colors.len() == 2 {
-            // 2 colors = secondary dye
             secondary_dye_names.push(name.to_string());
         } else if colors.len() == 1 {
-            // 1 color = tertiary dye
             tertiary_dye_names.push(name.to_string());
         }
     }
@@ -456,7 +449,6 @@ fn main() {
     }
 
     out.push_str("export const DRAFT_CARD_CATEGORIES: CardCategory[] = [\n");
-    format_category(&mut out, "Pure Primary Dyes", &pure_primary_dye_names, DYE_COPIES);
     format_category(&mut out, "Primary Dyes", &primary_dye_names, DYE_COPIES);
     format_category(&mut out, "Secondary Dyes", &secondary_dye_names, DYE_COPIES);
     format_category(&mut out, "Tertiary Dyes", &tertiary_dye_names, DYE_COPIES);

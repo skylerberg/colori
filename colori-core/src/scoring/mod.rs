@@ -8,9 +8,8 @@ use crate::colors::{PRIMARIES, SECONDARIES, TERTIARIES};
 use crate::fixed_vec::FixedVec;
 use crate::types::*;
 
-const ALL_CARDS: [Card; 46] = [
+const ALL_CARDS: [Card; 43] = [
     Card::BasicRed, Card::BasicYellow, Card::BasicBlue,
-    Card::Kermes, Card::Weld, Card::Woad,
     Card::Lac, Card::Brazilwood, Card::Pomegranate,
     Card::Sumac, Card::Elderberry, Card::Turnsole,
     Card::Madder, Card::Turmeric, Card::DyersGreenweed,
@@ -28,12 +27,12 @@ const ALL_CARDS: [Card; 46] = [
 ];
 
 pub struct CardHeuristicTable {
-    quality: [f64; 46],
+    quality: [f64; 43],
 }
 
 impl CardHeuristicTable {
     pub fn new(params: &HeuristicParams) -> Self {
-        let mut quality = [0.0f64; 46];
+        let mut quality = [0.0f64; 43];
         for &card in &ALL_CARDS {
             let idx = card as usize;
             quality[idx] = card_quality(card, params);
@@ -102,7 +101,6 @@ fn card_quality(card: Card, params: &HeuristicParams) -> f64 {
         }
         CardKind::Dye => {
             match card {
-                Card::Kermes | Card::Weld | Card::Woad => params.pure_primary_dye_quality.unwrap_or(0.0),
                 Card::Lac | Card::Brazilwood | Card::Pomegranate
                 | Card::Sumac | Card::Elderberry | Card::Turnsole => params.primary_dye_quality.unwrap_or(0.0),
                 Card::Madder | Card::Turmeric | Card::DyersGreenweed

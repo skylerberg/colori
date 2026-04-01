@@ -29,12 +29,9 @@ pub struct HeuristicParams {
     pub vinegar_quality: Option<f64>,
     pub linseed_oil_quality: f64,
     // Per-dye-type quality overrides
-    pub pure_primary_dye_quality: Option<f64>,
     pub primary_dye_quality: Option<f64>,
     pub secondary_dye_quality: Option<f64>,
     pub tertiary_dye_quality: Option<f64>,
-    // Score-based heuristic threshold
-    pub heuristic_score_threshold: Option<f64>,
     // Rollout policy parameters
     pub rollout_epsilon: f64,
     pub rollout_sell_affordable_multiplier: u32,

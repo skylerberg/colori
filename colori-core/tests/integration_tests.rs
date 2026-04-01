@@ -259,7 +259,7 @@ fn generate_invalid_choices(state: &GameState) -> Vec<Choice> {
             let hand = draft_state.hands[draft_state.current_player_index];
             let all_cards = [
                 Card::BasicRed, Card::BasicYellow, Card::BasicBlue,
-                Card::Kermes, Card::Weld, Card::Woad, Card::Lac,
+                Card::Lac,
                 Card::Madder, Card::Turmeric, Card::DyersGreenweed,
                 Card::VermilionDye, Card::Saffron, Card::PersianBerries,
                 Card::StarterCeramics, Card::StarterPaintings, Card::StarterTextiles,

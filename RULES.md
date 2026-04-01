@@ -188,14 +188,6 @@ Each player's score = total ducats (from sell cards + Gain Ducats ability). The 
 
 ### Dye Cards (18 unique in draft deck, 3 copies each)
 
-**Pure Primary Dyes** (not in draft deck):
-
-| Name | Colors | Destroy Ability |
-|------|--------|-----------------|
-| Kermes | 3 Red | Destroy Cards ×1 |
-| Weld | 3 Yellow | Destroy Cards ×1 |
-| Woad | 3 Blue | Destroy Cards ×1 |
-
 **Primary Dyes** (2 colors of one primary + 1 color of a different primary):
 
 | Name | Colors | Destroy Ability |

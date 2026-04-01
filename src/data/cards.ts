@@ -4,24 +4,6 @@ import type { Card, SellCard, Color, AnyCardData, DyeCardData, BasicDyeCardData,
 export const DYE_CARDS: DyeCardData[] = [
   {
     kind: 'dye',
-    name: 'Kermes',
-    colors: ['Red', 'Red', 'Red'],
-    ability: { type: 'destroyCards' },
-  },
-  {
-    kind: 'dye',
-    name: 'Weld',
-    colors: ['Yellow', 'Yellow', 'Yellow'],
-    ability: { type: 'destroyCards' },
-  },
-  {
-    kind: 'dye',
-    name: 'Woad',
-    colors: ['Blue', 'Blue', 'Blue'],
-    ability: { type: 'destroyCards' },
-  },
-  {
-    kind: 'dye',
     name: 'Lac',
     colors: ['Red', 'Red', 'Yellow'],
     ability: { type: 'workshop', count: 3 },
@@ -372,27 +354,24 @@ CARD_LOOKUP['BasicRed'] = { kind: 'basicDye', name: 'Basic Red', color: 'Red', a
 CARD_LOOKUP['BasicYellow'] = { kind: 'basicDye', name: 'Basic Yellow', color: 'Yellow', ability: { type: 'sell' } };
 CARD_LOOKUP['BasicBlue'] = { kind: 'basicDye', name: 'Basic Blue', color: 'Blue', ability: { type: 'sell' } };
 
-CARD_LOOKUP['Kermes'] = DYE_CARDS[0];
-CARD_LOOKUP['Weld'] = DYE_CARDS[1];
-CARD_LOOKUP['Woad'] = DYE_CARDS[2];
-CARD_LOOKUP['Lac'] = DYE_CARDS[3];
-CARD_LOOKUP['Brazilwood'] = DYE_CARDS[4];
-CARD_LOOKUP['Pomegranate'] = DYE_CARDS[5];
-CARD_LOOKUP['Sumac'] = DYE_CARDS[6];
-CARD_LOOKUP['Elderberry'] = DYE_CARDS[7];
-CARD_LOOKUP['Turnsole'] = DYE_CARDS[8];
-CARD_LOOKUP['Madder'] = DYE_CARDS[9];
-CARD_LOOKUP['Turmeric'] = DYE_CARDS[10];
-CARD_LOOKUP['DyersGreenweed'] = DYE_CARDS[11];
-CARD_LOOKUP['Verdigris'] = DYE_CARDS[12];
-CARD_LOOKUP['Orchil'] = DYE_CARDS[13];
-CARD_LOOKUP['Logwood'] = DYE_CARDS[14];
-CARD_LOOKUP['VermilionDye'] = DYE_CARDS[15];
-CARD_LOOKUP['Saffron'] = DYE_CARDS[16];
-CARD_LOOKUP['PersianBerries'] = DYE_CARDS[17];
-CARD_LOOKUP['Azurite'] = DYE_CARDS[18];
-CARD_LOOKUP['IndigoDye'] = DYE_CARDS[19];
-CARD_LOOKUP['Cochineal'] = DYE_CARDS[20];
+CARD_LOOKUP['Lac'] = DYE_CARDS[0];
+CARD_LOOKUP['Brazilwood'] = DYE_CARDS[1];
+CARD_LOOKUP['Pomegranate'] = DYE_CARDS[2];
+CARD_LOOKUP['Sumac'] = DYE_CARDS[3];
+CARD_LOOKUP['Elderberry'] = DYE_CARDS[4];
+CARD_LOOKUP['Turnsole'] = DYE_CARDS[5];
+CARD_LOOKUP['Madder'] = DYE_CARDS[6];
+CARD_LOOKUP['Turmeric'] = DYE_CARDS[7];
+CARD_LOOKUP['DyersGreenweed'] = DYE_CARDS[8];
+CARD_LOOKUP['Verdigris'] = DYE_CARDS[9];
+CARD_LOOKUP['Orchil'] = DYE_CARDS[10];
+CARD_LOOKUP['Logwood'] = DYE_CARDS[11];
+CARD_LOOKUP['VermilionDye'] = DYE_CARDS[12];
+CARD_LOOKUP['Saffron'] = DYE_CARDS[13];
+CARD_LOOKUP['PersianBerries'] = DYE_CARDS[14];
+CARD_LOOKUP['Azurite'] = DYE_CARDS[15];
+CARD_LOOKUP['IndigoDye'] = DYE_CARDS[16];
+CARD_LOOKUP['Cochineal'] = DYE_CARDS[17];
 
 CARD_LOOKUP['StarterCeramics'] = MATERIAL_CARDS[0];
 CARD_LOOKUP['StarterPaintings'] = MATERIAL_CARDS[1];
@@ -548,7 +527,6 @@ export interface CardCategory {
 }
 
 export const DRAFT_CARD_CATEGORIES: CardCategory[] = [
-  { label: 'Pure Primary Dyes', cardNames: [], totalCopies: 0 },
   { label: 'Primary Dyes', cardNames: ['Lac', 'Brazilwood', 'Pomegranate', 'Sumac', 'Elderberry', 'Turnsole'], totalCopies: 18 },
   { label: 'Secondary Dyes', cardNames: ['Madder', 'Turmeric', 'Dyer\'s Greenweed', 'Verdigris', 'Orchil', 'Logwood'], totalCopies: 18 },
   { label: 'Tertiary Dyes', cardNames: ['Vermilion', 'Saffron', 'Persian Berries', 'Azurite', 'Indigo', 'Cochineal'], totalCopies: 18 },

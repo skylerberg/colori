@@ -11,7 +11,6 @@ pub struct FirstPickParams {
     pub is_tertiary_dye: f64,
     pub is_secondary_dye: f64,
     pub is_primary_dye: f64,
-    pub is_pure_primary_dye: f64,
     pub is_alum: f64,
     pub is_gum_arabic: f64,
     pub is_cream_of_tartar: f64,
@@ -31,7 +30,6 @@ impl Default for FirstPickParams {
             is_tertiary_dye: 0.0,
             is_secondary_dye: 0.0,
             is_primary_dye: 0.0,
-            is_pure_primary_dye: 0.0,
             is_alum: 0.0,
             is_gum_arabic: 0.0,
             is_cream_of_tartar: 0.0,
@@ -64,11 +62,7 @@ impl FirstPickParams {
                 } else if colors.len() == 2 && SECONDARIES.contains(&colors[0]) {
                     score += self.is_secondary_dye;
                 } else if colors.len() == 3 && colors.iter().all(|c| is_primary(*c)) {
-                    if colors[0] == colors[1] && colors[1] == colors[2] {
-                        score += self.is_pure_primary_dye;
-                    } else {
-                        score += self.is_primary_dye;
-                    }
+                    score += self.is_primary_dye;
                 }
             }
             CardKind::Action => {

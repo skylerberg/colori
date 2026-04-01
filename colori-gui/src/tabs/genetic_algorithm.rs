@@ -60,11 +60,11 @@ const PARAM_GROUPS: &[(&str, &[&str])] = &[
         "linseed_oil_quality",
     ]),
     ("Dye Type Overrides", &[
-        "pure_primary_dye_quality", "primary_dye_quality",
+        "primary_dye_quality",
         "secondary_dye_quality", "tertiary_dye_quality",
     ]),
     ("Heuristic Control", &[
-        "heuristic_round_threshold", "heuristic_lookahead", "heuristic_score_threshold",
+        "heuristic_round_threshold", "heuristic_lookahead",
     ]),
     ("Rollout General", &[
         "rollout_epsilon", "rollout_end_turn_threshold",
@@ -110,11 +110,9 @@ fn get_param_value(params: &HeuristicParams, name: &str) -> Option<f64> {
         "potash_quality" => params.potash_quality,
         "vinegar_quality" => params.vinegar_quality,
         "linseed_oil_quality" => Some(params.linseed_oil_quality),
-        "pure_primary_dye_quality" => params.pure_primary_dye_quality,
         "primary_dye_quality" => params.primary_dye_quality,
         "secondary_dye_quality" => params.secondary_dye_quality,
         "tertiary_dye_quality" => params.tertiary_dye_quality,
-        "heuristic_score_threshold" => params.heuristic_score_threshold,
         "rollout_epsilon" => Some(params.rollout_epsilon),
         "rollout_sell_affordable_multiplier" => Some(params.rollout_sell_affordable_multiplier as f64),
         "rollout_sell_base" => Some(params.rollout_sell_base as f64),
@@ -147,7 +145,7 @@ fn baseline_fallback(param_name: &str) -> Option<f64> {
         | "potash_quality" | "vinegar_quality" => {
             None
         }
-        "pure_primary_dye_quality" | "primary_dye_quality"
+        "primary_dye_quality"
         | "secondary_dye_quality" | "tertiary_dye_quality" => {
             None
         }

@@ -28,44 +28,42 @@ enum Gene {
     GumArabicQuality = 7,
     PotashQuality = 8,
     VinegarQuality = 9,
-    PurePrimaryDyeQuality = 10,
-    PrimaryDyeQuality = 11,
-    SecondaryDyeQuality = 12,
-    TertiaryDyeQuality = 13,
-    BasicDyeQuality = 14,
-    StarterMaterialQuality = 15,
-    DraftMaterialQuality = 16,
-    DualMaterialQuality = 17,
-    SellCardMaterialAlignment = 18,
-    SellCardColorAlignment = 19,
-    HeuristicScoreThreshold = 20,
-    HeuristicLookahead = 21,
-    RolloutEpsilon = 22,
-    RolloutSellAffordableMultiplier = 23,
-    RolloutSellBase = 24,
-    RolloutMixBase = 25,
-    RolloutMixPairWeight = 26,
-    RolloutMixCountWeight = 27,
-    RolloutMixNoPairs = 28,
-    RolloutWorkshopBase = 29,
-    RolloutWorkshopCountWeight = 30,
-    RolloutWorkshopEmpty = 31,
-    RolloutDestroyWithTargets = 32,
-    RolloutDestroyNoTargets = 33,
-    RolloutDrawBase = 34,
-    RolloutDrawCountWeight = 35,
-    RolloutOtherPriority = 36,
-    RolloutEndTurnThreshold = 37,
-    RolloutEndTurnProbabilityEarly = 38,
-    RolloutEndTurnProbabilityLate = 39,
-    RolloutEndTurnMaxRound = 40,
-    RolloutWsMaterialBaseMultiplier = 41,
-    RolloutWsMaterialColorsMetMultiplier = 42,
-    RolloutWsActionBonus = 43,
-    LinseedOilQuality = 44,
+    PrimaryDyeQuality = 10,
+    SecondaryDyeQuality = 11,
+    TertiaryDyeQuality = 12,
+    BasicDyeQuality = 13,
+    StarterMaterialQuality = 14,
+    DraftMaterialQuality = 15,
+    DualMaterialQuality = 16,
+    SellCardMaterialAlignment = 17,
+    SellCardColorAlignment = 18,
+    HeuristicLookahead = 19,
+    RolloutEpsilon = 20,
+    RolloutSellAffordableMultiplier = 21,
+    RolloutSellBase = 22,
+    RolloutMixBase = 23,
+    RolloutMixPairWeight = 24,
+    RolloutMixCountWeight = 25,
+    RolloutMixNoPairs = 26,
+    RolloutWorkshopBase = 27,
+    RolloutWorkshopCountWeight = 28,
+    RolloutWorkshopEmpty = 29,
+    RolloutDestroyWithTargets = 30,
+    RolloutDestroyNoTargets = 31,
+    RolloutDrawBase = 32,
+    RolloutDrawCountWeight = 33,
+    RolloutOtherPriority = 34,
+    RolloutEndTurnThreshold = 35,
+    RolloutEndTurnProbabilityEarly = 36,
+    RolloutEndTurnProbabilityLate = 37,
+    RolloutEndTurnMaxRound = 38,
+    RolloutWsMaterialBaseMultiplier = 39,
+    RolloutWsMaterialColorsMetMultiplier = 40,
+    RolloutWsActionBonus = 41,
+    LinseedOilQuality = 42,
 }
 
-const NUM_GENES: usize = 45;
+const NUM_GENES: usize = 43;
 
 trait GeneTarget: Clone {
     fn to_genes(&self) -> Vec<f64>;
@@ -89,7 +87,6 @@ impl GeneTarget for HeuristicParams {
         v[PotashQuality as usize] = self.potash_quality.unwrap_or(0.0);
         v[VinegarQuality as usize] = self.vinegar_quality.unwrap_or(0.0);
         v[LinseedOilQuality as usize] = self.linseed_oil_quality;
-        v[PurePrimaryDyeQuality as usize] = self.pure_primary_dye_quality.unwrap_or(0.0);
         v[PrimaryDyeQuality as usize] = self.primary_dye_quality.unwrap_or(0.0);
         v[SecondaryDyeQuality as usize] = self.secondary_dye_quality.unwrap_or(0.0);
         v[TertiaryDyeQuality as usize] = self.tertiary_dye_quality.unwrap_or(0.0);
@@ -99,7 +96,6 @@ impl GeneTarget for HeuristicParams {
         v[DualMaterialQuality as usize] = self.dual_material_quality;
         v[SellCardMaterialAlignment as usize] = self.sell_card_material_alignment;
         v[SellCardColorAlignment as usize] = self.sell_card_color_alignment;
-        v[HeuristicScoreThreshold as usize] = self.heuristic_score_threshold.unwrap_or(10.0);
         v[HeuristicLookahead as usize] = self.heuristic_lookahead as f64;
         v[RolloutEpsilon as usize] = self.rollout_epsilon;
         v[RolloutSellAffordableMultiplier as usize] = self.rollout_sell_affordable_multiplier as f64;
@@ -148,11 +144,9 @@ impl GeneTarget for HeuristicParams {
             potash_quality: Some(v[PotashQuality as usize]),
             vinegar_quality: Some(v[VinegarQuality as usize]),
             linseed_oil_quality: v[LinseedOilQuality as usize],
-            pure_primary_dye_quality: Some(v[PurePrimaryDyeQuality as usize]),
             primary_dye_quality: Some(v[PrimaryDyeQuality as usize]),
             secondary_dye_quality: Some(v[SecondaryDyeQuality as usize]),
             tertiary_dye_quality: Some(v[TertiaryDyeQuality as usize]),
-            heuristic_score_threshold: Some(v[HeuristicScoreThreshold as usize]),
             rollout_epsilon: v[RolloutEpsilon as usize].clamp(0.0, 1.0),
             rollout_sell_affordable_multiplier: v[RolloutSellAffordableMultiplier as usize].round().max(0.0) as u32,
             rollout_sell_base: v[RolloutSellBase as usize].round().max(0.0) as u32,

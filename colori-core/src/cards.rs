@@ -16,18 +16,6 @@ pub fn chalk_card() -> Card {
     Card::Chalk
 }
 
-pub fn dye_cards() -> [Card; 21] {
-    [
-        Card::Kermes, Card::Weld, Card::Woad,
-        Card::Lac, Card::Brazilwood, Card::Pomegranate,
-        Card::Sumac, Card::Elderberry, Card::Turnsole,
-        Card::Madder, Card::Turmeric, Card::DyersGreenweed,
-        Card::Verdigris, Card::Orchil, Card::Logwood,
-        Card::VermilionDye, Card::Saffron, Card::PersianBerries,
-        Card::Azurite, Card::IndigoDye, Card::Cochineal,
-    ]
-}
-
 pub fn draft_dye_cards() -> [Card; 18] {
     [
         Card::Lac, Card::Brazilwood, Card::Pomegranate,

@@ -21,7 +21,6 @@
   "potashQuality": 1.6820622396355014,
   "vinegarQuality": 0.0,
   "argolQuality": 0.0,
-  "purePrimaryDyeQuality": 1.8135800769285733,
   "primaryDyeQuality": 1.5921767597210639,
   "secondaryDyeQuality": 1.9041944324514533,
   "tertiaryDyeQuality": 1.9270533488518973,
@@ -30,6 +29,5 @@
   "cardsInDeckWeight": 0.0,
   "cardsInDeckSquaredWeight": 0.0,
   "materialTypeCountWeight": 0.7872671008452515,
-  "materialCoverageWeight": 1.1009881413172813,
-  "heuristicScoreThreshold": 11.872070068348355
+  "materialCoverageWeight": 1.1009881413172813
 }
