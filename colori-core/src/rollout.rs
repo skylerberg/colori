@@ -1035,9 +1035,9 @@ fn destruction_priority(
     match card.ability() {
         Ability::Sell => {
             if cache.best_affordable_ducats > 0 {
-                cache.best_affordable_ducats * params.rollout_sell_affordable_multiplier as u32
+                cache.best_affordable_ducats * params.rollout_sell_affordable_multiplier
             } else {
-                params.rollout_sell_base as u32
+                params.rollout_sell_base
             }
         }
         Ability::MixColors { count } => {
@@ -1048,27 +1048,27 @@ fn destruction_priority(
                 }
             }
             if valid_pairs == 0 {
-                params.rollout_mix_no_pairs as u32
+                params.rollout_mix_no_pairs
             } else {
-                params.rollout_mix_base as u32 + valid_pairs.min(4) * params.rollout_mix_pair_weight as u32 + count.min(2) * params.rollout_mix_count_weight as u32
+                params.rollout_mix_base + valid_pairs.min(4) * params.rollout_mix_pair_weight + count.min(2) * params.rollout_mix_count_weight
             }
         }
         Ability::Workshop { count } => {
             if player.workshop_cards.is_empty() {
-                params.rollout_workshop_empty as u32
+                params.rollout_workshop_empty
             } else {
-                params.rollout_workshop_base as u32 + count.min(3) * params.rollout_workshop_count_weight as u32
+                params.rollout_workshop_base + count.min(3) * params.rollout_workshop_count_weight
             }
         }
         Ability::DestroyCards => {
             if player.workshop_cards.is_empty() {
-                params.rollout_destroy_no_targets as u32
+                params.rollout_destroy_no_targets
             } else {
-                params.rollout_destroy_with_targets as u32
+                params.rollout_destroy_with_targets
             }
         }
-        Ability::DrawCards { count } => params.rollout_draw_base as u32 + count.min(3) * params.rollout_draw_count_weight as u32,
-        _ => params.rollout_other_priority as u32,
+        Ability::DrawCards { count } => params.rollout_draw_base + count.min(3) * params.rollout_draw_count_weight,
+        _ => params.rollout_other_priority,
     }
 }
 
@@ -1086,9 +1086,9 @@ fn workshop_card_score(
         for i in 0..cache.len {
             let entry = &cache.entries[i];
             if entry.required_material == mt {
-                let base = entry.ducats * params.rollout_ws_material_base_multiplier as u32;
+                let base = entry.ducats * params.rollout_ws_material_base_multiplier;
                 if entry.colors_met {
-                    score += base * params.rollout_ws_material_colors_met_multiplier as u32;
+                    score += base * params.rollout_ws_material_colors_met_multiplier;
                 } else {
                     score += base + base * entry.have_colors / (entry.total_colors + 1);
                 }
@@ -1103,7 +1103,7 @@ fn workshop_card_score(
 
     // Action cards get a moderate bonus
     if card.is_action() {
-        score += params.rollout_ws_action_bonus as u32;
+        score += params.rollout_ws_action_bonus;
     }
 
     score
@@ -1313,7 +1313,7 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     }
 
     // If best priority is low, chance to just end turn
-    if (best_priority as f64) <= params.rollout_end_turn_threshold && rng.random_bool(params.rollout_end_turn_probability) {
+    if best_priority <= params.rollout_end_turn_threshold && rng.random_bool(params.rollout_end_turn_probability) {
         end_player_turn(state, rng);
         if matches!(state.phase, GamePhase::Draw) {
             rollout_draw_and_draft(state, rng);
