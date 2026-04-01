@@ -1,5 +1,6 @@
 mod cli;
 mod cmaes;
+mod genetic;
 mod simulation;
 mod tournament;
 
@@ -40,6 +41,10 @@ fn main() {
         Some(Commands::TrainFirstPick(args)) => {
             let output = cli.output.unwrap_or_else(|| "first-pick-training".to_string());
             run_first_pick_cmaes(&args, threads, &output, glass);
+        }
+        Some(Commands::TrainGa(args)) => {
+            let output = cli.output.unwrap_or_else(|| "genetic-algorithm".to_string());
+            genetic::run_genetic_algorithm(&args, threads, &output, glass);
         }
         None => {
             // Default: simulate with default args

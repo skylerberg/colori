@@ -13,6 +13,7 @@ use crate::colors::{
 use crate::choices::is_glass_ability_available;
 use crate::deck_utils::draw_from_deck;
 use crate::draft_phase::player_pick;
+use crate::scoring::HeuristicParams;
 use crate::types::*;
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
@@ -344,7 +345,7 @@ fn handle_action_no_pending(state: &mut GameState, player_index: usize, heuristi
         end_player_turn(state, rng);
         if matches!(state.phase, GamePhase::Draw) {
             if heuristic_draft {
-                heuristic_rollout_draw_and_draft(state, rng);
+                heuristic_rollout_draw_and_draft(state, &HeuristicParams::default(), rng);
             } else {
                 rollout_draw_and_draft(state, rng);
             }
@@ -472,7 +473,7 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, 
     // Fast path: complete entire draft in one step
     if matches!(&state.phase, GamePhase::Draft { .. }) {
         if heuristic_draft {
-            heuristic_draft_loop(state, rng);
+            heuristic_draft_loop(state, &HeuristicParams::default(), rng);
         } else {
             loop {
                 let card_id = {
@@ -676,9 +677,6 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, 
 
 // ── Heuristic rollout helpers ──
 
-/// Epsilon probability for falling back to random in the heuristic rollout.
-const HEURISTIC_EPSILON: f64 = 0.2;
-
 // ── Heuristic draft helpers ──
 
 /// Classify a card's ability into a category index for redundancy counting.
@@ -702,10 +700,11 @@ fn ability_category(ability: Ability) -> (u8, u32) {
 fn pick_card_to_drop<R: Rng>(
     hand: &UnorderedCards,
     card_lookup: &[Card; 256],
+    params: &HeuristicParams,
     rng: &mut R,
 ) -> u8 {
     // Epsilon: random drop
-    if rng.random_bool(HEURISTIC_EPSILON) {
+    if rng.random_bool(params.rollout_epsilon) {
         return hand.pick_random(rng).unwrap();
     }
 
@@ -772,7 +771,7 @@ fn pick_card_to_drop<R: Rng>(
 
 /// Like `rollout_draw_and_draft` but deals 5 cards per player and uses
 /// the heuristic to drop the most redundant card, keeping the best 4.
-fn heuristic_rollout_draw_and_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
+fn heuristic_rollout_draw_and_draft<R: Rng>(state: &mut GameState, params: &HeuristicParams, rng: &mut R) {
     let num_players = state.players.len();
 
     // Step 1: Draw 5 cards from each player's personal deck
@@ -823,7 +822,7 @@ fn heuristic_rollout_draw_and_draft<R: Rng>(state: &mut GameState, rng: &mut R) 
     // Step 4: For each player, drop the most redundant card
     for i in 0..num_players {
         if dealt[i].len() > 4 {
-            let drop_id = pick_card_to_drop(&dealt[i], &state.card_lookup, rng);
+            let drop_id = pick_card_to_drop(&dealt[i], &state.card_lookup, params, rng);
             dealt[i].remove(drop_id);
             state.destroyed_pile.insert(drop_id);
         }
@@ -844,7 +843,7 @@ fn heuristic_rollout_draw_and_draft<R: Rng>(state: &mut GameState, rng: &mut R) 
 
 /// Heuristic draft loop: for each player's hand, identify the card to drop,
 /// then pick all other cards via player_pick.
-fn heuristic_draft_loop<R: Rng>(state: &mut GameState, rng: &mut R) {
+fn heuristic_draft_loop<R: Rng>(state: &mut GameState, params: &HeuristicParams, rng: &mut R) {
     loop {
         let (_player, hand, card_to_drop) = {
             if let GamePhase::Draft { ref draft_state } = state.phase {
@@ -856,7 +855,7 @@ fn heuristic_draft_loop<R: Rng>(state: &mut GameState, rng: &mut R) {
                 // Only compute drop card when hand has more than 1 card
                 // (with 1 card, it'll be picked anyway — it's the last card which gets destroyed)
                 let drop = if hand.len() > 1 {
-                    Some(pick_card_to_drop(&hand, &state.card_lookup, rng))
+                    Some(pick_card_to_drop(&hand, &state.card_lookup, params, rng))
                 } else {
                     None
                 };
@@ -1031,13 +1030,14 @@ fn destruction_priority(
     card: Card,
     player: &PlayerState,
     cache: &SellCardCache,
+    params: &HeuristicParams,
 ) -> u32 {
     match card.ability() {
         Ability::Sell => {
             if cache.best_affordable_ducats > 0 {
-                cache.best_affordable_ducats * 25
+                cache.best_affordable_ducats * params.rollout_sell_affordable_multiplier as u32
             } else {
-                35
+                params.rollout_sell_base as u32
             }
         }
         Ability::MixColors { count } => {
@@ -1048,27 +1048,27 @@ fn destruction_priority(
                 }
             }
             if valid_pairs == 0 {
-                20
+                params.rollout_mix_no_pairs as u32
             } else {
-                50 + valid_pairs.min(4) * 3 + count.min(2) * 5
+                params.rollout_mix_base as u32 + valid_pairs.min(4) * params.rollout_mix_pair_weight as u32 + count.min(2) * params.rollout_mix_count_weight as u32
             }
         }
         Ability::Workshop { count } => {
             if player.workshop_cards.is_empty() {
-                15
+                params.rollout_workshop_empty as u32
             } else {
-                60 + count.min(3) * 7
+                params.rollout_workshop_base as u32 + count.min(3) * params.rollout_workshop_count_weight as u32
             }
         }
         Ability::DestroyCards => {
             if player.workshop_cards.is_empty() {
-                25
+                params.rollout_destroy_no_targets as u32
             } else {
-                45
+                params.rollout_destroy_with_targets as u32
             }
         }
-        Ability::DrawCards { count } => 30 + count.min(3) * 2,
-        _ => 10,
+        Ability::DrawCards { count } => params.rollout_draw_base as u32 + count.min(3) * params.rollout_draw_count_weight as u32,
+        _ => params.rollout_other_priority as u32,
     }
 }
 
@@ -1077,6 +1077,7 @@ fn destruction_priority(
 fn workshop_card_score(
     card: Card,
     cache: &SellCardCache,
+    params: &HeuristicParams,
 ) -> u32 {
     let mut score = 0u32;
 
@@ -1085,9 +1086,9 @@ fn workshop_card_score(
         for i in 0..cache.len {
             let entry = &cache.entries[i];
             if entry.required_material == mt {
-                let base = entry.ducats * 3;
+                let base = entry.ducats * params.rollout_ws_material_base_multiplier as u32;
                 if entry.colors_met {
-                    score += base * 3;
+                    score += base * params.rollout_ws_material_colors_met_multiplier as u32;
                 } else {
                     score += base + base * entry.have_colors / (entry.total_colors + 1);
                 }
@@ -1102,7 +1103,7 @@ fn workshop_card_score(
 
     // Action cards get a moderate bonus
     if card.is_action() {
-        score += 5;
+        score += params.rollout_ws_action_bonus as u32;
     }
 
     score
@@ -1113,9 +1114,10 @@ fn workshop_card_score(
 fn pick_best_color<R: Rng>(
     colors: &[Color],
     cache: &SellCardCache,
+    params: &HeuristicParams,
     rng: &mut R,
 ) -> Color {
-    if rng.random_bool(HEURISTIC_EPSILON) {
+    if rng.random_bool(params.rollout_epsilon) {
         return colors[rng.random_range(0..colors.len())];
     }
     let mut best_color = colors[0];
@@ -1136,9 +1138,10 @@ fn heuristic_mix_seq<R: Rng>(
     wheel: &ColorWheel,
     remaining: u32,
     cache: &SellCardCache,
+    params: &HeuristicParams,
     rng: &mut R,
 ) -> ([(Color, Color); 2], usize) {
-    if rng.random_bool(HEURISTIC_EPSILON) {
+    if rng.random_bool(params.rollout_epsilon) {
         return random_mix_seq(wheel, remaining, rng);
     }
 
@@ -1200,13 +1203,14 @@ fn two_step_heuristic_mix_seq<R: Rng>(
     wheel: &ColorWheel,
     remaining: u32,
     cache: &SellCardCache,
+    params: &HeuristicParams,
     rng: &mut R,
 ) -> ([(Color, Color); 2], usize) {
     if remaining < 2 {
-        return heuristic_mix_seq(wheel, remaining, cache, rng);
+        return heuristic_mix_seq(wheel, remaining, cache, params, rng);
     }
 
-    if rng.random_bool(HEURISTIC_EPSILON) {
+    if rng.random_bool(params.rollout_epsilon) {
         return random_mix_seq(wheel, remaining, rng);
     }
 
@@ -1267,7 +1271,7 @@ fn two_step_heuristic_mix_seq<R: Rng>(
 }
 
 #[inline(always)]
-fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize, heuristic_draft: bool, cache: &SellCardCache, rng: &mut impl Rng) {
+fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize, heuristic_draft: bool, cache: &SellCardCache, params: &HeuristicParams, rng: &mut impl Rng) {
     // Glass: use same random policy (glass strategy is complex, not worth heuristic overhead)
     if try_activate_random_glass(state, player_index, rng) {
         return;
@@ -1278,7 +1282,7 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
         end_player_turn(state, rng);
         if matches!(state.phase, GamePhase::Draw) {
             if heuristic_draft {
-                heuristic_rollout_draw_and_draft(state, rng);
+                heuristic_rollout_draw_and_draft(state, params, rng);
             } else {
                 rollout_draw_and_draft(state, rng);
             }
@@ -1287,7 +1291,7 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     }
 
     // Epsilon: random fallback
-    if rng.random_bool(HEURISTIC_EPSILON) {
+    if rng.random_bool(params.rollout_epsilon) {
         handle_action_no_pending(state, player_index, heuristic_draft, rng);
         return;
     }
@@ -1301,15 +1305,15 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
         let bit = 1u64 << (card as u64);
         if seen & bit != 0 { continue; }
         seen |= bit;
-        let priority = destruction_priority(card, &state.players[player_index], &cache);
+        let priority = destruction_priority(card, &state.players[player_index], &cache, params);
         if priority > best_priority {
             best_priority = priority;
             best_id = Some(id);
         }
     }
 
-    // If best priority is low, 50% chance to just end turn
-    if best_priority <= 30 && rng.random_bool(0.5) {
+    // If best priority is low, chance to just end turn
+    if (best_priority as f64) <= params.rollout_end_turn_threshold && rng.random_bool(params.rollout_end_turn_probability) {
         end_player_turn(state, rng);
         if matches!(state.phase, GamePhase::Draw) {
             rollout_draw_and_draft(state, rng);
@@ -1322,7 +1326,7 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     match card.ability() {
         Ability::MixColors { count } => {
             let player = &state.players[player_index];
-            let (mixes, mix_count) = two_step_heuristic_mix_seq(&player.color_wheel, count, &cache, rng);
+            let (mixes, mix_count) = two_step_heuristic_mix_seq(&player.color_wheel, count, &cache, params, rng);
             state.players[player_index].drafted_cards.remove(card_id);
             state.destroyed_pile.insert(card_id);
             for i in 0..mix_count {
@@ -1362,11 +1366,11 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     }
 }
 
-pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, rng: &mut R) {
+pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, params: &HeuristicParams, rng: &mut R) {
     // Draft phase
     if matches!(&state.phase, GamePhase::Draft { .. }) {
         if heuristic_draft {
-            heuristic_draft_loop(state, rng);
+            heuristic_draft_loop(state, params, rng);
         } else {
             loop {
                 let card_id = {
@@ -1393,13 +1397,13 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
             let cache = SellCardCache::new(&state.sell_card_display, &state.players[player_index].color_wheel, &state.players[player_index].materials);
             match action_state.ability_stack.last() {
                 None => {
-                    handle_action_no_pending_heuristic(state, player_index, heuristic_draft, &cache, rng);
+                    handle_action_no_pending_heuristic(state, player_index, heuristic_draft, &cache, params, rng);
                 }
                 Some(Ability::Workshop { count }) => {
                     let count = *count;
 
                     // Epsilon: fall back to random
-                    if rng.random_bool(HEURISTIC_EPSILON) {
+                    if rng.random_bool(params.rollout_epsilon) {
                         let mut copy = state.players[player_index].workshop_cards;
                         let selected = copy.draw_up_to(count as u8, rng);
                         if selected.is_empty() {
@@ -1416,7 +1420,7 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                     let mut scored_count = 0usize;
                     for id in workshop.iter() {
                         let card = state.card_lookup[id as usize];
-                        let score = workshop_card_score(card, &cache);
+                        let score = workshop_card_score(card, &cache, params);
                         scored[scored_count] = (id, score);
                         scored_count += 1;
                     }
@@ -1451,7 +1455,7 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                     }
 
                     // Epsilon: random
-                    if rng.random_bool(HEURISTIC_EPSILON) {
+                    if rng.random_bool(params.rollout_epsilon) {
                         let mut copy = workshop;
                         let selected = copy.draw_up_to(1, rng);
                         resolve_destroy_cards(state, selected, rng);
@@ -1463,7 +1467,7 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                     let mut best_score = 0u32;
                     for id in workshop.iter() {
                         let card = state.card_lookup[id as usize];
-                        let score = destruction_priority(card, &state.players[player_index], &cache);
+                        let score = destruction_priority(card, &state.players[player_index], &cache, params);
                         if score > best_score || best_id.is_none() {
                             best_score = score;
                             best_id = Some(id);
@@ -1478,7 +1482,7 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                 }
                 Some(Ability::MixColors { count }) => {
                     let remaining_mixes = *count;
-                    let (mixes, mix_count) = two_step_heuristic_mix_seq(&state.players[player_index].color_wheel, remaining_mixes, &cache, rng);
+                    let (mixes, mix_count) = two_step_heuristic_mix_seq(&state.players[player_index].color_wheel, remaining_mixes, &cache, params, rng);
                     for i in 0..mix_count {
                         let (a, b) = mixes[i];
                         perform_mix_unchecked(
@@ -1494,7 +1498,7 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                 }
                 Some(Ability::Sell) => {
                     // Epsilon: random
-                    if rng.random_bool(HEURISTIC_EPSILON) {
+                    if rng.random_bool(params.rollout_epsilon) {
                         let sell_card_id_opt = pick_random_affordable_sell_card(
                             &state.players[player_index],
                             &state.sell_card_display,
@@ -1600,11 +1604,11 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                     }
                 }
                 Some(Ability::GainSecondary) => {
-                    let color = pick_best_color(&SECONDARIES, &cache, rng);
+                    let color = pick_best_color(&SECONDARIES, &cache, params, rng);
                     resolve_gain_color(state, color, rng);
                 }
                 Some(Ability::GainPrimary) => {
-                    let color = pick_best_color(&PRIMARIES, &cache, rng);
+                    let color = pick_best_color(&PRIMARIES, &cache, params, rng);
                     resolve_gain_color(state, color, rng);
                 }
                 Some(Ability::ChangeTertiary) => {
@@ -1622,7 +1626,7 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                             action_state.ability_stack.pop();
                         }
                         process_ability_stack(state, rng);
-                    } else if rng.random_bool(HEURISTIC_EPSILON) {
+                    } else if rng.random_bool(params.rollout_epsilon) {
                         // Epsilon: random
                         let r = rng.random_range(0..own_count * 5);
                         let lose_idx = r / 5;

@@ -66,9 +66,29 @@ pub enum Gene {
     MaterialCoverage = 27,
     HeuristicScoreThreshold = 28,
     HeuristicLookahead = 29,
+    RolloutEpsilon = 30,
+    RolloutSellAffordableMultiplier = 31,
+    RolloutSellBase = 32,
+    RolloutMixBase = 33,
+    RolloutMixPairWeight = 34,
+    RolloutMixCountWeight = 35,
+    RolloutMixNoPairs = 36,
+    RolloutWorkshopBase = 37,
+    RolloutWorkshopCountWeight = 38,
+    RolloutWorkshopEmpty = 39,
+    RolloutDestroyWithTargets = 40,
+    RolloutDestroyNoTargets = 41,
+    RolloutDrawBase = 42,
+    RolloutDrawCountWeight = 43,
+    RolloutOtherPriority = 44,
+    RolloutEndTurnThreshold = 45,
+    RolloutEndTurnProbability = 46,
+    RolloutWsMaterialBaseMultiplier = 47,
+    RolloutWsMaterialColorsMetMultiplier = 48,
+    RolloutWsActionBonus = 49,
 }
 
-pub const NUM_GENES: usize = 30;
+pub const NUM_GENES: usize = 50;
 
 impl CmaEsTarget for HeuristicParams {
     fn to_genes(&self) -> Vec<f64> {
@@ -104,6 +124,26 @@ impl CmaEsTarget for HeuristicParams {
         v[MaterialCoverage as usize] = self.material_coverage_weight;
         v[HeuristicScoreThreshold as usize] = self.heuristic_score_threshold.unwrap_or(10.0);
         v[HeuristicLookahead as usize] = self.heuristic_lookahead as f64;
+        v[RolloutEpsilon as usize] = self.rollout_epsilon;
+        v[RolloutSellAffordableMultiplier as usize] = self.rollout_sell_affordable_multiplier;
+        v[RolloutSellBase as usize] = self.rollout_sell_base;
+        v[RolloutMixBase as usize] = self.rollout_mix_base;
+        v[RolloutMixPairWeight as usize] = self.rollout_mix_pair_weight;
+        v[RolloutMixCountWeight as usize] = self.rollout_mix_count_weight;
+        v[RolloutMixNoPairs as usize] = self.rollout_mix_no_pairs;
+        v[RolloutWorkshopBase as usize] = self.rollout_workshop_base;
+        v[RolloutWorkshopCountWeight as usize] = self.rollout_workshop_count_weight;
+        v[RolloutWorkshopEmpty as usize] = self.rollout_workshop_empty;
+        v[RolloutDestroyWithTargets as usize] = self.rollout_destroy_with_targets;
+        v[RolloutDestroyNoTargets as usize] = self.rollout_destroy_no_targets;
+        v[RolloutDrawBase as usize] = self.rollout_draw_base;
+        v[RolloutDrawCountWeight as usize] = self.rollout_draw_count_weight;
+        v[RolloutOtherPriority as usize] = self.rollout_other_priority;
+        v[RolloutEndTurnThreshold as usize] = self.rollout_end_turn_threshold;
+        v[RolloutEndTurnProbability as usize] = self.rollout_end_turn_probability;
+        v[RolloutWsMaterialBaseMultiplier as usize] = self.rollout_ws_material_base_multiplier;
+        v[RolloutWsMaterialColorsMetMultiplier as usize] = self.rollout_ws_material_colors_met_multiplier;
+        v[RolloutWsActionBonus as usize] = self.rollout_ws_action_bonus;
         v
     }
 
@@ -146,6 +186,26 @@ impl CmaEsTarget for HeuristicParams {
             material_type_count_weight: v[MaterialTypeCount as usize],
             material_coverage_weight: v[MaterialCoverage as usize],
             heuristic_score_threshold: Some(v[HeuristicScoreThreshold as usize]),
+            rollout_epsilon: v[RolloutEpsilon as usize],
+            rollout_sell_affordable_multiplier: v[RolloutSellAffordableMultiplier as usize],
+            rollout_sell_base: v[RolloutSellBase as usize],
+            rollout_mix_base: v[RolloutMixBase as usize],
+            rollout_mix_pair_weight: v[RolloutMixPairWeight as usize],
+            rollout_mix_count_weight: v[RolloutMixCountWeight as usize],
+            rollout_mix_no_pairs: v[RolloutMixNoPairs as usize],
+            rollout_workshop_base: v[RolloutWorkshopBase as usize],
+            rollout_workshop_count_weight: v[RolloutWorkshopCountWeight as usize],
+            rollout_workshop_empty: v[RolloutWorkshopEmpty as usize],
+            rollout_destroy_with_targets: v[RolloutDestroyWithTargets as usize],
+            rollout_destroy_no_targets: v[RolloutDestroyNoTargets as usize],
+            rollout_draw_base: v[RolloutDrawBase as usize],
+            rollout_draw_count_weight: v[RolloutDrawCountWeight as usize],
+            rollout_other_priority: v[RolloutOtherPriority as usize],
+            rollout_end_turn_threshold: v[RolloutEndTurnThreshold as usize],
+            rollout_end_turn_probability: v[RolloutEndTurnProbability as usize],
+            rollout_ws_material_base_multiplier: v[RolloutWsMaterialBaseMultiplier as usize],
+            rollout_ws_material_colors_met_multiplier: v[RolloutWsMaterialColorsMetMultiplier as usize],
+            rollout_ws_action_bonus: v[RolloutWsActionBonus as usize],
         }
     }
 

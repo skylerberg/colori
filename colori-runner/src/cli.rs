@@ -36,6 +36,8 @@ pub enum Commands {
     TrainHeuristicEval(TrainHeuristicEvalArgs),
     /// Train first pick params using CMA-ES optimization
     TrainFirstPick(TrainFirstPickArgs),
+    /// Train heuristic params using classic genetic algorithm
+    TrainGa(TrainGaArgs),
 }
 
 // ── Subcommand args ──
@@ -130,6 +132,41 @@ pub struct TrainFirstPickArgs {
     /// MCTS iterations for evaluation games
     #[arg(long, default_value_t = DEFAULT_EVAL_ITERATIONS)]
     pub eval_iterations: u32,
+}
+
+#[derive(Parser)]
+pub struct TrainGaArgs {
+    /// Population size
+    #[arg(long, default_value_t = 20)]
+    pub population: usize,
+
+    /// Number of generations
+    #[arg(long, default_value_t = 50)]
+    pub generations: usize,
+
+    /// Games per fitness evaluation
+    #[arg(long, default_value_t = 400)]
+    pub games_per_eval: usize,
+
+    /// Mutation rate (probability of mutating each gene)
+    #[arg(long, default_value_t = 0.15)]
+    pub mutation_rate: f64,
+
+    /// Mutation scale (std dev of Gaussian perturbation)
+    #[arg(long, default_value_t = 0.25)]
+    pub mutation_scale: f64,
+
+    /// MCTS iterations for evaluation games
+    #[arg(long, default_value_t = 4000)]
+    pub eval_iterations: u32,
+
+    /// Path to seed heuristic params JSON file
+    #[arg(long)]
+    pub seed_params: Option<String>,
+
+    /// Path to baseline heuristic params JSON file
+    #[arg(long)]
+    pub baseline_params: Option<String>,
 }
 
 // ── Variant types ──

@@ -802,7 +802,7 @@ fn rollout<R: Rng>(state: &mut GameState, max_rollout_round: Option<u32>, max_ro
             return eval_scores(state, use_heuristic, params, card_table);
         }
         if heuristic_rollout {
-            apply_heuristic_rollout_step(state, heuristic_draft, rng);
+            apply_heuristic_rollout_step(state, heuristic_draft, params, rng);
         } else {
             apply_rollout_step(state, heuristic_draft, rng);
         }
