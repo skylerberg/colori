@@ -64,11 +64,14 @@ enum Gene {
     RolloutEndTurnMaxRound = 43,
     RolloutWsMaterialBaseMultiplier = 44,
     RolloutWsMaterialColorsMetMultiplier = 45,
-    RolloutWsActionBonus = 46,
-    LinseedOilQuality = 47,
+    RolloutWsActionGainDucatsValue = 46,
+    RolloutWsActionDrawValue = 47,
+    RolloutWsActionWorkshopPerCard = 48,
+    RolloutWsActionColorDemandMultiplier = 49,
+    LinseedOilQuality = 50,
 }
 
-const NUM_GENES: usize = 48;
+const NUM_GENES: usize = 51;
 
 trait GeneTarget: Clone {
     fn to_genes(&self) -> Vec<f64>;
@@ -128,7 +131,10 @@ impl GeneTarget for HeuristicParams {
         v[RolloutEndTurnMaxRound as usize] = self.rollout_end_turn_max_round as f64;
         v[RolloutWsMaterialBaseMultiplier as usize] = self.rollout_ws_material_base_multiplier as f64;
         v[RolloutWsMaterialColorsMetMultiplier as usize] = self.rollout_ws_material_colors_met_multiplier as f64;
-        v[RolloutWsActionBonus as usize] = self.rollout_ws_action_bonus as f64;
+        v[RolloutWsActionGainDucatsValue as usize] = self.rollout_ws_action_gain_ducats_value as f64;
+        v[RolloutWsActionDrawValue as usize] = self.rollout_ws_action_draw_value as f64;
+        v[RolloutWsActionWorkshopPerCard as usize] = self.rollout_ws_action_workshop_per_card as f64;
+        v[RolloutWsActionColorDemandMultiplier as usize] = self.rollout_ws_action_color_demand_multiplier as f64;
         v
     }
 
@@ -183,7 +189,10 @@ impl GeneTarget for HeuristicParams {
             rollout_end_turn_max_round: v[RolloutEndTurnMaxRound as usize].round().max(2.0) as u32,
             rollout_ws_material_base_multiplier: v[RolloutWsMaterialBaseMultiplier as usize].round().max(0.0) as u32,
             rollout_ws_material_colors_met_multiplier: v[RolloutWsMaterialColorsMetMultiplier as usize].round().max(0.0) as u32,
-            rollout_ws_action_bonus: v[RolloutWsActionBonus as usize].round().max(0.0) as u32,
+            rollout_ws_action_gain_ducats_value: v[RolloutWsActionGainDucatsValue as usize].round().max(0.0) as u32,
+            rollout_ws_action_draw_value: v[RolloutWsActionDrawValue as usize].round().max(0.0) as u32,
+            rollout_ws_action_workshop_per_card: v[RolloutWsActionWorkshopPerCard as usize].round().max(0.0) as u32,
+            rollout_ws_action_color_demand_multiplier: v[RolloutWsActionColorDemandMultiplier as usize].round().max(0.0) as u32,
         }
     }
 
@@ -208,7 +217,10 @@ impl GeneTarget for HeuristicParams {
             Gene::RolloutEndTurnMaxRound as usize,
             Gene::RolloutWsMaterialBaseMultiplier as usize,
             Gene::RolloutWsMaterialColorsMetMultiplier as usize,
-            Gene::RolloutWsActionBonus as usize,
+            Gene::RolloutWsActionGainDucatsValue as usize,
+            Gene::RolloutWsActionDrawValue as usize,
+            Gene::RolloutWsActionWorkshopPerCard as usize,
+            Gene::RolloutWsActionColorDemandMultiplier as usize,
         ]
     }
 

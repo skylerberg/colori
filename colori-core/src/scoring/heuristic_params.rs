@@ -64,5 +64,8 @@ pub struct HeuristicParams {
     pub rollout_end_turn_max_round: u32,
     pub rollout_ws_material_base_multiplier: u32,
     pub rollout_ws_material_colors_met_multiplier: u32,
-    pub rollout_ws_action_bonus: u32,
+    pub rollout_ws_action_gain_ducats_value: u32,
+    pub rollout_ws_action_draw_value: u32,
+    pub rollout_ws_action_workshop_per_card: u32,
+    pub rollout_ws_action_color_demand_multiplier: u32,
 }

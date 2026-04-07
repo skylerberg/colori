@@ -83,7 +83,9 @@ const PARAM_GROUPS: &[(&str, &[&str])] = &[
     ("Rollout Workshop", &[
         "rollout_workshop_base", "rollout_workshop_count_weight",
         "rollout_workshop_empty", "rollout_ws_material_base_multiplier",
-        "rollout_ws_material_colors_met_multiplier", "rollout_ws_action_bonus",
+        "rollout_ws_material_colors_met_multiplier",
+        "rollout_ws_action_gain_ducats_value", "rollout_ws_action_draw_value",
+        "rollout_ws_action_workshop_per_card", "rollout_ws_action_color_demand_multiplier",
     ]),
     ("Rollout Destroy & Draw", &[
         "rollout_destroy_with_targets", "rollout_destroy_no_targets",
@@ -141,7 +143,10 @@ fn get_param_value(params: &HeuristicParams, name: &str) -> Option<f64> {
         "rollout_end_turn_max_round" => Some(params.rollout_end_turn_max_round as f64),
         "rollout_ws_material_base_multiplier" => Some(params.rollout_ws_material_base_multiplier as f64),
         "rollout_ws_material_colors_met_multiplier" => Some(params.rollout_ws_material_colors_met_multiplier as f64),
-        "rollout_ws_action_bonus" => Some(params.rollout_ws_action_bonus as f64),
+        "rollout_ws_action_gain_ducats_value" => Some(params.rollout_ws_action_gain_ducats_value as f64),
+        "rollout_ws_action_draw_value" => Some(params.rollout_ws_action_draw_value as f64),
+        "rollout_ws_action_workshop_per_card" => Some(params.rollout_ws_action_workshop_per_card as f64),
+        "rollout_ws_action_color_demand_multiplier" => Some(params.rollout_ws_action_color_demand_multiplier as f64),
         _ => None,
     }
 }

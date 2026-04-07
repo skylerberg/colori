@@ -47,5 +47,8 @@
   "rolloutEndTurnMaxRound": 12,
   "rolloutWsMaterialBaseMultiplier": 5,
   "rolloutWsMaterialColorsMetMultiplier": 5,
-  "rolloutWsActionBonus": 5
+  "rolloutWsActionGainDucatsValue": 30,
+  "rolloutWsActionDrawValue": 10,
+  "rolloutWsActionWorkshopPerCard": 10,
+  "rolloutWsActionColorDemandMultiplier": 3
 }

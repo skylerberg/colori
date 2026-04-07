@@ -762,10 +762,82 @@ fn destruction_priority(
     }
 }
 
+/// Score an action card's workshop abilities based on game state.
+#[inline(always)]
+fn action_workshop_value(
+    card: Card,
+    player: &PlayerState,
+    cache: &SellCardCache,
+    params: &HeuristicParams,
+) -> u32 {
+    let mult = params.rollout_ws_action_color_demand_multiplier;
+    for &ability in card.workshop_abilities() {
+        match ability {
+            Ability::GainDucats { count } => {
+                return count * params.rollout_ws_action_gain_ducats_value;
+            }
+            Ability::DrawCards { count } => {
+                return count * params.rollout_ws_action_draw_value;
+            }
+            Ability::Workshop { count } => {
+                let available = (player.workshop_cards.len() as u32).min(count);
+                return available * params.rollout_ws_action_workshop_per_card;
+            }
+            Ability::GainPrimary => {
+                let mut best = 0u32;
+                for &c in &PRIMARIES {
+                    best = best.max(cache.color_demand(c));
+                }
+                return best * mult / 10;
+            }
+            Ability::GainSecondary => {
+                let mut best = 0u32;
+                for &c in &SECONDARIES {
+                    best = best.max(cache.color_demand(c));
+                }
+                return best * mult / 10;
+            }
+            Ability::MixColors { count } => {
+                // Score based on best mix output demands for valid pairs
+                let mut best_total = 0u32;
+                for &(a, b) in &VALID_MIX_PAIRS {
+                    if player.color_wheel.get(a) > 0 && player.color_wheel.get(b) > 0 {
+                        let output = mix_result(a, b);
+                        best_total = best_total.max(cache.color_demand(output) * count);
+                    }
+                }
+                return best_total * mult / 10;
+            }
+            Ability::ChangeTertiary => {
+                // Value = best demanded tertiary - least needed owned tertiary
+                let mut has_any = false;
+                let mut least_needed = u32::MAX;
+                for &c in &TERTIARIES {
+                    if player.color_wheel.get(c) > 0 {
+                        has_any = true;
+                        least_needed = least_needed.min(cache.color_demand(c));
+                    }
+                }
+                if !has_any {
+                    return 0;
+                }
+                let mut best_demand = 0u32;
+                for &c in &TERTIARIES {
+                    best_demand = best_demand.max(cache.color_demand(c));
+                }
+                return best_demand.saturating_sub(least_needed) * mult / 10;
+            }
+            _ => {}
+        }
+    }
+    0
+}
+
 /// Score a workshop card for selection priority.
 #[inline(always)]
 fn workshop_card_score(
     card: Card,
+    player: &PlayerState,
     cache: &SellCardCache,
     params: &HeuristicParams,
 ) -> u32 {
@@ -791,9 +863,9 @@ fn workshop_card_score(
         score += cache.color_demand(color);
     }
 
-    // Action cards get a moderate bonus
+    // Action cards: score based on their specific workshop abilities
     if card.is_action() {
-        score += params.rollout_ws_action_bonus;
+        score += action_workshop_value(card, player, cache, params);
     }
 
     score
@@ -1089,7 +1161,7 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                     let mut scored_count = 0usize;
                     for id in workshop.iter() {
                         let card = state.card_lookup[id as usize];
-                        let score = workshop_card_score(card, &cache, params);
+                        let score = workshop_card_score(card, &state.players[player_index], &cache, params);
                         scored[scored_count] = (id, score);
                         scored_count += 1;
                     }
