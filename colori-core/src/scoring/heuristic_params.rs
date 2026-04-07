@@ -1,8 +1,16 @@
 use serde::{Deserialize, Serialize};
 
+fn default_exploration_constant() -> f64 {
+    std::f64::consts::SQRT_2
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HeuristicParams {
+    #[serde(default = "default_exploration_constant")]
+    pub exploration_constant: f64,
+    #[serde(default)]
+    pub rollout_destroy_worst: bool,
     #[serde(alias = "primaryPipWeight")]
     pub primary_color_value: f64,
     #[serde(alias = "secondaryPipWeight")]

@@ -69,9 +69,10 @@ enum Gene {
     RolloutWsActionWorkshopPerCard = 48,
     RolloutWsActionColorDemandMultiplier = 49,
     LinseedOilQuality = 50,
+    ExplorationConstant = 51,
 }
 
-const NUM_GENES: usize = 51;
+const NUM_GENES: usize = 52;
 
 trait GeneTarget: Clone {
     fn to_genes(&self) -> Vec<f64>;
@@ -135,6 +136,7 @@ impl GeneTarget for HeuristicParams {
         v[RolloutWsActionDrawValue as usize] = self.rollout_ws_action_draw_value as f64;
         v[RolloutWsActionWorkshopPerCard as usize] = self.rollout_ws_action_workshop_per_card as f64;
         v[RolloutWsActionColorDemandMultiplier as usize] = self.rollout_ws_action_color_demand_multiplier as f64;
+        v[ExplorationConstant as usize] = self.exploration_constant;
         v
     }
 
@@ -193,6 +195,8 @@ impl GeneTarget for HeuristicParams {
             rollout_ws_action_draw_value: v[RolloutWsActionDrawValue as usize].round().max(0.0) as u32,
             rollout_ws_action_workshop_per_card: v[RolloutWsActionWorkshopPerCard as usize].round().max(0.0) as u32,
             rollout_ws_action_color_demand_multiplier: v[RolloutWsActionColorDemandMultiplier as usize].round().max(0.0) as u32,
+            exploration_constant: v[ExplorationConstant as usize].max(0.01),
+            rollout_destroy_worst: base.rollout_destroy_worst,
         }
     }
 
