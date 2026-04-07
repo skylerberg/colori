@@ -44,7 +44,7 @@ impl MctsConfig {
     pub fn new(heuristic_params: HeuristicParams) -> Self {
         MctsConfig {
             iterations: 100,
-            exploration_constant: heuristic_params.exploration_constant,
+            exploration_constant: std::f64::consts::SQRT_2,
             max_rollout_steps: 1000,
             use_heuristic_eval: true,
             progressive_bias_weight: 0.0,

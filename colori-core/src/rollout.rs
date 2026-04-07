@@ -1203,20 +1203,13 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                         return;
                     }
 
-                    // Pick the card to destroy from the workshop.
-                    // When rollout_destroy_worst is true, destroy the least useful card (deck thinning).
-                    // When false, destroy the most useful card (legacy behavior).
+                    // Pick the most useful card to destroy from the workshop.
                     let mut best_id: Option<u8> = None;
-                    let mut best_score = if params.rollout_destroy_worst { u32::MAX } else { 0u32 };
+                    let mut best_score = 0u32;
                     for id in workshop.iter() {
                         let card = state.card_lookup[id as usize];
                         let score = destruction_priority(card, &state.players[player_index], &cache, params);
-                        let dominated = if params.rollout_destroy_worst {
-                            score < best_score
-                        } else {
-                            score > best_score
-                        };
-                        if dominated || best_id.is_none() {
+                        if score > best_score || best_id.is_none() {
                             best_score = score;
                             best_id = Some(id);
                         }

@@ -159,7 +159,7 @@ impl VariantFileEntry {
             let contents = std::fs::read_to_string(path)
                 .unwrap_or_else(|_| panic!("Failed to read heuristic params file: {}", path));
             serde_json::from_str(&contents)
-                .unwrap_or_else(|_| panic!("Failed to parse heuristic params file: {}", path))
+                .unwrap_or_else(|e| panic!("Failed to parse heuristic params file: {}: {}", path, e))
         } else {
             panic!("Variant must specify heuristicParams or heuristicParamsFile");
         };
