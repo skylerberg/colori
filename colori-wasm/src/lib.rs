@@ -15,7 +15,7 @@ use serde::Serialize;
 use wyrand::WyRand;
 use wasm_bindgen::prelude::*;
 
-const TRAINED_PARAMS_JSON: &str = include_str!("../../genetic-algorithm/batch-nocdm1-gen-7.json");
+const TRAINED_PARAMS_JSON: &str = include_str!("../../genetic-algorithm/batch-lki08w-gen-14.json");
 
 fn deserialize_state(json: &str) -> GameState {
     let mut state: GameState =

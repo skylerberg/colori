@@ -44,7 +44,7 @@ impl MctsConfig {
     pub fn new(heuristic_params: HeuristicParams) -> Self {
         MctsConfig {
             iterations: 100,
-            exploration_constant: std::f64::consts::SQRT_2,
+            exploration_constant: 0.75,
             max_rollout_steps: 1000,
             use_heuristic_eval: true,
             progressive_bias_weight: 0.0,
@@ -92,7 +92,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
         }
 
         fn default_iterations() -> u32 { 100 }
-        fn default_exploration_constant() -> f64 { std::f64::consts::SQRT_2 }
+        fn default_exploration_constant() -> f64 { 0.75 }
         fn default_max_rollout_steps() -> u32 { 1000 }
         fn default_use_heuristic_eval() -> bool { true }
         fn default_progressive_bias_weight() -> f64 { 0.0 }
@@ -821,7 +821,7 @@ mod tests {
     use wyrand::WyRand;
 
     fn test_heuristic_params() -> HeuristicParams {
-        const PARAMS_JSON: &str = include_str!("../../genetic-algorithm/batch-nocdm1-gen-7.json");
+        const PARAMS_JSON: &str = include_str!("../../genetic-algorithm/batch-lki08w-gen-14.json");
         serde_json::from_str(PARAMS_JSON).expect("Failed to parse test heuristic params")
     }
 

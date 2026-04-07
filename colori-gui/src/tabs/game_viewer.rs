@@ -93,11 +93,11 @@ impl Default for MctsGuiConfig {
     fn default() -> Self {
         Self {
             iterations: 100_000,
-            exploration_constant: std::f64::consts::SQRT_2,
+            exploration_constant: 0.75,
             use_heuristic_eval: true,
             heuristic_rollout: true,
             early_termination: true,
-            heuristic_params_path: "genetic-algorithm/batch-nocdm1-gen-7.json".to_string(),
+            heuristic_params_path: "genetic-algorithm/batch-lki08w-gen-14.json".to_string(),
         }
     }
 }

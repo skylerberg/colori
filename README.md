@@ -16,5 +16,5 @@ npm run dev
 |----------------------|--------|------------|-----------------------------------|
 | `name`               | string | auto       | Display name for this variant     |
 | `iterations`         | number | 100        | MCTS iterations per move          |
-| `explorationConstant`| number | sqrt(2)    | UCB exploration constant          |
+| `explorationConstant`| number | 0.75       | UCB exploration constant          |
 | `maxRolloutSteps`    | number | 200        | Max steps per rollout simulation  |

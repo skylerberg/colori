@@ -226,7 +226,7 @@ pub fn format_variant_label(
         parts.push(format_iterations_short(variant.iterations));
     }
     if differing_exploration {
-        let c = variant.exploration_constant.unwrap_or(std::f64::consts::SQRT_2);
+        let c = variant.exploration_constant.unwrap_or(0.75);
         parts.push(format!("c={:.2}", c));
     }
     if differing_rollout {
