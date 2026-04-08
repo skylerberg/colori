@@ -160,6 +160,9 @@ fn handle_action_no_pending(state: &mut GameState, player_index: usize, heuristi
         return;
     }
 
+    // Destroy the chosen card, activating its ability. Mix and Sell are fused
+    // inline as an optimization; all other abilities go through destroy_drafted_card
+    // which pushes the ability onto the stack for resolution on the next step.
     let card_id = sel.lowest_bit().unwrap();
     let card = state.card_lookup[card_id as usize];
     match card.ability() {
@@ -716,6 +719,9 @@ impl SellCardCache {
 
 /// Destruction priority considering actual game state.
 #[inline(always)]
+/// Score how valuable it is to destroy a card, i.e. how useful its ability is
+/// to activate right now. Destroying a card always activates its ability, whether
+/// it's destroyed from the draft pool or from the workshop (via DestroyCards).
 fn destruction_priority(
     card: Card,
     player: &PlayerState,
@@ -1081,6 +1087,9 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
         return;
     }
 
+    // Destroy the chosen card, activating its ability. Mix and Sell are fused
+    // inline as an optimization; all other abilities go through destroy_drafted_card
+    // which pushes the ability onto the stack for resolution on the next step.
     let card_id = best_id.unwrap();
     let card = state.card_lookup[card_id as usize];
     match card.ability() {
@@ -1203,7 +1212,8 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                         return;
                     }
 
-                    // Pick the most useful card to destroy from the workshop.
+                    // Pick the workshop card whose ability is most useful to activate.
+                    // Destroying a workshop card activates its ability (see resolve_destroy_cards).
                     let mut best_id: Option<u8> = None;
                     let mut best_score = 0u32;
                     for id in workshop.iter() {
