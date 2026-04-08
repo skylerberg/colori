@@ -821,7 +821,7 @@ mod tests {
     use wyrand::WyRand;
 
     fn test_heuristic_params() -> HeuristicParams {
-        const PARAMS_JSON: &str = include_str!("../../genetic-algorithm/batch-lki08w-gen-14.json");
+        const PARAMS_JSON: &str = include_str!("../../genetic-algorithm/batch-lki08w-gen-17.json");
         serde_json::from_str(PARAMS_JSON).expect("Failed to parse test heuristic params")
     }
 
