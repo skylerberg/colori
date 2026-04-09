@@ -8,13 +8,48 @@
     selectedId?: number;
     onSelect?: (instanceId: number) => void;
   } = $props();
+
+  // Maintain a stable display order so cards don't jump when the engine
+  // uses swap_remove internally. New cards replace removed cards in-place.
+  let stableOrder: number[] = $state([]);
+
+  $effect(() => {
+    const currentIds = new Set(sellCards.map(c => c.instanceId));
+    const prevIds = new Set(stableOrder);
+
+    const added = sellCards.filter(c => !prevIds.has(c.instanceId)).map(c => c.instanceId);
+    const removedSet = new Set(stableOrder.filter(id => !currentIds.has(id)));
+
+    if (removedSet.size === 0 && added.length === 0) return;
+
+    let addIdx = 0;
+    const newOrder: number[] = [];
+    for (const id of stableOrder) {
+      if (removedSet.has(id)) {
+        if (addIdx < added.length) {
+          newOrder.push(added[addIdx++]);
+        }
+      } else {
+        newOrder.push(id);
+      }
+    }
+    while (addIdx < added.length) {
+      newOrder.push(added[addIdx++]);
+    }
+    stableOrder = newOrder;
+  });
+
+  let stableSellCards = $derived.by(() => {
+    const map = new Map(sellCards.map(c => [c.instanceId, c]));
+    return stableOrder.map(id => map.get(id)!).filter(Boolean);
+  });
 </script>
 
 <div class="sell-card-display">
   <h3 class="section-title">Sell Card Display</h3>
   <div class="sell-card-scroll">
     <div class="sell-card-row">
-      {#each sellCards as sellCard (sellCard.instanceId)}
+      {#each stableSellCards as sellCard (sellCard.instanceId)}
         <CardDisplay
           card={sellCard.card}
           selected={selectedId === sellCard.instanceId}
