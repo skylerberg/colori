@@ -398,6 +398,10 @@ fn generate_invalid_choices(state: &GameState) -> Vec<Choice> {
                         invalid.push(Choice::EndTurn);
                         invalid.push(Choice::SkipWorkshop);
                     }
+                    Ability::MoveToWorkshop => {
+                        invalid.push(Choice::EndTurn);
+                        invalid.push(Choice::SkipWorkshop);
+                    }
                 }
             }
         }

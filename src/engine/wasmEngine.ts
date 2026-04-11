@@ -145,6 +145,18 @@ export function getChoiceLogMessage(
       const targetName = (getAnyCardData(choice.target) as { name?: string })?.name ?? 'a card';
       return `${name} destroyed ${cardName} from drafted cards, destroyed ${targetName} from workshop`;
     }
+    case 'selectMoveToDrafted': {
+      const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
+      return `${name} moved ${cardName} from workshop to drafted`;
+    }
+    case 'skipMoveToDrafted':
+      return `${name} skipped moving a card to drafted`;
+    case 'selectMoveToWorkshop': {
+      const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
+      return `${name} moved ${cardName} from drafted to workshop`;
+    }
+    case 'skipMoveToWorkshop':
+      return `${name} skipped moving a card to workshop`;
     default:
       return assertNever(choice);
   }

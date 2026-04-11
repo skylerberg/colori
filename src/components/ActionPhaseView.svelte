@@ -37,8 +37,12 @@
   let hasAbilitiesQueued = $derived((actionState?.abilityStack.length ?? 0) > 0);
 
   let workshopPendingChoice = $derived(
-    topAbility?.type === 'workshop' || topAbility?.type === 'destroyCards'
+    topAbility?.type === 'workshop' || topAbility?.type === 'destroyCards' || topAbility?.type === 'moveToDrafted'
       ? topAbility : null
+  );
+
+  let draftedPendingChoice = $derived(
+    topAbility?.type === 'moveToWorkshop' ? topAbility : null
   );
 
   let selectedWorkshopIds: number[] = $state([]);
@@ -89,6 +93,28 @@
     onAction({ type: 'destroyDraftedCard', card: ci.card });
   }
 
+  function handleMoveToDrafted(instanceId: number) {
+    if (!topAbility || topAbility.type !== 'moveToDrafted' || !currentPlayer) return;
+    const card = currentPlayer.workshopCards.find(c => c.instanceId === instanceId);
+    if (!card) return;
+    onAction({ type: 'selectMoveToDrafted', card: card.card });
+  }
+
+  function handleSkipMoveToDrafted() {
+    onAction({ type: 'skipMoveToDrafted' });
+  }
+
+  function handleMoveToWorkshop(instanceId: number) {
+    if (!topAbility || topAbility.type !== 'moveToWorkshop' || !currentPlayer) return;
+    const ci = currentPlayer.draftedCards.find(c => c.instanceId === instanceId);
+    if (!ci) return;
+    onAction({ type: 'selectMoveToWorkshop', card: ci.card });
+  }
+
+  function handleSkipMoveToWorkshop() {
+    onAction({ type: 'skipMoveToWorkshop' });
+  }
+
   function handleEndTurn() {
     onAction({ type: 'endTurn' });
   }
@@ -107,18 +133,30 @@
       {/if}
     </div>
 
-    {#if hasPendingChoice && !workshopPendingChoice}
+    {#if hasPendingChoice && !workshopPendingChoice && !draftedPendingChoice}
       <AbilityPrompt {gameState} {onAction} />
     {/if}
 
     <div class="sections">
-      <div class="section">
-        <h3>Drafted Cards <span class="hint">(click to destroy and activate ability)</span></h3>
-        <CardList
-          cards={draftCardOrder && actionState ? orderByDraftOrder(currentPlayer.draftedCards, draftCardOrder[actionState.currentPlayerIndex]) : currentPlayer.draftedCards}
-          selectable={!hasPendingChoice}
-          onCardClick={handleDestroyDrafted}
-        />
+      <div class="section" class:active-choice={draftedPendingChoice}>
+        {#if topAbility?.type === 'moveToWorkshop'}
+          <h3>Drafted Cards — Click a card to move to workshop</h3>
+          <CardList
+            cards={draftCardOrder && actionState ? orderByDraftOrder(currentPlayer.draftedCards, draftCardOrder[actionState.currentPlayerIndex]) : currentPlayer.draftedCards}
+            selectable={true}
+            onCardClick={handleMoveToWorkshop}
+          />
+          <button class="confirm-btn skip-btn" onclick={handleSkipMoveToWorkshop}>
+            Skip
+          </button>
+        {:else}
+          <h3>Drafted Cards <span class="hint">(click to destroy and activate ability)</span></h3>
+          <CardList
+            cards={draftCardOrder && actionState ? orderByDraftOrder(currentPlayer.draftedCards, draftCardOrder[actionState.currentPlayerIndex]) : currentPlayer.draftedCards}
+            selectable={!hasPendingChoice}
+            onCardClick={handleDestroyDrafted}
+          />
+        {/if}
       </div>
 
       <div class="section" class:active-choice={workshopPendingChoice}>
@@ -151,6 +189,17 @@
           />
           <button class="confirm-btn skip-btn" onclick={handleSkipDestroy}>
             Skip Destroy
+          </button>
+        {:else if topAbility?.type === 'moveToDrafted'}
+          <h3>Workshop — Click a card to move to drafted</h3>
+          <CardList
+            cards={workshopAndWorkshopped}
+            selectable={true}
+            rotatedIds={workshoppedIds}
+            onCardClick={handleMoveToDrafted}
+          />
+          <button class="confirm-btn skip-btn" onclick={handleSkipMoveToDrafted}>
+            Skip
           </button>
         {:else}
           <h3>Workshop</h3>

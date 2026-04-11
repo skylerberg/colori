@@ -91,6 +91,8 @@ pub enum Ability {
     ChangeTertiary,
     #[serde(rename = "moveToDrafted")]
     MoveToDrafted,
+    #[serde(rename = "moveToWorkshop")]
+    MoveToWorkshop,
 }
 
 // ── CardKind ──
@@ -107,7 +109,7 @@ pub enum CardKind {
     Action,
 }
 
-// ── Card enum (43 variants) ──
+// ── Card enum (45 variants) ──
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Card {
@@ -156,7 +158,7 @@ pub enum Card {
     ClayCanvas,
     ClayFabric,
     CanvasFabric,
-    // Actions (7)
+    // Actions (9)
     Alum,
     CreamOfTartar,
     GumArabic,
@@ -164,6 +166,8 @@ pub enum Card {
     Vinegar,
     Chalk,
     LinseedOil,
+    Lye,
+    SalAmmoniac,
 }
 
 struct CardProperties {
@@ -175,7 +179,7 @@ struct CardProperties {
     workshop_abilities: &'static [Ability],
 }
 
-const CARD_DATA: [CardProperties; 43] = [
+const CARD_DATA: [CardProperties; 45] = [
     // BasicRed
     CardProperties { name: "Basic Red", kind: CardKind::BasicDye, ability: Ability::Sell, colors: &[Color::Red], material_types: &[], workshop_abilities: &[] },
     // BasicYellow
@@ -262,6 +266,10 @@ const CARD_DATA: [CardProperties; 43] = [
     CardProperties { name: "Chalk", kind: CardKind::Action, ability: Ability::Sell, colors: &[], material_types: &[], workshop_abilities: &[Ability::GainPrimary] },
     // LinseedOil
     CardProperties { name: "Linseed Oil", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::MixColors { count: 2 }] },
+    // Lye
+    CardProperties { name: "Lye", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::MoveToDrafted] },
+    // SalAmmoniac
+    CardProperties { name: "Sal Ammoniac", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::MoveToWorkshop] },
 ];
 
 impl Card {
@@ -788,4 +796,10 @@ pub enum Choice {
     SelectMoveToDrafted { card: Card },
     #[serde(rename = "skipMoveToDrafted")]
     SkipMoveToDrafted,
+
+    // MoveToWorkshop ability (Sal Ammoniac workshop ability)
+    #[serde(rename = "selectMoveToWorkshop")]
+    SelectMoveToWorkshop { card: Card },
+    #[serde(rename = "skipMoveToWorkshop")]
+    SkipMoveToWorkshop,
 }

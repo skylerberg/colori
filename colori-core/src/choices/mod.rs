@@ -30,7 +30,7 @@ pub(crate) fn should_force_max_workshop(state: &GameState, player: &PlayerState)
     for id in player.workshop_cards.iter() {
         let card = state.card_lookup[id as usize];
         for &wa in card.workshop_abilities() {
-            if matches!(wa, Ability::DrawCards { .. }) {
+            if matches!(wa, Ability::DrawCards { .. } | Ability::MoveToWorkshop) {
                 return false;
             }
         }
@@ -146,6 +146,12 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                     choices.push(Choice::SkipMoveToDrafted);
                     for_each_unique_card_type(&player.workshop_cards, &state.card_lookup, |card| {
                         choices.push(Choice::SelectMoveToDrafted { card });
+                    });
+                }
+                Some(Ability::MoveToWorkshop) => {
+                    choices.push(Choice::SkipMoveToWorkshop);
+                    for_each_unique_card_type(&player.drafted_cards, &state.card_lookup, |card| {
+                        choices.push(Choice::SelectMoveToWorkshop { card });
                     });
                 }
                 // Instant abilities (DrawCards, GainDucats) should never be on top
@@ -395,6 +401,24 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
         Choice::SkipMoveToDrafted => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 matches!(action_state.ability_stack.last(), Some(Ability::MoveToDrafted))
+            } else {
+                false
+            }
+        }
+        Choice::SelectMoveToWorkshop { card } => {
+            if let GamePhase::Action { ref action_state } = state.phase {
+                matches!(action_state.ability_stack.last(), Some(Ability::MoveToWorkshop))
+                    && state.players[action_state.current_player_index]
+                        .drafted_cards
+                        .iter()
+                        .any(|id| state.card_lookup[id as usize] == *card)
+            } else {
+                false
+            }
+        }
+        Choice::SkipMoveToWorkshop => {
+            if let GamePhase::Action { ref action_state } = state.phase {
+                matches!(action_state.ability_stack.last(), Some(Ability::MoveToWorkshop))
             } else {
                 false
             }

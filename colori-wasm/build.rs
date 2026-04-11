@@ -15,6 +15,7 @@ fn format_ability(ability: &Ability) -> String {
         Ability::GainPrimary => "{ type: 'gainPrimary' }".to_string(),
         Ability::ChangeTertiary => "{ type: 'changeTertiary' }".to_string(),
         Ability::MoveToDrafted => "{ type: 'moveToDrafted' }".to_string(),
+        Ability::MoveToWorkshop => "{ type: 'moveToWorkshop' }".to_string(),
     }
 }
 

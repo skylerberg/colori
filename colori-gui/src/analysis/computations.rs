@@ -354,6 +354,10 @@ pub fn format_choice(choice: &Choice) -> String {
             format!("Moved {} to drafted", card_name(card))
         }
         Choice::SkipMoveToDrafted => "Skipped move to drafted".to_string(),
+        Choice::SelectMoveToWorkshop { card } => {
+            format!("Moved {} to workshop", card_name(card))
+        }
+        Choice::SkipMoveToWorkshop => "Skipped move to workshop".to_string(),
     }
 }
 
@@ -399,6 +403,8 @@ fn choice_type_name(choice: &Choice) -> String {
         Choice::DestroyAndDestroyCards { .. } => "destroyAndDestroyCards".to_string(),
         Choice::SelectMoveToDrafted { .. } => "selectMoveToDrafted".to_string(),
         Choice::SkipMoveToDrafted => "skipMoveToDrafted".to_string(),
+        Choice::SelectMoveToWorkshop { .. } => "selectMoveToWorkshop".to_string(),
+        Choice::SkipMoveToWorkshop => "skipMoveToWorkshop".to_string(),
     }
 }
 

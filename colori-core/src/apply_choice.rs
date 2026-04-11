@@ -217,5 +217,17 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
             get_action_state_mut(state).ability_stack.pop();
             process_ability_stack(state, rng);
         }
+        Choice::SelectMoveToWorkshop { card } => {
+            get_action_state_mut(state).ability_stack.pop();
+            let player_index = get_action_state(state).current_player_index;
+            let id = find_card_instance(state, card, &state.players[player_index].drafted_cards);
+            state.players[player_index].drafted_cards.remove(id as u8);
+            state.players[player_index].workshop_cards.insert(id as u8);
+            process_ability_stack(state, rng);
+        }
+        Choice::SkipMoveToWorkshop => {
+            get_action_state_mut(state).ability_stack.pop();
+            process_ability_stack(state, rng);
+        }
     }
 }

@@ -1,7 +1,7 @@
 use crate::types::{Card, SellCard};
 
 pub const DYE_COPIES: usize = 3;
-pub const ACTION_COPIES: usize = 4;
+pub const ACTION_COPIES: usize = 3;
 pub const MATERIAL_COPIES: usize = 1;
 
 pub fn basic_dye_cards() -> [Card; 3] {
@@ -36,8 +36,8 @@ pub fn draft_material_cards() -> [Card; 12] {
     ]
 }
 
-pub fn action_cards() -> [Card; 6] {
-    [Card::Alum, Card::CreamOfTartar, Card::GumArabic, Card::Potash, Card::LinseedOil, Card::Vinegar]
+pub fn action_cards() -> [Card; 8] {
+    [Card::Alum, Card::CreamOfTartar, Card::GumArabic, Card::Potash, Card::LinseedOil, Card::Vinegar, Card::Lye, Card::SalAmmoniac]
 }
 
 pub fn generate_all_sell_cards() -> [SellCard; 54] {

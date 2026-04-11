@@ -181,7 +181,16 @@ pub fn advance_draft(state: &mut GameState) {
         initialize_action_phase(state);
     } else {
         if let GamePhase::Draft { ref mut draft_state } = state.phase {
-            draft_state.current_player_index = ((round - 1) as usize) % num_players;
+            let starting = ((round - 1) as usize) % num_players;
+            let mut current = starting;
+            // Skip past players with empty hands
+            while draft_state.hands[current].is_empty() {
+                current = (current + 1) % num_players;
+                if current == starting {
+                    break;
+                }
+            }
+            draft_state.current_player_index = current;
         }
     }
 }

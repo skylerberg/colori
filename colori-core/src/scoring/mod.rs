@@ -6,7 +6,7 @@ use crate::colors::{PRIMARIES, SECONDARIES, TERTIARIES};
 use crate::fixed_vec::FixedVec;
 use crate::types::*;
 
-const ALL_CARDS: [Card; 43] = [
+const ALL_CARDS: [Card; 45] = [
     Card::BasicRed, Card::BasicYellow, Card::BasicBlue,
     Card::Lac, Card::Brazilwood, Card::Pomegranate,
     Card::Sumac, Card::Elderberry, Card::Turnsole,
@@ -21,16 +21,16 @@ const ALL_CARDS: [Card; 43] = [
     Card::ClayCanvas, Card::ClayFabric, Card::CanvasFabric,
     Card::Alum, Card::CreamOfTartar, Card::GumArabic,
     Card::Potash, Card::Vinegar, Card::Chalk,
-    Card::LinseedOil,
+    Card::LinseedOil, Card::Lye, Card::SalAmmoniac,
 ];
 
 pub struct CardHeuristicTable {
-    quality: [f64; 43],
+    quality: [f64; 45],
 }
 
 impl CardHeuristicTable {
     pub fn new(params: &HeuristicParams) -> Self {
-        let mut quality = [0.0f64; 43];
+        let mut quality = [0.0f64; 45];
         for &card in &ALL_CARDS {
             let idx = card as usize;
             quality[idx] = card_quality(card, params);

@@ -360,6 +360,23 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, 
                         process_ability_stack(state, rng);
                     }
                 }
+                Some(Ability::MoveToWorkshop) => {
+                    let player = &mut state.players[player_index];
+                    if player.drafted_cards.is_empty() || rng.random_range(0..2u32) == 0 {
+                        if let GamePhase::Action { ref mut action_state } = state.phase {
+                            action_state.ability_stack.pop();
+                        }
+                        process_ability_stack(state, rng);
+                    } else {
+                        let card_id = player.drafted_cards.pick_random(rng).unwrap();
+                        player.drafted_cards.remove(card_id);
+                        player.workshop_cards.insert(card_id);
+                        if let GamePhase::Action { ref mut action_state } = state.phase {
+                            action_state.ability_stack.pop();
+                        }
+                        process_ability_stack(state, rng);
+                    }
+                }
                 // Instant abilities should never be on top waiting — they get processed immediately
                 Some(_) => panic!("Unexpected ability on stack top during rollout"),
             }
@@ -1353,6 +1370,23 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                         let card_id = player.workshop_cards.pick_random(rng).unwrap();
                         player.workshop_cards.remove(card_id);
                         player.drafted_cards.insert(card_id);
+                        if let GamePhase::Action { ref mut action_state } = state.phase {
+                            action_state.ability_stack.pop();
+                        }
+                        process_ability_stack(state, rng);
+                    }
+                }
+                Some(Ability::MoveToWorkshop) => {
+                    let player = &mut state.players[player_index];
+                    if player.drafted_cards.is_empty() || rng.random_range(0..2u32) == 0 {
+                        if let GamePhase::Action { ref mut action_state } = state.phase {
+                            action_state.ability_stack.pop();
+                        }
+                        process_ability_stack(state, rng);
+                    } else {
+                        let card_id = player.drafted_cards.pick_random(rng).unwrap();
+                        player.drafted_cards.remove(card_id);
+                        player.workshop_cards.insert(card_id);
                         if let GamePhase::Action { ref mut action_state } = state.phase {
                             action_state.ability_stack.pop();
                         }

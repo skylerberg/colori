@@ -72,5 +72,6 @@ pub fn format_ability(ability: &Ability) -> String {
         Ability::GainPrimary => "Gain Primary".to_string(),
         Ability::ChangeTertiary => "Change Tertiary".to_string(),
         Ability::MoveToDrafted => "Move to Drafted".to_string(),
+        Ability::MoveToWorkshop => "Move to Workshop".to_string(),
     }
 }

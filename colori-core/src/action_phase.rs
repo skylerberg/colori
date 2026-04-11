@@ -80,8 +80,11 @@ struct CollectedAbilities {
     draw_card_count: usize,
     change_tertiary: [Ability; 8],
     change_tertiary_count: usize,
+    move_to_workshop: [Ability; 8],
+    move_to_workshop_count: usize,
     potash_base_count: Option<u32>,
     has_draw_cards: bool,
+    has_move_to_workshop: bool,
 }
 
 impl CollectedAbilities {
@@ -95,8 +98,11 @@ impl CollectedAbilities {
             draw_card_count: 0,
             change_tertiary: [Ability::Sell; 8],
             change_tertiary_count: 0,
+            move_to_workshop: [Ability::Sell; 8],
+            move_to_workshop_count: 0,
             potash_base_count: None,
             has_draw_cards: false,
+            has_move_to_workshop: false,
         }
     }
 
@@ -118,6 +124,11 @@ impl CollectedAbilities {
             Ability::MixColors { .. } => {
                 self.mix_colors[self.mix_colors_count] = ability;
                 self.mix_colors_count += 1;
+            }
+            Ability::MoveToWorkshop => {
+                self.has_move_to_workshop = true;
+                self.move_to_workshop[self.move_to_workshop_count] = ability;
+                self.move_to_workshop_count += 1;
             }
             _ => {
                 self.regular[self.regular_count] = ability;
@@ -159,9 +170,11 @@ fn push_abilities_to_stack(
     collected: &CollectedAbilities,
     remaining: Option<u32>,
 ) {
+    let needs_deferred_remaining = collected.has_draw_cards || collected.has_move_to_workshop;
+
     if let Some(base) = collected.potash_base_count {
         let potash_count = match remaining {
-            Some(rem) if !collected.has_draw_cards => base + rem,
+            Some(rem) if !needs_deferred_remaining => base + rem,
             _ => base,
         };
         stack.push(Ability::Workshop { count: potash_count });
@@ -172,13 +185,17 @@ fn push_abilities_to_stack(
     }
 
     if let Some(remaining) = remaining {
-        if collected.has_draw_cards && remaining > 0 {
+        if needs_deferred_remaining && remaining > 0 {
             stack.push(Ability::Workshop { count: remaining });
         }
     }
 
     for i in 0..collected.draw_card_count {
         stack.push(collected.draw_card[i]);
+    }
+
+    for i in 0..collected.move_to_workshop_count {
+        stack.push(collected.move_to_workshop[i]);
     }
 
     for i in 0..collected.mix_colors_count {
@@ -285,6 +302,14 @@ pub fn process_ability_stack<R: Rng>(state: &mut GameState, rng: &mut R) {
             }
             Ability::MoveToDrafted => {
                 if state.players[player_index].workshop_cards.is_empty() {
+                    get_action_state_mut(state).ability_stack.pop();
+                    continue;
+                } else {
+                    return; // waiting for input
+                }
+            }
+            Ability::MoveToWorkshop => {
+                if state.players[player_index].drafted_cards.is_empty() {
                     get_action_state_mut(state).ability_stack.pop();
                     continue;
                 } else {

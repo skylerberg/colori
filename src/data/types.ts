@@ -15,7 +15,8 @@ export type Ability =
   | { type: 'gainSecondary' }
   | { type: 'gainPrimary' }
   | { type: 'changeTertiary' }
-  | { type: 'moveToDrafted' };
+  | { type: 'moveToDrafted' }
+  | { type: 'moveToWorkshop' };
 
 // Card variant name strings from Rust
 export type Card = 'BasicRed' | 'BasicYellow' | 'BasicBlue'
@@ -28,7 +29,7 @@ export type Card = 'BasicRed' | 'BasicYellow' | 'BasicBlue'
   | 'AlizarinFabric' | 'FusticFabric' | 'PastelFabric'
   | 'ClayCanvas' | 'ClayFabric' | 'CanvasFabric'
   | 'Alum' | 'CreamOfTartar' | 'GumArabic' | 'Potash' | 'Vinegar' | 'Chalk'
-  | 'LinseedOil';
+  | 'LinseedOil' | 'Lye' | 'SalAmmoniac';
 
 export type SellCard = 'Textiles2Vermilion' | 'Textiles2Amber' | 'Textiles2Chartreuse'
   | 'Textiles2Teal' | 'Textiles2Indigo' | 'Textiles2Magenta'
@@ -155,7 +156,11 @@ export type Choice =
   | { type: 'destroyAndMix'; card: Card; mixes: [Color, Color][] }
   | { type: 'destroyAndSell'; card: Card; sellCard: SellCard }
   | { type: 'destroyAndWorkshop'; card: Card; workshopCards: Card[] }
-  | { type: 'destroyAndDestroyCards'; card: Card; target: Card | null };
+  | { type: 'destroyAndDestroyCards'; card: Card; target: Card | null }
+  | { type: 'selectMoveToDrafted'; card: Card }
+  | { type: 'skipMoveToDrafted' }
+  | { type: 'selectMoveToWorkshop'; card: Card }
+  | { type: 'skipMoveToWorkshop' };
 
 // ── Draw Event Types ──
 
