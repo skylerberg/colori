@@ -8,7 +8,7 @@ use std::time::SystemTime;
 use colori_core::scoring::HeuristicParams;
 
 static BASELINE_PARAMS: std::sync::LazyLock<HeuristicParams> = std::sync::LazyLock::new(|| {
-    const JSON: &str = include_str!("../../../genetic-algorithm/batch-lki08w-gen-17.json");
+    const JSON: &str = include_str!("../../../genetic-algorithm/batch-lki08w-gen-28.json");
     serde_json::from_str(JSON).expect("Failed to parse baseline params")
 });
 
