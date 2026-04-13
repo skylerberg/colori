@@ -17,8 +17,6 @@
   let playerNames: string[] = $state(['Player 1', 'AI Player 2', 'AI Player 3', 'AI Player 4', 'AI Player 5']);
   let isAI: boolean[] = $state([false, true, true, true, true]);
   let aiIterations: number[] = $state([100000, 100000, 100000, 100000, 100000]);
-  let aiStyle: 'ga' | 'nn' = $state('ga');
-  let experimentalOpen = $state(false);
 
   function updatePlayerCount(count: number) {
     playerCount = count;
@@ -50,7 +48,7 @@
     const names = playerNames.slice(0, playerCount).map((n, i) => n.trim() || `Player ${i + 1}`);
     const aiPlayers = isAI.slice(0, playerCount);
     const state = createInitialGameState(names, aiPlayers);
-    onGameStarted(state, aiIterations.slice(0, playerCount), aiStyle);
+    onGameStarted(state, aiIterations.slice(0, playerCount), 'ga');
   }
 </script>
 
@@ -104,26 +102,6 @@
         {/if}
       </div>
     {/each}
-  </div>
-
-  <div class="experimental-section">
-    <button class="experimental-header" onclick={() => experimentalOpen = !experimentalOpen}>
-      <span>Experimental</span>
-      <span class="chevron" class:open={experimentalOpen}></span>
-    </button>
-
-    {#if experimentalOpen}
-      <div class="experimental-content">
-        <div class="ai-style-row">
-          <!-- svelte-ignore a11y_label_has_associated_control -->
-          <label class="ai-style-label">AI Evaluation:</label>
-          <select class="ai-style-select" bind:value={aiStyle}>
-            <option value="ga">GA rqo1vv gen 18</option>
-            <option value="nn">NN epoch 213</option>
-          </select>
-        </div>
-      </div>
-    {/if}
   </div>
 
   <button class="start-btn" onclick={startGame}>Start Game</button>
@@ -241,75 +219,6 @@
     cursor: pointer;
     min-height: 44px;
     width: auto;
-  }
-
-  .experimental-section {
-    border: 2px solid var(--border-gold, rgba(201, 168, 76, 0.3));
-    border-radius: 8px;
-    background: var(--bg-panel, #ebe3d3);
-    overflow: hidden;
-  }
-
-  .experimental-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    padding: 12px 16px;
-    background: none;
-    border: none;
-    font-size: 0.95rem;
-    font-weight: 600;
-    cursor: pointer;
-    min-height: 44px;
-    color: inherit;
-  }
-
-  .experimental-header:hover {
-    background: rgba(201, 168, 76, 0.1);
-  }
-
-  .chevron {
-    display: inline-block;
-    width: 0;
-    height: 0;
-    border-left: 5px solid transparent;
-    border-right: 5px solid transparent;
-    border-top: 6px solid currentColor;
-    transition: transform 0.2s;
-  }
-
-  .chevron.open {
-    transform: rotate(180deg);
-  }
-
-  .experimental-content {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 0 16px 12px;
-  }
-
-  .ai-style-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .ai-style-label {
-    font-size: 0.95rem;
-    font-weight: 600;
-  }
-
-  .ai-style-select {
-    flex: 1;
-    padding: 8px 8px;
-    font-size: 0.8rem;
-    border: 2px solid var(--border-gold, rgba(201, 168, 76, 0.3));
-    border-radius: 6px;
-    background: #fff;
-    cursor: pointer;
-    min-height: 44px;
   }
 
   .start-btn {
