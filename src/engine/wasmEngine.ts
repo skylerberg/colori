@@ -98,9 +98,12 @@ export function getChoiceLogMessage(
     case 'skipWorkshop':
       return `${name} skipped workshop`;
     case 'destroyDrawnCards': {
-      if (choice.card === null) return `${name} destroyed nothing from workshop`;
+      if (choice.card === null) return `${name} did not move a card to draft pool`;
       const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
-      return `${name} destroyed ${cardName} from workshop`;
+      // Two log lines joined by a newline — addLog splits on '\n' so the human
+      // log shows "moved" and "destroyed" as separate entries, even though the
+      // engine treats this as a single atomic choice.
+      return `${name} moved ${cardName} from workshop to draft pool\n${name} destroyed ${cardName} from draft pool`;
     }
     case 'selectSellCard': {
       return `${name} sold to a ${getSellCardData(choice.sellCard).ducats}-ducat sell card`;
@@ -140,10 +143,10 @@ export function getChoiceLogMessage(
     case 'destroyAndDestroyCards': {
       const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
       if (choice.target === null) {
-        return `${name} destroyed ${cardName} from drafted cards, destroyed nothing from workshop`;
+        return `${name} destroyed ${cardName} from drafted cards\n${name} did not move a card to draft pool`;
       }
       const targetName = (getAnyCardData(choice.target) as { name?: string })?.name ?? 'a card';
-      return `${name} destroyed ${cardName} from drafted cards, destroyed ${targetName} from workshop`;
+      return `${name} destroyed ${cardName} from drafted cards\n${name} moved ${targetName} from workshop to draft pool\n${name} destroyed ${targetName} from draft pool`;
     }
     case 'selectMoveToDrafted': {
       const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';

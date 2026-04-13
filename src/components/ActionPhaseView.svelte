@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { GameState, Choice, Ability } from '../data/types';
+  import type { GameState, Choice, Ability, CardInstance } from '../data/types';
   import { orderByDraftOrder } from '../gameUtils';
   import { getAnyCardData } from '../data/cards';
   import CardList from './CardList.svelte';
@@ -28,8 +28,22 @@
   );
   let hasPendingChoice = $derived(topAbility !== null);
 
+  // Track a pending "move from workshop to draft pool" selection. This is purely
+  // a UI-level two-step split of the engine's atomic DestroyCards choice:
+  //   Step A — player picks a workshop card (no engine call yet; we show it in
+  //            the drafted row).
+  //   Step B — player clicks that card in the drafted row to confirm destroy,
+  //            OR clicks Skip. Either way the engine receives a single
+  //            destroyDrawnCards choice, preserving the original game tree.
+  let pendingMoveToDraft: CardInstance | null = $state(null);
+
   let workshopAndWorkshopped = $derived(
     currentPlayer ? [...currentPlayer.workshopCards, ...currentPlayer.workshoppedCards] : []
+  );
+  let workshopDisplayCards = $derived(
+    pendingMoveToDraft
+      ? workshopAndWorkshopped.filter(c => c.instanceId !== pendingMoveToDraft!.instanceId)
+      : workshopAndWorkshopped
   );
   let workshoppedIds = $derived(
     currentPlayer ? currentPlayer.workshoppedCards.map(c => c.instanceId) : []
@@ -37,19 +51,40 @@
   let hasAbilitiesQueued = $derived((actionState?.abilityStack.length ?? 0) > 0);
 
   let workshopPendingChoice = $derived(
-    topAbility?.type === 'workshop' || topAbility?.type === 'destroyCards' || topAbility?.type === 'moveToDrafted'
+    topAbility?.type === 'workshop'
+      || (topAbility?.type === 'destroyCards' && !pendingMoveToDraft)
+      || topAbility?.type === 'moveToDrafted'
       ? topAbility : null
   );
 
   let draftedPendingChoice = $derived(
-    topAbility?.type === 'moveToWorkshop' ? topAbility : null
+    topAbility?.type === 'moveToWorkshop'
+      || (topAbility?.type === 'destroyCards' && pendingMoveToDraft)
+      ? topAbility : null
   );
+
+  let draftedDisplayCards = $derived.by(() => {
+    if (!currentPlayer || !actionState) return [];
+    const base = draftCardOrder
+      ? orderByDraftOrder(currentPlayer.draftedCards, draftCardOrder[actionState.currentPlayerIndex])
+      : currentPlayer.draftedCards;
+    return pendingMoveToDraft ? [...base, pendingMoveToDraft] : base;
+  });
 
   let selectedWorkshopIds: number[] = $state([]);
 
   $effect(() => {
     topAbility;
     selectedWorkshopIds = [];
+  });
+
+  // Clear the pending move when the DestroyCards ability leaves the top of the
+  // stack (either resolved or replaced). Without this the pending card could
+  // linger visually across state transitions.
+  $effect(() => {
+    if (!topAbility || topAbility.type !== 'destroyCards') {
+      pendingMoveToDraft = null;
+    }
   });
 
   function toggleWorkshopCard(instanceId: number) {
@@ -75,18 +110,33 @@
     onAction({ type: 'skipWorkshop' });
   }
 
-  function handleDestroyCard(instanceId: number) {
+  function handleStageMoveToDraft(instanceId: number) {
     if (!topAbility || topAbility.type !== 'destroyCards' || !currentPlayer) return;
+    if (pendingMoveToDraft) return;
     const card = currentPlayer.workshopCards.find(c => c.instanceId === instanceId);
     if (!card) return;
-    onAction({ type: 'destroyDrawnCards', card: card.card });
+    pendingMoveToDraft = card;
+  }
+
+  function handleConfirmDestroyPending(instanceId: number) {
+    if (!pendingMoveToDraft || pendingMoveToDraft.instanceId !== instanceId) return;
+    const card = pendingMoveToDraft.card;
+    onAction({ type: 'destroyDrawnCards', card });
   }
 
   function handleSkipDestroy() {
+    // Sends the engine a null destroyDrawnCards choice, which matches the
+    // engine-truth of "no card moved to draft pool this ability." The UI's
+    // pending card is cleared by the $effect above once DestroyCards leaves
+    // the stack.
     onAction({ type: 'destroyDrawnCards', card: null });
   }
 
   function handleDestroyDrafted(cardInstanceId: number) {
+    if (pendingMoveToDraft && pendingMoveToDraft.instanceId === cardInstanceId) {
+      handleConfirmDestroyPending(cardInstanceId);
+      return;
+    }
     if (hasPendingChoice || !currentPlayer) return;
     const ci = currentPlayer.draftedCards.find(c => c.instanceId === cardInstanceId);
     if (!ci) return;
@@ -149,10 +199,21 @@
           <button class="confirm-btn skip-btn" onclick={handleSkipMoveToWorkshop}>
             Skip
           </button>
+        {:else if topAbility?.type === 'destroyCards' && pendingMoveToDraft}
+          <h3>Drafted Cards — Click the moved card to destroy it and trigger its ability</h3>
+          <CardList
+            cards={draftedDisplayCards}
+            selectable={true}
+            selectedIds={[pendingMoveToDraft.instanceId]}
+            onCardClick={handleDestroyDrafted}
+          />
+          <button class="confirm-btn skip-btn" onclick={handleSkipDestroy}>
+            Skip
+          </button>
         {:else}
           <h3>Drafted Cards <span class="hint">(click to destroy and activate ability)</span></h3>
           <CardList
-            cards={draftCardOrder && actionState ? orderByDraftOrder(currentPlayer.draftedCards, draftCardOrder[actionState.currentPlayerIndex]) : currentPlayer.draftedCards}
+            cards={draftedDisplayCards}
             selectable={!hasPendingChoice}
             onCardClick={handleDestroyDrafted}
           />
@@ -179,17 +240,20 @@
               </button>
             {/if}
           </div>
-        {:else if topAbility?.type === 'destroyCards'}
-          <h3>Workshop — Click a card to destroy it</h3>
+        {:else if topAbility?.type === 'destroyCards' && !pendingMoveToDraft}
+          <h3>Workshop — Click a card to move to draft pool</h3>
           <CardList
-            cards={workshopAndWorkshopped}
+            cards={workshopDisplayCards}
             selectable={true}
             rotatedIds={workshoppedIds}
-            onCardClick={handleDestroyCard}
+            onCardClick={handleStageMoveToDraft}
           />
           <button class="confirm-btn skip-btn" onclick={handleSkipDestroy}>
-            Skip Destroy
+            Skip
           </button>
+        {:else if topAbility?.type === 'destroyCards' && pendingMoveToDraft}
+          <h3>Workshop</h3>
+          <CardList cards={workshopDisplayCards} rotatedIds={workshoppedIds} />
         {:else if topAbility?.type === 'moveToDrafted'}
           <h3>Workshop — Click a card to move to drafted</h3>
           <CardList

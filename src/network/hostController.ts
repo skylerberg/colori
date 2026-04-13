@@ -294,7 +294,7 @@ export class HostController {
 
     this.structuredLog?.recordChoice(this.gameState, choice, playerIndex);
     const logMsg = getChoiceLogMessage(this.gameState, choice, playerIndex);
-    const newLogEntries: string[] = logMsg ? [logMsg] : [];
+    const newLogEntries: string[] = logMsg ? logMsg.split('\n') : [];
 
     const draws = applyChoice(this.gameState, choice);
     this.structuredLog?.attachDrawsToLastEntry(draws);

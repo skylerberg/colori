@@ -120,7 +120,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'action-phase-concept',
     title: 'Action Phase',
-    text: 'After drafting, each player takes a turn. On your turn, destroy drafted cards one at a time to trigger abilities like Workshop (store colors/materials), Mix Colors (combine two adjacent colors into one), Sell (complete a sell card), Draw Cards, or Destroy Cards (chain reactions). When done, remaining drafted and workshop cards go to your discard pile.',
+    text: 'After drafting, each player takes a turn. On your turn, destroy drafted cards one at a time to trigger abilities like Workshop (store colors/materials), Mix Colors (combine two adjacent colors into one), Sell (complete a sell card), Draw Cards, or Move to Draft Pool (chain reactions). When done, remaining drafted and workshop cards go to your discard pile.',
     buttons: [backButton, nextButton],
   });
 

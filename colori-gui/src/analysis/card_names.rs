@@ -65,7 +65,7 @@ pub fn format_ability(ability: &Ability) -> String {
         Ability::Workshop { count } => format!("Workshop x{}", count),
         Ability::DrawCards { count } => format!("Draw x{}", count),
         Ability::MixColors { count } => format!("Mix x{}", count),
-        Ability::DestroyCards => "Destroy x1".to_string(),
+        Ability::DestroyCards => "Move to Draft Pool".to_string(),
         Ability::Sell => "Sell".to_string(),
         Ability::GainDucats { count } => format!("Gain {} Ducats", count),
         Ability::GainSecondary => "Gain Secondary".to_string(),

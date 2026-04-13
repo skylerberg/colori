@@ -135,9 +135,9 @@ Complete mixing pairs (two inputs → one output):
 | Yellow | Blue | Green |
 | Blue | Red | Purple |
 
-### Destroy Cards ×N
+### Move a Card from Workshop to Draft Pool
 
-Choose N cards from your **workshop** and destroy them. Each destroyed card's ability triggers and is pushed onto the ability stack (chain reactions are possible).
+Choose one card from your **workshop** and move it to your **draft pool**. You may then destroy it from the draft pool to trigger its ability, as with any drafted card. Triggered abilities are pushed onto the ability stack, so chain reactions are possible.
 
 ### Sell
 
@@ -253,12 +253,12 @@ Their workshop abilities (triggered when chosen during Workshop resolution) are:
 | Name | Destroy Ability | Workshop Abilities | Notes |
 |------|----------------|-------------------|-------|
 | Chalk | Sell | Any Primary | Starter card (1 per player, not in draft deck) |
-| Alum | Destroy Cards ×1 | Gain Ducats ×1 | Draft deck |
-| Cream of Tartar | Destroy Cards ×1 | Draw Cards ×3 | Draft deck |
-| Gum Arabic | Destroy Cards ×1 | Any Secondary | Draft deck |
+| Alum | Move to Draft Pool | Gain Ducats ×1 | Draft deck |
+| Cream of Tartar | Move to Draft Pool | Draw Cards ×3 | Draft deck |
+| Gum Arabic | Move to Draft Pool | Any Secondary | Draft deck |
 | Potash | Draw Cards ×2 | Workshop ×3 | Draft deck |
-| Linseed Oil | Destroy Cards ×1 | Mix Colors ×2 | Draft deck |
-| Vinegar | Destroy Cards ×1 | Change Tertiary | Draft deck |
+| Linseed Oil | Move to Draft Pool | Mix Colors ×2 | Draft deck |
+| Vinegar | Move to Draft Pool | Change Tertiary | Draft deck |
 
 ### Sell Cards (54 total, single deck)
 

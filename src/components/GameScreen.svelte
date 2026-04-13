@@ -92,7 +92,9 @@
   });
 
   function addLog(entry: string) {
-    gameLog.push(entry);
+    for (const line of entry.split('\n')) {
+      gameLog.push(line);
+    }
   }
 
   const aiController = new AIController();
