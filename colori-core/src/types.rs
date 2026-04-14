@@ -802,4 +802,18 @@ pub enum Choice {
     SelectMoveToWorkshop { card: Card },
     #[serde(rename = "skipMoveToWorkshop")]
     SkipMoveToWorkshop,
+
+    // Human-UI-only deferred "move workshop card to draft pool" variants.
+    // These let the UI split the atomic DestroyCards choice into two user
+    // actions (stage the move, then later commit the destroy) without
+    // changing the MCTS game tree — the enumerator never emits these, so
+    // the AI's search never explores them. Applied by the engine identically
+    // to what DestroyCards already does: DeferredMoveToDraft is behaviorally
+    // `DestroyDrawnCards { card: None }` (pops DestroyCards, leaves the card
+    // in workshop); DestroyWorkshopCardDeferred destroys that card and
+    // triggers its ability later, when the user commits.
+    #[serde(rename = "deferredMoveToDraft")]
+    DeferredMoveToDraft { card: Card },
+    #[serde(rename = "destroyWorkshopCardDeferred")]
+    DestroyWorkshopCardDeferred { card: Card },
 }

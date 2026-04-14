@@ -235,6 +235,36 @@ pub fn destroy_drafted_card<R: Rng>(state: &mut GameState, card_instance_id: u32
     process_ability_stack(state, rng);
 }
 
+/// Destroy a workshop card and trigger its ability — without requiring
+/// `DestroyCards` to be on the stack. Used by the human UI's deferred
+/// move-to-draft-pool flow: after staging a move (which pops DestroyCards),
+/// the user can later commit by clicking the card in the draft pool, which
+/// invokes this helper. The MCTS enumerator never emits the corresponding
+/// Choice, so the AI's game tree is unchanged.
+pub fn destroy_workshop_card_and_trigger<R: Rng>(
+    state: &mut GameState,
+    card_instance_id: u32,
+    rng: &mut R,
+) {
+    let id = card_instance_id as u8;
+    let player_index = get_action_state(state).current_player_index;
+    let player = &mut state.players[player_index];
+
+    assert!(
+        player.workshop_cards.contains(id),
+        "Card not found in player's workshopCards"
+    );
+    player.workshop_cards.remove(id);
+
+    let card = state.card_lookup[id as usize];
+    let ability = card.ability();
+    state.destroyed_pile.insert(id);
+
+    let action_state = get_action_state_mut(state);
+    action_state.ability_stack.push(ability);
+    process_ability_stack(state, rng);
+}
+
 pub fn process_ability_stack<R: Rng>(state: &mut GameState, rng: &mut R) {
     loop {
         let action_state = get_action_state(state);

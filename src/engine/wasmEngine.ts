@@ -160,6 +160,14 @@ export function getChoiceLogMessage(
     }
     case 'skipMoveToWorkshop':
       return `${name} skipped moving a card to workshop`;
+    case 'deferredMoveToDraft': {
+      const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
+      return `${name} moved ${cardName} from workshop to draft pool`;
+    }
+    case 'destroyWorkshopCardDeferred': {
+      const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
+      return `${name} destroyed ${cardName} from draft pool`;
+    }
     default:
       return assertNever(choice);
   }

@@ -423,5 +423,27 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
                 false
             }
         }
+        Choice::DeferredMoveToDraft { card } => {
+            if let GamePhase::Action { ref action_state } = state.phase {
+                matches!(action_state.ability_stack.last(), Some(Ability::DestroyCards))
+                    && state.players[action_state.current_player_index]
+                        .workshop_cards
+                        .iter()
+                        .any(|id| state.card_lookup[id as usize] == *card)
+            } else {
+                false
+            }
+        }
+        Choice::DestroyWorkshopCardDeferred { card } => {
+            if let GamePhase::Action { ref action_state } = state.phase {
+                action_state.ability_stack.is_empty()
+                    && state.players[action_state.current_player_index]
+                        .workshop_cards
+                        .iter()
+                        .any(|id| state.card_lookup[id as usize] == *card)
+            } else {
+                false
+            }
+        }
     }
 }

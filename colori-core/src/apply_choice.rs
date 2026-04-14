@@ -229,5 +229,18 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
             get_action_state_mut(state).ability_stack.pop();
             process_ability_stack(state, rng);
         }
+        Choice::DeferredMoveToDraft { .. } => {
+            // Behaviorally identical to DestroyDrawnCards { card: None }: the
+            // engine simply pops the DestroyCards ability and leaves the card
+            // in the workshop. The `card` field is carried only so the UI log
+            // can name which card was visually moved to the draft pool.
+            resolve_destroy_cards(state, UnorderedCards::new(), rng);
+        }
+        Choice::DestroyWorkshopCardDeferred { card } => {
+            let player_index = get_action_state(state).current_player_index;
+            let workshop = state.players[player_index].workshop_cards;
+            let card_instance_id = find_card_instance(state, card, &workshop);
+            destroy_workshop_card_and_trigger(state, card_instance_id, rng);
+        }
     }
 }

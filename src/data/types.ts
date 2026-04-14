@@ -160,7 +160,9 @@ export type Choice =
   | { type: 'selectMoveToDrafted'; card: Card }
   | { type: 'skipMoveToDrafted' }
   | { type: 'selectMoveToWorkshop'; card: Card }
-  | { type: 'skipMoveToWorkshop' };
+  | { type: 'skipMoveToWorkshop' }
+  | { type: 'deferredMoveToDraft'; card: Card }
+  | { type: 'destroyWorkshopCardDeferred'; card: Card };
 
 // ── Draw Event Types ──
 

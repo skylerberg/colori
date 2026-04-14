@@ -358,6 +358,12 @@ pub fn format_choice(choice: &Choice) -> String {
             format!("Moved {} to workshop", card_name(card))
         }
         Choice::SkipMoveToWorkshop => "Skipped move to workshop".to_string(),
+        Choice::DeferredMoveToDraft { card } => {
+            format!("Moved {} from workshop to draft pool", card_name(card))
+        }
+        Choice::DestroyWorkshopCardDeferred { card } => {
+            format!("Destroyed {} from draft pool", card_name(card))
+        }
     }
 }
 
@@ -405,6 +411,8 @@ fn choice_type_name(choice: &Choice) -> String {
         Choice::SkipMoveToDrafted => "skipMoveToDrafted".to_string(),
         Choice::SelectMoveToWorkshop { .. } => "selectMoveToWorkshop".to_string(),
         Choice::SkipMoveToWorkshop => "skipMoveToWorkshop".to_string(),
+        Choice::DeferredMoveToDraft { .. } => "deferredMoveToDraft".to_string(),
+        Choice::DestroyWorkshopCardDeferred { .. } => "destroyWorkshopCardDeferred".to_string(),
     }
 }
 
