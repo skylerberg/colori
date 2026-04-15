@@ -2,24 +2,16 @@ import { joinRoom } from 'trystero/nostr';
 import type { Room } from 'trystero';
 import type { HostMessage, GuestMessage } from './types';
 
-// WebRTC ICE servers. Keep total URLs at 4 or fewer — browsers warn and slow down
-// candidate discovery past that. One Google STUN + one Cloudflare STUN for redundancy
-// across providers, plus two openrelay TURN URLs (UDP and TCP) to relay traffic when
-// peers are behind symmetric NATs. Openrelay is a free shared service; for production
-// traffic a dedicated TURN server (e.g. coturn) is preferred.
+// WebRTC ICE servers — STUN only. One Google STUN + one Cloudflare STUN gives
+// independent providers in case one is unreachable. No TURN fallback: the public
+// openrelay credentials were deprecated in 2024 and a broken TURN entry is worse
+// than none (WebRTC burns time on it before giving up). As a consequence, peers
+// behind symmetric NAT or strict corporate firewalls can't establish a data
+// channel. To fix that, add a TURN entry here pointing at your own relay —
+// Cloudflare Realtime has a free tier, or self-host coturn.
 const ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun.cloudflare.com:3478' },
-  {
-    urls: 'turn:openrelay.metered.ca:80',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
-  {
-    urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
 ];
 
 export class NetworkManager {
