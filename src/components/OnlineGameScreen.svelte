@@ -97,11 +97,52 @@
     }, durationMs);
   }
 
+  // Draft card order tracking — updated imperatively from state-change callbacks
+  // (not via $effect — that pattern self-loops because it reads+writes the same $state).
+  let draftCardOrder: number[][] = $state([]);
+  let lastPickNumber: number | null = null;
+  let hasPicked = $state(false);
+
+  function syncFromGameState(gs: GameState) {
+    // Keep draftCardOrder in sync with the latest drafted cards per player.
+    if (draftCardOrder.length !== gs.players.length) {
+      draftCardOrder = gs.players.map(() => []);
+    } else {
+      for (let i = 0; i < gs.players.length; i++) {
+        const drafted = gs.players[i].draftedCards;
+        if (drafted.length === 0 && draftCardOrder[i].length > 0) {
+          draftCardOrder[i] = [];
+          continue;
+        }
+        const knownIds = new Set(draftCardOrder[i]);
+        let appended: number[] | null = null;
+        for (const c of drafted) {
+          if (!knownIds.has(c.instanceId)) {
+            if (appended === null) appended = [...draftCardOrder[i]];
+            appended.push(c.instanceId);
+            knownIds.add(c.instanceId);
+          }
+        }
+        if (appended !== null) draftCardOrder[i] = appended;
+      }
+    }
+
+    // Reset optimistic hasPicked lock when a new draft pick round begins.
+    if (gs.phase.type === 'draft') {
+      const pn = gs.phase.draftState.pickNumber;
+      if (lastPickNumber !== null && pn !== lastPickNumber) {
+        hasPicked = false;
+      }
+      lastPickNumber = pn;
+    }
+  }
+
   // Setup host controller callbacks
   // svelte-ignore state_referenced_locally
   if (role === 'host' && hostController) {
     hostController.onGameStateChanged = (state) => {
       hostGameState = state;
+      syncFromGameState(state);
     };
     hostController.onLogUpdated = (log) => {
       hostGameLog = [...log];
@@ -123,6 +164,7 @@
     hostGameState = hostController.getGameState();
     hostGameLog = [...hostController.getGameLog()];
     effectiveStartTime = hostController.getGameStartTime() || gameStartTime;
+    if (hostGameState) syncFromGameState(hostGameState);
   }
 
   // Setup guest controller callbacks
@@ -132,7 +174,7 @@
       guestSanitizedState = state;
       guestGameLog = [...guestController!.getGameLog()];
       if (state.gameStartTime) effectiveStartTime = state.gameStartTime;
-      // If host tells us a draft pick was rejected, unlock the UI.
+      syncFromGameState(sanitizedToGameState(state));
     };
     guestController.onGameOver = (state) => {
       guestSanitizedState = state;
@@ -158,48 +200,8 @@
       latencyMs = ms;
       connectionStatus = stalled ? 'stalled' : 'ok';
     };
+    if (guestSanitizedState) syncFromGameState(sanitizedToGameState(guestSanitizedState));
   }
-
-  // Draft card order tracking
-  let draftCardOrder: number[][] = $state([]);
-
-  let lastDraftedCounts: number[] = $state([]);
-  $effect(() => {
-    if (!gameState) return;
-    if (draftCardOrder.length !== gameState.players.length) {
-      draftCardOrder = gameState.players.map(() => []);
-      lastDraftedCounts = gameState.players.map(p => p.draftedCards.length);
-      return;
-    }
-    for (let i = 0; i < gameState.players.length; i++) {
-      const currentCount = gameState.players[i].draftedCards.length;
-      if (currentCount > (lastDraftedCounts[i] ?? 0)) {
-        const knownIds = new Set(draftCardOrder[i]);
-        for (const c of gameState.players[i].draftedCards) {
-          if (!knownIds.has(c.instanceId)) {
-            draftCardOrder[i] = [...draftCardOrder[i], c.instanceId];
-          }
-        }
-      } else if (currentCount === 0 && draftCardOrder[i].length > 0) {
-        draftCardOrder[i] = [];
-      }
-    }
-    lastDraftedCounts = gameState.players.map(p => p.draftedCards.length);
-  });
-
-  // Simultaneous draft state
-  let hasPicked = $state(false);
-  let lastPickNumber: number | null = $state(null);
-
-  $effect(() => {
-    if (gameState?.phase.type === 'draft') {
-      const currentPickNumber = gameState.phase.draftState.pickNumber;
-      if (lastPickNumber !== null && currentPickNumber !== lastPickNumber) {
-        hasPicked = false;
-      }
-      lastPickNumber = currentPickNumber;
-    }
-  });
 
   function handleAction(choice: Choice) {
     if (choice.type === 'draftPick') {
