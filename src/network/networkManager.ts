@@ -32,11 +32,11 @@ export class NetworkManager {
       this.onPeerLeave?.(peerId);
     });
 
-    const [sendHost, getHost] = this.room.makeAction<HostMessage>('host');
-    const [sendGuest, getGuest] = this.room.makeAction<GuestMessage>('guest');
+    const [sendHost, getHost] = this.room.makeAction('host');
+    const [sendGuest, getGuest] = this.room.makeAction('guest');
 
-    this.sendHostMsg = sendHost as (data: HostMessage, targetPeers?: string | string[]) => void;
-    this.sendGuestMsg = sendGuest as (data: GuestMessage, targetPeers?: string | string[]) => void;
+    this.sendHostMsg = sendHost as unknown as (data: HostMessage, targetPeers?: string | string[]) => void;
+    this.sendGuestMsg = sendGuest as unknown as (data: GuestMessage, targetPeers?: string | string[]) => void;
 
     getHost((data, peerId) => this.onHostMessage?.(data as HostMessage, peerId));
     getGuest((data, peerId) => this.onGuestMessage?.(data as GuestMessage, peerId));
@@ -69,9 +69,11 @@ export class NetworkManager {
 
 function generateRoomCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
   let code = '';
-  for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 8; i++) {
+    code += chars[bytes[i] % chars.length];
   }
   return code;
 }

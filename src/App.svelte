@@ -54,6 +54,27 @@
   let lobbyPlayerCount = $state(2);
   let hostName = $state('');
 
+  type RejoinInfo = { roomCode: string; name: string; token: string };
+  let rejoinInfo: RejoinInfo | null = $state(loadRejoinInfo());
+
+  function persistRejoinInfo(info: RejoinInfo | null) {
+    rejoinInfo = info;
+    try {
+      if (info) sessionStorage.setItem('colori-rejoin', JSON.stringify(info));
+      else sessionStorage.removeItem('colori-rejoin');
+    } catch {}
+  }
+
+  function loadRejoinInfo(): RejoinInfo | null {
+    try {
+      const raw = sessionStorage.getItem('colori-rejoin');
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.roomCode && parsed.name && parsed.token) return parsed as RejoinInfo;
+    } catch {}
+    return null;
+  }
+
   // -- History helpers --
 
   function pushScreen(newScreen: AppScreen) {
@@ -228,16 +249,25 @@
 
     guestController.onGameStarted = (state: SanitizedGameState) => {
       gameState = sanitizedToGameState(state);
-      gameStartTime = Date.now();
+      gameStartTime = state.gameStartTime ?? Date.now();
+      const token = guestController!.getRejoinToken();
+      const name = guestController!.getMyName();
+      if (token && name && roomCode) {
+        persistRejoinInfo({ roomCode, name, token });
+      }
       replaceScreen({ type: 'onlineGame', role: 'guest' });
     };
 
-    guestController.onError = (message: string) => {
-      alert(message);
+    guestController.onError = (message: string, context?: string) => {
+      // Only show blocking alerts for join-time errors; in-game errors surface via OnlineGameScreen banner.
+      if (context === 'join' || !screen || screen.type !== 'onlineGame') {
+        alert(message);
+      }
     };
 
-    guestController.onHostDisconnected = () => {
-      alert('Host disconnected');
+    guestController.onHostDisconnected = (reason) => {
+      alert(reason === 'intentional' ? 'Host ended the game' : 'Host disconnected');
+      persistRejoinInfo(null);
       goToMainMenu();
     };
 
@@ -248,6 +278,57 @@
     networkManager!.join(code);
     roomCode = code;
     guestController!.join(name);
+  }
+
+  function rejoinOnlineGame() {
+    if (!rejoinInfo) return;
+    const info = rejoinInfo;
+    networkManager = new NetworkManager();
+    guestController = new GuestController(networkManager);
+
+    guestController.onLobbyUpdated = (players, playerCount) => {
+      lobbyPlayers = [...players];
+      lobbyPlayerCount = playerCount;
+    };
+
+    guestController.onGameStarted = (state: SanitizedGameState) => {
+      gameState = sanitizedToGameState(state);
+      gameStartTime = state.gameStartTime ?? Date.now();
+      replaceScreen({ type: 'onlineGame', role: 'guest' });
+    };
+
+    guestController.onSanitizedStateChanged = (state) => {
+      // First state update from a successful rejoin acts as "game resumed".
+      if (screen.type !== 'onlineGame') {
+        gameState = sanitizedToGameState(state);
+        gameStartTime = state.gameStartTime ?? Date.now();
+        replaceScreen({ type: 'onlineGame', role: 'guest' });
+      }
+    };
+
+    guestController.onError = (message: string, context?: string) => {
+      if (context === 'join') {
+        alert(`Rejoin failed: ${message}`);
+        persistRejoinInfo(null);
+        cleanupNetwork();
+        goToMainMenu();
+      }
+    };
+
+    guestController.onHostDisconnected = (reason) => {
+      alert(reason === 'intentional' ? 'Host ended the game' : 'Host disconnected');
+      persistRejoinInfo(null);
+      goToMainMenu();
+    };
+
+    roomCode = info.roomCode;
+    networkManager.join(info.roomCode);
+    guestController.rejoin(info.name, info.token);
+    pushScreen({ type: 'lobby', role: 'guest' });
+  }
+
+  function dismissRejoinInfo() {
+    persistRejoinInfo(null);
   }
 
   function handleSetHostName(name: string) {
@@ -264,11 +345,12 @@
     if (!hostController) return;
     hostController.startGame();
     gameState = hostController.getGameState();
-    gameStartTime = Date.now();
+    gameStartTime = hostController.getGameStartTime();
     replaceScreen({ type: 'onlineGame', role: 'host' });
   }
 
   function handleOnlineGameOver(finalState: GameState, structuredLog?: StructuredGameLog) {
+    persistRejoinInfo(null);
     cleanupNetwork();
     gameState = finalState;
     finalGameLog = structuredLog ?? null;
@@ -276,7 +358,12 @@
   }
 
   function cleanupNetwork() {
+    // If we were hosting an active game, politely notify guests before tearing down transport.
+    if (hostController && hostController.getGameState()) {
+      hostController.announceHostLeaving();
+    }
     hostController?.cleanup();
+    guestController?.leave();
     networkManager?.leave();
     networkManager = null;
     hostController = null;
@@ -285,6 +372,18 @@
     lobbyPlayers = [];
     lobbyPlayerCount = 2;
   }
+
+  // Warn on refresh/close during an active online game.
+  $effect(() => {
+    function onBeforeUnload(e: BeforeUnloadEvent) {
+      if (screen.type === 'onlineGame' || screen.type === 'lobby') {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    }
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  });
 </script>
 
 <main>
@@ -304,6 +403,10 @@
       {hasSavedGame}
       onResumeGame={resumeGame}
       onHowToPlay={handleHowToPlay}
+      rejoinAvailable={rejoinInfo !== null}
+      rejoinRoomCode={rejoinInfo?.roomCode ?? ''}
+      onRejoinOnline={rejoinOnlineGame}
+      onDismissRejoin={dismissRejoinInfo}
     />
   {:else if screen.type === 'localSetup'}
     <SetupScreen onGameStarted={handleGameStarted} />

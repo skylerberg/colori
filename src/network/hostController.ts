@@ -8,6 +8,21 @@ import type { StructuredGameLog } from '../data/types';
 import { GameLogAccumulator } from '../gameLog';
 import { getActivePlayerIndex } from '../gameUtils';
 
+const DISCONNECT_GRACE_MS = 60_000;
+const MAX_NAME_LENGTH = 20;
+const HOST_REJOIN_TOKEN = 'host';
+
+function sanitizeName(raw: string): string {
+  const trimmed = (raw ?? '').trim().replace(/\s+/g, ' ');
+  return trimmed.slice(0, MAX_NAME_LENGTH);
+}
+
+function randomToken(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
+
 export class HostController {
   private network: NetworkManager;
   private gameState: GameState | null = null;
@@ -19,18 +34,23 @@ export class HostController {
   private disconnectTimers: Map<number, ReturnType<typeof setTimeout>> = new Map();
   private submittedDraftPicks: Set<number> = new Set();
   private structuredLog: GameLogAccumulator | null = null;
+  private rejoinTokens: Map<number, string> = new Map();
+  private gameStartTime: number = 0;
 
   onLobbyUpdated: ((players: LobbyPlayer[]) => void) | null = null;
   onGameStateChanged: ((state: GameState) => void) | null = null;
   onLogUpdated: ((log: string[]) => void) | null = null;
   onGameOver: ((state: GameState) => void) | null = null;
+  onPlayerDisconnected: ((playerIndex: number, playerName: string) => void) | null = null;
+  onPlayerReconnected: ((playerIndex: number, playerName: string) => void) | null = null;
+  onPlayerReplacedByAI: ((playerIndex: number, playerName: string) => void) | null = null;
 
   constructor(network: NetworkManager, hostName: string) {
     this.network = network;
 
     this.lobbyPlayers.push({
       peerId: 'host',
-      name: hostName,
+      name: sanitizeName(hostName) || 'Host',
       playerIndex: 0,
       isHost: true,
       isConnected: true,
@@ -41,13 +61,18 @@ export class HostController {
   }
 
   setHostName(name: string) {
-    this.lobbyPlayers[0].name = name;
+    const clean = sanitizeName(name) || 'Host';
+    if (this.lobbyPlayers[0].name === clean) return;
+    if (!this.gameState && this.isNameTaken(clean, 0)) return;
+    this.lobbyPlayers[0].name = clean;
     this.broadcastLobbyUpdate();
   }
 
   setPlayerCount(count: number) {
     const connectedHumans = this.lobbyPlayers.filter(p => p.isConnected).length;
     if (count < connectedHumans) return;
+    const maxIndex = this.lobbyPlayers.reduce((m, p) => Math.max(m, p.playerIndex), 0);
+    if (count <= maxIndex) return;
     this.playerCount = count;
     this.broadcastLobbyUpdate();
   }
@@ -68,8 +93,24 @@ export class HostController {
     return this.gameLog;
   }
 
+  getGameStartTime(): number {
+    return this.gameStartTime;
+  }
+
   getStructuredLog(): StructuredGameLog | null {
     return this.structuredLog?.getLog() ?? null;
+  }
+
+  getHostRejoinToken(): string {
+    return HOST_REJOIN_TOKEN;
+  }
+
+  hasSubmittedDraftPick(playerIndex: number): boolean {
+    return this.submittedDraftPicks.has(playerIndex);
+  }
+
+  private isNameTaken(name: string, exceptIndex: number): boolean {
+    return this.lobbyPlayers.some(p => p.playerIndex !== exceptIndex && p.name.toLowerCase() === name.toLowerCase());
   }
 
   private handleGuestMessage(msg: GuestMessage, peerId: string) {
@@ -78,36 +119,50 @@ export class HostController {
         this.handleJoinRequest(peerId, msg.name);
         break;
       case 'rejoinRequest':
-        this.handleRejoinRequest(peerId, msg.name);
+        this.handleRejoinRequest(peerId, msg.name, msg.rejoinToken);
         break;
       case 'action':
         this.handlePlayerAction(peerId, msg.choice);
         break;
+      case 'ping':
+        this.network.sendToGuest({ type: 'pong', t: msg.t }, peerId);
+        break;
     }
   }
 
-  private handleJoinRequest(peerId: string, name: string) {
+  private handleJoinRequest(peerId: string, rawName: string) {
+    const name = sanitizeName(rawName);
+    if (!name) {
+      this.network.sendToGuest({ type: 'error', message: 'Name required', context: 'join' }, peerId);
+      return;
+    }
+
     if (this.gameState) {
-      const disconnectedPlayer = this.lobbyPlayers.find(p => !p.isConnected && p.name === name);
-      if (disconnectedPlayer) {
-        this.handleRejoinRequest(peerId, name);
-        return;
-      }
-      this.network.sendToGuest({ type: 'error', message: 'Game already in progress' }, peerId);
+      this.network.sendToGuest({ type: 'error', message: 'Game already in progress. Use rejoin.', context: 'join' }, peerId);
       return;
     }
 
     if (this.peerToPlayerIndex.has(peerId)) return;
 
+    if (this.isNameTaken(name, -1)) {
+      this.network.sendToGuest({ type: 'error', message: 'Name already taken', context: 'join' }, peerId);
+      return;
+    }
+
     const humanCount = this.lobbyPlayers.length;
     if (humanCount >= this.playerCount) {
-      this.network.sendToGuest({ type: 'error', message: 'Game is full' }, peerId);
+      this.network.sendToGuest({ type: 'error', message: 'Game is full', context: 'join' }, peerId);
       return;
     }
 
     const usedIndices = new Set(this.lobbyPlayers.map(p => p.playerIndex));
     let playerIndex = 1;
     while (usedIndices.has(playerIndex)) playerIndex++;
+
+    if (playerIndex >= this.playerCount) {
+      this.network.sendToGuest({ type: 'error', message: 'Game is full', context: 'join' }, peerId);
+      return;
+    }
 
     this.lobbyPlayers.push({
       peerId,
@@ -121,15 +176,32 @@ export class HostController {
     this.broadcastLobbyUpdate();
   }
 
-  private handleRejoinRequest(peerId: string, name: string) {
+  private handleRejoinRequest(peerId: string, rawName: string, token: string) {
+    const name = sanitizeName(rawName);
     if (!this.gameState) {
-      this.network.sendToGuest({ type: 'error', message: 'No game in progress' }, peerId);
+      this.network.sendToGuest({ type: 'error', message: 'No game in progress', context: 'join' }, peerId);
       return;
     }
 
-    const player = this.lobbyPlayers.find(p => !p.isConnected && p.name === name);
+    let slotIndex: number | undefined;
+    for (const [idx, stored] of this.rejoinTokens.entries()) {
+      if (stored === token && token && token !== HOST_REJOIN_TOKEN) {
+        slotIndex = idx;
+        break;
+      }
+    }
+    if (slotIndex === undefined) {
+      this.network.sendToGuest({ type: 'error', message: 'Invalid rejoin token', context: 'join' }, peerId);
+      return;
+    }
+
+    const player = this.lobbyPlayers.find(p => p.playerIndex === slotIndex);
     if (!player) {
-      this.network.sendToGuest({ type: 'error', message: 'Cannot rejoin: no matching disconnected player' }, peerId);
+      this.network.sendToGuest({ type: 'error', message: 'No matching player slot', context: 'join' }, peerId);
+      return;
+    }
+    if (player.name !== name) {
+      this.network.sendToGuest({ type: 'error', message: 'Name does not match rejoin token', context: 'join' }, peerId);
       return;
     }
 
@@ -149,6 +221,8 @@ export class HostController {
     this.gameState.aiPlayers[player.playerIndex] = false;
 
     const sanitized = sanitizeGameState(this.gameState, player.playerIndex, [...this.gameLog]);
+    sanitized.resync = true;
+    sanitized.gameStartTime = this.gameStartTime;
     this.network.sendToGuest({ type: 'stateUpdate', state: sanitized }, peerId);
 
     this.network.sendToAllGuests({
@@ -159,6 +233,7 @@ export class HostController {
 
     this.addLog(`${player.name} reconnected`);
     this.broadcastLobbyUpdate();
+    this.onPlayerReconnected?.(player.playerIndex, player.name);
     this.onGameStateChanged?.(this.gameState);
   }
 
@@ -187,10 +262,11 @@ export class HostController {
 
     this.addLog(`${player.name} disconnected`);
     this.broadcastLobbyUpdate();
+    this.onPlayerDisconnected?.(player.playerIndex, player.name);
 
     const timer = setTimeout(() => {
       this.replaceWithAI(player.playerIndex);
-    }, 60000);
+    }, DISCONNECT_GRACE_MS);
     this.disconnectTimers.set(player.playerIndex, timer);
   }
 
@@ -198,12 +274,20 @@ export class HostController {
     if (!this.gameState) return;
     this.gameState.aiPlayers[playerIndex] = true;
     this.disconnectTimers.delete(playerIndex);
-    this.addLog(`${this.gameState.playerNames[playerIndex]} replaced by AI`);
+    const name = this.gameState.playerNames[playerIndex];
+    this.addLog(`${name} replaced by AI`);
+    this.network.sendToAllGuests({
+      type: 'playerReplacedByAI',
+      playerIndex,
+      playerName: name,
+    });
+    this.onPlayerReplacedByAI?.(playerIndex, name);
     this.onGameStateChanged?.(this.gameState);
   }
 
   startGame() {
     this.submittedDraftPicks.clear();
+    this.rejoinTokens.clear();
     const playerNames: string[] = new Array(this.playerCount);
     const aiPlayers: boolean[] = new Array(this.playerCount).fill(true);
 
@@ -220,17 +304,30 @@ export class HostController {
       }
     }
 
-    this.gameState = createInitialGameState(playerNames, aiPlayers);
+    try {
+      this.gameState = createInitialGameState(playerNames, aiPlayers);
+    } catch (e) {
+      console.error('Failed to create game state', e);
+      return;
+    }
     this.structuredLog = new GameLogAccumulator(this.gameState);
     this.gameLog = [];
+    this.gameStartTime = Date.now();
     this.addLog('Game started');
+
+    for (const lp of this.lobbyPlayers) {
+      this.rejoinTokens.set(lp.playerIndex, lp.isHost ? HOST_REJOIN_TOKEN : randomToken());
+    }
 
     this.executeDrawIfNeeded();
 
     for (const lp of this.lobbyPlayers) {
       if (!lp.isHost && lp.isConnected) {
         const sanitized = sanitizeGameState(this.gameState, lp.playerIndex, [...this.gameLog]);
-        this.network.sendToGuest({ type: 'gameStarted', state: sanitized }, lp.peerId);
+        sanitized.gameStartTime = this.gameStartTime;
+        sanitized.resync = true;
+        const token = this.rejoinTokens.get(lp.playerIndex) ?? '';
+        this.network.sendToGuest({ type: 'gameStarted', state: sanitized, rejoinToken: token }, lp.peerId);
       }
     }
 
@@ -251,28 +348,47 @@ export class HostController {
 
   applyAction(choice: Choice, playerIndex: number) {
     if (!this.gameState) return;
+    const peerId = this.playerIndexToPeer.get(playerIndex);
 
-    // During draft phase, use simultaneous picking
     if (this.gameState.phase.type === 'draft' && choice.type === 'draftPick') {
       if (this.submittedDraftPicks.has(playerIndex)) {
-        const peerId = this.playerIndexToPeer.get(playerIndex);
         if (peerId) {
-          this.network.sendToGuest({ type: 'error', message: 'Already picked this round' }, peerId);
+          this.network.sendToGuest({ type: 'error', message: 'Already picked this round', context: 'draftPick' }, peerId);
         }
         return;
       }
 
-      this.structuredLog?.recordChoice(this.gameState, choice, playerIndex);
-      simultaneousPick(this.gameState, playerIndex, choice.card);
+      const ds = this.gameState.phase.draftState;
+      if (!ds.hands[playerIndex] || ds.hands[playerIndex].length === 0) {
+        if (peerId) {
+          this.network.sendToGuest({ type: 'error', message: 'No cards to pick this round', context: 'draftPick' }, peerId);
+        }
+        return;
+      }
+
+      try {
+        this.structuredLog?.recordChoice(this.gameState, choice, playerIndex);
+        simultaneousPick(this.gameState, playerIndex, choice.card);
+      } catch (e) {
+        console.error('simultaneousPick failed', e);
+        if (peerId) {
+          this.network.sendToGuest({ type: 'error', message: 'Invalid draft pick', context: 'draftPick' }, peerId);
+        }
+        return;
+      }
       this.submittedDraftPicks.add(playerIndex);
       this.broadcastGameState([]);
       this.onGameStateChanged?.(this.gameState);
 
-      // Check if all players with non-empty hands have picked
-      const ds = (this.gameState.phase as { type: 'draft'; draftState: { hands: any[] } }).draftState;
-      const playersNeedingPick = this.gameState.players.filter((_, idx) => ds.hands[idx].length > 0).length;
+      const ds2 = (this.gameState.phase as { type: 'draft'; draftState: { hands: unknown[][] } }).draftState;
+      const playersNeedingPick = this.gameState.players.filter((_, idx) => ds2.hands[idx].length > 0).length;
       if (this.submittedDraftPicks.size >= playersNeedingPick) {
-        advanceDraft(this.gameState);
+        try {
+          advanceDraft(this.gameState);
+        } catch (e) {
+          console.error('advanceDraft failed', e);
+          return;
+        }
         this.submittedDraftPicks.clear();
         this.executeDrawIfNeeded();
         this.broadcastGameState([]);
@@ -282,22 +398,29 @@ export class HostController {
       return;
     }
 
-    // For non-draft actions, check it's the player's turn
     const activeIndex = getActivePlayerIndex(this.gameState);
     if (activeIndex !== playerIndex) {
-      const peerId = this.playerIndexToPeer.get(playerIndex);
       if (peerId) {
-        this.network.sendToGuest({ type: 'error', message: 'Not your turn' }, peerId);
+        this.network.sendToGuest({ type: 'error', message: 'Not your turn', context: 'action' }, peerId);
       }
       return;
     }
 
-    this.structuredLog?.recordChoice(this.gameState, choice, playerIndex);
-    const logMsg = getChoiceLogMessage(this.gameState, choice, playerIndex);
-    const newLogEntries: string[] = logMsg ? logMsg.split('\n') : [];
+    let newLogEntries: string[] = [];
+    try {
+      this.structuredLog?.recordChoice(this.gameState, choice, playerIndex);
+      const logMsg = getChoiceLogMessage(this.gameState, choice, playerIndex);
+      newLogEntries = logMsg ? logMsg.split('\n') : [];
 
-    const draws = applyChoice(this.gameState, choice);
-    this.structuredLog?.attachDrawsToLastEntry(draws);
+      const draws = applyChoice(this.gameState, choice);
+      this.structuredLog?.attachDrawsToLastEntry(draws);
+    } catch (e) {
+      console.error('applyChoice failed', e);
+      if (peerId) {
+        this.network.sendToGuest({ type: 'error', message: 'Invalid action', context: 'action' }, peerId);
+      }
+      return;
+    }
 
     this.gameLog.push(...newLogEntries);
     this.executeDrawIfNeeded();
@@ -310,8 +433,12 @@ export class HostController {
     if (!this.gameState) return;
     if (this.gameState.phase.type === 'draw') {
       this.gameLog.push(`Round ${this.gameState.round} began`);
-      const draws = executeDrawPhase(this.gameState);
-      this.structuredLog?.recordDrawPhaseDraws(draws);
+      try {
+        const draws = executeDrawPhase(this.gameState);
+        this.structuredLog?.recordDrawPhaseDraws(draws);
+      } catch (e) {
+        console.error('executeDrawPhase failed', e);
+      }
     }
   }
 
@@ -349,6 +476,10 @@ export class HostController {
       playerCount: this.playerCount,
     });
     this.onLobbyUpdated?.(this.lobbyPlayers);
+  }
+
+  announceHostLeaving() {
+    this.network.sendToAllGuests({ type: 'hostLeft', reason: 'intentional' });
   }
 
   cleanup() {

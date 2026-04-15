@@ -17,11 +17,31 @@
   let guestName = $state('');
   let joinCode = $state('');
   let joined = $state(false);
+  // svelte-ignore state_referenced_locally
+  let localHostName = $state(hostName);
+  let hostNameDebounce: ReturnType<typeof setTimeout> | null = null;
+
+  function handleHostNameInput(value: string) {
+    localHostName = value;
+    if (hostNameDebounce) clearTimeout(hostNameDebounce);
+    hostNameDebounce = setTimeout(() => {
+      onSetHostName?.(value);
+      hostNameDebounce = null;
+    }, 300);
+  }
+
+  function commitHostName() {
+    if (hostNameDebounce) {
+      clearTimeout(hostNameDebounce);
+      hostNameDebounce = null;
+    }
+    onSetHostName?.(localHostName);
+  }
 
   function handleJoin() {
-    const name = guestName.trim() || 'Player';
+    const name = guestName.trim();
     const code = joinCode.trim().toUpperCase();
-    if (!code) return;
+    if (!name || !code) return;
     onJoin?.(name, code);
     joined = true;
   }
@@ -41,8 +61,10 @@
       <input
         id="host-name"
         type="text"
-        value={hostName}
-        oninput={(e) => onSetHostName?.(e.currentTarget.value)}
+        value={localHostName}
+        maxlength="20"
+        oninput={(e) => handleHostNameInput(e.currentTarget.value)}
+        onblur={commitHostName}
         placeholder="Host"
       />
     </div>
@@ -108,6 +130,7 @@
             id="guest-name"
             type="text"
             bind:value={guestName}
+            maxlength="20"
             placeholder="Player"
           />
         </div>
@@ -117,12 +140,12 @@
             id="join-code"
             type="text"
             bind:value={joinCode}
-            placeholder="ABC123"
-            maxlength="6"
+            placeholder="ABCDEFGH"
+            maxlength="8"
             style="text-transform: uppercase"
           />
         </div>
-        <button class="join-btn" onclick={handleJoin} disabled={!joinCode.trim()}>
+        <button class="join-btn" onclick={handleJoin} disabled={!joinCode.trim() || !guestName.trim()}>
           Join
         </button>
       </div>

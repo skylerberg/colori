@@ -1,16 +1,27 @@
 <script lang="ts">
-  let { onLocalGame, onHostOnline, onJoinOnline, hasSavedGame, onResumeGame, onHowToPlay }: {
+  let {
+    onLocalGame, onHostOnline, onJoinOnline, hasSavedGame, onResumeGame, onHowToPlay,
+    rejoinAvailable = false, rejoinRoomCode = '', onRejoinOnline, onDismissRejoin,
+  }: {
     onLocalGame: () => void;
     onHostOnline: () => void;
     onJoinOnline: () => void;
     hasSavedGame: boolean;
     onResumeGame: () => void;
     onHowToPlay: () => void;
+    rejoinAvailable?: boolean;
+    rejoinRoomCode?: string;
+    onRejoinOnline?: () => void;
+    onDismissRejoin?: () => void;
   } = $props();
 </script>
 
 <div class="main-menu">
   <div class="menu-buttons">
+    {#if rejoinAvailable}
+      <button class="menu-btn resume-btn" onclick={onRejoinOnline}>Rejoin Online Game ({rejoinRoomCode})</button>
+      <button class="menu-btn dismiss-btn" onclick={onDismissRejoin}>Dismiss rejoin</button>
+    {/if}
     {#if hasSavedGame}
       <button class="menu-btn resume-btn" onclick={onResumeGame}>Resume Game</button>
     {/if}
@@ -101,6 +112,19 @@
 
   .tutorial-btn:hover {
     background: #3a2a1e;
+  }
+
+  .dismiss-btn {
+    background: transparent;
+    color: var(--text-secondary, #6b5744);
+    border: 1px solid var(--border-gold, rgba(201, 168, 76, 0.3));
+    font-size: 0.8rem;
+    padding: 8px 14px;
+    min-height: 36px;
+  }
+
+  .dismiss-btn:hover {
+    background: rgba(201, 168, 76, 0.08);
   }
 
 </style>

@@ -5,8 +5,7 @@
   import type { GuestController } from '../network/guestController';
   import { sanitizedToGameState } from '../network/stateAdapter';
   import { AIController } from '../ai/aiController';
-  import { cloneGameState } from '../engine/wasmEngine';
-  import { getActivePlayerIndex, isCurrentPlayerAI, orderByDraftOrder } from '../gameUtils';
+  import { getActivePlayerIndex, isCurrentPlayerAI } from '../gameUtils';
   import GameLayout from './GameLayout.svelte';
   import DraftPhaseView from './DraftPhaseView.svelte';
   import ActionPhaseView from './ActionPhaseView.svelte';
@@ -30,14 +29,20 @@
 
   // Shared state
   let aiThinking = $state(false);
+  // svelte-ignore state_referenced_locally
+  let effectiveStartTime = $state(gameStartTime);
+  let connectionStatus = $state<'ok' | 'stalled' | 'lost'>('ok');
+  let latencyMs = $state(0);
+  let connectionBanner: { text: string; kind: 'info' | 'warn' } | null = $state(null);
+  let connectionBannerTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Timer
   let elapsedSeconds = $state(0);
 
   $effect(() => {
-    elapsedSeconds = Math.floor((Date.now() - gameStartTime) / 1000);
+    elapsedSeconds = Math.floor((Date.now() - effectiveStartTime) / 1000);
     const interval = setInterval(() => {
-      elapsedSeconds = Math.floor((Date.now() - gameStartTime) / 1000);
+      elapsedSeconds = Math.floor((Date.now() - effectiveStartTime) / 1000);
     }, 1000);
     return () => clearInterval(interval);
   });
@@ -45,8 +50,8 @@
   // AI controller (host only)
   // svelte-ignore state_referenced_locally
   const aiController = role === 'host' ? new AIController() : null;
+  let aiGenerationSeq = 0;
 
-  // Derive the GameState for rendering (works for both host and guest)
   let gameState = $derived.by(() => {
     if (role === 'host') {
       return hostGameState;
@@ -70,7 +75,6 @@
 
   let selectedPlayerIndex = $state(0);
 
-  // Initialize selectedPlayerIndex to myPlayerIndex when it becomes available
   $effect(() => {
     if (myPlayerIndex >= 0) {
       selectedPlayerIndex = myPlayerIndex;
@@ -81,9 +85,13 @@
     selectedPlayerIndex = index;
   }
 
-  let myPlayer = $derived(
-    gameState && myPlayerIndex >= 0 ? gameState.players[myPlayerIndex] : null
-  );
+  function showBanner(text: string, kind: 'info' | 'warn' = 'info', durationMs = 4000) {
+    if (connectionBannerTimer) clearTimeout(connectionBannerTimer);
+    connectionBanner = { text, kind };
+    connectionBannerTimer = setTimeout(() => {
+      connectionBanner = null;
+    }, durationMs);
+  }
 
   // Setup host controller callbacks
   // svelte-ignore state_referenced_locally
@@ -98,10 +106,19 @@
       const structuredLog = hostController!.getStructuredLog() ?? undefined;
       onGameOver(state, structuredLog);
     };
+    hostController.onPlayerDisconnected = (_idx, name) => {
+      showBanner(`${name} disconnected — waiting up to 60s before AI takes over`, 'warn', 6000);
+    };
+    hostController.onPlayerReconnected = (_idx, name) => {
+      showBanner(`${name} reconnected`, 'info');
+    };
+    hostController.onPlayerReplacedByAI = (_idx, name) => {
+      showBanner(`${name} replaced by AI`, 'warn', 6000);
+    };
 
-    // Initialize with current state
     hostGameState = hostController.getGameState();
     hostGameLog = [...hostController.getGameLog()];
+    effectiveStartTime = hostController.getGameStartTime() || gameStartTime;
   }
 
   // Setup guest controller callbacks
@@ -110,28 +127,46 @@
     guestController.onSanitizedStateChanged = (state) => {
       guestSanitizedState = state;
       guestGameLog = [...guestController!.getGameLog()];
+      if (state.gameStartTime) effectiveStartTime = state.gameStartTime;
+      // If host tells us a draft pick was rejected, unlock the UI.
     };
     guestController.onGameOver = (state) => {
       guestSanitizedState = state;
       guestGameLog = [...guestController!.getGameLog()];
       onGameOver(sanitizedToGameState(state));
     };
+    guestController.onError = (message, context) => {
+      if (context === 'draftPick') {
+        hasPicked = false;
+      }
+      showBanner(message, 'warn', 5000);
+    };
+    guestController.onPlayerDisconnected = (_idx, name) => {
+      showBanner(`${name} disconnected`, 'warn', 5000);
+    };
+    guestController.onPlayerReconnected = (_idx, name) => {
+      showBanner(`${name} reconnected`, 'info');
+    };
+    guestController.onPlayerReplacedByAI = (_idx, name) => {
+      showBanner(`${name} replaced by AI`, 'warn', 5000);
+    };
+    guestController.onLatencyChange = (ms, stalled) => {
+      latencyMs = ms;
+      connectionStatus = stalled ? 'stalled' : 'ok';
+    };
   }
 
   // Draft card order tracking
   let draftCardOrder: number[][] = $state([]);
 
-  // Sync draftCardOrder when gameState changes (detect newly drafted cards)
   let lastDraftedCounts: number[] = $state([]);
   $effect(() => {
     if (!gameState) return;
-    // Initialize if player count changed
     if (draftCardOrder.length !== gameState.players.length) {
       draftCardOrder = gameState.players.map(() => []);
       lastDraftedCounts = gameState.players.map(p => p.draftedCards.length);
       return;
     }
-    // Detect newly added drafted cards for each player
     for (let i = 0; i < gameState.players.length; i++) {
       const currentCount = gameState.players[i].draftedCards.length;
       if (currentCount > (lastDraftedCounts[i] ?? 0)) {
@@ -142,7 +177,6 @@
           }
         }
       } else if (currentCount === 0 && draftCardOrder[i].length > 0) {
-        // New round — reset
         draftCardOrder[i] = [];
       }
     }
@@ -163,7 +197,6 @@
     }
   });
 
-  // Handle action from phase views
   function handleAction(choice: Choice) {
     if (choice.type === 'draftPick') {
       hasPicked = true;
@@ -181,18 +214,19 @@
     if (gameState.phase.type === 'gameOver') return;
     if (gameState.phase.type === 'draw') return;
 
-    // Simultaneous AI drafting: compute picks for all AI players at once
     if (gameState.phase.type === 'draft') {
       const ds = gameState.phase.draftState;
       const aiPlayerIndices = gameState.aiPlayers
         .map((isAI, idx) => isAI ? idx : -1)
         .filter(idx => idx >= 0)
-        .filter(idx => !hostController!['submittedDraftPicks'].has(idx))
+        .filter(idx => !hostController!.hasSubmittedDraftPick(idx))
         .filter(idx => ds.hands[idx].length > 0);
 
       if (aiPlayerIndices.length === 0) return;
 
       aiThinking = true;
+      const mySeq = ++aiGenerationSeq;
+      const snapshotAI = [...gameState.aiPlayers];
       Promise.all(
         aiPlayerIndices.map(playerIdx => {
           return aiController!.getAIChoice(gameState!, playerIdx, 100000).then(choice => ({
@@ -202,8 +236,16 @@
         })
       ).then(results => {
         aiThinking = false;
+        if (mySeq !== aiGenerationSeq) return;
         for (const { playerIdx, choice } of results) {
-          hostController?.applyAction(choice, playerIdx);
+          // Skip if the player has since reconnected (no longer AI) or state moved on.
+          if (!hostController) break;
+          const curState = hostController.getGameState();
+          if (!curState || curState.phase.type !== 'draft') break;
+          if (!curState.aiPlayers[playerIdx]) continue;
+          if (!snapshotAI[playerIdx]) continue;
+          if (hostController.hasSubmittedDraftPick(playerIdx)) continue;
+          hostController.applyAction(choice, playerIdx);
         }
       }).catch((e) => {
         console.error('AI draft error:', e);
@@ -212,15 +254,22 @@
       return;
     }
 
-    // For non-draft phases, use sequential AI turns
     if (!isCurrentPlayerAI(gameState)) return;
 
     const playerIdx = getActivePlayerIndex(gameState);
     aiThinking = true;
+    const mySeq = ++aiGenerationSeq;
 
     aiController!.getAIChoice(gameState, playerIdx, 100000).then((choice) => {
       aiThinking = false;
-      hostController?.applyAction(choice, playerIdx);
+      if (mySeq !== aiGenerationSeq) return;
+      if (!hostController) return;
+      const curState = hostController.getGameState();
+      if (!curState || curState.phase.type === 'gameOver') return;
+      // Abandon if this player is no longer AI (reconnected) or no longer the active player.
+      if (!curState.aiPlayers[playerIdx]) return;
+      if (getActivePlayerIndex(curState) !== playerIdx) return;
+      hostController.applyAction(choice, playerIdx);
     }).catch((e) => {
       console.error('AI action error:', e);
       aiThinking = false;
@@ -231,6 +280,14 @@
 
 {#if gameState}
   <GameLayout {gameState} {activePlayerIndex} {aiThinking} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} {selectedPlayerIndex} onSelectPlayer={selectPlayer} {draftCardOrder}>
+    {#if connectionBanner}
+      <div class="connection-banner" class:warn={connectionBanner.kind === 'warn'}>{connectionBanner.text}</div>
+    {/if}
+
+    {#if role === 'guest' && connectionStatus === 'stalled'}
+      <div class="connection-banner warn">Connection to host appears stalled{latencyMs > 0 ? ` (last ping ${latencyMs}ms)` : ''}…</div>
+    {/if}
+
     {#if !isMyTurn && !aiThinking && gameState.phase.type === 'action'}
       <div class="waiting-banner">
         <div class="spinner"></div>
@@ -269,6 +326,22 @@
     text-align: center;
   }
 
+  .connection-banner {
+    padding: 8px 12px;
+    border-radius: 6px;
+    background: rgba(201, 168, 76, 0.15);
+    color: #2c1e12;
+    font-size: 0.85rem;
+    text-align: center;
+    margin: 4px;
+  }
+
+  .connection-banner.warn {
+    background: rgba(139, 32, 32, 0.12);
+    color: #8b2020;
+    font-weight: 600;
+  }
+
   .spinner {
     width: 28px;
     height: 28px;
@@ -281,8 +354,6 @@
   @keyframes spin {
     to { transform: rotate(360deg); }
   }
-
-  /* ===== RESPONSIVE OVERRIDES (mobile-first) ===== */
 
   @media (min-width: 768px) {
     .waiting-banner {

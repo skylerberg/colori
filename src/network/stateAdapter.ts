@@ -3,9 +3,10 @@ import type { SanitizedGameState } from './types';
 
 export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
   const players: PlayerState[] = sanitized.players.map(sp => ({
-    deck: new Array(sp.deckCount) as CardInstance[],
-    discard: new Array(sp.discardCount) as CardInstance[],
-    workshoppedCards: new Array(sp.workshoppedCardsCount) as CardInstance[],
+    // Owned player: full cards. Opponents: length-only sparse arrays (UI only reads .length for opponents).
+    deck: sp.deck.length > 0 ? sp.deck : (new Array(sp.deckCount) as CardInstance[]),
+    discard: sp.discard.length > 0 ? sp.discard : (new Array(sp.discardCount) as CardInstance[]),
+    workshoppedCards: sp.workshoppedCards,
     workshopCards: sp.workshopCards,
     draftedCards: sp.draftedCards,
     colorWheel: sp.colorWheel,

@@ -6,17 +6,22 @@ export function sanitizeGameState(
   forPlayerIndex: number,
   newLogEntries: string[] = [],
 ): SanitizedGameState {
-  const players: SanitizedPlayerState[] = fullState.players.map(p => ({
-    deckCount: p.deck.length,
-    discardCount: p.discard.length,
-    workshoppedCardsCount: p.workshoppedCards.length,
-    workshopCards: [...p.workshopCards],
-    draftedCards: [...p.draftedCards],
-    colorWheel: { ...p.colorWheel },
-    materials: { ...p.materials },
-    completedSellCards: [...p.completedSellCards],
-    ducats: p.ducats,
-  }));
+  const players: SanitizedPlayerState[] = fullState.players.map((p, i) => {
+    const isOwner = i === forPlayerIndex;
+    return {
+      deckCount: p.deck.length,
+      discardCount: p.discard.length,
+      deck: isOwner ? [...p.deck] : [],
+      discard: isOwner ? [...p.discard] : [],
+      workshoppedCards: [...p.workshoppedCards],
+      workshopCards: [...p.workshopCards],
+      draftedCards: [...p.draftedCards],
+      colorWheel: { ...p.colorWheel },
+      materials: { ...p.materials },
+      completedSellCards: [...p.completedSellCards],
+      ducats: p.ducats,
+    };
+  });
 
   let phase: SanitizedGamePhase;
   if (fullState.phase.type === 'draft') {
