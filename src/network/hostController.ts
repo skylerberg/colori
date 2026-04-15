@@ -380,9 +380,18 @@ export class HostController {
       this.broadcastGameState([]);
       this.onGameStateChanged?.(this.gameState);
 
+      // The pick-round is complete when every player has either submitted this round
+      // OR started the round with no cards to pick. Counting `hands[idx].length > 0`
+      // *after* simultaneousPick is wrong: it excludes the player who just emptied
+      // their hand, so the threshold drops below the still-pending picks and triggers
+      // an early advanceDraft — which then drops the next pick that arrives over the
+      // network or is applied by the AI loop. With submittedDraftPicks.has(idx) we
+      // count "I've already done my pick this round" correctly regardless of order.
       const ds2 = (this.gameState.phase as { type: 'draft'; draftState: { hands: unknown[][] } }).draftState;
-      const playersNeedingPick = this.gameState.players.filter((_, idx) => ds2.hands[idx].length > 0).length;
-      if (this.submittedDraftPicks.size >= playersNeedingPick) {
+      const allDone = this.gameState.players.every(
+        (_, idx) => this.submittedDraftPicks.has(idx) || ds2.hands[idx].length === 0,
+      );
+      if (allDone) {
         try {
           advanceDraft(this.gameState);
         } catch (e) {

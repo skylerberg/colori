@@ -241,17 +241,31 @@
           }));
         })
       ).then(results => {
-        aiThinking = false;
-        if (mySeq !== aiGenerationSeq) return;
-        for (const { playerIdx, choice } of results) {
-          // Skip if the player has since reconnected (no longer AI) or state moved on.
-          if (!hostController) break;
-          const curState = hostController.getGameState();
-          if (!curState || curState.phase.type !== 'draft') break;
-          if (!curState.aiPlayers[playerIdx]) continue;
-          if (!snapshotAI[playerIdx]) continue;
-          if (hostController.hasSubmittedDraftPick(playerIdx)) continue;
-          hostController.applyAction(choice, playerIdx);
+        if (mySeq !== aiGenerationSeq) {
+          aiThinking = false;
+          return;
+        }
+        try {
+          for (const { playerIdx, choice } of results) {
+            if (!hostController) break;
+            const curState = hostController.getGameState();
+            if (!curState || curState.phase.type !== 'draft') break;
+            if (!curState.aiPlayers[playerIdx]) continue;
+            if (!snapshotAI[playerIdx]) continue;
+            if (hostController.hasSubmittedDraftPick(playerIdx)) continue;
+            // Stale-pick guard: if hands rotated between when the AI computed this
+            // choice and now, the chosen card is no longer in this player's hand.
+            // Apply it anyway and we'd corrupt the next pick.
+            const hand = curState.phase.draftState.hands[playerIdx];
+            const card = (choice as { type: 'draftPick'; card: unknown }).card;
+            if (!hand || !hand.some(c => c.card === card)) continue;
+            hostController.applyAction(choice, playerIdx);
+          }
+        } finally {
+          // Only release aiThinking after applying all picks. Releasing before the
+          // loop lets the AI effect re-trigger on each intermediate state update
+          // and spawn a second concurrent AI batch.
+          aiThinking = false;
         }
       }).catch((e) => {
         console.error('AI draft error:', e);
