@@ -1,7 +1,8 @@
 use crate::action_phase::{
     can_afford_sell_card, destroy_drafted_card, end_player_turn,
     initialize_action_phase,
-    process_ability_stack, resolve_choose_tertiary_to_gain, resolve_choose_tertiary_to_lose,
+    process_ability_stack, remove_from_workshop_area, resolve_choose_tertiary_to_gain,
+    resolve_choose_tertiary_to_lose,
     resolve_destroy_cards, resolve_gain_color, resolve_select_sell_card,
     resolve_workshop_choice,
     skip_workshop,
@@ -266,7 +267,8 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, 
                     }
                 }
                 Some(Ability::DestroyCards) => {
-                    let mut copy = state.players[player_index].workshop_cards;
+                    let p = &state.players[player_index];
+                    let mut copy = p.workshop_cards.union(p.workshopped_cards);
                     let selected = copy.draw_up_to(1, rng);
                     resolve_destroy_cards(state, selected, rng);
                 }
@@ -344,15 +346,16 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, 
                 }
                 Some(Ability::MoveToDrafted) => {
                     let player = &mut state.players[player_index];
-                    if player.workshop_cards.is_empty() || rng.random_range(0..2u32) == 0 {
+                    let area = player.workshop_cards.union(player.workshopped_cards);
+                    if area.is_empty() || rng.random_range(0..2u32) == 0 {
                         // Skip
                         if let GamePhase::Action { ref mut action_state } = state.phase {
                             action_state.ability_stack.pop();
                         }
                         process_ability_stack(state, rng);
                     } else {
-                        let card_id = player.workshop_cards.pick_random(rng).unwrap();
-                        player.workshop_cards.remove(card_id);
+                        let card_id = area.pick_random(rng).unwrap();
+                        remove_from_workshop_area(player, card_id);
                         player.drafted_cards.insert(card_id);
                         if let GamePhase::Action { ref mut action_state } = state.phase {
                             action_state.ability_stack.pop();
@@ -774,7 +777,7 @@ fn destruction_priority(
             }
         }
         Ability::DestroyCards => {
-            if player.workshop_cards.is_empty() {
+            if player.workshop_cards.is_empty() && player.workshopped_cards.is_empty() {
                 params.rollout_destroy_no_targets
             } else {
                 params.rollout_destroy_with_targets
@@ -1215,25 +1218,28 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                     resolve_workshop_choice(state, selected, rng);
                 }
                 Some(Ability::DestroyCards) => {
-                    let workshop = state.players[player_index].workshop_cards;
-                    if workshop.is_empty() {
+                    let area = {
+                        let p = &state.players[player_index];
+                        p.workshop_cards.union(p.workshopped_cards)
+                    };
+                    if area.is_empty() {
                         resolve_destroy_cards(state, UnorderedCards::new(), rng);
                         return;
                     }
 
                     // Epsilon: random
                     if rng.random_bool(params.rollout_epsilon) {
-                        let mut copy = workshop;
+                        let mut copy = area;
                         let selected = copy.draw_up_to(1, rng);
                         resolve_destroy_cards(state, selected, rng);
                         return;
                     }
 
-                    // Pick the workshop card whose ability is most useful to activate.
-                    // Destroying a workshop card activates its ability (see resolve_destroy_cards).
+                    // Pick the workshop-area card whose ability is most useful to activate.
+                    // Destroying a workshop-area card activates its ability (see resolve_destroy_cards).
                     let mut best_id: Option<u8> = None;
                     let mut best_score = 0u32;
-                    for id in workshop.iter() {
+                    for id in area.iter() {
                         let card = state.card_lookup[id as usize];
                         let score = destruction_priority(card, &state.players[player_index], &cache, params);
                         if score > best_score || best_id.is_none() {
@@ -1361,14 +1367,15 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                 }
                 Some(Ability::MoveToDrafted) => {
                     let player = &mut state.players[player_index];
-                    if player.workshop_cards.is_empty() || rng.random_range(0..2u32) == 0 {
+                    let area = player.workshop_cards.union(player.workshopped_cards);
+                    if area.is_empty() || rng.random_range(0..2u32) == 0 {
                         if let GamePhase::Action { ref mut action_state } = state.phase {
                             action_state.ability_stack.pop();
                         }
                         process_ability_stack(state, rng);
                     } else {
-                        let card_id = player.workshop_cards.pick_random(rng).unwrap();
-                        player.workshop_cards.remove(card_id);
+                        let card_id = area.pick_random(rng).unwrap();
+                        remove_from_workshop_area(player, card_id);
                         player.drafted_cards.insert(card_id);
                         if let GamePhase::Action { ref mut action_state } = state.phase {
                             action_state.ability_stack.pop();

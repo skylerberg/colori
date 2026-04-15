@@ -112,7 +112,9 @@
   function handleStageMoveToDraft(instanceId: number) {
     if (!topAbility || topAbility.type !== 'destroyCards' || !currentPlayer) return;
     if (deferredInstanceIds.has(instanceId)) return;
-    const ci = currentPlayer.workshopCards.find(c => c.instanceId === instanceId);
+    const ci =
+      currentPlayer.workshopCards.find(c => c.instanceId === instanceId)
+      ?? currentPlayer.workshoppedCards.find(c => c.instanceId === instanceId);
     if (!ci) return;
     onStageDeferredMove(ci);
   }
@@ -144,7 +146,9 @@
   function handleMoveToDrafted(instanceId: number) {
     if (!topAbility || topAbility.type !== 'moveToDrafted' || !currentPlayer) return;
     if (deferredInstanceIds.has(instanceId)) return;
-    const card = currentPlayer.workshopCards.find(c => c.instanceId === instanceId);
+    const card =
+      currentPlayer.workshopCards.find(c => c.instanceId === instanceId)
+      ?? currentPlayer.workshoppedCards.find(c => c.instanceId === instanceId);
     if (!card) return;
     onAction({ type: 'selectMoveToDrafted', card: card.card });
   }

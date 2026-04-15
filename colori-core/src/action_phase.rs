@@ -26,6 +26,33 @@ pub(crate) fn for_each_unique_card_type(
     }
 }
 
+/// Iterate over unique card types across the player's workshop area —
+/// both freshly drawn workshop cards and already-processed workshopped cards
+/// — deduplicating by card variant.
+pub(crate) fn for_each_unique_card_type_in_workshop_area(
+    player: &PlayerState,
+    card_lookup: &[Card; 256],
+    f: impl FnMut(Card),
+) {
+    let union = player.workshop_cards.union(player.workshopped_cards);
+    for_each_unique_card_type(&union, card_lookup, f);
+}
+
+/// Remove `id` from whichever of the player's workshop-area buckets
+/// (`workshop_cards` or `workshopped_cards`) contains it. Returns `true` on
+/// success.
+pub(crate) fn remove_from_workshop_area(player: &mut PlayerState, id: u8) -> bool {
+    if player.workshop_cards.contains(id) {
+        player.workshop_cards.remove(id);
+        true
+    } else if player.workshopped_cards.contains(id) {
+        player.workshopped_cards.remove(id);
+        true
+    } else {
+        false
+    }
+}
+
 /// Partitions card IDs from `selected_cards` into action and non-action cards.
 /// Returns `(action_ids, action_count, non_action_ids, non_action_count)`.
 fn partition_action_cards(
@@ -235,12 +262,13 @@ pub fn destroy_drafted_card<R: Rng>(state: &mut GameState, card_instance_id: u32
     process_ability_stack(state, rng);
 }
 
-/// Destroy a workshop card and trigger its ability — without requiring
-/// `DestroyCards` to be on the stack. Used by the human UI's deferred
-/// move-to-draft-pool flow: after staging a move (which pops DestroyCards),
-/// the user can later commit by clicking the card in the draft pool, which
-/// invokes this helper. The MCTS enumerator never emits the corresponding
-/// Choice, so the AI's game tree is unchanged.
+/// Destroy a card currently in the player's workshop area (either
+/// `workshop_cards` or `workshopped_cards`) and trigger its ability — without
+/// requiring `DestroyCards` to be on the stack. Used by the human UI's
+/// deferred move-to-draft-pool flow: after staging a move (which pops
+/// DestroyCards), the user can later commit by clicking the card in the draft
+/// pool, which invokes this helper. The MCTS enumerator never emits the
+/// corresponding Choice, so the AI's game tree is unchanged by this path.
 pub fn destroy_workshop_card_and_trigger<R: Rng>(
     state: &mut GameState,
     card_instance_id: u32,
@@ -250,11 +278,11 @@ pub fn destroy_workshop_card_and_trigger<R: Rng>(
     let player_index = get_action_state(state).current_player_index;
     let player = &mut state.players[player_index];
 
+    let removed = remove_from_workshop_area(player, id);
     assert!(
-        player.workshop_cards.contains(id),
-        "Card not found in player's workshopCards"
+        removed,
+        "Card not found in player's workshop area (workshopCards or workshoppedCards)"
     );
-    player.workshop_cards.remove(id);
 
     let card = state.card_lookup[id as usize];
     let ability = card.ability();
@@ -331,7 +359,8 @@ pub fn process_ability_stack<R: Rng>(state: &mut GameState, rng: &mut R) {
                 }
             }
             Ability::MoveToDrafted => {
-                if state.players[player_index].workshop_cards.is_empty() {
+                let player = &state.players[player_index];
+                if player.workshop_cards.is_empty() && player.workshopped_cards.is_empty() {
                     get_action_state_mut(state).ability_stack.pop();
                     continue;
                 } else {
@@ -470,11 +499,11 @@ pub fn resolve_destroy_cards<R: Rng>(
     get_action_state_mut(state).ability_stack.pop();
 
     for id in selected_cards.iter() {
+        let removed = remove_from_workshop_area(&mut state.players[player_index], id);
         assert!(
-            state.players[player_index].workshop_cards.contains(id),
-            "Card not found in workshopCards"
+            removed,
+            "Card not found in player's workshop area (workshopCards or workshoppedCards)"
         );
-        state.players[player_index].workshop_cards.remove(id);
 
         let card = state.card_lookup[id as usize];
         let ability = card.ability();

@@ -1016,6 +1016,231 @@ fn test_starting_color_wheel() {
     }
 }
 
+// ── Workshopped cards as destroy/move targets ──
+
+/// Find a card id whose lookup matches `target` in any of the sources
+/// (player decks, draft_deck) and return it along with a state ready for
+/// action phase mutation.
+fn find_card_id(state: &GameState, target: Card) -> u8 {
+    for (idx, &c) in state.card_lookup.iter().enumerate() {
+        if c == target {
+            for player in state.players.iter() {
+                if player.deck.contains(idx as u8) { return idx as u8; }
+                if player.discard.contains(idx as u8) { return idx as u8; }
+                if player.workshop_cards.contains(idx as u8) { return idx as u8; }
+                if player.workshopped_cards.contains(idx as u8) { return idx as u8; }
+                if player.drafted_cards.contains(idx as u8) { return idx as u8; }
+            }
+            if state.draft_deck.contains(idx as u8) { return idx as u8; }
+        }
+    }
+    panic!("Could not find a {:?} in the game state", target);
+}
+
+fn remove_card_anywhere(state: &mut GameState, id: u8) {
+    for player in state.players.iter_mut() {
+        if player.deck.contains(id) { player.deck.remove(id); return; }
+        if player.discard.contains(id) { player.discard.remove(id); return; }
+        if player.workshop_cards.contains(id) { player.workshop_cards.remove(id); return; }
+        if player.workshopped_cards.contains(id) { player.workshopped_cards.remove(id); return; }
+        if player.drafted_cards.contains(id) { player.drafted_cards.remove(id); return; }
+    }
+    if state.draft_deck.contains(id) { state.draft_deck.remove(id); return; }
+    panic!("Could not find card id {} anywhere", id);
+}
+
+fn setup_action_state_with(
+    alum_in_drafted: bool,
+    workshopped_target: Option<Card>,
+    workshop_target: Option<Card>,
+    top_ability: Option<Ability>,
+) -> (GameState, u8, Option<u8>, Option<u8>) {
+    let mut rng = WyRand::seed_from_u64(12345);
+    let mut state = create_initial_game_state(2, &[true, true], &mut rng);
+
+    let alum_id = find_card_id(&state, Card::Alum);
+    remove_card_anywhere(&mut state, alum_id);
+    if alum_in_drafted {
+        state.players[0].drafted_cards.insert(alum_id);
+    }
+
+    let ws_id = workshopped_target.map(|c| {
+        let id = find_card_id(&state, c);
+        remove_card_anywhere(&mut state, id);
+        state.players[0].workshopped_cards.insert(id);
+        id
+    });
+
+    let wsc_id = workshop_target.map(|c| {
+        let id = find_card_id(&state, c);
+        remove_card_anywhere(&mut state, id);
+        state.players[0].workshop_cards.insert(id);
+        id
+    });
+
+    let mut ability_stack = colori_core::types::AbilityStack::new();
+    if let Some(a) = top_ability {
+        ability_stack.push(a);
+    }
+    state.phase = GamePhase::Action {
+        action_state: colori_core::types::ActionState {
+            current_player_index: 0,
+            ability_stack,
+        },
+    };
+
+    (state, alum_id, ws_id, wsc_id)
+}
+
+#[test]
+fn test_destroy_cards_enumerates_workshopped_target() {
+    let (state, _alum_id, _ws_id, _wsc_id) = setup_action_state_with(
+        false,
+        Some(Card::StarterCeramics),
+        None,
+        Some(Ability::DestroyCards),
+    );
+
+    let choices = enumerate_choices(&state);
+    let wanted = Choice::DestroyDrawnCards { card: Some(Card::StarterCeramics) };
+    assert!(
+        choices.iter().any(|c| matches!(c, Choice::DestroyDrawnCards { card: Some(Card::StarterCeramics) })),
+        "enumerate_choices should include workshopped-card target; got {:?}",
+        choices
+    );
+    assert!(check_choice_available(&state, &wanted));
+}
+
+#[test]
+fn test_destroy_cards_skip_when_both_areas_empty() {
+    let (state, _, _, _) = setup_action_state_with(false, None, None, Some(Ability::DestroyCards));
+    let choices = enumerate_choices(&state);
+    assert_eq!(choices.len(), 1);
+    assert!(matches!(choices[0], Choice::DestroyDrawnCards { card: None }));
+}
+
+#[test]
+fn test_move_to_drafted_enumerates_workshopped_target() {
+    let (state, _, _, _) = setup_action_state_with(
+        false,
+        Some(Card::StarterCeramics),
+        None,
+        Some(Ability::MoveToDrafted),
+    );
+
+    let choices = enumerate_choices(&state);
+    let wanted = Choice::SelectMoveToDrafted { card: Card::StarterCeramics };
+    assert!(
+        choices.iter().any(|c| matches!(c, Choice::SelectMoveToDrafted { card: Card::StarterCeramics })),
+        "enumerate_choices should include SelectMoveToDrafted for workshopped card; got {:?}",
+        choices
+    );
+    assert!(check_choice_available(&state, &wanted));
+}
+
+#[test]
+fn test_destroy_and_destroy_cards_enumerates_workshopped_target() {
+    // No ability on the stack — enumerating destroy-drafted choices for Alum.
+    let (state, _, _, _) = setup_action_state_with(
+        true,
+        Some(Card::StarterCeramics),
+        None,
+        None,
+    );
+
+    let choices = enumerate_choices(&state);
+    let wanted = Choice::DestroyAndDestroyCards {
+        card: Card::Alum,
+        target: Some(Card::StarterCeramics),
+    };
+    assert!(
+        choices.iter().any(|c| matches!(
+            c,
+            Choice::DestroyAndDestroyCards { card: Card::Alum, target: Some(Card::StarterCeramics) }
+        )),
+        "enumerate_choices should include DestroyAndDestroyCards targeting workshopped card; got {:?}",
+        choices
+    );
+    assert!(check_choice_available(&state, &wanted));
+}
+
+#[test]
+fn test_apply_destroy_drawn_cards_workshopped_target_destroys_and_triggers() {
+    let (mut state, _, ws_id, _) = setup_action_state_with(
+        false,
+        Some(Card::StarterCeramics),
+        None,
+        Some(Ability::DestroyCards),
+    );
+    let ws_id = ws_id.unwrap();
+
+    let mut rng = WyRand::seed_from_u64(99);
+    apply_choice_to_state(
+        &mut state,
+        &Choice::DestroyDrawnCards { card: Some(Card::StarterCeramics) },
+        &mut rng,
+    );
+
+    assert!(!state.players[0].workshopped_cards.contains(ws_id),
+        "Workshopped card should have been removed from workshopped_cards");
+    assert!(state.destroyed_pile.contains(ws_id),
+        "Destroyed Ceramics should be in destroyed_pile");
+    // Ceramics has Workshop {count: 3}; workshop_cards is empty, so the
+    // ability pops without requiring input and the stack ends empty.
+    if let GamePhase::Action { ref action_state } = state.phase {
+        assert!(action_state.ability_stack.is_empty(),
+            "Ability stack should be empty after Workshop auto-skipped on empty workshop_cards");
+    } else {
+        panic!("Expected action phase");
+    }
+}
+
+#[test]
+fn test_apply_select_move_to_drafted_workshopped_target() {
+    let (mut state, _, ws_id, _) = setup_action_state_with(
+        false,
+        Some(Card::StarterCeramics),
+        None,
+        Some(Ability::MoveToDrafted),
+    );
+    let ws_id = ws_id.unwrap();
+
+    let mut rng = WyRand::seed_from_u64(7);
+    apply_choice_to_state(
+        &mut state,
+        &Choice::SelectMoveToDrafted { card: Card::StarterCeramics },
+        &mut rng,
+    );
+
+    assert!(!state.players[0].workshopped_cards.contains(ws_id),
+        "Workshopped card should have moved out of workshopped_cards");
+    assert!(state.players[0].drafted_cards.contains(ws_id),
+        "Card should have landed in drafted_cards");
+}
+
+#[test]
+fn test_apply_destroy_workshop_card_deferred_workshopped_target() {
+    let (mut state, _, ws_id, _) = setup_action_state_with(
+        false,
+        Some(Card::StarterCeramics),
+        None,
+        None,
+    );
+    let ws_id = ws_id.unwrap();
+
+    let mut rng = WyRand::seed_from_u64(42);
+    apply_choice_to_state(
+        &mut state,
+        &Choice::DestroyWorkshopCardDeferred { card: Card::StarterCeramics },
+        &mut rng,
+    );
+
+    assert!(!state.players[0].workshopped_cards.contains(ws_id),
+        "Workshopped card should have been removed");
+    assert!(state.destroyed_pile.contains(ws_id),
+        "Destroyed card should be in destroyed_pile");
+}
+
 #[test]
 fn test_score_is_ducats() {
     for seed in 50..60 {

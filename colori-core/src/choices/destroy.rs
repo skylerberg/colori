@@ -1,4 +1,4 @@
-use crate::action_phase::{can_afford_sell_card, for_each_unique_card_type};
+use crate::action_phase::{can_afford_sell_card, for_each_unique_card_type_in_workshop_area};
 use crate::types::*;
 use smallvec::SmallVec;
 
@@ -93,13 +93,13 @@ pub(super) fn enumerate_destroy_choices(
             }
         }
         Ability::DestroyCards => {
-            if player.workshop_cards.is_empty() {
+            if player.workshop_cards.is_empty() && player.workshopped_cards.is_empty() {
                 choices.push(Choice::DestroyAndDestroyCards {
                     card,
                     target: None,
                 });
             } else {
-                for_each_unique_card_type(&player.workshop_cards, &state.card_lookup, |target_card| {
+                for_each_unique_card_type_in_workshop_area(player, &state.card_lookup, |target_card| {
                     choices.push(Choice::DestroyAndDestroyCards {
                         card,
                         target: Some(target_card),

@@ -110,13 +110,14 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
         Choice::DestroyDrawnCards { card } => {
             let mut selected = UnorderedCards::new();
             if let Some(card) = card {
-                let workshop = match &state.phase {
+                let area = match &state.phase {
                     GamePhase::Action { action_state } => {
-                        state.players[action_state.current_player_index].workshop_cards
+                        let p = &state.players[action_state.current_player_index];
+                        p.workshop_cards.union(p.workshopped_cards)
                     }
                     _ => panic!("Expected action phase"),
                 };
-                for id in workshop.iter() {
+                for id in area.iter() {
                     if state.card_lookup[id as usize] == *card {
                         selected.insert(id);
                         break;
@@ -190,13 +191,14 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
             destroy_drafted_card(state, card_instance_id, rng);
             let mut selected = UnorderedCards::new();
             if let Some(target_card) = target {
-                let workshop = match &state.phase {
+                let area = match &state.phase {
                     GamePhase::Action { action_state } => {
-                        state.players[action_state.current_player_index].workshop_cards
+                        let p = &state.players[action_state.current_player_index];
+                        p.workshop_cards.union(p.workshopped_cards)
                     }
                     _ => panic!("Expected action phase"),
                 };
-                for id in workshop.iter() {
+                for id in area.iter() {
                     if state.card_lookup[id as usize] == *target_card {
                         selected.insert(id);
                         break;
@@ -208,8 +210,12 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
         Choice::SelectMoveToDrafted { card } => {
             get_action_state_mut(state).ability_stack.pop();
             let player_index = get_action_state(state).current_player_index;
-            let id = find_card_instance(state, card, &state.players[player_index].workshop_cards);
-            state.players[player_index].workshop_cards.remove(id as u8);
+            let area = state.players[player_index]
+                .workshop_cards
+                .union(state.players[player_index].workshopped_cards);
+            let id = find_card_instance(state, card, &area);
+            let removed = remove_from_workshop_area(&mut state.players[player_index], id as u8);
+            assert!(removed, "Card not found in workshop area for SelectMoveToDrafted");
             state.players[player_index].drafted_cards.insert(id as u8);
             process_ability_stack(state, rng);
         }
@@ -238,8 +244,10 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
         }
         Choice::DestroyWorkshopCardDeferred { card } => {
             let player_index = get_action_state(state).current_player_index;
-            let workshop = state.players[player_index].workshop_cards;
-            let card_instance_id = find_card_instance(state, card, &workshop);
+            let area = state.players[player_index]
+                .workshop_cards
+                .union(state.players[player_index].workshopped_cards);
+            let card_instance_id = find_card_instance(state, card, &area);
             destroy_workshop_card_and_trigger(state, card_instance_id, rng);
         }
     }

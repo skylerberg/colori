@@ -137,7 +137,7 @@ Complete mixing pairs (two inputs → one output):
 
 ### Move a Card from Workshop to Draft Pool
 
-Choose one card from your **workshop** and move it to your **draft pool**. You may then destroy it from the draft pool to trigger its ability, as with any drafted card. Triggered abilities are pushed onto the ability stack, so chain reactions are possible.
+Choose one card from your **workshop** and move it to your **draft pool**. You may then destroy it from the draft pool to trigger its ability, as with any drafted card. Triggered abilities are pushed onto the ability stack, so chain reactions are possible. You may pick any card currently in your workshop area, including cards that have already been used during a Workshop resolution this turn (the rotated cards whose colors and materials have already been stored).
 
 ### Sell
 
