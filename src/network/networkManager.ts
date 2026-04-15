@@ -2,6 +2,33 @@ import { joinRoom } from 'trystero/nostr';
 import type { Room } from 'trystero';
 import type { HostMessage, GuestMessage } from './types';
 
+// WebRTC ICE servers. Multiple STUN providers improve success rates behind most NATs,
+// and the public openrelay TURN servers give a relay fallback for symmetric NATs where
+// direct peer-to-peer fails. Openrelay is a free shared service with rate limits; for
+// production traffic a dedicated TURN server is preferred.
+const ICE_SERVERS: RTCIceServer[] = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:stun.cloudflare.com:3478' },
+  {
+    urls: [
+      'turn:openrelay.metered.ca:80',
+      'turn:openrelay.metered.ca:443',
+      'turn:openrelay.metered.ca:443?transport=tcp',
+    ],
+    username: 'openrelayproject',
+    credential: 'openrelayproject',
+  },
+];
+
+const NOSTR_RELAYS = [
+  'wss://relay.damus.io',
+  'wss://nos.lol',
+  'wss://relay.snort.social',
+  'wss://nostr.mom',
+];
+
 export class NetworkManager {
   private room: Room | null = null;
   private sendHostMsg: ((data: HostMessage, targetPeers?: string | string[]) => void) | null = null;
@@ -20,7 +47,12 @@ export class NetworkManager {
   }
 
   join(code: string): void {
-    this.room = joinRoom({ appId: 'colori-board-game' }, code);
+    this.room = joinRoom({
+      appId: 'colori-board-game',
+      relayUrls: NOSTR_RELAYS,
+      relayRedundancy: 3,
+      rtcConfig: { iceServers: ICE_SERVERS },
+    }, code);
 
     this.room.onPeerJoin(peerId => {
       this.peers.add(peerId);

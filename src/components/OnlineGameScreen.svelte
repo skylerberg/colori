@@ -10,10 +10,11 @@
   import DraftPhaseView from './DraftPhaseView.svelte';
   import ActionPhaseView from './ActionPhaseView.svelte';
 
-  let { role, hostController, guestController, onGameOver, gameStartTime, onLeaveGame }: {
+  let { role, hostController, guestController, initialGuestState, onGameOver, gameStartTime, onLeaveGame }: {
     role: 'host' | 'guest';
     hostController?: HostController;
     guestController?: GuestController;
+    initialGuestState?: SanitizedGameState | null;
     onGameOver: (gameState: GameState, structuredLog?: StructuredGameLog) => void;
     gameStartTime: number;
     onLeaveGame: () => void;
@@ -23,9 +24,12 @@
   let hostGameState: GameState | null = $state(null);
   let hostGameLog: string[] = $state([]);
 
-  // Guest state
-  let guestSanitizedState: SanitizedGameState | null = $state(null);
-  let guestGameLog: string[] = $state([]);
+  // Guest state — seed from the initial SanitizedGameState so the screen renders immediately
+  // after gameStarted (before the first stateUpdate arrives).
+  // svelte-ignore state_referenced_locally
+  let guestSanitizedState: SanitizedGameState | null = $state(initialGuestState ?? null);
+  // svelte-ignore state_referenced_locally
+  let guestGameLog: string[] = $state(initialGuestState?.logEntries ? [...initialGuestState.logEntries] : []);
 
   // Shared state
   let aiThinking = $state(false);

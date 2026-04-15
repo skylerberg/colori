@@ -56,6 +56,7 @@
 
   type RejoinInfo = { roomCode: string; name: string; token: string };
   let rejoinInfo: RejoinInfo | null = $state(loadRejoinInfo());
+  let initialGuestState: SanitizedGameState | null = $state(null);
 
   function persistRejoinInfo(info: RejoinInfo | null) {
     rejoinInfo = info;
@@ -248,6 +249,7 @@
     };
 
     guestController.onGameStarted = (state: SanitizedGameState) => {
+      initialGuestState = state;
       gameState = sanitizedToGameState(state);
       gameStartTime = state.gameStartTime ?? Date.now();
       const token = guestController!.getRejoinToken();
@@ -292,6 +294,7 @@
     };
 
     guestController.onGameStarted = (state: SanitizedGameState) => {
+      initialGuestState = state;
       gameState = sanitizedToGameState(state);
       gameStartTime = state.gameStartTime ?? Date.now();
       replaceScreen({ type: 'onlineGame', role: 'guest' });
@@ -300,6 +303,7 @@
     guestController.onSanitizedStateChanged = (state) => {
       // First state update from a successful rejoin acts as "game resumed".
       if (screen.type !== 'onlineGame') {
+        initialGuestState = state;
         gameState = sanitizedToGameState(state);
         gameStartTime = state.gameStartTime ?? Date.now();
         replaceScreen({ type: 'onlineGame', role: 'guest' });
@@ -430,6 +434,7 @@
       role={screen.role}
       {hostController}
       {guestController}
+      {initialGuestState}
       onGameOver={handleOnlineGameOver}
       gameStartTime={gameStartTime ?? Date.now()}
       onLeaveGame={handleLeaveOnlineGame}
