@@ -49,14 +49,14 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'welcome',
     title: 'Welcome to Colori!',
-    text: 'You are a Venetian dye trader competing to earn the most ducats (gold coins) by getting pigments and materials then completing sell cards.',
+    text: 'You are a vendicolori, a Renaissance Venetian color seller, competing to earn the most ducats (gold coins) by getting pigments and materials then selling them.',
     buttons: [skipButton, nextButton],
   });
 
   newTour.addStep({
     id: 'sell-card-display',
     title: 'Sell Cards',
-    text: 'These are the available sell cards. Each sell card requires a specific material (Textiles, Ceramics, or Paintings) and a set of colors. Completing a sell card earns you ducats.',
+    text: 'These cards are the main way to gain ducats. Each card requires a specific material (Textiles, Ceramics, or Paintings) and a set of colors.',
     attachTo: { element: '.sell-card-display', on: 'bottom' },
     buttons: [backButton, nextButton],
   });
@@ -64,7 +64,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'color-wheel',
     title: 'Color Wheel',
-    text: 'This is your color wheel. It tracks the colors you have stored. You start with 1 Red, 1 Yellow, and 1 Blue. Store more colors by workshopping dye cards, or mix two adjacent colors to create the color between them.',
+    text: 'This is your color wheel. It tracks your pigments. You start with 1 Red, 1 Yellow, and 1 Blue. Gain more colors by workshopping pigment cards, or mix two adjacent colors to create the color between them.',
     attachTo: { element: '.color-wheel-panel', on: 'top' },
     buttons: [backButton, nextButton],
   });
@@ -72,7 +72,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'materials',
     title: 'Materials',
-    text: 'These are your stored materials. To sell to a sell card, you need both the right material AND the right colors. Gain materials by workshopping material cards.',
+    text: 'These are your stored materials. To complete a sell card, you need both the right material AND the right colors. Gain materials by workshopping material cards.',
     attachTo: { element: '.materials-panel', on: 'top' },
     buttons: [backButton, nextButton],
   });
@@ -88,7 +88,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'round-structure',
     title: 'Round Structure',
-    text: 'Each round has three phases: first, 5 cards are drawn from your personal deck into your workshop. Then comes the Draft, followed by the Action Phase.',
+    text: 'Each round has two phases: the Draft Phase and the Action Phase. At the start of the round, you draw 5 cards from your deck into your workshop.',
     attachTo: { element: '.top-info-bar', on: 'bottom' },
     buttons: [backButton, nextButton],
   });
@@ -96,38 +96,40 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'draft-phase',
     title: 'Draft Phase',
-    text: "During the Draft Phase, you're dealt 5 cards from a shared draft deck. Pick 1 card, then pass your remaining cards to the left. You'll make 4 picks — the 5th card is destroyed without triggering its ability.",
+    text: "During the Draft Phase, you're dealt 5 cards from a shared draft deck. Pick 1 card, then pass your remaining cards to the next player. You'll make 4 picks — the 5th card is trashed without triggering its ability.",
     attachTo: { element: '.draft-section', on: 'bottom' },
+    buttons: [backButton, nextButton],
+  });
+
+
+  newTour.addStep({
+    id: 'drafted-cards',
+    title: 'Drafted Cards',
+    text: "Cards you've drafted appear here. During the Action Phase, you can trash these cards one at a time to trigger the abilities on the top of the card. Any cards you don't trash go to your discard pile, building up your personal deck over time.",
+    attachTo: { element: '.drafted-section', on: 'bottom' },
     buttons: [backButton, nextButton],
   });
 
   newTour.addStep({
     id: 'workshop',
     title: 'Workshop',
-    text: 'These are your workshop cards — drawn from your personal deck at the start of each round. During the Action Phase, the Workshop ability lets you activate these: dye cards store their colors, material cards store their materials, and action cards trigger special abilities like gaining ducats or drawing cards.',
+    text: 'These are your workshop cards — drawn from your personal deck at the start of each round. By trashing drafted cards with the Workshop ability lets you activate these cards to gain colors, materials or gain other benefits.',
     attachTo: { element: '.workshop-section', on: 'top' },
     buttons: [backButton, nextButton],
   });
 
-  newTour.addStep({
-    id: 'drafted-cards',
-    title: 'Drafted Cards',
-    text: "Cards you've drafted appear here. During the Action Phase, you can destroy these cards one at a time to trigger their abilities. Any cards you don't destroy go to your discard pile, building up your personal deck over time.",
-    attachTo: { element: '.drafted-section', on: 'bottom' },
-    buttons: [backButton, nextButton],
-  });
 
   newTour.addStep({
     id: 'action-phase-concept',
     title: 'Action Phase',
-    text: 'After drafting, each player takes a turn. On your turn, destroy drafted cards one at a time to trigger abilities like Workshop (store colors/materials), Mix Colors (combine two adjacent colors into one), Sell (complete a sell card), Draw Cards, or Move to Draft Pool (chain reactions). When done, remaining drafted and workshop cards go to your discard pile.',
+    text: 'After drafting, each player takes a turn. On your turn, trash drafted cards one at a time to trigger abilities like Workshop (store colors/materials), Mix Colors (combine two adjacent colors into one), Sell (complete a sell card), Draw Cards, or Move a card from your Workshop to your Draft Pool. When done, remaining drafted and workshop cards go to your discard pile.',
     buttons: [backButton, nextButton],
   });
 
   newTour.addStep({
     id: 'selling-explained',
     title: 'Selling',
-    text: 'To sell: choose a sell card, spend 1 stored material of the required type, and pay the color cost from your wheel. The sell card goes to your completed sell cards, earning you ducats.',
+    text: 'When you destroy a drafted card with the sell ability, choose a sell card, spend 1 material of the required type, and pay the color cost from your wheel. The sell card goes to your completed sell cards, earning you ducats.',
     attachTo: { element: '.sell-card-display', on: 'bottom' },
     buttons: [backButton, nextButton],
   });
@@ -135,7 +137,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'end-game',
     title: 'Good Luck!',
-    text: 'The game ends after 20 rounds, or after completing a round where any player reaches 16 ducats. Most ducats wins. Good luck, vendecolori!',
+    text: 'The game ends after a round where any player reaches 16 ducats. Most ducats wins. Good luck, vendecolori!',
     buttons: [
       backButton,
       {
