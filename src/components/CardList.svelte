@@ -1,9 +1,10 @@
 <script lang="ts">
   import CardDisplay from './CardDisplay.svelte';
 
-  let { cards, selectable = false, selectedIds = [], rotatedIds = [], onCardClick }: {
+  let { cards, selectable = false, rotatedSelectable = false, selectedIds = [], rotatedIds = [], onCardClick }: {
     cards: { instanceId: number; card: string }[];
     selectable?: boolean;
+    rotatedSelectable?: boolean;
     selectedIds?: number[];
     rotatedIds?: number[];
     onCardClick?: (instanceId: number) => void;
@@ -17,7 +18,7 @@
       card={ci.card}
       selected={selectedIds.includes(ci.instanceId)}
       rotated={isRotated}
-      onclick={!isRotated && selectable && onCardClick ? () => onCardClick!(ci.instanceId) : undefined}
+      onclick={((!isRotated && selectable) || (isRotated && rotatedSelectable)) && onCardClick ? () => onCardClick!(ci.instanceId) : undefined}
     />
   {/each}
   {#if cards.length === 0}

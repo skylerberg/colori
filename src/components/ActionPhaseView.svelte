@@ -237,6 +237,7 @@
           <CardList
             cards={workshopDisplayCards}
             selectable={true}
+            rotatedSelectable={true}
             rotatedIds={workshoppedIds}
             onCardClick={handleStageMoveToDraft}
           />
@@ -248,6 +249,7 @@
           <CardList
             cards={workshopDisplayCards}
             selectable={true}
+            rotatedSelectable={true}
             rotatedIds={workshoppedIds}
             onCardClick={handleMoveToDrafted}
           />
