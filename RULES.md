@@ -2,7 +2,7 @@
 
 ## Overview
 
-Colori is a deck-building game for 2–5 players about dyeing materials and selling to sell cards. Players draft dye, material, and action cards, destroy them to store colors on a color wheel, mix colors, and sell to sell cards worth ducats. The game lasts up to 20 rounds, or until any player reaches 16 ducats. The player with the most ducats wins.
+Colori is a deck-building game for 2–5 players about dyeing materials and selling to sell cards. Players draft dye, material, and action cards, destroy them to store colors on a color wheel, mix colors, and sell to sell cards worth ducats. The game lasts 6 rounds. The player with the most ducats wins.
 
 ## Components
 
@@ -69,7 +69,7 @@ Each player has:
 
 ## Round Structure
 
-The game is played over up to **20 rounds**. Each round has three phases. The starting player rotates each round: player `(round - 1) % numPlayers` goes first.
+The game is played over **6 rounds**. Each round has three phases. The starting player rotates each round: player `(round - 1) % numPlayers` goes first.
 
 ### 1. Draw Phase
 
@@ -168,9 +168,7 @@ Swap one tertiary color on your wheel for a different tertiary. First choose a t
 
 ## End of Game
 
-The game ends when either:
-- Any player reaches **16 or more ducats** after a complete round, OR
-- **Round 20** is completed.
+The game ends when **round 6** is completed.
 
 Each player's score = total ducats (from sell cards + Gain Ducats ability). The player with the most ducats wins. If tied, the player with the most completed sell cards wins. If still tied, the player with the most colors (total count) on their color wheel wins. If still tied, those players share the victory.
 

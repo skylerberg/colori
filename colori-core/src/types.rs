@@ -717,7 +717,7 @@ pub struct GameState {
 }
 
 fn default_max_rounds() -> u32 {
-    20
+    6
 }
 
 fn default_card_lookup() -> [Card; 256] {

@@ -138,6 +138,7 @@ export interface GameState {
   sellCardDisplay: SellCardInstance[];
   phase: GamePhase;
   round: number;
+  maxRounds: number;
   aiPlayers: boolean[];
 }
 

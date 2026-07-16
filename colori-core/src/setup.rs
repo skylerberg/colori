@@ -130,7 +130,7 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
         sell_card_display,
         phase: GamePhase::Draw,
         round: 1,
-        max_rounds: 20,
+        max_rounds: 6,
         ai_players: FixedVec::from_slice(ai_players),
         card_lookup,
         sell_card_lookup,

@@ -137,7 +137,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'end-game',
     title: 'Good Luck!',
-    text: 'The game ends after a round where any player reaches 16 ducats. Most ducats wins. Good luck, vendecolori!',
+    text: 'The game ends after 6 rounds. Most ducats wins. Good luck, vendecolori!',
     buttons: [
       backButton,
       {

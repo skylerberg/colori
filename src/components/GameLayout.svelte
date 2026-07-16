@@ -63,7 +63,7 @@
   <div class="game-content">
     <!-- Top info bar -->
     <div class="top-info-bar">
-      <div class="round-indicator">Round {gameState.round} &mdash; {formatTime(elapsedSeconds)}</div>
+      <div class="round-indicator">Round {gameState.round} of {gameState.maxRounds} &mdash; {formatTime(elapsedSeconds)}</div>
       <div class="top-bar-actions">
         {#if gameLog.length > 0}
           <button class="top-btn log-btn" onclick={() => showLog = !showLog}>Game Log ({gameLog.length})</button>
