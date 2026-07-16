@@ -44,6 +44,7 @@ export interface SanitizedGameState {
   sellCardDisplay: SellCardInstance[];
   phase: SanitizedGamePhase;
   round: number;
+  maxRounds: number;
   aiPlayers: boolean[];
   myPlayerIndex: number;
   logEntries: string[];

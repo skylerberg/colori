@@ -60,6 +60,7 @@ export function sanitizeGameState(
     sellCardDisplay: [...fullState.sellCardDisplay],
     phase,
     round: fullState.round,
+    maxRounds: fullState.maxRounds,
     aiPlayers: [...fullState.aiPlayers],
     myPlayerIndex: forPlayerIndex,
     logEntries: [...newLogEntries],

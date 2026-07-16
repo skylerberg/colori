@@ -41,6 +41,7 @@ export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
     sellCardDisplay: sanitized.sellCardDisplay,
     phase,
     round: sanitized.round,
+    maxRounds: sanitized.maxRounds,
     aiPlayers: sanitized.aiPlayers,
   };
 }

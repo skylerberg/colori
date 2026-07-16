@@ -672,10 +672,11 @@ fn test_game_terminates_properly() {
     for seed in 30..40 {
         for num_players in 2..=4 {
             let state = run_full_game_with_invariants(seed, num_players);
-            let any_reached_16 = state.players.iter().any(|p| p.cached_score >= 16);
-            assert!(
-                any_reached_16 || state.round > 20,
-                "Game ended without meeting termination condition (seed={}, players={}, round={})",
+            assert_eq!(
+                state.round,
+                state.max_rounds + 1,
+                "Game did not end after exactly {} rounds (seed={}, players={}, round={})",
+                state.max_rounds,
                 seed,
                 num_players,
                 state.round
@@ -709,10 +710,11 @@ fn test_random_choice_game_terminates() {
     for seed in 200..300 {
         for num_players in 2..=4 {
             let state = run_random_game_with_invariants(seed, num_players);
-            let any_reached_16 = state.players.iter().any(|p| p.cached_score >= 16);
-            assert!(
-                any_reached_16 || state.round > 20,
-                "Game ended without meeting termination condition (seed={}, players={}, round={})",
+            assert_eq!(
+                state.round,
+                state.max_rounds + 1,
+                "Game did not end after exactly {} rounds (seed={}, players={}, round={})",
+                state.max_rounds,
                 seed,
                 num_players,
                 state.round
@@ -741,20 +743,18 @@ fn test_stress_two_player_long_games() {
 
 #[test]
 fn test_draft_deck_recycling() {
-    let mut max_round = 0u32;
+    // 4-player games deal 120 draft cards over 6 rounds from a 90-card deck,
+    // so the destroyed pile must be recycled.
     for seed in 700..800 {
-        for num_players in 2..=4 {
-            let state = run_random_game_with_invariants(seed, num_players);
-            if state.round > max_round {
-                max_round = state.round;
-            }
-        }
+        let state = run_random_game_with_invariants(seed, 4);
+        assert_eq!(
+            state.round,
+            state.max_rounds + 1,
+            "Game did not complete all rounds (seed={}, round={})",
+            seed,
+            state.round
+        );
     }
-    assert!(
-        max_round >= 10,
-        "No game reached round 10+ (max was {}), draft deck recycling not exercised",
-        max_round
-    );
 }
 
 // ── Fuzzing tests ──
