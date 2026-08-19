@@ -1,0 +1,16 @@
+[
+  {
+    "name": "baseline-a",
+    "heuristicRollout": true,
+    "useHeuristicEval": true,
+    "heuristicParamsFile": "genetic-algorithm/batch-lki08w-gen-32.json",
+    "iterations": 4000
+  },
+  {
+    "name": "baseline-b",
+    "heuristicRollout": true,
+    "useHeuristicEval": true,
+    "heuristicParamsFile": "genetic-algorithm/batch-lki08w-gen-32.json",
+    "iterations": 4000
+  }
+]
