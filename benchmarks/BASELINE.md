@@ -138,31 +138,40 @@ Turning it off costs something — it is why the figures above are smaller than
 the first draft's — but a faster search that returns illegal moves is not a
 faster search.
 
-### Whole games
+### Whole games, and strength
 
-300 games, 4 threads, 4 000 iterations, `benchmarks/fixtures/variants-old-vs-new.json`:
+8000 games at 4 000 iterations, `benchmarks/fixtures/variants-old-vs-new.json`,
+run in eight chunks of 1 000:
 
-| variant | win rate | avg time | avg iterations |
-|---|---:|---:|---:|
-| legacy | 52.5% | 1.2 s | 148 852 |
-| crate | 47.5% | 1.0 s | 148 416 |
+| variant | games | wins | draws | losses | score | avg time | avg iterations |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| legacy | 8000 | 4014 | 42 | 3944 | 50.44% | 1.4–1.6 s | 147 870 |
+| crate | 8000 | 3944 | 42 | 4014 | **49.56%** | 1.1–1.4 s | 148 957 |
 
-**Speed is settled: 17% faster per game at the same iteration count.** The equal
-iteration counts also say early termination and subtree reuse still fire at the
-same rate — a port that quietly lost either would need many more iterations per
-game, and does not.
+* Standard error 0.56 pp; 95% CI on the crate's score is
+  **[48.47%, 50.66%]**, which spans 50%, so no strength difference is
+  detectable.
+* One-sided 95% lower bound is **48.64%**, above the 48% needed for
+  non-inferiority at δ = 2 pp. **The gate passes.**
+* Read precisely: this rules out the crate being more than ~1.4 pp weaker. It
+  does not prove exact equality, and could not — the point estimate is 0.44 pp
+  below even, comfortably inside noise.
+* **Zero panics in 8000 games**, which is the more valuable half of this run.
+  The illegal-move defects found during the port each showed up within a few
+  hundred games, so this is a real absence rather than a small sample.
+* The crate is ~15% faster per game while running slightly *more* iterations.
+  That the iteration counts stay level is the check that early termination and
+  subtree reuse still fire; a port that quietly lost either would need many more
+  iterations per game.
 
-**Strength is not settled, and this run does not settle it.** A 5 pp gap sounds
-like something, but at 300 games the standard error on a win rate is about
-2.9 pp, so the resolution is roughly ±6 pp. For scale, the identical-variant
-control in `variants-migration.json` — two configurations differing in no way —
-came out 55.8% / 44.2% over the same 300 games. Any difference under about 6 pp
-is unresolved here, and 5 pp is under that.
+Caveat on reproducibility: `tournament` seeds each worker from entropy
+(`WyRand::from_rng(&mut rand::rng())`), so this exact run cannot be replayed.
+The sample size is what carries it, not the seed.
 
-Non-inferiority at δ = 2 pp needs roughly 8 000 games, about three hours at
-these settings. Until that has run, **`ismcts.rs` stays** and `algorithm`
-selects between the two. Deleting the old implementation on an underpowered run
-would be exactly the mistake this file exists to prevent.
+For scale on why 8000 games and not 300: the identical-variant control in
+`variants-migration.json` came out 55.8% / 44.2% over 300 games. Two
+configurations differing in nothing, 11.6 pp apart. At 300 games the resolution
+is roughly ±6 pp; here it is ±1.1 pp.
 
 ## What a migration has to beat
 
