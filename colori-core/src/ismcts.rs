@@ -7,12 +7,27 @@ use crate::scoring::{calculate_score, CardHeuristicTable, compute_heuristic_rewa
 use crate::types::*;
 use rand::Rng;
 use rand::RngExt;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use std::time::{Duration, Instant};
 
+/// Which search implementation to run.
+///
+/// Exists so old and new can be compared head to head in one process, as two
+/// variants of the same tournament. Remove it once the comparison is settled.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Algorithm {
+    /// The implementation in this module.
+    #[default]
+    Legacy,
+    /// The shared `mcts` crate, via `crate::mcts_impl`.
+    Crate,
+}
+
 #[derive(Clone, Debug)]
 pub struct MctsConfig {
+    pub algorithm: Algorithm,
     pub iterations: u32,
     pub exploration_constant: f64,
     pub max_rollout_steps: u32,
@@ -43,6 +58,7 @@ pub struct TreeStats {
 impl MctsConfig {
     pub fn new(heuristic_params: HeuristicParams) -> Self {
         MctsConfig {
+            algorithm: Algorithm::default(),
             iterations: 100,
             exploration_constant: 0.75,
             max_rollout_steps: 1000,
@@ -68,6 +84,8 @@ impl<'de> Deserialize<'de> for MctsConfig {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct MctsConfigHelper {
+            #[serde(default)]
+            algorithm: Algorithm,
             #[serde(default = "default_iterations")]
             iterations: u32,
             #[serde(default = "default_exploration_constant")]
@@ -100,6 +118,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
 
         let helper = MctsConfigHelper::deserialize(deserializer)?;
         Ok(MctsConfig {
+            algorithm: helper.algorithm,
             iterations: helper.iterations,
             exploration_constant: helper.exploration_constant,
             max_rollout_steps: helper.max_rollout_steps,
@@ -289,13 +308,19 @@ struct OpponentPickStat {
     availability_count: u32,
 }
 
-struct OpponentDraftStats {
+pub(crate) struct OpponentDraftStats {
     // [pick_round][player_index][card as usize] -> per-card stats
     stats: [[[OpponentPickStat; NUM_CARDS]; MAX_PLAYERS]; 4],
 }
 
+impl Default for OpponentDraftStats {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OpponentDraftStats {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         OpponentDraftStats {
             stats: [[[OpponentPickStat::default(); NUM_CARDS]; MAX_PLAYERS]; 4],
         }
@@ -344,7 +369,7 @@ impl OpponentDraftStats {
         best_card.unwrap()
     }
 
-    fn record_outcome(&mut self, pick_round: usize, player: usize, card: Card, reward: f64) {
+    pub(crate) fn record_outcome(&mut self, pick_round: usize, player: usize, card: Card, reward: f64) {
         let stat = &mut self.stats[pick_round][player][card as usize];
         stat.visit_count += 1;
         stat.cumulative_reward += reward;
@@ -379,7 +404,7 @@ fn find_card_id(state: &GameState, card: Card) -> u32 {
     panic!("Card not found for DUCT choice");
 }
 
-fn advance_past_opponent_draft_picks<R: Rng>(
+pub(crate) fn advance_past_opponent_draft_picks<R: Rng>(
     state: &mut GameState,
     perspective_player: usize,
     opponent_stats: &mut OpponentDraftStats,

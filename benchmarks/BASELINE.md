@@ -91,6 +91,88 @@ Deriving per-thread seeds from one master seed is a prerequisite for golden
 fixture tests, and is cheap. Until then, strength comparisons need thousands of
 games to see through the variance that seeding would remove for free.
 
+## After the migration
+
+Both implementations run at the same positions, same seed, same config, from
+`--bench ismcts_bench`:
+
+| position | branching | budget | legacy | shared crate | change |
+|---|---:|---:|---:|---:|---:|
+| `early` | 26 | 1 000 | 95 766/s | 102 036/s | +6.5% |
+| `early` | 26 | 10 000 | 87 650/s | 95 912/s | +9.4% |
+| `middle` | 41 | 1 000 | 100 644/s | 120 807/s | **+20.0%** |
+| `middle` | 41 | 10 000 | 90 785/s | 113 434/s | **+24.9%** |
+| `late` | 5 | 1 000 | 276 322/s | 282 270/s | +2.2% |
+| `late` | 5 | 10 000 | 215 033/s | 227 173/s | +5.6% |
+
+Faster everywhere, and the gain tracks branching factor: largest at `middle`
+(41 children), smallest at `late` (5). That is the shape the shared crate's own
+measurements predict, since it switches a node from a linear child scan to a
+hash index above 16 children. The rest is not position-specific: selection
+returns on the first unvisited child rather than scoring every child, expansion
+reservoir-samples one unseen choice instead of building a list, and the descent
+records a path of child indices instead of recursing.
+
+> An earlier draft of this table claimed +14% to +32%. Those numbers were
+> measured with `ROOT_CHOICES_INVARIANT` on, which is **unsound for this game**
+> — see below. They were real measurements of a search that returns illegal
+> moves, which makes them worthless.
+
+### Why `ROOT_CHOICES_INVARIANT` is off
+
+The shared crate can skip enumerating the root every iteration when a game's
+root choice set cannot vary across determinizations. The argument that colori
+qualifies is superficially strong: determinization only reshuffles what is
+hidden from the searching player, so their own options should not change.
+
+It is wrong, because the search advances past opponent draft picks *after*
+determinizing. Those picks vary per iteration, and what the searching player may
+then do varies with them.
+
+The evidence, not the argument, settled it: with the flag on, a tournament
+panicked applying an illegal move within a few games; with it off, 300 games are
+clean. A test that asserted invariance and passed had omitted the advance step,
+so it confirmed the assumption instead of testing it.
+
+Turning it off costs something — it is why the figures above are smaller than
+the first draft's — but a faster search that returns illegal moves is not a
+faster search.
+
+### Whole games, and strength
+
+8000 games at 4 000 iterations, `benchmarks/fixtures/variants-old-vs-new.json`,
+run in eight chunks of 1 000:
+
+| variant | games | wins | draws | losses | score | avg time | avg iterations |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| legacy | 8000 | 4014 | 42 | 3944 | 50.44% | 1.4–1.6 s | 147 870 |
+| crate | 8000 | 3944 | 42 | 4014 | **49.56%** | 1.1–1.4 s | 148 957 |
+
+* Standard error 0.56 pp; 95% CI on the crate's score is
+  **[48.47%, 50.66%]**, which spans 50%, so no strength difference is
+  detectable.
+* One-sided 95% lower bound is **48.64%**, above the 48% needed for
+  non-inferiority at δ = 2 pp. **The gate passes.**
+* Read precisely: this rules out the crate being more than ~1.4 pp weaker. It
+  does not prove exact equality, and could not — the point estimate is 0.44 pp
+  below even, comfortably inside noise.
+* **Zero panics in 8000 games**, which is the more valuable half of this run.
+  The illegal-move defects found during the port each showed up within a few
+  hundred games, so this is a real absence rather than a small sample.
+* The crate is ~15% faster per game while running slightly *more* iterations.
+  That the iteration counts stay level is the check that early termination and
+  subtree reuse still fire; a port that quietly lost either would need many more
+  iterations per game.
+
+Caveat on reproducibility: `tournament` seeds each worker from entropy
+(`WyRand::from_rng(&mut rand::rng())`), so this exact run cannot be replayed.
+The sample size is what carries it, not the seed.
+
+For scale on why 8000 games and not 300: the identical-variant control in
+`variants-migration.json` came out 55.8% / 44.2% over 300 games. Two
+configurations differing in nothing, 11.6 pp apart. At 300 games the resolution
+is roughly ±6 pp; here it is ±1.1 pp.
+
 ## What a migration has to beat
 
 Not just these numbers. Also:

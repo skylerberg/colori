@@ -16,6 +16,7 @@ use colori_core::choices::enumerate_choices;
 use colori_core::colori_game::{apply_choice_to_state, get_game_status, GameStatus};
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::ismcts::{ismcts, MctsConfig};
+use colori_core::mcts_impl::ColoriSearcher;
 use colori_core::scoring::HeuristicParams;
 use colori_core::setup::create_initial_game_state;
 use colori_core::types::{GamePhase, GameState};
@@ -111,13 +112,25 @@ fn bench_search(c: &mut Criterion) {
         for iterations in [1_000u32, 10_000] {
             group.throughput(Throughput::Elements(iterations as u64));
             group.bench_with_input(
-                BenchmarkId::new(name, iterations),
+                BenchmarkId::new(format!("legacy/{name}"), iterations),
                 &iterations,
                 |b, &iterations| {
                     let config = config(iterations);
                     b.iter(|| {
                         let mut rng = WyRand::seed_from_u64(0xC0_10_71);
                         ismcts(&state, player, &config, horizon, None, &mut rng)
+                    });
+                },
+            );
+            group.bench_with_input(
+                BenchmarkId::new(format!("crate/{name}"), iterations),
+                &iterations,
+                |b, &iterations| {
+                    let config = config(iterations);
+                    b.iter(|| {
+                        let mut rng = WyRand::seed_from_u64(0xC0_10_71);
+                        let mut searcher = ColoriSearcher::new(&state);
+                        searcher.search(&state, player, &config, horizon, &mut rng)
                     });
                 },
             );
