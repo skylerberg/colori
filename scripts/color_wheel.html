@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Colori color wheel lab</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; display: flex; min-height: 100vh; }
+  .panel { width: 330px; flex-shrink: 0; padding: 20px 24px; box-sizing: border-box; background: #f4f4f5; border-right: 1px solid #ddd; }
+  .panel h1 { font-size: 18px; margin: 0 0 16px; }
+  .row { display: grid; grid-template-columns: 58px 1fr 64px; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .row label { font-size: 13px; }
+  .row input[type=number] { width: 100%; box-sizing: border-box; font-size: 13px; padding: 2px 4px; }
+  select { font-size: 13px; padding: 2px; margin-bottom: 14px; }
+  #warning { color: #b00020; font-size: 13px; min-height: 34px; margin: 8px 0; }
+  #metrics { font-size: 13px; line-height: 1.6; background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; white-space: pre; }
+  #cli { display: block; font-size: 11px; background: #2b2b2b; color: #e8e8e8; border-radius: 6px; padding: 8px 10px; margin-bottom: 12px; word-break: break-all; white-space: normal; }
+  button { font-size: 13px; padding: 6px 12px; }
+  #hint { font-size: 12px; color: #666; margin-top: 12px; }
+  #stage { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; }
+  #stage svg { width: min(85vh, 90%); height: auto; }
+  #stage [data-color] { cursor: pointer; }
+  #stage [data-color]:hover { opacity: 0.72; }
+  #toast { position: fixed; z-index: 10; transform: translate(-50%, -150%); background: #111; color: #fff;
+           font-size: 12px; font-family: ui-monospace, monospace; padding: 5px 9px; border-radius: 5px;
+           pointer-events: none; opacity: 0; transition: opacity 0.15s; white-space: nowrap; }
+  #toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="panel">
+  <h1>Colori color wheel lab</h1>
+  <div>
+    <label>mode
+      <select id="mode">
+        <option value="circle">circle petals</option>
+        <option value="leaf">leaf petals</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="showHex" checked> hex labels</label>
+  </div>
+  <div id="controls"></div>
+  <div id="warning"></div>
+  <div id="metrics"></div>
+  <code id="cli"></code>
+  <button id="download">Download SVG</button>
+  <div id="hint">Click any region to copy its hex. Labels and click targets are lab-only &mdash; the downloaded SVG is unchanged.</div>
+</div>
+<div id="stage"></div>
+
+<script>
+const RING = ['#FE5103', '#FFBF00', '#98F608', '#038DB3', '#3703F0', '#FC05DF'];
+const PRIMARY = ['#E5031A', '#FDF70A', '#0159FE'];
+const PETAL = ['#FC8820', '#01A200', '#9304FE'];
+
+const rad = a => a * Math.PI / 180;
+const pt = (r, a) => [r * Math.cos(rad(a)), -r * Math.sin(rad(a))];
+const fmt = p => p[0].toFixed(2) + ',' + p[1].toFixed(2);
+const mirror = p => [-p[0], p[1]];
+const num = x => String(+x);
+const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+
+function validate(p) {
+  if (!(p.alpha > 0 && p.alpha < 60)) return 'alpha must be between 0 and 60 degrees';
+  if (!(p.rim < p.outer)) return 'rim must be smaller than outer';
+  if (p.mode === 'circle') {
+    const limit = p.rim * Math.cos(rad(p.alpha));
+    if (!(p.reach > 0 && p.reach < limit)) return `reach must be between 0 and rim*cos(alpha) = ${limit.toFixed(1)}`;
+  } else {
+    if (!(p.fork > 0 && p.fork < p.rim)) return 'fork must be between 0 and rim';
+    const minEdge = dist(pt(p.fork, 30), pt(p.rim, 30 + p.alpha)) / 2;
+    if (p.edge < minEdge) return `edge must be at least half the fork-to-mouth chord = ${minEdge.toFixed(1)}`;
+  }
+  return null;
+}
+
+function circleParams(rim, alpha, reach) {
+  const rc = (rim * rim - reach * reach) / (2 * (rim * Math.cos(rad(alpha)) - reach));
+  return [rc, rc - reach];
+}
+
+function circleDefs(rim, alpha, reach) {
+  const [rc, rho] = circleParams(rim, alpha, reach);
+  const S = pt(reach, 30), Pp = pt(rim, 30 + alpha), Pm = pt(rim, 30 - alpha), Cp = pt(rc, 30);
+  const angP = Math.atan2(-(Pp[1] - Cp[1]), Pp[0] - Cp[0]) * 180 / Math.PI;
+  const large = 2 * (210 - angP) > 180 ? 1 : 0;
+  const R = num(rim), rh = rho.toFixed(2);
+  return {
+    primary: `M0,0 L${fmt(S)} A${rh},${rh} 0 0 1 ${fmt(Pp)} A${R},${R} 0 0 0 ${fmt(mirror(Pp))} A${rh},${rh} 0 0 1 ${fmt(mirror(S))} Z`,
+    petal: `M${fmt(Pp)} A${rh},${rh} 0 ${large} 0 ${fmt(Pm)} A${R},${R} 0 0 0 ${fmt(Pp)} Z`,
+    outline: `M${fmt(Pp)} A${rh},${rh} 0 ${large} 0 ${fmt(Pm)}`,
+    spokes: `M${fmt(mirror(S))} L0,0 L${fmt(S)} M0,0 L0,${reach.toFixed(2)}`,
+  };
+}
+
+function leafDefs(rim, alpha, fork, edge) {
+  const F = pt(fork, 30), Pp = pt(rim, 30 + alpha), Pm = pt(rim, 30 - alpha);
+  const R = num(rim), E = num(edge);
+  return {
+    primary: `M0,0 L${fmt(F)} A${E},${E} 0 0 1 ${fmt(Pp)} A${R},${R} 0 0 0 ${fmt(mirror(Pp))} A${E},${E} 0 0 1 ${fmt(mirror(F))} Z`,
+    petal: `M${fmt(F)} A${E},${E} 0 0 1 ${fmt(Pp)} A${R},${R} 0 0 1 ${fmt(Pm)} A${E},${E} 0 0 1 ${fmt(F)} Z`,
+    outline: `M${fmt(Pp)} A${E},${E} 0 0 0 ${fmt(F)} A${E},${E} 0 0 0 ${fmt(Pm)}`,
+    spokes: `M${fmt(mirror(F))} L0,0 L${fmt(F)} M0,0 L0,${num(fork)}`,
+  };
+}
+
+function petalMetrics(p) {
+  if (p.mode === 'circle') {
+    const [D, rho] = circleParams(p.rim, p.alpha, p.reach);
+    const R = p.rim;
+    const a1 = rho * rho * Math.acos((D * D + rho * rho - R * R) / (2 * D * rho));
+    const a2 = R * R * Math.acos((D * D + R * R - rho * rho) / (2 * D * R));
+    const a3 = 0.5 * Math.sqrt((-D + rho + R) * (D + rho - R) * (D - rho + R) * (D + rho + R));
+    return [a1 + a2 - a3, p.rim - p.reach];
+  }
+  const F = pt(p.fork, 30), Pp = pt(p.rim, 30 + p.alpha), Pm = pt(p.rim, 30 - p.alpha);
+  const seg = (r, chord) => {
+    const phi = 2 * Math.asin(chord / (2 * r));
+    return r * r / 2 * (phi - Math.sin(phi));
+  };
+  const tri = Math.abs((Pp[0] - F[0]) * (Pm[1] - F[1]) - (Pm[0] - F[0]) * (Pp[1] - F[1])) / 2;
+  const area = tri + seg(p.rim, dist(Pp, Pm)) + 2 * seg(p.edge, dist(F, Pp));
+
+  const mid = [(F[0] + Pp[0]) / 2, (F[1] + Pp[1]) / 2];
+  const dx = Pp[0] - F[0], dy = Pp[1] - F[1];
+  const clen = Math.hypot(dx, dy);
+  const h = Math.sqrt(p.edge * p.edge - clen * clen / 4);
+  const n = [-dy / clen, dx / clen];
+  const cands = [[mid[0] + h * n[0], mid[1] + h * n[1]], [mid[0] - h * n[0], mid[1] - h * n[1]]];
+  const sd = pt(1, 30);
+  const C = cands.reduce((a, b) =>
+    Math.abs(sd[0] * a[1] - sd[1] * a[0]) < Math.abs(sd[0] * b[1] - sd[1] * b[0]) ? a : b);
+  let token = 0;
+  for (let t = 0; t <= 1000; t++) {
+    const rr = p.fork + (p.rim - p.fork) * t / 1000;
+    const q = pt(rr, 30);
+    token = Math.max(token, 2 * Math.min(p.edge - dist(q, C), p.rim - rr));
+  }
+  return [area, token];
+}
+
+// Where each region's hex label sits: ring sectors mid-band, primaries up their
+// own spoke, petals mid-depth. Base geometry sits at math angles 60/90/30 and
+// rotate() turns clockwise, hence the subtraction.
+function labelSpots(p) {
+  const inner = p.mode === 'circle' ? p.reach : p.fork;
+  const fs = p.outer * 0.07;
+  return [
+    ...RING.map((c, i) => [c, pt((p.rim + p.outer) / 2, 60 - 60 * i), Math.min(fs, (p.outer - p.rim) * 0.3)]),
+    ...PRIMARY.map((c, i) => [c, pt(p.rim * 0.58, 90 - 120 * i), fs]),
+    ...PETAL.map((c, i) => [c, pt((inner + p.rim) / 2, 30 - 120 * i), Math.min(fs, (p.rim - inner) * 0.3)]),
+  ];
+}
+
+function ink(hex) {
+  const lin = [1, 3, 5].map(i => {
+    const s = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2] > 0.179 ? '#000' : '#fff';
+}
+
+function hexLabels(p) {
+  const texts = labelSpots(p).map(([c, q, size]) =>
+    `<text x="${q[0].toFixed(2)}" y="${q[1].toFixed(2)}" font-size="${size.toFixed(1)}" fill="${ink(c)}">${c.toUpperCase()}</text>`).join('');
+  return `<g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" text-anchor="middle" dominant-baseline="central" pointer-events="none">${texts}</g>`;
+}
+
+function buildSvg(p, opts = {}) {
+  const err = validate(p);
+  if (err) throw new Error(err);
+  const d = p.mode === 'circle' ? circleDefs(p.rim, p.alpha, p.reach) : leafDefs(p.rim, p.alpha, p.fork, p.edge);
+  d.sector = `M0,${num(-p.outer)} A${num(p.outer)},${num(p.outer)} 0 0 1 ${fmt(pt(p.outer, 30))} L${fmt(pt(p.rim, 30))} A${num(p.rim)},${num(p.rim)} 0 0 0 0,${num(-p.rim)} Z`;
+  d.tick = `M0,${num(-p.rim)} L0,${num(-p.outer)}`;
+  const defs = Object.entries(d).map(([k, v]) => `<path id="${k}" d="${v}"/>`).join('');
+
+  const use = (href, c, rot) =>
+    `<use href="#${href}" fill="${c}"${opts.interactive ? ` data-color="${c.toUpperCase()}"` : ''}${rot ? ` transform="rotate(${rot})"` : ''}/>`;
+  const fills = [];
+  RING.forEach((c, i) => fills.push(use('sector', c, 60 * i)));
+  PRIMARY.forEach((c, i) => fills.push(use('primary', c, 120 * i)));
+  PETAL.forEach((c, i) => fills.push(use('petal', c, 120 * i)));
+
+  const strokes = [`<circle r="${num(p.outer)}"/>`, `<circle r="${num(p.rim)}"/>`];
+  for (let i = 0; i < 6; i++) strokes.push(`<use href="#tick"${i ? ` transform="rotate(${60 * i})"` : ''}/>`);
+  strokes.push('<use href="#spokes"/>');
+  for (let i = 0; i < 3; i++) strokes.push(`<use href="#outline"${i ? ` transform="rotate(${120 * i})"` : ''}/>`);
+
+  const half = p.outer + 8;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="${-half} ${-half} ${2 * half} ${2 * half}"><defs>${defs}</defs><g>${fills.join('')}</g><g fill="none" stroke="black" stroke-width="${num(p.stroke)}"${opts.interactive ? ' pointer-events="none"' : ''}>${strokes.join('')}</g>${opts.labels ? hexLabels(p) : ''}</svg>`;
+
+  const [petal, token] = petalMetrics(p);
+  const primary = (Math.PI * p.rim * p.rim - 3 * petal) / 3;
+  const ring = Math.PI * (p.outer * p.outer - p.rim * p.rim) / 6;
+  return { svg, metrics: { petal, primary, ring, token } };
+}
+</script>
+
+<script>
+const KNOBS = [
+  { id: 'outer', min: 100, max: 200, step: 1, value: 192 },
+  { id: 'rim', min: 60, max: 195, step: 1, value: 128 },
+  { id: 'alpha', min: 5, max: 59, step: 1, value: 30 },
+  { id: 'reach', min: 5, max: 150, step: 1, value: 55, mode: 'circle' },
+  { id: 'fork', min: 10, max: 180, step: 1, value: 68, mode: 'leaf' },
+  { id: 'edge', min: 20, max: 300, step: 1, value: 96, mode: 'leaf' },
+  { id: 'stroke', min: 0.5, max: 6, step: 0.25, value: 2.5 },
+];
+
+const controls = document.getElementById('controls');
+const inputs = {};
+for (const k of KNOBS) {
+  const row = document.createElement('div');
+  row.className = 'row';
+  if (k.mode) row.dataset.mode = k.mode;
+  row.innerHTML = `<label for="${k.id}">${k.id}</label>
+    <input type="range" id="${k.id}" min="${k.min}" max="${k.max}" step="${k.step}" value="${k.value}">
+    <input type="number" min="${k.min}" max="${k.max}" step="${k.step}" value="${k.value}">`;
+  const [slider, number] = row.querySelectorAll('input');
+  slider.addEventListener('input', () => { number.value = slider.value; render(); });
+  number.addEventListener('input', () => { slider.value = number.value; render(); });
+  inputs[k.id] = slider;
+  controls.appendChild(row);
+}
+
+const modeSel = document.getElementById('mode');
+modeSel.addEventListener('input', () => { syncModeRows(); render(); });
+document.getElementById('showHex').addEventListener('input', render);
+
+function syncModeRows() {
+  for (const row of controls.querySelectorAll('.row')) {
+    row.style.display = !row.dataset.mode || row.dataset.mode === modeSel.value ? '' : 'none';
+  }
+}
+
+function params() {
+  const p = { mode: modeSel.value };
+  for (const k of KNOBS) p[k.id] = parseFloat(inputs[k.id].value);
+  return p;
+}
+
+let currentSvg = '';
+function render() {
+  const p = params();
+  const warning = document.getElementById('warning');
+  let out;
+  try {
+    out = buildSvg(p, { interactive: true, labels: document.getElementById('showHex').checked });
+  } catch (e) {
+    warning.textContent = e.message;
+    return;
+  }
+  warning.textContent = '';
+  currentSvg = buildSvg(p).svg;
+  document.getElementById('stage').innerHTML = out.svg;
+  const m = out.metrics;
+  document.getElementById('metrics').textContent =
+    `petal area    ${m.petal.toFixed(0)}\nprimary area  ${m.primary.toFixed(0)}\nring sector   ${m.ring.toFixed(0)}\npetal token Ø ${m.token.toFixed(0)}`;
+  const flags = p.mode === 'circle' ? `--reach ${p.reach}` : `--fork ${p.fork} --edge ${p.edge}`;
+  document.getElementById('cli').textContent =
+    `python3 scripts/color_wheel.py --mode ${p.mode} --outer ${p.outer} --rim ${p.rim} --alpha ${p.alpha} ${flags} --stroke ${p.stroke}`;
+}
+
+document.getElementById('download').addEventListener('click', () => {
+  if (!currentSvg) return;
+  const blob = new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n' + currentSvg + '\n'], { type: 'image/svg+xml' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'color_wheel.svg';
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+const toast = document.createElement('div');
+toast.id = 'toast';
+document.body.appendChild(toast);
+let toastTimer;
+function flash(msg, x, y) {
+  toast.textContent = msg;
+  toast.style.left = x + 'px';
+  toast.style.top = y + 'px';
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 1200);
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  }
+}
+
+document.getElementById('stage').addEventListener('click', async e => {
+  const color = e.target.dataset && e.target.dataset.color;
+  if (!color) return;
+  const ok = await copyText(color);
+  flash(ok ? `Copied ${color}` : `Copy blocked — ${color}`, e.clientX, e.clientY);
+});
+
+syncModeRows();
+render();
+</script>
+</body>
+</html>
