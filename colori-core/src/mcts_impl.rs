@@ -29,6 +29,10 @@ use crate::types::{Card, Choice, GamePhase, GameState, MAX_PLAYERS};
 
 pub type Rewards = [f64; MAX_PLAYERS];
 
+/// A node of the search tree, re-exported so consumers can inspect a tree
+/// without depending on `mcts` directly.
+pub type SearchNode = mcts::Node<Choice>;
+
 /// Constant for one search. Never cloned per iteration.
 pub struct SearchContext {
     pub heuristic_params: HeuristicParams,
@@ -272,6 +276,43 @@ fn reward_ceiling(state: &GameState) -> f64 {
     }
 }
 
+/// Shape of a finished tree, for display.
+#[derive(Clone, Copy, Debug)]
+pub struct TreeStats {
+    pub total_nodes: usize,
+    pub max_depth: usize,
+    pub avg_branching_factor: f64,
+}
+
+/// Summarise a tree for display. Counts only expanded nodes, so the branching
+/// factor is what the search actually explored rather than what was legal.
+pub fn tree_stats(node: &SearchNode) -> TreeStats {
+    let mut total_nodes = 0usize;
+    let mut internal = 0usize;
+    let mut children_total = 0usize;
+
+    let mut stack = vec![node];
+    while let Some(current) = stack.pop() {
+        total_nodes += 1;
+        let children = current.children();
+        if !children.is_empty() {
+            internal += 1;
+            children_total += children.len();
+        }
+        stack.extend(children.iter());
+    }
+
+    TreeStats {
+        total_nodes,
+        max_depth: node.max_depth(),
+        avg_branching_factor: if internal == 0 {
+            0.0
+        } else {
+            children_total as f64 / internal as f64
+        },
+    }
+}
+
 /// What a search decided.
 pub struct SearchOutcome {
     pub choice: Choice,
@@ -355,15 +396,21 @@ impl ColoriSearcher {
         self.inner.clear_tree();
     }
 
-    pub fn tree(&self) -> Option<&mcts::Node<Choice>> {
+    pub fn tree(&self) -> Option<&SearchNode> {
         self.inner.tree()
+    }
+
+    /// Take the retained tree, for handing to something that outlives this
+    /// searcher — the GUI renders it on another thread.
+    pub fn take_tree(&mut self) -> Option<SearchNode> {
+        self.inner.take_tree()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::choices::{check_choice_available, enumerate_choices};
+    use crate::choices::check_choice_available;
     use crate::colori_game::{get_game_status, GameStatus};
     use crate::draw_phase::execute_draw_phase;
     use crate::setup::create_initial_game_state;

@@ -1,7 +1,7 @@
 use colori_core::colori_game::{apply_choice_to_state, enumerate_choices};
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::game_log::{DrawEvent, DrawLog, FinalPlayerStats, FinalScore, PlayerVariant};
-use colori_core::ismcts::{ismcts, Algorithm, MctsConfig, MctsNode};
+use colori_core::ismcts::MctsConfig;
 use colori_core::mcts_impl::ColoriSearcher;
 use colori_core::scoring::calculate_score;
 use colori_core::setup::create_initial_game_state;
@@ -233,10 +233,6 @@ pub fn run_game(
 
     let mut entries: Vec<StructuredLogEntry> = Vec::new();
     let mut seq: u32 = 0;
-    // The legacy search hands its tree back and takes it as an argument; the
-    // crate search keeps it inside the searcher. Both are held so a tournament
-    // can pit them against each other in one process.
-    let mut reuse_tree: Option<MctsNode> = None;
     let mut searcher = ColoriSearcher::new(&state);
     let mut player_time = vec![std::time::Duration::ZERO; num_players];
     let mut player_iterations_count = vec![0u64; num_players];
@@ -262,26 +258,20 @@ pub fn run_game(
         let is_first_pick = state.round == 1
             && matches!(&state.phase, GamePhase::Draft { draft_state } if draft_state.pick_number == 0);
 
-        let (choice, mcts_tree): (Choice, Option<MctsNode>) = if is_first_pick && config.random_first_pick {
-            let choices = enumerate_choices(&state);
-            (choices.choose(rng).expect("No choices available").clone(), None)
+        let choice: Choice = if is_first_pick && config.random_first_pick {
+            // No search ran, so nothing to carry forward.
+            searcher.clear_tree();
+            enumerate_choices(&state)
+                .choose(rng)
+                .expect("No choices available")
+                .clone()
         } else {
             let max_rollout_round = std::cmp::max(8, state.round + 2);
             let mcts_start = std::time::Instant::now();
-            match config.algorithm {
-                Algorithm::Legacy => {
-                    let result = ismcts(&state, player_index, config, Some(max_rollout_round), reuse_tree.take(), rng);
-                    player_time[player_index] += mcts_start.elapsed();
-                    player_iterations_count[player_index] += result.iterations_used as u64;
-                    (result.choice.clone(), result.tree)
-                }
-                Algorithm::Crate => {
-                    let result = searcher.search(&state, player_index, config, Some(max_rollout_round), rng);
-                    player_time[player_index] += mcts_start.elapsed();
-                    player_iterations_count[player_index] += result.iterations_used as u64;
-                    (result.choice.clone(), None)
-                }
-            }
+            let result = searcher.search(&state, player_index, config, Some(max_rollout_round), rng);
+            player_time[player_index] += mcts_start.elapsed();
+            player_iterations_count[player_index] += result.iterations_used as u64;
+            result.choice.clone()
         };
 
         seq += 1;
@@ -318,10 +308,8 @@ pub fn run_game(
             state.players[player_index].workshop_cards.len() != prev_workshop_len ||
             state.sell_card_deck.len() != prev_sell_deck_len;
         if same_player_action && !info_revealed {
-            reuse_tree = mcts_tree.and_then(|t| t.into_subtree(&choice));
             searcher.reuse_subtree(&choice);
         } else {
-            reuse_tree = None;
             searcher.clear_tree();
         }
     }

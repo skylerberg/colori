@@ -7,8 +7,9 @@ gitignored, so anything used to justify a number has to live here instead.
   pinned to the same frozen heuristic parameters. Identical on purpose: running
   it should produce a win rate indistinguishable from 50%, which calibrates how
   much spread comes from the harness alone before any real comparison is read.
-  When the migration lands, one side gets pointed at the new implementation and
-  this becomes the old-vs-new A/B.
+  It was also the basis of the old-vs-new A/B during the migration; that
+  comparison is finished (8 000 games, recorded in `../BASELINE.md`) and the
+  legacy search is gone, so only the calibration use remains.
 
 * Heuristic parameters are pinned to `genetic-algorithm/batch-lki08w-gen-32.json`,
   the generation the tests already use. It is tracked and immutable, so it is
