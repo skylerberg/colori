@@ -18,3 +18,7 @@ wyrand = "0.4"
 [[bench]]
 name = "unordered_cards_bench"
 harness = false
+
+[[bench]]
+name = "ismcts_bench"
+harness = false
