@@ -3,9 +3,15 @@ name = "colori-core"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+# Wall-clock search budgets. Off by default because `Instant` panics on
+# wasm32-unknown-unknown; native consumers turn it on.
+time = ["mcts/time"]
+
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+mcts = { path = "../../monte_carlo", default-features = false }
 rand = "0.10"
 wyrand = "0.4"
 rustc-hash = "2"

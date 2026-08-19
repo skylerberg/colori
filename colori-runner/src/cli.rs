@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use colori_core::ismcts::MctsConfig;
+use colori_core::ismcts::{Algorithm, MctsConfig};
 use colori_core::scoring::HeuristicParams;
 use serde::Deserialize;
 
@@ -149,6 +149,10 @@ struct VariantFileEntry {
     random_first_pick: Option<bool>,
     #[serde(default)]
     force_max_workshop: Option<bool>,
+    /// Which search implementation this variant runs. Lets one tournament pit
+    /// the legacy search against the shared crate.
+    #[serde(default)]
+    algorithm: Option<Algorithm>,
 }
 
 impl VariantFileEntry {
@@ -167,6 +171,7 @@ impl VariantFileEntry {
         NamedVariant {
             name: self.name,
             ai: MctsConfig {
+                algorithm: self.algorithm.unwrap_or(base.algorithm),
                 iterations: self.iterations.unwrap_or(base.iterations),
                 exploration_constant: self.exploration_constant.unwrap_or(base.exploration_constant),
                 max_rollout_steps: self.max_rollout_steps.unwrap_or(base.max_rollout_steps),
