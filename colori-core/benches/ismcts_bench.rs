@@ -15,7 +15,7 @@
 use colori_core::choices::enumerate_choices;
 use colori_core::colori_game::{apply_choice_to_state, get_game_status, GameStatus};
 use colori_core::draw_phase::execute_draw_phase;
-use colori_core::ismcts::{ismcts, MctsConfig};
+use colori_core::ismcts::MctsConfig;
 use colori_core::mcts_impl::ColoriSearcher;
 use colori_core::scoring::HeuristicParams;
 use colori_core::setup::create_initial_game_state;
@@ -112,18 +112,7 @@ fn bench_search(c: &mut Criterion) {
         for iterations in [1_000u32, 10_000] {
             group.throughput(Throughput::Elements(iterations as u64));
             group.bench_with_input(
-                BenchmarkId::new(format!("legacy/{name}"), iterations),
-                &iterations,
-                |b, &iterations| {
-                    let config = config(iterations);
-                    b.iter(|| {
-                        let mut rng = WyRand::seed_from_u64(0xC0_10_71);
-                        ismcts(&state, player, &config, horizon, None, &mut rng)
-                    });
-                },
-            );
-            group.bench_with_input(
-                BenchmarkId::new(format!("crate/{name}"), iterations),
+                BenchmarkId::new(name, iterations),
                 &iterations,
                 |b, &iterations| {
                     let config = config(iterations);
@@ -157,12 +146,44 @@ fn bench_early_termination(c: &mut Criterion) {
             };
             b.iter(|| {
                 let mut rng = WyRand::seed_from_u64(0xC0_10_71);
-                ismcts(&state, player, &config, horizon, None, &mut rng)
+                let mut searcher = ColoriSearcher::new(&state);
+                searcher.search(&state, player, &config, horizon, &mut rng)
             });
         });
     }
     group.finish();
 }
 
-criterion_group!(benches, bench_search, bench_early_termination);
+criterion_group!(benches, bench_search, bench_early_termination, bench_determinize);
 criterion_main!(benches);
+
+/// How much of an iteration is the per-iteration state copy?
+///
+/// Determinization clones the whole `GameState`, of which the two 256-entry
+/// lookup tables are 512 bytes. Hoisting them out of the state would remove
+/// that from every iteration — worth knowing what fraction that actually is
+/// before rewriting 150 call sites for it.
+fn bench_determinize(c: &mut Criterion) {
+    use colori_core::colori_game::determinize_in_place;
+    use colori_core::scoring::calculate_score;
+    use colori_core::types::MAX_PLAYERS;
+
+    let (state, _) = position(SEED, 50);
+    let player = active_player(&state);
+    let mut cached = [0u32; MAX_PLAYERS];
+    for (i, p) in state.players.iter().enumerate() {
+        cached[i] = calculate_score(p);
+    }
+
+    let mut group = c.benchmark_group("determinize");
+    group.bench_function("in_place", |b| {
+        let mut scratch = state.clone();
+        let mut rng = WyRand::seed_from_u64(0xD37);
+        b.iter(|| determinize_in_place(&mut scratch, &state, player, &cached, &mut rng));
+    });
+    group.bench_function("clone_only", |b| {
+        let mut scratch = state.clone();
+        b.iter(|| scratch.clone_from(&state));
+    });
+    group.finish();
+}

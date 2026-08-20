@@ -173,6 +173,42 @@ For scale on why 8000 games and not 300: the identical-variant control in
 configurations differing in nothing, 11.6 pp apart. At 300 games the resolution
 is roughly ±6 pp; here it is ±1.1 pp.
 
+## Retiring the legacy search
+
+With the strength gate passed, `ismcts.rs` no longer holds a search: 982 lines
+down to 274, keeping only `MctsConfig` and the DUCT opponent draft model, which
+is deliberately outside the tree and so outside the generic crate too. Every
+caller — the runner, the GA, the GUI, and the browser build — now goes through
+`ColoriSearcher`.
+
+The wasm binary grew from **552 847 to 581 334 bytes, +5.2%**, against a gate of
+20%. Before this change the wasm build still called the legacy search, so the
+generic code was largely eliminated; this is the real cost of monomorphising it
+for the browser, and it buys the same ~15% speedup the native build measured.
+
+### The lookup-table hoist, and why it was dropped
+
+The plan called for moving `card_lookup` and `sell_card_lookup` out of
+`GameState`, on the grounds that 512 bytes per iteration is ~51 MB of memcpy
+over a 100 000-iteration search. The arithmetic is right; the conclusion was
+not. Measured (`--bench ismcts_bench determinize`):
+
+| | median |
+|---|---:|
+| `determinize_in_place` | 114.3 ns |
+| the state copy alone | 111.9 ns |
+
+An iteration at that position takes ~8.8 µs, so **the entire state copy is 1.3%
+of an iteration**, and the two tables are about 22% of it. Hoisting them would
+save roughly **0.3% of a search** in exchange for rewriting ~150 call sites.
+Dropped, and recorded here so it is not proposed again.
+
+The same measurement dispatches a related assumption: `GameState` derives
+`Clone`, so `clone_from` is the default `*self = source.clone()` and reuses no
+allocations. It hardly matters — the state is bitsets, inline `FixedVec`s and
+two byte arrays, so a clone is essentially a 2.3 KB memcpy with nothing to
+reuse.
+
 ## What a migration has to beat
 
 Not just these numbers. Also:

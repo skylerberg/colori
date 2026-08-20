@@ -1,7 +1,8 @@
 use crate::cli::{TrainArgs, load_heuristic_params};
 use colori_core::colori_game::apply_choice_to_state;
 use colori_core::draw_phase::execute_draw_phase;
-use colori_core::ismcts::{ismcts, MctsConfig};
+use colori_core::ismcts::MctsConfig;
+use colori_core::mcts_impl::ColoriSearcher;
 use colori_core::scoring::{calculate_score, HeuristicParams};
 use colori_core::setup::create_initial_game_state;
 use colori_core::types::GamePhase;
@@ -305,7 +306,8 @@ fn run_ga_game(
         };
 
         let config = &configs[player_index];
-        let result = ismcts(&state, player_index, config, None, None, rng);
+        let mut searcher = ColoriSearcher::new(&state);
+        let result = searcher.search(&state, player_index, config, None, rng);
         apply_choice_to_state(&mut state, &result.choice, rng);
     }
 

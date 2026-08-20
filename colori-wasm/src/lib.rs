@@ -3,7 +3,8 @@ use colori_core::colori_game::enumerate_choices;
 use colori_core::draft_phase::{advance_draft, simultaneous_pick};
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::game_log::{DrawEvent, DrawLog};
-use colori_core::ismcts::{ismcts, MctsConfig};
+use colori_core::ismcts::{MctsConfig};
+use colori_core::mcts_impl::ColoriSearcher;
 use colori_core::scoring::{calculate_score, HeuristicParams};
 use colori_core::setup::create_initial_game_state;
 use colori_core::types::{Card, Choice, GameState, PlayerState};
@@ -50,12 +51,12 @@ pub fn wasm_run_ismcts(
     let heuristic_params: HeuristicParams = serde_json::from_str(TRAINED_PARAMS_JSON)
         .expect("Failed to parse trained heuristic params");
     let config = MctsConfig { iterations, ..MctsConfig::new(heuristic_params) };
-    let result = ismcts(
+    let mut searcher = ColoriSearcher::new(&game_state);
+    let result = searcher.search(
         &game_state,
         player_index as usize,
         &config,
         Some(max_rollout_round),
-        None,
         &mut rng,
     );
 

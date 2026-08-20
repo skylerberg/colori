@@ -7,7 +7,8 @@ use wyrand::WyRand;
 
 use colori_core::colori_game::enumerate_choices;
 use colori_core::game_log::{DrawEvent, StructuredGameLog, StructuredLogEntry};
-use colori_core::ismcts::{ismcts, MctsConfig, MctsNode, TreeStats};
+use colori_core::ismcts::MctsConfig;
+use colori_core::mcts_impl::{tree_stats, ColoriSearcher, SearchNode as MctsNode, TreeStats};
 use colori_core::replay::{GameReplay, replay_to};
 use colori_core::scoring::calculate_score;
 use colori_core::types::{
@@ -258,17 +259,17 @@ impl GameViewerState {
 
         std::thread::spawn(move || {
             let mut rng = WyRand::from_rng(&mut rand::rng());
-            let result = ismcts(
+            let mut searcher = ColoriSearcher::new(&state);
+            let _ = searcher.search(
                 &state,
                 player_index,
                 &config,
                 Some(max_rollout_round),
-                None,
                 &mut rng,
             );
-            if let Some(root) = result.tree {
-                let tree_stats = root.tree_stats();
-                let iterations_used = root.visit_count();
+            if let Some(root) = searcher.take_tree() {
+                let tree_stats = tree_stats(&root);
+                let iterations_used = root.visits();
                 let _ = tx.send(MctsAnalysisResult {
                     iterations_used,
                     tree_stats,
@@ -315,12 +316,12 @@ impl GameViewerState {
 
                 if let Some(player_index) = player_index {
                     let max_rollout_round = std::cmp::max(8, replay.state.round + 2);
-                    let result = ismcts(
+                    let mut searcher = ColoriSearcher::new(&replay.state);
+                    let result = searcher.search(
                         &replay.state,
                         player_index,
                         &config,
                         Some(max_rollout_round),
-                        None,
                         &mut mcts_rng,
                     );
                     let mut agrees = choices_equivalent(&result.choice, &entry.choice);
@@ -339,9 +340,9 @@ impl GameViewerState {
                             .any(|e| choices_equivalent(mcts_choice, &e.choice));
                     }
 
-                    if let Some(root) = result.tree {
-                        let tree_stats = root.tree_stats();
-                        let iterations_used = root.visit_count();
+                    if let Some(root) = searcher.take_tree() {
+                        let tree_stats = tree_stats(&root);
+                        let iterations_used = root.visits();
                         let analysis = MctsAnalysisResult {
                             iterations_used,
                             tree_stats,
@@ -1016,9 +1017,9 @@ fn render_mcts_children(ui: &mut egui::Ui, node: &MctsNode, depth: usize) {
     let mut children: Vec<&MctsNode> = node
         .children()
         .iter()
-        .filter(|c| c.visit_count() > 0)
+        .filter(|c| c.visits() > 0)
         .collect();
-    children.sort_by(|a, b| b.visit_count().cmp(&a.visit_count()));
+    children.sort_by(|a, b| b.visits().cmp(&a.visits()));
 
     let max_choice_chars = 30;
 
@@ -1038,7 +1039,7 @@ fn render_mcts_children(ui: &mut egui::Ui, node: &MctsNode, depth: usize) {
                     .choice()
                     .map(|ch| format_choice(ch))
                     .unwrap_or_else(|| "?".to_string());
-                let stats = child.tree_stats();
+                let stats = tree_stats(child);
 
                 let truncated = if choice_text.len() > max_choice_chars {
                     format!("{}…", &choice_text[..max_choice_chars])
@@ -1046,8 +1047,8 @@ fn render_mcts_children(ui: &mut egui::Ui, node: &MctsNode, depth: usize) {
                     choice_text.clone()
                 };
                 ui.label(egui::RichText::new(&truncated).monospace());
-                ui.label(format!("{}", child.visit_count()));
-                ui.label(format!("{:.3}", child.average_reward()));
+                ui.label(format!("{}", child.visits()));
+                ui.label(format!("{:.3}", child.mean_reward()));
                 ui.label(format!("{}", stats.max_depth));
                 ui.label(format!("{:.1}", stats.avg_branching_factor));
                 ui.end_row();
