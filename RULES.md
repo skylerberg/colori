@@ -162,9 +162,9 @@ Choose one of the three secondary colors (Orange, Green, or Purple) and add it t
 
 Choose one of the three primary colors (Red, Yellow, or Blue) and add it to your color wheel. This ability never fizzles.
 
-### Change Tertiary
+### Any Material
 
-Swap one tertiary color on your wheel for a different tertiary. First choose a tertiary color you have stored (Vermilion, Amber, Chartreuse, Teal, Indigo, or Magenta) to remove, then choose a different tertiary color to gain. If you have no tertiary colors stored, the ability fizzles.
+Choose one of the three material types (Textiles, Ceramics, or Paintings) and store 1 of it. This ability never fizzles.
 
 ## End of Game
 
@@ -254,9 +254,9 @@ Their workshop abilities (triggered when chosen during Workshop resolution) are:
 | Alum | Move to Draft Pool | Gain Ducats ×1 | Draft deck |
 | Cream of Tartar | Move to Draft Pool | Draw Cards ×3 | Draft deck |
 | Gum Arabic | Move to Draft Pool | Any Secondary | Draft deck |
-| Potash | Draw Cards ×2 | Workshop ×3 | Draft deck |
+| Potash | Move to Draft Pool | Workshop ×3 | Draft deck |
 | Linseed Oil | Move to Draft Pool | Mix Colors ×2 | Draft deck |
-| Vinegar | Move to Draft Pool | Change Tertiary | Draft deck |
+| Warehouse | Move to Draft Pool | Any Material | Draft deck |
 
 ### Sell Cards (54 total, single deck)
 

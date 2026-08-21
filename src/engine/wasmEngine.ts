@@ -112,13 +112,13 @@ export function getChoiceLogMessage(
       return `${name} gained ${choice.color}`;
     case 'gainPrimary':
       return `${name} gained ${choice.color}`;
+    case 'gainMaterial':
+      return `${name} gained 1 ${choice.material}`;
     case 'mixAll': {
       if (choice.mixes.length === 0) return `${name} skipped remaining mixes`;
       const parts = choice.mixes.map(([a, b]) => `mixed ${a} + ${b} to make ${mixResult(a, b)}`);
       return `${name} ${parts.join(', ')}`;
     }
-    case 'swapTertiary':
-      return `${name} swapped ${choice.loseColor} for ${choice.gainColor}`;
     case 'destroyAndMix': {
       const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
       let msg = `${name} destroyed ${cardName} from drafted cards`;
@@ -148,18 +148,6 @@ export function getChoiceLogMessage(
       const targetName = (getAnyCardData(choice.target) as { name?: string })?.name ?? 'a card';
       return `${name} destroyed ${cardName} from drafted cards\n${name} moved ${targetName} from workshop to draft pool\n${name} destroyed ${targetName} from draft pool`;
     }
-    case 'selectMoveToDrafted': {
-      const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
-      return `${name} moved ${cardName} from workshop to drafted`;
-    }
-    case 'skipMoveToDrafted':
-      return `${name} skipped moving a card to drafted`;
-    case 'selectMoveToWorkshop': {
-      const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
-      return `${name} moved ${cardName} from drafted to workshop`;
-    }
-    case 'skipMoveToWorkshop':
-      return `${name} skipped moving a card to workshop`;
     case 'deferredMoveToDraft': {
       const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
       return `${name} moved ${cardName} from workshop to draft pool`;

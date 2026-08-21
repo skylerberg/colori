@@ -136,6 +136,9 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
         Choice::GainPrimary { color } => {
             resolve_gain_color(state, *color, rng);
         }
+        Choice::GainMaterial { material } => {
+            resolve_gain_material(state, *material, rng);
+        }
         Choice::MixAll { mixes } => {
             for &(a, b) in mixes.iter() {
                 resolve_mix_colors(state, a, b, rng);
@@ -146,10 +149,6 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
                     skip_mix(state, rng);
                 }
             }
-        }
-        Choice::SwapTertiary { lose, gain } => {
-            resolve_choose_tertiary_to_lose(state, *lose);
-            resolve_choose_tertiary_to_gain(state, *gain, rng);
         }
         Choice::DestroyAndMix { card, mixes } => {
             let card_instance_id = get_drafted_card_instance(state, card);
@@ -206,34 +205,6 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
                 }
             }
             resolve_destroy_cards(state, selected, rng);
-        }
-        Choice::SelectMoveToDrafted { card } => {
-            get_action_state_mut(state).ability_stack.pop();
-            let player_index = get_action_state(state).current_player_index;
-            let area = state.players[player_index]
-                .workshop_cards
-                .union(state.players[player_index].workshopped_cards);
-            let id = find_card_instance(state, card, &area);
-            let removed = remove_from_workshop_area(&mut state.players[player_index], id as u8);
-            assert!(removed, "Card not found in workshop area for SelectMoveToDrafted");
-            state.players[player_index].drafted_cards.insert(id as u8);
-            process_ability_stack(state, rng);
-        }
-        Choice::SkipMoveToDrafted => {
-            get_action_state_mut(state).ability_stack.pop();
-            process_ability_stack(state, rng);
-        }
-        Choice::SelectMoveToWorkshop { card } => {
-            get_action_state_mut(state).ability_stack.pop();
-            let player_index = get_action_state(state).current_player_index;
-            let id = find_card_instance(state, card, &state.players[player_index].drafted_cards);
-            state.players[player_index].drafted_cards.remove(id as u8);
-            state.players[player_index].workshop_cards.insert(id as u8);
-            process_ability_stack(state, rng);
-        }
-        Choice::SkipMoveToWorkshop => {
-            get_action_state_mut(state).ability_stack.pop();
-            process_ability_stack(state, rng);
         }
         Choice::DeferredMoveToDraft { .. } => {
             // Behaviorally identical to DestroyDrawnCards { card: None }: the

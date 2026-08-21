@@ -13,9 +13,7 @@ fn format_ability(ability: &Ability) -> String {
         Ability::GainDucats { count } => format!("{{ type: 'gainDucats', count: {} }}", count),
         Ability::GainSecondary => "{ type: 'gainSecondary' }".to_string(),
         Ability::GainPrimary => "{ type: 'gainPrimary' }".to_string(),
-        Ability::ChangeTertiary => "{ type: 'changeTertiary' }".to_string(),
-        Ability::MoveToDrafted => "{ type: 'moveToDrafted' }".to_string(),
-        Ability::MoveToWorkshop => "{ type: 'moveToWorkshop' }".to_string(),
+        Ability::GainMaterial => "{ type: 'gainMaterial' }".to_string(),
     }
 }
 

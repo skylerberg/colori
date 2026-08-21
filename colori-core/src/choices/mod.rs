@@ -7,7 +7,7 @@ use crate::action_phase::{
     for_each_unique_card_type_in_workshop_area,
 };
 use crate::apply_choice::resolve_card_types_to_ids;
-use crate::colors::{can_mix, perform_mix_unchecked, PRIMARIES, SECONDARIES, TERTIARIES};
+use crate::colors::{can_mix, perform_mix_unchecked, PRIMARIES, SECONDARIES};
 use crate::types::*;
 use smallvec::SmallVec;
 
@@ -33,7 +33,7 @@ pub(crate) fn should_force_max_workshop(state: &GameState, player: &PlayerState)
     for id in player.workshop_cards.iter() {
         let card = state.card_lookup[id as usize];
         for &wa in card.workshop_abilities() {
-            if matches!(wa, Ability::DrawCards { .. } | Ability::MoveToWorkshop) {
+            if matches!(wa, Ability::DrawCards { .. }) {
                 return false;
             }
         }
@@ -134,28 +134,10 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                         choices.push(Choice::GainPrimary { color: c });
                     }
                 }
-                Some(Ability::ChangeTertiary) => {
-                    for &lose in TERTIARIES.iter() {
-                        if player.color_wheel.get(lose) > 0 {
-                            for &gain in TERTIARIES.iter() {
-                                if gain != lose {
-                                    choices.push(Choice::SwapTertiary { lose, gain });
-                                }
-                            }
-                        }
+                Some(Ability::GainMaterial) => {
+                    for &m in ALL_MATERIAL_TYPES.iter() {
+                        choices.push(Choice::GainMaterial { material: m });
                     }
-                }
-                Some(Ability::MoveToDrafted) => {
-                    choices.push(Choice::SkipMoveToDrafted);
-                    for_each_unique_card_type_in_workshop_area(player, &state.card_lookup, |card| {
-                        choices.push(Choice::SelectMoveToDrafted { card });
-                    });
-                }
-                Some(Ability::MoveToWorkshop) => {
-                    choices.push(Choice::SkipMoveToWorkshop);
-                    for_each_unique_card_type(&player.drafted_cards, &state.card_lookup, |card| {
-                        choices.push(Choice::SelectMoveToWorkshop { card });
-                    });
                 }
                 // Instant abilities (DrawCards, GainDucats) should never be on top
                 // when waiting for a choice — they get processed immediately.
@@ -293,6 +275,13 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
                 false
             }
         }
+        Choice::GainMaterial { .. } => {
+            if let GamePhase::Action { ref action_state } = state.phase {
+                matches!(action_state.ability_stack.last(), Some(Ability::GainMaterial))
+            } else {
+                false
+            }
+        }
         Choice::MixAll { mixes } => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 match action_state.ability_stack.last() {
@@ -305,22 +294,6 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
                         player.color_wheel.get(a) > 0
                             && player.color_wheel.get(b) > 0
                             && can_mix(a, b)
-                    }
-                    _ => false,
-                }
-            } else {
-                false
-            }
-        }
-        Choice::SwapTertiary { lose, gain } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                match action_state.ability_stack.last() {
-                    Some(Ability::ChangeTertiary) => {
-                        let player = &state.players[action_state.current_player_index];
-                        TERTIARIES.contains(lose)
-                            && player.color_wheel.get(*lose) > 0
-                            && TERTIARIES.contains(gain)
-                            && *lose != *gain
                     }
                     _ => false,
                 }
@@ -390,43 +363,6 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
                     let area = player.workshop_cards.union(player.workshopped_cards);
                     area.iter().any(|id| state.card_lookup[id as usize] == *target_card)
                 }
-            }
-        }
-        Choice::SelectMoveToDrafted { card } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if !matches!(action_state.ability_stack.last(), Some(Ability::MoveToDrafted)) {
-                    return false;
-                }
-                let player = &state.players[action_state.current_player_index];
-                let area = player.workshop_cards.union(player.workshopped_cards);
-                area.iter().any(|id| state.card_lookup[id as usize] == *card)
-            } else {
-                false
-            }
-        }
-        Choice::SkipMoveToDrafted => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                matches!(action_state.ability_stack.last(), Some(Ability::MoveToDrafted))
-            } else {
-                false
-            }
-        }
-        Choice::SelectMoveToWorkshop { card } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                matches!(action_state.ability_stack.last(), Some(Ability::MoveToWorkshop))
-                    && state.players[action_state.current_player_index]
-                        .drafted_cards
-                        .iter()
-                        .any(|id| state.card_lookup[id as usize] == *card)
-            } else {
-                false
-            }
-        }
-        Choice::SkipMoveToWorkshop => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                matches!(action_state.ability_stack.last(), Some(Ability::MoveToWorkshop))
-            } else {
-                false
             }
         }
         Choice::DeferredMoveToDraft { card } => {

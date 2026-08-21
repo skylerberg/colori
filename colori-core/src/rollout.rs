@@ -1,15 +1,14 @@
 use crate::action_phase::{
     can_afford_sell_card, destroy_drafted_card, end_player_turn,
     initialize_action_phase,
-    process_ability_stack, remove_from_workshop_area, resolve_choose_tertiary_to_gain,
-    resolve_choose_tertiary_to_lose,
-    resolve_destroy_cards, resolve_gain_color, resolve_select_sell_card,
+    process_ability_stack,
+    resolve_destroy_cards, resolve_gain_color, resolve_gain_material, resolve_select_sell_card,
     resolve_workshop_choice,
     skip_workshop,
 };
 use crate::colors::{
     mix_result, pay_cost, perform_mix_unchecked, PRIMARIES,
-    SECONDARIES, TERTIARIES, VALID_MIX_PAIRS,
+    SECONDARIES, VALID_MIX_PAIRS,
 };
 use crate::deck_utils::draw_from_deck;
 use crate::draft_phase::player_pick;
@@ -311,74 +310,9 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, 
                     let color = PRIMARIES[rng.random_range(0..PRIMARIES.len())];
                     resolve_gain_color(state, color, rng);
                 }
-                Some(Ability::ChangeTertiary) => {
-                    let player = &state.players[player_index];
-                    let mut owned_tertiaries = [Color::Red; 6];
-                    let mut own_count = 0usize;
-                    for &c in &TERTIARIES {
-                        if player.color_wheel.get(c) > 0 {
-                            owned_tertiaries[own_count] = c;
-                            own_count += 1;
-                        }
-                    }
-                    if own_count == 0 {
-                        if let GamePhase::Action { ref mut action_state } = state.phase {
-                            action_state.ability_stack.pop();
-                        }
-                        process_ability_stack(state, rng);
-                    } else {
-                        let r = rng.random_range(0..own_count * 5);
-                        let lose_idx = r / 5;
-                        let gain_local_idx = r % 5;
-                        let lose_color = owned_tertiaries[lose_idx];
-                        let mut options = [Color::Red; 6];
-                        let mut opt_count = 0usize;
-                        for &c in &TERTIARIES {
-                            if c != lose_color {
-                                options[opt_count] = c;
-                                opt_count += 1;
-                            }
-                        }
-                        let gain_color = options[gain_local_idx];
-                        resolve_choose_tertiary_to_lose(state, lose_color);
-                        resolve_choose_tertiary_to_gain(state, gain_color, rng);
-                    }
-                }
-                Some(Ability::MoveToDrafted) => {
-                    let player = &mut state.players[player_index];
-                    let area = player.workshop_cards.union(player.workshopped_cards);
-                    if area.is_empty() || rng.random_range(0..2u32) == 0 {
-                        // Skip
-                        if let GamePhase::Action { ref mut action_state } = state.phase {
-                            action_state.ability_stack.pop();
-                        }
-                        process_ability_stack(state, rng);
-                    } else {
-                        let card_id = area.pick_random(rng).unwrap();
-                        remove_from_workshop_area(player, card_id);
-                        player.drafted_cards.insert(card_id);
-                        if let GamePhase::Action { ref mut action_state } = state.phase {
-                            action_state.ability_stack.pop();
-                        }
-                        process_ability_stack(state, rng);
-                    }
-                }
-                Some(Ability::MoveToWorkshop) => {
-                    let player = &mut state.players[player_index];
-                    if player.drafted_cards.is_empty() || rng.random_range(0..2u32) == 0 {
-                        if let GamePhase::Action { ref mut action_state } = state.phase {
-                            action_state.ability_stack.pop();
-                        }
-                        process_ability_stack(state, rng);
-                    } else {
-                        let card_id = player.drafted_cards.pick_random(rng).unwrap();
-                        player.drafted_cards.remove(card_id);
-                        player.workshop_cards.insert(card_id);
-                        if let GamePhase::Action { ref mut action_state } = state.phase {
-                            action_state.ability_stack.pop();
-                        }
-                        process_ability_stack(state, rng);
-                    }
+                Some(Ability::GainMaterial) => {
+                    let material = ALL_MATERIAL_TYPES[rng.random_range(0..ALL_MATERIAL_TYPES.len())];
+                    resolve_gain_material(state, material, rng);
                 }
                 // Instant abilities should never be on top waiting — they get processed immediately
                 Some(_) => panic!("Unexpected ability on stack top during rollout"),
@@ -735,6 +669,25 @@ impl SellCardCache {
         self.proximity_demand[color.index()]
     }
 
+    /// How much one stored unit of a material type is worth, summed over the
+    /// sell cards on display that require it.
+    #[inline(always)]
+    fn material_demand(&self, material: MaterialType, params: &HeuristicParams) -> u32 {
+        let mut score = 0u32;
+        for i in 0..self.len {
+            let entry = &self.entries[i];
+            if entry.required_material == material {
+                let base = entry.ducats * params.rollout_ws_material_base_multiplier;
+                if entry.colors_met {
+                    score += base * params.rollout_ws_material_colors_met_multiplier;
+                } else {
+                    score += base + base * entry.have_colors / (entry.total_colors + 1);
+                }
+            }
+        }
+        score
+    }
+
 }
 
 /// Destruction priority considering actual game state.
@@ -834,24 +787,13 @@ fn action_workshop_value(
                 }
                 return best_total * mult / 10;
             }
-            Ability::ChangeTertiary => {
-                // Value = best demanded tertiary - least needed owned tertiary
-                let mut has_any = false;
-                let mut least_needed = u32::MAX;
-                for &c in &TERTIARIES {
-                    if player.color_wheel.get(c) > 0 {
-                        has_any = true;
-                        least_needed = least_needed.min(cache.color_demand(c));
-                    }
+            Ability::GainMaterial => {
+                // Worth as much as workshopping a card that stores the best-demanded material
+                let mut best = 0u32;
+                for &m in &ALL_MATERIAL_TYPES {
+                    best = best.max(cache.material_demand(m, params));
                 }
-                if !has_any {
-                    return 0;
-                }
-                let mut best_demand = 0u32;
-                for &c in &TERTIARIES {
-                    best_demand = best_demand.max(cache.color_demand(c));
-                }
-                return best_demand.saturating_sub(least_needed) * mult / 10;
+                return best;
             }
             _ => {}
         }
@@ -871,17 +813,7 @@ fn workshop_card_score(
 
     // Material cards: score by how much their material type is needed
     for &mt in card.material_types() {
-        for i in 0..cache.len {
-            let entry = &cache.entries[i];
-            if entry.required_material == mt {
-                let base = entry.ducats * params.rollout_ws_material_base_multiplier;
-                if entry.colors_met {
-                    score += base * params.rollout_ws_material_colors_met_multiplier;
-                } else {
-                    score += base + base * entry.have_colors / (entry.total_colors + 1);
-                }
-            }
-        }
+        score += cache.material_demand(mt, params);
     }
 
     // Color cards: score by how much their colors are needed
@@ -918,6 +850,28 @@ fn pick_best_color<R: Rng>(
         }
     }
     best_color
+}
+
+/// Pick the material type most needed by the sell cards on display.
+#[inline(always)]
+fn pick_best_material<R: Rng>(
+    cache: &SellCardCache,
+    params: &HeuristicParams,
+    rng: &mut R,
+) -> MaterialType {
+    if rng.random_bool(params.rollout_epsilon) {
+        return ALL_MATERIAL_TYPES[rng.random_range(0..ALL_MATERIAL_TYPES.len())];
+    }
+    let mut best_material = ALL_MATERIAL_TYPES[0];
+    let mut best_score = 0u32;
+    for &m in &ALL_MATERIAL_TYPES {
+        let score = cache.material_demand(m, params);
+        if score > best_score {
+            best_score = score;
+            best_material = m;
+        }
+    }
+    best_material
 }
 
 /// Heuristic mix sequence: prefer mixes whose output is useful for sell cards.
@@ -1306,99 +1260,9 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                     let color = pick_best_color(&PRIMARIES, &cache, params, rng);
                     resolve_gain_color(state, color, rng);
                 }
-                Some(Ability::ChangeTertiary) => {
-                    let player = &state.players[player_index];
-                    let mut owned_tertiaries = [Color::Red; 6];
-                    let mut own_count = 0usize;
-                    for &c in &TERTIARIES {
-                        if player.color_wheel.get(c) > 0 {
-                            owned_tertiaries[own_count] = c;
-                            own_count += 1;
-                        }
-                    }
-                    if own_count == 0 {
-                        if let GamePhase::Action { ref mut action_state } = state.phase {
-                            action_state.ability_stack.pop();
-                        }
-                        process_ability_stack(state, rng);
-                    } else if rng.random_bool(params.rollout_epsilon) {
-                        // Epsilon: random
-                        let r = rng.random_range(0..own_count * 5);
-                        let lose_idx = r / 5;
-                        let gain_local_idx = r % 5;
-                        let lose_color = owned_tertiaries[lose_idx];
-                        let mut options = [Color::Red; 6];
-                        let mut opt_count = 0usize;
-                        for &c in &TERTIARIES {
-                            if c != lose_color {
-                                options[opt_count] = c;
-                                opt_count += 1;
-                            }
-                        }
-                        let gain_color = options[gain_local_idx];
-                        resolve_choose_tertiary_to_lose(state, lose_color);
-                        resolve_choose_tertiary_to_gain(state, gain_color, rng);
-                    } else {
-                        // Heuristic: lose the least useful, gain the most useful
-                        let mut best_lose = owned_tertiaries[0];
-                        let mut best_lose_score = u32::MAX;
-                        for i in 0..own_count {
-                            let c = owned_tertiaries[i];
-                            let score = cache.color_demand(c);
-                            if score < best_lose_score {
-                                best_lose_score = score;
-                                best_lose = c;
-                            }
-                        }
-                        let mut best_gain = TERTIARIES[0];
-                        let mut best_gain_score = 0u32;
-                        for &c in &TERTIARIES {
-                            if c != best_lose {
-                                let score = cache.color_demand(c);
-                                if score > best_gain_score {
-                                    best_gain_score = score;
-                                    best_gain = c;
-                                }
-                            }
-                        }
-                        resolve_choose_tertiary_to_lose(state, best_lose);
-                        resolve_choose_tertiary_to_gain(state, best_gain, rng);
-                    }
-                }
-                Some(Ability::MoveToDrafted) => {
-                    let player = &mut state.players[player_index];
-                    let area = player.workshop_cards.union(player.workshopped_cards);
-                    if area.is_empty() || rng.random_range(0..2u32) == 0 {
-                        if let GamePhase::Action { ref mut action_state } = state.phase {
-                            action_state.ability_stack.pop();
-                        }
-                        process_ability_stack(state, rng);
-                    } else {
-                        let card_id = area.pick_random(rng).unwrap();
-                        remove_from_workshop_area(player, card_id);
-                        player.drafted_cards.insert(card_id);
-                        if let GamePhase::Action { ref mut action_state } = state.phase {
-                            action_state.ability_stack.pop();
-                        }
-                        process_ability_stack(state, rng);
-                    }
-                }
-                Some(Ability::MoveToWorkshop) => {
-                    let player = &mut state.players[player_index];
-                    if player.drafted_cards.is_empty() || rng.random_range(0..2u32) == 0 {
-                        if let GamePhase::Action { ref mut action_state } = state.phase {
-                            action_state.ability_stack.pop();
-                        }
-                        process_ability_stack(state, rng);
-                    } else {
-                        let card_id = player.drafted_cards.pick_random(rng).unwrap();
-                        player.drafted_cards.remove(card_id);
-                        player.workshop_cards.insert(card_id);
-                        if let GamePhase::Action { ref mut action_state } = state.phase {
-                            action_state.ability_stack.pop();
-                        }
-                        process_ability_stack(state, rng);
-                    }
+                Some(Ability::GainMaterial) => {
+                    let material = pick_best_material(&cache, params, rng);
+                    resolve_gain_material(state, material, rng);
                 }
                 Some(_) => panic!("Unexpected ability on stack top during rollout"),
             }

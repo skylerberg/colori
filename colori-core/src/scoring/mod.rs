@@ -6,7 +6,7 @@ use crate::colors::{PRIMARIES, SECONDARIES, TERTIARIES};
 use crate::fixed_vec::FixedVec;
 use crate::types::*;
 
-const ALL_CARDS: [Card; 45] = [
+const ALL_CARDS: [Card; 43] = [
     Card::BasicRed, Card::BasicYellow, Card::BasicBlue,
     Card::Lac, Card::Brazilwood, Card::Pomegranate,
     Card::Sumac, Card::Elderberry, Card::Turnsole,
@@ -20,17 +20,17 @@ const ALL_CARDS: [Card; 45] = [
     Card::AlizarinFabric, Card::FusticFabric, Card::PastelFabric,
     Card::ClayCanvas, Card::ClayFabric, Card::CanvasFabric,
     Card::Alum, Card::CreamOfTartar, Card::GumArabic,
-    Card::Potash, Card::Vinegar, Card::Chalk,
-    Card::LinseedOil, Card::Lye, Card::SalAmmoniac,
+    Card::Potash, Card::Chalk, Card::LinseedOil,
+    Card::Warehouse,
 ];
 
 pub struct CardHeuristicTable {
-    quality: [f64; 45],
+    quality: [f64; 43],
 }
 
 impl CardHeuristicTable {
     pub fn new(params: &HeuristicParams) -> Self {
-        let mut quality = [0.0f64; 45];
+        let mut quality = [0.0f64; 43];
         for &card in &ALL_CARDS {
             let idx = card as usize;
             quality[idx] = card_quality(card, params);
@@ -92,7 +92,7 @@ fn card_quality(card: Card, params: &HeuristicParams) -> f64 {
                 Card::CreamOfTartar => params.cream_of_tartar_quality,
                 Card::GumArabic => params.gum_arabic_quality,
                 Card::Potash => params.potash_quality,
-                Card::Vinegar => params.vinegar_quality,
+                Card::Warehouse => params.warehouse_quality,
                 Card::LinseedOil => params.linseed_oil_quality,
                 _ => 0.0,
             }
