@@ -6,5 +6,21 @@ src/wasm-pkg/
 target/
 game-logs/
 game-log-archive/
-genetic-algorithm/
-variants.json
+
+# Training runs emit hundreds of disposable param files. Everything the build
+# and the default variants actually load is checked in explicitly below, so a
+# fresh clone or worktree can build and run without copying anything in.
+genetic-algorithm/*
+!genetic-algorithm/batch-lki08w-gen-32.json
+!genetic-algorithm/batch-nocdm1-gen-7.json
+!genetic-algorithm/batch-sih8cq-gen-19.json
+!genetic-algorithm/batch-c6zk1e-gen-13.json
+!genetic-algorithm/batch-lki08w-gen-0.json
+!genetic-algorithm/batch-lki08w-gen-2.json
+!genetic-algorithm/batch-lki08w-gen-12.json
+!genetic-algorithm/batch-lki08w-gen-13.json
+!genetic-algorithm/batch-lki08w-gen-14.json
+!genetic-algorithm/batch-lki08w-gen-17.json
+!genetic-algorithm/batch-lki08w-gen-28.json
+!genetic-algorithm/batch-rqo1vv-gen-18.json
+!genetic-algorithm/batch-sih8cq-gen-14.json

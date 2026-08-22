@@ -20,39 +20,39 @@ Each player has their own color wheel that tracks how many of each color they ha
 
 ### Cards
 
-**Basic Dye Cards** (3 types, 1 per player in starting decks only):
+**Basic Dye Cards** (starting decks only, 1 per player):
 - Basic Red — 1 Red color | Destroy: Sell
 - Basic Yellow — 1 Yellow color | Destroy: Sell
 - Basic Blue — 1 Blue color | Destroy: Sell
 
-**Dye Cards** (18 unique in draft deck, 3 copies each, 54 total in draft deck):
-- 6 Primary dyes — 2 colors of one primary + 1 color of a different primary | Destroy: Workshop ×3
-- 6 Secondary dyes — 2 colors of two adjacent primary/secondary colors | Destroy: Mix Colors ×2
-- 6 Tertiary dyes — 1 color of a tertiary color | Destroy: Sell
+**Dye Cards** (draft deck):
+- Primary dyes — 2 colors of one primary + 1 color of a different primary | Destroy: Workshop ×3
+- Secondary dyes — 2 colors of two adjacent primary/secondary colors | Destroy: Mix Colors ×2
+- Tertiary dyes — 1 color of a tertiary color | Destroy: Sell
 
-**Material Cards** (3 types in starting deck, 1 per player; 12 unique draft material cards in draft deck):
+**Material Cards** (starting decks, 1 per player; plus draft material cards in the draft deck):
 Starting deck materials gain 1 material when workshopped. Draft material cards offer enhanced gains: material + color, or dual materials.
 - Ceramics | Destroy: Workshop ×2
 - Paintings | Destroy: Sell
 - Textiles | Destroy: Draw Cards ×2
 
-**Action Cards** (6 unique in draft deck, 4 copies each, 24 total; plus Chalk as a starter card):
+**Action Cards** (draft deck; plus Chalk as a starter card):
 Each action card has a destroy ability plus workshop abilities that trigger when the card is chosen during Workshop resolution. See the card reference below.
 
-**Sell Cards** (54 total, single deck):
-Each sell card requires 1 of a specific material type and a set of colors as its cost. All 54 sell cards are shuffled into a single deck. Each sell card is worth 2–4 ducats.
+**Sell Cards** (single deck):
+Each sell card requires 1 of a specific material type and a set of colors as its cost. All sell cards are shuffled into a single deck. Each sell card is worth 2–4 ducats.
 
 ### Decks
 
-- **Draft Deck**: Contains 54 dye cards + 12 draft material cards + 24 action cards (90 total). When the draft deck runs out, shuffle all destroyed cards back in.
+- **Draft Deck**: Contains the dye, draft material, and action cards. When the draft deck runs out, shuffle all destroyed cards back in.
 - **Sell Card Deck**: Contains all sell cards. 6 sell cards are displayed face-up at all times.
 - **Personal Deck**: Each player has their own deck that they draw from and build over the course of the game.
 
 ## Setup
 
-1. Each player receives a starting personal deck of 7 cards: 1 Basic Red, 1 Basic Yellow, 1 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles, 1 Chalk. Shuffle it.
+1. Each player receives a starting personal deck: 1 Basic Red, 1 Basic Yellow, 1 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles, 1 Chalk. Shuffle it.
 2. Each player starts with 1 Red, 1 Yellow, and 1 Blue already stored on their color wheel.
-3. Place 18 draft dye cards (3 copies each), 12 unique draft material cards, and 6 action cards (4 copies each) into the draft deck. Shuffle it.
+3. Place the dye, draft material, and action cards into the draft deck. Shuffle it.
 4. Shuffle the sell card deck and reveal 6 sell cards face-up in the sell card display.
 
 ## Player Area
@@ -176,7 +176,7 @@ Each player's score = total ducats (from sell cards + Gain Ducats ability). The 
 
 ## Card Reference
 
-### Basic Dye Cards (3 types, 1 per player in starting decks)
+### Basic Dye Cards
 
 | Name | Color | Destroy Ability |
 |------|-------|-----------------|
@@ -184,7 +184,7 @@ Each player's score = total ducats (from sell cards + Gain Ducats ability). The 
 | Basic Yellow | 1 Yellow | Sell |
 | Basic Blue | 1 Blue | Sell |
 
-### Dye Cards (18 unique in draft deck, 3 copies each)
+### Dye Cards
 
 **Primary Dyes** (2 colors of one primary + 1 color of a different primary):
 
@@ -219,7 +219,7 @@ Each player's score = total ducats (from sell cards + Gain Ducats ability). The 
 | Indigo | 1 Indigo | Sell |
 | Cochineal | 1 Magenta | Sell |
 
-### Starting Material Cards (3 types, 1 per player in starting deck)
+### Starting Material Cards
 
 | Name | Material Gain | Destroy Ability |
 |------|--------------|-----------------|
@@ -227,7 +227,7 @@ Each player's score = total ducats (from sell cards + Gain Ducats ability). The 
 | Paintings | 1 Paintings | Workshop ×4 |
 | Textiles | 1 Textiles | Workshop ×2 |
 
-### Draft Material Cards (12 unique in draft deck)
+### Draft Material Cards
 
 | Name | Material Gain | Color | Destroy Ability |
 |------|--------------|-------|-----------------|
@@ -244,7 +244,7 @@ Each player's score = total ducats (from sell cards + Gain Ducats ability). The 
 | Clay & Fabric | 1 Ceramics + 1 Textiles | — | Sell |
 | Canvas & Fabric | 1 Paintings + 1 Textiles | — | Sell |
 
-### Action Cards (6 unique in draft deck, 4 copies each; plus Chalk as a starter)
+### Action Cards
 
 Their workshop abilities (triggered when chosen during Workshop resolution) are:
 
@@ -258,14 +258,14 @@ Their workshop abilities (triggered when chosen during Workshop resolution) are:
 | Linseed Oil | Move to Draft Pool | Mix Colors ×2 | Draft deck |
 | Warehouse | Move to Draft Pool | Any Material | Draft deck |
 
-### Sell Cards (54 total, single deck)
+### Sell Cards
 
 Sell cards do not have names. Each sell card requires 1 of a specific material type and a set of colors as its cost.
 
-| Material | Ducats | Requirement | Count |
-|----------|--------|-------------|-------|
-| Textiles | 2 | One tertiary, one secondary + one primary, or triple primary (3 of same primary color) | 18 |
-| Ceramics | 3 | One tertiary + one primary | 18 |
-| Paintings | 4 | One tertiary + one secondary | 18 |
+| Material | Ducats | Requirement |
+|----------|--------|-------------|
+| Textiles | 2 | One tertiary, one secondary + one primary, or triple primary (3 of same primary color) |
+| Ceramics | 3 | One tertiary + one primary |
+| Paintings | 4 | One tertiary + one secondary |
 
-All 54 sell cards are shuffled into a single deck. numPlayers + 1 sell cards are displayed face-up at all times.
+All sell cards are shuffled into a single deck. 6 sell cards are displayed face-up at all times.

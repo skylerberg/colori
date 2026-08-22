@@ -1,0 +1,16 @@
+[
+  {
+    "name": "25k nocdm1-gen-7",
+    "heuristicRollout": true,
+    "useHeuristicEval": true,
+    "heuristicParamsFile": "genetic-algorithm/batch-nocdm1-gen-7.json",
+    "iterations": 25000
+  },
+  {
+    "name": "25k sih8cq-gen-19",
+    "heuristicRollout": true,
+    "useHeuristicEval": true,
+    "heuristicParamsFile": "genetic-algorithm/batch-sih8cq-gen-19.json",
+    "iterations": 25000
+  }
+]
