@@ -1,9 +1,16 @@
 use crate::action_phase::initialize_action_phase;
-use crate::types::{DraftState, GamePhase, GameState, MAX_PLAYERS};
+use crate::draw_log_helpers::is_replaying;
+use crate::game_log::{DrawEvent, DrawLog};
+use crate::types::{CardInstance, DraftState, GamePhase, GameState, MAX_PLAYERS};
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
 
 pub fn initialize_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
+    if is_replaying(state) {
+        replay_draft_deals(state);
+        return;
+    }
+
     let num_players = state.players.len();
     // Solo mode: deal 2 hands so the player gets hand rotation
     let num_hands = if num_players == 1 { 2 } else { num_players };
@@ -47,6 +54,76 @@ pub fn initialize_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
         num_hands,
     };
 
+    state.phase = GamePhase::Draft { draft_state };
+
+    // Record the hands dealt, phantom solo hands included.
+    if let Some(DrawLog::Recording(log)) = &mut state.draw_log {
+        if let GamePhase::Draft { ref draft_state } = state.phase {
+            for i in 0..draft_state.num_hands {
+                let cards: Vec<CardInstance> = draft_state.hands[i]
+                    .iter()
+                    .map(|id| CardInstance {
+                        instance_id: id as u32,
+                        card: state.card_lookup[id as usize],
+                    })
+                    .collect();
+                if !cards.is_empty() {
+                    log.push(DrawEvent::DraftDeal {
+                        player_index: i,
+                        cards,
+                    });
+                }
+            }
+        }
+    }
+}
+
+/// In replay mode, consume DraftDeal events to set up draft hands.
+fn replay_draft_deals(state: &mut GameState) {
+    let num_players = state.players.len();
+    let mut hands = [UnorderedCards::new(); MAX_PLAYERS];
+    let mut num_hands = 0;
+
+    // Pop DraftDeal events from the replay queue
+    loop {
+        let is_draft_deal = matches!(
+            &state.draw_log,
+            Some(DrawLog::Replaying(q)) if matches!(q.front(), Some(DrawEvent::DraftDeal { .. }))
+        );
+        if !is_draft_deal {
+            break;
+        }
+        let event = match &mut state.draw_log {
+            Some(DrawLog::Replaying(queue)) => queue.pop_front(),
+            _ => break,
+        };
+        if let Some(DrawEvent::DraftDeal { player_index, cards }) = event {
+            for card in &cards {
+                let id = card.instance_id as u8;
+                state.draft_deck.remove(id);
+                hands[player_index].insert(id);
+            }
+            if player_index + 1 > num_hands {
+                num_hands = player_index + 1;
+            }
+        }
+    }
+
+    // Check if any hands are empty (same logic as initialize_draft)
+    if (0..num_hands).any(|i| hands[i].is_empty()) {
+        for i in 0..num_hands {
+            state.destroyed_pile = state.destroyed_pile.union(hands[i]);
+        }
+        crate::action_phase::initialize_action_phase(state);
+        return;
+    }
+
+    let draft_state = DraftState {
+        pick_number: 0,
+        current_player_index: ((state.round - 1) as usize) % num_players,
+        hands,
+        num_hands,
+    };
     state.phase = GamePhase::Draft { draft_state };
 }
 
@@ -254,6 +331,15 @@ mod tests {
         test_deserialize(&json)
     }
 
+    /// Run the buyers phase to its end by always claiming the first option,
+    /// so a test that cares about the draft can get to it.
+    fn resolve_buyers<R: rand::Rng>(state: &mut GameState, rng: &mut R) {
+        while matches!(state.phase, GamePhase::Buyers { .. }) {
+            let choices = enumerate_choices(state);
+            apply_choice(state, &choices[0], rng);
+        }
+    }
+
     #[test]
     fn test_round2_draft_hands_after_serde_round_trips() {
         let mut rng = WyRand::seed_from_u64(42);
@@ -263,8 +349,10 @@ mod tests {
         // Play through round 1 fully using enumerate_choices + apply_choice
         assert_eq!(state.round, 1);
 
-        // Execute draw phase to start round 1
+        // Execute draw phase to start round 1; the buyers phase comes first.
         execute_draw_phase(&mut state, &mut rng);
+        assert!(matches!(state.phase, GamePhase::Buyers { .. }));
+        resolve_buyers(&mut state, &mut rng);
         assert!(matches!(state.phase, GamePhase::Draft { .. }));
 
         // Play through all phases until round 2
@@ -277,8 +365,9 @@ mod tests {
             apply_choice(&mut state, &choices[0], &mut rng);
         }
 
-        // Now at round 2 draw phase - execute draw to initialize draft
+        // Now at round 2 draw phase - execute draw, then claim buyers
         execute_draw_phase(&mut state, &mut rng);
+        resolve_buyers(&mut state, &mut rng);
         assert!(matches!(state.phase, GamePhase::Draft { .. }));
         assert_eq!(state.round, 2);
 

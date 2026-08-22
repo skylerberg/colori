@@ -2,11 +2,12 @@
   import type { SellCardInstance } from '../data/types';
   import CardDisplay from './CardDisplay.svelte';
 
-  let { sellCards, selectable = false, selectedId, onSelect }: {
+  let { sellCards, selectable = false, selectedId, onSelect, title = 'Sell Card Display' }: {
     sellCards: SellCardInstance[];
     selectable?: boolean;
     selectedId?: number;
     onSelect?: (instanceId: number) => void;
+    title?: string;
   } = $props();
 
   // Maintain a stable display order so cards don't jump when the engine
@@ -46,7 +47,7 @@
 </script>
 
 <div class="sell-card-display">
-  <h3 class="section-title">Sell Card Display</h3>
+  <h3 class="section-title">{title}</h3>
   <div class="sell-card-scroll">
     <div class="sell-card-row">
       {#each stableSellCards as sellCard (sellCard.instanceId)}
@@ -57,7 +58,7 @@
         />
       {/each}
       {#if sellCards.length === 0}
-        <div class="empty">No sell cards available</div>
+        <div class="empty">None available</div>
       {/if}
     </div>
   </div>

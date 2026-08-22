@@ -1,6 +1,9 @@
 import type { GameState, CardInstance } from './data/types';
 
 export function getActivePlayerIndex(gs: GameState): number {
+  if (gs.phase.type === 'buyers') {
+    return gs.phase.buyersState.currentPlayerIndex;
+  }
   if (gs.phase.type === 'draft') {
     return gs.phase.draftState.currentPlayerIndex;
   }

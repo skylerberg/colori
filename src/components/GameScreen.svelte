@@ -6,6 +6,7 @@
   import type { GameLogAccumulator } from '../gameLog';
   import { getActivePlayerIndex, isCurrentPlayerAI, orderByDraftOrder } from '../gameUtils';
   import GameLayout from './GameLayout.svelte';
+  import BuyersPhaseView from './BuyersPhaseView.svelte';
   import DraftPhaseView from './DraftPhaseView.svelte';
   import ActionPhaseView from './ActionPhaseView.svelte';
   import CardList from './CardList.svelte';
@@ -348,7 +349,16 @@
 </script>
 
 <GameLayout {gameState} {activePlayerIndex} {aiThinking} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} {selectedPlayerIndex} onSelectPlayer={selectPlayer} {aiError} onRetryAI={() => { aiError = null; }} hidePlayerCards={isViewingActiveHuman && gameState.phase.type === 'action'} {draftCardOrder}>
-  {#if gameState.phase.type === 'draft'}
+  {#if gameState.phase.type === 'buyers'}
+    {#if isViewingActiveHuman}
+      <BuyersPhaseView {gameState} onAction={handleAction} />
+    {:else}
+      <div class="waiting-indicator">
+        <span class="waiting-spinner"></span>
+        <span class="waiting-text">{aiThinking && selectedPlayerIndex === activePlayerIndex ? 'Thinking...' : 'Waiting...'}</span>
+      </div>
+    {/if}
+  {:else if gameState.phase.type === 'draft'}
     {#if isViewingActiveHuman}
       <DraftPhaseView {gameState} onAction={handleAction} playerIndex={humanPlayerIndex} selectable={!submittedDraftPicks.has(humanPlayerIndex)} />
     {:else}

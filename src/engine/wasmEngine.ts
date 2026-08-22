@@ -103,8 +103,13 @@ export function getChoiceLogMessage(
       return `${name} moved ${cardName} from workshop to draft pool`;
     }
     case 'selectSellCard': {
-      return `${name} sold to a ${getSellCardData(choice.sellCard).ducats}-ducat sell card`;
+      return `${name} sold to a ${getSellCardData(choice.sellCard).ducats}-ducat buyer`;
     }
+    case 'takeBuyer': {
+      return `${name} claimed a ${getSellCardData(choice.sellCard).ducats}-ducat buyer`;
+    }
+    case 'drawBuyer':
+      return `${name} claimed a buyer off the top of the deck`;
     case 'gainSecondary':
       return `${name} gained ${choice.color}`;
     case 'gainPrimary':
@@ -180,7 +185,9 @@ function canPayCost(wheel: Record<Color, number>, cost: Color[]): boolean {
 export function canSell(state: GameState, sellCardInstanceId: number): boolean {
   if (state.phase.type !== 'action') return false;
   const player = state.players[state.phase.actionState.currentPlayerIndex];
-  const sellCardInstance = state.sellCardDisplay.find(g => g.instanceId === sellCardInstanceId);
+  // Only the player's own buyers are sellable; the shared display is claimed
+  // from during the buyers phase and never sold to directly.
+  const sellCardInstance = player.buyers.find(g => g.instanceId === sellCardInstanceId);
   if (!sellCardInstance) return false;
   const sellCard = getSellCardData(sellCardInstance.card);
   if (player.materials[sellCard.requiredMaterial] < 1) return false;

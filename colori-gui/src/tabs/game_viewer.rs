@@ -791,6 +791,14 @@ fn render_replayed_state(ui: &mut egui::Ui, state: &GameState, game: &Structured
     // Phase info
     let phase_text = match &state.phase {
         GamePhase::Draw => "Draw".to_string(),
+        GamePhase::Buyers { buyers_state } => {
+            let name = game
+                .player_names
+                .get(buyers_state.current_player_index)
+                .cloned()
+                .unwrap_or_else(|| format!("Player {}", buyers_state.current_player_index));
+            format!("Buyers ({name}'s turn)")
+        }
         GamePhase::Draft { draft_state } => {
             let name = game
                 .player_names
@@ -888,6 +896,16 @@ fn render_replayed_state(ui: &mut egui::Ui, state: &GameState, game: &Structured
                 .collect();
             if !mats.is_empty() {
                 ui.label(format!("Materials: {}", mats.join(", ")));
+            }
+
+            // Buyers
+            if !player.buyers.is_empty() {
+                let names: Vec<String> = player
+                    .buyers
+                    .iter()
+                    .map(|sc| sell_card_name_from_instance(sc.sell_card))
+                    .collect();
+                ui.label(format!("Buyers: {}", names.join(", ")));
             }
 
             // Completed sell cards

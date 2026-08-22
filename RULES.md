@@ -42,10 +42,12 @@ Each action card has a destroy ability plus workshop abilities that trigger when
 **Sell Cards** (single deck):
 Each sell card requires 1 of a specific material type and a set of colors as its cost. All sell cards are shuffled into a single deck. Each sell card is worth 2–4 ducats.
 
+Sell cards are not completed straight out of the display. Each round, before drafting, players claim cards into their own **buyers** section, and for the rest of that round a player can only sell to the cards sitting there.
+
 ### Decks
 
 - **Draft Deck**: Contains the dye, draft material, and action cards. When the draft deck runs out, shuffle all destroyed cards back in.
-- **Sell Card Deck**: Contains all sell cards. 6 sell cards are displayed face-up at all times.
+- **Sell Card Deck**: Contains all sell cards. 5 sell cards are displayed face-up at all times, replaced from the deck as soon as one is claimed.
 - **Personal Deck**: Each player has their own deck that they draw from and build over the course of the game. There is no discard pile: cards return to the deck by being placed on the **bottom** at the end of a round, so a card you put down will not come back up until everything above it has been drawn.
 
 ## Setup
@@ -53,12 +55,13 @@ Each sell card requires 1 of a specific material type and a set of colors as its
 1. Each player receives a starting personal deck: 1 Basic Red, 1 Basic Yellow, 1 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles, 1 Chalk. Shuffle it.
 2. Each player starts with 1 Red, 1 Yellow, and 1 Blue already stored on their color wheel.
 3. Place the dye, draft material, and action cards into the draft deck. Shuffle it.
-4. Shuffle the sell card deck and reveal 6 sell cards face-up in the sell card display.
+4. Shuffle the sell card deck and reveal 5 sell cards face-up in the sell card display.
 
 ## Player Area
 
 Each player has:
 - **Personal Deck** (face down)
+- **Buyers** (face up — the sell cards this player may sell to)
 - **Workshop** (face up, visible to all players)
 - **Drafted Cards** (face up after drafting)
 - **Color Wheel** (tracks stored colors)
@@ -68,7 +71,7 @@ Each player has:
 
 ## Round Structure
 
-The game is played over **6 rounds**. Each round has three phases. The starting player rotates each round: player `(round - 1) % numPlayers` goes first.
+The game is played over **6 rounds**. Each round has four phases. The starting player rotates each round: player `(round - 1) % numPlayers` goes first.
 
 ### 1. Draw Phase
 
@@ -76,7 +79,27 @@ Each player draws from their personal deck until their workshop holds 5 cards. C
 
 Workshop cards are face-up and visible to all players.
 
-### 2. Draft Phase
+### 2. Buyers Phase
+
+Players claim sell cards into their buyers section.
+
+Buyer slots per player:
+
+| Round | Slots |
+|-------|-------|
+| 1 | 1 |
+| 2–3 | 2 |
+| 4–6 | 3 |
+
+Starting with the starting player and going round-robin in turn order, each player with an empty slot claims **one** card, and this repeats until nobody has an empty slot left. A slot only needs filling if it is empty — a buyer that was not sold last round stays where it is.
+
+To claim, take either:
+- one of the 5 face-up sell cards, which is **replaced from the deck immediately**, so the next player also chooses from five; or
+- the **top card of the sell card deck**, unseen.
+
+If both the display and the deck are empty there is nothing to claim, and the slot stays empty.
+
+### 3. Draft Phase
 
 1. Deal 5 cards from the draft deck to each player as a draft hand (these are private — other players cannot see them).
 2. Each player simultaneously picks 1 card from their hand and places it face-down.
@@ -87,7 +110,7 @@ Workshop cards are face-up and visible to all players.
 
 **Local multiplayer note**: Since all players share one device, a "Pass device to [player name]" screen is shown between picks to keep draft hands private.
 
-### 3. Action Phase
+### 4. Action Phase
 
 Each player takes one turn, starting with the starting player for the round. On your turn, you may destroy any number of your **drafted** cards, one at a time. Each destroyed card triggers its destroy ability (see Abilities below). You must fully resolve each ability before destroying another card. When you are done destroying cards (or choose to stop), your turn ends.
 
@@ -142,14 +165,14 @@ The moved card is now an ordinary drafted card. You may destroy it later in your
 
 ### Sell
 
-You **must** sell to a sell card if you are able to. If you cannot afford any sell card in the display, the ability fizzles (nothing happens).
+You **must** sell to one of your own buyers if you are able to. If you cannot afford any of them, the ability fizzles (nothing happens). The shared display cannot be sold to — cards must be claimed in the buyers phase first.
 
-To sell to a sell card:
-1. Choose a sell card from the face-up sell cards in the display.
+To sell to a buyer:
+1. Choose a sell card from your **buyers** section.
 2. Spend 1 stored material of the required type.
 3. Pay the color cost by removing the required colors from your color wheel.
 4. The sell card goes to your **completed sell cards** area.
-5. Immediately refill the sell card display from the sell card deck.
+5. The buyer slot it occupied stays empty until the next buyers phase refills it.
 
 ### Gain Ducats ×N
 
@@ -269,4 +292,4 @@ Sell cards do not have names. Each sell card requires 1 of a specific material t
 | Ceramics | 3 | One tertiary + one primary |
 | Paintings | 4 | One tertiary + one secondary |
 
-All sell cards are shuffled into a single deck. 6 sell cards are displayed face-up at all times.
+All sell cards are shuffled into a single deck. 5 sell cards are displayed face-up at all times.

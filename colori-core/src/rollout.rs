@@ -12,11 +12,118 @@ use crate::colors::{
 };
 use crate::draw_phase::WORKSHOP_SIZE;
 use crate::draft_phase::player_pick;
-use crate::scoring::HeuristicParams;
+use crate::buyers_phase::{
+    anything_to_claim, claim_from_deck, claim_from_display, draw_buyer, needs_a_buyer, take_buyer,
+};
+use crate::scoring::{buyer_alignment, HeuristicParams};
 use crate::types::*;
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
 use rand::RngExt;
+
+
+// ── Buyers phase ──
+
+enum BuyerClaim {
+    Display(u32),
+    Deck,
+}
+
+/// What `player_index` should claim, or None when both piles are dry.
+///
+/// With `params`, take the face-up card best aligned with what the player has
+/// stored, falling back to the deck only when nothing is face up — except
+/// `rollout_epsilon` of the time, which drops to the uniform policy. Without
+/// them, pick uniformly among everything on offer, the deck included.
+fn choose_buyer_claim<R: Rng>(
+    state: &GameState,
+    player_index: usize,
+    params: Option<&HeuristicParams>,
+    rng: &mut R,
+) -> Option<BuyerClaim> {
+    let display = &state.sell_card_display;
+    let deck_available = !state.sell_card_deck.is_empty();
+    let params = params.filter(|p| !rng.random_bool(p.rollout_epsilon));
+
+    if let Some(params) = params {
+        if display.is_empty() {
+            return deck_available.then_some(BuyerClaim::Deck);
+        }
+        let player = &state.players[player_index];
+        let mut best_id = display[0].instance_id;
+        let mut best = f64::NEG_INFINITY;
+        for instance in display.iter() {
+            let score = buyer_alignment(player, instance.sell_card, params);
+            if score > best {
+                best = score;
+                best_id = instance.instance_id;
+            }
+        }
+        return Some(BuyerClaim::Display(best_id));
+    }
+
+    let options = display.len() + usize::from(deck_available);
+    if options == 0 {
+        return None;
+    }
+    let pick = rng.random_range(0..options);
+    Some(if pick < display.len() {
+        BuyerClaim::Display(display[pick].instance_id)
+    } else {
+        BuyerClaim::Deck
+    })
+}
+
+/// Fill every player's buyers to capacity, round-robin in turn order, as the
+/// buyers phase does. The draw+draft shortcuts skip the phase machinery, so
+/// they drive the claims themselves.
+fn rollout_fill_buyers<R: Rng>(state: &mut GameState, params: Option<&HeuristicParams>, rng: &mut R) {
+    let num_players = state.players.len();
+    let starting_player = ((state.round - 1) as usize) % num_players;
+
+    loop {
+        let mut claimed = false;
+        for offset in 0..num_players {
+            let player_index = (starting_player + offset) % num_players;
+            if !needs_a_buyer(state, player_index) {
+                continue;
+            }
+            if !anything_to_claim(state) {
+                return;
+            }
+            match choose_buyer_claim(state, player_index, params, rng) {
+                Some(BuyerClaim::Display(id)) => claim_from_display(state, player_index, id, rng),
+                Some(BuyerClaim::Deck) => claim_from_deck(state, player_index, rng),
+                None => return,
+            }
+            claimed = true;
+        }
+        if !claimed {
+            return;
+        }
+    }
+}
+
+/// Play out an in-progress buyers phase, letting the phase machinery decide
+/// who is next. Reached when a leaf lands mid-phase rather than at a turn
+/// boundary, where the shortcut above does not apply.
+fn rollout_resolve_buyers_phase<R: Rng>(
+    state: &mut GameState,
+    params: Option<&HeuristicParams>,
+    rng: &mut R,
+) {
+    while let GamePhase::Buyers { ref buyers_state } = state.phase {
+        let player_index = buyers_state.current_player_index;
+        match choose_buyer_claim(state, player_index, params, rng) {
+            Some(BuyerClaim::Display(id)) => take_buyer(state, id, rng),
+            Some(BuyerClaim::Deck) => draw_buyer(state, rng),
+            // `seat_first_claimant` will not seat anyone with both piles dry,
+            // so this is unreachable; breaking keeps it from spinning if that
+            // ever stops holding.
+            None => break,
+        }
+    }
+}
 
 // ── Rollout draw+draft shortcut ──
 
@@ -29,6 +136,8 @@ fn rollout_draw_and_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
         let count = WORKSHOP_SIZE.saturating_sub(player.workshop_cards.len());
         player.deck.draw_into(&mut player.workshop_cards, count, rng);
     }
+
+    rollout_fill_buyers(state, None, rng);
 
     // Step 2: Draw 4 cards per player from draft_deck, restocking from destroyed_pile
     // only when the deck runs out (mirrors initialize_draft ordering)
@@ -118,14 +227,10 @@ fn random_mix_seq<R: Rng>(
 }
 
 #[inline(always)]
-fn pick_random_affordable_sell_card<R: Rng>(
-    player: &PlayerState,
-    sell_card_display: &[SellCardInstance],
-    rng: &mut R,
-) -> Option<u32> {
-    let mut affordable = [0u32; MAX_SELL_CARD_DISPLAY];
+fn pick_random_affordable_sell_card<R: Rng>(player: &PlayerState, rng: &mut R) -> Option<u32> {
+    let mut affordable = [0u32; MAX_BUYERS];
     let mut count = 0usize;
-    for sell_card in sell_card_display {
+    for sell_card in player.buyers.iter() {
         if can_afford_sell_card(player, &sell_card.sell_card) {
             affordable[count] = sell_card.instance_id;
             count += 1;
@@ -172,12 +277,10 @@ fn handle_action_no_pending(state: &mut GameState, player_index: usize, heuristi
             }
         }
         Ability::Sell => {
-            if let Some(sell_card_id) = pick_random_affordable_sell_card(
-                &state.players[player_index],
-                &state.sell_card_display,
-                rng,
-            ) {
-                fused_buy(state, player_index, card_id, sell_card_id, rng);
+            if let Some(sell_card_id) =
+                pick_random_affordable_sell_card(&state.players[player_index], rng)
+            {
+                fused_buy(state, player_index, card_id, sell_card_id);
             } else {
                 destroy_drafted_card(state, card_id as u32, rng);
             }
@@ -190,35 +293,29 @@ fn handle_action_no_pending(state: &mut GameState, player_index: usize, heuristi
 
 /// Fused sell card purchase (no ability stack involvement).
 #[inline(always)]
-fn fused_buy<R: Rng>(
-    state: &mut GameState,
-    player_index: usize,
-    card_id: u8,
-    sell_card_id: u32,
-    rng: &mut R,
-) {
+fn fused_buy(state: &mut GameState, player_index: usize, card_id: u8, sell_card_id: u32) {
     state.players[player_index].drafted_cards.remove(card_id);
     state.destroyed_pile.insert(card_id);
-    let sell_card_index = state
-        .sell_card_display
+    let player = &mut state.players[player_index];
+    let sell_card_index = player
+        .buyers
         .iter()
         .position(|c| c.instance_id == sell_card_id)
         .unwrap();
-    let sell_card = state.sell_card_display.swap_remove(sell_card_index);
-    let player = &mut state.players[player_index];
+    let sell_card = player.buyers.remove(sell_card_index);
     player.materials.decrement(sell_card.sell_card.required_material());
     pay_cost(&mut player.color_wheel, sell_card.sell_card.color_cost());
     player.cached_score += sell_card.sell_card.ducats();
     player.completed_sell_cards.push(sell_card);
-    if let Some(id) = state.sell_card_deck.draw(rng) {
-        state.sell_card_display.push(SellCardInstance {
-            instance_id: id as u32,
-            sell_card: state.sell_card_lookup[id as usize],
-        });
-    }
 }
 
 pub fn apply_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, params: &HeuristicParams, rng: &mut R) {
+    // Fast path: finish the whole buyers phase in one step
+    if matches!(&state.phase, GamePhase::Buyers { .. }) {
+        rollout_resolve_buyers_phase(state, None, rng);
+        return;
+    }
+
     // Fast path: complete entire draft in one step
     if matches!(&state.phase, GamePhase::Draft { .. }) {
         if heuristic_draft {
@@ -287,11 +384,9 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, 
                     process_ability_stack(state, rng);
                 }
                 Some(Ability::Sell) => {
-                    if let Some(sell_card_id) = pick_random_affordable_sell_card(
-                        &state.players[player_index],
-                        &state.sell_card_display,
-                        rng,
-                    ) {
+                    if let Some(sell_card_id) =
+                        pick_random_affordable_sell_card(&state.players[player_index], rng)
+                    {
                         resolve_select_sell_card(state, sell_card_id, rng);
                     } else {
                         if let GamePhase::Action { ref mut action_state } = state.phase {
@@ -426,6 +521,8 @@ fn heuristic_rollout_draw_and_draft<R: Rng>(state: &mut GameState, params: &Heur
         player.deck.draw_into(&mut player.workshop_cards, count, rng);
     }
 
+    rollout_fill_buyers(state, Some(params), rng);
+
     // Step 2: Draw 5 cards per player from draft_deck (instead of 4)
     let mut dealt = [UnorderedCards::new(); MAX_PLAYERS];
     for i in 0..num_players {
@@ -542,22 +639,22 @@ struct SellCardCache {
     proximity_demand: [u32; 12],
     best_affordable_ducats: u32,
     best_affordable_id: Option<u32>,
-    entries: [SellCardCacheEntry; MAX_SELL_CARD_DISPLAY],
+    entries: [SellCardCacheEntry; MAX_BUYERS],
     len: usize,
 }
 
 impl SellCardCache {
     #[inline(always)]
-    fn new(sell_card_display: &[SellCardInstance], wheel: &ColorWheel, materials: &Materials) -> Self {
+    fn new(buyers: &[SellCardInstance], wheel: &ColorWheel, materials: &Materials) -> Self {
         let mut flat_demand = [0u32; 12];
         let mut proximity_demand = [0u32; 12];
         let mut best_affordable_ducats = 0u32;
         let mut best_affordable_id: Option<u32> = None;
-        let len = sell_card_display.len();
+        let len = buyers.len();
         const EMPTY_ENTRY: SellCardCacheEntry = SellCardCacheEntry { ducats: 0, required_material: MaterialType::Textiles, colors_met: false, have_colors: 0, total_colors: 0 };
-        let mut entries: [SellCardCacheEntry; MAX_SELL_CARD_DISPLAY] = [EMPTY_ENTRY; MAX_SELL_CARD_DISPLAY];
+        let mut entries: [SellCardCacheEntry; MAX_BUYERS] = [EMPTY_ENTRY; MAX_BUYERS];
 
-        for (i, sc) in sell_card_display.iter().enumerate() {
+        for (i, sc) in buyers.iter().enumerate() {
             let ducats = sc.sell_card.ducats();
             let cost = sc.sell_card.color_cost();
             let total_colors = cost.len() as u32;
@@ -1072,7 +1169,7 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
         }
         Ability::Sell => {
             if let Some(sell_card_id) = cache.best_affordable_id {
-                fused_buy(state, player_index, card_id, sell_card_id, rng);
+                fused_buy(state, player_index, card_id, sell_card_id);
             } else {
                 destroy_drafted_card(state, card_id as u32, rng);
             }
@@ -1084,6 +1181,12 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
 }
 
 pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, params: &HeuristicParams, rng: &mut R) {
+    // Buyers phase
+    if matches!(&state.phase, GamePhase::Buyers { .. }) {
+        rollout_resolve_buyers_phase(state, Some(params), rng);
+        return;
+    }
+
     // Draft phase
     if matches!(&state.phase, GamePhase::Draft { .. }) {
         if heuristic_draft {
@@ -1111,7 +1214,7 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
     match &state.phase {
         GamePhase::Action { action_state } => {
             let player_index = action_state.current_player_index;
-            let cache = SellCardCache::new(&state.sell_card_display, &state.players[player_index].color_wheel, &state.players[player_index].materials);
+            let cache = SellCardCache::new(&state.players[player_index].buyers, &state.players[player_index].color_wheel, &state.players[player_index].materials);
             match action_state.ability_stack.last() {
                 None => {
                     handle_action_no_pending_heuristic(state, player_index, heuristic_draft, &cache, params, rng);
@@ -1224,11 +1327,9 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                 Some(Ability::Sell) => {
                     // Epsilon: random
                     if rng.random_bool(params.rollout_epsilon) {
-                        if let Some(sell_card_id) = pick_random_affordable_sell_card(
-                            &state.players[player_index],
-                            &state.sell_card_display,
-                            rng,
-                        ) {
+                        if let Some(sell_card_id) =
+                            pick_random_affordable_sell_card(&state.players[player_index], rng)
+                        {
                             resolve_select_sell_card(state, sell_card_id, rng);
                         } else {
                             if let GamePhase::Action { ref mut action_state } = state.phase {

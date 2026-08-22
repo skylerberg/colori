@@ -67,6 +67,7 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
                 drafted_cards: UnorderedCards::new(),
                 color_wheel,
                 materials: Materials::new(),
+                buyers: FixedVec::new(),
                 completed_sell_cards: SmallVec::new(),
                 ducats: 0,
                 cached_score: 0,
@@ -109,9 +110,8 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
         sell_card_deck.insert(id);
     }
 
-    // Deal 6 sell cards from sell_card_deck to sell_card_display
     let mut sell_card_display: FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY> = FixedVec::new();
-    let drawn_sell_cards = sell_card_deck.draw_multiple(6, rng);
+    let drawn_sell_cards = sell_card_deck.draw_multiple(MAX_SELL_CARD_DISPLAY as u32, rng);
     for id in drawn_sell_cards.iter() {
         sell_card_display.push(SellCardInstance {
             instance_id: id as u32,

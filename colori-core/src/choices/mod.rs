@@ -47,6 +47,9 @@ pub(crate) fn should_force_max_workshop(state: &GameState, player: &PlayerState)
 pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
     choices.clear();
     match &state.phase {
+        GamePhase::Buyers { .. } => {
+            enumerate_buyer_choices(state, choices);
+        }
         GamePhase::Draft { draft_state } => {
             let hand = draft_state.hands[draft_state.current_player_index];
             for_each_unique_card_type(&hand, &state.card_lookup, |card| {
@@ -117,7 +120,7 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                     );
                 }
                 Some(Ability::Sell) => {
-                    for sell_card in state.sell_card_display.iter() {
+                    for sell_card in player.buyers.iter() {
                         if can_afford_sell_card(player, &sell_card.sell_card) {
                             choices.push(Choice::SelectSellCard {
                                 sell_card: sell_card.sell_card,
@@ -252,7 +255,7 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
                 match action_state.ability_stack.last() {
                     Some(Ability::Sell) => {
                         let player = &state.players[action_state.current_player_index];
-                        state.sell_card_display.iter().any(|b| b.sell_card == *sell_card && can_afford_sell_card(player, &b.sell_card))
+                        player.buyers.iter().any(|b| b.sell_card == *sell_card && can_afford_sell_card(player, &b.sell_card))
                     }
                     _ => false,
                 }
@@ -339,7 +342,7 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
                 GamePhase::Action { action_state } => action_state.current_player_index,
                 _ => return false,
             }];
-            state.sell_card_display.iter().any(|b| b.sell_card == *sell_card && can_afford_sell_card(player, &b.sell_card))
+            player.buyers.iter().any(|b| b.sell_card == *sell_card && can_afford_sell_card(player, &b.sell_card))
         }
         Choice::DestroyAndWorkshop { card, workshop_cards } => {
             if !check_destroy_preconditions(state, card) {
@@ -370,5 +373,39 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
                 }
             }
         }
+        Choice::TakeBuyer { sell_card } => {
+            matches!(state.phase, GamePhase::Buyers { .. })
+                && state
+                    .sell_card_display
+                    .iter()
+                    .any(|c| c.sell_card == *sell_card)
+        }
+        Choice::DrawBuyer => {
+            matches!(state.phase, GamePhase::Buyers { .. }) && !state.sell_card_deck.is_empty()
+        }
+    }
+}
+
+/// What the acting player may claim: one entry per distinct face-up sell card,
+/// plus the top of the deck when there is one.
+///
+/// Deduplicating by card type keeps the tree from branching on which of two
+/// identical cards was taken, exactly as draft picks do. The phase only ever
+/// seats a player who has an empty slot, so there is no "decline" — but both
+/// piles can run dry, and then there is nothing to enumerate and the phase
+/// ends without seating anyone.
+fn enumerate_buyer_choices(state: &GameState, choices: &mut Vec<Choice>) {
+    let display = &state.sell_card_display;
+    for (i, instance) in display.iter().enumerate() {
+        // At most five entries, so a scan beats any bookkeeping.
+        if display[..i].iter().any(|c| c.sell_card == instance.sell_card) {
+            continue;
+        }
+        choices.push(Choice::TakeBuyer {
+            sell_card: instance.sell_card,
+        });
+    }
+    if !state.sell_card_deck.is_empty() {
+        choices.push(Choice::DrawBuyer);
     }
 }
