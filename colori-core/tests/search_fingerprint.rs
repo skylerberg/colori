@@ -97,6 +97,63 @@ fn describe_tree(out: &mut String, root: &SearchNode) {
     }
 }
 
+/// Search, re-root, search again — the usage the docs prescribe, and the one a
+/// fresh searcher per case cannot exercise.
+///
+/// Every defect found in this crate so far has been state on the `Searcher`
+/// outliving the call that created it: a retained tree used for a new position,
+/// a re-rooted root never re-expanded, a cached legality mask surviving into the
+/// next search. None of those are reachable by constructing a searcher, calling
+/// `search` once and throwing it away, so a fingerprint that only does that is
+/// blind to the entire class.
+fn fingerprint_reuse(out: &mut String, players: usize, seed: u64, steps: usize, iterations: u32) {
+    let Some(mut state) = position(players, seed, steps) else {
+        let _ = writeln!(out, "reuse players={players} seed={seed}: no position");
+        return;
+    };
+
+    let mut searcher = ColoriSearcher::new(&state);
+    let mut rng = WyRand::seed_from_u64(0xBEE_5EED);
+
+    for turn in 0..4 {
+        let player = match get_game_status(&state, None) {
+            GameStatus::AwaitingAction { player_index } => player_index,
+            GameStatus::Terminated { .. } => {
+                let _ = writeln!(out, "reuse players={players} seed={seed} turn={turn}: over");
+                return;
+            }
+        };
+        let horizon = Some(std::cmp::max(8, state.round + 2));
+        let config = MctsConfig {
+            iterations,
+            early_termination: true,
+            time_limit_ms: None,
+            ..MctsConfig::new(params())
+        };
+
+        let outcome = searcher.search(&state, player, &config, horizon, &mut rng);
+        let _ = writeln!(
+            out,
+            "reuse players={players} seed={seed} turn={turn} round={} actor={player} iters={iterations}",
+            state.round
+        );
+        let _ = writeln!(
+            out,
+            "  chose {:?} used={} reused={} stop={:?}",
+            outcome.choice, outcome.iterations_used, outcome.reused_iterations, outcome.stop_reason
+        );
+        describe_tree(out, searcher.tree().expect("a search leaves a tree"));
+
+        let choice = outcome.choice.clone();
+        apply_choice_to_state(&mut state, &choice, &mut rng);
+        // Carry the subtree forward, which is what makes this a reuse test at
+        // all. A searcher that is never re-rooted never exercises the paths
+        // where the bugs have actually lived.
+        let reused = searcher.reuse_subtree(&choice);
+        let _ = writeln!(out, "  reuse_subtree -> {reused}");
+    }
+}
+
 fn generate() -> String {
     let mut out = String::new();
 
@@ -151,6 +208,12 @@ fn generate() -> String {
             }
         }
     }
+    for (players, seed, steps, iterations) in
+        [(2usize, 11u64, 12usize, 400u32), (3, 23, 50, 400), (4, 11, 30, 800)]
+    {
+        fingerprint_reuse(&mut out, players, seed, steps, iterations);
+    }
+
     out
 }
 
