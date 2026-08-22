@@ -21,9 +21,22 @@ pub fn record_player_deck_draw(state: &mut GameState, player_index: usize, befor
     }
 }
 
-/// In replay mode, pop the next PlayerDeckDraw event and apply it to the state.
-/// Moves the specified cards from the player's deck (or discard) to workshop.
+/// In replay mode, pop the next PlayerDeckDraw event for this player and apply
+/// it, moving the recorded cards from the deck to the workshop.
+///
+/// A draw that yielded nothing records no event — the deck can run dry, and
+/// there is no discard pile to reshuffle — so the queue is matched against
+/// before it is consumed. Popping blindly would hand this player the next
+/// player's draw.
 pub fn replay_player_deck_draw(state: &mut GameState, player_index: usize) {
+    let matches_player = matches!(
+        &state.draw_log,
+        Some(DrawLog::Replaying(queue))
+            if matches!(queue.front(), Some(DrawEvent::PlayerDeckDraw { player_index: pi, .. }) if *pi == player_index)
+    );
+    if !matches_player {
+        return;
+    }
     let event = match &mut state.draw_log {
         Some(DrawLog::Replaying(queue)) => queue.pop_front(),
         _ => return,
@@ -32,11 +45,7 @@ pub fn replay_player_deck_draw(state: &mut GameState, player_index: usize) {
         let player = &mut state.players[player_index];
         for card in &cards {
             let id = card.instance_id as u8;
-            if player.deck.contains(id) {
-                player.deck.remove(id);
-            } else if player.discard.contains(id) {
-                player.discard.remove(id);
-            }
+            player.deck.remove(id);
             player.workshop_cards.insert(id);
         }
     }

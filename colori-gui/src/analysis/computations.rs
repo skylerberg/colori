@@ -79,8 +79,9 @@ pub fn build_card_instance_map(log: &StructuredGameLog) -> HashMap<u32, CardInst
     };
 
     for p in &state.players {
-        add_cards(&mut map, &p.deck);
-        add_cards(&mut map, &p.discard);
+        for segment in &p.deck {
+            add_cards(&mut map, segment);
+        }
         add_cards(&mut map, &p.workshopped_cards);
         add_cards(&mut map, &p.workshop_cards);
         add_cards(&mut map, &p.drafted_cards);
@@ -266,7 +267,7 @@ pub fn format_choice(choice: &Choice) -> String {
             }
         }
         Choice::SkipWorkshop => "Skipped workshop".to_string(),
-        Choice::DestroyDrawnCards { card } => match card {
+        Choice::MoveToDraftPool { card } => match card {
             Some(c) => format!("Destroyed {} from workshop", card_name(c)),
             None => "Destroyed nothing from workshop".to_string(),
         }
@@ -334,7 +335,7 @@ pub fn format_choice(choice: &Choice) -> String {
                 )
             }
         }
-        Choice::DestroyAndDestroyCards {
+        Choice::DestroyAndMoveToDraftPool {
             card,
             target,
         } => {
@@ -349,12 +350,6 @@ pub fn format_choice(choice: &Choice) -> String {
                     card_name(card)
                 ),
             }
-        }
-        Choice::DeferredMoveToDraft { card } => {
-            format!("Moved {} from workshop to draft pool", card_name(card))
-        }
-        Choice::DestroyWorkshopCardDeferred { card } => {
-            format!("Destroyed {} from draft pool", card_name(card))
         }
     }
 }
@@ -389,7 +384,7 @@ fn choice_type_name(choice: &Choice) -> String {
         Choice::EndTurn => "endTurn".to_string(),
         Choice::Workshop { .. } => "workshop".to_string(),
         Choice::SkipWorkshop => "skipWorkshop".to_string(),
-        Choice::DestroyDrawnCards { .. } => "destroyDrawnCards".to_string(),
+        Choice::MoveToDraftPool { .. } => "moveToDraftPool".to_string(),
         Choice::SelectSellCard { .. } => "selectSellCard".to_string(),
         Choice::GainSecondary { .. } => "gainSecondary".to_string(),
         Choice::GainPrimary { .. } => "gainPrimary".to_string(),
@@ -398,9 +393,7 @@ fn choice_type_name(choice: &Choice) -> String {
         Choice::DestroyAndMix { .. } => "destroyAndMix".to_string(),
         Choice::DestroyAndSell { .. } => "destroyAndSell".to_string(),
         Choice::DestroyAndWorkshop { .. } => "destroyAndWorkshop".to_string(),
-        Choice::DestroyAndDestroyCards { .. } => "destroyAndDestroyCards".to_string(),
-        Choice::DeferredMoveToDraft { .. } => "deferredMoveToDraft".to_string(),
-        Choice::DestroyWorkshopCardDeferred { .. } => "destroyWorkshopCardDeferred".to_string(),
+        Choice::DestroyAndMoveToDraftPool { .. } => "destroyAndMoveToDraftPool".to_string(),
     }
 }
 
@@ -457,7 +450,7 @@ pub fn compute_cards_added_to_deck(
                 | Choice::DestroyAndMix { card, .. }
                 | Choice::DestroyAndSell { card, .. }
                 | Choice::DestroyAndWorkshop { card, .. }
-                | Choice::DestroyAndDestroyCards { card, .. } => {
+                | Choice::DestroyAndMoveToDraftPool { card, .. } => {
                     let name = card_name_from_instance(*card);
                     *player_destroyed.entry(pi).or_default().entry(name).or_insert(0) += 1;
                 }
@@ -540,7 +533,7 @@ pub fn compute_destroyed_from_draft(
                 | Choice::DestroyAndMix { card, .. }
                 | Choice::DestroyAndSell { card, .. }
                 | Choice::DestroyAndWorkshop { card, .. }
-                | Choice::DestroyAndDestroyCards { card, .. } => Some(card),
+                | Choice::DestroyAndMoveToDraftPool { card, .. } => Some(card),
                 _ => None,
             };
             if let Some(card) = card {
@@ -552,7 +545,7 @@ pub fn compute_destroyed_from_draft(
     counts
 }
 
-/// Count cards destroyed from workshop (destroyDrawnCards).
+/// Count cards destroyed from workshop (moveToDraftPool).
 pub fn compute_destroyed_from_workshop(
     logs: &[StructuredGameLog],
     filter: Option<&PlayerFilter>,
@@ -566,7 +559,7 @@ pub fn compute_destroyed_from_workshop(
                     continue;
                 }
             }
-            if let Choice::DestroyDrawnCards { card: Some(card) } = &entry.choice {
+            if let Choice::MoveToDraftPool { card: Some(card) } = &entry.choice {
                 let name = card_name_from_instance(*card);
                 *counts.entry(name).or_insert(0) += 1;
             }
@@ -629,7 +622,7 @@ pub fn compute_win_rate_by_card(
                 | Choice::DestroyAndMix { card, .. }
                 | Choice::DestroyAndSell { card, .. }
                 | Choice::DestroyAndWorkshop { card, .. }
-                | Choice::DestroyAndDestroyCards { card, .. } => {
+                | Choice::DestroyAndMoveToDraftPool { card, .. } => {
                     let name = card_name_from_instance(*card);
                     *player_destroyed.entry(pi).or_default().entry(name).or_insert(0) += 1;
                 }
@@ -1337,8 +1330,7 @@ pub fn compute_penultimate_round_deck_sizes(
             .players
             .iter()
             .map(|p| {
-                (p.deck.len()
-                    + p.discard.len()
+                (p.deck.iter().map(|segment| segment.len()).sum::<usize>()
                     + p.workshopped_cards.len()
                     + p.workshop_cards.len()
                     + p.drafted_cards.len()) as i32
@@ -1358,10 +1350,10 @@ pub fn compute_penultimate_round_deck_sizes(
                 | Choice::DestroyAndMix { .. }
                 | Choice::DestroyAndSell { .. }
                 | Choice::DestroyAndWorkshop { .. }
-                | Choice::DestroyAndDestroyCards { .. } => {
+                | Choice::DestroyAndMoveToDraftPool { .. } => {
                     player_deck_sizes[pi] -= 1;
                 }
-                Choice::DestroyDrawnCards { card } => {
+                Choice::MoveToDraftPool { card } => {
                     if card.is_some() {
                         player_deck_sizes[pi] -= 1;
                     }

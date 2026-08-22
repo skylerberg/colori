@@ -97,13 +97,10 @@ export function getChoiceLogMessage(
     }
     case 'skipWorkshop':
       return `${name} skipped workshop`;
-    case 'destroyDrawnCards': {
-      if (choice.card === null) return `${name} did not move a card to draft pool`;
+    case 'moveToDraftPool': {
+      if (choice.card === null) return `${name} had no card to move to draft pool`;
       const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
-      // Two log lines joined by a newline — addLog splits on '\n' so the human
-      // log shows "moved" and "destroyed" as separate entries, even though the
-      // engine treats this as a single atomic choice.
-      return `${name} moved ${cardName} from workshop to draft pool\n${name} destroyed ${cardName} from draft pool`;
+      return `${name} moved ${cardName} from workshop to draft pool`;
     }
     case 'selectSellCard': {
       return `${name} sold to a ${getSellCardData(choice.sellCard).ducats}-ducat sell card`;
@@ -140,21 +137,16 @@ export function getChoiceLogMessage(
       const workshopNames = choice.workshopCards.map(c => (getAnyCardData(c) as { name?: string })?.name ?? 'a card');
       return `${name} destroyed ${cardName} from drafted cards, workshopped ${workshopNames.join(', ')}`;
     }
-    case 'destroyAndDestroyCards': {
+    case 'destroyAndMoveToDraftPool': {
       const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
+      // Two log lines joined by a newline — addLog splits on '\n' so the human
+      // log shows the destroy and the move as separate entries, even though
+      // the engine fuses them into one choice.
       if (choice.target === null) {
-        return `${name} destroyed ${cardName} from drafted cards\n${name} did not move a card to draft pool`;
+        return `${name} destroyed ${cardName} from drafted cards\n${name} had no card to move to draft pool`;
       }
       const targetName = (getAnyCardData(choice.target) as { name?: string })?.name ?? 'a card';
-      return `${name} destroyed ${cardName} from drafted cards\n${name} moved ${targetName} from workshop to draft pool\n${name} destroyed ${targetName} from draft pool`;
-    }
-    case 'deferredMoveToDraft': {
-      const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
-      return `${name} moved ${cardName} from workshop to draft pool`;
-    }
-    case 'destroyWorkshopCardDeferred': {
-      const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
-      return `${name} destroyed ${cardName} from draft pool`;
+      return `${name} destroyed ${cardName} from drafted cards\n${name} moved ${targetName} from workshop to draft pool`;
     }
     default:
       return assertNever(choice);

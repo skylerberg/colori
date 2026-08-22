@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
+use crate::deck::Deck;
 use crate::fixed_vec::FixedVec;
 use crate::game_log::DrawLog;
 use crate::unordered_cards::{UnorderedSellCards, UnorderedCards};
@@ -77,8 +78,8 @@ pub enum Ability {
     DrawCards { count: u32 },
     #[serde(rename = "mixColors")]
     MixColors { count: u32 },
-    #[serde(rename = "destroyCards")]
-    DestroyCards,
+    #[serde(rename = "moveToDraftPool")]
+    MoveToDraftPool,
     #[serde(rename = "sell")]
     Sell,
     #[serde(rename = "gainDucats")]
@@ -247,19 +248,19 @@ const CARD_DATA: [CardProperties; 43] = [
     // CanvasFabric
     CardProperties { name: "Canvas & Fabric", kind: CardKind::Material, ability: Ability::Sell, colors: &[], material_types: &[MaterialType::Paintings, MaterialType::Textiles], workshop_abilities: &[] },
     // Alum
-    CardProperties { name: "Alum", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::GainDucats { count: 1 }] },
+    CardProperties { name: "Alum", kind: CardKind::Action, ability: Ability::MoveToDraftPool, colors: &[], material_types: &[], workshop_abilities: &[Ability::GainDucats { count: 1 }] },
     // CreamOfTartar
-    CardProperties { name: "Cream of Tartar", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::DrawCards { count: 3 }] },
+    CardProperties { name: "Cream of Tartar", kind: CardKind::Action, ability: Ability::MoveToDraftPool, colors: &[], material_types: &[], workshop_abilities: &[Ability::DrawCards { count: 3 }] },
     // GumArabic
-    CardProperties { name: "Gum Arabic", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::GainSecondary] },
+    CardProperties { name: "Gum Arabic", kind: CardKind::Action, ability: Ability::MoveToDraftPool, colors: &[], material_types: &[], workshop_abilities: &[Ability::GainSecondary] },
     // Potash
-    CardProperties { name: "Potash", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::Workshop { count: 3 }] },
+    CardProperties { name: "Potash", kind: CardKind::Action, ability: Ability::MoveToDraftPool, colors: &[], material_types: &[], workshop_abilities: &[Ability::Workshop { count: 3 }] },
     // Chalk
     CardProperties { name: "Chalk", kind: CardKind::Action, ability: Ability::Sell, colors: &[], material_types: &[], workshop_abilities: &[Ability::GainPrimary] },
     // LinseedOil
-    CardProperties { name: "Linseed Oil", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::MixColors { count: 2 }] },
+    CardProperties { name: "Linseed Oil", kind: CardKind::Action, ability: Ability::MoveToDraftPool, colors: &[], material_types: &[], workshop_abilities: &[Ability::MixColors { count: 2 }] },
     // Warehouse
-    CardProperties { name: "Warehouse", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::GainMaterial] },
+    CardProperties { name: "Warehouse", kind: CardKind::Action, ability: Ability::MoveToDraftPool, colors: &[], material_types: &[], workshop_abilities: &[Ability::GainMaterial] },
 ];
 
 impl Card {
@@ -598,8 +599,7 @@ impl<'de> Deserialize<'de> for Materials {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerState {
-    pub deck: UnorderedCards,
-    pub discard: UnorderedCards,
+    pub deck: Deck,
     #[serde(default)]
     pub workshopped_cards: UnorderedCards,
     pub workshop_cards: UnorderedCards,
@@ -736,8 +736,8 @@ pub enum Choice {
     },
     #[serde(rename = "skipWorkshop")]
     SkipWorkshop,
-    #[serde(rename = "destroyDrawnCards")]
-    DestroyDrawnCards { card: Option<Card> },
+    #[serde(rename = "moveToDraftPool")]
+    MoveToDraftPool { card: Option<Card> },
     #[serde(rename = "selectSellCard")]
     SelectSellCard {
         #[serde(rename = "sellCard", alias = "sell_card")]
@@ -770,23 +770,9 @@ pub enum Choice {
         #[serde(rename = "workshopCards")]
         workshop_cards: SmallVec<[Card; 4]>,
     },
-    #[serde(rename = "destroyAndDestroyCards")]
-    DestroyAndDestroyCards {
+    #[serde(rename = "destroyAndMoveToDraftPool")]
+    DestroyAndMoveToDraftPool {
         card: Card,
         target: Option<Card>,
     },
-
-    // Human-UI-only deferred "move workshop card to draft pool" variants.
-    // These let the UI split the atomic DestroyCards choice into two user
-    // actions (stage the move, then later commit the destroy) without
-    // changing the MCTS game tree — the enumerator never emits these, so
-    // the AI's search never explores them. Applied by the engine identically
-    // to what DestroyCards already does: DeferredMoveToDraft is behaviorally
-    // `DestroyDrawnCards { card: None }` (pops DestroyCards, leaves the card
-    // in workshop); DestroyWorkshopCardDeferred destroys that card and
-    // triggers its ability later, when the user commits.
-    #[serde(rename = "deferredMoveToDraft")]
-    DeferredMoveToDraft { card: Card },
-    #[serde(rename = "destroyWorkshopCardDeferred")]
-    DestroyWorkshopCardDeferred { card: Card },
 }

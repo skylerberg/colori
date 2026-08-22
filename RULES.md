@@ -46,7 +46,7 @@ Each sell card requires 1 of a specific material type and a set of colors as its
 
 - **Draft Deck**: Contains the dye, draft material, and action cards. When the draft deck runs out, shuffle all destroyed cards back in.
 - **Sell Card Deck**: Contains all sell cards. 6 sell cards are displayed face-up at all times.
-- **Personal Deck**: Each player has their own deck that they draw from and build over the course of the game.
+- **Personal Deck**: Each player has their own deck that they draw from and build over the course of the game. There is no discard pile: cards return to the deck by being placed on the **bottom** at the end of a round, so a card you put down will not come back up until everything above it has been drawn.
 
 ## Setup
 
@@ -59,7 +59,6 @@ Each sell card requires 1 of a specific material type and a set of colors as its
 
 Each player has:
 - **Personal Deck** (face down)
-- **Discard Pile**
 - **Workshop** (face up, visible to all players)
 - **Drafted Cards** (face up after drafting)
 - **Color Wheel** (tracks stored colors)
@@ -73,7 +72,7 @@ The game is played over **6 rounds**. Each round has three phases. The starting 
 
 ### 1. Draw Phase
 
-Each player draws 5 cards from their personal deck into their workshop. If the personal deck runs out, shuffle the discard pile to form a new deck, then continue drawing.
+Each player draws from their personal deck until their workshop holds 5 cards. Cards carried over from the previous round's draft pool are already there, so keeping a card costs you a fresh draw. If the personal deck runs out you draw fewer cards — there is nothing to reshuffle.
 
 Workshop cards are face-up and visible to all players.
 
@@ -93,8 +92,8 @@ Workshop cards are face-up and visible to all players.
 Each player takes one turn, starting with the starting player for the round. On your turn, you may destroy any number of your **drafted** cards, one at a time. Each destroyed card triggers its destroy ability (see Abilities below). You must fully resolve each ability before destroying another card. When you are done destroying cards (or choose to stop), your turn ends.
 
 At the end of each player's turn:
-- Any un-destroyed drafted cards go to the player's discard pile.
-- Any remaining workshop cards go to the player's discard pile.
+- Every card in the workshop — including the rotated ones already used this round — is shuffled together and placed on the **bottom** of that player's personal deck.
+- Any un-destroyed drafted cards move into the player's workshop, where they are available from the start of the next round.
 
 All player information (workshop, drafted cards, color wheel, stored materials, ducats) is public during the action phase.
 
@@ -107,13 +106,13 @@ When a card is destroyed, its destroy ability triggers. Abilities are resolved u
 Choose up to N cards from your **workshop**. You may skip Workshop entirely (choosing 0 cards).
 
 For each chosen card:
-- **Material card**: Store all materials listed on the card (e.g., 2x Ceramics, or 1 Ceramics + 1 Paintings). If the card has a color, also store that color on your color wheel. The card is discarded.
-- **Dye or basic dye card**: Store ALL of its colors on your color wheel. The card is discarded.
-- **Action card**: Consumes 1 pick. The action card's workshop abilities are pushed onto the ability stack, and any remaining Workshop picks carry over (pushed below the workshop abilities on the stack). The card is discarded.
+- **Material card**: Store all materials listed on the card (e.g., 2x Ceramics, or 1 Ceramics + 1 Paintings). If the card has a color, also store that color on your color wheel. The card is rotated and stays in the workshop.
+- **Dye or basic dye card**: Store ALL of its colors on your color wheel. The card is rotated and stays in the workshop.
+- **Action card**: Consumes 1 pick. The action card's workshop abilities are pushed onto the ability stack, and any remaining Workshop picks carry over (pushed below the workshop abilities on the stack). The card is rotated and stays in the workshop.
 
 ### Draw Cards ×N
 
-Draw N cards from your personal deck into your workshop. If your deck runs out, shuffle your discard pile to form a new deck.
+Draw N cards from your personal deck into your workshop. If your deck runs out you draw fewer cards; there is no discard pile to reshuffle.
 
 ### Mix Colors ×N
 
@@ -137,7 +136,9 @@ Complete mixing pairs (two inputs → one output):
 
 ### Move a Card from Workshop to Draft Pool
 
-Choose one card from your **workshop** and move it to your **draft pool**. You may then destroy it from the draft pool to trigger its ability, as with any drafted card. Triggered abilities are pushed onto the ability stack, so chain reactions are possible. You may pick any card currently in your workshop area, including cards that have already been used during a Workshop resolution this turn (the rotated cards whose colors and materials have already been stored).
+Choose one card from your **workshop** and move it to your **draft pool**. You may pick any card currently in your workshop area, including cards that have already been used during a Workshop resolution this turn (the rotated cards whose colors and materials have already been stored). If your workshop is empty the ability fizzles.
+
+The moved card is now an ordinary drafted card. You may destroy it later in your turn to trigger its ability, exactly as with a card you drafted; triggered abilities are pushed onto the ability stack, so chain reactions are possible. Or you may leave it in the draft pool, in which case end of turn moves it into your workshop instead of onto the bottom of your deck.
 
 ### Sell
 

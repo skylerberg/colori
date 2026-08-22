@@ -339,7 +339,7 @@ pub fn run_game(
             .enumerate()
             .map(|(i, p)| FinalPlayerStats {
                 name: names[i].clone(),
-                deck_size: (p.deck.len() + p.discard.len() + p.workshop_cards.len() + p.workshopped_cards.len()) as usize,
+                deck_size: (p.deck.len() + p.workshop_cards.len() + p.workshopped_cards.len() + p.drafted_cards.len()) as usize,
                 completed_sell_cards: p.completed_sell_cards.to_vec(),
                 ducats: p.ducats,
                 color_wheel: p.color_wheel.clone(),

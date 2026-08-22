@@ -16,6 +16,7 @@
   let sellCardCount = $derived(player.completedSellCards.length);
   let totalMaterials = $derived(Object.values(player.materials).reduce((sum, n) => sum + n, 0));
   let ducats = $derived(player.ducats);
+  let deckSize = $derived(player.deck.reduce((n, segment) => n + segment.length, 0));
 </script>
 
 <button class="player-status" class:active class:selected {onclick} type="button">
@@ -28,8 +29,7 @@
     <span class="stat" title="Completed sell cards">Sell Cards: {sellCardCount}</span>
     <span class="stat" title="Stored materials">Materials: {totalMaterials}</span>
     {#if ducats > 0}<span class="stat" title="Ducats">Ducats: {ducats}</span>{/if}
-    <span class="stat" title="Deck size">Deck: {player.deck.length}</span>
-    <span class="stat" title="Discard size">Discard: {player.discard.length}</span>
+    <span class="stat" title="Deck size">Deck: {deckSize}</span>
   </div>
 </button>
 

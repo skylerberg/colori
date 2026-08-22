@@ -1,5 +1,4 @@
 use crate::colors::{can_pay_cost, pay_cost, perform_mix, perform_mix_unchecked};
-use crate::deck_utils::draw_from_deck;
 use crate::draw_log_helpers::{is_replaying, record_player_deck_draw, replay_player_deck_draw, replay_sell_card_reveal};
 use crate::game_log::{DrawEvent, DrawLog};
 use crate::types::{
@@ -235,37 +234,6 @@ pub fn destroy_drafted_card<R: Rng>(state: &mut GameState, card_instance_id: u32
     process_ability_stack(state, rng);
 }
 
-/// Destroy a card currently in the player's workshop area (either
-/// `workshop_cards` or `workshopped_cards`) and trigger its ability — without
-/// requiring `DestroyCards` to be on the stack. Used by the human UI's
-/// deferred move-to-draft-pool flow: after staging a move (which pops
-/// DestroyCards), the user can later commit by clicking the card in the draft
-/// pool, which invokes this helper. The MCTS enumerator never emits the
-/// corresponding Choice, so the AI's game tree is unchanged by this path.
-pub fn destroy_workshop_card_and_trigger<R: Rng>(
-    state: &mut GameState,
-    card_instance_id: u32,
-    rng: &mut R,
-) {
-    let id = card_instance_id as u8;
-    let player_index = get_action_state(state).current_player_index;
-    let player = &mut state.players[player_index];
-
-    let removed = remove_from_workshop_area(player, id);
-    assert!(
-        removed,
-        "Card not found in player's workshop area (workshopCards or workshoppedCards)"
-    );
-
-    let card = state.card_lookup[id as usize];
-    let ability = card.ability();
-    state.destroyed_pile.insert(id);
-
-    let action_state = get_action_state_mut(state);
-    action_state.ability_stack.push(ability);
-    process_ability_stack(state, rng);
-}
-
 pub fn process_ability_stack<R: Rng>(state: &mut GameState, rng: &mut R) {
     loop {
         let action_state = get_action_state(state);
@@ -282,7 +250,7 @@ pub fn process_ability_stack<R: Rng>(state: &mut GameState, rng: &mut R) {
                 } else {
                     let before = state.players[player_index].workshop_cards;
                     let player = &mut state.players[player_index];
-                    draw_from_deck(&mut player.deck, &mut player.discard, &mut player.workshop_cards, count as usize, rng);
+                    player.deck.draw_into(&mut player.workshop_cards, count, rng);
                     record_player_deck_draw(state, player_index, before);
                 }
                 continue;
@@ -304,7 +272,7 @@ pub fn process_ability_stack<R: Rng>(state: &mut GameState, rng: &mut R) {
             Ability::MixColors { .. } => {
                 return; // always needs input
             }
-            Ability::DestroyCards => {
+            Ability::MoveToDraftPool => {
                 return; // always needs input
             }
             Ability::Sell => {
@@ -437,14 +405,22 @@ pub fn skip_mix<R: Rng>(state: &mut GameState, rng: &mut R) {
     process_ability_stack(state, rng);
 }
 
-pub fn resolve_destroy_cards<R: Rng>(
+/// Move the selected workshop-area cards into the player's draft pool.
+///
+/// Nothing is destroyed here. A card in the draft pool can be destroyed later
+/// in the turn through the ordinary drafted-card path, which triggers its
+/// ability on the stack exactly as before — and when this ability resolves the
+/// stack beneath it is always empty, since no card's *workshop* abilities
+/// include this one, so destroying now and destroying later reach the same
+/// state. What is new is the option to leave the card in the pool, from where
+/// end of turn returns it to the workshop instead of the bottom of the deck.
+pub fn resolve_move_to_draft_pool<R: Rng>(
     state: &mut GameState,
     selected_cards: UnorderedCards,
     rng: &mut R,
 ) {
     let player_index = get_action_state(state).current_player_index;
 
-    // Pop the DestroyCards ability from the stack
     get_action_state_mut(state).ability_stack.pop();
 
     for id in selected_cards.iter() {
@@ -453,11 +429,7 @@ pub fn resolve_destroy_cards<R: Rng>(
             removed,
             "Card not found in player's workshop area (workshopCards or workshoppedCards)"
         );
-
-        let card = state.card_lookup[id as usize];
-        let ability = card.ability();
-        state.destroyed_pile.insert(id);
-        get_action_state_mut(state).ability_stack.push(ability);
+        state.players[player_index].drafted_cards.insert(id);
     }
 
     process_ability_stack(state, rng);
@@ -534,11 +506,14 @@ pub fn end_player_turn<R: Rng>(state: &mut GameState, rng: &mut R) {
     let player_index = get_action_state(state).current_player_index;
     let player = &mut state.players[player_index];
 
-    // Move remaining cards to discard
-    player.discard = player.discard.union(player.drafted_cards).union(player.workshopped_cards).union(player.workshop_cards);
-    player.drafted_cards = UnorderedCards::new();
+    // The whole workshop area is shuffled onto the bottom of the deck, and
+    // whatever survived in the draft pool becomes the new workshop.
+    player
+        .deck
+        .push_bottom(player.workshop_cards.union(player.workshopped_cards));
+    player.workshop_cards = player.drafted_cards;
     player.workshopped_cards = UnorderedCards::new();
-    player.workshop_cards = UnorderedCards::new();
+    player.drafted_cards = UnorderedCards::new();
 
     let num_players = state.players.len();
     let starting_player = ((state.round - 1) as usize) % num_players;

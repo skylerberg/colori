@@ -24,6 +24,22 @@ impl<T, const N: usize> FixedVec<T, N> {
         self.len += 1;
     }
 
+    /// Remove the element at `index`, shifting the rest down. Use when order
+    /// carries meaning; prefer `swap_remove` when it does not.
+    pub fn remove(&mut self, index: usize) -> T {
+        assert!(index < self.len, "remove index out of bounds");
+        // SAFETY: `index` is within the initialized range, so the read leaves
+        // a hole that the shift immediately fills; the tail slot is then
+        // logically uninitialized and `len` is decremented to match.
+        unsafe {
+            let ptr = self.data.as_mut_ptr();
+            let removed = (*ptr.add(index)).assume_init_read();
+            std::ptr::copy(ptr.add(index + 1), ptr.add(index), self.len - index - 1);
+            self.len -= 1;
+            removed
+        }
+    }
+
     pub fn swap_remove(&mut self, index: usize) -> T {
         assert!(index < self.len, "swap_remove index out of bounds");
         self.len -= 1;
@@ -170,6 +186,14 @@ impl<'de, T: Deserialize<'de>, const N: usize> Deserialize<'de> for FixedVec<T, 
         Ok(v.into_iter().collect())
     }
 }
+
+impl<T: PartialEq, const N: usize> PartialEq for FixedVec<T, N> {
+    fn eq(&self, other: &Self) -> bool {
+        self.deref() == other.deref()
+    }
+}
+
+impl<T: Eq, const N: usize> Eq for FixedVec<T, N> {}
 
 impl<T: fmt::Debug, const N: usize> fmt::Debug for FixedVec<T, N> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

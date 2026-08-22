@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { GameState, Choice, Ability, CardInstance } from '../data/types';
+  import type { GameState, Choice, Ability } from '../data/types';
   import { orderByDraftOrder } from '../gameUtils';
   import CardList from './CardList.svelte';
   import AbilityPrompt from './AbilityPrompt.svelte';
@@ -10,18 +10,12 @@
     onUndo,
     undoAvailable,
     draftCardOrder,
-    deferredMoves,
-    onStageDeferredMove,
-    onCommitDeferredDestroy,
   }: {
     gameState: GameState;
     onAction: (choice: Choice) => void;
     onUndo: () => void;
     undoAvailable: boolean;
     draftCardOrder?: number[][];
-    deferredMoves: CardInstance[];
-    onStageDeferredMove: (ci: CardInstance) => void;
-    onCommitDeferredDestroy: (ci: CardInstance) => void;
   } = $props();
 
   let actionState = $derived(
@@ -39,36 +33,25 @@
   );
   let hasPendingChoice = $derived(topAbility !== null);
 
-  let deferredInstanceIds = $derived(new Set(deferredMoves.map(ci => ci.instanceId)));
-
-  // Workshop cards the engine still holds that the UI is NOT treating as moved.
-  // Deferred moves are hidden from every workshop-facing prompt (workshop and
-  // the DestroyCards target) so the human can't act on cards they think have
-  // already left the workshop.
-  let workshopAndWorkshopped = $derived(
-    currentPlayer ? [...currentPlayer.workshopCards, ...currentPlayer.workshoppedCards] : []
-  );
   let workshopDisplayCards = $derived(
-    workshopAndWorkshopped.filter(c => !deferredInstanceIds.has(c.instanceId))
+    currentPlayer ? [...currentPlayer.workshopCards, ...currentPlayer.workshoppedCards] : []
   );
   let workshoppedIds = $derived(
     currentPlayer ? currentPlayer.workshoppedCards.map(c => c.instanceId) : []
   );
   let hasAbilitiesQueued = $derived((actionState?.abilityStack.length ?? 0) > 0);
 
-  // Drafted display includes the real drafted cards plus any deferred-moved
-  // workshop cards. Order: real drafted first (in their drafted order), then
-  // deferred ones appended in the order they were moved.
+  // Cards moved in from the workshop are not in the draft order, so
+  // `orderByDraftOrder` appends them after the ones that were drafted.
   let draftedDisplayCards = $derived.by(() => {
     if (!currentPlayer || !actionState) return [];
-    const base = draftCardOrder
+    return draftCardOrder
       ? orderByDraftOrder(currentPlayer.draftedCards, draftCardOrder[actionState.currentPlayerIndex])
       : currentPlayer.draftedCards;
-    return [...base, ...deferredMoves];
   });
 
   let workshopPendingChoice = $derived(
-    topAbility?.type === 'workshop' || topAbility?.type === 'destroyCards'
+    topAbility?.type === 'workshop' || topAbility?.type === 'moveToDraftPool'
       ? topAbility : null
   );
 
@@ -81,7 +64,6 @@
 
   function toggleWorkshopCard(instanceId: number) {
     if (!topAbility || topAbility.type !== 'workshop') return;
-    if (deferredInstanceIds.has(instanceId)) return;
     const idx = selectedWorkshopIds.indexOf(instanceId);
     if (idx >= 0) {
       selectedWorkshopIds = selectedWorkshopIds.filter(id => id !== instanceId);
@@ -103,34 +85,23 @@
     onAction({ type: 'skipWorkshop' });
   }
 
-  function handleStageMoveToDraft(instanceId: number) {
-    if (!topAbility || topAbility.type !== 'destroyCards' || !currentPlayer) return;
-    if (deferredInstanceIds.has(instanceId)) return;
+  function handleMoveToDraftPool(instanceId: number) {
+    if (!topAbility || topAbility.type !== 'moveToDraftPool' || !currentPlayer) return;
     const ci =
       currentPlayer.workshopCards.find(c => c.instanceId === instanceId)
       ?? currentPlayer.workshoppedCards.find(c => c.instanceId === instanceId);
     if (!ci) return;
-    onStageDeferredMove(ci);
+    onAction({ type: 'moveToDraftPool', card: ci.card });
   }
 
-  function handleSkipDestroy() {
-    // Sends the standard engine skip — no card was moved to the draft pool.
-    onAction({ type: 'destroyDrawnCards', card: null });
+  // The move is mandatory when there is anything to move, so this only ever
+  // resolves an ability that has nothing to act on.
+  function handleNothingToMove() {
+    onAction({ type: 'moveToDraftPool', card: null });
   }
 
   function handleDestroyDrafted(cardInstanceId: number) {
     if (!currentPlayer) return;
-
-    // A deferred-moved card in the drafted row commits the deferred destroy.
-    // This is only allowed when there's no pending ability on the stack,
-    // matching the engine's precondition for destroyWorkshopCardDeferred.
-    const deferred = deferredMoves.find(c => c.instanceId === cardInstanceId);
-    if (deferred) {
-      if (hasPendingChoice) return;
-      onCommitDeferredDestroy(deferred);
-      return;
-    }
-
     if (hasPendingChoice) return;
     const ci = currentPlayer.draftedCards.find(c => c.instanceId === cardInstanceId);
     if (!ci) return;
@@ -189,18 +160,20 @@
               </button>
             {/if}
           </div>
-        {:else if topAbility?.type === 'destroyCards'}
+        {:else if topAbility?.type === 'moveToDraftPool'}
           <h3>Workshop — Click a card to move to draft pool</h3>
           <CardList
             cards={workshopDisplayCards}
             selectable={true}
             rotatedSelectable={true}
             rotatedIds={workshoppedIds}
-            onCardClick={handleStageMoveToDraft}
+            onCardClick={handleMoveToDraftPool}
           />
-          <button class="confirm-btn skip-btn" onclick={handleSkipDestroy}>
-            Skip
-          </button>
+          {#if workshopDisplayCards.length === 0}
+            <button class="confirm-btn skip-btn" onclick={handleNothingToMove}>
+              Nothing to move
+            </button>
+          {/if}
         {:else}
           <h3>Workshop</h3>
           <CardList cards={workshopDisplayCards} rotatedIds={workshoppedIds} />

@@ -37,10 +37,12 @@
 
   // Stats
   let score = $derived(currentPlayer.completedSellCards.reduce((sum, sellCard) => sum + getSellCardData(sellCard.card).ducats, 0) + currentPlayer.ducats);
+  // Front segment first, so the modal lists cards in the order they will come
+  // up rather than in an order that means nothing.
+  let deckCards = $derived(currentPlayer.deck.flat());
 
   let showLog = $state(false);
   let showDeckModal = $state(false);
-  let showDiscardModal = $state(false);
 
   function handleLeaveGame() {
     if (confirm('Are you sure you want to leave this game? Your progress will be lost.')) {
@@ -95,9 +97,7 @@
       <span class="stat-sep">|</span>
       <span class="stat">Ducats: {currentPlayer.ducats}</span>
       <span class="stat-sep">|</span>
-      <button class="stat stat-clickable" onclick={() => showDeckModal = true}>Deck: {currentPlayer.deck.length}</button>
-      <span class="stat-sep">|</span>
-      <button class="stat stat-clickable" onclick={() => showDiscardModal = true}>Discard: {currentPlayer.discard.length}</button>
+      <button class="stat stat-clickable" onclick={() => showDeckModal = true}>Deck: {deckCards.length}</button>
     </div>
 
     {#if aiError}
@@ -218,10 +218,7 @@
   {/if}
 
   {#if showDeckModal}
-    <CardModal title="Deck" cards={currentPlayer.deck} onClose={() => showDeckModal = false} />
-  {/if}
-  {#if showDiscardModal}
-    <CardModal title="Discard Pile" cards={currentPlayer.discard} onClose={() => showDiscardModal = false} />
+    <CardModal title="Deck" cards={deckCards} onClose={() => showDeckModal = false} />
   {/if}
 </div>
 

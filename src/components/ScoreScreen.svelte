@@ -103,7 +103,7 @@
 
             <div class="card-section">
               <h4>Full Deck</h4>
-              <CardList cards={[...player.deck, ...player.discard, ...player.workshoppedCards]} />
+              <CardList cards={[...player.deck.flat(), ...player.workshopCards, ...player.workshoppedCards]} />
             </div>
 
             {#if player.completedSellCards.length > 0}
