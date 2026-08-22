@@ -262,8 +262,11 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, 
                 }
                 Some(Ability::MoveToDraftPool) => {
                     let p = &state.players[player_index];
-                    let mut copy = p.workshop_cards.union(p.workshopped_cards);
-                    let selected = copy.draw_up_to(1, rng);
+                    let area = p.workshop_cards.union(p.workshopped_cards);
+                    let mut selected = UnorderedCards::new();
+                    if let Some(id) = area.pick_random(rng) {
+                        selected.insert(id);
+                    }
                     resolve_move_to_draft_pool(state, selected, rng);
                 }
                 Some(Ability::MixColors { count }) => {
@@ -1173,14 +1176,18 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
 
                     // Epsilon: random
                     if rng.random_bool(params.rollout_epsilon) {
-                        let mut copy = area;
-                        let selected = copy.draw_up_to(1, rng);
+                        let mut selected = UnorderedCards::new();
+                        if let Some(id) = area.pick_random(rng) {
+                            selected.insert(id);
+                        }
                         resolve_move_to_draft_pool(state, selected, rng);
                         return;
                     }
 
-                    // Pick the workshop-area card whose ability is most useful to activate.
-                    // Destroying a workshop-area card activates its ability (see resolve_move_to_draft_pool).
+                    // Move the card whose ability is most worth triggering. The
+                    // move no longer triggers it — the rollout has to destroy
+                    // the card from the pool afterwards — but it is still the
+                    // card most worth having there.
                     let mut best_id: Option<u8> = None;
                     let mut best_score = 0u32;
                     for id in area.iter() {

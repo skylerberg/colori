@@ -149,11 +149,6 @@ impl Deck {
         }
         count - remaining
     }
-
-    /// Every card in the deck, front segment first.
-    pub fn iter(&self) -> impl Iterator<Item = u8> + '_ {
-        self.segments.iter().flat_map(|s| s.iter())
-    }
 }
 
 #[cfg(test)]
@@ -280,11 +275,10 @@ mod tests {
     }
 
     #[test]
-    fn cards_and_iter_see_every_segment() {
+    fn cards_and_len_see_every_segment() {
         let mut deck = Deck::from_cards(cards(&[1, 2]));
         deck.push_bottom(cards(&[3]));
         assert_eq!(deck.cards(), cards(&[1, 2, 3]));
-        assert_eq!(deck.iter().count(), 3);
         assert_eq!(deck.len(), 3);
     }
 

@@ -229,14 +229,18 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
         Choice::MoveToDraftPool { card } => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 match action_state.ability_stack.last() {
-                    Some(Ability::MoveToDraftPool) => match card {
-                        None => true,
-                        Some(card) => {
-                            let player = &state.players[action_state.current_player_index];
-                            let area = player.workshop_cards.union(player.workshopped_cards);
-                            area.iter().any(|id| state.card_lookup[id as usize] == *card)
+                    Some(Ability::MoveToDraftPool) => {
+                        let player = &state.players[action_state.current_player_index];
+                        let area = player.workshop_cards.union(player.workshopped_cards);
+                        match card {
+                            // The move is mandatory when there is anything to
+                            // move, so this stands only for the fizzle.
+                            None => area.is_empty(),
+                            Some(card) => {
+                                area.iter().any(|id| state.card_lookup[id as usize] == *card)
+                            }
                         }
-                    },
+                    }
                     _ => false,
                 }
             } else {

@@ -3,9 +3,10 @@
 //! `cargo bench` reports wall clock, which on a shared desktop says as much
 //! about what else is running as about the engine. macOS exposes a per-process
 //! retired-instruction counter through `proc_pid_rusage(RUSAGE_INFO_V4)`, and
-//! it needs no privileges. Repeats of an identical workload on an M4 land
-//! within ~0.15% of each other, so a change of a percent or two is legible —
-//! which wall clock on this machine is not.
+//! it needs no privileges. Repeats of an identical workload on an M4 agree to
+//! within a few tenths of a percent, so a change of a percent or two is
+//! legible — which wall clock on this machine is not. Cycles are reported
+//! alongside but are far noisier; only the instruction counts are comparable.
 //!
 //! ```sh
 //! cargo run --release -p colori-core --example instruction_count
