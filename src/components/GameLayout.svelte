@@ -114,7 +114,10 @@
       <div class="main-columns">
         <!-- Left half: sell card display + player info row -->
         <div class="left-col">
-          <SellCardDisplay sellCards={gameState.sellCardDisplay} />
+          <!-- The buyers phase renders its own, selectable, copy. -->
+          {#if gameState.phase.type !== 'buyers'}
+            <SellCardDisplay sellCards={gameState.sellCardDisplay} />
+          {/if}
 
           <div class="player-info-row">
             <div class="info-left-col">

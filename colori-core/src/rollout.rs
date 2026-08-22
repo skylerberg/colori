@@ -13,7 +13,7 @@ use crate::colors::{
 use crate::draw_phase::WORKSHOP_SIZE;
 use crate::draft_phase::player_pick;
 use crate::buyers_phase::{
-    anything_to_claim, buyer_capacity, claim_from_deck, claim_from_display, draw_buyer, take_buyer,
+    anything_to_claim, claim_from_deck, claim_from_display, draw_buyer, needs_a_buyer, take_buyer,
 };
 use crate::scoring::{buyer_alignment, HeuristicParams};
 use crate::types::*;
@@ -32,8 +32,9 @@ enum BuyerClaim {
 /// What `player_index` should claim, or None when both piles are dry.
 ///
 /// With `params`, take the face-up card best aligned with what the player has
-/// stored, falling back to the deck only when nothing is face up. Without,
-/// pick uniformly among everything on offer, the deck included.
+/// stored, falling back to the deck only when nothing is face up — except
+/// `rollout_epsilon` of the time, which drops to the uniform policy. Without
+/// them, pick uniformly among everything on offer, the deck included.
 fn choose_buyer_claim<R: Rng>(
     state: &GameState,
     player_index: usize,
@@ -42,6 +43,7 @@ fn choose_buyer_claim<R: Rng>(
 ) -> Option<BuyerClaim> {
     let display = &state.sell_card_display;
     let deck_available = !state.sell_card_deck.is_empty();
+    let params = params.filter(|p| !rng.random_bool(p.rollout_epsilon));
 
     if let Some(params) = params {
         if display.is_empty() {
@@ -79,20 +81,25 @@ fn rollout_fill_buyers<R: Rng>(state: &mut GameState, params: Option<&HeuristicP
     let num_players = state.players.len();
     let starting_player = ((state.round - 1) as usize) % num_players;
 
-    for slot in 0..buyer_capacity(state.round) {
+    loop {
+        let mut claimed = false;
         for offset in 0..num_players {
+            let player_index = (starting_player + offset) % num_players;
+            if !needs_a_buyer(state, player_index) {
+                continue;
+            }
             if !anything_to_claim(state) {
                 return;
-            }
-            let player_index = (starting_player + offset) % num_players;
-            if state.players[player_index].buyers.len() > slot {
-                continue;
             }
             match choose_buyer_claim(state, player_index, params, rng) {
                 Some(BuyerClaim::Display(id)) => claim_from_display(state, player_index, id, rng),
                 Some(BuyerClaim::Deck) => claim_from_deck(state, player_index, rng),
                 None => return,
             }
+            claimed = true;
+        }
+        if !claimed {
+            return;
         }
     }
 }
@@ -1176,8 +1183,7 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
 pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, params: &HeuristicParams, rng: &mut R) {
     // Buyers phase
     if matches!(&state.phase, GamePhase::Buyers { .. }) {
-        let policy = (!rng.random_bool(params.rollout_epsilon)).then_some(params);
-        rollout_resolve_buyers_phase(state, policy, rng);
+        rollout_resolve_buyers_phase(state, Some(params), rng);
         return;
     }
 

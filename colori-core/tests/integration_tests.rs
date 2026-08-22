@@ -2,6 +2,7 @@ use colori_core::colori_game::{apply_choice_to_state, check_choice_available, en
 use colori_core::apply_choice::apply_choice;
 use colori_core::buyers_phase::initialize_buyers_phase;
 use colori_core::deck::Deck;
+use colori_core::game_log::{DrawEvent, DrawLog};
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::scoring::calculate_score;
 use colori_core::setup::create_initial_game_state;
@@ -1685,5 +1686,64 @@ fn test_an_exhausted_sell_card_supply_skips_the_buyers_phase() {
     }
     for player in state.players.iter() {
         assert!(player.completed_sell_cards.is_empty());
+    }
+}
+
+// ── Draw log recording and replay ──
+
+fn take_recording(state: &mut GameState) -> Vec<DrawEvent> {
+    match state.draw_log.take() {
+        Some(DrawLog::Recording(events)) => events,
+        _ => Vec::new(),
+    }
+}
+
+/// Everything hidden that a game reveals must be recoverable from the draw
+/// log, or a replayed log diverges from the game it recorded.
+///
+/// The replay runs on a *different* RNG seed on purpose: any draw the log fails
+/// to cover falls through to that RNG and the states come apart.
+#[test]
+fn test_a_recorded_game_replays_to_the_same_state() {
+    for num_players in 1..=3 {
+        for seed in 0..4 {
+            let mut rng = WyRand::seed_from_u64(seed * 31 + num_players as u64);
+            let ai_players = vec![true; num_players];
+            let mut state = create_initial_game_state(num_players, &ai_players, &mut rng);
+            let initial = state.clone();
+
+            state.draw_log = Some(DrawLog::Recording(Vec::new()));
+            execute_draw_phase(&mut state, &mut rng);
+            let initial_draws = take_recording(&mut state);
+
+            let mut script: Vec<(Choice, Vec<DrawEvent>)> = Vec::new();
+            while !matches!(state.phase, GamePhase::GameOver) {
+                let choices = enumerate_choices(&state);
+                assert!(!choices.is_empty(), "no legal choice (players={num_players}, seed={seed})");
+                let choice = choices[rng.random_range(0..choices.len())].clone();
+                state.draw_log = Some(DrawLog::Recording(Vec::new()));
+                apply_choice_to_state(&mut state, &choice, &mut rng);
+                script.push((choice, take_recording(&mut state)));
+            }
+            let recorded = state;
+
+            let mut replay_rng = WyRand::seed_from_u64(0xDEAD_BEEF);
+            let mut replayed = initial;
+            replayed.draw_log = Some(DrawLog::Replaying(initial_draws.into_iter().collect()));
+            execute_draw_phase(&mut replayed, &mut replay_rng);
+            replayed.draw_log = None;
+
+            for (choice, draws) in script {
+                replayed.draw_log = Some(DrawLog::Replaying(draws.into_iter().collect()));
+                apply_choice_to_state(&mut replayed, &choice, &mut replay_rng);
+                replayed.draw_log = None;
+            }
+
+            assert_states_match(
+                &recorded,
+                &replayed,
+                &format!("replay diverged (players={num_players}, seed={seed})"),
+            );
+        }
     }
 }

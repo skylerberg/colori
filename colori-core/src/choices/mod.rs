@@ -395,13 +395,12 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
 /// piles can run dry, and then there is nothing to enumerate and the phase
 /// ends without seating anyone.
 fn enumerate_buyer_choices(state: &GameState, choices: &mut Vec<Choice>) {
-    let mut seen: [bool; 256] = [false; 256];
-    for instance in state.sell_card_display.iter() {
-        let key = instance.sell_card as usize;
-        if seen[key] {
+    let display = &state.sell_card_display;
+    for (i, instance) in display.iter().enumerate() {
+        // At most five entries, so a scan beats any bookkeeping.
+        if display[..i].iter().any(|c| c.sell_card == instance.sell_card) {
             continue;
         }
-        seen[key] = true;
         choices.push(Choice::TakeBuyer {
             sell_card: instance.sell_card,
         });
