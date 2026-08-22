@@ -1,4 +1,5 @@
 use crate::action_phase::*;
+use crate::buyers_phase::{draw_buyer, take_buyer};
 use crate::draft_phase::player_pick;
 use crate::types::{Ability, Card, Choice, GamePhase, GameState, SellCard};
 use crate::unordered_cards::UnorderedCards;
@@ -21,6 +22,7 @@ fn find_card_instance(state: &GameState, card: &Card, cards: &UnorderedCards) ->
 fn phase_name(phase: &GamePhase) -> &'static str {
     match phase {
         GamePhase::Draw => "Draw",
+        GamePhase::Buyers { .. } => "Buyers",
         GamePhase::Draft { .. } => "Draft",
         GamePhase::Action { .. } => "Action",
         GamePhase::GameOver => "GameOver",
@@ -38,8 +40,22 @@ fn get_drafted_card_instance(state: &GameState, card: &Card) -> u32 {
     find_card_instance(state, card, &drafted)
 }
 
-/// Find the first sell card instance ID matching a sell card type in the sell card display.
+/// Find the first instance of a sell card type among the acting player's buyers.
 fn find_sell_card_instance(state: &GameState, sell_card: &SellCard) -> u32 {
+    let player_index = match &state.phase {
+        GamePhase::Action { action_state } => action_state.current_player_index,
+        _ => panic!("Expected action phase"),
+    };
+    for sell_card_instance in state.players[player_index].buyers.iter() {
+        if sell_card_instance.sell_card == *sell_card {
+            return sell_card_instance.instance_id;
+        }
+    }
+    panic!("Sell card type {:?} not found in the player's buyers", sell_card);
+}
+
+/// Find the first instance of a sell card type in the shared display.
+fn find_display_sell_card_instance(state: &GameState, sell_card: &SellCard) -> u32 {
     for sell_card_instance in state.sell_card_display.iter() {
         if sell_card_instance.sell_card == *sell_card {
             return sell_card_instance.instance_id;
@@ -205,6 +221,13 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
                 }
             }
             resolve_move_to_draft_pool(state, selected, rng);
+        }
+        Choice::TakeBuyer { sell_card } => {
+            let instance_id = find_display_sell_card_instance(state, sell_card);
+            take_buyer(state, instance_id, rng);
+        }
+        Choice::DrawBuyer => {
+            draw_buyer(state, rng);
         }
     }
 }

@@ -1,5 +1,6 @@
 pub mod action_phase;
 pub mod apply_choice;
+pub mod buyers_phase;
 pub mod cards;
 pub mod choices;
 pub mod colori_game;

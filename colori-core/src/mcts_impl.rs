@@ -106,7 +106,6 @@ impl SearchContext {
         if self.use_heuristic {
             compute_heuristic_rewards(
                 &state.players,
-                &state.sell_card_display,
                 &state.card_lookup,
                 &self.heuristic_params,
                 &self.card_table,
@@ -152,6 +151,7 @@ impl Game for GameState {
             return Status::Terminal(ctx.evaluate(self));
         }
         let player = match &self.phase {
+            GamePhase::Buyers { buyers_state } => buyers_state.current_player_index,
             GamePhase::Draft { draft_state } => draft_state.current_player_index,
             GamePhase::Action { action_state } => action_state.current_player_index,
             GamePhase::Draw => 0,
@@ -243,7 +243,6 @@ impl Game for GameState {
     fn heuristic_bias(&self, ctx: &SearchContext, perspective: u8) -> f32 {
         heuristic_score(
             &self.players[perspective as usize],
-            &self.sell_card_display,
             &self.card_lookup,
             &ctx.heuristic_params,
             &ctx.card_table,

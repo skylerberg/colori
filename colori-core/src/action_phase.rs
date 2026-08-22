@@ -1,9 +1,8 @@
 use crate::colors::{can_pay_cost, pay_cost, perform_mix, perform_mix_unchecked};
-use crate::draw_log_helpers::{is_replaying, record_player_deck_draw, replay_player_deck_draw, replay_sell_card_reveal};
-use crate::game_log::{DrawEvent, DrawLog};
+use crate::draw_log_helpers::{is_replaying, record_player_deck_draw, replay_player_deck_draw};
 use crate::types::{
     Ability, AbilityStack, ActionState, Card, Color, GamePhase, GameState,
-    MaterialType, PlayerState, SellCard, SellCardInstance,
+    MaterialType, PlayerState, SellCard,
 };
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
@@ -302,12 +301,15 @@ pub(crate) fn can_afford_sell_card(player: &PlayerState, sell_card: &SellCard) -
         && can_pay_cost(&player.color_wheel, sell_card.color_cost())
 }
 
+/// Whether the acting player can sell to one of their own buyers. The shared
+/// display is not sellable to — cards must be claimed first, in the buyers
+/// phase.
 #[inline]
 pub fn can_sell_to_any_sell_card(state: &GameState) -> bool {
     let action_state = get_action_state(state);
     let player = &state.players[action_state.current_player_index];
-    state
-        .sell_card_display
+    player
+        .buyers
         .iter()
         .any(|b| can_afford_sell_card(player, &b.sell_card))
 }
@@ -445,15 +447,17 @@ pub fn resolve_select_sell_card<R: Rng>(
     // Pop the Sell ability from the stack
     get_action_state_mut(state).ability_stack.pop();
 
-    let sell_card_index = state
-        .sell_card_display
+    let player = &mut state.players[player_index];
+    let sell_card_index = player
+        .buyers
         .iter()
         .position(|c| c.instance_id == sell_card_instance_id)
-        .expect("Sell card not found in sell card display");
+        .expect("Sell card not found in the player's buyers");
 
-    let sell_card_instance = state.sell_card_display.swap_remove(sell_card_index);
+    // Order-preserving, so the slot a buyer occupied is not visibly shuffled
+    // when an earlier one sells.
+    let sell_card_instance = player.buyers.remove(sell_card_index);
 
-    let player = &mut state.players[player_index];
     if !player.materials.decrement(sell_card_instance.sell_card.required_material()) {
         panic!("Not enough stored material");
     }
@@ -464,22 +468,7 @@ pub fn resolve_select_sell_card<R: Rng>(
     player.cached_score += sell_card_instance.sell_card.ducats();
     player.completed_sell_cards.push(sell_card_instance);
 
-    // Refill sell card display from sell_card_deck
-    if is_replaying(state) {
-        replay_sell_card_reveal(state);
-    } else if let Some(id) = state.sell_card_deck.draw(rng) {
-        let revealed = SellCardInstance {
-            instance_id: id as u32,
-            sell_card: state.sell_card_lookup[id as usize],
-        };
-        if let Some(DrawLog::Recording(log)) = &mut state.draw_log {
-            log.push(DrawEvent::SellCardReveal {
-                sell_card: revealed,
-            });
-        }
-        state.sell_card_display.push(revealed);
-    }
-
+    // The freed slot stays empty until the next buyers phase.
     process_ability_stack(state, rng);
 }
 

@@ -20,6 +20,13 @@ pub enum DrawEvent {
     SellCardReveal {
         sell_card: SellCardInstance,
     },
+    /// A buyer claimed off the top of the deck rather than the display, so the
+    /// card is not derivable from the visible state.
+    #[serde(rename = "buyerDraw", rename_all = "camelCase")]
+    BuyerDraw {
+        player_index: usize,
+        sell_card: SellCardInstance,
+    },
     #[serde(rename = "phantomDraftRemoval", rename_all = "camelCase")]
     PhantomDraftRemoval {
         hand_index: usize,
@@ -77,6 +84,8 @@ pub struct LogGameState {
 pub struct LogPlayerState {
     /// Front segment first; see `colori_core::deck::Deck`.
     pub deck: Vec<Vec<CardInstance>>,
+    #[serde(default)]
+    pub buyers: Vec<SellCardInstance>,
     #[serde(default)]
     pub workshopped_cards: Vec<CardInstance>,
     pub workshop_cards: Vec<CardInstance>,

@@ -103,6 +103,9 @@ export interface PlayerState {
   // because a round's leftover workshop goes to the bottom as one. See
   // `colori_core::deck::Deck`.
   deck: CardInstance[][];
+  // Sell cards claimed for this player alone. Only these can be sold to; the
+  // shared display is claimed from during the buyers phase.
+  buyers: SellCardInstance[];
   workshoppedCards: CardInstance[];
   workshopCards: CardInstance[];
   draftedCards: CardInstance[];
@@ -123,8 +126,13 @@ export interface ActionState {
   abilityStack: Ability[];
 }
 
+export interface BuyersState {
+  currentPlayerIndex: number;
+}
+
 export type GamePhase =
   | { type: 'draw' }
+  | { type: 'buyers'; buyersState: BuyersState }
   | { type: 'draft'; draftState: DraftState }
   | { type: 'action'; actionState: ActionState }
   | { type: 'gameOver' };
@@ -157,14 +165,17 @@ export type Choice =
   | { type: 'destroyAndMix'; card: Card; mixes: [Color, Color][] }
   | { type: 'destroyAndSell'; card: Card; sellCard: SellCard }
   | { type: 'destroyAndWorkshop'; card: Card; workshopCards: Card[] }
-  | { type: 'destroyAndMoveToDraftPool'; card: Card; target: Card | null };
+  | { type: 'destroyAndMoveToDraftPool'; card: Card; target: Card | null }
+  | { type: 'takeBuyer'; sellCard: SellCard }
+  | { type: 'drawBuyer' };
 
 // ── Draw Event Types ──
 
 export type DrawEvent =
   | { type: 'playerDeckDraw'; playerIndex: number; cards: CardInstance[] }
   | { type: 'draftDeal'; playerIndex: number; cards: CardInstance[] }
-  | { type: 'sellCardReveal'; sellCard: SellCardInstance };
+  | { type: 'sellCardReveal'; sellCard: SellCardInstance }
+  | { type: 'buyerDraw'; playerIndex: number; sellCard: SellCardInstance };
 
 // ── Game Log Types ──
 

@@ -127,9 +127,31 @@ fn card_quality(card: Card, params: &HeuristicParams) -> f64 {
     }
 }
 
+/// How well a sell card suits what a player already has stored.
+///
+/// Shared by the evaluation function and by the rollout's buyers-phase policy,
+/// so the cards a rollout claims are the ones the evaluation would reward.
+pub fn buyer_alignment(player: &PlayerState, sell_card: SellCard, params: &HeuristicParams) -> f64 {
+    let ducats = sell_card.ducats() as f64;
+    let mut alignment = 0.0;
+
+    if player.materials.get(sell_card.required_material()) > 0 {
+        alignment += params.sell_card_material_alignment * ducats;
+    }
+
+    let cost = sell_card.color_cost();
+    let cost_len = cost.len() as f64;
+    for &color in cost {
+        if player.color_wheel.get(color) > 0 {
+            alignment += (params.sell_card_color_alignment / cost_len) * ducats;
+        }
+    }
+
+    alignment
+}
+
 pub fn heuristic_score(
     player: &PlayerState,
-    sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
     card_lookup: &[Card; 256],
     params: &HeuristicParams,
     card_table: &CardHeuristicTable,
@@ -168,25 +190,12 @@ pub fn heuristic_score(
 
     let deck_thinning_bonus = params.deck_thinning_value / (card_count as f64 + 1.0);
 
+    // Only the player's own buyers count: the shared display cannot be sold to
+    // until a buyers phase moves a card across, and the value of doing that
+    // shows up in the resulting position rather than needing its own term.
     let mut best_alignment = 0.0f64;
-    for bi in sell_card_display.iter() {
-        let sell_card = bi.sell_card;
-        let ducats = sell_card.ducats() as f64;
-        let mut alignment = 0.0;
-
-        if player.materials.get(sell_card.required_material()) > 0 {
-            alignment += params.sell_card_material_alignment * ducats;
-        }
-
-        let cost = sell_card.color_cost();
-        let cost_len = cost.len() as f64;
-        for &color in cost {
-            if player.color_wheel.get(color) > 0 {
-                alignment += (params.sell_card_color_alignment / cost_len) * ducats;
-            }
-        }
-
-        best_alignment = best_alignment.max(alignment);
+    for bi in player.buyers.iter() {
+        best_alignment = best_alignment.max(buyer_alignment(player, bi.sell_card, params));
     }
 
     score + color_score + material_score + deck_quality + deck_thinning_bonus + best_alignment
@@ -197,14 +206,13 @@ pub fn heuristic_score(
 /// Solo mode: same formula as terminal (win bonus + score/100) using cached_score.
 pub fn compute_heuristic_rewards(
     players: &FixedVec<PlayerState, MAX_PLAYERS>,
-    sell_card_display: &FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
     card_lookup: &[Card; 256],
     params: &HeuristicParams,
     card_table: &CardHeuristicTable,
 ) -> [f64; MAX_PLAYERS] {
     let mut scores = [0.0f64; MAX_PLAYERS];
     for (i, p) in players.iter().enumerate() {
-        scores[i] = heuristic_score(p, sell_card_display, card_lookup, params, card_table);
+        scores[i] = heuristic_score(p, card_lookup, params, card_table);
     }
 
     if players.len() == 1 {
@@ -242,6 +250,7 @@ mod tests {
             .collect();
         let mut p = PlayerState {
             deck: Deck::new(),
+            buyers: FixedVec::new(),
             workshopped_cards: UnorderedCards::new(),
             workshop_cards: UnorderedCards::new(),
             drafted_cards: UnorderedCards::new(),

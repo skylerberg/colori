@@ -56,7 +56,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'sell-card-display',
     title: 'Sell Cards',
-    text: 'These cards are the main way to gain ducats. Each card requires a specific material (Textiles, Ceramics, or Paintings) and a set of colors.',
+    text: 'These 5 face-up cards are the main way to gain ducats. Each requires a specific material (Textiles, Ceramics, or Paintings) and a set of colors. You cannot sell to them here — you claim them into your own Buyers section first, at the start of each round.',
     attachTo: { element: '.sell-card-display', on: 'bottom' },
     buttons: [backButton, nextButton],
   });
@@ -88,8 +88,15 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'round-structure',
     title: 'Round Structure',
-    text: 'Each round has two phases: the Draft Phase and the Action Phase. At the start of the round, you draw from your deck until your workshop holds 5 cards.',
+    text: 'Each round has three phases: the Buyers Phase, the Draft Phase and the Action Phase. At the start of the round, you draw from your deck until your workshop holds 5 cards.',
     attachTo: { element: '.top-info-bar', on: 'bottom' },
+    buttons: [backButton, nextButton],
+  });
+
+  newTour.addStep({
+    id: 'buyers-phase',
+    title: 'Buyers Phase',
+    text: 'Before drafting, players take turns claiming sell cards into their own Buyers section — one at a time, going round the table until everyone is full. You can only sell to cards in your own Buyers, so this is where you decide what to aim for. Take one of the 5 face-up cards, or gamble on the top of the deck unseen. You get 1 slot to start, a 2nd in round 2 and a 3rd in round 4.',
     buttons: [backButton, nextButton],
   });
 
@@ -129,7 +136,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'selling-explained',
     title: 'Selling',
-    text: 'When you destroy a drafted card with the sell ability, choose a sell card, spend 1 material of the required type, and pay the color cost from your wheel. The sell card goes to your completed sell cards, earning you ducats.',
+    text: 'When you destroy a drafted card with the sell ability, choose one of your own Buyers, spend 1 material of the required type, and pay the color cost from your wheel. The card goes to your completed sell cards, earning you ducats, and the buyer slot stays empty until next round.',
     attachTo: { element: '.sell-card-display', on: 'bottom' },
     buttons: [backButton, nextButton],
   });

@@ -39,6 +39,9 @@ pub fn get_game_status(state: &GameState, max_round: Option<u32>) -> GameStatus 
     }
 
     match &state.phase {
+        GamePhase::Buyers { buyers_state } => GameStatus::AwaitingAction {
+            player_index: buyers_state.current_player_index,
+        },
         GamePhase::Draft { draft_state } => GameStatus::AwaitingAction {
             player_index: draft_state.current_player_index,
         },

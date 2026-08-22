@@ -63,6 +63,13 @@
         <CardList cards={[...player.workshopCards, ...player.workshoppedCards]} rotatedIds={player.workshoppedCards.map(c => c.instanceId)} />
       </div>
 
+      {#if player.buyers.length > 0}
+        <div class="card-section">
+          <h4>Buyers</h4>
+          <CardList cards={player.buyers} />
+        </div>
+      {/if}
+
       {#if player.completedSellCards.length > 0}
         <div class="card-section">
           <h4>Completed Sell Cards</h4>

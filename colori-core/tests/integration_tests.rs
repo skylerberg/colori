@@ -1,11 +1,12 @@
 use colori_core::colori_game::{apply_choice_to_state, check_choice_available, enumerate_choices};
 use colori_core::apply_choice::apply_choice;
+use colori_core::buyers_phase::initialize_buyers_phase;
 use colori_core::deck::Deck;
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::scoring::calculate_score;
 use colori_core::setup::create_initial_game_state;
 use colori_core::types::{Ability, SellCard, Card, Choice, Color, GamePhase, GameState, MaterialType, ALL_MATERIAL_TYPES};
-use colori_core::unordered_cards::UnorderedCards;
+use colori_core::unordered_cards::{UnorderedCards, UnorderedSellCards};
 use colori_core::unordered_cards::{
     get_sell_card_registry, get_card_registry, set_sell_card_registry, set_card_registry,
 };
@@ -45,6 +46,7 @@ fn count_all_sell_cards(state: &GameState) -> u32 {
     total += state.sell_card_display.len() as u32;
 
     for player in state.players.iter() {
+        total += player.buyers.len() as u32;
         total += player.completed_sell_cards.len() as u32;
     }
 
@@ -471,6 +473,24 @@ fn assert_states_match(a: &GameState, b: &GameState, context: &str) {
             pi, context
         );
         assert_eq!(
+            pa.buyers.len(),
+            pb.buyers.len(),
+            "player {} buyers length mismatch: {}",
+            pi, context
+        );
+        for (bi, (ba, bb)) in pa.buyers.iter().zip(pb.buyers.iter()).enumerate() {
+            assert_eq!(
+                ba.instance_id, bb.instance_id,
+                "player {} buyer {} instance_id mismatch: {}",
+                pi, bi, context
+            );
+            assert_eq!(
+                ba.sell_card, bb.sell_card,
+                "player {} buyer {} card mismatch: {}",
+                pi, bi, context
+            );
+        }
+        assert_eq!(
             pa.completed_sell_cards.len(),
             pb.completed_sell_cards.len(),
             "player {} completed_sell_cards length mismatch: {}",
@@ -537,6 +557,16 @@ fn assert_states_match(a: &GameState, b: &GameState, context: &str) {
 
     // Compare phase
     match (&a.phase, &b.phase) {
+        (
+            GamePhase::Buyers { buyers_state: ba },
+            GamePhase::Buyers { buyers_state: bb },
+        ) => {
+            assert_eq!(
+                ba.current_player_index, bb.current_player_index,
+                "buyers current_player_index mismatch: {}",
+                context
+            );
+        }
         (
             GamePhase::Draft {
                 draft_state: da,
@@ -1303,8 +1333,8 @@ fn state_at_first_end_of_turn(seed: u64) -> (GameState, UnorderedCards, Unordere
     let mut state = create_initial_game_state(2, &[true, true], &mut rng);
     execute_draw_phase(&mut state, &mut rng);
 
-    // Finish the draft by always taking the first option.
-    while matches!(state.phase, GamePhase::Draft { .. }) {
+    // Claim buyers, then finish the draft, always taking the first option.
+    while matches!(state.phase, GamePhase::Buyers { .. } | GamePhase::Draft { .. }) {
         let choices = enumerate_choices(&state);
         apply_choice_to_state(&mut state, &choices[0], &mut rng);
     }
@@ -1430,5 +1460,230 @@ fn test_decks_stay_well_inside_the_segment_cap() {
                 );
             }
         }
+    }
+}
+
+// ── Buyers phase ──
+
+fn buyers_of(state: &GameState, player: usize) -> Vec<SellCard> {
+    state.players[player].buyers.iter().map(|b| b.sell_card).collect()
+}
+
+/// Advance to the buyers phase of `round`, resolving every earlier phase by
+/// always taking the first legal option.
+fn state_at_buyers_phase(seed: u64, num_players: usize, round: u32) -> (GameState, WyRand) {
+    let mut rng = WyRand::seed_from_u64(seed);
+    let ai_players = vec![true; num_players];
+    let mut state = create_initial_game_state(num_players, &ai_players, &mut rng);
+    execute_draw_phase(&mut state, &mut rng);
+
+    while state.round < round {
+        let choices = enumerate_choices(&state);
+        apply_choice_to_state(&mut state, &choices[0], &mut rng);
+    }
+    assert!(
+        matches!(state.phase, GamePhase::Buyers { .. }),
+        "round {round} should open in the buyers phase"
+    );
+    (state, rng)
+}
+
+#[test]
+fn test_the_round_opens_with_the_buyers_phase() {
+    let mut rng = WyRand::seed_from_u64(3);
+    let mut state = create_initial_game_state(3, &[true, true, true], &mut rng);
+    assert!(matches!(state.phase, GamePhase::Draw));
+
+    execute_draw_phase(&mut state, &mut rng);
+    match &state.phase {
+        GamePhase::Buyers { buyers_state } => {
+            assert_eq!(buyers_state.current_player_index, 0, "round 1 starts with player 0");
+        }
+        other => panic!("expected the buyers phase, got {other:?}"),
+    }
+}
+
+#[test]
+fn test_players_claim_up_to_capacity_for_the_round() {
+    for (round, capacity) in [(1u32, 1usize), (2, 2), (4, 3)] {
+        let (mut state, mut rng) = state_at_buyers_phase(21, 3, round);
+        while matches!(state.phase, GamePhase::Buyers { .. }) {
+            let choices = enumerate_choices(&state);
+            apply_choice_to_state(&mut state, &choices[0], &mut rng);
+        }
+        for (i, player) in state.players.iter().enumerate() {
+            assert_eq!(
+                player.buyers.len(),
+                capacity,
+                "player {i} should hold {capacity} buyers in round {round}"
+            );
+        }
+    }
+}
+
+/// Everyone takes one before anyone takes two.
+#[test]
+fn test_claiming_goes_round_robin() {
+    let (mut state, mut rng) = state_at_buyers_phase(21, 3, 2);
+    // Round 1's buyers survive into round 2 unless they were sold, and who
+    // still needs a card would confound the ordering being tested.
+    for player in state.players.iter_mut() {
+        while !player.buyers.is_empty() {
+            player.buyers.remove(0);
+        }
+    }
+    initialize_buyers_phase(&mut state, &mut rng);
+
+    let mut order = Vec::new();
+    while let GamePhase::Buyers { ref buyers_state } = state.phase {
+        order.push(buyers_state.current_player_index);
+        let choices = enumerate_choices(&state);
+        apply_choice_to_state(&mut state, &choices[0], &mut rng);
+    }
+
+    // Round 2 starts with player 1, two slots each.
+    assert_eq!(order, vec![1, 2, 0, 1, 2, 0]);
+}
+
+/// A claimed card is replaced at once, so every player picks from five.
+#[test]
+fn test_the_display_refills_after_every_claim() {
+    let (mut state, mut rng) = state_at_buyers_phase(5, 4, 4);
+    while matches!(state.phase, GamePhase::Buyers { .. }) {
+        assert_eq!(
+            state.sell_card_display.len(),
+            5,
+            "the display should be full whenever someone is choosing"
+        );
+        let choices = enumerate_choices(&state);
+        apply_choice_to_state(&mut state, &choices[0], &mut rng);
+    }
+}
+
+#[test]
+fn test_claiming_off_the_deck_takes_a_card_nobody_could_see() {
+    let (mut state, mut rng) = state_at_buyers_phase(9, 2, 1);
+    let display_before: Vec<SellCard> =
+        state.sell_card_display.iter().map(|c| c.sell_card).collect();
+    let deck_before = state.sell_card_deck.len();
+    let player = match &state.phase {
+        GamePhase::Buyers { buyers_state } => buyers_state.current_player_index,
+        _ => unreachable!(),
+    };
+
+    assert!(enumerate_choices(&state).contains(&Choice::DrawBuyer));
+    apply_choice_to_state(&mut state, &Choice::DrawBuyer, &mut rng);
+
+    assert_eq!(state.players[player].buyers.len(), 1);
+    assert_eq!(state.sell_card_deck.len(), deck_before - 1);
+    assert_eq!(
+        state.sell_card_display.iter().map(|c| c.sell_card).collect::<Vec<_>>(),
+        display_before,
+        "claiming off the deck should leave the display untouched"
+    );
+}
+
+/// Selling consumes one of your own buyers. The shared display is not a
+/// source any more, so nothing there moves.
+#[test]
+fn test_selling_takes_from_your_buyers_and_leaves_the_display_alone() {
+    let mut rng = WyRand::seed_from_u64(4);
+    let mut state = create_initial_game_state(2, &[true, true], &mut rng);
+
+    // Give player 0 a buyer they can certainly afford, and the means to pay.
+    let sell_card = state.sell_card_display[0].sell_card;
+    let instance = state.sell_card_display.remove(0);
+    state.players[0].buyers.push(instance);
+    state.players[0].materials.increment(sell_card.required_material());
+    for &color in sell_card.color_cost() {
+        state.players[0].color_wheel.increment(color);
+    }
+
+    let display_before: Vec<SellCard> =
+        state.sell_card_display.iter().map(|c| c.sell_card).collect();
+    let deck_before = state.sell_card_deck.len();
+
+    let mut ability_stack = colori_core::types::AbilityStack::new();
+    ability_stack.push(Ability::Sell);
+    state.phase = GamePhase::Action {
+        action_state: colori_core::types::ActionState {
+            current_player_index: 0,
+            ability_stack,
+        },
+    };
+
+    apply_choice_to_state(&mut state, &Choice::SelectSellCard { sell_card }, &mut rng);
+
+    assert!(state.players[0].buyers.is_empty(), "the slot should be empty now");
+    assert_eq!(state.players[0].completed_sell_cards.len(), 1);
+    assert_eq!(
+        state.sell_card_display.iter().map(|c| c.sell_card).collect::<Vec<_>>(),
+        display_before,
+        "a sale must not disturb the shared display"
+    );
+    assert_eq!(state.sell_card_deck.len(), deck_before, "and must not draw");
+}
+
+/// A sold buyer leaves a hole, and the next buyers phase is what fills it.
+#[test]
+fn test_an_emptied_slot_is_refilled_next_round() {
+    let (mut state, mut rng) = state_at_buyers_phase(21, 2, 3);
+    while matches!(state.phase, GamePhase::Buyers { .. }) {
+        let choices = enumerate_choices(&state);
+        apply_choice_to_state(&mut state, &choices[0], &mut rng);
+    }
+    assert_eq!(state.players[0].buyers.len(), 2);
+
+    let kept = buyers_of(&state, 0)[1];
+    state.players[0].buyers.remove(0);
+
+    // Skip ahead to the next buyers phase.
+    while !matches!(state.phase, GamePhase::Buyers { .. }) {
+        let choices = enumerate_choices(&state);
+        apply_choice_to_state(&mut state, &choices[0], &mut rng);
+    }
+    assert_eq!(state.round, 4);
+    while matches!(state.phase, GamePhase::Buyers { .. }) {
+        let choices = enumerate_choices(&state);
+        apply_choice_to_state(&mut state, &choices[0], &mut rng);
+    }
+
+    assert_eq!(state.players[0].buyers.len(), 3, "round 4 capacity is three");
+    assert!(
+        buyers_of(&state, 0).contains(&kept),
+        "the buyer that was not sold should still be there"
+    );
+}
+
+/// Both piles can run dry in a long game. The phase is then skipped rather
+/// than seating a player with nothing to take.
+#[test]
+fn test_an_exhausted_sell_card_supply_skips_the_buyers_phase() {
+    let mut rng = WyRand::seed_from_u64(12);
+    let mut state = create_initial_game_state(2, &[true, true], &mut rng);
+    state.sell_card_deck = UnorderedSellCards::new();
+    while !state.sell_card_display.is_empty() {
+        state.sell_card_display.remove(0);
+    }
+
+    execute_draw_phase(&mut state, &mut rng);
+    assert!(
+        matches!(state.phase, GamePhase::Draft { .. }),
+        "with nothing to claim the buyers phase should hand straight over to the draft"
+    );
+    for player in state.players.iter() {
+        assert!(player.buyers.is_empty());
+    }
+
+    // And the game still finishes, with nobody able to sell.
+    let mut guard = 0;
+    while !matches!(state.phase, GamePhase::GameOver) {
+        let choices = enumerate_choices(&state);
+        apply_choice_to_state(&mut state, &choices[0], &mut rng);
+        guard += 1;
+        assert!(guard < 5_000, "game did not finish with an exhausted sell card supply");
+    }
+    for player in state.players.iter() {
+        assert!(player.completed_sell_cards.is_empty());
     }
 }

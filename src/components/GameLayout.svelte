@@ -26,7 +26,7 @@
   } = $props();
 
   let showContent = $derived(
-    gameState.phase.type === 'draft' || gameState.phase.type === 'action'
+    gameState.phase.type === 'buyers' || gameState.phase.type === 'draft' || gameState.phase.type === 'action'
   );
 
   // Current player data
@@ -118,6 +118,17 @@
 
           <div class="player-info-row">
             <div class="info-left-col">
+              <div class="section-panel completed-sell-cards-panel">
+                <div class="section-title">Buyers ({currentPlayer.buyers.length})</div>
+                <div class="completed-sell-cards-content">
+                  {#if currentPlayer.buyers.length > 0}
+                    <CardList cards={currentPlayer.buyers} />
+                  {:else}
+                    <div class="empty-text">None</div>
+                  {/if}
+                </div>
+              </div>
+
               <div class="section-panel completed-sell-cards-panel">
                 <div class="section-title">Completed Sell Cards</div>
                 <div class="completed-sell-cards-content">

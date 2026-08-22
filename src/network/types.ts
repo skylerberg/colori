@@ -8,6 +8,7 @@ export interface SanitizedPlayerState {
   // deckCount instead.
   deck: CardInstance[][];
   // Public: visible to all players (face-up piles in the tableau).
+  buyers: SellCardInstance[];
   workshoppedCards: CardInstance[];
   workshopCards: CardInstance[];
   draftedCards: CardInstance[];
@@ -23,6 +24,10 @@ export interface SanitizedDraftState {
   hands: CardInstance[][];
 }
 
+export interface SanitizedBuyersState {
+  currentPlayerIndex: number;
+}
+
 export interface SanitizedActionState {
   currentPlayerIndex: number;
   abilityStack: Ability[];
@@ -30,6 +35,7 @@ export interface SanitizedActionState {
 
 export type SanitizedGamePhase =
   | { type: 'draw' }
+  | { type: 'buyers'; buyersState: SanitizedBuyersState }
   | { type: 'draft'; draftState: SanitizedDraftState }
   | { type: 'action'; actionState: SanitizedActionState }
   | { type: 'gameOver' };

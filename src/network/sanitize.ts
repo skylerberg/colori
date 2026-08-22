@@ -11,6 +11,7 @@ export function sanitizeGameState(
     return {
       deckCount: p.deck.reduce((n, segment) => n + segment.length, 0),
       deck: isOwner ? p.deck.map(segment => [...segment]) : [],
+      buyers: [...p.buyers],
       workshoppedCards: [...p.workshoppedCards],
       workshopCards: [...p.workshopCards],
       draftedCards: [...p.draftedCards],
@@ -42,6 +43,11 @@ export function sanitizeGameState(
         currentPlayerIndex: actionState.currentPlayerIndex,
         abilityStack: actionState.abilityStack.map(a => ({ ...a })),
       },
+    };
+  } else if (fullState.phase.type === 'buyers') {
+    phase = {
+      type: 'buyers',
+      buyersState: { currentPlayerIndex: fullState.phase.buyersState.currentPlayerIndex },
     };
   } else if (fullState.phase.type === 'gameOver') {
     phase = { type: 'gameOver' };

@@ -8,18 +8,25 @@
     onAction: (choice: Choice) => void;
   } = $props();
 
+  let activePlayer = $derived(
+    gameState.phase.type === 'action'
+      ? gameState.players[gameState.phase.actionState.currentPlayerIndex]
+      : null
+  );
+
   function handleSellCardSelect(sellCardInstanceId: number) {
-    const sellCardInstance = gameState.sellCardDisplay.find(b => b.instanceId === sellCardInstanceId);
+    const sellCardInstance = activePlayer?.buyers.find(b => b.instanceId === sellCardInstanceId);
     if (!sellCardInstance) return;
     onAction({ type: 'selectSellCard', sellCard: sellCardInstance.card });
   }
 </script>
 
 <div class="prompt-section">
-  <h3>Choose a Sell Card</h3>
+  <h3>Choose a Buyer</h3>
   <div class="sell-card-side">
     <SellCardDisplay
-      sellCards={gameState.sellCardDisplay.filter(g => canSell(gameState, g.instanceId))}
+      sellCards={(activePlayer?.buyers ?? []).filter(g => canSell(gameState, g.instanceId))}
+      title="Your Buyers"
       selectable={true}
       onSelect={handleSellCardSelect}
     />

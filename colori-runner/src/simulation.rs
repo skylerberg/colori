@@ -240,6 +240,9 @@ pub fn run_game(
     // Main game loop
     while !matches!(state.phase, GamePhase::GameOver) {
         let (player_index, phase_str) = match &state.phase {
+            GamePhase::Buyers { buyers_state } => {
+                (buyers_state.current_player_index, "buyers")
+            }
             GamePhase::Draft { draft_state } => {
                 (draft_state.current_player_index, "draft")
             }

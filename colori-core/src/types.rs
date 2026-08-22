@@ -9,7 +9,10 @@ use crate::unordered_cards::{UnorderedSellCards, UnorderedCards};
 pub type AbilityStack = SmallVec<[Ability; 4]>;
 
 pub const MAX_PLAYERS: usize = 4;
-pub const MAX_SELL_CARD_DISPLAY: usize = 6;
+pub const MAX_SELL_CARD_DISPLAY: usize = 5;
+
+/// Buyer slots a player can ever hold. See `buyers_phase::buyer_capacity`.
+pub const MAX_BUYERS: usize = 3;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Color {
@@ -606,6 +609,10 @@ pub struct PlayerState {
     pub drafted_cards: UnorderedCards,
     pub color_wheel: ColorWheel,
     pub materials: Materials,
+    /// Sell cards claimed from the shared display and now sellable only by
+    /// this player. A sale empties the slot; the next buyers phase refills it.
+    #[serde(default)]
+    pub buyers: FixedVec<SellCardInstance, MAX_BUYERS>,
     pub completed_sell_cards: SmallVec<[SellCardInstance; 12]>,
     pub ducats: u32,
     #[serde(skip)]
@@ -659,6 +666,12 @@ fn deserialize_hands<'de, D: serde::Deserializer<'de>>(
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct BuyersState {
+    pub current_player_index: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ActionState {
     pub current_player_index: usize,
     pub ability_stack: AbilityStack,
@@ -669,6 +682,11 @@ pub struct ActionState {
 pub enum GamePhase {
     #[serde(rename = "draw")]
     Draw,
+    #[serde(rename = "buyers")]
+    Buyers {
+        #[serde(rename = "buyersState")]
+        buyers_state: BuyersState,
+    },
     #[serde(rename = "draft")]
     Draft {
         #[serde(rename = "draftState")]
@@ -775,4 +793,13 @@ pub enum Choice {
         card: Card,
         target: Option<Card>,
     },
+    #[serde(rename = "takeBuyer")]
+    TakeBuyer {
+        #[serde(rename = "sellCard")]
+        sell_card: SellCard,
+    },
+    /// Take the top of the sell card deck unseen, rather than one of the five
+    /// face up.
+    #[serde(rename = "drawBuyer")]
+    DrawBuyer,
 }

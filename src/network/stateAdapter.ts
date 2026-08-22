@@ -6,6 +6,7 @@ export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
     // Owned player: real segments. Opponents: one length-only sparse segment,
     // since the UI reads only the total for them.
     deck: sp.deck.length > 0 ? sp.deck : [new Array(sp.deckCount) as CardInstance[]],
+    buyers: sp.buyers,
     workshoppedCards: sp.workshoppedCards,
     workshopCards: sp.workshopCards,
     draftedCards: sp.draftedCards,
@@ -20,6 +21,11 @@ export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
     phase = {
       type: 'draft',
       draftState: { ...sanitized.phase.draftState },
+    };
+  } else if (sanitized.phase.type === 'buyers') {
+    phase = {
+      type: 'buyers',
+      buyersState: { ...sanitized.phase.buyersState },
     };
   } else if (sanitized.phase.type === 'action') {
     phase = {

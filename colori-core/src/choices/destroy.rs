@@ -23,7 +23,7 @@ pub(super) fn enumerate_destroy_choices(
         }
         Ability::Sell => {
             let mut has_sell_card = false;
-            for sell_card in state.sell_card_display.iter() {
+            for sell_card in player.buyers.iter() {
                 if can_afford_sell_card(player, &sell_card.sell_card) {
                     has_sell_card = true;
                     choices.push(Choice::DestroyAndSell {

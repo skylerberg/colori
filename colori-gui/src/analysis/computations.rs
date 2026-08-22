@@ -104,6 +104,7 @@ pub fn build_sell_card_instance_map(log: &StructuredGameLog) -> HashMap<u32, Sel
     };
 
     for p in &state.players {
+        add_sell_cards(&mut map, &p.buyers);
         add_sell_cards(&mut map, &p.completed_sell_cards);
     }
     add_sell_cards(&mut map, &state.sell_card_deck);
@@ -252,6 +253,10 @@ pub fn format_choice(choice: &Choice) -> String {
     };
 
     match choice {
+        Choice::TakeBuyer { sell_card } => {
+            format!("Claimed buyer {}", sell_card_display_name(*sell_card))
+        }
+        Choice::DrawBuyer => "Claimed a buyer off the deck".to_string(),
         Choice::DraftPick { card } => {
             format!("Drafted {}", card_name(card))
         }
@@ -379,6 +384,8 @@ pub fn compute_action_distribution(
 
 fn choice_type_name(choice: &Choice) -> String {
     match choice {
+        Choice::TakeBuyer { .. } => "takeBuyer".to_string(),
+        Choice::DrawBuyer => "drawBuyer".to_string(),
         Choice::DraftPick { .. } => "draftPick".to_string(),
         Choice::DestroyDraftedCard { .. } => "destroyDraftedCard".to_string(),
         Choice::EndTurn => "endTurn".to_string(),
