@@ -26,12 +26,12 @@ Rust workspace plus a Svelte frontend:
 
 ## Build & Run Commands
 
-- `npm install` — Install frontend dependencies
-- `npm run dev` — Start Vite dev server
-- `npm run build` — Production build
-- `npm run build:wasm` — Rebuild WASM bindings (requires wasm-pack, outputs to `src/wasm-pkg/`)
-- `npm run test` — Run frontend tests (Vitest)
-- `npm run bench` — Run frontend benchmarks
+- `pnpm install` — Install frontend dependencies
+- `pnpm run dev` — Start Vite dev server
+- `pnpm run build` — Production build
+- `pnpm run build:wasm` — Rebuild WASM bindings (requires wasm-pack, outputs to `src/wasm-pkg/`)
+- `pnpm run test` — Run frontend tests (Vitest)
+- `pnpm run bench` — Run frontend benchmarks
 - `cargo build` — Build all Rust crates
 - `cargo test` — Run Rust tests
 
@@ -48,7 +48,7 @@ Rust workspace plus a Svelte frontend:
 ## Testing
 
 - **Rust**: Inline tests using `#[cfg(test)]` modules within source files. Run with `cargo test`.
-- **TypeScript**: Vitest for tests (`.test.ts`) and benchmarks (`.bench.ts`). Currently only benchmarks exist. Run with `npm run test` or `npm run bench`.
+- **TypeScript**: Vitest for tests (`.test.ts`) and benchmarks (`.bench.ts`). Currently only benchmarks exist. Run with `pnpm run test` or `pnpm run bench`.
 - **Rust benchmarks**: Criterion-based, configured in `colori-core/Cargo.toml`.
 
 ## Code Conventions

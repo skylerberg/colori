@@ -40,10 +40,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      # Installs pnpm and Node in one step, reading the pnpm version from
+      # package.json's `packageManager`. pnpm/action-setup is deprecated for
+      # pnpm 11; pnpm/setup is its replacement.
+      - uses: pnpm/setup@v2
         with:
-          node-version: 22
-          cache: npm
+          runtime: node@22
+          cache: true
+          install: false
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -56,19 +60,19 @@ jobs:
         uses: jetli/wasm-pack-action@v0.4.0
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build WASM
-        run: npm run build:wasm
+        run: pnpm run build:wasm
 
       # colori-wasm/build.rs regenerates src/data/cards.ts from the Rust card
       # definitions. A diff here means the card data and its generator have
-      # drifted apart — regenerate with `npm run build:wasm` and commit.
+      # drifted apart — regenerate with `pnpm run build:wasm` and commit.
       - name: Check generated card data is up to date
         run: git diff --exit-code src/data/cards.ts
 
       - name: Test
-        run: npm run test
+        run: pnpm run test
 
       - name: Build
-        run: npm run build
+        run: pnpm run build

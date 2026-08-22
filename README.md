@@ -5,9 +5,9 @@ A strategic deck-building card game for 2-5 players about dyeing materials and s
 ## Quick Start
 
 ```bash
-npm install
-npm run build:wasm
-npm run dev
+pnpm install
+pnpm run build:wasm
+pnpm run dev
 ```
 
 ## Variant Configuration
