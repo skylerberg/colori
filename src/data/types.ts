@@ -14,9 +14,7 @@ export type Ability =
   | { type: 'gainDucats'; count: number }
   | { type: 'gainSecondary' }
   | { type: 'gainPrimary' }
-  | { type: 'changeTertiary' }
-  | { type: 'moveToDrafted' }
-  | { type: 'moveToWorkshop' };
+  | { type: 'gainMaterial' };
 
 // Card variant name strings from Rust
 export type Card = 'BasicRed' | 'BasicYellow' | 'BasicBlue'
@@ -28,8 +26,8 @@ export type Card = 'BasicRed' | 'BasicYellow' | 'BasicBlue'
   | 'CinnabarCanvas' | 'OrpimentCanvas' | 'UltramarineCanvas'
   | 'AlizarinFabric' | 'FusticFabric' | 'PastelFabric'
   | 'ClayCanvas' | 'ClayFabric' | 'CanvasFabric'
-  | 'Alum' | 'CreamOfTartar' | 'GumArabic' | 'Potash' | 'Vinegar' | 'Chalk'
-  | 'LinseedOil' | 'Lye' | 'SalAmmoniac';
+  | 'Alum' | 'CreamOfTartar' | 'GumArabic' | 'Potash' | 'Chalk'
+  | 'LinseedOil' | 'Warehouse';
 
 export type SellCard = 'Textiles2Vermilion' | 'Textiles2Amber' | 'Textiles2Chartreuse'
   | 'Textiles2Teal' | 'Textiles2Indigo' | 'Textiles2Magenta'
@@ -152,16 +150,12 @@ export type Choice =
   | { type: 'selectSellCard'; sellCard: SellCard }
   | { type: 'gainSecondary'; color: Color }
   | { type: 'gainPrimary'; color: Color }
+  | { type: 'gainMaterial'; material: MaterialType }
   | { type: 'mixAll'; mixes: [Color, Color][] }
-  | { type: 'swapTertiary'; loseColor: Color; gainColor: Color }
   | { type: 'destroyAndMix'; card: Card; mixes: [Color, Color][] }
   | { type: 'destroyAndSell'; card: Card; sellCard: SellCard }
   | { type: 'destroyAndWorkshop'; card: Card; workshopCards: Card[] }
   | { type: 'destroyAndDestroyCards'; card: Card; target: Card | null }
-  | { type: 'selectMoveToDrafted'; card: Card }
-  | { type: 'skipMoveToDrafted' }
-  | { type: 'selectMoveToWorkshop'; card: Card }
-  | { type: 'skipMoveToWorkshop' }
   | { type: 'deferredMoveToDraft'; card: Card }
   | { type: 'destroyWorkshopCardDeferred'; card: Card };
 

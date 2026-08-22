@@ -10,9 +10,7 @@ export function formatSingleAbility(a: Ability): string {
     case 'gainDucats': return `Gain ${a.count} Ducat(s)`;
     case 'gainSecondary': return 'Any Secondary';
     case 'gainPrimary': return 'Any Primary';
-    case 'changeTertiary': return 'Change Tertiary';
-    case 'moveToDrafted': return 'Move to Drafted';
-    case 'moveToWorkshop': return 'Move to Workshop';
+    case 'gainMaterial': return 'Any Material';
   }
 }
 

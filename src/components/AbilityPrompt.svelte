@@ -4,7 +4,7 @@
   import SellCardSelectPrompt from './SellCardSelectPrompt.svelte';
   import PrimaryColorPrompt from './PrimaryColorPrompt.svelte';
   import SecondaryColorPrompt from './SecondaryColorPrompt.svelte';
-  import TertiarySwapPrompt from './TertiarySwapPrompt.svelte';
+  import MaterialPrompt from './MaterialPrompt.svelte';
 
   let { gameState, onAction }: {
     gameState: GameState;
@@ -40,8 +40,8 @@
       <PrimaryColorPrompt {onAction} />
     {:else if topAbility.type === 'gainSecondary'}
       <SecondaryColorPrompt {onAction} />
-    {:else if topAbility.type === 'changeTertiary'}
-      <TertiarySwapPrompt colorWheel={currentPlayer.colorWheel} {onAction} />
+    {:else if topAbility.type === 'gainMaterial'}
+      <MaterialPrompt {onAction} />
     {/if}
   </div>
 {/if}

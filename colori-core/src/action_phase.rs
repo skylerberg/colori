@@ -1,10 +1,10 @@
-use crate::colors::{can_pay_cost, pay_cost, perform_mix, perform_mix_unchecked, TERTIARIES};
+use crate::colors::{can_pay_cost, pay_cost, perform_mix, perform_mix_unchecked};
 use crate::deck_utils::draw_from_deck;
 use crate::draw_log_helpers::{is_replaying, record_player_deck_draw, replay_player_deck_draw, replay_sell_card_reveal};
 use crate::game_log::{DrawEvent, DrawLog};
 use crate::types::{
     Ability, AbilityStack, ActionState, Card, Color, GamePhase, GameState,
-    PlayerState, SellCard, SellCardInstance,
+    MaterialType, PlayerState, SellCard, SellCardInstance,
 };
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
@@ -105,13 +105,8 @@ struct CollectedAbilities {
     mix_colors_count: usize,
     draw_card: [Ability; 8],
     draw_card_count: usize,
-    change_tertiary: [Ability; 8],
-    change_tertiary_count: usize,
-    move_to_workshop: [Ability; 8],
-    move_to_workshop_count: usize,
     potash_base_count: Option<u32>,
     has_draw_cards: bool,
-    has_move_to_workshop: bool,
 }
 
 impl CollectedAbilities {
@@ -123,23 +118,14 @@ impl CollectedAbilities {
             mix_colors_count: 0,
             draw_card: [Ability::Sell; 8],
             draw_card_count: 0,
-            change_tertiary: [Ability::Sell; 8],
-            change_tertiary_count: 0,
-            move_to_workshop: [Ability::Sell; 8],
-            move_to_workshop_count: 0,
             potash_base_count: None,
             has_draw_cards: false,
-            has_move_to_workshop: false,
         }
     }
 
     /// Categorize a single ability into the appropriate bucket.
     fn add_ability(&mut self, ability: Ability) {
         match ability {
-            Ability::ChangeTertiary => {
-                self.change_tertiary[self.change_tertiary_count] = ability;
-                self.change_tertiary_count += 1;
-            }
             Ability::Workshop { count: c } => {
                 self.potash_base_count = Some(self.potash_base_count.unwrap_or(0) + c);
             }
@@ -151,11 +137,6 @@ impl CollectedAbilities {
             Ability::MixColors { .. } => {
                 self.mix_colors[self.mix_colors_count] = ability;
                 self.mix_colors_count += 1;
-            }
-            Ability::MoveToWorkshop => {
-                self.has_move_to_workshop = true;
-                self.move_to_workshop[self.move_to_workshop_count] = ability;
-                self.move_to_workshop_count += 1;
             }
             _ => {
                 self.regular[self.regular_count] = ability;
@@ -197,7 +178,7 @@ fn push_abilities_to_stack(
     collected: &CollectedAbilities,
     remaining: Option<u32>,
 ) {
-    let needs_deferred_remaining = collected.has_draw_cards || collected.has_move_to_workshop;
+    let needs_deferred_remaining = collected.has_draw_cards;
 
     if let Some(base) = collected.potash_base_count {
         let potash_count = match remaining {
@@ -205,10 +186,6 @@ fn push_abilities_to_stack(
             _ => base,
         };
         stack.push(Ability::Workshop { count: potash_count });
-    }
-
-    for i in 0..collected.change_tertiary_count {
-        stack.push(collected.change_tertiary[i]);
     }
 
     if let Some(remaining) = remaining {
@@ -219,10 +196,6 @@ fn push_abilities_to_stack(
 
     for i in 0..collected.draw_card_count {
         stack.push(collected.draw_card[i]);
-    }
-
-    for i in 0..collected.move_to_workshop_count {
-        stack.push(collected.move_to_workshop[i]);
     }
 
     for i in 0..collected.mix_colors_count {
@@ -348,32 +321,8 @@ pub fn process_ability_stack<R: Rng>(state: &mut GameState, rng: &mut R) {
             Ability::GainPrimary => {
                 return; // always needs input
             }
-            Ability::ChangeTertiary => {
-                let player = &state.players[player_index];
-                let has_tertiary = TERTIARIES.iter().any(|&c| player.color_wheel.get(c) > 0);
-                if has_tertiary {
-                    return; // waiting for input
-                } else {
-                    get_action_state_mut(state).ability_stack.pop();
-                    continue;
-                }
-            }
-            Ability::MoveToDrafted => {
-                let player = &state.players[player_index];
-                if player.workshop_cards.is_empty() && player.workshopped_cards.is_empty() {
-                    get_action_state_mut(state).ability_stack.pop();
-                    continue;
-                } else {
-                    return; // waiting for input
-                }
-            }
-            Ability::MoveToWorkshop => {
-                if state.players[player_index].drafted_cards.is_empty() {
-                    get_action_state_mut(state).ability_stack.pop();
-                    continue;
-                } else {
-                    return; // waiting for input
-                }
+            Ability::GainMaterial => {
+                return; // always needs input
             }
         }
     }
@@ -569,18 +518,13 @@ pub fn resolve_gain_color<R: Rng>(state: &mut GameState, color: Color, rng: &mut
     process_ability_stack(state, rng);
 }
 
-pub fn resolve_choose_tertiary_to_lose(state: &mut GameState, color: Color) {
-    let player_index = get_action_state(state).current_player_index;
-    state.players[player_index].color_wheel.decrement(color);
-}
-
-pub fn resolve_choose_tertiary_to_gain<R: Rng>(
+pub fn resolve_gain_material<R: Rng>(
     state: &mut GameState,
-    color: Color,
+    material: MaterialType,
     rng: &mut R,
 ) {
     let player_index = get_action_state(state).current_player_index;
-    state.players[player_index].color_wheel.increment(color);
+    state.players[player_index].materials.increment(material);
     get_action_state_mut(state).ability_stack.pop();
     process_ability_stack(state, rng);
 }

@@ -70,8 +70,6 @@ pub fn format_ability(ability: &Ability) -> String {
         Ability::GainDucats { count } => format!("Gain {} Ducats", count),
         Ability::GainSecondary => "Gain Secondary".to_string(),
         Ability::GainPrimary => "Gain Primary".to_string(),
-        Ability::ChangeTertiary => "Change Tertiary".to_string(),
-        Ability::MoveToDrafted => "Move to Drafted".to_string(),
-        Ability::MoveToWorkshop => "Move to Workshop".to_string(),
+        Ability::GainMaterial => "Any Material".to_string(),
     }
 }

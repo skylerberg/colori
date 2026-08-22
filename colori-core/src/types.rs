@@ -87,12 +87,8 @@ pub enum Ability {
     GainSecondary,
     #[serde(rename = "gainPrimary")]
     GainPrimary,
-    #[serde(rename = "changeTertiary")]
-    ChangeTertiary,
-    #[serde(rename = "moveToDrafted")]
-    MoveToDrafted,
-    #[serde(rename = "moveToWorkshop")]
-    MoveToWorkshop,
+    #[serde(rename = "gainMaterial")]
+    GainMaterial,
 }
 
 // ── CardKind ──
@@ -109,7 +105,7 @@ pub enum CardKind {
     Action,
 }
 
-// ── Card enum (45 variants) ──
+// ── Card enum (43 variants) ──
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Card {
@@ -158,16 +154,14 @@ pub enum Card {
     ClayCanvas,
     ClayFabric,
     CanvasFabric,
-    // Actions (9)
+    // Actions (7)
     Alum,
     CreamOfTartar,
     GumArabic,
     Potash,
-    Vinegar,
     Chalk,
     LinseedOil,
-    Lye,
-    SalAmmoniac,
+    Warehouse,
 }
 
 struct CardProperties {
@@ -179,7 +173,7 @@ struct CardProperties {
     workshop_abilities: &'static [Ability],
 }
 
-const CARD_DATA: [CardProperties; 45] = [
+const CARD_DATA: [CardProperties; 43] = [
     // BasicRed
     CardProperties { name: "Basic Red", kind: CardKind::BasicDye, ability: Ability::Sell, colors: &[Color::Red], material_types: &[], workshop_abilities: &[] },
     // BasicYellow
@@ -259,17 +253,13 @@ const CARD_DATA: [CardProperties; 45] = [
     // GumArabic
     CardProperties { name: "Gum Arabic", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::GainSecondary] },
     // Potash
-    CardProperties { name: "Potash", kind: CardKind::Action, ability: Ability::DrawCards { count: 2 }, colors: &[], material_types: &[], workshop_abilities: &[Ability::Workshop { count: 3 }] },
-    // Vinegar
-    CardProperties { name: "Vinegar", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::ChangeTertiary] },
+    CardProperties { name: "Potash", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::Workshop { count: 3 }] },
     // Chalk
     CardProperties { name: "Chalk", kind: CardKind::Action, ability: Ability::Sell, colors: &[], material_types: &[], workshop_abilities: &[Ability::GainPrimary] },
     // LinseedOil
     CardProperties { name: "Linseed Oil", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::MixColors { count: 2 }] },
-    // Lye
-    CardProperties { name: "Lye", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::MoveToDrafted] },
-    // SalAmmoniac
-    CardProperties { name: "Sal Ammoniac", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::MoveToWorkshop] },
+    // Warehouse
+    CardProperties { name: "Warehouse", kind: CardKind::Action, ability: Ability::DestroyCards, colors: &[], material_types: &[], workshop_abilities: &[Ability::GainMaterial] },
 ];
 
 impl Card {
@@ -757,16 +747,11 @@ pub enum Choice {
     GainSecondary { color: Color },
     #[serde(rename = "gainPrimary")]
     GainPrimary { color: Color },
+    #[serde(rename = "gainMaterial")]
+    GainMaterial { material: MaterialType },
     #[serde(rename = "mixAll")]
     MixAll {
         mixes: SmallVec<[(Color, Color); 2]>,
-    },
-    #[serde(rename = "swapTertiary")]
-    SwapTertiary {
-        #[serde(rename = "loseColor")]
-        lose: Color,
-        #[serde(rename = "gainColor")]
-        gain: Color,
     },
     #[serde(rename = "destroyAndMix", alias = "destroyAndMixAll")]
     DestroyAndMix {
@@ -790,18 +775,6 @@ pub enum Choice {
         card: Card,
         target: Option<Card>,
     },
-
-    // MoveToDrafted ability (Lye workshop ability)
-    #[serde(rename = "selectMoveToDrafted")]
-    SelectMoveToDrafted { card: Card },
-    #[serde(rename = "skipMoveToDrafted")]
-    SkipMoveToDrafted,
-
-    // MoveToWorkshop ability (Sal Ammoniac workshop ability)
-    #[serde(rename = "selectMoveToWorkshop")]
-    SelectMoveToWorkshop { card: Card },
-    #[serde(rename = "skipMoveToWorkshop")]
-    SkipMoveToWorkshop,
 
     // Human-UI-only deferred "move workshop card to draft pool" variants.
     // These let the UI split the atomic DestroyCards choice into two user

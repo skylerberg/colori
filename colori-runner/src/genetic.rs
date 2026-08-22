@@ -31,7 +31,7 @@ enum Gene {
     CreamOfTartarQuality = 9,
     GumArabicQuality = 10,
     PotashQuality = 11,
-    VinegarQuality = 12,
+    WarehouseQuality = 12,
     PrimaryDyeQuality = 13,
     SecondaryDyeQuality = 14,
     TertiaryDyeQuality = 15,
@@ -97,7 +97,7 @@ impl GeneTarget for HeuristicParams {
         v[CreamOfTartarQuality as usize] = self.cream_of_tartar_quality;
         v[GumArabicQuality as usize] = self.gum_arabic_quality;
         v[PotashQuality as usize] = self.potash_quality;
-        v[VinegarQuality as usize] = self.vinegar_quality;
+        v[WarehouseQuality as usize] = self.warehouse_quality;
         v[LinseedOilQuality as usize] = self.linseed_oil_quality;
         v[PrimaryDyeQuality as usize] = self.primary_dye_quality;
         v[SecondaryDyeQuality as usize] = self.secondary_dye_quality;
@@ -164,7 +164,7 @@ impl GeneTarget for HeuristicParams {
             cream_of_tartar_quality: v[CreamOfTartarQuality as usize],
             gum_arabic_quality: v[GumArabicQuality as usize],
             potash_quality: v[PotashQuality as usize],
-            vinegar_quality: v[VinegarQuality as usize],
+            warehouse_quality: v[WarehouseQuality as usize],
             linseed_oil_quality: v[LinseedOilQuality as usize],
             primary_dye_quality: v[PrimaryDyeQuality as usize],
             secondary_dye_quality: v[SecondaryDyeQuality as usize],

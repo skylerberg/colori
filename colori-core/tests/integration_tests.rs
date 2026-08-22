@@ -2,7 +2,7 @@ use colori_core::colori_game::{apply_choice_to_state, check_choice_available, en
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::scoring::calculate_score;
 use colori_core::setup::create_initial_game_state;
-use colori_core::types::{Ability, SellCard, Card, Choice, Color, GamePhase, GameState};
+use colori_core::types::{Ability, SellCard, Card, Choice, Color, GamePhase, GameState, MaterialType, ALL_MATERIAL_TYPES};
 use colori_core::unordered_cards::{
     get_sell_card_registry, get_card_registry, set_sell_card_registry, set_card_registry,
 };
@@ -264,8 +264,8 @@ fn generate_invalid_choices(state: &GameState) -> Vec<Choice> {
                 Card::VermilionDye, Card::Saffron, Card::PersianBerries,
                 Card::StarterCeramics, Card::StarterPaintings, Card::StarterTextiles,
                 Card::Alum, Card::CreamOfTartar, Card::GumArabic,
-                Card::Potash, Card::Vinegar, Card::Chalk,
-                Card::LinseedOil,
+                Card::Potash, Card::Chalk,
+                Card::LinseedOil, Card::Warehouse,
             ];
             for &card in &all_cards {
                 let in_hand = hand.iter().any(|id| state.card_lookup[id as usize] == card);
@@ -297,9 +297,8 @@ fn generate_invalid_choices(state: &GameState) -> Vec<Choice> {
                     mixes: SmallVec::new(),
                 });
                 invalid.push(Choice::DestroyDrawnCards { card: None });
-                invalid.push(Choice::SwapTertiary {
-                    lose: Color::Vermilion,
-                    gain: Color::Amber,
+                invalid.push(Choice::GainMaterial {
+                    material: MaterialType::Textiles,
                 });
             } else {
                 let top = action_state.ability_stack.last().unwrap();
@@ -351,22 +350,16 @@ fn generate_invalid_choices(state: &GameState) -> Vec<Choice> {
                         });
                         invalid.push(Choice::EndTurn);
                     }
-                    Ability::ChangeTertiary => {
-                        // Same lose/gain is invalid
-                        invalid.push(Choice::SwapTertiary {
-                            lose: Color::Vermilion,
-                            gain: Color::Vermilion,
+                    Ability::GainMaterial => {
+                        // Color gains are invalid while GainMaterial is on the stack
+                        invalid.push(Choice::GainPrimary {
+                            color: Color::Red,
                         });
-                        // Primary colors are invalid for SwapTertiary
-                        invalid.push(Choice::SwapTertiary {
-                            lose: Color::Red,
-                            gain: Color::Vermilion,
-                        });
-                        invalid.push(Choice::SwapTertiary {
-                            lose: Color::Vermilion,
-                            gain: Color::Red,
+                        invalid.push(Choice::GainSecondary {
+                            color: Color::Orange,
                         });
                         invalid.push(Choice::EndTurn);
+                        invalid.push(Choice::SkipWorkshop);
                     }
                     Ability::MixColors { .. } => {
                         // Non-adjacent colors are invalid
@@ -393,14 +386,6 @@ fn generate_invalid_choices(state: &GameState) -> Vec<Choice> {
                     Ability::GainDucats { .. } => {
                         // GainDucats is auto-resolved, but just in case
                         invalid.push(Choice::EndTurn);
-                    }
-                    Ability::MoveToDrafted => {
-                        invalid.push(Choice::EndTurn);
-                        invalid.push(Choice::SkipWorkshop);
-                    }
-                    Ability::MoveToWorkshop => {
-                        invalid.push(Choice::EndTurn);
-                        invalid.push(Choice::SkipWorkshop);
                     }
                 }
             }
@@ -1120,22 +1105,45 @@ fn test_destroy_cards_skip_when_both_areas_empty() {
 }
 
 #[test]
-fn test_move_to_drafted_enumerates_workshopped_target() {
-    let (state, _, _, _) = setup_action_state_with(
-        false,
-        Some(Card::StarterCeramics),
-        None,
-        Some(Ability::MoveToDrafted),
-    );
+fn test_gain_material_enumerates_every_material_type() {
+    let (state, _, _, _) = setup_action_state_with(false, None, None, Some(Ability::GainMaterial));
 
     let choices = enumerate_choices(&state);
-    let wanted = Choice::SelectMoveToDrafted { card: Card::StarterCeramics };
-    assert!(
-        choices.iter().any(|c| matches!(c, Choice::SelectMoveToDrafted { card: Card::StarterCeramics })),
-        "enumerate_choices should include SelectMoveToDrafted for workshopped card; got {:?}",
-        choices
+    assert_eq!(choices.len(), ALL_MATERIAL_TYPES.len());
+    for &material in ALL_MATERIAL_TYPES.iter() {
+        let wanted = Choice::GainMaterial { material };
+        assert!(
+            choices.contains(&wanted),
+            "enumerate_choices should include GainMaterial for {:?}; got {:?}",
+            material,
+            choices
+        );
+        assert!(check_choice_available(&state, &wanted));
+    }
+}
+
+#[test]
+fn test_gain_material_stores_the_chosen_material() {
+    let (mut state, _, _, _) =
+        setup_action_state_with(false, None, None, Some(Ability::GainMaterial));
+    let before = state.players[0].materials.get(MaterialType::Paintings);
+
+    let mut rng = WyRand::seed_from_u64(7);
+    apply_choice_to_state(
+        &mut state,
+        &Choice::GainMaterial { material: MaterialType::Paintings },
+        &mut rng,
     );
-    assert!(check_choice_available(&state, &wanted));
+
+    assert_eq!(
+        state.players[0].materials.get(MaterialType::Paintings),
+        before + 1
+    );
+    if let GamePhase::Action { ref action_state } = state.phase {
+        assert!(action_state.ability_stack.is_empty());
+    } else {
+        panic!("Expected action phase");
+    }
 }
 
 #[test]
@@ -1196,29 +1204,6 @@ fn test_apply_destroy_drawn_cards_workshopped_target_destroys_and_triggers() {
 }
 
 #[test]
-fn test_apply_select_move_to_drafted_workshopped_target() {
-    let (mut state, _, ws_id, _) = setup_action_state_with(
-        false,
-        Some(Card::StarterCeramics),
-        None,
-        Some(Ability::MoveToDrafted),
-    );
-    let ws_id = ws_id.unwrap();
-
-    let mut rng = WyRand::seed_from_u64(7);
-    apply_choice_to_state(
-        &mut state,
-        &Choice::SelectMoveToDrafted { card: Card::StarterCeramics },
-        &mut rng,
-    );
-
-    assert!(!state.players[0].workshopped_cards.contains(ws_id),
-        "Workshopped card should have moved out of workshopped_cards");
-    assert!(state.players[0].drafted_cards.contains(ws_id),
-        "Card should have landed in drafted_cards");
-}
-
-#[test]
 fn test_apply_destroy_workshop_card_deferred_workshopped_target() {
     let (mut state, _, ws_id, _) = setup_action_state_with(
         false,
@@ -1266,4 +1251,69 @@ fn test_score_is_ducats() {
             }
         }
     }
+}
+
+#[test]
+fn test_workshopping_warehouse_pushes_gain_material() {
+    let (mut state, _, _, wsc_id) = setup_action_state_with(
+        false,
+        None,
+        Some(Card::Warehouse),
+        Some(Ability::Workshop { count: 1 }),
+    );
+    let wsc_id = wsc_id.unwrap();
+
+    let mut rng = WyRand::seed_from_u64(3);
+    apply_choice_to_state(
+        &mut state,
+        &Choice::Workshop { card_types: SmallVec::from_slice(&[Card::Warehouse]) },
+        &mut rng,
+    );
+
+    assert!(state.players[0].workshopped_cards.contains(wsc_id),
+        "Warehouse should have rotated into workshopped_cards");
+    if let GamePhase::Action { ref action_state } = state.phase {
+        assert_eq!(
+            action_state.ability_stack.last(),
+            Some(&Ability::GainMaterial),
+            "Workshopping Warehouse should leave GainMaterial awaiting input"
+        );
+    } else {
+        panic!("Expected action phase");
+    }
+
+    let choices = enumerate_choices(&state);
+    assert_eq!(choices.len(), ALL_MATERIAL_TYPES.len());
+
+    let before = state.players[0].materials.get(MaterialType::Ceramics);
+    apply_choice_to_state(
+        &mut state,
+        &Choice::GainMaterial { material: MaterialType::Ceramics },
+        &mut rng,
+    );
+    assert_eq!(
+        state.players[0].materials.get(MaterialType::Ceramics),
+        before + 1
+    );
+}
+
+#[test]
+fn test_draft_deck_composition() {
+    let mut rng = WyRand::seed_from_u64(1);
+    let state = create_initial_game_state(2, &[true, true], &mut rng);
+    assert_eq!(state.draft_deck.len(), 90, "draft deck should hold 90 cards");
+
+    let mut action_count = 0usize;
+    let mut warehouse_count = 0usize;
+    for id in state.draft_deck.iter() {
+        let card = state.card_lookup[id as usize];
+        if card.is_action() {
+            action_count += 1;
+        }
+        if card == Card::Warehouse {
+            warehouse_count += 1;
+        }
+    }
+    assert_eq!(action_count, 24, "24 action cards in the draft deck");
+    assert_eq!(warehouse_count, 4, "4 copies of Warehouse");
 }

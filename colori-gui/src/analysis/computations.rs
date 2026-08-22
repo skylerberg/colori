@@ -288,8 +288,8 @@ pub fn format_choice(choice: &Choice) -> String {
                 format!("Mixed {}", mix_strs.join(", "))
             }
         }
-        Choice::SwapTertiary { lose, gain } => {
-            format!("Swapped {:?} for {:?}", lose, gain)
+        Choice::GainMaterial { material } => {
+            format!("Gained {:?}", material)
         }
         Choice::DestroyAndMix {
             card,
@@ -350,14 +350,6 @@ pub fn format_choice(choice: &Choice) -> String {
                 ),
             }
         }
-        Choice::SelectMoveToDrafted { card } => {
-            format!("Moved {} to drafted", card_name(card))
-        }
-        Choice::SkipMoveToDrafted => "Skipped move to drafted".to_string(),
-        Choice::SelectMoveToWorkshop { card } => {
-            format!("Moved {} to workshop", card_name(card))
-        }
-        Choice::SkipMoveToWorkshop => "Skipped move to workshop".to_string(),
         Choice::DeferredMoveToDraft { card } => {
             format!("Moved {} from workshop to draft pool", card_name(card))
         }
@@ -401,16 +393,12 @@ fn choice_type_name(choice: &Choice) -> String {
         Choice::SelectSellCard { .. } => "selectSellCard".to_string(),
         Choice::GainSecondary { .. } => "gainSecondary".to_string(),
         Choice::GainPrimary { .. } => "gainPrimary".to_string(),
+        Choice::GainMaterial { .. } => "gainMaterial".to_string(),
         Choice::MixAll { .. } => "mixAll".to_string(),
-        Choice::SwapTertiary { .. } => "swapTertiary".to_string(),
         Choice::DestroyAndMix { .. } => "destroyAndMix".to_string(),
         Choice::DestroyAndSell { .. } => "destroyAndSell".to_string(),
         Choice::DestroyAndWorkshop { .. } => "destroyAndWorkshop".to_string(),
         Choice::DestroyAndDestroyCards { .. } => "destroyAndDestroyCards".to_string(),
-        Choice::SelectMoveToDrafted { .. } => "selectMoveToDrafted".to_string(),
-        Choice::SkipMoveToDrafted => "skipMoveToDrafted".to_string(),
-        Choice::SelectMoveToWorkshop { .. } => "selectMoveToWorkshop".to_string(),
-        Choice::SkipMoveToWorkshop => "skipMoveToWorkshop".to_string(),
         Choice::DeferredMoveToDraft { .. } => "deferredMoveToDraft".to_string(),
         Choice::DestroyWorkshopCardDeferred { .. } => "destroyWorkshopCardDeferred".to_string(),
     }
