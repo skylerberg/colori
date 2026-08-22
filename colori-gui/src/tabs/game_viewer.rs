@@ -1036,6 +1036,7 @@ fn render_mcts_children(ui: &mut egui::Ui, node: &MctsNode, depth: usize) {
 
             for child in &children {
                 let choice_text = child
+                    .edge()
                     .choice()
                     .map(|ch| format_choice(ch))
                     .unwrap_or_else(|| "?".to_string());
@@ -1061,6 +1062,7 @@ fn render_mcts_children(ui: &mut egui::Ui, node: &MctsNode, depth: usize) {
             continue;
         }
         let choice_text = child
+            .edge()
             .choice()
             .map(|ch| format_choice(ch))
             .unwrap_or_else(|| "?".to_string());
