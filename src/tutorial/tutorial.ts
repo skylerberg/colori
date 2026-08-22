@@ -129,7 +129,14 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'action-phase-concept',
     title: 'Action Phase',
-    text: 'After drafting, each player takes a turn. On your turn, trash drafted cards one at a time to trigger abilities like Workshop (store colors/materials), Mix Colors (combine two adjacent colors into one), Sell (complete a sell card), Draw Cards, or Move a card from your Workshop to your Draft Pool. When your turn ends, your workshop is shuffled onto the bottom of your deck and whatever is left in your draft pool becomes your new workshop.',
+    text: 'After drafting, each player takes a turn. On your turn, trash drafted cards one at a time to trigger abilities like Workshop (store colors/materials), Mix Colors (combine two adjacent colors into one), Sell (complete a sell card), Draw Cards, or Move a card from your Workshop to your Draft Pool. Between trashes you can also spend a ducat for a single Workshop pick, a single Mix, or a Sell. When your turn ends, your workshop is shuffled onto the bottom of your deck and whatever is left in your draft pool becomes your new workshop.',
+    buttons: [backButton, nextButton],
+  });
+
+  newTour.addStep({
+    id: 'ducats-explained',
+    title: 'Ducats',
+    text: 'Ducats are your score, and you collect one at the start of rounds 3, 5 and 6. They are also spendable: on your turn, one ducat buys a single Workshop pick, a single Mix, or a Sell. A bought Sell still costs you the material and colors, so what the ducat really buys is a sale in a round where nothing you drafted would let you make one.',
     buttons: [backButton, nextButton],
   });
 

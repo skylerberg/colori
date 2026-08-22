@@ -105,6 +105,10 @@ export function getChoiceLogMessage(
     case 'selectSellCard': {
       return `${name} sold to a ${getSellCardData(choice.sellCard).ducats}-ducat buyer`;
     }
+    case 'spendDucat': {
+      const bought = { workshop: 'a workshop pick', mixColors: 'a mix', sell: 'a sale' }[choice.purchase];
+      return `${name} spent a ducat for ${bought}`;
+    }
     case 'takeBuyer': {
       return `${name} claimed a ${getSellCardData(choice.sellCard).ducats}-ducat buyer`;
     }

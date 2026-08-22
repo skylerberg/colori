@@ -3,7 +3,7 @@ mod mix_sequences;
 mod multiset;
 
 use crate::action_phase::{
-    can_afford_sell_card, can_sell_to_any_sell_card, for_each_unique_card_type,
+    can_afford_sell_card, can_buy_with_ducat, can_sell_to_any_sell_card, for_each_unique_card_type,
     for_each_unique_card_type_in_workshop_area,
 };
 use crate::apply_choice::resolve_card_types_to_ids;
@@ -64,6 +64,11 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                     for_each_unique_card_type(&player.drafted_cards, &state.card_lookup, |card| {
                         enumerate_destroy_choices(state, player, card, choices);
                     });
+                    for purchase in ALL_DUCAT_PURCHASES {
+                        if can_buy_with_ducat(state, purchase) {
+                            choices.push(Choice::SpendDucat { purchase });
+                        }
+                    }
                     choices.push(Choice::EndTurn);
                 }
                 Some(Ability::Workshop { count }) => {
@@ -372,6 +377,13 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
                     area.iter().any(|id| state.card_lookup[id as usize] == *target_card)
                 }
             }
+        }
+        Choice::SpendDucat { purchase } => {
+            let stack_empty = matches!(
+                &state.phase,
+                GamePhase::Action { action_state } if action_state.ability_stack.is_empty()
+            );
+            stack_empty && can_buy_with_ducat(state, *purchase)
         }
         Choice::TakeBuyer { sell_card } => {
             matches!(state.phase, GamePhase::Buyers { .. })

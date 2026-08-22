@@ -73,6 +73,8 @@ Each player has:
 
 The game is played over **6 rounds**. Each round has four phases. The starting player rotates each round: player `(round - 1) % numPlayers` goes first.
 
+Players collect **1 ducat** at the start of rounds **3**, **5** and **6**.
+
 ### 1. Draw Phase
 
 Each player draws from their personal deck until their workshop holds 5 cards. Cards carried over from the previous round's draft pool are already there, so keeping a card costs you a fresh draw. If the personal deck runs out you draw fewer cards — there is nothing to reshuffle.
@@ -113,6 +115,20 @@ If both the display and the deck are empty there is nothing to claim, and the sl
 ### 4. Action Phase
 
 Each player takes one turn, starting with the starting player for the round. On your turn, you may destroy any number of your **drafted** cards, one at a time. Each destroyed card triggers its destroy ability (see Abilities below). You must fully resolve each ability before destroying another card. When you are done destroying cards (or choose to stop), your turn ends.
+
+**Spending ducats.** Between destroys — whenever no ability is waiting on you — you may spend **1 ducat** for any of:
+
+| Cost | Buys |
+|------|------|
+| 1 ducat | Workshop ×1 |
+| 1 ducat | Mix Colors ×1 |
+| 1 ducat | Sell |
+
+The purchase resolves like any other ability. You may do this as often as you have ducats. A ducat is worth a point at the end of the game, so spending one always costs you a point.
+
+Buying a Sell does not conjure a sale out of nothing: it still spends the material and the colors the sell card asks for, exactly as a drafted Sell card would. What a ducat buys is the *opportunity* — a sale in a round where nothing you drafted lets you make one.
+
+You cannot buy something that would do nothing: Sell needs an affordable buyer, Workshop needs a card in your workshop, and Mix Colors needs two colors on your wheel that can be mixed.
 
 At the end of each player's turn:
 - Every card in the workshop — including the rotated ones already used this round — is shuffled together and placed on the **bottom** of that player's personal deck.
@@ -176,7 +192,7 @@ To sell to a buyer:
 
 ### Gain Ducats ×N
 
-Gain N ducats. Ducats count toward your final score.
+Gain N ducats. Ducats count toward your final score, and can be spent during your turn — see the Action Phase.
 
 ### Any Secondary
 

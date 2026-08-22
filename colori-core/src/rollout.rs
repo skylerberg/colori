@@ -1,5 +1,6 @@
 use crate::action_phase::{
-    can_afford_sell_card, destroy_drafted_card, end_player_turn,
+    can_afford_sell_card, can_buy_with_ducat, destroy_drafted_card, end_player_turn,
+    resolve_spend_ducat,
     initialize_action_phase,
     process_ability_stack,
     resolve_move_to_draft_pool, resolve_gain_color, resolve_gain_material, resolve_select_sell_card,
@@ -10,7 +11,7 @@ use crate::colors::{
     mix_result, pay_cost, perform_mix_unchecked, PRIMARIES,
     SECONDARIES, VALID_MIX_PAIRS,
 };
-use crate::draw_phase::WORKSHOP_SIZE;
+use crate::draw_phase::{collect_round_income, WORKSHOP_SIZE};
 use crate::draft_phase::player_pick;
 use crate::buyers_phase::{
     anything_to_claim, claim_from_deck, claim_from_display, draw_buyer, needs_a_buyer, take_buyer,
@@ -130,6 +131,8 @@ fn rollout_resolve_buyers_phase<R: Rng>(
 fn rollout_draw_and_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
     let num_players = state.players.len();
 
+    collect_round_income(state);
+
     // Step 1: top each player's workshop back up to full
     for i in 0..num_players {
         let player = &mut state.players[i];
@@ -243,8 +246,34 @@ fn pick_random_affordable_sell_card<R: Rng>(player: &PlayerState, rng: &mut R) -
     }
 }
 
+
+/// Legal ducat purchases for the acting player, for the rollout policies.
+fn legal_ducat_purchases(state: &GameState) -> ([DucatPurchase; 3], usize) {
+    let mut out = [DucatPurchase::Workshop; 3];
+    let mut len = 0;
+    for purchase in ALL_DUCAT_PURCHASES {
+        if can_buy_with_ducat(state, purchase) {
+            out[len] = purchase;
+            len += 1;
+        }
+    }
+    (out, len)
+}
+
 #[inline(always)]
 fn handle_action_no_pending(state: &mut GameState, player_index: usize, heuristic_draft: bool, params: &HeuristicParams, rng: &mut impl Rng) {
+    // Spending a ducat is one of the things a turn can do, so a rollout that
+    // never did it would leave the search blind to what ducats are worth.
+    let (purchases, purchase_count) = legal_ducat_purchases(state);
+    if purchase_count > 0 {
+        let drafted = state.players[player_index].drafted_cards.len() as usize;
+        let pick = rng.random_range(0..(purchase_count + drafted));
+        if pick < purchase_count {
+            resolve_spend_ducat(state, purchases[pick], rng);
+            return;
+        }
+    }
+
     let mut copy = state.players[player_index].drafted_cards;
     let sel = copy.draw_up_to(1, rng);
     if sel.is_empty() {
@@ -513,6 +542,8 @@ fn pick_card_to_drop<R: Rng>(
 /// the heuristic to drop the most redundant card, keeping the best 4.
 fn heuristic_rollout_draw_and_draft<R: Rng>(state: &mut GameState, params: &HeuristicParams, rng: &mut R) {
     let num_players = state.players.len();
+
+    collect_round_income(state);
 
     // Step 1: top each player's workshop back up to full
     for i in 0..num_players {
@@ -1120,6 +1151,18 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     // Epsilon: random fallback
     if rng.random_bool(params.rollout_epsilon) {
         handle_action_no_pending(state, player_index, heuristic_draft, params, rng);
+        return;
+    }
+
+    // Buy a sale only when the player cannot already trigger one for free. A
+    // bought sale spends the same material and colours a drafted Sell card
+    // would have, so paying for it while holding one just burns a ducat.
+    if can_buy_with_ducat(state, DucatPurchase::Sell)
+        && !drafted
+            .iter()
+            .any(|id| matches!(state.card_lookup[id as usize].ability(), Ability::Sell))
+    {
+        resolve_spend_ducat(state, DucatPurchase::Sell, rng);
         return;
     }
 
