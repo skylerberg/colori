@@ -9,7 +9,7 @@ Colori is a strategic deck-building card game for 2-5 players about dyeing mater
 
 ## Project Structure
 
-Rust workspace with 4 crates plus a Svelte frontend:
+Rust workspace plus a Svelte frontend:
 
 - `colori-core/` — Core game engine library: game logic, phases, cards, colors, AI (MCTS)
 - `colori-wasm/` — WASM bindings exposing Rust engine to the browser via wasm-bindgen (JSON serialization for state passing)

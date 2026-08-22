@@ -15,11 +15,12 @@ use destroy::enumerate_destroy_choices;
 use mix_sequences::enumerate_mix_sequences;
 use multiset::{count_card_types, enumerate_multiset_subsets, enumerate_multiset_subsets_exact};
 
-/// Check if we can skip enumerating sub-maximum workshop subsets.
-/// Returns true when the player has no reason to workshop fewer than the max:
-/// - No DestroyCards abilities in drafted cards (no need to keep workshop targets)
-/// - No DrawCards abilities in drafted cards (destroying won't draw to workshop)
-/// - No DrawCards workshop abilities in workshop cards (workshopping won't draw new cards)
+/// Whether sub-maximum workshop subsets can be skipped during enumeration.
+///
+/// Holding picks back only pays off when something later in the turn could
+/// still add to the workshop or consume a card left sitting in it. When
+/// nothing can, workshopping fewer cards than allowed is strictly worse and
+/// the smaller subsets are dead branches in the search tree.
 pub(crate) fn should_force_max_workshop(state: &GameState, player: &PlayerState) -> bool {
     if !state.force_max_workshop {
         return false;
