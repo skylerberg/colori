@@ -85,7 +85,7 @@ fn describe_tree(out: &mut String, root: &SearchNode) {
         .map(|child| {
             format!(
                 "  child {:?} visits={} reward={:.12e}",
-                child.choice().expect("child has a choice"),
+                child.edge().choice().expect("child has a choice"),
                 child.visits(),
                 child.cumulative_reward()
             )

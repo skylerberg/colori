@@ -366,6 +366,13 @@ impl ColoriSearcher {
             early_termination: config.early_termination,
             min_reward: 0.0,
             max_reward: reward_ceiling(state),
+            // Knobs that apply only at a simultaneous node. This game is
+            // sequential throughout, so none is reachable — demonstrated by
+            // running the behaviour fingerprint with their flattened
+            // predecessors set to absurd values and getting a byte-identical
+            // result, with the nudge control confirming the harness was still
+            // measuring. Grouped now, so a future knob will not touch this.
+            simultaneous: mcts::SimultaneousConfig::default(),
         };
 
         let result = self.inner.search(

@@ -223,3 +223,24 @@ Not just these numbers. Also:
 * **The wasm target.** `npm run bench` must not regress, and
   `src/wasm-pkg/colori_wasm_bg.wasm` must not grow much — generic
   monomorphisation bloats wasm, and there is a real latency budget behind it.
+
+
+## Moving to mcts 0.4.0
+
+Two source breaks, both loud. `Config`'s three simultaneous-move knobs are now
+grouped behind `Config::simultaneous`, and `Node::choice()` became
+`Node::edge()`, returning an enum that distinguishes a root from a joint
+successor rather than collapsing both into `None`.
+
+The fingerprint passes byte-identically across all 795 lines.
+
+That is worth one caveat. Unlike the run against 0.3.0, this migration edits the
+*harness* as well as the dependency — `Node::choice()` is what the fingerprint
+reads for every child of every case. A pass could therefore mean "behaviour
+unchanged" or "the harness edit broke the harness", and those look the same from
+outside. So the control was run first: with the migration applied and the
+exploration constant nudged by 0.05, the fingerprint still fails at line 2. The
+instrument was confirmed live before its result was read, not after.
+
+The shipped wasm binding also passes its own tests, and the binary grew from
+581 334 to 583 313 bytes, 0.3%.
