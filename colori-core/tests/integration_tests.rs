@@ -1,8 +1,11 @@
 use colori_core::colori_game::{apply_choice_to_state, check_choice_available, enumerate_choices};
+use colori_core::apply_choice::apply_choice;
+use colori_core::deck::Deck;
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::scoring::calculate_score;
 use colori_core::setup::create_initial_game_state;
 use colori_core::types::{Ability, SellCard, Card, Choice, Color, GamePhase, GameState, MaterialType, ALL_MATERIAL_TYPES};
+use colori_core::unordered_cards::UnorderedCards;
 use colori_core::unordered_cards::{
     get_sell_card_registry, get_card_registry, set_sell_card_registry, set_card_registry,
 };
@@ -18,7 +21,6 @@ fn count_all_cards(state: &GameState) -> u32 {
 
     for player in state.players.iter() {
         total += player.deck.len();
-        total += player.discard.len();
         total += player.workshopped_cards.len();
         total += player.workshop_cards.len();
         total += player.drafted_cards.len();
@@ -254,7 +256,7 @@ fn generate_invalid_choices(state: &GameState) -> Vec<Choice> {
             invalid.push(Choice::MixAll {
                 mixes: SmallVec::new(),
             });
-            invalid.push(Choice::DestroyDrawnCards { card: None });
+            invalid.push(Choice::MoveToDraftPool { card: None });
             // DraftPick with card types not in the current hand
             let hand = draft_state.hands[draft_state.current_player_index];
             let all_cards = [
@@ -296,7 +298,7 @@ fn generate_invalid_choices(state: &GameState) -> Vec<Choice> {
                 invalid.push(Choice::MixAll {
                     mixes: SmallVec::new(),
                 });
-                invalid.push(Choice::DestroyDrawnCards { card: None });
+                invalid.push(Choice::MoveToDraftPool { card: None });
                 invalid.push(Choice::GainMaterial {
                     material: MaterialType::Textiles,
                 });
@@ -375,7 +377,7 @@ fn generate_invalid_choices(state: &GameState) -> Vec<Choice> {
                             color: Color::Orange,
                         });
                     }
-                    Ability::DestroyCards => {
+                    Ability::MoveToDraftPool => {
                         invalid.push(Choice::EndTurn);
                         invalid.push(Choice::SkipWorkshop);
                     }
@@ -431,11 +433,6 @@ fn assert_states_match(a: &GameState, b: &GameState, context: &str) {
         assert_eq!(
             pa.deck, pb.deck,
             "player {} deck mismatch: {}",
-            pi, context
-        );
-        assert_eq!(
-            pa.discard, pb.discard,
-            "player {} discard mismatch: {}",
             pi, context
         );
         assert_eq!(
@@ -1011,7 +1008,6 @@ fn find_card_id(state: &GameState, target: Card) -> u8 {
         if c == target {
             for player in state.players.iter() {
                 if player.deck.contains(idx as u8) { return idx as u8; }
-                if player.discard.contains(idx as u8) { return idx as u8; }
                 if player.workshop_cards.contains(idx as u8) { return idx as u8; }
                 if player.workshopped_cards.contains(idx as u8) { return idx as u8; }
                 if player.drafted_cards.contains(idx as u8) { return idx as u8; }
@@ -1025,7 +1021,6 @@ fn find_card_id(state: &GameState, target: Card) -> u8 {
 fn remove_card_anywhere(state: &mut GameState, id: u8) {
     for player in state.players.iter_mut() {
         if player.deck.contains(id) { player.deck.remove(id); return; }
-        if player.discard.contains(id) { player.discard.remove(id); return; }
         if player.workshop_cards.contains(id) { player.workshop_cards.remove(id); return; }
         if player.workshopped_cards.contains(id) { player.workshopped_cards.remove(id); return; }
         if player.drafted_cards.contains(id) { player.drafted_cards.remove(id); return; }
@@ -1083,13 +1078,13 @@ fn test_destroy_cards_enumerates_workshopped_target() {
         false,
         Some(Card::StarterCeramics),
         None,
-        Some(Ability::DestroyCards),
+        Some(Ability::MoveToDraftPool),
     );
 
     let choices = enumerate_choices(&state);
-    let wanted = Choice::DestroyDrawnCards { card: Some(Card::StarterCeramics) };
+    let wanted = Choice::MoveToDraftPool { card: Some(Card::StarterCeramics) };
     assert!(
-        choices.iter().any(|c| matches!(c, Choice::DestroyDrawnCards { card: Some(Card::StarterCeramics) })),
+        choices.iter().any(|c| matches!(c, Choice::MoveToDraftPool { card: Some(Card::StarterCeramics) })),
         "enumerate_choices should include workshopped-card target; got {:?}",
         choices
     );
@@ -1098,10 +1093,10 @@ fn test_destroy_cards_enumerates_workshopped_target() {
 
 #[test]
 fn test_destroy_cards_skip_when_both_areas_empty() {
-    let (state, _, _, _) = setup_action_state_with(false, None, None, Some(Ability::DestroyCards));
+    let (state, _, _, _) = setup_action_state_with(false, None, None, Some(Ability::MoveToDraftPool));
     let choices = enumerate_choices(&state);
     assert_eq!(choices.len(), 1);
-    assert!(matches!(choices[0], Choice::DestroyDrawnCards { card: None }));
+    assert!(matches!(choices[0], Choice::MoveToDraftPool { card: None }));
 }
 
 #[test]
@@ -1157,73 +1152,53 @@ fn test_destroy_and_destroy_cards_enumerates_workshopped_target() {
     );
 
     let choices = enumerate_choices(&state);
-    let wanted = Choice::DestroyAndDestroyCards {
+    let wanted = Choice::DestroyAndMoveToDraftPool {
         card: Card::Alum,
         target: Some(Card::StarterCeramics),
     };
     assert!(
         choices.iter().any(|c| matches!(
             c,
-            Choice::DestroyAndDestroyCards { card: Card::Alum, target: Some(Card::StarterCeramics) }
+            Choice::DestroyAndMoveToDraftPool { card: Card::Alum, target: Some(Card::StarterCeramics) }
         )),
-        "enumerate_choices should include DestroyAndDestroyCards targeting workshopped card; got {:?}",
+        "enumerate_choices should include DestroyAndMoveToDraftPool targeting workshopped card; got {:?}",
         choices
     );
     assert!(check_choice_available(&state, &wanted));
 }
 
+/// A rotated workshop card can be moved, and the move does not destroy it:
+/// it lands in the draft pool, where the ordinary destroy path can pick it up
+/// later — or leave it there for end of turn to return to the workshop.
 #[test]
-fn test_apply_destroy_drawn_cards_workshopped_target_destroys_and_triggers() {
+fn test_apply_move_to_draft_pool_moves_workshopped_card_without_destroying_it() {
     let (mut state, _, ws_id, _) = setup_action_state_with(
         false,
         Some(Card::StarterCeramics),
         None,
-        Some(Ability::DestroyCards),
+        Some(Ability::MoveToDraftPool),
     );
     let ws_id = ws_id.unwrap();
 
     let mut rng = WyRand::seed_from_u64(99);
     apply_choice_to_state(
         &mut state,
-        &Choice::DestroyDrawnCards { card: Some(Card::StarterCeramics) },
+        &Choice::MoveToDraftPool { card: Some(Card::StarterCeramics) },
         &mut rng,
     );
 
     assert!(!state.players[0].workshopped_cards.contains(ws_id),
-        "Workshopped card should have been removed from workshopped_cards");
-    assert!(state.destroyed_pile.contains(ws_id),
-        "Destroyed Ceramics should be in destroyed_pile");
-    // Ceramics has Workshop {count: 3}; workshop_cards is empty, so the
-    // ability pops without requiring input and the stack ends empty.
+        "moved card should have left workshopped_cards");
+    assert!(state.players[0].drafted_cards.contains(ws_id),
+        "moved card should be in the draft pool");
+    assert!(!state.destroyed_pile.contains(ws_id),
+        "the move must not destroy the card");
     if let GamePhase::Action { ref action_state } = state.phase {
         assert!(action_state.ability_stack.is_empty(),
-            "Ability stack should be empty after Workshop auto-skipped on empty workshop_cards");
+            "the move resolves the ability and triggers nothing");
     } else {
         panic!("Expected action phase");
     }
-}
-
-#[test]
-fn test_apply_destroy_workshop_card_deferred_workshopped_target() {
-    let (mut state, _, ws_id, _) = setup_action_state_with(
-        false,
-        Some(Card::StarterCeramics),
-        None,
-        None,
-    );
-    let ws_id = ws_id.unwrap();
-
-    let mut rng = WyRand::seed_from_u64(42);
-    apply_choice_to_state(
-        &mut state,
-        &Choice::DestroyWorkshopCardDeferred { card: Card::StarterCeramics },
-        &mut rng,
-    );
-
-    assert!(!state.players[0].workshopped_cards.contains(ws_id),
-        "Workshopped card should have been removed");
-    assert!(state.destroyed_pile.contains(ws_id),
-        "Destroyed card should be in destroyed_pile");
 }
 
 #[test]
@@ -1316,4 +1291,144 @@ fn test_draft_deck_composition() {
     }
     assert_eq!(action_count, 24, "24 action cards in the draft deck");
     assert_eq!(warehouse_count, 4, "4 copies of Warehouse");
+}
+
+// ── End-of-round deck handling ──
+
+/// Play a two-player game to the end of player 0's first turn, choosing
+/// `EndTurn` as soon as it is legal so the sweep is reached with cards still
+/// in both areas.
+fn state_at_first_end_of_turn(seed: u64) -> (GameState, UnorderedCards, UnorderedCards) {
+    let mut rng = WyRand::seed_from_u64(seed);
+    let mut state = create_initial_game_state(2, &[true, true], &mut rng);
+    execute_draw_phase(&mut state, &mut rng);
+
+    // Finish the draft by always taking the first option.
+    while matches!(state.phase, GamePhase::Draft { .. }) {
+        let choices = enumerate_choices(&state);
+        apply_choice_to_state(&mut state, &choices[0], &mut rng);
+    }
+
+    let workshop_area = state.players[0]
+        .workshop_cards
+        .union(state.players[0].workshopped_cards);
+    let drafted = state.players[0].drafted_cards;
+    assert!(!workshop_area.is_empty() && !drafted.is_empty());
+
+    apply_choice_to_state(&mut state, &Choice::EndTurn, &mut rng);
+    (state, workshop_area, drafted)
+}
+
+#[test]
+fn test_end_of_turn_sends_the_workshop_to_the_bottom_of_the_deck() {
+    let (state, workshop_area, _) = state_at_first_end_of_turn(4);
+    let player = &state.players[0];
+
+    let bottom = *player.deck.segments().last().expect("deck has a segment");
+    assert_eq!(
+        bottom, workshop_area,
+        "the whole workshop area should form the deck's bottom segment"
+    );
+    assert!(player.workshopped_cards.is_empty());
+}
+
+#[test]
+fn test_end_of_turn_moves_the_draft_pool_into_the_workshop() {
+    let (state, _, drafted) = state_at_first_end_of_turn(4);
+    let player = &state.players[0];
+
+    assert_eq!(player.workshop_cards, drafted);
+    assert!(player.drafted_cards.is_empty());
+    assert!(
+        player.deck.cards().intersection(drafted).is_empty(),
+        "kept draft-pool cards go to the workshop, not into the deck"
+    );
+}
+
+/// The point of the segmented deck: cards placed on the bottom are not seen
+/// again until everything above them has been drawn.
+#[test]
+fn test_cards_put_on_the_bottom_are_drawn_after_what_was_above_them() {
+    let (mut state, workshop_area, _) = state_at_first_end_of_turn(4);
+    let above = state.players[0].deck.segments()[0];
+    assert!(!above.is_empty(), "seed should leave cards above the new segment");
+
+    let mut rng = WyRand::seed_from_u64(1);
+    let drawn_first = {
+        let player = &mut state.players[0];
+        let mut hand = UnorderedCards::new();
+        player.deck.draw_into(&mut hand, above.len(), &mut rng);
+        hand
+    };
+
+    assert_eq!(drawn_first, above);
+    assert!(
+        drawn_first.intersection(workshop_area).is_empty(),
+        "the bottom segment was reached before the top ran out"
+    );
+}
+
+#[test]
+fn test_draw_phase_tops_the_workshop_up_to_five() {
+    let (mut state, _, drafted) = state_at_first_end_of_turn(4);
+    let mut rng = WyRand::seed_from_u64(2);
+
+    // Finish player 1's turn so the round ends. `apply_choice` is the raw
+    // engine call: `apply_choice_to_state` would run the next draw phase for
+    // us, and the carried-over workshop is what this test wants to see first.
+    while !matches!(state.phase, GamePhase::Draw) {
+        let choices = enumerate_choices(&state);
+        apply_choice(&mut state, &choices[0], &mut rng);
+    }
+    let carried = state.players[0].workshop_cards;
+    assert_eq!(carried, drafted);
+
+    execute_draw_phase(&mut state, &mut rng);
+    assert_eq!(
+        state.players[0].workshop_cards.len(),
+        5,
+        "the draw phase should top the workshop up to five, not add five to it"
+    );
+    assert!(
+        carried.difference(state.players[0].workshop_cards).is_empty(),
+        "carried-over cards should still be in the workshop"
+    );
+}
+
+/// With no discard pile there is nothing to reshuffle, so a draw that outruns
+/// the deck simply yields fewer cards.
+#[test]
+fn test_a_dry_deck_yields_fewer_cards_rather_than_reshuffling() {
+    let mut rng = WyRand::seed_from_u64(7);
+    let mut state = create_initial_game_state(2, &[true, true], &mut rng);
+    let owned = state.players[0].deck.cards();
+    state.players[0].deck = Deck::from_cards(owned);
+
+    execute_draw_phase(&mut state, &mut rng);
+    assert_eq!(state.players[0].workshop_cards.len(), 5);
+    assert_eq!(state.players[0].deck.len(), 2);
+
+    let player = &mut state.players[0];
+    let mut hand = UnorderedCards::new();
+    assert_eq!(player.deck.draw_into(&mut hand, 4, &mut rng), 2);
+    assert!(player.deck.is_empty());
+    assert_eq!(player.deck.draw_into(&mut hand, 1, &mut rng), 0);
+}
+
+/// A six-round game can create at most seven segments — the starting deck plus
+/// one per round end — so `MAX_DECK_SEGMENTS` is never reached in real play.
+#[test]
+fn test_decks_stay_well_inside_the_segment_cap() {
+    for seed in 0..30 {
+        for num_players in 2..=4 {
+            let state = run_random_game_with_invariants(seed, num_players);
+            for (pi, player) in state.players.iter().enumerate() {
+                assert!(
+                    player.deck.segment_count() <= 7,
+                    "player {pi} ended with {} deck segments (seed={seed}, players={num_players})",
+                    player.deck.segment_count(),
+                );
+            }
+        }
+    }
 }

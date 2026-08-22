@@ -92,15 +92,15 @@ pub(super) fn enumerate_destroy_choices(
                 }
             }
         }
-        Ability::DestroyCards => {
+        Ability::MoveToDraftPool => {
             if player.workshop_cards.is_empty() && player.workshopped_cards.is_empty() {
-                choices.push(Choice::DestroyAndDestroyCards {
+                choices.push(Choice::DestroyAndMoveToDraftPool {
                     card,
                     target: None,
                 });
             } else {
                 for_each_unique_card_type_in_workshop_area(player, &state.card_lookup, |target_card| {
-                    choices.push(Choice::DestroyAndDestroyCards {
+                    choices.push(Choice::DestroyAndMoveToDraftPool {
                         card,
                         target: Some(target_card),
                     });

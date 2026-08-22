@@ -9,7 +9,7 @@ export type Ability =
   | { type: 'workshop'; count: number }
   | { type: 'drawCards'; count: number }
   | { type: 'mixColors'; count: number }
-  | { type: 'destroyCards' }
+  | { type: 'moveToDraftPool' }
   | { type: 'sell' }
   | { type: 'gainDucats'; count: number }
   | { type: 'gainSecondary' }
@@ -99,8 +99,10 @@ export interface SellCardInstance {
 }
 
 export interface PlayerState {
-  deck: CardInstance[];
-  discard: CardInstance[];
+  // Ordered front-first: the deck is a queue of independently shuffled piles,
+  // because a round's leftover workshop goes to the bottom as one. See
+  // `colori_core::deck::Deck`.
+  deck: CardInstance[][];
   workshoppedCards: CardInstance[];
   workshopCards: CardInstance[];
   draftedCards: CardInstance[];
@@ -146,7 +148,7 @@ export type Choice =
   | { type: 'endTurn' }
   | { type: 'workshop'; cardTypes: Card[] }
   | { type: 'skipWorkshop' }
-  | { type: 'destroyDrawnCards'; card: Card | null }
+  | { type: 'moveToDraftPool'; card: Card | null }
   | { type: 'selectSellCard'; sellCard: SellCard }
   | { type: 'gainSecondary'; color: Color }
   | { type: 'gainPrimary'; color: Color }
@@ -155,9 +157,7 @@ export type Choice =
   | { type: 'destroyAndMix'; card: Card; mixes: [Color, Color][] }
   | { type: 'destroyAndSell'; card: Card; sellCard: SellCard }
   | { type: 'destroyAndWorkshop'; card: Card; workshopCards: Card[] }
-  | { type: 'destroyAndDestroyCards'; card: Card; target: Card | null }
-  | { type: 'deferredMoveToDraft'; card: Card }
-  | { type: 'destroyWorkshopCardDeferred'; card: Card };
+  | { type: 'destroyAndMoveToDraftPool'; card: Card; target: Card | null };
 
 // ── Draw Event Types ──
 

@@ -3,9 +3,9 @@ import type { SanitizedGameState } from './types';
 
 export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
   const players: PlayerState[] = sanitized.players.map(sp => ({
-    // Owned player: full cards. Opponents: length-only sparse arrays (UI only reads .length for opponents).
-    deck: sp.deck.length > 0 ? sp.deck : (new Array(sp.deckCount) as CardInstance[]),
-    discard: sp.discard.length > 0 ? sp.discard : (new Array(sp.discardCount) as CardInstance[]),
+    // Owned player: real segments. Opponents: one length-only sparse segment,
+    // since the UI reads only the total for them.
+    deck: sp.deck.length > 0 ? sp.deck : [new Array(sp.deckCount) as CardInstance[]],
     workshoppedCards: sp.workshoppedCards,
     workshopCards: sp.workshopCards,
     draftedCards: sp.draftedCards,

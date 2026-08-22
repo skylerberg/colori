@@ -3,11 +3,10 @@ import type { Choice } from '../data/types';
 
 export interface SanitizedPlayerState {
   deckCount: number;
-  discardCount: number;
-  // Private to owner: populated only when this entry belongs to the receiving player.
-  // Opponents receive empty arrays; use *Count fields instead.
-  deck: CardInstance[];
-  discard: CardInstance[];
+  // Private to owner: populated only when this entry belongs to the receiving
+  // player, as segments front-first. Opponents receive an empty array; use
+  // deckCount instead.
+  deck: CardInstance[][];
   // Public: visible to all players (face-up piles in the tableau).
   workshoppedCards: CardInstance[];
   workshopCards: CardInstance[];

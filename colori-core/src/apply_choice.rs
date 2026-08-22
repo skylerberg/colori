@@ -107,7 +107,7 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
         Choice::SkipWorkshop => {
             skip_workshop(state, rng);
         }
-        Choice::DestroyDrawnCards { card } => {
+        Choice::MoveToDraftPool { card } => {
             let mut selected = UnorderedCards::new();
             if let Some(card) = card {
                 let area = match &state.phase {
@@ -124,7 +124,7 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
                     }
                 }
             }
-            resolve_destroy_cards(state, selected, rng);
+            resolve_move_to_draft_pool(state, selected, rng);
         }
         Choice::SelectSellCard { sell_card } => {
             let sell_card_instance_id = find_sell_card_instance(state, sell_card);
@@ -185,7 +185,7 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
                 resolve_workshop_choice(state, card_instance_ids, rng);
             }
         }
-        Choice::DestroyAndDestroyCards { card, target } => {
+        Choice::DestroyAndMoveToDraftPool { card, target } => {
             let card_instance_id = get_drafted_card_instance(state, card);
             destroy_drafted_card(state, card_instance_id, rng);
             let mut selected = UnorderedCards::new();
@@ -204,22 +204,7 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
                     }
                 }
             }
-            resolve_destroy_cards(state, selected, rng);
-        }
-        Choice::DeferredMoveToDraft { .. } => {
-            // Behaviorally identical to DestroyDrawnCards { card: None }: the
-            // engine simply pops the DestroyCards ability and leaves the card
-            // in the workshop. The `card` field is carried only so the UI log
-            // can name which card was visually moved to the draft pool.
-            resolve_destroy_cards(state, UnorderedCards::new(), rng);
-        }
-        Choice::DestroyWorkshopCardDeferred { card } => {
-            let player_index = get_action_state(state).current_player_index;
-            let area = state.players[player_index]
-                .workshop_cards
-                .union(state.players[player_index].workshopped_cards);
-            let card_instance_id = find_card_instance(state, card, &area);
-            destroy_workshop_card_and_trigger(state, card_instance_id, rng);
+            resolve_move_to_draft_pool(state, selected, rng);
         }
     }
 }

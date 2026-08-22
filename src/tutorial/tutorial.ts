@@ -80,7 +80,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'player-stats',
     title: 'Player Stats',
-    text: 'Track your ducats, and your personal deck and discard pile here. Tap on Deck or Discard to see their contents.',
+    text: 'Track your ducats and your personal deck here. Tap on Deck to see its contents, listed in the order they will come up.',
     attachTo: { element: '.player-stats', on: 'bottom' },
     buttons: [backButton, nextButton],
   });
@@ -88,7 +88,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'round-structure',
     title: 'Round Structure',
-    text: 'Each round has two phases: the Draft Phase and the Action Phase. At the start of the round, you draw 5 cards from your deck into your workshop.',
+    text: 'Each round has two phases: the Draft Phase and the Action Phase. At the start of the round, you draw from your deck until your workshop holds 5 cards.',
     attachTo: { element: '.top-info-bar', on: 'bottom' },
     buttons: [backButton, nextButton],
   });
@@ -105,7 +105,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'drafted-cards',
     title: 'Drafted Cards',
-    text: "Cards you've drafted appear here. During the Action Phase, you can trash these cards one at a time to trigger the abilities on the top of the card. Any cards you don't trash go to your discard pile, building up your personal deck over time.",
+    text: "Cards you've drafted appear here. During the Action Phase, you can trash these cards one at a time to trigger the abilities on the top of the card. Any cards you don't trash stay with you: at the end of the round they move into your workshop, ready to use next round.",
     attachTo: { element: '.drafted-section', on: 'bottom' },
     buttons: [backButton, nextButton],
   });
@@ -113,7 +113,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'workshop',
     title: 'Workshop',
-    text: 'These are your workshop cards — drawn from your personal deck at the start of each round. By trashing drafted cards with the Workshop ability lets you activate these cards to gain colors, materials or gain other benefits.',
+    text: 'These are your workshop cards — drawn from your personal deck at the start of each round, alongside anything you kept in your draft pool. Trashing drafted cards with the Workshop ability lets you activate these cards to gain colors, materials or other benefits.',
     attachTo: { element: '.workshop-section', on: 'top' },
     buttons: [backButton, nextButton],
   });
@@ -122,7 +122,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'action-phase-concept',
     title: 'Action Phase',
-    text: 'After drafting, each player takes a turn. On your turn, trash drafted cards one at a time to trigger abilities like Workshop (store colors/materials), Mix Colors (combine two adjacent colors into one), Sell (complete a sell card), Draw Cards, or Move a card from your Workshop to your Draft Pool. When done, remaining drafted and workshop cards go to your discard pile.',
+    text: 'After drafting, each player takes a turn. On your turn, trash drafted cards one at a time to trigger abilities like Workshop (store colors/materials), Mix Colors (combine two adjacent colors into one), Sell (complete a sell card), Draw Cards, or Move a card from your Workshop to your Draft Pool. When your turn ends, your workshop is shuffled onto the bottom of your deck and whatever is left in your draft pool becomes your new workshop.',
     buttons: [backButton, nextButton],
   });
 

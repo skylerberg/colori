@@ -5,6 +5,9 @@ judged against something rather than asserted. This implementation is the
 performance bar: it is the faster and more advanced of the two the shared crate
 has to replace, so a regression here is the thing most likely to sink the work.
 
+> Every figure here is wall clock. For measurements that survive a busy
+> machine, see `DECK-ORDERING.md`, which counts retired instructions instead.
+
 Machine: Apple M4, 4 P-cores + 6 E-cores, 32 GB, `aarch64-apple-darwin`.
 Toolchain: `rustc 1.93.1 (01f6ddf75 2026-02-11)`.
 Baseline commit: `c1a08da4`.

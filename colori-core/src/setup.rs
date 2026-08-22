@@ -1,4 +1,5 @@
 use crate::cards::*;
+use crate::deck::Deck;
 use crate::fixed_vec::FixedVec;
 use crate::types::*;
 use crate::unordered_cards::{set_sell_card_registry, set_card_registry, UnorderedSellCards, UnorderedCards};
@@ -47,11 +48,11 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
                 Card::Chalk,
             ];
 
-            let mut deck = UnorderedCards::new();
+            let mut starting_cards = UnorderedCards::new();
             for &card in &personal_cards {
                 let id = next_card_id();
                 card_lookup[id as usize] = card;
-                deck.insert(id);
+                starting_cards.insert(id);
             }
 
             let mut color_wheel = ColorWheel::new();
@@ -60,8 +61,7 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
             color_wheel.set(Color::Blue, 1);
 
             PlayerState {
-                deck,
-                discard: UnorderedCards::new(),
+                deck: Deck::from_cards(starting_cards),
                 workshopped_cards: UnorderedCards::new(),
                 workshop_cards: UnorderedCards::new(),
                 drafted_cards: UnorderedCards::new(),

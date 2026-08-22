@@ -75,8 +75,8 @@ pub struct LogGameState {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LogPlayerState {
-    pub deck: Vec<CardInstance>,
-    pub discard: Vec<CardInstance>,
+    /// Front segment first; see `colori_core::deck::Deck`.
+    pub deck: Vec<Vec<CardInstance>>,
     #[serde(default)]
     pub workshopped_cards: Vec<CardInstance>,
     pub workshop_cards: Vec<CardInstance>,

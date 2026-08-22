@@ -85,7 +85,7 @@ export class GameLogAccumulator {
     }));
     this.log.finalPlayerStats = state.players.map((p, i) => ({
       name: state.playerNames[i],
-      deckSize: p.deck.length + p.discard.length + p.workshopCards.length + p.draftedCards.length + p.workshoppedCards.length,
+      deckSize: p.deck.reduce((n, segment) => n + segment.length, 0) + p.workshopCards.length + p.draftedCards.length + p.workshoppedCards.length,
       completedSellCards: p.completedSellCards,
       ducats: p.ducats,
       colorWheel: { ...p.colorWheel },

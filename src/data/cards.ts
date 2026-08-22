@@ -245,37 +245,37 @@ export const ACTION_CARDS: ActionCardData[] = [
   {
     kind: 'action',
     name: 'Alum',
-    ability: { type: 'destroyCards' },
+    ability: { type: 'moveToDraftPool' },
     workshopAbilities: [{ type: 'gainDucats', count: 1 }],
   },
   {
     kind: 'action',
     name: 'Cream of Tartar',
-    ability: { type: 'destroyCards' },
+    ability: { type: 'moveToDraftPool' },
     workshopAbilities: [{ type: 'drawCards', count: 3 }],
   },
   {
     kind: 'action',
     name: 'Gum Arabic',
-    ability: { type: 'destroyCards' },
+    ability: { type: 'moveToDraftPool' },
     workshopAbilities: [{ type: 'gainSecondary' }],
   },
   {
     kind: 'action',
     name: 'Potash',
-    ability: { type: 'destroyCards' },
+    ability: { type: 'moveToDraftPool' },
     workshopAbilities: [{ type: 'workshop', count: 3 }],
   },
   {
     kind: 'action',
     name: 'Linseed Oil',
-    ability: { type: 'destroyCards' },
+    ability: { type: 'moveToDraftPool' },
     workshopAbilities: [{ type: 'mixColors', count: 2 }],
   },
   {
     kind: 'action',
     name: 'Warehouse',
-    ability: { type: 'destroyCards' },
+    ability: { type: 'moveToDraftPool' },
     workshopAbilities: [{ type: 'gainMaterial' }],
   },
 ];

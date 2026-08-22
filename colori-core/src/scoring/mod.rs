@@ -153,7 +153,7 @@ pub fn heuristic_score(
 
     let mut total_quality = 0.0;
     let mut card_count = 0u32;
-    for cards in [&player.deck, &player.discard, &player.workshop_cards, &player.workshopped_cards, &player.drafted_cards] {
+    for cards in [player.deck.cards(), player.workshop_cards, player.workshopped_cards, player.drafted_cards] {
         for id in cards.iter() {
             let idx = card_lookup[id as usize] as usize;
             total_quality += card_table.quality[idx];
@@ -227,6 +227,7 @@ pub fn compute_heuristic_rewards(
 mod tests {
     use super::*;
     use crate::types::{SellCard, SellCardInstance, ColorWheel, Materials, PlayerState};
+    use crate::deck::Deck;
     use crate::unordered_cards::UnorderedCards;
     use smallvec::SmallVec;
 
@@ -240,8 +241,7 @@ mod tests {
             })
             .collect();
         let mut p = PlayerState {
-            deck: UnorderedCards::new(),
-            discard: UnorderedCards::new(),
+            deck: Deck::new(),
             workshopped_cards: UnorderedCards::new(),
             workshop_cards: UnorderedCards::new(),
             drafted_cards: UnorderedCards::new(),

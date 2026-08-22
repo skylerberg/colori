@@ -41,20 +41,11 @@
   // svelte-ignore state_referenced_locally
   let gameLog: string[] = $state(initialGameLog);
 
-  // Cards the human has staged as "moved to draft pool" but the engine still
-  // holds in the workshop. The UI renders these in the drafted row and filters
-  // them out of every workshop-facing prompt, so the player's mental model
-  // (moved, not yet destroyed) matches what they see — while the engine sees
-  // a single atomic DestroyCards choice pair (skip + later deferred destroy)
-  // that produces the same end state as the AI's compound choice.
-  let deferredMoves: CardInstance[] = $state([]);
-
   let undoStack: {
     gameState: GameState;
     logLength: number;
     accumulatorLength: number;
     draftCardOrder: number[][];
-    deferredMoves: CardInstance[];
   }[] = $state([]);
   let undoPlayerIndex: number | null = $state(null);
 
@@ -70,7 +61,6 @@
       logLength: gameLog.length,
       accumulatorLength: gameLogAccumulator?.getLog().entries.length ?? 0,
       draftCardOrder: draftCardOrder.map(order => [...order]),
-      deferredMoves: [...deferredMoves],
     });
   }
 
@@ -82,7 +72,6 @@
     gameLog = gameLog.slice(0, snapshot.logLength);
     gameLogAccumulator?.truncateEntries(snapshot.accumulatorLength);
     draftCardOrder = snapshot.draftCardOrder;
-    deferredMoves = snapshot.deferredMoves;
     onGameUpdated(gameState, gameLog);
   }
 
@@ -90,30 +79,8 @@
     if (gameState.phase.type !== 'action') {
       undoStack = [];
       undoPlayerIndex = null;
-      deferredMoves = [];
     }
   });
-
-  // Clear deferred moves on turn transition — end-of-turn cleanup in the
-  // engine sweeps both workshop and draft pool into discard, so there's
-  // nothing for the next player to see.
-  let currentActionPlayerIdx = $derived(
-    gameState.phase.type === 'action' ? gameState.phase.actionState.currentPlayerIndex : -1
-  );
-  $effect(() => {
-    currentActionPlayerIdx;
-    deferredMoves = [];
-  });
-
-  function stageDeferredMove(ci: CardInstance) {
-    handleAction({ type: 'deferredMoveToDraft', card: ci.card });
-    deferredMoves = [...deferredMoves, ci];
-  }
-
-  function commitDeferredDestroy(ci: CardInstance) {
-    handleAction({ type: 'destroyWorkshopCardDeferred', card: ci.card });
-    deferredMoves = deferredMoves.filter(c => c.instanceId !== ci.instanceId);
-  }
 
   // Start tutorial on first mount (checks localStorage internally)
   let tutorialStarted = false;
@@ -179,7 +146,7 @@
   // compound choice in the game log. The UI flow is unchanged.
   let pendingDestroyCard: Card | null = $state(null);
 
-  const COMPOUND_ABILITY_TYPES = new Set(['mixColors', 'sell', 'workshop', 'destroyCards']);
+  const COMPOUND_ABILITY_TYPES = new Set(['mixColors', 'sell', 'workshop', 'moveToDraftPool']);
 
   function isCompoundableDestroy(choice: Choice): choice is { type: 'destroyDraftedCard'; card: Card } {
     if (choice.type !== 'destroyDraftedCard') return false;
@@ -197,8 +164,8 @@
         return { type: 'destroyAndWorkshop', card: destroyCard, workshopCards: followUp.cardTypes };
       case 'skipWorkshop':
         return { type: 'destroyAndWorkshop', card: destroyCard, workshopCards: [] };
-      case 'destroyDrawnCards':
-        return { type: 'destroyAndDestroyCards', card: destroyCard, target: followUp.card };
+      case 'moveToDraftPool':
+        return { type: 'destroyAndMoveToDraftPool', card: destroyCard, target: followUp.card };
       default:
         return null;
     }
@@ -392,7 +359,7 @@
     {/if}
   {:else if gameState.phase.type === 'action'}
     <div style:display={isViewingActiveHuman ? 'contents' : 'none'}>
-      <ActionPhaseView {gameState} onAction={handleAction} onUndo={performUndo} undoAvailable={undoStack.length > 0} {draftCardOrder} {deferredMoves} onStageDeferredMove={stageDeferredMove} onCommitDeferredDestroy={commitDeferredDestroy} />
+      <ActionPhaseView {gameState} onAction={handleAction} onUndo={performUndo} undoAvailable={undoStack.length > 0} {draftCardOrder} />
     </div>
     {#if !isViewingActiveHuman}
       <div class="waiting-indicator">

@@ -9,10 +9,8 @@ export function sanitizeGameState(
   const players: SanitizedPlayerState[] = fullState.players.map((p, i) => {
     const isOwner = i === forPlayerIndex;
     return {
-      deckCount: p.deck.length,
-      discardCount: p.discard.length,
-      deck: isOwner ? [...p.deck] : [],
-      discard: isOwner ? [...p.discard] : [],
+      deckCount: p.deck.reduce((n, segment) => n + segment.length, 0),
+      deck: isOwner ? p.deck.map(segment => [...segment]) : [],
       workshoppedCards: [...p.workshoppedCards],
       workshopCards: [...p.workshopCards],
       draftedCards: [...p.draftedCards],

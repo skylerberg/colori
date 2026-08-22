@@ -404,14 +404,12 @@ impl GameStats {
 /// Size of everything that will be drawn from later, so the figure stays
 /// comparable across the change that folds the discard pile into the deck.
 fn deck_len(player: &PlayerState) -> u32 {
-    player.deck.len() + player.discard.len()
+    player.deck.len()
 }
 
-/// How many independently shuffled piles the personal deck is made of. One
-/// today: the deck is a single bag and the discard is not drawn from until it
-/// becomes one.
-fn deck_segments(_player: &PlayerState) -> u32 {
-    1
+/// How many independently shuffled piles the personal deck is made of.
+fn deck_segments(player: &PlayerState) -> u32 {
+    player.deck.segment_count() as u32
 }
 
 fn play_game(seed: u64, config: &MctsConfig, stats: &mut GameStats) {

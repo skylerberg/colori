@@ -2,7 +2,7 @@ use crate::action_phase::{
     can_afford_sell_card, destroy_drafted_card, end_player_turn,
     initialize_action_phase,
     process_ability_stack,
-    resolve_destroy_cards, resolve_gain_color, resolve_gain_material, resolve_select_sell_card,
+    resolve_move_to_draft_pool, resolve_gain_color, resolve_gain_material, resolve_select_sell_card,
     resolve_workshop_choice,
     skip_workshop,
 };
@@ -10,7 +10,7 @@ use crate::colors::{
     mix_result, pay_cost, perform_mix_unchecked, PRIMARIES,
     SECONDARIES, VALID_MIX_PAIRS,
 };
-use crate::deck_utils::draw_from_deck;
+use crate::draw_phase::WORKSHOP_SIZE;
 use crate::draft_phase::player_pick;
 use crate::scoring::HeuristicParams;
 use crate::types::*;
@@ -23,16 +23,11 @@ use rand::RngExt;
 fn rollout_draw_and_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
     let num_players = state.players.len();
 
-    // Step 1: Draw 5 cards from each player's personal deck
+    // Step 1: top each player's workshop back up to full
     for i in 0..num_players {
         let player = &mut state.players[i];
-        draw_from_deck(
-            &mut player.deck,
-            &mut player.discard,
-            &mut player.workshop_cards,
-            5,
-            rng,
-        );
+        let count = WORKSHOP_SIZE.saturating_sub(player.workshop_cards.len());
+        player.deck.draw_into(&mut player.workshop_cards, count, rng);
     }
 
     // Step 2: Draw 4 cards per player from draft_deck, restocking from destroyed_pile
@@ -265,11 +260,11 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, 
                         resolve_workshop_choice(state, selected, rng);
                     }
                 }
-                Some(Ability::DestroyCards) => {
+                Some(Ability::MoveToDraftPool) => {
                     let p = &state.players[player_index];
                     let mut copy = p.workshop_cards.union(p.workshopped_cards);
                     let selected = copy.draw_up_to(1, rng);
-                    resolve_destroy_cards(state, selected, rng);
+                    resolve_move_to_draft_pool(state, selected, rng);
                 }
                 Some(Ability::MixColors { count }) => {
                     let remaining_mixes = *count;
@@ -334,7 +329,7 @@ fn ability_category(ability: Ability) -> (u8, u32) {
         Ability::Workshop { count } => (0, count),
         Ability::MixColors { .. } => (1, 0),
         Ability::Sell => (2, 0),
-        Ability::DestroyCards => (3, 0),
+        Ability::MoveToDraftPool => (3, 0),
         Ability::DrawCards { .. } => (4, 0),
         _ => (5, 0),
     }
@@ -421,16 +416,11 @@ fn pick_card_to_drop<R: Rng>(
 fn heuristic_rollout_draw_and_draft<R: Rng>(state: &mut GameState, params: &HeuristicParams, rng: &mut R) {
     let num_players = state.players.len();
 
-    // Step 1: Draw 5 cards from each player's personal deck
+    // Step 1: top each player's workshop back up to full
     for i in 0..num_players {
         let player = &mut state.players[i];
-        draw_from_deck(
-            &mut player.deck,
-            &mut player.discard,
-            &mut player.workshop_cards,
-            5,
-            rng,
-        );
+        let count = WORKSHOP_SIZE.saturating_sub(player.workshop_cards.len());
+        player.deck.draw_into(&mut player.workshop_cards, count, rng);
     }
 
     // Step 2: Draw 5 cards per player from draft_deck (instead of 4)
@@ -729,7 +719,7 @@ fn destruction_priority(
                 params.rollout_workshop_base + count.min(3) * params.rollout_workshop_count_weight
             }
         }
-        Ability::DestroyCards => {
+        Ability::MoveToDraftPool => {
             if player.workshop_cards.is_empty() && player.workshopped_cards.is_empty() {
                 params.rollout_destroy_no_targets
             } else {
@@ -1171,13 +1161,13 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                     }
                     resolve_workshop_choice(state, selected, rng);
                 }
-                Some(Ability::DestroyCards) => {
+                Some(Ability::MoveToDraftPool) => {
                     let area = {
                         let p = &state.players[player_index];
                         p.workshop_cards.union(p.workshopped_cards)
                     };
                     if area.is_empty() {
-                        resolve_destroy_cards(state, UnorderedCards::new(), rng);
+                        resolve_move_to_draft_pool(state, UnorderedCards::new(), rng);
                         return;
                     }
 
@@ -1185,12 +1175,12 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                     if rng.random_bool(params.rollout_epsilon) {
                         let mut copy = area;
                         let selected = copy.draw_up_to(1, rng);
-                        resolve_destroy_cards(state, selected, rng);
+                        resolve_move_to_draft_pool(state, selected, rng);
                         return;
                     }
 
                     // Pick the workshop-area card whose ability is most useful to activate.
-                    // Destroying a workshop-area card activates its ability (see resolve_destroy_cards).
+                    // Destroying a workshop-area card activates its ability (see resolve_move_to_draft_pool).
                     let mut best_id: Option<u8> = None;
                     let mut best_score = 0u32;
                     for id in area.iter() {
@@ -1206,7 +1196,7 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                     if let Some(id) = best_id {
                         selected.insert(id);
                     }
-                    resolve_destroy_cards(state, selected, rng);
+                    resolve_move_to_draft_pool(state, selected, rng);
                 }
                 Some(Ability::MixColors { count }) => {
                     let remaining_mixes = *count;

@@ -27,7 +27,7 @@ pub(crate) fn should_force_max_workshop(state: &GameState, player: &PlayerState)
     }
     for id in player.drafted_cards.iter() {
         match state.card_lookup[id as usize].ability() {
-            Ability::DestroyCards | Ability::DrawCards { .. } => return false,
+            Ability::MoveToDraftPool | Ability::DrawCards { .. } => return false,
             _ => {}
         }
     }
@@ -99,12 +99,12 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                         );
                     }
                 }
-                Some(Ability::DestroyCards) => {
+                Some(Ability::MoveToDraftPool) => {
                     if player.workshop_cards.is_empty() && player.workshopped_cards.is_empty() {
-                        choices.push(Choice::DestroyDrawnCards { card: None });
+                        choices.push(Choice::MoveToDraftPool { card: None });
                     } else {
                         for_each_unique_card_type_in_workshop_area(player, &state.card_lookup, |card| {
-                            choices.push(Choice::DestroyDrawnCards { card: Some(card) });
+                            choices.push(Choice::MoveToDraftPool { card: Some(card) });
                         });
                     }
                 }
@@ -189,7 +189,7 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
                 Ability::Sell => !can_sell_to_any_sell_card(state),
                 Ability::MixColors { .. } => false,
                 Ability::Workshop { .. } => false,
-                Ability::DestroyCards => false,
+                Ability::MoveToDraftPool => false,
                 _ => true,
             }
         }
@@ -226,10 +226,10 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
                 false
             }
         }
-        Choice::DestroyDrawnCards { card } => {
+        Choice::MoveToDraftPool { card } => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 match action_state.ability_stack.last() {
-                    Some(Ability::DestroyCards) => match card {
+                    Some(Ability::MoveToDraftPool) => match card {
                         None => true,
                         Some(card) => {
                             let player = &state.players[action_state.current_player_index];
@@ -350,7 +350,7 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
             }];
             resolve_card_types_to_ids(workshop_cards, &player.workshop_cards, &state.card_lookup).is_some()
         }
-        Choice::DestroyAndDestroyCards { card, target } => {
+        Choice::DestroyAndMoveToDraftPool { card, target } => {
             if !check_destroy_preconditions(state, card) {
                 return false;
             }
@@ -364,30 +364,6 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
                     let area = player.workshop_cards.union(player.workshopped_cards);
                     area.iter().any(|id| state.card_lookup[id as usize] == *target_card)
                 }
-            }
-        }
-        Choice::DeferredMoveToDraft { card } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if !matches!(action_state.ability_stack.last(), Some(Ability::DestroyCards)) {
-                    return false;
-                }
-                let player = &state.players[action_state.current_player_index];
-                let area = player.workshop_cards.union(player.workshopped_cards);
-                area.iter().any(|id| state.card_lookup[id as usize] == *card)
-            } else {
-                false
-            }
-        }
-        Choice::DestroyWorkshopCardDeferred { card } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if !action_state.ability_stack.is_empty() {
-                    return false;
-                }
-                let player = &state.players[action_state.current_player_index];
-                let area = player.workshop_cards.union(player.workshopped_cards);
-                area.iter().any(|id| state.card_lookup[id as usize] == *card)
-            } else {
-                false
             }
         }
     }

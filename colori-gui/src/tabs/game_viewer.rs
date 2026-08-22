@@ -843,9 +843,9 @@ fn render_replayed_state(ui: &mut egui::Ui, state: &GameState, game: &Structured
 
             // Card counts
             ui.label(format!(
-                "Deck: {} | Discard: {} | Workshop: {} | Drafted: {}",
+                "Deck: {} ({} piles) | Workshop: {} | Drafted: {}",
                 player.deck.len(),
-                player.discard.len(),
+                player.deck.segment_count(),
                 player.workshop_cards.len(),
                 player.drafted_cards.len()
             ));
