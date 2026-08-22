@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use colori_core::game_log::{FinalScore, PlayerVariant, StructuredGameLog};
-use colori_core::types::{SellCard, SellCardInstance, CardInstance, Choice, MaterialType, ALL_COLORS};
+use colori_core::types::{SellCard, SellCardInstance, CardInstance, Choice, DucatPurchase, MaterialType, ALL_COLORS};
 
 use super::card_names::{sell_card_display_name, card_display_name, get_draft_copies_by_name};
 use super::categories::CardCategory;
@@ -253,6 +253,14 @@ pub fn format_choice(choice: &Choice) -> String {
     };
 
     match choice {
+        Choice::SpendDucat { purchase } => {
+            let bought = match purchase {
+                DucatPurchase::Workshop => "a workshop pick",
+                DucatPurchase::MixColors => "a mix",
+                DucatPurchase::Sell => "a sale",
+            };
+            format!("Spent a ducat for {bought}")
+        }
         Choice::TakeBuyer { sell_card } => {
             format!("Claimed buyer {}", sell_card_display_name(*sell_card))
         }
@@ -384,6 +392,7 @@ pub fn compute_action_distribution(
 
 fn choice_type_name(choice: &Choice) -> String {
     match choice {
+        Choice::SpendDucat { .. } => "spendDucat".to_string(),
         Choice::TakeBuyer { .. } => "takeBuyer".to_string(),
         Choice::DrawBuyer => "drawBuyer".to_string(),
         Choice::DraftPick { .. } => "draftPick".to_string(),

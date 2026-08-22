@@ -3,10 +3,10 @@ use colori_core::apply_choice::apply_choice;
 use colori_core::buyers_phase::initialize_buyers_phase;
 use colori_core::deck::Deck;
 use colori_core::game_log::{DrawEvent, DrawLog};
-use colori_core::draw_phase::execute_draw_phase;
+use colori_core::draw_phase::{execute_draw_phase, round_income};
 use colori_core::scoring::calculate_score;
 use colori_core::setup::create_initial_game_state;
-use colori_core::types::{Ability, SellCard, Card, Choice, Color, GamePhase, GameState, MaterialType, ALL_MATERIAL_TYPES};
+use colori_core::types::{Ability, SellCard, Card, Choice, Color, ColorWheel, DucatPurchase, GamePhase, GameState, MaterialType, ALL_MATERIAL_TYPES};
 use colori_core::unordered_cards::{UnorderedCards, UnorderedSellCards};
 use colori_core::unordered_cards::{
     get_sell_card_registry, get_card_registry, set_sell_card_registry, set_card_registry,
@@ -1746,4 +1746,150 @@ fn test_a_recorded_game_replays_to_the_same_state() {
             );
         }
     }
+}
+
+// ── Ducat income and spending ──
+
+#[test]
+fn test_income_arrives_in_rounds_three_five_and_six() {
+    for round in 1..=6u32 {
+        let mut rng = WyRand::seed_from_u64(round as u64);
+        let mut state = create_initial_game_state(2, &[true, true], &mut rng);
+        state.round = round;
+        let before: Vec<u32> = state.players.iter().map(|p| p.ducats).collect();
+
+        execute_draw_phase(&mut state, &mut rng);
+
+        let expected = if matches!(round, 3 | 5 | 6) { 1 } else { 0 };
+        assert_eq!(round_income(round), expected);
+        for (i, player) in state.players.iter().enumerate() {
+            assert_eq!(
+                player.ducats,
+                before[i] + expected,
+                "player {i} ducats after the round {round} draw phase"
+            );
+            assert_eq!(
+                player.cached_score,
+                calculate_score(player),
+                "income must move the cached score with it (round {round})"
+            );
+        }
+    }
+}
+
+/// A ducat is a point, so paying one has to come off the score as well.
+#[test]
+fn test_spending_a_ducat_costs_a_point_and_stacks_the_purchase() {
+    let (mut state, _, _, _) =
+        setup_action_state_with(false, None, Some(Card::StarterCeramics), None);
+    state.players[0].ducats = 2;
+    state.players[0].cached_score = calculate_score(&state.players[0]);
+
+    let choice = Choice::SpendDucat { purchase: DucatPurchase::Workshop };
+    assert!(enumerate_choices(&state).contains(&choice));
+    assert!(check_choice_available(&state, &choice));
+
+    let mut rng = WyRand::seed_from_u64(1);
+    apply_choice_to_state(&mut state, &choice, &mut rng);
+
+    assert_eq!(state.players[0].ducats, 1);
+    assert_eq!(state.players[0].cached_score, calculate_score(&state.players[0]));
+    match &state.phase {
+        GamePhase::Action { action_state } => assert_eq!(
+            action_state.ability_stack.last(),
+            Some(&Ability::Workshop { count: 1 }),
+            "the purchase should be waiting for input"
+        ),
+        other => panic!("expected the action phase, got {other:?}"),
+    }
+}
+
+#[test]
+fn test_a_purchase_is_only_offered_when_it_would_do_something() {
+    let spend = |p| Choice::SpendDucat { purchase: p };
+
+    // No ducats, nothing on offer.
+    let (state, _, _, _) = setup_action_state_with(false, None, Some(Card::StarterCeramics), None);
+    assert!(!enumerate_choices(&state).iter().any(|c| matches!(c, Choice::SpendDucat { .. })));
+
+    // A ducat and a workshop card, but a bare colour wheel and no buyers.
+    let (mut state, _, _, _) =
+        setup_action_state_with(false, None, Some(Card::StarterCeramics), None);
+    state.players[0].ducats = 1;
+    state.players[0].color_wheel = ColorWheel::new();
+    state.players[0].cached_score = calculate_score(&state.players[0]);
+
+    let choices = enumerate_choices(&state);
+    assert!(choices.contains(&spend(DucatPurchase::Workshop)));
+    assert!(!choices.contains(&spend(DucatPurchase::MixColors)), "no two colours to mix");
+    assert!(!choices.contains(&spend(DucatPurchase::Sell)), "no buyer to sell to");
+
+    // A mixable pair brings the mix back.
+    state.players[0].color_wheel.increment(Color::Red);
+    state.players[0].color_wheel.increment(Color::Yellow);
+    assert!(enumerate_choices(&state).contains(&spend(DucatPurchase::MixColors)));
+
+    // Emptying the workshop takes the workshop pick away.
+    state.players[0].workshop_cards = UnorderedCards::new();
+    assert!(!enumerate_choices(&state).contains(&spend(DucatPurchase::Workshop)));
+}
+
+/// Buying is a turn action, not something to interleave with an ability that
+/// is already waiting for input.
+#[test]
+fn test_a_ducat_cannot_be_spent_while_an_ability_is_pending() {
+    let (mut state, _, _, _) = setup_action_state_with(
+        false,
+        None,
+        Some(Card::StarterCeramics),
+        Some(Ability::Workshop { count: 2 }),
+    );
+    state.players[0].ducats = 3;
+    state.players[0].cached_score = calculate_score(&state.players[0]);
+
+    let choices = enumerate_choices(&state);
+    assert!(!choices.iter().any(|c| matches!(c, Choice::SpendDucat { .. })));
+    for purchase in colori_core::types::ALL_DUCAT_PURCHASES {
+        assert!(!check_choice_available(&state, &Choice::SpendDucat { purchase }));
+    }
+}
+
+/// The whole point of the Sell purchase: one ducat in, a two-to-four-ducat
+/// sell card out.
+#[test]
+fn test_a_ducat_buys_a_sale_that_pays_for_itself() {
+    let mut rng = WyRand::seed_from_u64(4);
+    let mut state = create_initial_game_state(2, &[true, true], &mut rng);
+
+    let instance = state.sell_card_display.remove(0);
+    let sell_card = instance.sell_card;
+    state.players[0].buyers.push(instance);
+    state.players[0].materials.increment(sell_card.required_material());
+    for &color in sell_card.color_cost() {
+        state.players[0].color_wheel.increment(color);
+    }
+    state.players[0].ducats = 1;
+    state.players[0].cached_score = calculate_score(&state.players[0]);
+    let score_before = state.players[0].cached_score;
+
+    state.phase = GamePhase::Action {
+        action_state: colori_core::types::ActionState {
+            current_player_index: 0,
+            ability_stack: colori_core::types::AbilityStack::new(),
+        },
+    };
+
+    let spend = Choice::SpendDucat { purchase: DucatPurchase::Sell };
+    assert!(enumerate_choices(&state).contains(&spend));
+    apply_choice_to_state(&mut state, &spend, &mut rng);
+    apply_choice_to_state(&mut state, &Choice::SelectSellCard { sell_card }, &mut rng);
+
+    assert_eq!(state.players[0].ducats, 0, "the ducat was spent");
+    assert_eq!(state.players[0].completed_sell_cards.len(), 1);
+    assert_eq!(
+        state.players[0].cached_score,
+        score_before - 1 + sell_card.ducats(),
+        "net gain is the sell card's value less the ducat"
+    );
+    assert_eq!(state.players[0].cached_score, calculate_score(&state.players[0]));
 }

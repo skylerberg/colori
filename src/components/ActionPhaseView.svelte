@@ -1,5 +1,7 @@
 <script lang="ts">
-  import type { GameState, Choice, Ability } from '../data/types';
+  import type { GameState, Choice, Ability, Color } from '../data/types';
+  import { canSell } from '../engine/wasmEngine';
+  import { ALL_COLORS, canMix } from '../data/colors';
   import { orderByDraftOrder } from '../gameUtils';
   import CardList from './CardList.svelte';
   import AbilityPrompt from './AbilityPrompt.svelte';
@@ -112,6 +114,25 @@
     onAction({ type: 'endTurn' });
   }
 
+  // Mirrors the engine: a purchase is offered only when it can act, and only
+  // between destroys. See `action_phase::can_buy_with_ducat`.
+  function hasAMixablePair(wheel: Record<Color, number>): boolean {
+    const held = ALL_COLORS.filter(c => wheel[c] > 0);
+    return held.some((a, i) => held.slice(i + 1).some(b => canMix(a, b)));
+  }
+
+  let canBuy = $derived.by(() => {
+    const none = { workshop: false, mixColors: false, sell: false };
+    if (!currentPlayer || hasPendingChoice || currentPlayer.ducats < 1) return none;
+    return {
+      workshop: currentPlayer.workshopCards.length > 0,
+      mixColors: hasAMixablePair(currentPlayer.colorWheel),
+      sell: currentPlayer.buyers.some(b => canSell(gameState, b.instanceId)),
+    };
+  });
+
+  let anyPurchase = $derived(canBuy.workshop || canBuy.mixColors || canBuy.sell);
+
 </script>
 
 {#if actionState && currentPlayer}
@@ -182,6 +203,27 @@
 
     </div>
 
+    {#if anyPurchase}
+      <div class="ducat-shop">
+        <span class="ducat-label">Spend a ducat ({currentPlayer.ducats}):</span>
+        {#if canBuy.workshop}
+          <button class="ducat-btn" onclick={() => onAction({ type: 'spendDucat', purchase: 'workshop' })}>
+            Workshop &times;1
+          </button>
+        {/if}
+        {#if canBuy.mixColors}
+          <button class="ducat-btn" onclick={() => onAction({ type: 'spendDucat', purchase: 'mixColors' })}>
+            Mix &times;1
+          </button>
+        {/if}
+        {#if canBuy.sell}
+          <button class="ducat-btn" onclick={() => onAction({ type: 'spendDucat', purchase: 'sell' })}>
+            Sell
+          </button>
+        {/if}
+      </div>
+    {/if}
+
     <div class="action-footer">
       <button class="undo-btn" onclick={onUndo} disabled={!undoAvailable}>
         Undo
@@ -198,6 +240,34 @@
 {/if}
 
 <style>
+  .ducat-shop {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    justify-content: center;
+    font-size: 0.8rem;
+  }
+
+  .ducat-label {
+    color: #c9a84c;
+    font-weight: 600;
+  }
+
+  .ducat-btn {
+    padding: 0.2rem 0.55rem;
+    background: rgba(201, 168, 76, 0.18);
+    border: 1px solid rgba(201, 168, 76, 0.6);
+    border-radius: 4px;
+    color: #e8d9a8;
+    cursor: pointer;
+    font-size: 0.78rem;
+  }
+
+  .ducat-btn:hover {
+    background: rgba(201, 168, 76, 0.32);
+  }
+
   .action-phase {
     display: flex;
     flex-direction: column;

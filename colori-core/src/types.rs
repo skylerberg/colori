@@ -72,6 +72,35 @@ pub const ALL_MATERIAL_TYPES: [MaterialType; 3] = [
     MaterialType::Paintings,
 ];
 
+/// The three things a ducat buys, each the smallest unit of the matching
+/// ability.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum DucatPurchase {
+    #[serde(rename = "workshop")]
+    Workshop,
+    #[serde(rename = "mixColors")]
+    MixColors,
+    #[serde(rename = "sell")]
+    Sell,
+}
+
+pub const ALL_DUCAT_PURCHASES: [DucatPurchase; 3] = [
+    DucatPurchase::Workshop,
+    DucatPurchase::MixColors,
+    DucatPurchase::Sell,
+];
+
+impl DucatPurchase {
+    /// What lands on the ability stack when the ducat is paid.
+    pub fn ability(self) -> Ability {
+        match self {
+            DucatPurchase::Workshop => Ability::Workshop { count: 1 },
+            DucatPurchase::MixColors => Ability::MixColors { count: 1 },
+            DucatPurchase::Sell => Ability::Sell,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum Ability {
@@ -793,6 +822,10 @@ pub enum Choice {
         card: Card,
         target: Option<Card>,
     },
+    /// What a ducat can be exchanged for during your own turn. Deliberately
+    /// not `Ability`, which carries counts a purchase must not be able to set.
+    #[serde(rename = "spendDucat")]
+    SpendDucat { purchase: DucatPurchase },
     #[serde(rename = "takeBuyer")]
     TakeBuyer {
         #[serde(rename = "sellCard")]

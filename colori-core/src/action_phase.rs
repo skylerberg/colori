@@ -1,7 +1,7 @@
-use crate::colors::{can_pay_cost, pay_cost, perform_mix, perform_mix_unchecked};
+use crate::colors::{can_pay_cost, pay_cost, perform_mix, perform_mix_unchecked, VALID_MIX_PAIRS};
 use crate::draw_log_helpers::{is_replaying, record_player_deck_draw, replay_player_deck_draw};
 use crate::types::{
-    Ability, AbilityStack, ActionState, Card, Color, GamePhase, GameState,
+    Ability, AbilityStack, ActionState, Card, Color, DucatPurchase, GamePhase, GameState,
     MaterialType, PlayerState, SellCard,
 };
 use crate::unordered_cards::UnorderedCards;
@@ -314,6 +314,49 @@ pub fn can_sell_to_any_sell_card(state: &GameState) -> bool {
         .any(|b| can_afford_sell_card(player, &b.sell_card))
 }
 
+
+/// Whether the player has any pair of colours two apart on their wheel, which
+/// is what a mix needs.
+#[inline]
+pub fn can_mix_any(player: &PlayerState) -> bool {
+    VALID_MIX_PAIRS
+        .iter()
+        .any(|&(a, b)| player.color_wheel.get(a) > 0 && player.color_wheel.get(b) > 0)
+}
+
+/// Whether spending a ducat on `purchase` would actually do something.
+///
+/// A purchase that cannot act would pop straight off the stack and burn the
+/// ducat, so it is never offered.
+pub fn can_buy_with_ducat(state: &GameState, purchase: DucatPurchase) -> bool {
+    let player = &state.players[get_action_state(state).current_player_index];
+    if player.ducats == 0 {
+        return false;
+    }
+    match purchase {
+        DucatPurchase::Workshop => !player.workshop_cards.is_empty(),
+        DucatPurchase::MixColors => can_mix_any(player),
+        DucatPurchase::Sell => can_sell_to_any_sell_card(state),
+    }
+}
+
+/// Pay a ducat and put what it bought on the ability stack.
+///
+/// Ducats are score, so the cached score has to move with them. The purchase
+/// is pushed rather than fused into the choice: the abilities it buys already
+/// have resolution paths and choice enumerators, and pushing keeps the
+/// top-level menu three choices wider instead of multiplying by what each
+/// ability could then do.
+pub fn resolve_spend_ducat<R: Rng>(state: &mut GameState, purchase: DucatPurchase, rng: &mut R) {
+    let player_index = get_action_state(state).current_player_index;
+    let player = &mut state.players[player_index];
+    assert!(player.ducats >= 1, "Cannot spend a ducat without one");
+    player.ducats -= 1;
+    player.cached_score -= 1;
+
+    get_action_state_mut(state).ability_stack.push(purchase.ability());
+    process_ability_stack(state, rng);
+}
 
 pub fn resolve_workshop_choice<R: Rng>(
     state: &mut GameState,

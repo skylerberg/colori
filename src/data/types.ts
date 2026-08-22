@@ -126,6 +126,8 @@ export interface ActionState {
   abilityStack: Ability[];
 }
 
+export type DucatPurchase = 'workshop' | 'mixColors' | 'sell';
+
 export interface BuyersState {
   currentPlayerIndex: number;
 }
@@ -166,6 +168,7 @@ export type Choice =
   | { type: 'destroyAndSell'; card: Card; sellCard: SellCard }
   | { type: 'destroyAndWorkshop'; card: Card; workshopCards: Card[] }
   | { type: 'destroyAndMoveToDraftPool'; card: Card; target: Card | null }
+  | { type: 'spendDucat'; purchase: DucatPurchase }
   | { type: 'takeBuyer'; sellCard: SellCard }
   | { type: 'drawBuyer' };
 

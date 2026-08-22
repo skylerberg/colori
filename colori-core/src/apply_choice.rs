@@ -222,6 +222,9 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
             }
             resolve_move_to_draft_pool(state, selected, rng);
         }
+        Choice::SpendDucat { purchase } => {
+            resolve_spend_ducat(state, *purchase, rng);
+        }
         Choice::TakeBuyer { sell_card } => {
             let instance_id = find_display_sell_card_instance(state, sell_card);
             take_buyer(state, instance_id, rng);
