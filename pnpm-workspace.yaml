@@ -1,0 +1,26 @@
+# pnpm 11 reads settings from this file only: .npmrc carries auth and registries,
+# and package.json's "pnpm" field is no longer read at all. Keys are camelCase --
+# a kebab-case key is dropped silently, with no warning and exit 0.
+#
+# No `packages:` key, so this file makes the repository root the only member.
+
+# strictDepBuilds is on by default in pnpm 11, so a dependency whose install script
+# has not been ruled on fails the install outright rather than warning. Exact names
+# only -- a glob is not rejected, it just matches nothing. Each `false` below was
+# read before it was denied.
+allowBuilds:
+  esbuild: true # downloads its platform binary
+  '@firebase/util': false # only acts when FIREBASE_WEBAPP_CONFIG is set; unused here
+  protobufjs: false # postinstall only prints a version-scheme warning
+
+# Mirrors `min-release-age=7` in ~/.npmrc and the global pnpm config. npm counts
+# that in DAYS; pnpm counts MINUTES, so seven days is 10080, not 7. Stated here as
+# well as globally because CI never reads the global config -- without this line a
+# workflow would resolve against pnpm's 1440 (one day) default.
+minimumReleaseAge: 10080
+minimumReleaseAgeStrict: true
+
+# Off. Under `CI` pnpm computes a different `enableGlobalVirtualStore` default than
+# the value an install without it recorded, so every CI-flagged child dies before it
+# runs with ERR_PNPM_VERIFY_DEPS_BEFORE_RUN, and `pnpm install` does not clear it.
+verifyDepsBeforeRun: false

@@ -223,7 +223,7 @@ Not just these numbers. Also:
   via `clone_from`; the descent and rollout mutate it in place. Any port that
   reintroduces a clone per iteration will show up in wall-clock long before
   anyone thinks to look for it.
-* **The wasm target.** `npm run bench` must not regress, and
+* **The wasm target.** `pnpm run bench` must not regress, and
   `src/wasm-pkg/colori_wasm_bg.wasm` must not grow much — generic
   monomorphisation bloats wasm, and there is a real latency budget behind it.
 
