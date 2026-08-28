@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Build the six card-background washes from a single watercolor texture.
+"""Build the twelve card-background washes from a single watercolor texture.
 
 One source painting is generated once (Gemini, same model the colori-art
-pipeline uses) and then recolored six times. Every card therefore carries the
-identical texture -- same blooms, same dried wash edges, same paper grain --
-and differs only in hue, which is what makes the color legible as an identifier
-next to the printed components.
+pipeline uses) and then recolored once per wheel color -- three primaries, three
+secondaries, six tertiaries. Every card therefore carries the identical texture
+-- same blooms, same dried wash edges, same paper grain -- and differs only in
+hue, which is what makes the color legible as an identifier next to the printed
+components.
 
 The recolor runs in OKLCh so the transform is perceptual rather than a naive
 RGB tint. Each output is anchored so its dominant value lands exactly on the
@@ -41,7 +42,11 @@ PPI = 300
 WIDTH = round((TRIM_MM[0] + 2 * BLEED_MM) / 25.4 * PPI)   # 591
 HEIGHT = round((TRIM_MM[1] + 2 * BLEED_MM) / 25.4 * PPI)  # 874
 
-CARDS = ['Red', 'Yellow', 'Blue', 'Orange', 'Green', 'Purple']
+# Wheel order rather than primary/secondary/tertiary order, so each row of the
+# contact sheet is half the wheel and neighboring hues sit next to each other.
+CARDS = ['Red', 'Vermilion', 'Orange', 'Amber', 'Yellow', 'Chartreuse',
+         'Green', 'Teal', 'Blue', 'Indigo', 'Purple', 'Magenta']
+SHEET_COLS = 6
 
 # Texture contrast, in OKLab L, measured p5..p95 off the clean wash field of
 # the existing sell card. Split evenly above and below the anchor except where
@@ -80,14 +85,22 @@ PROMPT = (
 EDGE_INSET = 0.07
 
 
+_SIBLINGS = {}
+
+
+def sibling(name):
+    """Import a sibling script by path, once per process."""
+    if name not in _SIBLINGS:
+        spec = importlib.util.spec_from_file_location(name, REPO / 'scripts' / f'{name}.py')
+        mod = importlib.util.module_from_spec(spec)
+        sys.argv = sys.argv[:1]
+        spec.loader.exec_module(mod)
+        _SIBLINGS[name] = mod
+    return _SIBLINGS[name]
+
+
 def load_palette():
-    spec = importlib.util.spec_from_file_location('color_wheel', REPO / 'scripts' / 'color_wheel.py')
-    mod = importlib.util.module_from_spec(spec)
-    sys.argv = sys.argv[:1]
-    spec.loader.exec_module(mod)
-    primary = dict(zip(['Red', 'Yellow', 'Blue'], mod.PRIMARY))
-    secondary = dict(zip(['Orange', 'Green', 'Purple'], mod.PETAL))
-    return primary | secondary
+    return sibling('color_check').load_palette()
 
 
 # ---------------------------------------------------------------- color space
@@ -362,16 +375,11 @@ def recolor(L, C, h, anchor, target_hex, iters=4):
 # ---------------------------------------------------------------- reporting
 
 def ciede2000(lab1, lab2):
-    spec = importlib.util.spec_from_file_location('cc', REPO / 'scripts' / 'color_check.py')
-    cc = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(cc)
-    return cc.ciede2000(lab1, lab2)
+    return sibling('color_check').ciede2000(lab1, lab2)
 
 
 def cielab(hex_str):
-    spec = importlib.util.spec_from_file_location('cc', REPO / 'scripts' / 'color_check.py')
-    cc = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(cc)
+    cc = sibling('color_check')
     return cc.lab(cc.linear_rgb(hex_str))
 
 
@@ -390,9 +398,9 @@ CMYK_PROFILE = '/System/Library/ColorSync/Profiles/Generic CMYK Profile.icc'
 
 
 def soft_proof(tiles, tw, th):
-    """Round-trip the six through CMYK so the gamut loss is visible up front.
+    """Round-trip the twelve through CMYK so the gamut loss is visible up front.
 
-    Blue and purple sit well outside CMYK; they will print duller than the file.
+    Blue, purple and indigo sit well outside CMYK; they print duller than the file.
     That is fine as long as every component ships through the same process --
     they shift together and still match on the table -- but it should not be a
     surprise at the proof stage.
@@ -406,15 +414,20 @@ def soft_proof(tiles, tw, th):
     fwd = ImageCms.buildTransform(srgb_p, cmyk_p, 'RGB', 'CMYK', renderingIntent=0)
     rev = ImageCms.buildTransform(cmyk_p, srgb_p, 'CMYK', 'RGB', renderingIntent=0)
 
-    sheet = Image.new('RGB', (tw * 6 + 7 * 8, th * 2 + 24), 'white')
+    rows = (len(tiles) + SHEET_COLS - 1) // SHEET_COLS
+    sheet = Image.new('RGB', (SHEET_COLS * (tw + 8) + 8,
+                              rows * (2 * th + 16) + 8), 'white')
     for i, (_, img) in enumerate(tiles):
         small = img.resize((tw, th), Image.LANCZOS)
         proof = ImageCms.applyTransform(ImageCms.applyTransform(small, fwd), rev)
-        sheet.paste(small, (8 + i * (tw + 8), 8))
-        sheet.paste(proof, (8 + i * (tw + 8), th + 16))
+        x = 8 + (i % SHEET_COLS) * (tw + 8)
+        y = 8 + (i // SHEET_COLS) * (2 * th + 16)
+        sheet.paste(small, (x, y))
+        sheet.paste(proof, (x, y + th + 8))
     path = OUT_DIR / '_cmyk-soft-proof.png'
     sheet.save(path)
-    print(f'soft proof:    {path.relative_to(REPO)}  (top row sRGB, bottom row through CMYK)')
+    print(f'soft proof:    {path.relative_to(REPO)}  '
+          '(each card sRGB above, the same through CMYK below)')
 
 
 def main():
@@ -475,7 +488,7 @@ def main():
           f'   ({lch_to_hex(*anchor)})')
     print(f'source contrast p5..p95: {np.percentile(L, 95) - np.percentile(L, 5):.3f} OKLab L\n')
 
-    print(f"{'card':<8} {'official':<9} {'plateau':<9} {'dE':>5}   {'mean':<9} {'dE':>5}   file")
+    print(f"{'card':<11} {'official':<9} {'plateau':<9} {'dE':>5}   {'mean':<9} {'dE':>5}   file")
     tiles = []
     for name in CARDS:
         target = palette[name]
@@ -490,15 +503,17 @@ def main():
         mn = mean_hex(back)
         d_plat = ciede2000(cielab(plateau), cielab(target))
         d_mean = ciede2000(cielab(mn), cielab(target))
-        print(f'{name:<8} {target:<9} {plateau:<9} {d_plat:5.2f}   {mn:<9} {d_mean:5.2f}   '
+        print(f'{name:<11} {target:<9} {plateau:<9} {d_plat:5.2f}   {mn:<9} {d_mean:5.2f}   '
               f'{path.relative_to(REPO)}')
         tiles.append((name, img))
 
-    # contact sheet for eyeballing the six side by side
+    # contact sheet for eyeballing them side by side
     tw, th = WIDTH // 3, HEIGHT // 3
-    sheet = Image.new('RGB', (tw * 6 + 7 * 8, th + 16), 'white')
+    rows = (len(tiles) + SHEET_COLS - 1) // SHEET_COLS
+    sheet = Image.new('RGB', (SHEET_COLS * (tw + 8) + 8, rows * (th + 8) + 8), 'white')
     for i, (_, img) in enumerate(tiles):
-        sheet.paste(img.resize((tw, th), Image.LANCZOS), (8 + i * (tw + 8), 8))
+        sheet.paste(img.resize((tw, th), Image.LANCZOS),
+                    (8 + (i % SHEET_COLS) * (tw + 8), 8 + (i // SHEET_COLS) * (th + 8)))
     sheet.save(OUT_DIR / '_contact-sheet.png')
     print(f'\ncontact sheet: {(OUT_DIR / "_contact-sheet.png").relative_to(REPO)}')
     soft_proof(tiles, tw, th)
