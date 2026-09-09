@@ -14,7 +14,7 @@ an artistic profile with massifs named for the peaks that dominate that view --
 not a surveyed elevation.
 
     python3 scripts/mountain_backgrounds.py --preview   # skyline only, no color
-    python3 scripts/mountain_backgrounds.py             # all 42 cards
+    python3 scripts/mountain_backgrounds.py             # all 72 cards
 """
 
 import argparse
@@ -145,28 +145,49 @@ def ridge_masks(width, height, bleed_px, trim_w, trim_h, seed=11,
 
 
 def pairs():
-    out = [(bg, mt) for bg in TERTIARY for mt in PRIMARY + SECONDARY]
-    # Primary-on-primary in both directions, since which reads as sky and which
-    # as range is a composition call rather than something the color pair fixes.
+    # Grouped by sky color, so each row of the contact sheet is one sky.
+    out = [(bg, mt) for bg in TERTIARY
+           for mt in PRIMARY + SECONDARY + [t for t in TERTIARY if t != bg]]
+    # Tertiary-on-tertiary and primary-on-primary run in both directions, since
+    # which color reads as sky and which as range is a composition call rather
+    # than something the color pair fixes.
     out += [(a, b) for a in PRIMARY for b in PRIMARY if a != b]
     return out
 
 
-def render_pair(cb, L, C, h, anchor, spread, palette, bg, mt, masks):
-    sky_cov, mtn_cov = masks
-    out = np.zeros(L.shape + (3,))
-    report = []
-    for name, cov in ((bg, sky_cov), (mt, mtn_cov)):
+def region_tint(cb, tex, palette, name, role, cov, cache):
+    """Recolor the texture under one coverage mask, and score the flat area.
+
+    Every card shares one skyline, so a color's sky pixels are identical on all
+    of its cards and so are its range pixels. Twenty-odd recolors therefore
+    cover the whole set, instead of two per card.
+    """
+    key = (name, role)
+    if key not in cache:
+        L, C, h, anchor, spread = tex
         sel = cov > 0
         aim = cb.solve_aim(L, C, h, anchor, palette[name], spread=spread)
         tinted = cb.render(L[sel], C[sel], h[sel], anchor, aim, spread)
-        out[sel] += tinted * cov[sel][:, None]
 
+        dE = None
         solid = cov[sel] > 0.99
         if solid.sum() > 50:
             sL, sC, sh = cb.to_lch(cb.linear_to_oklab(cb.srgb_to_linear(tinted[solid])))
             plateau = cb.lch_to_hex(*cb.source_anchor(sL, sC, sh))
-            report.append(cb.ciede2000(cb.cielab(plateau), cb.cielab(palette[name])))
+            dE = cb.ciede2000(cb.cielab(plateau), cb.cielab(palette[name]))
+        cache[key] = (tinted, dE)
+    return cache[key]
+
+
+def render_pair(cb, tex, palette, bg, mt, masks, cache):
+    out = np.zeros(tex[0].shape + (3,))
+    report = []
+    for name, role, cov in ((bg, 'sky', masks[0]), (mt, 'range', masks[1])):
+        tinted, dE = region_tint(cb, tex, palette, name, role, cov, cache)
+        sel = cov > 0
+        out[sel] += tinted * cov[sel][:, None]
+        if dE is not None:
+            report.append(dE)
     return np.clip(out, 0, 1), report
 
 
@@ -218,28 +239,33 @@ def main():
     spread = cb.spread_of(L, anchor)
 
     todo = [tuple(args.only)] if args.only else pairs()
-    worst, tiles = 0.0, []
+    tex, cache = (L, C, h, anchor, spread), {}
+    worst, rows = 0.0, []
     for bg, mt in todo:
         for n in (bg, mt):
             if n not in palette:
                 sys.exit(f'unknown color {n!r}')
-        rgb, report = render_pair(cb, L, C, h, anchor, spread, palette, bg, mt, masks)
+        rgb, report = render_pair(cb, tex, palette, bg, mt, masks, cache)
         path = OUT_DIR / f'bg-{bg.lower()}_mtn-{mt.lower()}{args.suffix}.png'
         img = Image.fromarray((rgb * 255 + 0.5).astype(np.uint8))
         img.save(path, dpi=(cb.PPI, cb.PPI))
-        tiles.append(img)
+        if not rows or rows[-1][0] != bg:
+            rows.append((bg, []))
+        rows[-1][1].append(img)
         worst = max(worst, max(report) if report else 0)
         print(f'{bg:<11} sky / {mt:<9} range   worst dE {max(report):4.2f}   '
               f'{path.name}')
 
     if len(todo) > 1:
-        cols = 7
+        # One row per sky color: the set is large enough that a flat grid gives
+        # no way to compare the ranges a single sky has to carry.
         tw, th = W // 5, H // 5
-        rows = (len(tiles) + cols - 1) // cols
-        sheet = Image.new('RGB', (cols * (tw + 6) + 6, rows * (th + 6) + 6), 'white')
-        for i, t in enumerate(tiles):
-            sheet.paste(t.resize((tw, th), Image.LANCZOS),
-                        (6 + (i % cols) * (tw + 6), 6 + (i // cols) * (th + 6)))
+        cols = max(len(imgs) for _, imgs in rows)
+        sheet = Image.new('RGB', (cols * (tw + 6) + 6, len(rows) * (th + 6) + 6), 'white')
+        for r, (_, imgs) in enumerate(rows):
+            for c, t in enumerate(imgs):
+                sheet.paste(t.resize((tw, th), Image.LANCZOS),
+                            (6 + c * (tw + 6), 6 + r * (th + 6)))
         sheet.save(OUT_DIR / '_contact-sheet.png')
         print(f'contact sheet: {(OUT_DIR / "_contact-sheet.png").relative_to(REPO)}')
 
