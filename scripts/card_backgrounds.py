@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Build the twelve card-background washes from a single watercolor texture.
+"""Build the fourteen card-background washes from a single watercolor texture.
 
 One source painting is generated once (Gemini, same model the colori-art
-pipeline uses) and then recolored once per wheel color -- three primaries, three
-secondaries, six tertiaries. Every card therefore carries the identical texture
--- same blooms, same dried wash edges, same paper grain -- and differs only in
-hue, which is what makes the color legible as an identifier next to the printed
-components.
+pipeline uses) and then recolored once per color -- three primaries, three
+secondaries, six tertiaries, black and white. Every card therefore carries the
+identical texture -- same blooms, same dried wash edges, same paper grain -- and
+differs only in color, which is what makes the color legible as an identifier
+next to the printed components.
 
 The recolor runs in OKLCh so the transform is perceptual rather than a naive
 RGB tint. Each output is anchored so its dominant value lands exactly on the
@@ -40,17 +40,26 @@ TRIM_MM = (44, 67)
 BLEED_MM = 3
 PPI = 300
 WIDTH = round((TRIM_MM[0] + 2 * BLEED_MM) / 25.4 * PPI)   # 591
-HEIGHT = round((TRIM_MM[1] + 2 * BLEED_MM) / 25.4 * PPI)  # 874
+HEIGHT = round((TRIM_MM[1] + 2 * BLEED_MM) / 25.4 * PPI)  # 862
+
+# Black and white are off the wheel, so they are defined here rather than in
+# color_wheel.py. Neither can sit at the gamut extreme: the texture needs room on
+# both sides of the plateau, and #000000 recolors to a flat void while #FFFFFF
+# clips most of the card to bare paper. The faint tints follow the historical
+# pigments -- bone black runs cool, lead white warm.
+NEUTRALS = {'Black': '#1A1A1E', 'White': '#F4F2EA'}
 
 # Wheel order rather than primary/secondary/tertiary order, so each row of the
 # contact sheet is half the wheel and neighboring hues sit next to each other.
+# The neutrals trail on a row of their own.
 CARDS = ['Red', 'Vermilion', 'Orange', 'Amber', 'Yellow', 'Chartreuse',
-         'Green', 'Teal', 'Blue', 'Indigo', 'Purple', 'Magenta']
+         'Green', 'Teal', 'Blue', 'Indigo', 'Purple', 'Magenta', *NEUTRALS]
 SHEET_COLS = 6
+SHEET_BG = 'gray'  # mid-gray, so neither the white nor the black card loses its edge
 
 # Texture contrast, in OKLab L, measured p5..p95 off the clean wash field of
 # the existing sell card. Split evenly above and below the anchor except where
-# a light target (yellow) has no headroom, in which case the swing shifts down.
+# a light target (yellow, white) has no headroom, in which case the swing shifts down.
 SWING = 0.12
 HUE_DAMP = 0.5       # how much of the source's hue drift to carry over
 CHROMA_FLOOR = 0.35  # thinnest wash keeps this fraction of the target's chroma
@@ -100,7 +109,7 @@ def sibling(name):
 
 
 def load_palette():
-    return sibling('color_check').load_palette()
+    return sibling('color_check').load_palette() | NEUTRALS
 
 
 # ---------------------------------------------------------------- color space
@@ -398,7 +407,7 @@ CMYK_PROFILE = '/System/Library/ColorSync/Profiles/Generic CMYK Profile.icc'
 
 
 def soft_proof(tiles, tw, th):
-    """Round-trip the twelve through CMYK so the gamut loss is visible up front.
+    """Round-trip the cards through CMYK so the gamut loss is visible up front.
 
     Blue, purple and indigo sit well outside CMYK; they print duller than the file.
     That is fine as long as every component ships through the same process --
@@ -416,7 +425,7 @@ def soft_proof(tiles, tw, th):
 
     rows = (len(tiles) + SHEET_COLS - 1) // SHEET_COLS
     sheet = Image.new('RGB', (SHEET_COLS * (tw + 8) + 8,
-                              rows * (2 * th + 16) + 8), 'white')
+                              rows * (2 * th + 16) + 8), SHEET_BG)
     for i, (_, img) in enumerate(tiles):
         small = img.resize((tw, th), Image.LANCZOS)
         proof = ImageCms.applyTransform(ImageCms.applyTransform(small, fwd), rev)
@@ -510,7 +519,7 @@ def main():
     # contact sheet for eyeballing them side by side
     tw, th = WIDTH // 3, HEIGHT // 3
     rows = (len(tiles) + SHEET_COLS - 1) // SHEET_COLS
-    sheet = Image.new('RGB', (SHEET_COLS * (tw + 8) + 8, rows * (th + 8) + 8), 'white')
+    sheet = Image.new('RGB', (SHEET_COLS * (tw + 8) + 8, rows * (th + 8) + 8), SHEET_BG)
     for i, (_, img) in enumerate(tiles):
         sheet.paste(img.resize((tw, th), Image.LANCZOS),
                     (8 + (i % SHEET_COLS) * (tw + 8), 8 + (i // SHEET_COLS) * (th + 8)))

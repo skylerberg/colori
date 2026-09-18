@@ -14,12 +14,13 @@ an artistic profile with massifs named for the peaks that dominate that view --
 not a surveyed elevation.
 
     python3 scripts/mountain_backgrounds.py --preview   # skyline only, no color
-    python3 scripts/mountain_backgrounds.py             # all 72 cards
+    python3 scripts/mountain_backgrounds.py             # all 96 cards
 """
 
 import argparse
 import importlib.util
 import sys
+from itertools import permutations
 from pathlib import Path
 
 import numpy as np
@@ -145,14 +146,16 @@ def ridge_masks(width, height, bleed_px, trim_w, trim_h, seed=11,
 
 
 def pairs():
+    out = [(bg, mt) for bg in TERTIARY for mt in PRIMARY + SECONDARY]
+    # Every other pairing runs in both directions, since which color reads as sky
+    # and which as range is a composition call rather than something the color
+    # pair fixes.
+    out += [p for group in (TERTIARY, PRIMARY) for p in permutations(group, 2)]
+    for neutral, partners in (('Black', SECONDARY + TERTIARY), ('White', PRIMARY)):
+        out += [(neutral, c) for c in partners] + [(c, neutral) for c in partners]
     # Grouped by sky color, so each row of the contact sheet is one sky.
-    out = [(bg, mt) for bg in TERTIARY
-           for mt in PRIMARY + SECONDARY + [t for t in TERTIARY if t != bg]]
-    # Tertiary-on-tertiary and primary-on-primary run in both directions, since
-    # which color reads as sky and which as range is a composition call rather
-    # than something the color pair fixes.
-    out += [(a, b) for a in PRIMARY for b in PRIMARY if a != b]
-    return out
+    skies = TERTIARY + PRIMARY + SECONDARY + ['Black', 'White']
+    return sorted(out, key=lambda p: skies.index(p[0]))
 
 
 def region_tint(cb, tex, palette, name, role, cov, cache):
@@ -231,7 +234,7 @@ def main():
 
     if not SOURCE.exists():
         sys.exit(f'no source texture at {SOURCE.relative_to(REPO)}')
-    palette = load('color_check').load_palette()
+    palette = cb.load_palette()
     src = np.asarray(cb.cover_resize(Image.open(SOURCE).convert('RGB'), W, H))
     src = src.astype(np.float64) / 255
     L, C, h = cb.to_lch(cb.linear_to_oklab(cb.srgb_to_linear(src)))
@@ -253,7 +256,7 @@ def main():
             rows.append((bg, []))
         rows[-1][1].append(img)
         worst = max(worst, max(report) if report else 0)
-        print(f'{bg:<11} sky / {mt:<9} range   worst dE {max(report):4.2f}   '
+        print(f'{bg:<10} sky / {mt:<10} range   worst dE {max(report):4.2f}   '
               f'{path.name}')
 
     if len(todo) > 1:
@@ -261,7 +264,8 @@ def main():
         # no way to compare the ranges a single sky has to carry.
         tw, th = W // 5, H // 5
         cols = max(len(imgs) for _, imgs in rows)
-        sheet = Image.new('RGB', (cols * (tw + 6) + 6, len(rows) * (th + 6) + 6), 'white')
+        sheet = Image.new('RGB', (cols * (tw + 6) + 6, len(rows) * (th + 6) + 6),
+                          cb.SHEET_BG)
         for r, (_, imgs) in enumerate(rows):
             for c, t in enumerate(imgs):
                 sheet.paste(t.resize((tw, th), Image.LANCZOS),
