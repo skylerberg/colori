@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Build the fourteen card-background washes from a single watercolor texture.
+"""Build the fifteen card-background washes from a single watercolor texture.
 
 One source painting is generated once (Gemini, same model the colori-art
 pipeline uses) and then recolored once per color -- three primaries, three
-secondaries, six tertiaries, black and white. Every card therefore carries the
-identical texture -- same blooms, same dried wash edges, same paper grain -- and
-differs only in color, which is what makes the color legible as an identifier
-next to the printed components.
+secondaries, six tertiaries, black, white and brown. Every card therefore
+carries the identical texture -- same blooms, same dried wash edges, same paper
+grain -- and differs only in color, which is what makes the color legible as an
+identifier next to the printed components.
 
 The recolor runs in OKLCh so the transform is perceptual rather than a naive
 RGB tint. Each output is anchored so its dominant value lands exactly on the
@@ -42,12 +42,13 @@ PPI = 300
 WIDTH = round((TRIM_MM[0] + 2 * BLEED_MM) / 25.4 * PPI)   # 591
 HEIGHT = round((TRIM_MM[1] + 2 * BLEED_MM) / 25.4 * PPI)  # 862
 
-# Black and white are off the wheel, so they are defined here rather than in
-# color_wheel.py. Neither can sit at the gamut extreme: the texture needs room on
-# both sides of the plateau, and #000000 recolors to a flat void while #FFFFFF
-# clips most of the card to bare paper. The faint tints follow the historical
-# pigments -- bone black runs cool, lead white warm.
-NEUTRALS = {'Black': '#1A1A1E', 'White': '#F4F2EA'}
+# Black, white and brown are off the wheel, so they are defined here rather than
+# in color_wheel.py. None sits at a gamut extreme: the texture needs room on both
+# sides of the plateau, and #000000 recolors to a flat void while #FFFFFF clips
+# most of the card to bare paper. The tints follow the pigments -- bone black
+# runs cool, lead white warm, and brown is a coffee brown dark enough to stay
+# clear of the Red, Vermilion and Orange slots on the wheel.
+NEUTRALS = {'Black': '#1A1A1E', 'White': '#F4F2EA', 'Brown': '#6F4E37'}
 
 # Wheel order rather than primary/secondary/tertiary order, so each row of the
 # contact sheet is half the wheel and neighboring hues sit next to each other.

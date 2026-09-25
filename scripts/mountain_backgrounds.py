@@ -14,7 +14,7 @@ an artistic profile with massifs named for the peaks that dominate that view --
 not a surveyed elevation.
 
     python3 scripts/mountain_backgrounds.py --preview   # skyline only, no color
-    python3 scripts/mountain_backgrounds.py             # all 140 cards
+    python3 scripts/mountain_backgrounds.py             # all 168 cards
 """
 
 import argparse
@@ -34,6 +34,9 @@ OUT_DIR = REPO / 'card-backgrounds' / 'mountain'
 TERTIARY = ['Vermilion', 'Amber', 'Chartreuse', 'Teal', 'Indigo', 'Magenta']
 PRIMARY = ['Red', 'Yellow', 'Blue']
 SECONDARY = ['Orange', 'Green', 'Purple']
+WHEEL = PRIMARY + SECONDARY + TERTIARY
+# Off-wheel colors, kept in step with card_backgrounds.NEUTRALS.
+NEUTRALS = ['Black', 'White', 'Brown']
 
 # Skyline geometry in fractions of the *trim* height, so the ridge lands at the
 # same place on the cut card regardless of how much bleed is around it. Matched
@@ -151,24 +154,18 @@ def pairs():
     # and which as range is a composition call rather than something the color
     # pair fixes.
     out += [p for group in (TERTIARY, PRIMARY) for p in permutations(group, 2)]
-    # The two wheel families also cross in both directions, with white counted
-    # as a primary for the crossing: every secondary as a sky over every
-    # primary, and the reverse. White has no secondary pair of its own, so this
-    # is what carries it against the secondaries.
-    bright = PRIMARY + ['White']
-    out += [(p, s) for p in bright for s in SECONDARY]
-    out += [(s, p) for s in SECONDARY for p in bright]
-    # Each neutral carries the colors it is meant to sit against -- black over
-    # every primary, secondary and tertiary, white over every primary and
-    # tertiary -- in both directions.
-    for neutral, partners in (('Black', PRIMARY + SECONDARY + TERTIARY),
-                              ('White', PRIMARY + TERTIARY)):
-        out += [(neutral, c) for c in partners] + [(c, neutral) for c in partners]
-    # The two neutrals sit against each other as well, so each carries all
-    # twelve wheel colors and its opposite.
-    out += [('Black', 'White'), ('White', 'Black')]
+    # The two wheel families also cross in both directions.
+    out += [(p, s) for p in PRIMARY for s in SECONDARY]
+    out += [(s, p) for s in SECONDARY for p in PRIMARY]
+    # Each neutral carries every wheel color -- black, white and brown alike --
+    # and the neutrals carry each other, in both directions. White sits against
+    # the secondaries here, which is what its earlier role in the family
+    # crossing used to cover.
+    for neutral in NEUTRALS:
+        out += [(neutral, c) for c in WHEEL] + [(c, neutral) for c in WHEEL]
+    out += list(permutations(NEUTRALS, 2))
     # Grouped by sky color, so each row of the contact sheet is one sky.
-    skies = TERTIARY + PRIMARY + SECONDARY + ['Black', 'White']
+    skies = TERTIARY + PRIMARY + SECONDARY + NEUTRALS
     return sorted(out, key=lambda p: skies.index(p[0]))
 
 
