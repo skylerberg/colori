@@ -14,7 +14,7 @@ an artistic profile with massifs named for the peaks that dominate that view --
 not a surveyed elevation.
 
     python3 scripts/mountain_backgrounds.py --preview   # skyline only, no color
-    python3 scripts/mountain_backgrounds.py             # all 168 cards
+    python3 scripts/mountain_backgrounds.py             # all 174 cards
 """
 
 import argparse
@@ -153,7 +153,8 @@ def pairs():
     # Every other pairing runs in both directions, since which color reads as sky
     # and which as range is a composition call rather than something the color
     # pair fixes.
-    out += [p for group in (TERTIARY, PRIMARY) for p in permutations(group, 2)]
+    out += [p for group in (TERTIARY, PRIMARY, SECONDARY)
+            for p in permutations(group, 2)]
     # The two wheel families also cross in both directions.
     out += [(p, s) for p in PRIMARY for s in SECONDARY]
     out += [(s, p) for s in SECONDARY for p in PRIMARY]
