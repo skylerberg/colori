@@ -88,6 +88,8 @@ export class GameLogAccumulator {
       deckSize: p.deck.reduce((n, segment) => n + segment.length, 0) + p.workshopCards.length + p.draftedCards.length + p.workshoppedCards.length,
       completedSellCards: p.completedSellCards,
       ducats: p.ducats,
+      silver: p.silver,
+      boats: p.boats,
       colorWheel: { ...p.colorWheel },
       materials: { ...p.materials },
     }));

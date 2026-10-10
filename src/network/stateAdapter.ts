@@ -14,6 +14,8 @@ export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
     materials: sp.materials,
     completedSellCards: sp.completedSellCards,
     ducats: sp.ducats,
+    silver: sp.silver,
+    boats: sp.boats,
   }));
 
   let phase: GamePhase;

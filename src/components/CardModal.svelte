@@ -37,7 +37,7 @@
       {:else}
         <div class="card-grid">
           {#each sortedCards as cardInstance (cardInstance.instanceId)}
-            <CardDisplay card={cardInstance.card} />
+            <CardDisplay card={cardInstance.card} instanceId={cardInstance.instanceId} />
           {/each}
         </div>
       {/if}

@@ -22,7 +22,7 @@ use crate::ismcts::MctsConfig;
 use crate::ismcts::{advance_past_opponent_draft_picks, OpponentDraftStats};
 use crate::rollout::{apply_heuristic_rollout_step, apply_rollout_step};
 use crate::scoring::{
-    calculate_score, compute_heuristic_rewards, compute_terminal_rewards, heuristic_score,
+    calculate_ducat_score, compute_heuristic_rewards, compute_terminal_rewards, heuristic_score,
     CardHeuristicTable, HeuristicParams,
 };
 use crate::types::{Card, Choice, GamePhase, GameState, MAX_PLAYERS};
@@ -38,8 +38,8 @@ pub struct SearchContext {
     pub heuristic_params: HeuristicParams,
     pub card_table: CardHeuristicTable,
     /// Scores at the root, restored after every determinization because
-    /// `cached_score` is a denormalised field the search must not let drift.
-    pub cached_scores: [u32; MAX_PLAYERS],
+    /// `cached_ducat_score` is a denormalised field the search must not let drift.
+    pub cached_ducat_scores: [u32; MAX_PLAYERS],
     /// Rollouts past this round stop and are evaluated instead of played out.
     pub max_rollout_round: Option<u32>,
     /// Whether that evaluation is heuristic or the real terminal scoring.
@@ -82,15 +82,15 @@ impl SearchContext {
             (max_rollout_round, false)
         };
 
-        let mut cached_scores = [0u32; MAX_PLAYERS];
+        let mut cached_ducat_scores = [0u32; MAX_PLAYERS];
         for (i, player) in state.players.iter().enumerate() {
-            cached_scores[i] = calculate_score(player);
+            cached_ducat_scores[i] = calculate_ducat_score(player);
         }
 
         Self {
             heuristic_params: params.clone(),
             card_table: CardHeuristicTable::new(params),
-            cached_scores,
+            cached_ducat_scores,
             max_rollout_round: effective_max_rollout_round,
             use_heuristic,
             heuristic_rollout,
@@ -215,7 +215,7 @@ impl Game for GameState {
             dest,
             self,
             perspective as usize,
-            &ctx.cached_scores,
+            &ctx.cached_ducat_scores,
             &mut rng,
         );
         // A search-policy flag that prunes legal moves, so it has to survive

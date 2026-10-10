@@ -40,7 +40,7 @@ pub fn collect_round_income(state: &mut GameState) {
     }
     for player in state.players.iter_mut() {
         player.ducats += income;
-        player.cached_score += income;
+        player.cached_ducat_score += income;
     }
 }
 

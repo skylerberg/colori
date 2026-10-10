@@ -16,6 +16,8 @@ export interface SanitizedPlayerState {
   materials: Record<MaterialType, number>;
   completedSellCards: SellCardInstance[];
   ducats: number;
+  silver: number;
+  boats: number;
 }
 
 export interface SanitizedDraftState {

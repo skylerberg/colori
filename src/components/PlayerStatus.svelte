@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { PlayerState } from '../data/types';
-  import { getSellCardData } from '../data/cards';
+  import { playerScore } from '../gameUtils';
 
   let { player, playerName, active = false, selected = false, isAI = false, thinking = false, onclick }: {
     player: PlayerState;
@@ -12,7 +12,7 @@
     onclick?: () => void;
   } = $props();
 
-  let score = $derived(player.completedSellCards.reduce((sum, sellCard) => sum + getSellCardData(sellCard.card).ducats, 0) + player.ducats);
+  let score = $derived(playerScore(player));
   let sellCardCount = $derived(player.completedSellCards.length);
   let totalMaterials = $derived(Object.values(player.materials).reduce((sum, n) => sum + n, 0));
   let ducats = $derived(player.ducats);
@@ -25,10 +25,12 @@
     {playerName}{#if isAI} <span class="ai-badge">AI</span>{/if}{#if thinking}<span class="thinking-spinner"></span>{/if}
   </div>
   <div class="stats">
-    <span class="stat" title="Ducats">{'*'} {score}</span>
+    <span class="stat" title="Score">{'*'} {score}</span>
     <span class="stat" title="Completed sell cards">Sell Cards: {sellCardCount}</span>
     <span class="stat" title="Stored materials">Materials: {totalMaterials}</span>
     {#if ducats > 0}<span class="stat" title="Ducats">Ducats: {ducats}</span>{/if}
+    {#if player.silver > 0}<span class="stat" title="Silver: a wild primary, worth half a point">Silver: {player.silver}</span>{/if}
+    {#if player.boats > 0}<span class="stat" title="Boats: a wild material, worth half a point">Boats: {player.boats}</span>{/if}
     <span class="stat" title="Deck size">Deck: {deckSize}</span>
   </div>
 </button>

@@ -61,14 +61,14 @@ pub fn determinize_in_place<R: Rng>(
     det: &mut GameState,
     source: &GameState,
     perspective_player: usize,
-    cached_scores: &[u32; MAX_PLAYERS],
+    cached_ducat_scores: &[u32; MAX_PLAYERS],
     rng: &mut R,
 ) {
     det.clone_from(source);
 
     // Initialize cached scores from pre-computed values
     for (i, p) in det.players.iter_mut().enumerate() {
-        p.cached_score = cached_scores[i];
+        p.cached_ducat_score = cached_ducat_scores[i];
     }
 
     if let GamePhase::Draft { ref mut draft_state } = det.phase {

@@ -2,7 +2,7 @@ use crate::colori_game::apply_choice_to_state;
 use crate::draft_phase::{simultaneous_pick, advance_draft};
 use crate::draw_phase::execute_draw_phase;
 use crate::game_log::{DrawEvent, DrawLog, StructuredLogEntry};
-use crate::scoring::calculate_score;
+use crate::scoring::calculate_ducat_score;
 use crate::types::{Choice, GamePhase, GameState};
 use std::collections::VecDeque;
 use wyrand::WyRand;
@@ -18,7 +18,7 @@ pub fn reconstruct_initial_state(initial_state_json: &serde_json::Value) -> Game
     state.sell_card_lookup = crate::unordered_cards::get_sell_card_registry();
 
     for player in state.players.iter_mut() {
-        player.cached_score = calculate_score(player);
+        player.cached_ducat_score = calculate_ducat_score(player);
     }
 
     state

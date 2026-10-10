@@ -1,6 +1,4 @@
-use colori_core::cards::{
-    action_cards, draft_dye_cards, draft_material_cards, ACTION_COPIES, DYE_COPIES, MATERIAL_COPIES,
-};
+use colori_core::cards::draft_deck_cards;
 use colori_core::types::{Ability, SellCard, Card};
 
 /// Get human-readable display name for a card.
@@ -25,37 +23,12 @@ pub fn sell_card_display_name(sell_card: SellCard) -> String {
     )
 }
 
-/// Get the number of copies of a card in the draft deck.
-#[allow(dead_code)]
-pub fn get_draft_copies(card: Card) -> u32 {
-    use colori_core::types::CardKind;
-    match card.kind() {
-        CardKind::Dye => DYE_COPIES as u32,
-        CardKind::Action => ACTION_COPIES as u32,
-        CardKind::Material => MATERIAL_COPIES as u32,
-        CardKind::BasicDye => 0, // Not in draft
-    }
-}
-
 /// Get draft copies by card name string (used in normalization).
 /// For cards not in the draft deck, returns 1 as default.
 pub fn get_draft_copies_by_name(name: &str) -> u32 {
-    for card in draft_dye_cards() {
-        if card.name() == name {
-            return DYE_COPIES as u32;
-        }
-    }
-    for card in draft_material_cards() {
-        if card.name() == name {
-            return MATERIAL_COPIES as u32;
-        }
-    }
-    for card in action_cards() {
-        if card.name() == name {
-            return ACTION_COPIES as u32;
-        }
-    }
-    1 // default
+    draft_deck_cards()
+        .find(|(card, _)| card.name() == name)
+        .map_or(1, |(_, copies)| copies as u32)
 }
 
 /// Format an ability as human-readable text.
@@ -71,5 +44,12 @@ pub fn format_ability(ability: &Ability) -> String {
         Ability::GainSecondary => "Gain Secondary".to_string(),
         Ability::GainPrimary => "Gain Primary".to_string(),
         Ability::GainMaterial => "Any Material".to_string(),
+        Ability::GainSilver { count } => format!("Gain {} Silver", count),
+        Ability::GainBoats { count } => format!("Gain {} Boat(s)", count),
     }
+}
+
+/// A card's destroy abilities in the order they resolve.
+pub fn format_abilities(abilities: &[Ability]) -> String {
+    abilities.iter().map(format_ability).collect::<Vec<_>>().join(", then ")
 }

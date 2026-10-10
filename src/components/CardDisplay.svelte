@@ -4,8 +4,10 @@
   import { getCardArtUrl, getSellCardArtUrl } from '../data/cardArt';
   import { cardPreviewState } from '../stores/cardPreviewState.svelte';
 
-  let { card, selected = false, rotated = false, onclick }: {
+  let { card, instanceId, selected = false, rotated = false, onclick }: {
     card: string;
+    // Picks the character portrait on a starter card.
+    instanceId?: number;
     selected?: boolean;
     rotated?: boolean;
     onclick?: () => void;
@@ -18,7 +20,7 @@
     data
       ? data.kind === 'sellCard'
         ? getSellCardArtUrl(card as SellCard)
-        : getCardArtUrl(card as Card)
+        : getCardArtUrl(card as Card, instanceId)
       : ''
   );
 
@@ -62,6 +64,7 @@
 {#if data}
 <button
   class="card"
+  class:bridge={data.kind !== 'sellCard'}
   class:selected
   class:clickable={!!onclick && !rotated}
   class:rotated
@@ -80,8 +83,10 @@
 
 <style>
   .card {
-    width: var(--card-width, 90px);
-    height: var(--card-height, 126px);
+    --width: var(--card-width, 90px);
+    --height: var(--card-height, 126px);
+    width: var(--width);
+    height: var(--height);
     border: none;
     border-radius: 4px;
     padding: 0;
@@ -124,9 +129,14 @@
     cursor: default;
   }
 
+  /* Deck cards are bridge size, narrower than the 5:7 the sell card art uses. */
+  .card.bridge {
+    --width: calc(var(--height) * 57 / 87);
+  }
+
   .card.rotated {
     transform: rotate(90deg);
-    margin: calc((var(--card-width, 90px) - var(--card-height, 126px)) / 2) calc((var(--card-height, 126px) - var(--card-width, 90px)) / 2);
+    margin: calc((var(--width) - var(--height)) / 2) calc((var(--height) - var(--width)) / 2);
     opacity: 0.7;
   }
 

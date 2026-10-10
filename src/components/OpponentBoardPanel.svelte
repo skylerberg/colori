@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { PlayerState } from '../data/types';
-  import { getSellCardData } from '../data/cards';
+  import { playerScore } from '../gameUtils';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
   import CardList from './CardList.svelte';
 
@@ -11,7 +11,7 @@
 
   let expanded = $state(false);
 
-  let score = $derived(player.completedSellCards.reduce((sum, sellCard) => sum + getSellCardData(sellCard.card).ducats, 0) + player.ducats);
+  let score = $derived(playerScore(player));
   let sellCardCount = $derived(player.completedSellCards.length);
   let totalMaterials = $derived(Object.values(player.materials).reduce((sum, n) => sum + n, 0));
 
@@ -28,6 +28,8 @@
       <span>Sell Cards: {sellCardCount}</span>
       <span>Materials: {totalMaterials}</span>
       {#if player.ducats > 0}<span>Ducats: {player.ducats}</span>{/if}
+      {#if player.silver > 0}<span>Silver: {player.silver}</span>{/if}
+      {#if player.boats > 0}<span>Boats: {player.boats}</span>{/if}
     </span>
     <span class="chevron" class:open={expanded}></span>
   </button>
@@ -49,6 +51,12 @@
           </div>
           {#if player.ducats > 0}
             <div class="ducats-count">Ducats: {player.ducats}</div>
+          {/if}
+          {#if player.silver > 0}
+            <div class="ducats-count">Silver: {player.silver}</div>
+          {/if}
+          {#if player.boats > 0}
+            <div class="ducats-count">Boats: {player.boats}</div>
           {/if}
         </div>
       </div>

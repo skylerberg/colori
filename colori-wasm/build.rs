@@ -14,7 +14,14 @@ fn format_ability(ability: &Ability) -> String {
         Ability::GainSecondary => "{ type: 'gainSecondary' }".to_string(),
         Ability::GainPrimary => "{ type: 'gainPrimary' }".to_string(),
         Ability::GainMaterial => "{ type: 'gainMaterial' }".to_string(),
+        Ability::GainSilver { count } => format!("{{ type: 'gainSilver', count: {} }}", count),
+        Ability::GainBoats { count } => format!("{{ type: 'gainBoats', count: {} }}", count),
     }
+}
+
+fn format_abilities(abilities: &[Ability]) -> String {
+    let formatted: Vec<String> = abilities.iter().map(format_ability).collect();
+    format!("[{}]", formatted.join(", "))
 }
 
 fn format_color(color: &Color) -> &'static str {
@@ -61,14 +68,13 @@ fn sell_card_variant_name(sell_card: &SellCard) -> String {
 fn write_dye_card(out: &mut String, card: &Card) {
     let name = card.name();
     let colors = card.colors();
-    let ability = card.ability();
     let colors_str: Vec<String> = colors.iter().map(|c| format!("'{}'", format_color(c))).collect();
     write!(
         out,
-        "  {{\n    kind: 'dye',\n    name: '{}',\n    colors: [{}],\n    ability: {},\n  }},\n",
+        "  {{\n    kind: 'dye',\n    name: '{}',\n    colors: [{}],\n    destroyAbilities: {},\n  }},\n",
         name.replace('\'', "\\'"),
         colors_str.join(", "),
-        format_ability(&ability),
+        format_abilities(card.destroy_abilities()),
     )
     .unwrap();
 }
@@ -76,20 +82,18 @@ fn write_dye_card(out: &mut String, card: &Card) {
 fn write_basic_dye_card(out: &mut String, card: &Card) {
     let name = card.name();
     let color = card.colors()[0];
-    let ability = card.ability();
     write!(
         out,
-        "  {{\n    kind: 'basicDye',\n    name: '{}',\n    color: '{}',\n    ability: {},\n  }},\n",
+        "  {{\n    kind: 'basicDye',\n    name: '{}',\n    color: '{}',\n    destroyAbilities: {},\n  }},\n",
         name,
         format_color(&color),
-        format_ability(&ability),
+        format_abilities(card.destroy_abilities()),
     )
     .unwrap();
 }
 
 fn write_material_card(out: &mut String, card: &Card) {
     let name = card.name();
-    let ability = card.ability();
     let material_types = card.material_types();
     let colors = card.colors();
 
@@ -105,21 +109,18 @@ fn write_material_card(out: &mut String, card: &Card) {
             write!(out, "    colorCount: {},\n", colors.len()).unwrap();
         }
     }
-    write!(out, "    ability: {},\n  }},\n", format_ability(&ability)).unwrap();
+    write!(out, "    destroyAbilities: {},\n  }},\n", format_abilities(card.destroy_abilities())).unwrap();
 }
 
 fn write_action_card(out: &mut String, card: &Card) {
     let name = card.name();
-    let ability = card.ability();
-    let workshop_abilities = card.workshop_abilities();
-    let wa_str: Vec<String> = workshop_abilities.iter().map(|a| format_ability(a)).collect();
 
     write!(
         out,
-        "  {{\n    kind: 'action',\n    name: '{}',\n    ability: {},\n    workshopAbilities: [{}],\n  }},\n",
+        "  {{\n    kind: 'action',\n    name: '{}',\n    destroyAbilities: {},\n    workshopAbilities: {},\n  }},\n",
         name,
-        format_ability(&ability),
-        wa_str.join(", "),
+        format_abilities(card.destroy_abilities()),
+        format_abilities(card.workshop_abilities()),
     )
     .unwrap();
 }
@@ -230,20 +231,17 @@ fn main() {
     )
     .unwrap();
 
+    write!(out, "export const STARTER_DECK_SIZE = {};\n\n", starter_deck().len()).unwrap();
+
     // CHALK_CARD
     let chalk = chalk_card();
     out.push_str("export const CHALK_CARD: ActionCardData = {\n");
     write!(
         out,
-        "  kind: 'action',\n  name: '{}',\n  ability: {},\n  workshopAbilities: [{}],\n",
+        "  kind: 'action',\n  name: '{}',\n  destroyAbilities: {},\n  workshopAbilities: {},\n",
         chalk.name(),
-        format_ability(&chalk.ability()),
-        chalk
-            .workshop_abilities()
-            .iter()
-            .map(|a| format_ability(a))
-            .collect::<Vec<_>>()
-            .join(", "),
+        format_abilities(chalk.destroy_abilities()),
+        format_abilities(chalk.workshop_abilities()),
     )
     .unwrap();
     out.push_str("};\n\n");
@@ -276,11 +274,11 @@ fn main() {
         let variant = card_variant_name(&card);
         write!(
             out,
-            "CARD_LOOKUP['{}'] = {{ kind: 'basicDye', name: '{}', color: '{}', ability: {} }};\n",
+            "CARD_LOOKUP['{}'] = {{ kind: 'basicDye', name: '{}', color: '{}', destroyAbilities: {} }};\n",
             variant,
             card.name(),
             format_color(&card.colors()[0]),
-            format_ability(&card.ability()),
+            format_abilities(card.destroy_abilities()),
         )
         .unwrap();
     }
@@ -301,8 +299,8 @@ fn main() {
     out.push('\n');
 
     // Register draft materials
-    for (i, card) in draft_material_cards().iter().enumerate() {
-        let variant = card_variant_name(card);
+    for (i, card) in draft_material_cards().enumerate() {
+        let variant = card_variant_name(&card);
         write!(
             out,
             "CARD_LOOKUP['{}'] = DRAFT_MATERIAL_CARDS[{}];\n",
@@ -354,30 +352,12 @@ fn main() {
 
     // DRAFT_COPY_COUNTS
     out.push_str("export const DRAFT_COPY_COUNTS: Record<string, number> = {};\n");
-    for card in draft_dye_cards() {
+    for (card, copies) in draft_deck_cards() {
         write!(
             out,
             "DRAFT_COPY_COUNTS['{}'] = {};\n",
             card.name().replace('\'', "\\'"),
-            DYE_COPIES,
-        )
-        .unwrap();
-    }
-    for card in draft_material_cards() {
-        write!(
-            out,
-            "DRAFT_COPY_COUNTS['{}'] = {};\n",
-            card.name().replace('\'', "\\'"),
-            MATERIAL_COPIES,
-        )
-        .unwrap();
-    }
-    for card in action_cards() {
-        write!(
-            out,
-            "DRAFT_COPY_COUNTS['{}'] = {};\n",
-            card.name().replace('\'', "\\'"),
-            ACTION_COPIES,
+            copies,
         )
         .unwrap();
     }
@@ -390,69 +370,33 @@ fn main() {
     out.push_str("export interface CardCategory {\n  label: string;\n  cardNames: string[];\n  totalCopies: number;\n}\n\n");
 
     // DRAFT_CARD_CATEGORIES
-    // Build categories from the dye card data
-    let mut primary_dye_names: Vec<String> = Vec::new();
-    let mut secondary_dye_names: Vec<String> = Vec::new();
-    let mut tertiary_dye_names: Vec<String> = Vec::new();
-
-    for card in draft_dye_cards() {
-        let name = card.name().replace('\'', "\\'");
-        let colors = card.colors();
-        if colors.len() == 3 {
-            primary_dye_names.push(name.to_string());
-        } else if colors.len() == 2 {
-            secondary_dye_names.push(name.to_string());
-        } else if colors.len() == 1 {
-            tertiary_dye_names.push(name.to_string());
-        }
-    }
-
-    let action_names: Vec<String> = action_cards()
-        .iter()
-        .map(|c| c.name().to_string())
-        .collect();
-
-    let mut double_material_names: Vec<String> = Vec::new();
-    let mut material_color_names: Vec<String> = Vec::new();
-    let mut dual_material_names: Vec<String> = Vec::new();
-
-    for card in draft_material_cards() {
-        let mt = card.material_types();
-        let colors = card.colors();
-        let name = card.name().replace('\'', "\\'");
-        if mt.len() == 2 && mt[0] == mt[1] && colors.is_empty() {
-            double_material_names.push(name.to_string());
-        } else if !colors.is_empty() {
-            material_color_names.push(name.to_string());
-        } else if mt.len() == 2 && mt[0] != mt[1] && colors.is_empty() {
-            dual_material_names.push(name.to_string());
-        }
-    }
-
-    fn format_category(out: &mut String, label: &str, names: &[String], copies_per: usize) {
-        let names_str: String = names
+    fn format_category(out: &mut String, label: &str, cards: &[Card]) {
+        let names_str: String = cards
             .iter()
-            .map(|n| format!("'{}'", n))
+            .map(|c| format!("'{}'", c.name().replace('\'', "\\'")))
             .collect::<Vec<_>>()
             .join(", ");
+        let total_copies: usize = cards.iter().map(|&c| draft_copies(c)).sum();
         write!(
             out,
             "  {{ label: '{}', cardNames: [{}], totalCopies: {} }},\n",
-            label,
-            names_str,
-            names.len() * copies_per,
+            label, names_str, total_copies,
         )
         .unwrap();
     }
 
+    // A dye's tier shows in how many colours it carries.
+    let dyes_with = |color_count: usize| -> Vec<Card> {
+        draft_dye_cards().into_iter().filter(|c| c.colors().len() == color_count).collect()
+    };
+
     out.push_str("export const DRAFT_CARD_CATEGORIES: CardCategory[] = [\n");
-    format_category(&mut out, "Primary Dyes", &primary_dye_names, DYE_COPIES);
-    format_category(&mut out, "Secondary Dyes", &secondary_dye_names, DYE_COPIES);
-    format_category(&mut out, "Tertiary Dyes", &tertiary_dye_names, DYE_COPIES);
-    format_category(&mut out, "Action Cards", &action_names, ACTION_COPIES);
-    format_category(&mut out, "Double Materials", &double_material_names, MATERIAL_COPIES);
-    format_category(&mut out, "Material + Color", &material_color_names, MATERIAL_COPIES);
-    format_category(&mut out, "Dual Materials", &dual_material_names, MATERIAL_COPIES);
+    format_category(&mut out, "Primary Dyes", &dyes_with(3));
+    format_category(&mut out, "Secondary Dyes", &dyes_with(2));
+    format_category(&mut out, "Tertiary Dyes", &dyes_with(1));
+    format_category(&mut out, "Action Cards", &action_cards());
+    format_category(&mut out, "Material + Color", &material_color_cards());
+    format_category(&mut out, "Dual Materials", &dual_material_cards());
     out.push_str("];\n\n");
 
     // getStarterCardCategories

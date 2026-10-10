@@ -2,12 +2,12 @@ use std::collections::BTreeMap;
 
 use eframe::egui;
 use colori_core::cards::{
-    action_cards, basic_dye_cards, draft_dye_cards, draft_material_cards,
-    generate_all_sell_cards, starter_material_cards, ACTION_COPIES, DYE_COPIES, MATERIAL_COPIES,
+    action_cards, basic_dye_cards, chalk_card, draft_copies, draft_deck_cards, draft_dye_cards,
+    draft_material_cards, generate_all_sell_cards, starter_material_cards,
 };
 use colori_core::types::{Card, CardKind, Color, MaterialType};
 
-use crate::analysis::card_names::format_ability;
+use crate::analysis::card_names::{format_abilities, format_ability};
 use crate::analysis::categories::draft_card_categories;
 
 pub fn render_card_reference_tab(ui: &mut egui::Ui) {
@@ -79,22 +79,9 @@ fn render_ability_distribution(ui: &mut egui::Ui) {
         .show(ui, |ui| {
             let mut ability_counts: BTreeMap<String, u32> = BTreeMap::new();
 
-            for card in draft_dye_cards() {
-                let ability_str = format_ability(&card.ability());
-                let copies = DYE_COPIES as u32;
-                *ability_counts.entry(ability_str).or_insert(0) += copies;
-            }
-
-            for card in draft_material_cards() {
-                let ability_str = format_ability(&card.ability());
-                let copies = MATERIAL_COPIES as u32;
-                *ability_counts.entry(ability_str).or_insert(0) += copies;
-            }
-
-            for card in action_cards() {
-                let ability_str = format_ability(&card.ability());
-                let copies = ACTION_COPIES as u32;
-                *ability_counts.entry(ability_str).or_insert(0) += copies;
+            for (card, copies) in draft_deck_cards() {
+                let ability_str = format_abilities(card.destroy_abilities());
+                *ability_counts.entry(ability_str).or_insert(0) += copies as u32;
             }
 
             egui::Grid::new("ability_distribution_grid")
@@ -252,15 +239,6 @@ fn format_material_types(types: &[MaterialType]) -> String {
         .join(" + ")
 }
 
-fn copies_for_kind(kind: CardKind) -> u32 {
-    match kind {
-        CardKind::Dye => DYE_COPIES as u32,
-        CardKind::Material => MATERIAL_COPIES as u32,
-        CardKind::Action => ACTION_COPIES as u32,
-        CardKind::BasicDye => 0,
-    }
-}
-
 fn render_category_details(ui: &mut egui::Ui) {
     let categories = draft_card_categories();
 
@@ -294,8 +272,8 @@ fn render_category_details(ui: &mut egui::Ui) {
                                     if let Some(card) = find_card_by_name(name) {
                                         ui.label(card.name());
                                         ui.label(format_colors(card.colors()));
-                                        ui.label(format_ability(&card.ability()));
-                                        ui.label(copies_for_kind(card.kind()).to_string());
+                                        ui.label(format_abilities(card.destroy_abilities()));
+                                        ui.label(draft_copies(card).to_string());
                                         ui.end_row();
                                     }
                                 }
@@ -318,8 +296,8 @@ fn render_category_details(ui: &mut egui::Ui) {
                                             format_colors(card.colors())
                                         };
                                         ui.label(pip_str);
-                                        ui.label(format_ability(&card.ability()));
-                                        ui.label(copies_for_kind(card.kind()).to_string());
+                                        ui.label(format_abilities(card.destroy_abilities()));
+                                        ui.label(draft_copies(card).to_string());
                                         ui.end_row();
                                     }
                                 }
@@ -334,7 +312,7 @@ fn render_category_details(ui: &mut egui::Ui) {
                                 for name in &cat.card_names {
                                     if let Some(card) = find_card_by_name(name) {
                                         ui.label(card.name());
-                                        ui.label(format_ability(&card.ability()));
+                                        ui.label(format_abilities(card.destroy_abilities()));
                                         let workshop_str = card
                                             .workshop_abilities()
                                             .iter()
@@ -347,7 +325,7 @@ fn render_category_details(ui: &mut egui::Ui) {
                                             workshop_str
                                         };
                                         ui.label(workshop_display);
-                                        ui.label(copies_for_kind(card.kind()).to_string());
+                                        ui.label(draft_copies(card).to_string());
                                         ui.end_row();
                                     }
                                 }
@@ -382,7 +360,7 @@ fn render_starter_cards(ui: &mut egui::Ui) {
                         ui.label(card.name());
                         ui.label("Basic Dye");
                         ui.label(format_colors(card.colors()));
-                        ui.label(format_ability(&card.ability()));
+                        ui.label(format_abilities(card.destroy_abilities()));
                         ui.end_row();
                     }
 
@@ -391,9 +369,23 @@ fn render_starter_cards(ui: &mut egui::Ui) {
                         ui.label(card.name());
                         ui.label("Material");
                         ui.label(format_material_types(card.material_types()));
-                        ui.label(format_ability(&card.ability()));
+                        ui.label(format_abilities(card.destroy_abilities()));
                         ui.end_row();
                     }
+
+                    let chalk = chalk_card();
+                    ui.label(chalk.name());
+                    ui.label("Action");
+                    ui.label(
+                        chalk
+                            .workshop_abilities()
+                            .iter()
+                            .map(format_ability)
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                    );
+                    ui.label(format_abilities(chalk.destroy_abilities()));
+                    ui.end_row();
 
                 });
         });

@@ -1,43 +1,43 @@
 import type { Card, SellCard } from './types';
+import { STARTER_DECK_SIZE } from './cards';
 
 const CARD_ART_BASE_PATH = '/cards/';
 
+// The starter decks are printed once per character, identical but for the
+// portrait. Each seat plays one of them.
+export const CHARACTER_COUNT = 6;
+
+const STARTER_CARD_FILENAMES: Partial<Record<Card, string>> = {
+  BasicRed: 'red',
+  BasicYellow: 'yellow',
+  BasicBlue: 'blue',
+  StarterCeramics: 'ceramics',
+  StarterCanvas: 'canvas',
+  StarterFabric: 'fabric',
+  Chalk: 'chalk',
+};
+
 // Special-case overrides where PascalCase->kebab-case doesn't match the art filename
 const CARD_FILENAME_OVERRIDES: Partial<Record<Card, string>> = {
-  VermilionDye: 'vermilion',
   IndigoDye: 'indigo',
-  StarterCeramics: 'ceramics',
-  StarterPaintings: 'paintings',
-  StarterTextiles: 'textiles',
-  TerraCotta: 'terra-cotta',
-  OchreWare: 'ochre-ware',
-  CobaltWare: 'cobalt-ware',
-  CinnabarCanvas: 'cinnabar-canvas',
-  OrpimentCanvas: 'orpiment-canvas',
-  UltramarineCanvas: 'ultramarine-canvas',
-  AlizarinFabric: 'alizarin-fabric',
-  FusticFabric: 'fustic-fabric',
-  PastelFabric: 'pastel-fabric',
-  ClayCanvas: 'clay-canvas',
-  ClayFabric: 'clay-fabric',
-  CanvasFabric: 'canvas-fabric',
-  CreamOfTartar: 'cream-of-tartar',
-  GumArabic: 'gum-arabic',
-  DyersGreenweed: 'dyers-greenweed',
-  PersianBerries: 'persian-berries',
-  BasicRed: 'basic-red',
-  BasicBlue: 'basic-blue',
-  BasicYellow: 'basic-yellow',
 };
 
 function pascalToKebab(s: string): string {
   return s.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
 }
 
-export function getCardArtFilename(card: Card): string {
-  const override = CARD_FILENAME_OVERRIDES[card];
-  if (override) return override + '.webp';
-  return pascalToKebab(card) + '.webp';
+// Setup hands out starter cards first, a deck per seat in seat order, so a
+// starter card's instance id says whose deck it was printed for. The card
+// keeps that portrait wherever it ends up, as the physical card does.
+function starterCharacter(instanceId: number | undefined): number {
+  if (instanceId === undefined) return 1;
+  return (Math.floor(instanceId / STARTER_DECK_SIZE) % CHARACTER_COUNT) + 1;
+}
+
+export function getCardArtFilename(card: Card, instanceId?: number): string {
+  const starter = STARTER_CARD_FILENAMES[card];
+  if (starter) return `characters/${starterCharacter(instanceId)}/${starter}.webp`;
+  return (CARD_FILENAME_OVERRIDES[card] ?? pascalToKebab(card)) + '.webp';
 }
 
 // Sell card mapping: "Textiles2Vermilion" -> "vermilion-textile.webp"
@@ -52,7 +52,7 @@ const MATERIAL_SINGULAR: Record<string, string> = {
 
 export function getSellCardArtFilename(sellCard: SellCard): string {
   const match = sellCard.match(/^(Textiles|Ceramics|Paintings)(\d)(.+)$/);
-  if (!match) return 'basic-red.webp'; // fallback
+  if (!match) return 'empty-pigment.webp'; // fallback
   const [, material, , colorPart] = match;
   // Split PascalCase color names: "AmberRed" -> ["Amber", "Red"], "RedRedRed" -> ["Red", "Red", "Red"]
   const colors = colorPart.match(/[A-Z][a-z]*/g) ?? [];
@@ -60,8 +60,8 @@ export function getSellCardArtFilename(sellCard: SellCard): string {
   return colorKebab + '-' + MATERIAL_SINGULAR[material] + '.webp';
 }
 
-export function getCardArtUrl(card: Card): string {
-  return CARD_ART_BASE_PATH + getCardArtFilename(card);
+export function getCardArtUrl(card: Card, instanceId?: number): string {
+  return CARD_ART_BASE_PATH + getCardArtFilename(card, instanceId);
 }
 
 export function getSellCardArtUrl(sellCard: SellCard): string {

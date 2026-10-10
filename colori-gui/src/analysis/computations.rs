@@ -142,13 +142,13 @@ pub fn get_sell_card_name(sell_card_map: &HashMap<u32, SellCardInstance>, id: u3
 }
 
 pub fn final_score_ranking(fs: &FinalScore) -> (u32, u32, u32) {
-    (fs.score, fs.completed_sell_cards, fs.color_wheel_total)
+    (fs.half_points(), fs.completed_sell_cards, fs.color_wheel_total)
 }
 
 fn compute_winners(final_scores: &[FinalScore]) -> (Box<dyn Fn(&str) -> bool + '_>, usize) {
     if final_scores.len() == 1 {
         // Solo mode: win = score >= 16
-        let won = final_scores[0].score >= 16;
+        let won = final_scores[0].score >= 16.0;
         let num_winners = if won { 1 } else { 0 };
         return (Box::new(move |_name: &str| won), num_winners);
     }
@@ -1160,7 +1160,7 @@ pub fn compute_score_distribution(
                 }
                 let player_name = &log.player_names[i];
                 if let Some(score_entry) = final_scores.iter().find(|fs| &fs.name == player_name) {
-                    *counts.entry(score_entry.score).or_insert(0) += 1;
+                    *counts.entry(score_entry.half_points()).or_insert(0) += 1;
                 }
             }
         }

@@ -1,7 +1,7 @@
 use crate::action_phase::*;
 use crate::buyers_phase::{draw_buyer, take_buyer};
 use crate::draft_phase::player_pick;
-use crate::types::{Ability, Card, Choice, GamePhase, GameState, SellCard};
+use crate::types::{Ability, Card, Choice, Color, GamePhase, GameState, SellCard};
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
 
@@ -90,6 +90,23 @@ pub(crate) fn resolve_card_types_to_ids(
     Some(ids)
 }
 
+/// Make `mixes` against the mix ability on top of the stack, forfeiting any
+/// mixes it grants beyond them.
+fn resolve_mix_sequence<R: Rng>(state: &mut GameState, mixes: &[(Color, Color)], rng: &mut R) {
+    let granted = match get_action_state(state).ability_stack.last() {
+        Some(Ability::MixColors { count }) => *count,
+        _ => panic!("No pending mix"),
+    };
+    for &(a, b) in mixes {
+        resolve_mix_colors(state, a, b, rng);
+    }
+    // Checked against the count rather than the stack: once this ability is
+    // used up, a mix left on top belongs to something else.
+    if (mixes.len() as u32) < granted {
+        skip_mix(state, rng);
+    }
+}
+
 pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R) {
     match choice {
         Choice::DraftPick { card } => {
@@ -156,27 +173,12 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
             resolve_gain_material(state, *material, rng);
         }
         Choice::MixAll { mixes } => {
-            for &(a, b) in mixes.iter() {
-                resolve_mix_colors(state, a, b, rng);
-            }
-            // Skip any remaining mixes not used
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if matches!(action_state.ability_stack.last(), Some(Ability::MixColors { .. })) {
-                    skip_mix(state, rng);
-                }
-            }
+            resolve_mix_sequence(state, mixes, rng);
         }
         Choice::DestroyAndMix { card, mixes } => {
             let card_instance_id = get_drafted_card_instance(state, card);
             destroy_drafted_card(state, card_instance_id, rng);
-            for &(a, b) in mixes.iter() {
-                resolve_mix_colors(state, a, b, rng);
-            }
-            if let GamePhase::Action { ref action_state } = state.phase {
-                if matches!(action_state.ability_stack.last(), Some(Ability::MixColors { .. })) {
-                    skip_mix(state, rng);
-                }
-            }
+            resolve_mix_sequence(state, mixes, rng);
         }
         Choice::DestroyAndSell { card, sell_card } => {
             let card_instance_id = get_drafted_card_instance(state, card);
@@ -187,7 +189,15 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R)
         Choice::DestroyAndWorkshop { card, workshop_cards } => {
             let card_instance_id = get_drafted_card_instance(state, card);
             destroy_drafted_card(state, card_instance_id, rng);
-            if workshop_cards.is_empty() {
+            // With nothing in the workshop the ability has already fizzled, and
+            // whatever is on top now is not this choice's to skip.
+            let pending = matches!(
+                get_action_state(state).ability_stack.last(),
+                Some(Ability::Workshop { .. })
+            );
+            if !pending {
+                assert!(workshop_cards.is_empty(), "No pending workshop choice");
+            } else if workshop_cards.is_empty() {
                 skip_workshop(state, rng);
             } else {
                 let workshop = match &state.phase {

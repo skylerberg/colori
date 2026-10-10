@@ -1,4 +1,6 @@
-use crate::colors::{can_pay_cost, pay_cost, perform_mix, perform_mix_unchecked, VALID_MIX_PAIRS};
+use crate::colors::{
+    can_pay_cost, can_supply_mix, pay_cost, perform_mix, perform_mix_unchecked, VALID_MIX_PAIRS,
+};
 use crate::draw_log_helpers::{is_replaying, record_player_deck_draw, replay_player_deck_draw};
 use crate::types::{
     Ability, AbilityStack, ActionState, Card, Color, DucatPurchase, GamePhase, GameState,
@@ -225,11 +227,13 @@ pub fn destroy_drafted_card<R: Rng>(state: &mut GameState, card_instance_id: u32
     player.drafted_cards.remove(id);
 
     let card = state.card_lookup[id as usize];
-    let ability = card.ability();
     state.destroyed_pile.insert(id);
 
+    // The stack is LIFO, so the first ability listed goes on last.
     let action_state = get_action_state_mut(state);
-    action_state.ability_stack.push(ability);
+    for &ability in card.destroy_abilities().iter().rev() {
+        action_state.ability_stack.push(ability);
+    }
     process_ability_stack(state, rng);
 }
 
@@ -265,7 +269,17 @@ pub fn process_ability_stack<R: Rng>(state: &mut GameState, rng: &mut R) {
             Ability::GainDucats { count } => {
                 get_action_state_mut(state).ability_stack.pop();
                 state.players[player_index].ducats += count;
-                state.players[player_index].cached_score += count;
+                state.players[player_index].cached_ducat_score += count;
+                continue;
+            }
+            Ability::GainSilver { count } => {
+                get_action_state_mut(state).ability_stack.pop();
+                state.players[player_index].silver += count;
+                continue;
+            }
+            Ability::GainBoats { count } => {
+                get_action_state_mut(state).ability_stack.pop();
+                state.players[player_index].boats += count;
                 continue;
             }
             Ability::MixColors { .. } => {
@@ -297,8 +311,26 @@ pub fn process_ability_stack<R: Rng>(state: &mut GameState, rng: &mut R) {
 
 #[inline]
 pub(crate) fn can_afford_sell_card(player: &PlayerState, sell_card: &SellCard) -> bool {
-    player.materials.get(sell_card.required_material()) >= 1
-        && can_pay_cost(&player.color_wheel, sell_card.color_cost())
+    (player.materials.get(sell_card.required_material()) >= 1 || player.boats >= 1)
+        && can_pay_cost(&player.color_wheel, player.silver, sell_card.color_cost())
+}
+
+/// Sell to the buyer at `index`, paying with the material and colours it asks
+/// for before any boat or silver standing in for them.
+pub(crate) fn sell_to_buyer(player: &mut PlayerState, index: usize) {
+    // Order-preserving, so the slot a buyer occupied is not visibly shuffled
+    // when an earlier one sells.
+    let sold = player.buyers.remove(index);
+
+    if !player.materials.decrement(sold.sell_card.required_material()) {
+        assert!(player.boats >= 1, "Not enough stored material");
+        player.boats -= 1;
+    }
+    let paid = pay_cost(&mut player.color_wheel, &mut player.silver, sold.sell_card.color_cost());
+    assert!(paid, "Cannot pay sell card color cost");
+
+    player.cached_ducat_score += sold.sell_card.ducats();
+    player.completed_sell_cards.push(sold);
 }
 
 /// Whether the acting player can sell to one of their own buyers. The shared
@@ -315,13 +347,13 @@ pub fn can_sell_to_any_sell_card(state: &GameState) -> bool {
 }
 
 
-/// Whether the player has any pair of colours two apart on their wheel, which
-/// is what a mix needs.
+/// Whether the player can make any mix at all, counting silver as whichever
+/// primary is missing.
 #[inline]
 pub fn can_mix_any(player: &PlayerState) -> bool {
     VALID_MIX_PAIRS
         .iter()
-        .any(|&(a, b)| player.color_wheel.get(a) > 0 && player.color_wheel.get(b) > 0)
+        .any(|&(a, b)| can_supply_mix(&player.color_wheel, player.silver, a, b))
 }
 
 /// Whether spending a ducat on `purchase` would actually do something.
@@ -352,7 +384,7 @@ pub fn resolve_spend_ducat<R: Rng>(state: &mut GameState, purchase: DucatPurchas
     let player = &mut state.players[player_index];
     assert!(player.ducats >= 1, "Cannot spend a ducat without one");
     player.ducats -= 1;
-    player.cached_score -= 1;
+    player.cached_ducat_score -= 1;
 
     get_action_state_mut(state).ability_stack.push(purchase.ability());
     process_ability_stack(state, rng);
@@ -410,14 +442,15 @@ pub fn resolve_mix_colors<R: Rng>(
     rng: &mut R,
 ) {
     let player_index = get_action_state(state).current_player_index;
-    let success = perform_mix(&mut state.players[player_index].color_wheel, color_a, color_b);
+    let player = &mut state.players[player_index];
+    let success = perform_mix(&mut player.color_wheel, &mut player.silver, color_a, color_b);
     if !success {
         panic!("Cannot mix {:?} and {:?}", color_a, color_b);
     }
     finish_mix(state, rng);
 }
 
-/// Same as `resolve_mix_colors` but skips the `can_mix` and wheel amount checks.
+/// Same as `resolve_mix_colors` but skips the `can_mix` and supply checks.
 /// The caller must guarantee the mix is valid.
 pub fn resolve_mix_colors_unchecked<R: Rng>(
     state: &mut GameState,
@@ -426,7 +459,8 @@ pub fn resolve_mix_colors_unchecked<R: Rng>(
     rng: &mut R,
 ) {
     let player_index = get_action_state(state).current_player_index;
-    perform_mix_unchecked(&mut state.players[player_index].color_wheel, color_a, color_b);
+    let player = &mut state.players[player_index];
+    perform_mix_unchecked(&mut player.color_wheel, &mut player.silver, color_a, color_b);
     finish_mix(state, rng);
 }
 
@@ -497,19 +531,7 @@ pub fn resolve_select_sell_card<R: Rng>(
         .position(|c| c.instance_id == sell_card_instance_id)
         .expect("Sell card not found in the player's buyers");
 
-    // Order-preserving, so the slot a buyer occupied is not visibly shuffled
-    // when an earlier one sells.
-    let sell_card_instance = player.buyers.remove(sell_card_index);
-
-    if !player.materials.decrement(sell_card_instance.sell_card.required_material()) {
-        panic!("Not enough stored material");
-    }
-    let success = pay_cost(&mut player.color_wheel, sell_card_instance.sell_card.color_cost());
-    if !success {
-        panic!("Cannot pay sell card color cost");
-    }
-    player.cached_score += sell_card_instance.sell_card.ducats();
-    player.completed_sell_cards.push(sell_card_instance);
+    sell_to_buyer(player, sell_card_index);
 
     // The freed slot stays empty until the next buyers phase.
     process_ability_stack(state, rng);

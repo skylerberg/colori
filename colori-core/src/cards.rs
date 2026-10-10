@@ -1,43 +1,77 @@
 use crate::types::{Card, SellCard};
 
 pub const DYE_COPIES: usize = 3;
-pub const ACTION_COPIES: usize = 4;
-pub const MATERIAL_COPIES: usize = 1;
+pub const ACTION_COPIES: usize = 5;
+pub const MATERIAL_COLOR_COPIES: usize = 2;
+pub const DUAL_MATERIAL_COPIES: usize = 1;
 
 pub fn basic_dye_cards() -> [Card; 3] {
     [Card::BasicRed, Card::BasicYellow, Card::BasicBlue]
 }
 
 pub fn starter_material_cards() -> [Card; 3] {
-    [Card::StarterCeramics, Card::StarterPaintings, Card::StarterTextiles]
+    [Card::StarterCeramics, Card::StarterCanvas, Card::StarterFabric]
 }
 
 pub fn chalk_card() -> Card {
     Card::Chalk
 }
 
+/// One player's starting deck. The physical game prints six of these, one per
+/// character, but they differ only in the portrait.
+pub fn starter_deck() -> [Card; 7] {
+    [
+        Card::BasicRed, Card::BasicYellow, Card::BasicBlue,
+        Card::StarterCeramics, Card::StarterCanvas, Card::StarterFabric,
+        Card::Chalk,
+    ]
+}
+
 pub fn draft_dye_cards() -> [Card; 18] {
     [
-        Card::Lac, Card::Brazilwood, Card::Pomegranate,
-        Card::Sumac, Card::Elderberry, Card::Turnsole,
-        Card::Madder, Card::Turmeric, Card::DyersGreenweed,
-        Card::Verdigris, Card::Orchil, Card::Logwood,
-        Card::VermilionDye, Card::Saffron, Card::PersianBerries,
-        Card::Azurite, Card::IndigoDye, Card::Cochineal,
+        Card::Realgar, Card::Kermes, Card::Litharge,
+        Card::Malachite, Card::Woad, Card::Logwood,
+        Card::DragonsBlood, Card::Orpiment, Card::GreenEarth,
+        Card::Verdigris, Card::Brazilwood, Card::IndigoDye,
+        Card::Cinnabar, Card::Saffron, Card::CopperResinate,
+        Card::Azurite, Card::LapisLazuli, Card::Cochineal,
     ]
 }
 
-pub fn draft_material_cards() -> [Card; 12] {
+pub fn material_color_cards() -> [Card; 9] {
     [
-        Card::TerraCotta, Card::OchreWare, Card::CobaltWare,
-        Card::CinnabarCanvas, Card::OrpimentCanvas, Card::UltramarineCanvas,
-        Card::AlizarinFabric, Card::FusticFabric, Card::PastelFabric,
-        Card::ClayCanvas, Card::ClayFabric, Card::CanvasFabric,
+        Card::CeramicsRed, Card::CeramicsYellow, Card::CeramicsBlue,
+        Card::CanvasRed, Card::CanvasYellow, Card::CanvasBlue,
+        Card::FabricOrange, Card::FabricGreen, Card::FabricPurple,
     ]
 }
 
-pub fn action_cards() -> [Card; 6] {
-    [Card::Alum, Card::CreamOfTartar, Card::GumArabic, Card::Potash, Card::LinseedOil, Card::Warehouse]
+pub fn dual_material_cards() -> [Card; 3] {
+    [Card::CanvasCeramics, Card::CeramicsFabric, Card::CanvasFabric]
+}
+
+pub fn draft_material_cards() -> impl Iterator<Item = Card> {
+    material_color_cards().into_iter().chain(dual_material_cards())
+}
+
+pub fn action_cards() -> [Card; 5] {
+    [Card::Alum, Card::GumArabic, Card::LinseedOil, Card::Warehouse, Card::Gondola]
+}
+
+/// Every card in the draft deck with how many copies of it there are.
+pub fn draft_deck_cards() -> impl Iterator<Item = (Card, usize)> {
+    let dyes = draft_dye_cards().into_iter().map(|c| (c, DYE_COPIES));
+    let material_colors = material_color_cards().into_iter().map(|c| (c, MATERIAL_COLOR_COPIES));
+    let dual_materials = dual_material_cards().into_iter().map(|c| (c, DUAL_MATERIAL_COPIES));
+    let actions = action_cards().into_iter().map(|c| (c, ACTION_COPIES));
+    dyes.chain(material_colors).chain(dual_materials).chain(actions)
+}
+
+/// Copies of `card` in the draft deck; zero for the starter cards.
+pub fn draft_copies(card: Card) -> usize {
+    draft_deck_cards()
+        .find(|&(c, _)| c == card)
+        .map_or(0, |(_, copies)| copies)
 }
 
 pub fn generate_all_sell_cards() -> [SellCard; 54] {

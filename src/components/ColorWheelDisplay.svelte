@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Color } from '../data/types';
-  import { colorToHex, textColorForBackground } from '../data/colors';
+  import { colorToHex, isPrimary, textColorForBackground } from '../data/colors';
   import { WORKSHOP_WHEEL_REGIONS } from '../data/wheelPaths';
 
   interface WheelSegment {
@@ -69,11 +69,13 @@
     return [WC + r * Math.sin(rad), WC - r * Math.cos(rad)];
   }
 
-  let { wheel, interactive = false, onColorClick, selectedColors = [], size = 200, hidden = false }: {
+  let { wheel, interactive = false, onColorClick, selectedColors = [], wildPrimaries = 0, size = 200, hidden = false }: {
     wheel: Record<Color, number>;
     interactive?: boolean;
     onColorClick?: (color: Color) => void;
     selectedColors?: Color[];
+    // Silver on hand: lets a primary the wheel lacks be picked anyway.
+    wildPrimaries?: number;
     size?: number;
     hidden?: boolean;
   } = $props();
@@ -120,8 +122,12 @@
     return pointAt(midAngle, rMid);
   }
 
+  function canPick(color: Color): boolean {
+    return wheel[color] > 0 || (wildPrimaries > 0 && isPrimary(color));
+  }
+
   function handleClick(color: Color) {
-    if (interactive && onColorClick && wheel[color] > 0) {
+    if (interactive && onColorClick && canPick(color)) {
       onColorClick(color);
     }
   }
@@ -172,7 +178,7 @@
           <path
             d={region.path}
             fill="transparent"
-            class:clickable={interactive && wheel[region.color] > 0}
+            class:clickable={interactive && canPick(region.color)}
             class:selected={isSelected(region.color)}
             onclick={() => handleClick(region.color)}
             onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(region.color); } }}

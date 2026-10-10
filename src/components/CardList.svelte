@@ -16,6 +16,7 @@
     {@const isRotated = rotatedIds.includes(ci.instanceId)}
     <CardDisplay
       card={ci.card}
+      instanceId={ci.instanceId}
       selected={selectedIds.includes(ci.instanceId)}
       rotated={isRotated}
       onclick={((!isRotated && selectable) || (isRotated && rotatedSelectable)) && onCardClick ? () => onCardClick!(ci.instanceId) : undefined}
