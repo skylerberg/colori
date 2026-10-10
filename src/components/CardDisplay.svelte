@@ -64,7 +64,6 @@
 {#if data}
 <button
   class="card"
-  class:bridge={data.kind !== 'sellCard'}
   class:selected
   class:clickable={!!onclick && !rotated}
   class:rotated
@@ -82,9 +81,11 @@
 {/if}
 
 <style>
+  /* Bridge and mini cards share a shape, narrower than the 5:7 the layout's
+     card box assumes, so the width follows from the height. */
   .card {
-    --width: var(--card-width, 90px);
     --height: var(--card-height, 126px);
+    --width: calc(var(--height) * 57 / 87);
     width: var(--width);
     height: var(--height);
     border: none;
@@ -127,11 +128,6 @@
   .card.inactive {
     opacity: 1;
     cursor: default;
-  }
-
-  /* Deck cards are bridge size, narrower than the 5:7 the sell card art uses. */
-  .card.bridge {
-    --width: calc(var(--height) * 57 / 87);
   }
 
   .card.rotated {

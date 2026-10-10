@@ -104,10 +104,10 @@ mod tests {
 
     #[test]
     fn test_serde_roundtrip_sell_cards() {
-        let mut registry = [SellCard::Textiles2Vermilion; 256];
-        registry[0] = SellCard::Textiles2Vermilion;
-        registry[3] = SellCard::Textiles2Amber;
-        registry[7] = SellCard::Textiles2Chartreuse;
+        let mut registry = [SellCard::DyerRedRed; 256];
+        registry[0] = SellCard::DyerRedRed;
+        registry[3] = SellCard::PotterAmber;
+        registry[7] = SellCard::PainterChartreuseGreen;
         set_sell_card_registry(&registry);
 
         let mut s = UnorderedSellCards::new();

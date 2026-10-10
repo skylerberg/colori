@@ -3,9 +3,11 @@ use std::collections::BTreeMap;
 use eframe::egui;
 use colori_core::cards::{
     action_cards, basic_dye_cards, chalk_card, draft_copies, draft_deck_cards, draft_dye_cards,
-    draft_material_cards, generate_all_sell_cards, starter_material_cards,
+    draft_material_cards, sell_deck_cards, starter_material_cards,
 };
-use colori_core::types::{Card, CardKind, Color, MaterialType};
+use colori_core::types::{
+    Buyer, Card, CardKind, Color, MaterialType, ALL_BUYERS, ALL_MATERIAL_TYPES, ALL_SELL_CARDS,
+};
 
 use crate::analysis::card_names::{format_abilities, format_ability};
 use crate::analysis::categories::draft_card_categories;
@@ -100,85 +102,60 @@ fn render_ability_distribution(ui: &mut egui::Ui) {
         });
 }
 
+fn format_sale_materials(buyer: Buyer) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    if buyer.boats() > 0 {
+        parts.push(format!("{} Boat", buyer.boats()));
+    }
+    for &material in &ALL_MATERIAL_TYPES {
+        let count = buyer.materials().iter().filter(|&&m| m == material).count();
+        if count > 0 {
+            parts.push(format!("{} {:?}", count, material));
+        }
+    }
+    if parts.is_empty() {
+        "--".to_string()
+    } else {
+        parts.join(" + ")
+    }
+}
+
 fn render_sell_card_summary(ui: &mut egui::Ui) {
     let id = ui.make_persistent_id("sell_card_summary");
     egui::CollapsingHeader::new("Sell Card Summary")
         .id_salt(id)
         .default_open(true)
         .show(ui, |ui| {
-            let sell_cards = generate_all_sell_cards();
-
-            // Count by groups
-            let mut tertiary_1_count = 0u32;
-            let mut secondary_primary_count = 0u32;
-            let mut triple_primary_count = 0u32;
-            let mut ceramics_3_count = 0u32;
-            let mut paintings_4_count = 0u32;
-
-            for sell_card in &sell_cards {
-                match sell_card.ducats() {
-                    2 => {
-                        let num_colors = sell_card.color_cost().len();
-                        match num_colors {
-                            1 => tertiary_1_count += 1,
-                            2 => secondary_primary_count += 1,
-                            3 => triple_primary_count += 1,
-                            _ => {}
-                        }
-                    }
-                    3 => ceramics_3_count += 1,
-                    4 => paintings_4_count += 1,
-                    _ => {}
-                }
-            }
-
             egui::Grid::new("sell_card_summary_grid")
                 .striped(true)
                 .show(ui, |ui| {
+                    ui.strong("Buyer");
                     ui.strong("Ducats");
-                    ui.strong("Material");
-                    ui.strong("Color Pattern");
-                    ui.strong("Count");
+                    ui.strong("Materials");
+                    ui.strong("Cards");
+                    ui.strong("Copies");
                     ui.end_row();
 
-                    ui.label("2");
-                    ui.label("Textiles");
-                    ui.label("1 tertiary");
-                    ui.label(tertiary_1_count.to_string());
-                    ui.end_row();
-
-                    ui.label("2");
-                    ui.label("Textiles");
-                    ui.label("1 secondary + 1 primary");
-                    ui.label(secondary_primary_count.to_string());
-                    ui.end_row();
-
-                    ui.label("2");
-                    ui.label("Textiles");
-                    ui.label("3x same primary");
-                    ui.label(triple_primary_count.to_string());
-                    ui.end_row();
-
-                    ui.label("3");
-                    ui.label("Ceramics");
-                    ui.label("1 tertiary + 1 primary");
-                    ui.label(ceramics_3_count.to_string());
-                    ui.end_row();
-
-                    ui.label("4");
-                    ui.label("Paintings");
-                    ui.label("1 tertiary + 1 secondary");
-                    ui.label(paintings_4_count.to_string());
-                    ui.end_row();
+                    let mut total = 0usize;
+                    for buyer in ALL_BUYERS {
+                        let cards = ALL_SELL_CARDS.iter().filter(|c| c.buyer() == buyer).count();
+                        let copies: usize = sell_deck_cards()
+                            .filter(|(c, _)| c.buyer() == buyer)
+                            .map(|(_, copies)| copies)
+                            .sum();
+                        total += copies;
+                        ui.label(buyer.name());
+                        ui.label(buyer.ducats().to_string());
+                        ui.label(format_sale_materials(buyer));
+                        ui.label(cards.to_string());
+                        ui.label(copies.to_string());
+                        ui.end_row();
+                    }
 
                     ui.strong("Total");
                     ui.strong("");
                     ui.strong("");
-                    let total = tertiary_1_count
-                        + secondary_primary_count
-                        + triple_primary_count
-                        + ceramics_3_count
-                        + paintings_4_count;
+                    ui.strong(ALL_SELL_CARDS.len().to_string());
                     ui.strong(total.to_string());
                     ui.end_row();
                 });
@@ -215,9 +192,9 @@ fn format_color(color: &Color) -> &'static str {
         Color::Green => "Green",
         Color::Teal => "Teal",
         Color::Blue => "Blue",
-        Color::Indigo => "Indigo",
+        Color::Ultramarine => "Ultramarine",
         Color::Purple => "Purple",
-        Color::Magenta => "Magenta",
+        Color::Fuchsia => "Fuchsia",
     }
 }
 
@@ -393,28 +370,27 @@ fn render_starter_cards(ui: &mut egui::Ui) {
 
 fn render_sell_cards_by_ducats(ui: &mut egui::Ui) {
     let id = ui.make_persistent_id("sell_cards_by_ducats");
-    egui::CollapsingHeader::new("Sell Cards by Ducat Value")
+    egui::CollapsingHeader::new("Sell Cards by Buyer")
         .id_salt(id)
         .default_open(false)
         .show(ui, |ui| {
-            let sell_cards = generate_all_sell_cards();
-
-            for ducat_level in [2u32, 3, 4] {
-                ui.heading(format!("{}-Ducat Sell Cards", ducat_level));
+            for buyer in ALL_BUYERS {
+                ui.heading(format!("{} ({} ducats)", buyer.name(), buyer.ducats()));
                 ui.add_space(4.0);
 
-                let grid_id = format!("sell_cards_{}ducat_grid", ducat_level);
-                egui::Grid::new(grid_id)
+                egui::Grid::new(format!("sell_cards_{:?}_grid", buyer))
                     .striped(true)
                     .show(ui, |ui| {
-                        ui.strong("Required Material");
+                        ui.strong("Materials");
                         ui.strong("Color Cost");
+                        ui.strong("Copies");
                         ui.end_row();
 
-                        for sell_card in &sell_cards {
-                            if sell_card.ducats() == ducat_level {
-                                ui.label(format!("{:?}", sell_card.required_material()));
+                        for (sell_card, copies) in sell_deck_cards() {
+                            if sell_card.buyer() == buyer {
+                                ui.label(format_sale_materials(buyer));
                                 ui.label(format_colors(sell_card.color_cost()));
+                                ui.label(copies.to_string());
                                 ui.end_row();
                             }
                         }

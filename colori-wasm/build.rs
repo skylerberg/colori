@@ -35,9 +35,9 @@ fn format_color(color: &Color) -> &'static str {
         Color::Green => "Green",
         Color::Teal => "Teal",
         Color::Blue => "Blue",
-        Color::Indigo => "Indigo",
+        Color::Ultramarine => "Ultramarine",
         Color::Purple => "Purple",
-        Color::Magenta => "Magenta",
+        Color::Fuchsia => "Fuchsia",
     }
 }
 
@@ -246,8 +246,7 @@ fn main() {
     .unwrap();
     out.push_str("};\n\n");
 
-    // SELL_CARDS — generated from generate_all_sell_cards
-    let all_sell_cards = generate_all_sell_cards();
+    let all_sell_cards = ALL_SELL_CARDS;
     out.push_str("export const SELL_CARDS: SellCardData[] = [\n");
     for sell_card in &all_sell_cards {
         let colors: Vec<String> = sell_card
@@ -255,11 +254,18 @@ fn main() {
             .iter()
             .map(|c| format!("'{}'", format_color(c)))
             .collect();
+        let materials: Vec<String> = sell_card
+            .required_materials()
+            .iter()
+            .map(|m| format!("'{}'", format_material_type(m)))
+            .collect();
         write!(
             out,
-            "  {{ kind: 'sellCard', ducats: {}, requiredMaterial: '{}', colorCost: [{}] }},\n",
+            "  {{ kind: 'sellCard', name: '{}', ducats: {}, requiredMaterials: [{}], requiredBoats: {}, colorCost: [{}] }},\n",
+            sell_card.buyer().name(),
             sell_card.ducats(),
-            format_material_type(&sell_card.required_material()),
+            materials.join(", "),
+            sell_card.required_boats(),
             colors.join(", "),
         )
         .unwrap();

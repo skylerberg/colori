@@ -4,7 +4,7 @@ Colori is a strategic deck-building card game for 2-5 players about dyeing mater
 
 ## Three Peaks Hub
 
-The physical game lives in the Three Peaks Hub project **Colori** (`threepeaks --project "Colori"`). The starter decks and the draft deck in `colori-core` mirror its **Main Deck**: copy counts come from `threepeaks deck show "Main Deck"`, and what a card does is read off its image. `public/cards/` holds those same card faces; the six character starter decks are under `public/cards/characters/<1-6>/`, numbered in deck order.
+The physical game lives in the Three Peaks Hub project **Colori** (`threepeaks --project "Colori"`). The starter decks and the draft deck in `colori-core` mirror its **Main Deck**, and the sell cards its **Sell Cards** deck: copy counts come from `threepeaks deck show`, and what a card does is read off its image. `public/cards/` holds those same card faces; the six character starter decks are under `public/cards/characters/<1-6>/`, numbered in deck order, and the sell cards under `public/cards/sell/`.
 
 ## Tech Stack
 

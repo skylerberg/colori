@@ -2,7 +2,7 @@ import type { Color } from './types';
 
 export const WHEEL_ORDER: Color[] = [
   'Red', 'Vermilion', 'Orange', 'Amber', 'Yellow', 'Chartreuse',
-  'Green', 'Teal', 'Blue', 'Indigo', 'Purple', 'Magenta'
+  'Green', 'Teal', 'Blue', 'Ultramarine', 'Purple', 'Fuchsia'
 ];
 
 export const ALL_COLORS = WHEEL_ORDER;
@@ -115,9 +115,9 @@ export function colorToHex(color: Color): string {
     'Green': '#2ecc71',
     'Teal': '#219ebc',
     'Blue': '#3b82f6',
-    'Indigo': '#6366f1',
+    'Ultramarine': '#6366f1',
     'Purple': '#a855f7',
-    'Magenta': '#d63384',
+    'Fuchsia': '#d63384',
   };
   return map[color];
 }

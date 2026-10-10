@@ -56,7 +56,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'sell-card-display',
     title: 'Sell Cards',
-    text: 'These 5 face-up cards are the main way to gain ducats. Each requires a specific material (Textiles, Ceramics, or Paintings) and a set of colors. You cannot sell to them here — you claim them into your own Buyers section first, at the start of each round.',
+    text: 'These 5 face-up cards are the main way to gain ducats. Each is a buyer who wants a set of colors and usually a material (Textiles, Ceramics, or Paintings); the seal shows what the sale is worth. You cannot sell to them here — you claim them into your own Buyers section first, at the start of each round.',
     attachTo: { element: '.sell-card-display', on: 'bottom' },
     buttons: [backButton, nextButton],
   });
@@ -150,7 +150,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'selling-explained',
     title: 'Selling',
-    text: 'When you destroy a drafted card with the sell ability, choose one of your own Buyers, spend 1 material of the required type, and pay the color cost from your wheel. The card goes to your completed sell cards, earning you ducats, and the buyer slot stays empty until next round.',
+    text: 'When you destroy a drafted card with the sell ability, choose one of your own Buyers, spend the materials it asks for, and pay the color cost from your wheel. The card goes to your completed sell cards, earning you ducats, and the buyer slot stays empty until next round.',
     attachTo: { element: '.sell-card-display', on: 'bottom' },
     buttons: [backButton, nextButton],
   });

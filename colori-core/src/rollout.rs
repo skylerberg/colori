@@ -1,5 +1,5 @@
 use crate::action_phase::{
-    can_afford_sell_card, can_buy_with_ducat, destroy_drafted_card, end_player_turn,
+    boats_to_sell, can_afford_sell_card, can_buy_with_ducat, destroy_drafted_card, end_player_turn,
     resolve_spend_ducat,
     initialize_action_phase,
     process_ability_stack,
@@ -659,7 +659,7 @@ fn heuristic_draft_loop<R: Rng>(state: &mut GameState, params: &HeuristicParams,
 #[derive(Clone, Copy)]
 struct SellCardCacheEntry {
     ducats: u32,
-    required_material: MaterialType,
+    materials: &'static [MaterialType],
     colors_met: bool,
     have_colors: u32,
     total_colors: u32,
@@ -684,7 +684,7 @@ impl SellCardCache {
         let mut best_affordable_ducats = 0u32;
         let mut best_affordable_id: Option<u32> = None;
         let len = buyers.len();
-        const EMPTY_ENTRY: SellCardCacheEntry = SellCardCacheEntry { ducats: 0, required_material: MaterialType::Textiles, colors_met: false, have_colors: 0, total_colors: 0 };
+        const EMPTY_ENTRY: SellCardCacheEntry = SellCardCacheEntry { ducats: 0, materials: &[], colors_met: false, have_colors: 0, total_colors: 0 };
         let mut entries: [SellCardCacheEntry; MAX_BUYERS] = [EMPTY_ENTRY; MAX_BUYERS];
 
         for (i, sc) in buyers.iter().enumerate() {
@@ -694,8 +694,7 @@ impl SellCardCache {
             // Boats and silver count as the material and primaries they can
             // stand in for, so what the cache calls affordable is exactly
             // what `can_afford_sell_card` does.
-            let has_material =
-                player.materials.get(sc.sell_card.required_material()) >= 1 || player.boats >= 1;
+            let has_material = boats_to_sell(player, sc.sell_card) <= player.boats;
 
             let mut have = 0u32;
             let mut missing = 0u32;
@@ -732,7 +731,7 @@ impl SellCardCache {
 
             entries[i] = SellCardCacheEntry {
                 ducats,
-                required_material: sc.sell_card.required_material(),
+                materials: sc.sell_card.required_materials(),
                 colors_met,
                 have_colors: have,
                 total_colors,
@@ -761,7 +760,7 @@ impl SellCardCache {
         let mut score = 0u32;
         for i in 0..self.len {
             let entry = &self.entries[i];
-            if entry.required_material == material {
+            if entry.materials.contains(&material) {
                 let base = entry.ducats * params.rollout_ws_material_base_multiplier;
                 if entry.colors_met {
                     score += base * params.rollout_ws_material_colors_met_multiplier;

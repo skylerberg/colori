@@ -55,11 +55,11 @@ export const WORKSHOP_WHEEL_REGIONS: WheelRegion[] = [
     path: 'M 127.44 249.67 A 122 122 0 0 1 25.71 195.17 L 58.95 172.61 A 82 82 0 0 0 127.44 210.02 Z',
   },
   {
-    color: 'Indigo',
+    color: 'Ultramarine',
     path: 'M 25.71 195.17 A 122 122 0 0 1 23.62 63.57 L 59.44 82.91 A 82 82 0 0 0 58.95 172.61 Z',
   },
   {
-    color: 'Magenta',
+    color: 'Fuchsia',
     path: 'M 23.62 63.57 A 122 122 0 0 1 127.44 6.74 L 127.44 46.22 A 82 82 0 0 0 59.44 82.91 Z',
   },
 ];

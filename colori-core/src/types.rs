@@ -30,9 +30,9 @@ pub enum Color {
     Green,
     Teal,
     Blue,
-    Indigo,
+    Ultramarine,
     Purple,
-    Magenta,
+    Fuchsia,
 }
 
 pub const ALL_COLORS: [Color; 12] = [
@@ -45,9 +45,9 @@ pub const ALL_COLORS: [Color; 12] = [
     Color::Green,
     Color::Teal,
     Color::Blue,
-    Color::Indigo,
+    Color::Ultramarine,
     Color::Purple,
-    Color::Magenta,
+    Color::Fuchsia,
 ];
 
 pub const NUM_COLORS: usize = 12;
@@ -168,7 +168,7 @@ pub enum Card {
     GreenEarth,
     Verdigris,
     Brazilwood,
-    IndigoDye,
+    Indigo,
     // Tertiary dyes (6)
     Cinnabar,
     Saffron,
@@ -265,8 +265,8 @@ const CARD_DATA: [CardProperties; NUM_CARDS] = [
     dye("Saffron", WORKSHOP_3, &[Color::Amber]),
     dye("Copper Resinate", WORKSHOP_3, &[Color::Chartreuse]),
     dye("Azurite", WORKSHOP_3, &[Color::Teal]),
-    dye("Lapis Lazuli", WORKSHOP_3, &[Color::Indigo]),
-    dye("Cochineal", WORKSHOP_3, &[Color::Magenta]),
+    dye("Lapis Lazuli", WORKSHOP_3, &[Color::Ultramarine]),
+    dye("Cochineal", WORKSHOP_3, &[Color::Fuchsia]),
     material("Ceramics", SELL, &[MaterialType::Ceramics], &[]),
     material("Canvas", SELL, &[MaterialType::Paintings], &[]),
     material("Fabric", SELL, &[MaterialType::Textiles], &[]),
@@ -332,137 +332,232 @@ impl Card {
     }
 }
 
-// ── SellCard enum (54 variants) ──
+// ── Buyer ──
+
+/// Who a sell card sells to. The trade sets what the sale is worth and which
+/// materials it takes; the colours are what tell two cards of a trade apart.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Buyer {
+    Shipwright,
+    Glassmaker,
+    Dyer,
+    Illuminator,
+    Potter,
+    Tilemaker,
+    Painter,
+    MasterPainter,
+}
+
+pub const ALL_BUYERS: [Buyer; 8] = [
+    Buyer::Shipwright,
+    Buyer::Glassmaker,
+    Buyer::Dyer,
+    Buyer::Illuminator,
+    Buyer::Potter,
+    Buyer::Tilemaker,
+    Buyer::Painter,
+    Buyer::MasterPainter,
+];
+
+impl Buyer {
+    pub fn name(self) -> &'static str {
+        match self {
+            Buyer::Shipwright => "Shipwright",
+            Buyer::Glassmaker => "Glassmaker",
+            Buyer::Dyer => "Dyer",
+            Buyer::Illuminator => "Illuminator",
+            Buyer::Potter => "Potter",
+            Buyer::Tilemaker => "Tilemaker",
+            Buyer::Painter => "Painter",
+            Buyer::MasterPainter => "Master Painter",
+        }
+    }
+
+    #[inline]
+    pub fn ducats(self) -> u32 {
+        match self {
+            Buyer::Dyer | Buyer::Illuminator => 2,
+            Buyer::Glassmaker | Buyer::Potter => 3,
+            Buyer::Shipwright | Buyer::Tilemaker | Buyer::Painter => 4,
+            Buyer::MasterPainter => 5,
+        }
+    }
+
+    /// Stored materials a sale takes, one entry per unit.
+    #[inline]
+    pub fn materials(self) -> &'static [MaterialType] {
+        match self {
+            Buyer::Glassmaker | Buyer::Illuminator => &[],
+            Buyer::Shipwright | Buyer::Dyer => &[MaterialType::Textiles],
+            Buyer::Potter => &[MaterialType::Ceramics],
+            Buyer::Tilemaker => &[MaterialType::Ceramics, MaterialType::Ceramics],
+            Buyer::Painter | Buyer::MasterPainter => &[MaterialType::Paintings],
+        }
+    }
+
+    /// Boats a sale takes outright, before any standing in for a material.
+    #[inline]
+    pub fn boats(self) -> u32 {
+        match self {
+            Buyer::Shipwright => 1,
+            _ => 0,
+        }
+    }
+}
+
+// ── SellCard enum (60 variants) ──
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum SellCard {
-    // Textiles 2-ducat, single tertiary (6)
-    Textiles2Vermilion,
-    Textiles2Amber,
-    Textiles2Chartreuse,
-    Textiles2Teal,
-    Textiles2Indigo,
-    Textiles2Magenta,
-    // Textiles 2-ducat, secondary+primary (9)
-    Textiles2OrangeRed,
-    Textiles2OrangeYellow,
-    Textiles2OrangeBlue,
-    Textiles2GreenRed,
-    Textiles2GreenYellow,
-    Textiles2GreenBlue,
-    Textiles2PurpleRed,
-    Textiles2PurpleYellow,
-    Textiles2PurpleBlue,
-    // Textiles 2-ducat, triple primary (3)
-    Textiles2RedRedRed,
-    Textiles2YellowYellowYellow,
-    Textiles2BlueBlueBlue,
-    // Ceramics 3-ducat, tertiary+primary (18)
-    Ceramics3VermilionRed,
-    Ceramics3VermilionYellow,
-    Ceramics3VermilionBlue,
-    Ceramics3AmberRed,
-    Ceramics3AmberYellow,
-    Ceramics3AmberBlue,
-    Ceramics3ChartreuseRed,
-    Ceramics3ChartreuseYellow,
-    Ceramics3ChartreuseBlue,
-    Ceramics3TealRed,
-    Ceramics3TealYellow,
-    Ceramics3TealBlue,
-    Ceramics3IndigoRed,
-    Ceramics3IndigoYellow,
-    Ceramics3IndigoBlue,
-    Ceramics3MagentaRed,
-    Ceramics3MagentaYellow,
-    Ceramics3MagentaBlue,
-    // Paintings 4-ducat, tertiary+secondary (18)
-    Paintings4VermilionOrange,
-    Paintings4VermilionGreen,
-    Paintings4VermilionPurple,
-    Paintings4AmberOrange,
-    Paintings4AmberGreen,
-    Paintings4AmberPurple,
-    Paintings4ChartreuseOrange,
-    Paintings4ChartreuseGreen,
-    Paintings4ChartreusePurple,
-    Paintings4TealOrange,
-    Paintings4TealGreen,
-    Paintings4TealPurple,
-    Paintings4IndigoOrange,
-    Paintings4IndigoGreen,
-    Paintings4IndigoPurple,
-    Paintings4MagentaOrange,
-    Paintings4MagentaGreen,
-    Paintings4MagentaPurple,
+    // Shipwrights: a boat, Textiles and two secondaries (3)
+    ShipwrightPurpleGreen,
+    ShipwrightOrangeGreen,
+    ShipwrightPurpleOrange,
+    // Glassmakers: a tertiary and two of one primary, no material (6)
+    GlassmakerVermilionBlue,
+    GlassmakerAmberBlue,
+    GlassmakerChartreuseRed,
+    GlassmakerTealRed,
+    GlassmakerUltramarineYellow,
+    GlassmakerFuchsiaYellow,
+    // Dyers: Textiles and two primaries, or one secondary (9)
+    DyerRedRed,
+    DyerRedYellow,
+    DyerRedBlue,
+    DyerYellowYellow,
+    DyerBlueYellow,
+    DyerBlueBlue,
+    DyerOrange,
+    DyerGreen,
+    DyerPurple,
+    // Illuminators: one tertiary, no material (6)
+    IlluminatorVermilion,
+    IlluminatorAmber,
+    IlluminatorChartreuse,
+    IlluminatorTeal,
+    IlluminatorUltramarine,
+    IlluminatorFuchsia,
+    // Potters: Ceramics and one tertiary (6)
+    PotterVermilion,
+    PotterAmber,
+    PotterChartreuse,
+    PotterTeal,
+    PotterUltramarine,
+    PotterFuchsia,
+    // Tilemakers: two Ceramics and one tertiary (6)
+    TilemakerVermilion,
+    TilemakerAmber,
+    TilemakerChartreuse,
+    TilemakerTeal,
+    TilemakerUltramarine,
+    TilemakerFuchsia,
+    // Painters: Paintings, a tertiary and a secondary (18)
+    PainterVermilionOrange,
+    PainterVermilionGreen,
+    PainterVermilionPurple,
+    PainterAmberOrange,
+    PainterAmberGreen,
+    PainterAmberPurple,
+    PainterChartreuseOrange,
+    PainterChartreuseGreen,
+    PainterChartreusePurple,
+    PainterTealOrange,
+    PainterTealGreen,
+    PainterTealPurple,
+    PainterUltramarineOrange,
+    PainterUltramarineGreen,
+    PainterUltramarinePurple,
+    PainterFuchsiaOrange,
+    PainterFuchsiaGreen,
+    PainterFuchsiaPurple,
+    // Master painters: Paintings and two tertiaries (6)
+    MasterPainterVermilionTeal,
+    MasterPainterVermilionFuchsia,
+    MasterPainterAmberUltramarine,
+    MasterPainterChartreuseAmber,
+    MasterPainterChartreuseFuchsia,
+    MasterPainterUltramarineTeal,
 }
 
+pub const NUM_SELL_CARDS: usize = 60;
+
+pub const ALL_SELL_CARDS: [SellCard; NUM_SELL_CARDS] = [
+    SellCard::ShipwrightPurpleGreen, SellCard::ShipwrightOrangeGreen, SellCard::ShipwrightPurpleOrange,
+    SellCard::GlassmakerVermilionBlue, SellCard::GlassmakerAmberBlue, SellCard::GlassmakerChartreuseRed, SellCard::GlassmakerTealRed, SellCard::GlassmakerUltramarineYellow, SellCard::GlassmakerFuchsiaYellow,
+    SellCard::DyerRedRed, SellCard::DyerRedYellow, SellCard::DyerRedBlue, SellCard::DyerYellowYellow, SellCard::DyerBlueYellow, SellCard::DyerBlueBlue, SellCard::DyerOrange, SellCard::DyerGreen, SellCard::DyerPurple,
+    SellCard::IlluminatorVermilion, SellCard::IlluminatorAmber, SellCard::IlluminatorChartreuse, SellCard::IlluminatorTeal, SellCard::IlluminatorUltramarine, SellCard::IlluminatorFuchsia,
+    SellCard::PotterVermilion, SellCard::PotterAmber, SellCard::PotterChartreuse, SellCard::PotterTeal, SellCard::PotterUltramarine, SellCard::PotterFuchsia,
+    SellCard::TilemakerVermilion, SellCard::TilemakerAmber, SellCard::TilemakerChartreuse, SellCard::TilemakerTeal, SellCard::TilemakerUltramarine, SellCard::TilemakerFuchsia,
+    SellCard::PainterVermilionOrange, SellCard::PainterVermilionGreen, SellCard::PainterVermilionPurple, SellCard::PainterAmberOrange, SellCard::PainterAmberGreen, SellCard::PainterAmberPurple, SellCard::PainterChartreuseOrange, SellCard::PainterChartreuseGreen, SellCard::PainterChartreusePurple, SellCard::PainterTealOrange, SellCard::PainterTealGreen, SellCard::PainterTealPurple, SellCard::PainterUltramarineOrange, SellCard::PainterUltramarineGreen, SellCard::PainterUltramarinePurple, SellCard::PainterFuchsiaOrange, SellCard::PainterFuchsiaGreen, SellCard::PainterFuchsiaPurple,
+    SellCard::MasterPainterVermilionTeal, SellCard::MasterPainterVermilionFuchsia, SellCard::MasterPainterAmberUltramarine, SellCard::MasterPainterChartreuseAmber, SellCard::MasterPainterChartreuseFuchsia, SellCard::MasterPainterUltramarineTeal,
+];
+
 struct SellCardProperties {
-    ducats: u32,
-    required_material: MaterialType,
+    buyer: Buyer,
     color_cost: &'static [Color],
 }
 
-const SELL_CARD_DATA: [SellCardProperties; 54] = [
-    // Textiles 2-ducat, single tertiary (6)
-    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Vermilion] },
-    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Amber] },
-    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Chartreuse] },
-    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Teal] },
-    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Indigo] },
-    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Magenta] },
-    // Textiles 2-ducat, secondary+primary (9)
-    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Orange, Color::Red] },
-    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Orange, Color::Yellow] },
-    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Orange, Color::Blue] },
-    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Green, Color::Red] },
-    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Green, Color::Yellow] },
-    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Green, Color::Blue] },
-    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Purple, Color::Red] },
-    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Purple, Color::Yellow] },
-    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Purple, Color::Blue] },
-    // Textiles 2-ducat, triple primary (3)
-    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Red, Color::Red, Color::Red] },
-    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Yellow, Color::Yellow, Color::Yellow] },
-    SellCardProperties { ducats: 2, required_material: MaterialType::Textiles, color_cost: &[Color::Blue, Color::Blue, Color::Blue] },
-    // Ceramics 3-ducat, tertiary+primary (18)
-    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Vermilion, Color::Red] },
-    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Vermilion, Color::Yellow] },
-    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Vermilion, Color::Blue] },
-    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Amber, Color::Red] },
-    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Amber, Color::Yellow] },
-    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Amber, Color::Blue] },
-    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Chartreuse, Color::Red] },
-    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Chartreuse, Color::Yellow] },
-    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Chartreuse, Color::Blue] },
-    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Teal, Color::Red] },
-    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Teal, Color::Yellow] },
-    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Teal, Color::Blue] },
-    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Indigo, Color::Red] },
-    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Indigo, Color::Yellow] },
-    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Indigo, Color::Blue] },
-    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Magenta, Color::Red] },
-    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Magenta, Color::Yellow] },
-    SellCardProperties { ducats: 3, required_material: MaterialType::Ceramics, color_cost: &[Color::Magenta, Color::Blue] },
-    // Paintings 4-ducat, tertiary+secondary (18)
-    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Vermilion, Color::Orange] },
-    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Vermilion, Color::Green] },
-    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Vermilion, Color::Purple] },
-    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Amber, Color::Orange] },
-    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Amber, Color::Green] },
-    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Amber, Color::Purple] },
-    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Chartreuse, Color::Orange] },
-    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Chartreuse, Color::Green] },
-    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Chartreuse, Color::Purple] },
-    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Teal, Color::Orange] },
-    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Teal, Color::Green] },
-    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Teal, Color::Purple] },
-    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Indigo, Color::Orange] },
-    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Indigo, Color::Green] },
-    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Indigo, Color::Purple] },
-    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Magenta, Color::Orange] },
-    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Magenta, Color::Green] },
-    SellCardProperties { ducats: 4, required_material: MaterialType::Paintings, color_cost: &[Color::Magenta, Color::Purple] },
+const SELL_CARD_DATA: [SellCardProperties; NUM_SELL_CARDS] = [
+    SellCardProperties { buyer: Buyer::Shipwright, color_cost: &[Color::Purple, Color::Green] },
+    SellCardProperties { buyer: Buyer::Shipwright, color_cost: &[Color::Orange, Color::Green] },
+    SellCardProperties { buyer: Buyer::Shipwright, color_cost: &[Color::Purple, Color::Orange] },
+    SellCardProperties { buyer: Buyer::Glassmaker, color_cost: &[Color::Vermilion, Color::Blue, Color::Blue] },
+    SellCardProperties { buyer: Buyer::Glassmaker, color_cost: &[Color::Amber, Color::Blue, Color::Blue] },
+    SellCardProperties { buyer: Buyer::Glassmaker, color_cost: &[Color::Chartreuse, Color::Red, Color::Red] },
+    SellCardProperties { buyer: Buyer::Glassmaker, color_cost: &[Color::Teal, Color::Red, Color::Red] },
+    SellCardProperties { buyer: Buyer::Glassmaker, color_cost: &[Color::Ultramarine, Color::Yellow, Color::Yellow] },
+    SellCardProperties { buyer: Buyer::Glassmaker, color_cost: &[Color::Fuchsia, Color::Yellow, Color::Yellow] },
+    SellCardProperties { buyer: Buyer::Dyer, color_cost: &[Color::Red, Color::Red] },
+    SellCardProperties { buyer: Buyer::Dyer, color_cost: &[Color::Red, Color::Yellow] },
+    SellCardProperties { buyer: Buyer::Dyer, color_cost: &[Color::Red, Color::Blue] },
+    SellCardProperties { buyer: Buyer::Dyer, color_cost: &[Color::Yellow, Color::Yellow] },
+    SellCardProperties { buyer: Buyer::Dyer, color_cost: &[Color::Blue, Color::Yellow] },
+    SellCardProperties { buyer: Buyer::Dyer, color_cost: &[Color::Blue, Color::Blue] },
+    SellCardProperties { buyer: Buyer::Dyer, color_cost: &[Color::Orange] },
+    SellCardProperties { buyer: Buyer::Dyer, color_cost: &[Color::Green] },
+    SellCardProperties { buyer: Buyer::Dyer, color_cost: &[Color::Purple] },
+    SellCardProperties { buyer: Buyer::Illuminator, color_cost: &[Color::Vermilion] },
+    SellCardProperties { buyer: Buyer::Illuminator, color_cost: &[Color::Amber] },
+    SellCardProperties { buyer: Buyer::Illuminator, color_cost: &[Color::Chartreuse] },
+    SellCardProperties { buyer: Buyer::Illuminator, color_cost: &[Color::Teal] },
+    SellCardProperties { buyer: Buyer::Illuminator, color_cost: &[Color::Ultramarine] },
+    SellCardProperties { buyer: Buyer::Illuminator, color_cost: &[Color::Fuchsia] },
+    SellCardProperties { buyer: Buyer::Potter, color_cost: &[Color::Vermilion] },
+    SellCardProperties { buyer: Buyer::Potter, color_cost: &[Color::Amber] },
+    SellCardProperties { buyer: Buyer::Potter, color_cost: &[Color::Chartreuse] },
+    SellCardProperties { buyer: Buyer::Potter, color_cost: &[Color::Teal] },
+    SellCardProperties { buyer: Buyer::Potter, color_cost: &[Color::Ultramarine] },
+    SellCardProperties { buyer: Buyer::Potter, color_cost: &[Color::Fuchsia] },
+    SellCardProperties { buyer: Buyer::Tilemaker, color_cost: &[Color::Vermilion] },
+    SellCardProperties { buyer: Buyer::Tilemaker, color_cost: &[Color::Amber] },
+    SellCardProperties { buyer: Buyer::Tilemaker, color_cost: &[Color::Chartreuse] },
+    SellCardProperties { buyer: Buyer::Tilemaker, color_cost: &[Color::Teal] },
+    SellCardProperties { buyer: Buyer::Tilemaker, color_cost: &[Color::Ultramarine] },
+    SellCardProperties { buyer: Buyer::Tilemaker, color_cost: &[Color::Fuchsia] },
+    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Vermilion, Color::Orange] },
+    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Vermilion, Color::Green] },
+    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Vermilion, Color::Purple] },
+    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Amber, Color::Orange] },
+    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Amber, Color::Green] },
+    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Amber, Color::Purple] },
+    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Chartreuse, Color::Orange] },
+    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Chartreuse, Color::Green] },
+    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Chartreuse, Color::Purple] },
+    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Teal, Color::Orange] },
+    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Teal, Color::Green] },
+    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Teal, Color::Purple] },
+    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Ultramarine, Color::Orange] },
+    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Ultramarine, Color::Green] },
+    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Ultramarine, Color::Purple] },
+    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Fuchsia, Color::Orange] },
+    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Fuchsia, Color::Green] },
+    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Fuchsia, Color::Purple] },
+    SellCardProperties { buyer: Buyer::MasterPainter, color_cost: &[Color::Vermilion, Color::Teal] },
+    SellCardProperties { buyer: Buyer::MasterPainter, color_cost: &[Color::Vermilion, Color::Fuchsia] },
+    SellCardProperties { buyer: Buyer::MasterPainter, color_cost: &[Color::Amber, Color::Ultramarine] },
+    SellCardProperties { buyer: Buyer::MasterPainter, color_cost: &[Color::Chartreuse, Color::Amber] },
+    SellCardProperties { buyer: Buyer::MasterPainter, color_cost: &[Color::Chartreuse, Color::Fuchsia] },
+    SellCardProperties { buyer: Buyer::MasterPainter, color_cost: &[Color::Ultramarine, Color::Teal] },
 ];
 
 impl SellCard {
@@ -472,13 +567,23 @@ impl SellCard {
     }
 
     #[inline]
-    pub fn ducats(&self) -> u32 {
-        self.props().ducats
+    pub fn buyer(&self) -> Buyer {
+        self.props().buyer
     }
 
     #[inline]
-    pub fn required_material(&self) -> MaterialType {
-        self.props().required_material
+    pub fn ducats(&self) -> u32 {
+        self.buyer().ducats()
+    }
+
+    #[inline]
+    pub fn required_materials(&self) -> &'static [MaterialType] {
+        self.buyer().materials()
+    }
+
+    #[inline]
+    pub fn required_boats(&self) -> u32 {
+        self.buyer().boats()
     }
 
     #[inline]
@@ -767,7 +872,7 @@ fn default_card_lookup() -> [Card; 256] {
 }
 
 fn default_sell_card_lookup() -> [SellCard; 256] {
-    [SellCard::Textiles2Vermilion; 256]
+    [ALL_SELL_CARDS[0]; 256]
 }
 
 // ── Choice ──

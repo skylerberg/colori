@@ -1421,7 +1421,10 @@ pub fn compute_sell_card_acquisitions(
                 let name = sell_card_name_from_instance(*sell_card);
                 *by_sell_card.entry(name).or_insert(0) += 1;
                 *by_ducats.entry(sell_card.ducats()).or_insert(0) += 1;
-                let material_name = format!("{:?}", sell_card.required_material());
+                let material_name = sell_card
+                    .required_materials()
+                    .first()
+                    .map_or("None".to_string(), |m| format!("{:?}", m));
                 *by_material.entry(material_name).or_insert(0) += 1;
             }
         }
@@ -1470,16 +1473,17 @@ pub fn compute_winner_sell_card_breakdown(
                 _ => None,
             };
             if let Some(sell_card) = sell_card {
-                match sell_card.required_material() {
-                    MaterialType::Textiles => {
+                match sell_card.required_materials().first() {
+                    Some(MaterialType::Textiles) => {
                         *player_textiles.entry(entry.player_index).or_insert(0) += 1;
                     }
-                    MaterialType::Ceramics => {
+                    Some(MaterialType::Ceramics) => {
                         *player_ceramics.entry(entry.player_index).or_insert(0) += 1;
                     }
-                    MaterialType::Paintings => {
+                    Some(MaterialType::Paintings) => {
                         *player_paintings.entry(entry.player_index).or_insert(0) += 1;
                     }
+                    None => {}
                 }
             }
         }

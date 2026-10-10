@@ -1,4 +1,4 @@
-use crate::types::{Card, SellCard};
+use crate::types::{Buyer, Card, SellCard, ALL_SELL_CARDS};
 
 pub const DYE_COPIES: usize = 3;
 pub const ACTION_COPIES: usize = 5;
@@ -32,7 +32,7 @@ pub fn draft_dye_cards() -> [Card; 18] {
         Card::Realgar, Card::Kermes, Card::Litharge,
         Card::Malachite, Card::Woad, Card::Logwood,
         Card::DragonsBlood, Card::Orpiment, Card::GreenEarth,
-        Card::Verdigris, Card::Brazilwood, Card::IndigoDye,
+        Card::Verdigris, Card::Brazilwood, Card::Indigo,
         Card::Cinnabar, Card::Saffron, Card::CopperResinate,
         Card::Azurite, Card::LapisLazuli, Card::Cochineal,
     ]
@@ -74,30 +74,16 @@ pub fn draft_copies(card: Card) -> usize {
         .map_or(0, |(_, copies)| copies)
 }
 
-pub fn generate_all_sell_cards() -> [SellCard; 54] {
-    [
-        // Textiles 2-star, single tertiary (6)
-        SellCard::Textiles2Vermilion, SellCard::Textiles2Amber, SellCard::Textiles2Chartreuse,
-        SellCard::Textiles2Teal, SellCard::Textiles2Indigo, SellCard::Textiles2Magenta,
-        // Textiles 2-star, secondary+primary (9)
-        SellCard::Textiles2OrangeRed, SellCard::Textiles2OrangeYellow, SellCard::Textiles2OrangeBlue,
-        SellCard::Textiles2GreenRed, SellCard::Textiles2GreenYellow, SellCard::Textiles2GreenBlue,
-        SellCard::Textiles2PurpleRed, SellCard::Textiles2PurpleYellow, SellCard::Textiles2PurpleBlue,
-        // Textiles 2-star, triple primary (3)
-        SellCard::Textiles2RedRedRed, SellCard::Textiles2YellowYellowYellow, SellCard::Textiles2BlueBlueBlue,
-        // Ceramics 3-star, tertiary+primary (18)
-        SellCard::Ceramics3VermilionRed, SellCard::Ceramics3VermilionYellow, SellCard::Ceramics3VermilionBlue,
-        SellCard::Ceramics3AmberRed, SellCard::Ceramics3AmberYellow, SellCard::Ceramics3AmberBlue,
-        SellCard::Ceramics3ChartreuseRed, SellCard::Ceramics3ChartreuseYellow, SellCard::Ceramics3ChartreuseBlue,
-        SellCard::Ceramics3TealRed, SellCard::Ceramics3TealYellow, SellCard::Ceramics3TealBlue,
-        SellCard::Ceramics3IndigoRed, SellCard::Ceramics3IndigoYellow, SellCard::Ceramics3IndigoBlue,
-        SellCard::Ceramics3MagentaRed, SellCard::Ceramics3MagentaYellow, SellCard::Ceramics3MagentaBlue,
-        // Paintings 4-star, tertiary+secondary (18)
-        SellCard::Paintings4VermilionOrange, SellCard::Paintings4VermilionGreen, SellCard::Paintings4VermilionPurple,
-        SellCard::Paintings4AmberOrange, SellCard::Paintings4AmberGreen, SellCard::Paintings4AmberPurple,
-        SellCard::Paintings4ChartreuseOrange, SellCard::Paintings4ChartreuseGreen, SellCard::Paintings4ChartreusePurple,
-        SellCard::Paintings4TealOrange, SellCard::Paintings4TealGreen, SellCard::Paintings4TealPurple,
-        SellCard::Paintings4IndigoOrange, SellCard::Paintings4IndigoGreen, SellCard::Paintings4IndigoPurple,
-        SellCard::Paintings4MagentaOrange, SellCard::Paintings4MagentaGreen, SellCard::Paintings4MagentaPurple,
-    ]
+/// Copies of `sell_card` in the sell card deck.
+pub fn sell_card_copies(sell_card: SellCard) -> usize {
+    match sell_card.buyer() {
+        Buyer::Dyer => 3,
+        Buyer::Potter => 4,
+        _ => 1,
+    }
+}
+
+/// Every sell card with how many copies of it are in the sell card deck.
+pub fn sell_deck_cards() -> impl Iterator<Item = (SellCard, usize)> {
+    ALL_SELL_CARDS.into_iter().map(|c| (c, sell_card_copies(c)))
 }

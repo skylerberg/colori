@@ -37,7 +37,7 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
     reset_id_counters();
 
     let mut card_lookup = [Card::BasicRed; 256];
-    let mut sell_card_lookup = [SellCard::Textiles2Vermilion; 256];
+    let mut sell_card_lookup = [ALL_SELL_CARDS[0]; 256];
 
     // Starter cards take the first ids, a deck's worth per seat in seat order.
     // The frontend reads a starter card's character portrait off its id.
@@ -83,10 +83,12 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
 
     // Build sell card deck
     let mut sell_card_deck = UnorderedSellCards::new();
-    for &sell_card in &generate_all_sell_cards() {
-        let id = next_sell_card_id();
-        sell_card_lookup[id as usize] = sell_card;
-        sell_card_deck.insert(id);
+    for (sell_card, copies) in sell_deck_cards() {
+        for _ in 0..copies {
+            let id = next_sell_card_id();
+            sell_card_lookup[id as usize] = sell_card;
+            sell_card_deck.insert(id);
+        }
     }
 
     let mut sell_card_display: FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY> = FixedVec::new();

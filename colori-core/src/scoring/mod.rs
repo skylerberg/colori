@@ -2,6 +2,7 @@ mod heuristic_params;
 
 pub use heuristic_params::HeuristicParams;
 
+use crate::action_phase::boats_to_sell;
 use crate::colors::{is_primary, PRIMARIES, SECONDARIES, TERTIARIES};
 use crate::fixed_vec::FixedVec;
 use crate::types::*;
@@ -11,7 +12,7 @@ const ALL_CARDS: [Card; NUM_CARDS] = [
     Card::Realgar, Card::Kermes, Card::Litharge,
     Card::Malachite, Card::Woad, Card::Logwood,
     Card::DragonsBlood, Card::Orpiment, Card::GreenEarth,
-    Card::Verdigris, Card::Brazilwood, Card::IndigoDye,
+    Card::Verdigris, Card::Brazilwood, Card::Indigo,
     Card::Cinnabar, Card::Saffron, Card::CopperResinate,
     Card::Azurite, Card::LapisLazuli, Card::Cochineal,
     Card::StarterCeramics, Card::StarterCanvas, Card::StarterFabric,
@@ -152,7 +153,7 @@ pub fn buyer_alignment(player: &PlayerState, sell_card: SellCard, params: &Heuri
     let ducats = sell_card.ducats() as f64;
     let mut alignment = 0.0;
 
-    if player.materials.get(sell_card.required_material()) > 0 || player.boats > 0 {
+    if boats_to_sell(player, sell_card) <= player.boats {
         alignment += params.sell_card_material_alignment * ducats;
     }
 
@@ -305,8 +306,8 @@ mod tests {
     fn test_tie_broken_by_sell_cards() {
         // p1: 2 3-ducat sell cards = 6 ducats, 2 sell cards
         // p2: 1 3-ducat sell card + 3 ducats = 6 ducats, 1 sell card
-        let p1 = make_player(0, &[SellCard::Ceramics3VermilionRed, SellCard::Ceramics3AmberRed], [0; 12]);
-        let p2 = make_player(3, &[SellCard::Ceramics3VermilionRed], [0; 12]);
+        let p1 = make_player(0, &[SellCard::PotterVermilion, SellCard::PotterAmber], [0; 12]);
+        let p2 = make_player(3, &[SellCard::PotterVermilion], [0; 12]);
         assert_eq!(p1.cached_ducat_score, 6);
         assert_eq!(p2.cached_ducat_score, 6);
         let mut players = FixedVec::new();

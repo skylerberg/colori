@@ -1,11 +1,11 @@
 use std::cell::RefCell;
 
-use crate::types::{SellCard, Card};
+use crate::types::{SellCard, Card, ALL_SELL_CARDS};
 
 // Thread-local registries for serde: map instance_id -> Card/SellCard
 thread_local! {
     pub(super) static CARD_REGISTRY: RefCell<[Card; 256]> = RefCell::new([Card::BasicRed; 256]);
-    pub(super) static SELL_CARD_REGISTRY: RefCell<[SellCard; 256]> = RefCell::new([SellCard::Textiles2Vermilion; 256]);
+    pub(super) static SELL_CARD_REGISTRY: RefCell<[SellCard; 256]> = RefCell::new([ALL_SELL_CARDS[0]; 256]);
 }
 
 pub fn set_card_registry(lookup: &[Card; 256]) {

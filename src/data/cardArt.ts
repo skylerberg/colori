@@ -17,11 +17,6 @@ const STARTER_CARD_FILENAMES: Partial<Record<Card, string>> = {
   Chalk: 'chalk',
 };
 
-// Special-case overrides where PascalCase->kebab-case doesn't match the art filename
-const CARD_FILENAME_OVERRIDES: Partial<Record<Card, string>> = {
-  IndigoDye: 'indigo',
-};
-
 function pascalToKebab(s: string): string {
   return s.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
 }
@@ -37,27 +32,11 @@ function starterCharacter(instanceId: number | undefined): number {
 export function getCardArtFilename(card: Card, instanceId?: number): string {
   const starter = STARTER_CARD_FILENAMES[card];
   if (starter) return `characters/${starterCharacter(instanceId)}/${starter}.webp`;
-  return (CARD_FILENAME_OVERRIDES[card] ?? pascalToKebab(card)) + '.webp';
+  return pascalToKebab(card) + '.webp';
 }
 
-// Sell card mapping: "Textiles2Vermilion" -> "vermilion-textile.webp"
-// "Ceramics3AmberRed" -> "amber-red-ceramic.webp"
-// "Paintings4TealOrange" -> "teal-orange-painting.webp"
-// "Textiles2RedRedRed" -> "red-red-red-textile.webp"
-const MATERIAL_SINGULAR: Record<string, string> = {
-  Textiles: 'textile',
-  Ceramics: 'ceramic',
-  Paintings: 'painting',
-};
-
 export function getSellCardArtFilename(sellCard: SellCard): string {
-  const match = sellCard.match(/^(Textiles|Ceramics|Paintings)(\d)(.+)$/);
-  if (!match) return 'empty-pigment.webp'; // fallback
-  const [, material, , colorPart] = match;
-  // Split PascalCase color names: "AmberRed" -> ["Amber", "Red"], "RedRedRed" -> ["Red", "Red", "Red"]
-  const colors = colorPart.match(/[A-Z][a-z]*/g) ?? [];
-  const colorKebab = colors.map(c => c.toLowerCase()).join('-');
-  return colorKebab + '-' + MATERIAL_SINGULAR[material] + '.webp';
+  return `sell/${pascalToKebab(sellCard)}.webp`;
 }
 
 export function getCardArtUrl(card: Card, instanceId?: number): string {
