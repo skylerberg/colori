@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { GameState, Choice, Card, CardInstance } from '../data/types';
+  import type { GameState, Choice, Card, CardInstance, Ability } from '../data/types';
   import { executeDrawPhase, applyChoice, simultaneousPick, advanceDraft, getChoiceLogMessage, cloneGameState } from '../engine/wasmEngine';
   import { getCardData } from '../data/cards';
   import { AIController, type PrecomputeRequest } from '../ai/aiController';
@@ -147,15 +147,31 @@
   // compound choice in the game log. The UI flow is unchanged.
   let pendingDestroyCard: Card | null = $state(null);
 
-  const COMPOUND_ABILITY_TYPES = new Set(['mixColors', 'sell', 'workshop', 'moveToDraftPool']);
+  // The follow-up choices that answer each ability a destroy can open with.
+  const ANSWERS: Partial<Record<Choice['type'], Ability['type']>> = {
+    mixAll: 'mixColors',
+    selectSellCard: 'sell',
+    workshop: 'workshop',
+    skipWorkshop: 'workshop',
+    moveToDraftPool: 'moveToDraftPool',
+  };
+  const COMPOUND_ABILITY_TYPES = new Set(Object.values(ANSWERS));
+
+  function firstDestroyAbility(card: Card): Ability | null {
+    const data = getCardData(card);
+    return data != null && data.kind !== 'sellCard' ? data.destroyAbilities[0] : null;
+  }
 
   function isCompoundableDestroy(choice: Choice): choice is { type: 'destroyDraftedCard'; card: Card } {
     if (choice.type !== 'destroyDraftedCard') return false;
-    const data = getCardData(choice.card as Card);
-    return data != null && data.kind !== 'sellCard' && COMPOUND_ABILITY_TYPES.has(data.ability.type);
+    const first = firstDestroyAbility(choice.card as Card);
+    return first !== null && COMPOUND_ABILITY_TYPES.has(first.type);
   }
 
   function buildCompoundChoice(destroyCard: Card, followUp: Choice): Choice | null {
+    // A two-part card whose first ability fizzled is answered for its second;
+    // that is its own choice, not part of the destroy.
+    if (ANSWERS[followUp.type] !== firstDestroyAbility(destroyCard)?.type) return null;
     switch (followUp.type) {
       case 'mixAll':
         return { type: 'destroyAndMix', card: destroyCard, mixes: followUp.mixes };

@@ -11,10 +11,12 @@ export function formatSingleAbility(a: Ability): string {
     case 'gainSecondary': return 'Any Secondary';
     case 'gainPrimary': return 'Any Primary';
     case 'gainMaterial': return 'Any Material';
+    case 'gainSilver': return `Gain ${a.count} Silver`;
+    case 'gainBoats': return `Gain ${a.count} Boat(s)`;
   }
 }
 
 export function formatAbility(c: AnyCardData): string {
   if (c.kind === 'sellCard') return '';
-  return formatSingleAbility(c.ability);
+  return c.destroyAbilities.map(formatSingleAbility).join(', then ');
 }

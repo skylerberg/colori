@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use eframe::egui;
 use colori_core::game_log::StructuredGameLog;
+use colori_core::scoring::format_half_points;
 
 use crate::analysis::categories::{draft_card_categories, get_starter_card_categories, CardCategory};
 use crate::analysis::computations::*;
@@ -22,6 +23,7 @@ pub struct CachedAnalysis {
     pub destroyed_workshop: HashMap<String, usize>,
     pub sell_card_acq: SellCardAcquisitions,
     pub deck_stats: DeckSizeStats,
+    /// Keyed by half points.
     pub score_dist: std::collections::BTreeMap<u32, usize>,
     pub win_rate_position: HashMap<usize, WinRateEntry>,
     pub game_length: GameLengthStats,
@@ -223,6 +225,7 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
                 "Score",
                 "Count",
                 &analysis.score_dist,
+                format_half_points,
                 true,
             );
             render_btree_bar_section(
@@ -231,6 +234,7 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
                 "Rounds",
                 "Count",
                 &analysis.round_count_dist,
+                |rounds| rounds.to_string(),
                 true,
             );
             render_btree_bar_section(
@@ -239,6 +243,7 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
                 "Deck Size",
                 "Count",
                 &analysis.penultimate_deck_sizes,
+                |size| size.to_string(),
                 true,
             );
         });
@@ -684,6 +689,7 @@ fn render_btree_bar_section(
     key_header: &str,
     val_header: &str,
     data: &std::collections::BTreeMap<u32, usize>,
+    key_label: fn(u32) -> String,
     default_open: bool,
 ) {
     let id = ui.make_persistent_id(title);
@@ -699,7 +705,7 @@ fn render_btree_bar_section(
             let max_val = *data.values().max().unwrap_or(&1) as f32;
             let rows: Vec<_> = data
                 .iter()
-                .map(|(&k, &v)| (format!("{}", k), format!("{}", v), v as f32 / max_val))
+                .map(|(&k, &v)| (key_label(k), format!("{}", v), v as f32 / max_val))
                 .collect();
             bar_table(ui, &[key_header, val_header], &rows);
         });

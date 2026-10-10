@@ -2,7 +2,7 @@
 
 ## Overview
 
-Colori is a deck-building game for 2–5 players about dyeing materials and selling to sell cards. Players draft dye, material, and action cards, destroy them to store colors on a color wheel, mix colors, and sell to sell cards worth ducats. The game lasts 6 rounds. The player with the most ducats wins.
+Colori is a deck-building game for 2–5 players about dyeing materials and selling to sell cards. Players draft dye, material, and action cards, destroy them to store colors on a color wheel, mix colors, and sell to sell cards worth ducats. The game lasts 6 rounds. The player with the most points wins.
 
 ## Components
 
@@ -20,23 +20,23 @@ Each player has their own color wheel that tracks how many of each color they ha
 
 ### Cards
 
-**Basic Dye Cards** (starting decks only, 1 per player):
-- Basic Red — 1 Red color | Destroy: Sell
-- Basic Yellow — 1 Yellow color | Destroy: Sell
-- Basic Blue — 1 Blue color | Destroy: Sell
+**Starter Dye Cards** (starting decks only, 1 of each per player):
+- Red — 1 Red color | Destroy: Workshop ×2
+- Yellow — 1 Yellow color | Destroy: Workshop ×2
+- Blue — 1 Blue color | Destroy: Workshop ×2
 
-**Dye Cards** (draft deck):
-- Primary dyes — 2 colors of one primary + 1 color of a different primary | Destroy: Workshop ×3
-- Secondary dyes — 2 colors of two adjacent primary/secondary colors | Destroy: Mix Colors ×2
-- Tertiary dyes — 1 color of a tertiary color | Destroy: Sell
+**Dye Cards** (draft deck, 3 copies each):
+- Primary dyes — 2 colors of one primary + 1 color of a different primary | Destroy: Mix Colors ×2
+- Secondary dyes — 1 secondary color + 1 adjacent primary | Destroy: Sell
+- Tertiary dyes — 1 color of a tertiary color | Destroy: Workshop ×3
 
-**Material Cards** (starting decks, 1 per player; plus draft material cards in the draft deck):
-Starting deck materials gain 1 material when workshopped. Draft material cards offer enhanced gains: material + color, or dual materials.
-- Ceramics | Destroy: Workshop ×2
-- Paintings | Destroy: Sell
-- Textiles | Destroy: Draw Cards ×2
+**Material Cards** (starting decks, 1 of each per player; plus the Imports cards in the draft deck):
+Starting deck materials gain 1 material when workshopped. Imports cards gain a material and a color, or two different materials.
+- Ceramics | Destroy: Sell
+- Canvas (gains Paintings) | Destroy: Sell
+- Fabric (gains Textiles) | Destroy: Sell
 
-**Action Cards** (draft deck; plus Chalk as a starter card):
+**Action Cards** (draft deck, 5 copies each; plus Chalk as a starter card):
 Each action card has a destroy ability plus workshop abilities that trigger when the card is chosen during Workshop resolution. See the card reference below.
 
 **Sell Cards** (single deck):
@@ -44,17 +44,26 @@ Each sell card requires 1 of a specific material type and a set of colors as its
 
 Sell cards are not completed straight out of the display. Each round, before drafting, players claim cards into their own **buyers** section, and for the rest of that round a player can only sell to the cards sitting there.
 
+### Silver and Boats
+
+Two things a player can hold besides colors, materials and ducats:
+
+- **Silver** is a wild primary. One silver stands in for a Red, Yellow or Blue the player's wheel lacks, whenever a primary would be spent: as an input to a mix, or in a sell card's color cost.
+- A **boat** is a wild material. One boat stands in for the material a sell card requires when the player has none of it stored.
+
+What is asked for is always spent first; silver and boats only cover what is missing. Each silver and each boat still held at the end of the game is worth **half a point**.
+
 ### Decks
 
-- **Draft Deck**: Contains the dye, draft material, and action cards. When the draft deck runs out, shuffle all destroyed cards back in.
+- **Draft Deck**: 100 cards — 54 dye cards, 21 Imports cards and 25 action cards. When the draft deck runs out, shuffle all destroyed cards back in.
 - **Sell Card Deck**: Contains all sell cards. 5 sell cards are displayed face-up at all times, replaced from the deck as soon as one is claimed.
 - **Personal Deck**: Each player has their own deck that they draw from and build over the course of the game. There is no discard pile: cards return to the deck by being placed on the **bottom** at the end of a round, so a card you put down will not come back up until everything above it has been drawn.
 
 ## Setup
 
-1. Each player receives a starting personal deck: 1 Basic Red, 1 Basic Yellow, 1 Basic Blue, 1 Ceramics, 1 Paintings, 1 Textiles, 1 Chalk. Shuffle it.
+1. Each player receives a starting personal deck: 1 Red, 1 Yellow, 1 Blue, 1 Ceramics, 1 Canvas, 1 Fabric, 1 Chalk. Shuffle it. The physical game has six of these decks, one per character; they differ only in the portrait in the corner, which makes a deck easy to reassemble after a game.
 2. Each player starts with 1 Red, 1 Yellow, and 1 Blue already stored on their color wheel.
-3. Place the dye, draft material, and action cards into the draft deck. Shuffle it.
+3. Place the dye, Imports, and action cards into the draft deck. Shuffle it.
 4. Shuffle the sell card deck and reveal 5 sell cards face-up in the sell card display.
 
 ## Player Area
@@ -67,6 +76,7 @@ Each player has:
 - **Color Wheel** (tracks stored colors)
 - **Stored Materials** (tracks Textiles, Ceramics, and Paintings counts)
 - **Ducats** (count toward final score)
+- **Silver** and **Boats** (wilds; half a point each at the end)
 - **Completed Sell Cards** (scored sell cards, kept in a separate area)
 
 ## Round Structure
@@ -114,7 +124,7 @@ If both the display and the deck are empty there is nothing to claim, and the sl
 
 ### 4. Action Phase
 
-Each player takes one turn, starting with the starting player for the round. On your turn, you may destroy any number of your **drafted** cards, one at a time. Each destroyed card triggers its destroy ability (see Abilities below). You must fully resolve each ability before destroying another card. When you are done destroying cards (or choose to stop), your turn ends.
+Each player takes one turn, starting with the starting player for the round. On your turn, you may destroy any number of your **drafted** cards, one at a time. Each destroyed card triggers its destroy ability (see Abilities below); a card with two resolves them in the order printed. You must fully resolve a card's abilities before destroying another card. When you are done destroying cards (or choose to stop), your turn ends.
 
 **Spending ducats.** Between destroys — whenever no ability is waiting on you — you may spend **1 ducat** for any of:
 
@@ -146,18 +156,14 @@ Choose up to N cards from your **workshop**. You may skip Workshop entirely (cho
 
 For each chosen card:
 - **Material card**: Store all materials listed on the card (e.g., 2x Ceramics, or 1 Ceramics + 1 Paintings). If the card has a color, also store that color on your color wheel. The card is rotated and stays in the workshop.
-- **Dye or basic dye card**: Store ALL of its colors on your color wheel. The card is rotated and stays in the workshop.
+- **Dye or starter dye card**: Store ALL of its colors on your color wheel. The card is rotated and stays in the workshop.
 - **Action card**: Consumes 1 pick. The action card's workshop abilities are pushed onto the ability stack, and any remaining Workshop picks carry over (pushed below the workshop abilities on the stack). The card is rotated and stays in the workshop.
-
-### Draw Cards ×N
-
-Draw N cards from your personal deck into your workshop. If your deck runs out you draw fewer cards; there is no discard pile to reshuffle.
 
 ### Mix Colors ×N
 
 Perform up to N mix operations on your color wheel. You may stop early. For each mix:
-1. Choose two colors on your wheel that are exactly **2 positions apart** (e.g., Red and Orange, Yellow and Green).
-2. Remove one of each from your wheel.
+1. Choose two colors that are exactly **2 positions apart** (e.g., Red and Orange, Yellow and Green). Each must be on your wheel, or be a primary you have a silver to stand in for.
+2. Remove one of each from your wheel, spending a silver for any primary you lack.
 3. Add one of the color **between** them to your wheel.
 
 Complete mixing pairs (two inputs → one output):
@@ -185,8 +191,8 @@ You **must** sell to one of your own buyers if you are able to. If you cannot af
 
 To sell to a buyer:
 1. Choose a sell card from your **buyers** section.
-2. Spend 1 stored material of the required type.
-3. Pay the color cost by removing the required colors from your color wheel.
+2. Spend 1 stored material of the required type, or a boat if you have none.
+3. Pay the color cost by removing the required colors from your color wheel, spending a silver for each primary you lack.
 4. The sell card goes to your **completed sell cards** area.
 5. The buyer slot it occupied stays empty until the next buyers phase refills it.
 
@@ -198,105 +204,105 @@ Gain N ducats. Ducats count toward your final score, and can be spent during you
 
 Choose one of the three secondary colors (Orange, Green, or Purple) and add it to your color wheel. This ability never fizzles.
 
-### Any Primary
+### Gain Silver ×N
 
-Choose one of the three primary colors (Red, Yellow, or Blue) and add it to your color wheel. This ability never fizzles.
+Gain N silver. See Silver and Boats above.
 
-### Any Material
+### Gain a Boat
 
-Choose one of the three material types (Textiles, Ceramics, or Paintings) and store 1 of it. This ability never fizzles.
+Gain 1 boat. See Silver and Boats above.
 
 ## End of Game
 
 The game ends when **round 6** is completed.
 
-Each player's score = total ducats (from sell cards + Gain Ducats ability). The player with the most ducats wins. If tied, the player with the most completed sell cards wins. If still tied, the player with the most colors (total count) on their color wheel wins. If still tied, those players share the victory.
+Each player's score = total ducats (from sell cards and gold) + ½ point for each silver and each boat they still hold. The player with the highest score wins. If tied, the player with the most completed sell cards wins. If still tied, the player with the most colors (total count) on their color wheel wins. If still tied, those players share the victory.
 
 ---
 
 ## Card Reference
 
-### Basic Dye Cards
+### Starter Cards
 
-| Name | Color | Destroy Ability |
-|------|-------|-----------------|
-| Basic Red | 1 Red | Sell |
-| Basic Yellow | 1 Yellow | Sell |
-| Basic Blue | 1 Blue | Sell |
+One of each per player.
+
+| Name | Workshop | Destroy Ability |
+|------|----------|-----------------|
+| Red | 1 Red | Workshop ×2 |
+| Yellow | 1 Yellow | Workshop ×2 |
+| Blue | 1 Blue | Workshop ×2 |
+| Ceramics | 1 Ceramics | Sell |
+| Canvas | 1 Paintings | Sell |
+| Fabric | 1 Textiles | Sell |
+| Chalk | Gain Silver ×1 | Mix Colors ×2 |
 
 ### Dye Cards
+
+3 copies of each.
 
 **Primary Dyes** (2 colors of one primary + 1 color of a different primary):
 
 | Name | Colors | Destroy Ability |
 |------|--------|-----------------|
-| Lac | 2 Red, 1 Yellow | Workshop ×3 |
-| Brazilwood | 2 Red, 1 Blue | Workshop ×3 |
-| Pomegranate | 2 Yellow, 1 Red | Workshop ×3 |
-| Sumac | 2 Yellow, 1 Blue | Workshop ×3 |
-| Elderberry | 2 Blue, 1 Red | Workshop ×3 |
-| Turnsole | 2 Blue, 1 Yellow | Workshop ×3 |
+| Realgar | 2 Red, 1 Yellow | Mix Colors ×2 |
+| Kermes | 2 Red, 1 Blue | Mix Colors ×2 |
+| Litharge | 2 Yellow, 1 Red | Mix Colors ×2 |
+| Malachite | 2 Yellow, 1 Blue | Mix Colors ×2 |
+| Woad | 2 Blue, 1 Red | Mix Colors ×2 |
+| Logwood | 2 Blue, 1 Yellow | Mix Colors ×2 |
 
-**Secondary Dyes** (2 colors of adjacent colors):
+**Secondary Dyes** (1 secondary + 1 adjacent primary):
 
 | Name | Colors | Destroy Ability |
 |------|--------|-----------------|
-| Madder | 1 Orange, 1 Red | Mix Colors ×2 |
-| Turmeric | 1 Orange, 1 Yellow | Mix Colors ×2 |
-| Dyer's Greenweed | 1 Green, 1 Yellow | Mix Colors ×2 |
-| Verdigris | 1 Green, 1 Blue | Mix Colors ×2 |
-| Orchil | 1 Purple, 1 Red | Mix Colors ×2 |
-| Logwood | 1 Purple, 1 Blue | Mix Colors ×2 |
+| Dragon's Blood | 1 Orange, 1 Red | Sell |
+| Orpiment | 1 Orange, 1 Yellow | Sell |
+| Green Earth | 1 Green, 1 Yellow | Sell |
+| Verdigris | 1 Green, 1 Blue | Sell |
+| Brazilwood | 1 Purple, 1 Red | Sell |
+| Indigo | 1 Purple, 1 Blue | Sell |
 
 **Tertiary Dyes** (1 color of a tertiary color):
 
 | Name | Colors | Destroy Ability |
 |------|--------|-----------------|
-| Vermilion | 1 Vermilion | Sell |
-| Saffron | 1 Amber | Sell |
-| Persian Berries | 1 Chartreuse | Sell |
-| Azurite | 1 Teal | Sell |
-| Indigo | 1 Indigo | Sell |
-| Cochineal | 1 Magenta | Sell |
+| Cinnabar | 1 Vermilion | Workshop ×3 |
+| Saffron | 1 Amber | Workshop ×3 |
+| Copper Resinate | 1 Chartreuse | Workshop ×3 |
+| Azurite | 1 Teal | Workshop ×3 |
+| Lapis Lazuli | 1 Indigo | Workshop ×3 |
+| Cochineal | 1 Magenta | Workshop ×3 |
 
-### Starting Material Cards
+### Imports Cards
 
-| Name | Material Gain | Destroy Ability |
-|------|--------------|-----------------|
-| Ceramics | 1 Ceramics | Workshop ×3 |
-| Paintings | 1 Paintings | Workshop ×4 |
-| Textiles | 1 Textiles | Workshop ×2 |
+Every one of these is titled "Imports"; they are told apart by what they gain.
 
-### Draft Material Cards
-
-| Name | Material Gain | Color | Destroy Ability |
-|------|--------------|-------|-----------------|
-| Terra Cotta | 1 Ceramics | Red | Workshop ×2 |
-| Ochre Ware | 1 Ceramics | Yellow | Workshop ×2 |
-| Cobalt Ware | 1 Ceramics | Blue | Workshop ×2 |
-| Cinnabar & Canvas | 1 Paintings | Red | Workshop ×2 |
-| Orpiment & Canvas | 1 Paintings | Yellow | Workshop ×2 |
-| Ultramarine & Canvas | 1 Paintings | Blue | Workshop ×2 |
-| Alizarin & Fabric | 1 Textiles | 2 Red | Workshop ×2 |
-| Fustic & Fabric | 1 Textiles | 2 Yellow | Workshop ×2 |
-| Pastel & Fabric | 1 Textiles | 2 Blue | Workshop ×2 |
-| Clay & Canvas | 1 Ceramics + 1 Paintings | — | Sell |
-| Clay & Fabric | 1 Ceramics + 1 Textiles | — | Sell |
-| Canvas & Fabric | 1 Paintings + 1 Textiles | — | Sell |
+| Name | Material Gain | Color | Destroy Ability | Copies |
+|------|--------------|-------|-----------------|--------|
+| Ceramics & Red | 1 Ceramics | Red | Workshop ×2, then Mix Colors ×1 | 2 |
+| Ceramics & Yellow | 1 Ceramics | Yellow | Workshop ×2, then Mix Colors ×1 | 2 |
+| Ceramics & Blue | 1 Ceramics | Blue | Workshop ×2, then Mix Colors ×1 | 2 |
+| Canvas & Red | 1 Paintings | Red | Workshop ×2, then Mix Colors ×1 | 2 |
+| Canvas & Yellow | 1 Paintings | Yellow | Workshop ×2, then Mix Colors ×1 | 2 |
+| Canvas & Blue | 1 Paintings | Blue | Workshop ×2, then Mix Colors ×1 | 2 |
+| Fabric & Orange | 1 Textiles | Orange | Sell | 2 |
+| Fabric & Green | 1 Textiles | Green | Sell | 2 |
+| Fabric & Purple | 1 Textiles | Purple | Sell | 2 |
+| Canvas & Ceramics | 1 Paintings + 1 Ceramics | — | Workshop ×2, then Mix Colors ×1 | 1 |
+| Ceramics & Fabric | 1 Ceramics + 1 Textiles | — | Workshop ×2, then Mix Colors ×1 | 1 |
+| Canvas & Fabric | 1 Paintings + 1 Textiles | — | Workshop ×2, then Mix Colors ×1 | 1 |
 
 ### Action Cards
 
-Their workshop abilities (triggered when chosen during Workshop resolution) are:
+5 copies of each in the draft deck. Their workshop abilities (triggered when chosen during Workshop resolution) are:
 
-| Name | Destroy Ability | Workshop Abilities | Notes |
-|------|----------------|-------------------|-------|
-| Chalk | Sell | Any Primary | Starter card (1 per player, not in draft deck) |
-| Alum | Move to Draft Pool | Gain Ducats ×1 | Draft deck |
-| Cream of Tartar | Move to Draft Pool | Draw Cards ×3 | Draft deck |
-| Gum Arabic | Move to Draft Pool | Any Secondary | Draft deck |
-| Potash | Move to Draft Pool | Workshop ×3 | Draft deck |
-| Linseed Oil | Move to Draft Pool | Mix Colors ×2 | Draft deck |
-| Warehouse | Move to Draft Pool | Any Material | Draft deck |
+| Name | Destroy Ability | Workshop Abilities |
+|------|----------------|-------------------|
+| Alum | Move to Draft Pool | Gain Ducats ×1 |
+| Gum Arabic | Move to Draft Pool | Any Secondary |
+| Linseed Oil | Move to Draft Pool | Mix Colors ×3 |
+| Warehouse | Move to Draft Pool | Gain Silver ×2 |
+| Gondola | Move to Draft Pool | Gain a Boat |
 
 ### Sell Cards
 

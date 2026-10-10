@@ -1,5 +1,5 @@
 import type { GameState, Choice, PlayerState, Color, Card, DrawEvent } from '../data/types';
-import { mixResult } from '../data/colors';
+import { mixResult, silverToCoverCost } from '../data/colors';
 import { getCardData, getSellCardData, getAnyCardData } from '../data/cards';
 import init, {
   wasm_create_initial_game_state,
@@ -176,16 +176,6 @@ export function determineWinners(players: PlayerState[], playerNames: string[]):
     .map(r => r.name);
 }
 
-function canPayCost(wheel: Record<Color, number>, cost: Color[]): boolean {
-  const used: Partial<Record<Color, number>> = {};
-  for (const c of cost) {
-    const needed = (used[c] ?? 0) + 1;
-    if (wheel[c] < needed) return false;
-    used[c] = needed;
-  }
-  return true;
-}
-
 export function canSell(state: GameState, sellCardInstanceId: number): boolean {
   if (state.phase.type !== 'action') return false;
   const player = state.players[state.phase.actionState.currentPlayerIndex];
@@ -194,6 +184,8 @@ export function canSell(state: GameState, sellCardInstanceId: number): boolean {
   const sellCardInstance = player.buyers.find(g => g.instanceId === sellCardInstanceId);
   if (!sellCardInstance) return false;
   const sellCard = getSellCardData(sellCardInstance.card);
-  if (player.materials[sellCard.requiredMaterial] < 1) return false;
-  return canPayCost(player.colorWheel, sellCard.colorCost);
+  // A boat stands in for the material, and silver for missing primaries.
+  if (player.materials[sellCard.requiredMaterial] < 1 && player.boats < 1) return false;
+  const silverNeeded = silverToCoverCost(player.colorWheel, sellCard.colorCost);
+  return silverNeeded !== null && silverNeeded <= player.silver;
 }

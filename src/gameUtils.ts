@@ -1,4 +1,5 @@
-import type { GameState, CardInstance } from './data/types';
+import type { GameState, CardInstance, PlayerState } from './data/types';
+import { getSellCardData } from './data/cards';
 
 export function getActivePlayerIndex(gs: GameState): number {
   if (gs.phase.type === 'buyers') {
@@ -11,6 +12,13 @@ export function getActivePlayerIndex(gs: GameState): number {
     return gs.phase.actionState.currentPlayerIndex;
   }
   return -1;
+}
+
+// Mirrors `colori_core::scoring::score_in_half_points`: sell cards and ducats
+// at face value, plus half a point for each unspent silver and boat.
+export function playerScore(player: Pick<PlayerState, 'completedSellCards' | 'ducats' | 'silver' | 'boats'>): number {
+  const sold = player.completedSellCards.reduce((sum, sellCard) => sum + getSellCardData(sellCard.card).ducats, 0);
+  return sold + player.ducats + (player.silver + player.boats) / 2;
 }
 
 export function isCurrentPlayerAI(gs: GameState): boolean {

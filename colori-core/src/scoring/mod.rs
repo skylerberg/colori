@@ -2,35 +2,34 @@ mod heuristic_params;
 
 pub use heuristic_params::HeuristicParams;
 
-use crate::colors::{PRIMARIES, SECONDARIES, TERTIARIES};
+use crate::colors::{is_primary, PRIMARIES, SECONDARIES, TERTIARIES};
 use crate::fixed_vec::FixedVec;
 use crate::types::*;
 
-const ALL_CARDS: [Card; 43] = [
+const ALL_CARDS: [Card; NUM_CARDS] = [
     Card::BasicRed, Card::BasicYellow, Card::BasicBlue,
-    Card::Lac, Card::Brazilwood, Card::Pomegranate,
-    Card::Sumac, Card::Elderberry, Card::Turnsole,
-    Card::Madder, Card::Turmeric, Card::DyersGreenweed,
-    Card::Verdigris, Card::Orchil, Card::Logwood,
-    Card::VermilionDye, Card::Saffron, Card::PersianBerries,
-    Card::Azurite, Card::IndigoDye, Card::Cochineal,
-    Card::StarterCeramics, Card::StarterPaintings, Card::StarterTextiles,
-    Card::TerraCotta, Card::OchreWare, Card::CobaltWare,
-    Card::CinnabarCanvas, Card::OrpimentCanvas, Card::UltramarineCanvas,
-    Card::AlizarinFabric, Card::FusticFabric, Card::PastelFabric,
-    Card::ClayCanvas, Card::ClayFabric, Card::CanvasFabric,
-    Card::Alum, Card::CreamOfTartar, Card::GumArabic,
-    Card::Potash, Card::Chalk, Card::LinseedOil,
-    Card::Warehouse,
+    Card::Realgar, Card::Kermes, Card::Litharge,
+    Card::Malachite, Card::Woad, Card::Logwood,
+    Card::DragonsBlood, Card::Orpiment, Card::GreenEarth,
+    Card::Verdigris, Card::Brazilwood, Card::IndigoDye,
+    Card::Cinnabar, Card::Saffron, Card::CopperResinate,
+    Card::Azurite, Card::LapisLazuli, Card::Cochineal,
+    Card::StarterCeramics, Card::StarterCanvas, Card::StarterFabric,
+    Card::CeramicsRed, Card::CeramicsYellow, Card::CeramicsBlue,
+    Card::CanvasRed, Card::CanvasYellow, Card::CanvasBlue,
+    Card::FabricOrange, Card::FabricGreen, Card::FabricPurple,
+    Card::CanvasCeramics, Card::CeramicsFabric, Card::CanvasFabric,
+    Card::Alum, Card::GumArabic, Card::LinseedOil,
+    Card::Warehouse, Card::Gondola, Card::Chalk,
 ];
 
 pub struct CardHeuristicTable {
-    quality: [f64; 43],
+    quality: [f64; NUM_CARDS],
 }
 
 impl CardHeuristicTable {
     pub fn new(params: &HeuristicParams) -> Self {
-        let mut quality = [0.0f64; 43];
+        let mut quality = [0.0f64; NUM_CARDS];
         for &card in &ALL_CARDS {
             let idx = card as usize;
             quality[idx] = card_quality(card, params);
@@ -39,35 +38,63 @@ impl CardHeuristicTable {
     }
 }
 
-pub fn calculate_score(player: &PlayerState) -> u32 {
+/// Ducats from completed sell cards and gold: the whole-point part of a score,
+/// and what `PlayerState::cached_ducat_score` caches.
+pub fn calculate_ducat_score(player: &PlayerState) -> u32 {
     let sell_card_ducats: u32 = player.completed_sell_cards.iter().map(|bi| bi.sell_card.ducats()).sum();
     sell_card_ducats + player.ducats
 }
 
-/// Returns a comparable ranking tuple: (score, completed_sell_cards_count, color_wheel_total).
+/// A player's score, counted in half points so it stays whole: every ducat is
+/// two, and each unspent silver or boat is one.
+pub fn score_in_half_points(player: &PlayerState) -> u32 {
+    2 * calculate_ducat_score(player) + player.silver + player.boats
+}
+
+/// `score_in_half_points` off the cache, for the search's hot paths.
+#[inline]
+fn cached_half_points(player: &PlayerState) -> u32 {
+    2 * player.cached_ducat_score + player.silver + player.boats
+}
+
+/// "12" or "12.5".
+pub fn format_half_points(half_points: u32) -> String {
+    if half_points % 2 == 0 {
+        format!("{}", half_points / 2)
+    } else {
+        format!("{}.5", half_points / 2)
+    }
+}
+
+/// Returns a comparable ranking tuple: (half points, completed_sell_cards_count, color_wheel_total).
 /// Rust tuples compare lexicographically, giving correct tiebreak order.
 pub fn player_ranking(player: &PlayerState) -> (u32, usize, u32) {
     (
-        calculate_score(player),
+        score_in_half_points(player),
         player.completed_sell_cards.len(),
         player.color_wheel.counts.iter().sum(),
     )
 }
 
-/// Compute terminal rewards using tiebreakers. Uses cached_score for consistency with ISMCTS.
+/// Solo mode: 1.0 for reaching 16 points (win) + score/100 for gradient signal.
+fn solo_reward(player: &PlayerState) -> f64 {
+    let score = cached_half_points(player) as f64 / 2.0;
+    let win_bonus = if score >= 16.0 { 1.0 } else { 0.0 };
+    win_bonus + score / 100.0
+}
+
+/// Compute terminal rewards using tiebreakers. Uses cached_ducat_score for consistency with ISMCTS.
 /// Each true-tied winner gets 1.0 / num_winners, losers get 0.0.
-/// Solo mode: 1.0 for reaching 16 ducats (win) + score/100 for gradient signal.
 pub fn compute_terminal_rewards(players: &FixedVec<PlayerState, MAX_PLAYERS>) -> [f64; MAX_PLAYERS] {
     if players.len() == 1 {
         let mut result = [0.0; MAX_PLAYERS];
-        let score = players[0].cached_score as f64;
-        result[0] = if score >= 16.0 { 1.0 } else { 0.0 } + score / 100.0;
+        result[0] = solo_reward(&players[0]);
         return result;
     }
     let mut rankings = [(0u32, 0usize, 0u32); MAX_PLAYERS];
     for (i, p) in players.iter().enumerate() {
         rankings[i] = (
-            p.cached_score,
+            cached_half_points(p),
             p.completed_sell_cards.len(),
             p.color_wheel.counts.iter().sum(),
         );
@@ -82,32 +109,22 @@ pub fn compute_terminal_rewards(players: &FixedVec<PlayerState, MAX_PLAYERS>) ->
 }
 
 fn card_quality(card: Card, params: &HeuristicParams) -> f64 {
-    if matches!(card, Card::Chalk) {
-        return params.chalk_quality;
-    }
     match card.kind() {
-        CardKind::Action => {
-            match card {
-                Card::Alum => params.alum_quality,
-                Card::CreamOfTartar => params.cream_of_tartar_quality,
-                Card::GumArabic => params.gum_arabic_quality,
-                Card::Potash => params.potash_quality,
-                Card::Warehouse => params.warehouse_quality,
-                Card::LinseedOil => params.linseed_oil_quality,
-                _ => 0.0,
-            }
-        }
-        CardKind::Dye => {
-            match card {
-                Card::Lac | Card::Brazilwood | Card::Pomegranate
-                | Card::Sumac | Card::Elderberry | Card::Turnsole => params.primary_dye_quality,
-                Card::Madder | Card::Turmeric | Card::DyersGreenweed
-                | Card::Verdigris | Card::Orchil | Card::Logwood => params.secondary_dye_quality,
-                Card::VermilionDye | Card::Saffron | Card::PersianBerries
-                | Card::Azurite | Card::IndigoDye | Card::Cochineal => params.tertiary_dye_quality,
-                _ => 0.0,
-            }
-        }
+        CardKind::Action => match card {
+            Card::Chalk => params.chalk_quality,
+            Card::Alum => params.alum_quality,
+            Card::GumArabic => params.gum_arabic_quality,
+            Card::LinseedOil => params.linseed_oil_quality,
+            Card::Warehouse => params.warehouse_quality,
+            Card::Gondola => params.gondola_quality,
+            _ => 0.0,
+        },
+        // A dye's tier shows in how many colours it carries.
+        CardKind::Dye => match card.colors().len() {
+            3 => params.primary_dye_quality,
+            2 => params.secondary_dye_quality,
+            _ => params.tertiary_dye_quality,
+        },
         CardKind::BasicDye => params.basic_dye_quality,
         CardKind::Material => {
             let colors = card.colors();
@@ -135,14 +152,14 @@ pub fn buyer_alignment(player: &PlayerState, sell_card: SellCard, params: &Heuri
     let ducats = sell_card.ducats() as f64;
     let mut alignment = 0.0;
 
-    if player.materials.get(sell_card.required_material()) > 0 {
+    if player.materials.get(sell_card.required_material()) > 0 || player.boats > 0 {
         alignment += params.sell_card_material_alignment * ducats;
     }
 
     let cost = sell_card.color_cost();
     let cost_len = cost.len() as f64;
     for &color in cost {
-        if player.color_wheel.get(color) > 0 {
+        if player.color_wheel.get(color) > 0 || (is_primary(color) && player.silver > 0) {
             alignment += (params.sell_card_color_alignment / cost_len) * ducats;
         }
     }
@@ -156,9 +173,11 @@ pub fn heuristic_score(
     params: &HeuristicParams,
     card_table: &CardHeuristicTable,
 ) -> f64 {
-    let score = player.cached_score as f64;
+    let score = cached_half_points(player) as f64 / 2.0;
 
-    let mut color_score = 0.0;
+    // Beyond their half point, silver and boats are worth what they can stand
+    // in for: any primary, and whichever material is weighted highest.
+    let mut color_score = params.primary_color_value * player.silver as f64;
     for &c in &PRIMARIES {
         color_score += params.primary_color_value * player.color_wheel.get(c) as f64;
     }
@@ -171,7 +190,12 @@ pub fn heuristic_score(
 
     let material_score = params.stored_ceramics_weight * player.materials.get(MaterialType::Ceramics) as f64
         + params.stored_paintings_weight * player.materials.get(MaterialType::Paintings) as f64
-        + params.stored_textiles_weight * player.materials.get(MaterialType::Textiles) as f64;
+        + params.stored_textiles_weight * player.materials.get(MaterialType::Textiles) as f64
+        + params
+            .stored_ceramics_weight
+            .max(params.stored_paintings_weight)
+            .max(params.stored_textiles_weight)
+            * player.boats as f64;
 
     let mut total_quality = 0.0;
     let mut card_count = 0u32;
@@ -203,7 +227,7 @@ pub fn heuristic_score(
 
 /// Compute heuristic rewards for truncated early-game rollouts.
 /// Highest heuristic score gets 1.0, others get 0.0. Ties split evenly.
-/// Solo mode: same formula as terminal (win bonus + score/100) using cached_score.
+/// Solo mode: same formula as terminal (win bonus + score/100).
 pub fn compute_heuristic_rewards(
     players: &FixedVec<PlayerState, MAX_PLAYERS>,
     card_lookup: &[Card; 256],
@@ -217,8 +241,7 @@ pub fn compute_heuristic_rewards(
 
     if players.len() == 1 {
         let mut result = [0.0; MAX_PLAYERS];
-        let score = players[0].cached_score as f64;
-        result[0] = if score >= 16.0 { 1.0 } else { 0.0 } + score / 100.0;
+        result[0] = solo_reward(&players[0]);
         return result;
     }
 
@@ -258,9 +281,11 @@ mod tests {
             materials: Materials::new(),
             completed_sell_cards,
             ducats,
-            cached_score: 0,
+            silver: 0,
+            boats: 0,
+            cached_ducat_score: 0,
         };
-        p.cached_score = calculate_score(&p);
+        p.cached_ducat_score = calculate_ducat_score(&p);
         p
     }
 
@@ -282,8 +307,8 @@ mod tests {
         // p2: 1 3-ducat sell card + 3 ducats = 6 ducats, 1 sell card
         let p1 = make_player(0, &[SellCard::Ceramics3VermilionRed, SellCard::Ceramics3AmberRed], [0; 12]);
         let p2 = make_player(3, &[SellCard::Ceramics3VermilionRed], [0; 12]);
-        assert_eq!(p1.cached_score, 6);
-        assert_eq!(p2.cached_score, 6);
+        assert_eq!(p1.cached_ducat_score, 6);
+        assert_eq!(p2.cached_ducat_score, 6);
         let mut players = FixedVec::new();
         players.push(p1);
         players.push(p2);
@@ -316,5 +341,27 @@ mod tests {
         let rewards = compute_terminal_rewards(&players);
         assert_eq!(rewards[0], 0.5);
         assert_eq!(rewards[1], 0.5);
+    }
+
+    #[test]
+    fn test_silver_and_boats_are_worth_half_a_point_each() {
+        let mut p1 = make_player(3, &[], [0; 12]);
+        p1.silver = 1;
+        let mut p2 = make_player(3, &[], [0; 12]);
+        assert_eq!(score_in_half_points(&p1), 7);
+        assert_eq!(format_half_points(score_in_half_points(&p1)), "3.5");
+        assert_eq!(format_half_points(score_in_half_points(&p2)), "3");
+
+        let mut players = FixedVec::new();
+        players.push(p1.clone());
+        players.push(p2.clone());
+        assert_eq!(compute_terminal_rewards(&players), [1.0, 0.0, 0.0, 0.0]);
+
+        // A boat is worth exactly what a silver is.
+        p2.boats = 1;
+        let mut players = FixedVec::new();
+        players.push(p1);
+        players.push(p2);
+        assert_eq!(compute_terminal_rewards(&players), [0.5, 0.5, 0.0, 0.0]);
     }
 }

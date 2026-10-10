@@ -51,6 +51,7 @@
         {#if draftedCards[i]}
           <CardDisplay
             card={draftedCards[i].card}
+            instanceId={draftedCards[i].instanceId}
             selected={false}
             onclick={onDraftedCardClick ? () => onDraftedCardClick!(draftedCards[i].instanceId) : undefined}
           />
@@ -67,6 +68,7 @@
       {#each workshopCards as card}
         <CardDisplay
           card={card.card}
+          instanceId={card.instanceId}
           selected={selectedWorkshopIds.includes(card.instanceId)}
           onclick={onWorkshopCardClick ? () => onWorkshopCardClick(card.instanceId) : undefined}
         />

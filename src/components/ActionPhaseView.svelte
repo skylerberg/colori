@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { GameState, Choice, Ability, Color } from '../data/types';
+  import type { GameState, Choice, Ability } from '../data/types';
   import { canSell } from '../engine/wasmEngine';
-  import { ALL_COLORS, canMix } from '../data/colors';
+  import { canMixAny } from '../data/colors';
   import { orderByDraftOrder } from '../gameUtils';
   import CardList from './CardList.svelte';
   import AbilityPrompt from './AbilityPrompt.svelte';
@@ -116,17 +116,12 @@
 
   // Mirrors the engine: a purchase is offered only when it can act, and only
   // between destroys. See `action_phase::can_buy_with_ducat`.
-  function hasAMixablePair(wheel: Record<Color, number>): boolean {
-    const held = ALL_COLORS.filter(c => wheel[c] > 0);
-    return held.some((a, i) => held.slice(i + 1).some(b => canMix(a, b)));
-  }
-
   let canBuy = $derived.by(() => {
     const none = { workshop: false, mixColors: false, sell: false };
     if (!currentPlayer || hasPendingChoice || currentPlayer.ducats < 1) return none;
     return {
       workshop: currentPlayer.workshopCards.length > 0,
-      mixColors: hasAMixablePair(currentPlayer.colorWheel),
+      mixColors: canMixAny(currentPlayer.colorWheel, currentPlayer.silver),
       sell: currentPlayer.buyers.some(b => canSell(gameState, b.instanceId)),
     };
   });

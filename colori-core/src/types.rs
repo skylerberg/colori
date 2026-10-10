@@ -8,6 +8,11 @@ use crate::unordered_cards::{UnorderedSellCards, UnorderedCards};
 
 pub type AbilityStack = SmallVec<[Ability; 4]>;
 
+/// The most mixes one ability grants, and so the longest sequence a single
+/// choice can carry.
+pub const MAX_MIX_SEQUENCE: usize = 3;
+pub type MixSequence = SmallVec<[(Color, Color); MAX_MIX_SEQUENCE]>;
+
 pub const MAX_PLAYERS: usize = 4;
 pub const MAX_SELL_CARD_DISPLAY: usize = 5;
 
@@ -122,6 +127,10 @@ pub enum Ability {
     GainPrimary,
     #[serde(rename = "gainMaterial")]
     GainMaterial,
+    #[serde(rename = "gainSilver")]
+    GainSilver { count: u32 },
+    #[serde(rename = "gainBoats")]
+    GainBoats { count: u32 },
 }
 
 // ── CardKind ──
@@ -138,161 +147,147 @@ pub enum CardKind {
     Action,
 }
 
-// ── Card enum (43 variants) ──
+// ── Card enum (42 variants) ──
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Card {
-    // Basic dyes (3)
+    // Starter dyes (3)
     BasicRed,
     BasicYellow,
     BasicBlue,
     // Primary dyes (6)
-    Lac,
-    Brazilwood,
-    Pomegranate,
-    Sumac,
-    Elderberry,
-    Turnsole,
-    // Secondary dyes (6)
-    Madder,
-    Turmeric,
-    DyersGreenweed,
-    Verdigris,
-    Orchil,
+    Realgar,
+    Kermes,
+    Litharge,
+    Malachite,
+    Woad,
     Logwood,
-    // Tertiary dyes (6)
-    VermilionDye,
-    Saffron,
-    PersianBerries,
-    Azurite,
+    // Secondary dyes (6)
+    DragonsBlood,
+    Orpiment,
+    GreenEarth,
+    Verdigris,
+    Brazilwood,
     IndigoDye,
+    // Tertiary dyes (6)
+    Cinnabar,
+    Saffron,
+    CopperResinate,
+    Azurite,
+    LapisLazuli,
     Cochineal,
     // Starter materials (3)
     StarterCeramics,
-    StarterPaintings,
-    StarterTextiles,
-    // Material+color Ceramics (3)
-    TerraCotta,
-    OchreWare,
-    CobaltWare,
-    // Material+color Paintings (3)
-    CinnabarCanvas,
-    OrpimentCanvas,
-    UltramarineCanvas,
-    // Material+color Textiles (3)
-    AlizarinFabric,
-    FusticFabric,
-    PastelFabric,
+    StarterCanvas,
+    StarterFabric,
+    // Ceramics + primary (3)
+    CeramicsRed,
+    CeramicsYellow,
+    CeramicsBlue,
+    // Canvas + primary (3)
+    CanvasRed,
+    CanvasYellow,
+    CanvasBlue,
+    // Fabric + secondary (3)
+    FabricOrange,
+    FabricGreen,
+    FabricPurple,
     // Dual materials (3)
-    ClayCanvas,
-    ClayFabric,
+    CanvasCeramics,
+    CeramicsFabric,
     CanvasFabric,
-    // Actions (7)
+    // Actions (6)
     Alum,
-    CreamOfTartar,
     GumArabic,
-    Potash,
-    Chalk,
     LinseedOil,
     Warehouse,
+    Gondola,
+    Chalk,
 }
+
+pub const NUM_CARDS: usize = 42;
 
 struct CardProperties {
     name: &'static str,
     kind: CardKind,
-    ability: Ability,
+    /// Resolved in order when the card is destroyed.
+    destroy_abilities: &'static [Ability],
     colors: &'static [Color],
     material_types: &'static [MaterialType],
     workshop_abilities: &'static [Ability],
 }
 
-const CARD_DATA: [CardProperties; 43] = [
-    // BasicRed
-    CardProperties { name: "Basic Red", kind: CardKind::BasicDye, ability: Ability::Sell, colors: &[Color::Red], material_types: &[], workshop_abilities: &[] },
-    // BasicYellow
-    CardProperties { name: "Basic Yellow", kind: CardKind::BasicDye, ability: Ability::Sell, colors: &[Color::Yellow], material_types: &[], workshop_abilities: &[] },
-    // BasicBlue
-    CardProperties { name: "Basic Blue", kind: CardKind::BasicDye, ability: Ability::Sell, colors: &[Color::Blue], material_types: &[], workshop_abilities: &[] },
-    // Lac
-    CardProperties { name: "Lac", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, colors: &[Color::Red, Color::Red, Color::Yellow], material_types: &[], workshop_abilities: &[] },
-    // Brazilwood
-    CardProperties { name: "Brazilwood", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, colors: &[Color::Red, Color::Red, Color::Blue], material_types: &[], workshop_abilities: &[] },
-    // Pomegranate
-    CardProperties { name: "Pomegranate", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, colors: &[Color::Yellow, Color::Yellow, Color::Red], material_types: &[], workshop_abilities: &[] },
-    // Sumac
-    CardProperties { name: "Sumac", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, colors: &[Color::Yellow, Color::Yellow, Color::Blue], material_types: &[], workshop_abilities: &[] },
-    // Elderberry
-    CardProperties { name: "Elderberry", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, colors: &[Color::Blue, Color::Blue, Color::Red], material_types: &[], workshop_abilities: &[] },
-    // Turnsole
-    CardProperties { name: "Turnsole", kind: CardKind::Dye, ability: Ability::Workshop { count: 3 }, colors: &[Color::Blue, Color::Blue, Color::Yellow], material_types: &[], workshop_abilities: &[] },
-    // Madder
-    CardProperties { name: "Madder", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, colors: &[Color::Orange, Color::Red], material_types: &[], workshop_abilities: &[] },
-    // Turmeric
-    CardProperties { name: "Turmeric", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, colors: &[Color::Orange, Color::Yellow], material_types: &[], workshop_abilities: &[] },
-    // DyersGreenweed
-    CardProperties { name: "Dyer's Greenweed", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, colors: &[Color::Green, Color::Yellow], material_types: &[], workshop_abilities: &[] },
-    // Verdigris
-    CardProperties { name: "Verdigris", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, colors: &[Color::Green, Color::Blue], material_types: &[], workshop_abilities: &[] },
-    // Orchil
-    CardProperties { name: "Orchil", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, colors: &[Color::Purple, Color::Red], material_types: &[], workshop_abilities: &[] },
-    // Logwood
-    CardProperties { name: "Logwood", kind: CardKind::Dye, ability: Ability::MixColors { count: 2 }, colors: &[Color::Purple, Color::Blue], material_types: &[], workshop_abilities: &[] },
-    // VermilionDye
-    CardProperties { name: "Vermilion", kind: CardKind::Dye, ability: Ability::Sell, colors: &[Color::Vermilion], material_types: &[], workshop_abilities: &[] },
-    // Saffron
-    CardProperties { name: "Saffron", kind: CardKind::Dye, ability: Ability::Sell, colors: &[Color::Amber], material_types: &[], workshop_abilities: &[] },
-    // PersianBerries
-    CardProperties { name: "Persian Berries", kind: CardKind::Dye, ability: Ability::Sell, colors: &[Color::Chartreuse], material_types: &[], workshop_abilities: &[] },
-    // Azurite
-    CardProperties { name: "Azurite", kind: CardKind::Dye, ability: Ability::Sell, colors: &[Color::Teal], material_types: &[], workshop_abilities: &[] },
-    // IndigoDye
-    CardProperties { name: "Indigo", kind: CardKind::Dye, ability: Ability::Sell, colors: &[Color::Indigo], material_types: &[], workshop_abilities: &[] },
-    // Cochineal
-    CardProperties { name: "Cochineal", kind: CardKind::Dye, ability: Ability::Sell, colors: &[Color::Magenta], material_types: &[], workshop_abilities: &[] },
-    // StarterCeramics
-    CardProperties { name: "Ceramics", kind: CardKind::Material, ability: Ability::Workshop { count: 3 }, colors: &[], material_types: &[MaterialType::Ceramics], workshop_abilities: &[] },
-    // StarterPaintings
-    CardProperties { name: "Paintings", kind: CardKind::Material, ability: Ability::Workshop { count: 4 }, colors: &[], material_types: &[MaterialType::Paintings], workshop_abilities: &[] },
-    // StarterTextiles
-    CardProperties { name: "Textiles", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, colors: &[], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
-    // TerraCotta
-    CardProperties { name: "Terra Cotta", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, colors: &[Color::Red], material_types: &[MaterialType::Ceramics], workshop_abilities: &[] },
-    // OchreWare
-    CardProperties { name: "Ochre Ware", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, colors: &[Color::Yellow], material_types: &[MaterialType::Ceramics], workshop_abilities: &[] },
-    // CobaltWare
-    CardProperties { name: "Cobalt Ware", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, colors: &[Color::Blue], material_types: &[MaterialType::Ceramics], workshop_abilities: &[] },
-    // CinnabarCanvas
-    CardProperties { name: "Cinnabar & Canvas", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, colors: &[Color::Red], material_types: &[MaterialType::Paintings], workshop_abilities: &[] },
-    // OrpimentCanvas
-    CardProperties { name: "Orpiment & Canvas", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, colors: &[Color::Yellow], material_types: &[MaterialType::Paintings], workshop_abilities: &[] },
-    // UltramarineCanvas
-    CardProperties { name: "Ultramarine & Canvas", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, colors: &[Color::Blue], material_types: &[MaterialType::Paintings], workshop_abilities: &[] },
-    // AlizarinFabric
-    CardProperties { name: "Alizarin & Fabric", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, colors: &[Color::Red, Color::Red], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
-    // FusticFabric
-    CardProperties { name: "Fustic & Fabric", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, colors: &[Color::Yellow, Color::Yellow], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
-    // PastelFabric
-    CardProperties { name: "Pastel & Fabric", kind: CardKind::Material, ability: Ability::Workshop { count: 2 }, colors: &[Color::Blue, Color::Blue], material_types: &[MaterialType::Textiles], workshop_abilities: &[] },
-    // ClayCanvas
-    CardProperties { name: "Clay & Canvas", kind: CardKind::Material, ability: Ability::Sell, colors: &[], material_types: &[MaterialType::Ceramics, MaterialType::Paintings], workshop_abilities: &[] },
-    // ClayFabric
-    CardProperties { name: "Clay & Fabric", kind: CardKind::Material, ability: Ability::Sell, colors: &[], material_types: &[MaterialType::Ceramics, MaterialType::Textiles], workshop_abilities: &[] },
-    // CanvasFabric
-    CardProperties { name: "Canvas & Fabric", kind: CardKind::Material, ability: Ability::Sell, colors: &[], material_types: &[MaterialType::Paintings, MaterialType::Textiles], workshop_abilities: &[] },
-    // Alum
-    CardProperties { name: "Alum", kind: CardKind::Action, ability: Ability::MoveToDraftPool, colors: &[], material_types: &[], workshop_abilities: &[Ability::GainDucats { count: 1 }] },
-    // CreamOfTartar
-    CardProperties { name: "Cream of Tartar", kind: CardKind::Action, ability: Ability::MoveToDraftPool, colors: &[], material_types: &[], workshop_abilities: &[Ability::DrawCards { count: 3 }] },
-    // GumArabic
-    CardProperties { name: "Gum Arabic", kind: CardKind::Action, ability: Ability::MoveToDraftPool, colors: &[], material_types: &[], workshop_abilities: &[Ability::GainSecondary] },
-    // Potash
-    CardProperties { name: "Potash", kind: CardKind::Action, ability: Ability::MoveToDraftPool, colors: &[], material_types: &[], workshop_abilities: &[Ability::Workshop { count: 3 }] },
-    // Chalk
-    CardProperties { name: "Chalk", kind: CardKind::Action, ability: Ability::Sell, colors: &[], material_types: &[], workshop_abilities: &[Ability::GainPrimary] },
-    // LinseedOil
-    CardProperties { name: "Linseed Oil", kind: CardKind::Action, ability: Ability::MoveToDraftPool, colors: &[], material_types: &[], workshop_abilities: &[Ability::MixColors { count: 2 }] },
-    // Warehouse
-    CardProperties { name: "Warehouse", kind: CardKind::Action, ability: Ability::MoveToDraftPool, colors: &[], material_types: &[], workshop_abilities: &[Ability::GainMaterial] },
+const SELL: &[Ability] = &[Ability::Sell];
+const WORKSHOP_2: &[Ability] = &[Ability::Workshop { count: 2 }];
+const WORKSHOP_3: &[Ability] = &[Ability::Workshop { count: 3 }];
+const MIX_2: &[Ability] = &[Ability::MixColors { count: 2 }];
+const WORKSHOP_2_MIX_1: &[Ability] = &[Ability::Workshop { count: 2 }, Ability::MixColors { count: 1 }];
+const MOVE_TO_DRAFT_POOL: &[Ability] = &[Ability::MoveToDraftPool];
+
+const fn dye(name: &'static str, destroy_abilities: &'static [Ability], colors: &'static [Color]) -> CardProperties {
+    CardProperties { name, kind: CardKind::Dye, destroy_abilities, colors, material_types: &[], workshop_abilities: &[] }
+}
+
+const fn basic_dye(name: &'static str, colors: &'static [Color]) -> CardProperties {
+    CardProperties { name, kind: CardKind::BasicDye, destroy_abilities: WORKSHOP_2, colors, material_types: &[], workshop_abilities: &[] }
+}
+
+const fn material(
+    name: &'static str,
+    destroy_abilities: &'static [Ability],
+    material_types: &'static [MaterialType],
+    colors: &'static [Color],
+) -> CardProperties {
+    CardProperties { name, kind: CardKind::Material, destroy_abilities, colors, material_types, workshop_abilities: &[] }
+}
+
+const fn action(name: &'static str, destroy_abilities: &'static [Ability], workshop_abilities: &'static [Ability]) -> CardProperties {
+    CardProperties { name, kind: CardKind::Action, destroy_abilities, colors: &[], material_types: &[], workshop_abilities }
+}
+
+const CARD_DATA: [CardProperties; NUM_CARDS] = [
+    basic_dye("Red", &[Color::Red]),
+    basic_dye("Yellow", &[Color::Yellow]),
+    basic_dye("Blue", &[Color::Blue]),
+    dye("Realgar", MIX_2, &[Color::Red, Color::Red, Color::Yellow]),
+    dye("Kermes", MIX_2, &[Color::Red, Color::Red, Color::Blue]),
+    dye("Litharge", MIX_2, &[Color::Yellow, Color::Yellow, Color::Red]),
+    dye("Malachite", MIX_2, &[Color::Yellow, Color::Yellow, Color::Blue]),
+    dye("Woad", MIX_2, &[Color::Blue, Color::Blue, Color::Red]),
+    dye("Logwood", MIX_2, &[Color::Blue, Color::Blue, Color::Yellow]),
+    dye("Dragon's Blood", SELL, &[Color::Orange, Color::Red]),
+    dye("Orpiment", SELL, &[Color::Orange, Color::Yellow]),
+    dye("Green Earth", SELL, &[Color::Green, Color::Yellow]),
+    dye("Verdigris", SELL, &[Color::Green, Color::Blue]),
+    dye("Brazilwood", SELL, &[Color::Purple, Color::Red]),
+    dye("Indigo", SELL, &[Color::Purple, Color::Blue]),
+    dye("Cinnabar", WORKSHOP_3, &[Color::Vermilion]),
+    dye("Saffron", WORKSHOP_3, &[Color::Amber]),
+    dye("Copper Resinate", WORKSHOP_3, &[Color::Chartreuse]),
+    dye("Azurite", WORKSHOP_3, &[Color::Teal]),
+    dye("Lapis Lazuli", WORKSHOP_3, &[Color::Indigo]),
+    dye("Cochineal", WORKSHOP_3, &[Color::Magenta]),
+    material("Ceramics", SELL, &[MaterialType::Ceramics], &[]),
+    material("Canvas", SELL, &[MaterialType::Paintings], &[]),
+    material("Fabric", SELL, &[MaterialType::Textiles], &[]),
+    material("Ceramics & Red", WORKSHOP_2_MIX_1, &[MaterialType::Ceramics], &[Color::Red]),
+    material("Ceramics & Yellow", WORKSHOP_2_MIX_1, &[MaterialType::Ceramics], &[Color::Yellow]),
+    material("Ceramics & Blue", WORKSHOP_2_MIX_1, &[MaterialType::Ceramics], &[Color::Blue]),
+    material("Canvas & Red", WORKSHOP_2_MIX_1, &[MaterialType::Paintings], &[Color::Red]),
+    material("Canvas & Yellow", WORKSHOP_2_MIX_1, &[MaterialType::Paintings], &[Color::Yellow]),
+    material("Canvas & Blue", WORKSHOP_2_MIX_1, &[MaterialType::Paintings], &[Color::Blue]),
+    material("Fabric & Orange", SELL, &[MaterialType::Textiles], &[Color::Orange]),
+    material("Fabric & Green", SELL, &[MaterialType::Textiles], &[Color::Green]),
+    material("Fabric & Purple", SELL, &[MaterialType::Textiles], &[Color::Purple]),
+    material("Canvas & Ceramics", WORKSHOP_2_MIX_1, &[MaterialType::Paintings, MaterialType::Ceramics], &[]),
+    material("Ceramics & Fabric", WORKSHOP_2_MIX_1, &[MaterialType::Ceramics, MaterialType::Textiles], &[]),
+    material("Canvas & Fabric", WORKSHOP_2_MIX_1, &[MaterialType::Paintings, MaterialType::Textiles], &[]),
+    action("Alum", MOVE_TO_DRAFT_POOL, &[Ability::GainDucats { count: 1 }]),
+    action("Gum Arabic", MOVE_TO_DRAFT_POOL, &[Ability::GainSecondary]),
+    action("Linseed Oil", MOVE_TO_DRAFT_POOL, &[Ability::MixColors { count: 3 }]),
+    action("Warehouse", MOVE_TO_DRAFT_POOL, &[Ability::GainSilver { count: 2 }]),
+    action("Gondola", MOVE_TO_DRAFT_POOL, &[Ability::GainBoats { count: 1 }]),
+    action("Chalk", MIX_2, &[Ability::GainSilver { count: 1 }]),
 ];
 
 impl Card {
@@ -312,8 +307,8 @@ impl Card {
     }
 
     #[inline]
-    pub fn ability(&self) -> Ability {
-        self.props().ability
+    pub fn destroy_abilities(&self) -> &'static [Ability] {
+        self.props().destroy_abilities
     }
 
     #[inline]
@@ -644,8 +639,18 @@ pub struct PlayerState {
     pub buyers: FixedVec<SellCardInstance, MAX_BUYERS>,
     pub completed_sell_cards: SmallVec<[SellCardInstance; 12]>,
     pub ducats: u32,
+    /// Wild primaries: each covers a Red, Yellow or Blue the wheel lacks, in a
+    /// mix or a sale. Unspent, each is worth half a point.
+    #[serde(default)]
+    pub silver: u32,
+    /// Wild materials: each covers the material a sale needs. Unspent, each is
+    /// worth half a point.
+    #[serde(default)]
+    pub boats: u32,
+    /// Ducats from sell cards and gold. The half points for silver and boats
+    /// are not in here; `scoring::score_in_half_points` adds them.
     #[serde(skip)]
-    pub cached_score: u32,
+    pub cached_ducat_score: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -797,14 +802,9 @@ pub enum Choice {
     #[serde(rename = "gainMaterial")]
     GainMaterial { material: MaterialType },
     #[serde(rename = "mixAll")]
-    MixAll {
-        mixes: SmallVec<[(Color, Color); 2]>,
-    },
+    MixAll { mixes: MixSequence },
     #[serde(rename = "destroyAndMix", alias = "destroyAndMixAll")]
-    DestroyAndMix {
-        card: Card,
-        mixes: SmallVec<[(Color, Color); 2]>,
-    },
+    DestroyAndMix { card: Card, mixes: MixSequence },
     #[serde(rename = "destroyAndSell")]
     DestroyAndSell {
         card: Card,

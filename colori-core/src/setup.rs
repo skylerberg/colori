@@ -39,17 +39,12 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
     let mut card_lookup = [Card::BasicRed; 256];
     let mut sell_card_lookup = [SellCard::Textiles2Vermilion; 256];
 
-    // Build each player's starting state
+    // Starter cards take the first ids, a deck's worth per seat in seat order.
+    // The frontend reads a starter card's character portrait off its id.
     let players: FixedVec<PlayerState, MAX_PLAYERS> = (0..num_players)
         .map(|_| {
-            let personal_cards = [
-                Card::BasicRed, Card::BasicYellow, Card::BasicBlue,
-                Card::StarterCeramics, Card::StarterPaintings, Card::StarterTextiles,
-                Card::Chalk,
-            ];
-
             let mut starting_cards = UnorderedCards::new();
-            for &card in &personal_cards {
+            for card in starter_deck() {
                 let id = next_card_id();
                 card_lookup[id as usize] = card;
                 starting_cards.insert(id);
@@ -70,34 +65,18 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
                 buyers: FixedVec::new(),
                 completed_sell_cards: SmallVec::new(),
                 ducats: 0,
-                cached_score: 0,
+                silver: 0,
+                boats: 0,
+                cached_ducat_score: 0,
             }
         })
         .collect();
 
-    // Build draft deck
     let mut draft_deck = UnorderedCards::new();
-
-    for dye in draft_dye_cards() {
-        for _ in 0..DYE_COPIES {
+    for (card, copies) in draft_deck_cards() {
+        for _ in 0..copies {
             let id = next_card_id();
-            card_lookup[id as usize] = dye;
-            draft_deck.insert(id);
-        }
-    }
-
-    for &mat in &draft_material_cards() {
-        for _ in 0..MATERIAL_COPIES {
-            let id = next_card_id();
-            card_lookup[id as usize] = mat;
-            draft_deck.insert(id);
-        }
-    }
-
-    for action in action_cards() {
-        for _ in 0..ACTION_COPIES {
-            let id = next_card_id();
-            card_lookup[id as usize] = action;
+            card_lookup[id as usize] = card;
             draft_deck.insert(id);
         }
     }

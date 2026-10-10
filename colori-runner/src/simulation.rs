@@ -3,7 +3,7 @@ use colori_core::draw_phase::execute_draw_phase;
 use colori_core::game_log::{DrawEvent, DrawLog, FinalPlayerStats, FinalScore, PlayerVariant};
 use colori_core::ismcts::MctsConfig;
 use colori_core::mcts_impl::ColoriSearcher;
-use colori_core::scoring::calculate_score;
+use colori_core::scoring::score_in_half_points;
 use colori_core::setup::create_initial_game_state;
 use colori_core::types::*;
 use colori_core::unordered_cards::{set_sell_card_registry, set_card_registry};
@@ -327,7 +327,7 @@ pub fn run_game(
             .enumerate()
             .map(|(i, p)| FinalScore {
                 name: names[i].clone(),
-                score: calculate_score(p),
+                score: score_in_half_points(p) as f64 / 2.0,
                 completed_sell_cards: p.completed_sell_cards.len() as u32,
                 color_wheel_total: p.color_wheel.counts.iter().sum(),
             })
@@ -345,6 +345,8 @@ pub fn run_game(
                 deck_size: (p.deck.len() + p.workshop_cards.len() + p.workshopped_cards.len() + p.drafted_cards.len()) as usize,
                 completed_sell_cards: p.completed_sell_cards.to_vec(),
                 ducats: p.ducats,
+                silver: p.silver,
+                boats: p.boats,
                 color_wheel: p.color_wheel.clone(),
                 materials: p.materials.clone(),
             })
@@ -437,7 +439,7 @@ pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str) {
     let variant_time_ms: Vec<AtomicU64> = (0..num_players).map(|_| AtomicU64::new(0)).collect();
     let variant_iterations: Vec<AtomicU64> = (0..num_players).map(|_| AtomicU64::new(0)).collect();
     let solo_wins = AtomicUsize::new(0);
-    let solo_total_score = AtomicU64::new(0);
+    let solo_total_half_points = AtomicU64::new(0);
     let total_games = args.games;
     let num_threads = threads;
     let batch_id = batch_id.as_str();
@@ -455,7 +457,7 @@ pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str) {
             let variant_time_ms = &variant_time_ms;
             let variant_iterations = &variant_iterations;
             let solo_wins = &solo_wins;
-            let solo_total_score = &solo_total_score;
+            let solo_total_half_points = &solo_total_half_points;
 
             handles.push(s.spawn(move || {
                 let mut rng = WyRand::from_rng(&mut rand::rng());
@@ -473,14 +475,14 @@ pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str) {
                         variant_iterations[orig_idx].fetch_add(log.player_iterations[player_pos], Ordering::Relaxed);
                     }
                     if solo {
-                        let score = log.final_scores.as_ref()
+                        let half_points = log.final_scores.as_ref()
                             .and_then(|fs| fs.first())
-                            .map(|fs| fs.score)
+                            .map(|fs| fs.half_points())
                             .unwrap_or(0);
-                        if score >= 16 {
+                        if half_points >= 32 {
                             solo_wins.fetch_add(1, Ordering::Relaxed);
                         }
-                        solo_total_score.fetch_add(score as u64, Ordering::Relaxed);
+                        solo_total_half_points.fetch_add(half_points as u64, Ordering::Relaxed);
                     }
                     set_card_registry(&log.initial_state.card_lookup);
                     set_sell_card_registry(&log.initial_state.sell_card_lookup);
@@ -517,8 +519,8 @@ pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str) {
 
     if solo {
         let total_wins = solo_wins.load(Ordering::Relaxed);
-        let total_score = solo_total_score.load(Ordering::Relaxed);
-        let avg_ducats = total_score as f64 / total_games as f64;
+        let total_half_points = solo_total_half_points.load(Ordering::Relaxed);
+        let avg_ducats = total_half_points as f64 / 2.0 / total_games as f64;
         let win_rate = total_wins as f64 / total_games as f64 * 100.0;
         eprintln!();
         eprintln!("=== Solo Results ({} rounds) ===", args.max_rounds);

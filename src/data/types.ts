@@ -14,20 +14,21 @@ export type Ability =
   | { type: 'gainDucats'; count: number }
   | { type: 'gainSecondary' }
   | { type: 'gainPrimary' }
-  | { type: 'gainMaterial' };
+  | { type: 'gainMaterial' }
+  | { type: 'gainSilver'; count: number }
+  | { type: 'gainBoats'; count: number };
 
 // Card variant name strings from Rust
 export type Card = 'BasicRed' | 'BasicYellow' | 'BasicBlue'
-  | 'Lac' | 'Brazilwood' | 'Pomegranate' | 'Sumac' | 'Elderberry' | 'Turnsole'
-  | 'Madder' | 'Turmeric' | 'DyersGreenweed' | 'Verdigris' | 'Orchil' | 'Logwood'
-  | 'VermilionDye' | 'Saffron' | 'PersianBerries' | 'Azurite' | 'IndigoDye' | 'Cochineal'
-  | 'StarterCeramics' | 'StarterPaintings' | 'StarterTextiles'
-  | 'TerraCotta' | 'OchreWare' | 'CobaltWare'
-  | 'CinnabarCanvas' | 'OrpimentCanvas' | 'UltramarineCanvas'
-  | 'AlizarinFabric' | 'FusticFabric' | 'PastelFabric'
-  | 'ClayCanvas' | 'ClayFabric' | 'CanvasFabric'
-  | 'Alum' | 'CreamOfTartar' | 'GumArabic' | 'Potash' | 'Chalk'
-  | 'LinseedOil' | 'Warehouse';
+  | 'Realgar' | 'Kermes' | 'Litharge' | 'Malachite' | 'Woad' | 'Logwood'
+  | 'DragonsBlood' | 'Orpiment' | 'GreenEarth' | 'Verdigris' | 'Brazilwood' | 'IndigoDye'
+  | 'Cinnabar' | 'Saffron' | 'CopperResinate' | 'Azurite' | 'LapisLazuli' | 'Cochineal'
+  | 'StarterCeramics' | 'StarterCanvas' | 'StarterFabric'
+  | 'CeramicsRed' | 'CeramicsYellow' | 'CeramicsBlue'
+  | 'CanvasRed' | 'CanvasYellow' | 'CanvasBlue'
+  | 'FabricOrange' | 'FabricGreen' | 'FabricPurple'
+  | 'CanvasCeramics' | 'CeramicsFabric' | 'CanvasFabric'
+  | 'Alum' | 'GumArabic' | 'LinseedOil' | 'Warehouse' | 'Gondola' | 'Chalk';
 
 export type SellCard = 'Textiles2Vermilion' | 'Textiles2Amber' | 'Textiles2Chartreuse'
   | 'Textiles2Teal' | 'Textiles2Indigo' | 'Textiles2Magenta'
@@ -53,14 +54,16 @@ export interface DyeCardData {
   kind: 'dye';
   name: string;
   colors: Color[];
-  ability: Ability;
+  // Resolved in order when the card is destroyed.
+  destroyAbilities: Ability[];
 }
 
 export interface BasicDyeCardData {
   kind: 'basicDye';
   name: string;
   color: Color;
-  ability: Ability;
+  // Resolved in order when the card is destroyed.
+  destroyAbilities: Ability[];
 }
 
 export interface MaterialCardData {
@@ -69,13 +72,15 @@ export interface MaterialCardData {
   materialTypes: MaterialType[];
   color?: Color;
   colorCount?: number;
-  ability: Ability;
+  // Resolved in order when the card is destroyed.
+  destroyAbilities: Ability[];
 }
 
 export interface ActionCardData {
   kind: 'action';
   name: string;
-  ability: Ability;
+  // Resolved in order when the card is destroyed.
+  destroyAbilities: Ability[];
   workshopAbilities: Ability[];
 }
 
@@ -113,6 +118,9 @@ export interface PlayerState {
   materials: Record<MaterialType, number>;
   completedSellCards: SellCardInstance[];
   ducats: number;
+  // Wild primaries and wild materials. Each is worth half a point unspent.
+  silver: number;
+  boats: number;
 }
 
 export interface DraftState {
@@ -221,6 +229,8 @@ export interface FinalPlayerStats {
   deckSize: number;
   completedSellCards: SellCardInstance[];
   ducats: number;
+  silver?: number;
+  boats?: number;
   colorWheel: Record<Color, number>;
   materials: Record<MaterialType, number>;
 }

@@ -301,7 +301,7 @@ mod tests {
     use crate::apply_choice::apply_choice;
     use crate::colori_game::enumerate_choices;
     use crate::draw_phase::execute_draw_phase;
-    use crate::scoring::calculate_score;
+    use crate::scoring::calculate_ducat_score;
     use crate::setup::create_initial_game_state;
     use crate::types::*;
     use crate::unordered_cards::{
@@ -321,7 +321,7 @@ mod tests {
         state.card_lookup = get_card_registry();
         state.sell_card_lookup = get_sell_card_registry();
         for p in state.players.iter_mut() {
-            p.cached_score = calculate_score(p);
+            p.cached_ducat_score = calculate_ducat_score(p);
         }
         state
     }

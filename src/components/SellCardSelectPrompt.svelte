@@ -23,6 +23,9 @@
 
 <div class="prompt-section">
   <h3>Choose a Buyer</h3>
+  {#if activePlayer && (activePlayer.boats > 0 || activePlayer.silver > 0)}
+    <p class="hint">A boat covers a material you lack and silver a primary you lack. What a buyer asks for is spent first.</p>
+  {/if}
   <div class="sell-card-side">
     <SellCardDisplay
       sellCards={(activePlayer?.buyers ?? []).filter(g => canSell(gameState, g.instanceId))}
@@ -44,6 +47,13 @@
     font-family: var(--font-display, 'Cinzel', serif);
     font-size: 0.9rem;
     color: var(--text-primary, #2c1e12);
+    text-align: left;
+  }
+
+  .hint {
+    font-size: 0.8rem;
+    color: var(--text-tertiary, #9a8775);
+    font-style: italic;
     text-align: left;
   }
 

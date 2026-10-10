@@ -12,10 +12,13 @@ pub(super) fn enumerate_destroy_choices(
     card: Card,
     choices: &mut Vec<Choice>,
 ) {
-    match card.ability() {
+    // What follows the first ability is left on the stack and chosen for on
+    // its own once this choice has resolved.
+    match card.destroy_abilities()[0] {
         Ability::MixColors { count } => {
             enumerate_mix_sequences(
                 &player.color_wheel,
+                player.silver,
                 count,
                 choices,
                 |mixes| Choice::DestroyAndMix { card, mixes },

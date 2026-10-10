@@ -3,7 +3,7 @@ use colori_core::colori_game::apply_choice_to_state;
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::ismcts::MctsConfig;
 use colori_core::mcts_impl::ColoriSearcher;
-use colori_core::scoring::{calculate_score, HeuristicParams};
+use colori_core::scoring::{score_in_half_points, HeuristicParams};
 use colori_core::setup::create_initial_game_state;
 use colori_core::types::GamePhase;
 use rand::RngExt;
@@ -28,9 +28,9 @@ enum Gene {
     DeckThinningValue = 6,
     ChalkQuality = 7,
     AlumQuality = 8,
-    CreamOfTartarQuality = 9,
+    GondolaQuality = 9,
     GumArabicQuality = 10,
-    PotashQuality = 11,
+    LinseedOilQuality = 11,
     WarehouseQuality = 12,
     PrimaryDyeQuality = 13,
     SecondaryDyeQuality = 14,
@@ -69,10 +69,9 @@ enum Gene {
     RolloutWsActionDrawValue = 47,
     RolloutWsActionWorkshopPerCard = 48,
     RolloutWsActionColorDemandMultiplier = 49,
-    LinseedOilQuality = 50,
 }
 
-const NUM_GENES: usize = 51;
+const NUM_GENES: usize = 50;
 
 trait GeneTarget: Clone {
     fn to_genes(&self) -> Vec<f64>;
@@ -94,9 +93,8 @@ impl GeneTarget for HeuristicParams {
         v[DeckThinningValue as usize] = self.deck_thinning_value;
         v[ChalkQuality as usize] = self.chalk_quality;
         v[AlumQuality as usize] = self.alum_quality;
-        v[CreamOfTartarQuality as usize] = self.cream_of_tartar_quality;
+        v[GondolaQuality as usize] = self.gondola_quality;
         v[GumArabicQuality as usize] = self.gum_arabic_quality;
-        v[PotashQuality as usize] = self.potash_quality;
         v[WarehouseQuality as usize] = self.warehouse_quality;
         v[LinseedOilQuality as usize] = self.linseed_oil_quality;
         v[PrimaryDyeQuality as usize] = self.primary_dye_quality;
@@ -161,9 +159,8 @@ impl GeneTarget for HeuristicParams {
             heuristic_round_threshold: base.heuristic_round_threshold,
             heuristic_lookahead: (v[HeuristicLookahead as usize].round() as u32).max(1),
             alum_quality: v[AlumQuality as usize],
-            cream_of_tartar_quality: v[CreamOfTartarQuality as usize],
+            gondola_quality: v[GondolaQuality as usize],
             gum_arabic_quality: v[GumArabicQuality as usize],
-            potash_quality: v[PotashQuality as usize],
             warehouse_quality: v[WarehouseQuality as usize],
             linseed_oil_quality: v[LinseedOilQuality as usize],
             primary_dye_quality: v[PrimaryDyeQuality as usize],
@@ -311,8 +308,8 @@ fn run_ga_game(
         apply_choice_to_state(&mut state, &result.choice, rng);
     }
 
-    let score_a = calculate_score(&state.players[0]);
-    let score_b = calculate_score(&state.players[1]);
+    let score_a = score_in_half_points(&state.players[0]);
+    let score_b = score_in_half_points(&state.players[1]);
     if score_a > score_b {
         (1.0, 0.0)
     } else if score_b > score_a {

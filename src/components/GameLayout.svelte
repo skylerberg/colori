@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { GameState } from '../data/types';
-  import { formatTime, orderByDraftOrder } from '../gameUtils';
-  import { getSellCardData } from '../data/cards';
+  import { formatTime, orderByDraftOrder, playerScore } from '../gameUtils';
   import type { Snippet } from 'svelte';
   import SellCardDisplay from './SellCardDisplay.svelte';
   import ColorWheelDisplay from './ColorWheelDisplay.svelte';
@@ -36,7 +35,7 @@
   let isActive = $derived(selectedPlayerIndex === activePlayerIndex);
 
   // Stats
-  let score = $derived(currentPlayer.completedSellCards.reduce((sum, sellCard) => sum + getSellCardData(sellCard.card).ducats, 0) + currentPlayer.ducats);
+  let score = $derived(playerScore(currentPlayer));
   // Front segment first, so the modal lists cards in the order they will come
   // up rather than in an order that means nothing.
   let deckCards = $derived(currentPlayer.deck.flat());
@@ -96,6 +95,10 @@
       <span class="stat">Score: {score}</span>
       <span class="stat-sep">|</span>
       <span class="stat">Ducats: {currentPlayer.ducats}</span>
+      <span class="stat-sep">|</span>
+      <span class="stat" title="A wild primary, worth half a point">Silver: {currentPlayer.silver}</span>
+      <span class="stat-sep">|</span>
+      <span class="stat" title="A wild material, worth half a point">Boats: {currentPlayer.boats}</span>
       <span class="stat-sep">|</span>
       <button class="stat stat-clickable" onclick={() => showDeckModal = true}>Deck: {deckCards.length}</button>
     </div>
@@ -171,6 +174,7 @@
                   interactive={selectedPlayerIndex === activePlayerIndex && !!mixWheelState.onColorClick}
                   onColorClick={selectedPlayerIndex === activePlayerIndex ? (mixWheelState.onColorClick ?? undefined) : undefined}
                   selectedColors={selectedPlayerIndex === activePlayerIndex ? mixWheelState.selectedColors : []}
+                  wildPrimaries={selectedPlayerIndex === activePlayerIndex ? mixWheelState.simulatedSilver : 0}
                 />
               </div>
             </div>

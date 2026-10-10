@@ -134,12 +134,12 @@ pub fn run_tournament(args: &TournamentArgs, threads: usize, output: &str) {
                     // Determine winner from final_scores
                     let scores = log.final_scores.as_ref().unwrap();
                     let ranking_0 = (
-                        scores[0].score,
+                        scores[0].half_points(),
                         scores[0].completed_sell_cards,
                         scores[0].color_wheel_total,
                     );
                     let ranking_1 = (
-                        scores[1].score,
+                        scores[1].half_points(),
                         scores[1].completed_sell_cards,
                         scores[1].color_wheel_total,
                     );

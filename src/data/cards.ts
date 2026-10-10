@@ -4,111 +4,111 @@ import type { Card, SellCard, Color, AnyCardData, DyeCardData, BasicDyeCardData,
 export const DYE_CARDS: DyeCardData[] = [
   {
     kind: 'dye',
-    name: 'Lac',
+    name: 'Realgar',
     colors: ['Red', 'Red', 'Yellow'],
-    ability: { type: 'workshop', count: 3 },
+    destroyAbilities: [{ type: 'mixColors', count: 2 }],
   },
   {
     kind: 'dye',
-    name: 'Brazilwood',
+    name: 'Kermes',
     colors: ['Red', 'Red', 'Blue'],
-    ability: { type: 'workshop', count: 3 },
+    destroyAbilities: [{ type: 'mixColors', count: 2 }],
   },
   {
     kind: 'dye',
-    name: 'Pomegranate',
+    name: 'Litharge',
     colors: ['Yellow', 'Yellow', 'Red'],
-    ability: { type: 'workshop', count: 3 },
+    destroyAbilities: [{ type: 'mixColors', count: 2 }],
   },
   {
     kind: 'dye',
-    name: 'Sumac',
+    name: 'Malachite',
     colors: ['Yellow', 'Yellow', 'Blue'],
-    ability: { type: 'workshop', count: 3 },
+    destroyAbilities: [{ type: 'mixColors', count: 2 }],
   },
   {
     kind: 'dye',
-    name: 'Elderberry',
+    name: 'Woad',
     colors: ['Blue', 'Blue', 'Red'],
-    ability: { type: 'workshop', count: 3 },
+    destroyAbilities: [{ type: 'mixColors', count: 2 }],
   },
   {
     kind: 'dye',
-    name: 'Turnsole',
+    name: 'Logwood',
     colors: ['Blue', 'Blue', 'Yellow'],
-    ability: { type: 'workshop', count: 3 },
+    destroyAbilities: [{ type: 'mixColors', count: 2 }],
   },
   {
     kind: 'dye',
-    name: 'Madder',
+    name: 'Dragon\'s Blood',
     colors: ['Orange', 'Red'],
-    ability: { type: 'mixColors', count: 2 },
+    destroyAbilities: [{ type: 'sell' }],
   },
   {
     kind: 'dye',
-    name: 'Turmeric',
+    name: 'Orpiment',
     colors: ['Orange', 'Yellow'],
-    ability: { type: 'mixColors', count: 2 },
+    destroyAbilities: [{ type: 'sell' }],
   },
   {
     kind: 'dye',
-    name: 'Dyer\'s Greenweed',
+    name: 'Green Earth',
     colors: ['Green', 'Yellow'],
-    ability: { type: 'mixColors', count: 2 },
+    destroyAbilities: [{ type: 'sell' }],
   },
   {
     kind: 'dye',
     name: 'Verdigris',
     colors: ['Green', 'Blue'],
-    ability: { type: 'mixColors', count: 2 },
+    destroyAbilities: [{ type: 'sell' }],
   },
   {
     kind: 'dye',
-    name: 'Orchil',
+    name: 'Brazilwood',
     colors: ['Purple', 'Red'],
-    ability: { type: 'mixColors', count: 2 },
+    destroyAbilities: [{ type: 'sell' }],
   },
   {
     kind: 'dye',
-    name: 'Logwood',
+    name: 'Indigo',
     colors: ['Purple', 'Blue'],
-    ability: { type: 'mixColors', count: 2 },
+    destroyAbilities: [{ type: 'sell' }],
   },
   {
     kind: 'dye',
-    name: 'Vermilion',
+    name: 'Cinnabar',
     colors: ['Vermilion'],
-    ability: { type: 'sell' },
+    destroyAbilities: [{ type: 'workshop', count: 3 }],
   },
   {
     kind: 'dye',
     name: 'Saffron',
     colors: ['Amber'],
-    ability: { type: 'sell' },
+    destroyAbilities: [{ type: 'workshop', count: 3 }],
   },
   {
     kind: 'dye',
-    name: 'Persian Berries',
+    name: 'Copper Resinate',
     colors: ['Chartreuse'],
-    ability: { type: 'sell' },
+    destroyAbilities: [{ type: 'workshop', count: 3 }],
   },
   {
     kind: 'dye',
     name: 'Azurite',
     colors: ['Teal'],
-    ability: { type: 'sell' },
+    destroyAbilities: [{ type: 'workshop', count: 3 }],
   },
   {
     kind: 'dye',
-    name: 'Indigo',
+    name: 'Lapis Lazuli',
     colors: ['Indigo'],
-    ability: { type: 'sell' },
+    destroyAbilities: [{ type: 'workshop', count: 3 }],
   },
   {
     kind: 'dye',
     name: 'Cochineal',
     colors: ['Magenta'],
-    ability: { type: 'sell' },
+    destroyAbilities: [{ type: 'workshop', count: 3 }],
   },
 ];
 
@@ -117,127 +117,124 @@ export const MATERIAL_CARDS: MaterialCardData[] = [
     kind: 'material',
     name: 'Ceramics',
     materialTypes: ['Ceramics'],
-    ability: { type: 'workshop', count: 3 },
+    destroyAbilities: [{ type: 'sell' }],
   },
   {
     kind: 'material',
-    name: 'Paintings',
+    name: 'Canvas',
     materialTypes: ['Paintings'],
-    ability: { type: 'workshop', count: 4 },
+    destroyAbilities: [{ type: 'sell' }],
   },
   {
     kind: 'material',
-    name: 'Textiles',
+    name: 'Fabric',
     materialTypes: ['Textiles'],
-    ability: { type: 'workshop', count: 2 },
+    destroyAbilities: [{ type: 'sell' }],
   },
 ];
 
 export const DRAFT_MATERIAL_CARDS: MaterialCardData[] = [
   {
     kind: 'material',
-    name: 'Terra Cotta',
+    name: 'Ceramics & Red',
     materialTypes: ['Ceramics'],
     color: 'Red',
-    ability: { type: 'workshop', count: 2 },
+    destroyAbilities: [{ type: 'workshop', count: 2 }, { type: 'mixColors', count: 1 }],
   },
   {
     kind: 'material',
-    name: 'Ochre Ware',
+    name: 'Ceramics & Yellow',
     materialTypes: ['Ceramics'],
     color: 'Yellow',
-    ability: { type: 'workshop', count: 2 },
+    destroyAbilities: [{ type: 'workshop', count: 2 }, { type: 'mixColors', count: 1 }],
   },
   {
     kind: 'material',
-    name: 'Cobalt Ware',
+    name: 'Ceramics & Blue',
     materialTypes: ['Ceramics'],
     color: 'Blue',
-    ability: { type: 'workshop', count: 2 },
+    destroyAbilities: [{ type: 'workshop', count: 2 }, { type: 'mixColors', count: 1 }],
   },
   {
     kind: 'material',
-    name: 'Cinnabar & Canvas',
+    name: 'Canvas & Red',
     materialTypes: ['Paintings'],
     color: 'Red',
-    ability: { type: 'workshop', count: 2 },
+    destroyAbilities: [{ type: 'workshop', count: 2 }, { type: 'mixColors', count: 1 }],
   },
   {
     kind: 'material',
-    name: 'Orpiment & Canvas',
+    name: 'Canvas & Yellow',
     materialTypes: ['Paintings'],
     color: 'Yellow',
-    ability: { type: 'workshop', count: 2 },
+    destroyAbilities: [{ type: 'workshop', count: 2 }, { type: 'mixColors', count: 1 }],
   },
   {
     kind: 'material',
-    name: 'Ultramarine & Canvas',
+    name: 'Canvas & Blue',
     materialTypes: ['Paintings'],
     color: 'Blue',
-    ability: { type: 'workshop', count: 2 },
+    destroyAbilities: [{ type: 'workshop', count: 2 }, { type: 'mixColors', count: 1 }],
   },
   {
     kind: 'material',
-    name: 'Alizarin & Fabric',
+    name: 'Fabric & Orange',
     materialTypes: ['Textiles'],
-    color: 'Red',
-    colorCount: 2,
-    ability: { type: 'workshop', count: 2 },
+    color: 'Orange',
+    destroyAbilities: [{ type: 'sell' }],
   },
   {
     kind: 'material',
-    name: 'Fustic & Fabric',
+    name: 'Fabric & Green',
     materialTypes: ['Textiles'],
-    color: 'Yellow',
-    colorCount: 2,
-    ability: { type: 'workshop', count: 2 },
+    color: 'Green',
+    destroyAbilities: [{ type: 'sell' }],
   },
   {
     kind: 'material',
-    name: 'Pastel & Fabric',
+    name: 'Fabric & Purple',
     materialTypes: ['Textiles'],
-    color: 'Blue',
-    colorCount: 2,
-    ability: { type: 'workshop', count: 2 },
+    color: 'Purple',
+    destroyAbilities: [{ type: 'sell' }],
   },
   {
     kind: 'material',
-    name: 'Clay & Canvas',
-    materialTypes: ['Ceramics', 'Paintings'],
-    ability: { type: 'sell' },
+    name: 'Canvas & Ceramics',
+    materialTypes: ['Paintings', 'Ceramics'],
+    destroyAbilities: [{ type: 'workshop', count: 2 }, { type: 'mixColors', count: 1 }],
   },
   {
     kind: 'material',
-    name: 'Clay & Fabric',
+    name: 'Ceramics & Fabric',
     materialTypes: ['Ceramics', 'Textiles'],
-    ability: { type: 'sell' },
+    destroyAbilities: [{ type: 'workshop', count: 2 }, { type: 'mixColors', count: 1 }],
   },
   {
     kind: 'material',
     name: 'Canvas & Fabric',
     materialTypes: ['Paintings', 'Textiles'],
-    ability: { type: 'sell' },
+    destroyAbilities: [{ type: 'workshop', count: 2 }, { type: 'mixColors', count: 1 }],
   },
 ];
 
 export const BASIC_DYE_CARDS: BasicDyeCardData[] = [
   {
     kind: 'basicDye',
-    name: 'Basic Red',
+    name: 'Red',
     color: 'Red',
-    ability: { type: 'sell' },
+    destroyAbilities: [{ type: 'workshop', count: 2 }],
   },
   {
     kind: 'basicDye',
-    name: 'Basic Yellow',
+    name: 'Yellow',
     color: 'Yellow',
-    ability: { type: 'sell' },
+    destroyAbilities: [{ type: 'workshop', count: 2 }],
   },
   {
     kind: 'basicDye',
-    name: 'Basic Blue',
+    name: 'Blue',
     color: 'Blue',
-    ability: { type: 'sell' },
+    destroyAbilities: [{ type: 'workshop', count: 2 }],
   },
 ];
 
@@ -245,38 +242,32 @@ export const ACTION_CARDS: ActionCardData[] = [
   {
     kind: 'action',
     name: 'Alum',
-    ability: { type: 'moveToDraftPool' },
+    destroyAbilities: [{ type: 'moveToDraftPool' }],
     workshopAbilities: [{ type: 'gainDucats', count: 1 }],
   },
   {
     kind: 'action',
-    name: 'Cream of Tartar',
-    ability: { type: 'moveToDraftPool' },
-    workshopAbilities: [{ type: 'drawCards', count: 3 }],
-  },
-  {
-    kind: 'action',
     name: 'Gum Arabic',
-    ability: { type: 'moveToDraftPool' },
+    destroyAbilities: [{ type: 'moveToDraftPool' }],
     workshopAbilities: [{ type: 'gainSecondary' }],
   },
   {
     kind: 'action',
-    name: 'Potash',
-    ability: { type: 'moveToDraftPool' },
-    workshopAbilities: [{ type: 'workshop', count: 3 }],
-  },
-  {
-    kind: 'action',
     name: 'Linseed Oil',
-    ability: { type: 'moveToDraftPool' },
-    workshopAbilities: [{ type: 'mixColors', count: 2 }],
+    destroyAbilities: [{ type: 'moveToDraftPool' }],
+    workshopAbilities: [{ type: 'mixColors', count: 3 }],
   },
   {
     kind: 'action',
     name: 'Warehouse',
-    ability: { type: 'moveToDraftPool' },
-    workshopAbilities: [{ type: 'gainMaterial' }],
+    destroyAbilities: [{ type: 'moveToDraftPool' }],
+    workshopAbilities: [{ type: 'gainSilver', count: 2 }],
+  },
+  {
+    kind: 'action',
+    name: 'Gondola',
+    destroyAbilities: [{ type: 'moveToDraftPool' }],
+    workshopAbilities: [{ type: 'gainBoats', count: 1 }],
   },
 ];
 
@@ -284,11 +275,13 @@ export const PRIMARIES: Color[] = ['Red', 'Yellow', 'Blue'];
 export const SECONDARIES: Color[] = ['Orange', 'Green', 'Purple'];
 export const TERTIARIES: Color[] = ['Vermilion', 'Amber', 'Chartreuse', 'Teal', 'Indigo', 'Magenta'];
 
+export const STARTER_DECK_SIZE = 7;
+
 export const CHALK_CARD: ActionCardData = {
   kind: 'action',
   name: 'Chalk',
-  ability: { type: 'sell' },
-  workshopAbilities: [{ type: 'gainPrimary' }],
+  destroyAbilities: [{ type: 'mixColors', count: 2 }],
+  workshopAbilities: [{ type: 'gainSilver', count: 1 }],
 };
 
 export const SELL_CARDS: SellCardData[] = [
@@ -350,52 +343,51 @@ export const SELL_CARDS: SellCardData[] = [
 
 const CARD_LOOKUP: Record<string, AnyCardData> = {};
 
-CARD_LOOKUP['BasicRed'] = { kind: 'basicDye', name: 'Basic Red', color: 'Red', ability: { type: 'sell' } };
-CARD_LOOKUP['BasicYellow'] = { kind: 'basicDye', name: 'Basic Yellow', color: 'Yellow', ability: { type: 'sell' } };
-CARD_LOOKUP['BasicBlue'] = { kind: 'basicDye', name: 'Basic Blue', color: 'Blue', ability: { type: 'sell' } };
+CARD_LOOKUP['BasicRed'] = { kind: 'basicDye', name: 'Red', color: 'Red', destroyAbilities: [{ type: 'workshop', count: 2 }] };
+CARD_LOOKUP['BasicYellow'] = { kind: 'basicDye', name: 'Yellow', color: 'Yellow', destroyAbilities: [{ type: 'workshop', count: 2 }] };
+CARD_LOOKUP['BasicBlue'] = { kind: 'basicDye', name: 'Blue', color: 'Blue', destroyAbilities: [{ type: 'workshop', count: 2 }] };
 
-CARD_LOOKUP['Lac'] = DYE_CARDS[0];
-CARD_LOOKUP['Brazilwood'] = DYE_CARDS[1];
-CARD_LOOKUP['Pomegranate'] = DYE_CARDS[2];
-CARD_LOOKUP['Sumac'] = DYE_CARDS[3];
-CARD_LOOKUP['Elderberry'] = DYE_CARDS[4];
-CARD_LOOKUP['Turnsole'] = DYE_CARDS[5];
-CARD_LOOKUP['Madder'] = DYE_CARDS[6];
-CARD_LOOKUP['Turmeric'] = DYE_CARDS[7];
-CARD_LOOKUP['DyersGreenweed'] = DYE_CARDS[8];
+CARD_LOOKUP['Realgar'] = DYE_CARDS[0];
+CARD_LOOKUP['Kermes'] = DYE_CARDS[1];
+CARD_LOOKUP['Litharge'] = DYE_CARDS[2];
+CARD_LOOKUP['Malachite'] = DYE_CARDS[3];
+CARD_LOOKUP['Woad'] = DYE_CARDS[4];
+CARD_LOOKUP['Logwood'] = DYE_CARDS[5];
+CARD_LOOKUP['DragonsBlood'] = DYE_CARDS[6];
+CARD_LOOKUP['Orpiment'] = DYE_CARDS[7];
+CARD_LOOKUP['GreenEarth'] = DYE_CARDS[8];
 CARD_LOOKUP['Verdigris'] = DYE_CARDS[9];
-CARD_LOOKUP['Orchil'] = DYE_CARDS[10];
-CARD_LOOKUP['Logwood'] = DYE_CARDS[11];
-CARD_LOOKUP['VermilionDye'] = DYE_CARDS[12];
+CARD_LOOKUP['Brazilwood'] = DYE_CARDS[10];
+CARD_LOOKUP['IndigoDye'] = DYE_CARDS[11];
+CARD_LOOKUP['Cinnabar'] = DYE_CARDS[12];
 CARD_LOOKUP['Saffron'] = DYE_CARDS[13];
-CARD_LOOKUP['PersianBerries'] = DYE_CARDS[14];
+CARD_LOOKUP['CopperResinate'] = DYE_CARDS[14];
 CARD_LOOKUP['Azurite'] = DYE_CARDS[15];
-CARD_LOOKUP['IndigoDye'] = DYE_CARDS[16];
+CARD_LOOKUP['LapisLazuli'] = DYE_CARDS[16];
 CARD_LOOKUP['Cochineal'] = DYE_CARDS[17];
 
 CARD_LOOKUP['StarterCeramics'] = MATERIAL_CARDS[0];
-CARD_LOOKUP['StarterPaintings'] = MATERIAL_CARDS[1];
-CARD_LOOKUP['StarterTextiles'] = MATERIAL_CARDS[2];
+CARD_LOOKUP['StarterCanvas'] = MATERIAL_CARDS[1];
+CARD_LOOKUP['StarterFabric'] = MATERIAL_CARDS[2];
 
-CARD_LOOKUP['TerraCotta'] = DRAFT_MATERIAL_CARDS[0];
-CARD_LOOKUP['OchreWare'] = DRAFT_MATERIAL_CARDS[1];
-CARD_LOOKUP['CobaltWare'] = DRAFT_MATERIAL_CARDS[2];
-CARD_LOOKUP['CinnabarCanvas'] = DRAFT_MATERIAL_CARDS[3];
-CARD_LOOKUP['OrpimentCanvas'] = DRAFT_MATERIAL_CARDS[4];
-CARD_LOOKUP['UltramarineCanvas'] = DRAFT_MATERIAL_CARDS[5];
-CARD_LOOKUP['AlizarinFabric'] = DRAFT_MATERIAL_CARDS[6];
-CARD_LOOKUP['FusticFabric'] = DRAFT_MATERIAL_CARDS[7];
-CARD_LOOKUP['PastelFabric'] = DRAFT_MATERIAL_CARDS[8];
-CARD_LOOKUP['ClayCanvas'] = DRAFT_MATERIAL_CARDS[9];
-CARD_LOOKUP['ClayFabric'] = DRAFT_MATERIAL_CARDS[10];
+CARD_LOOKUP['CeramicsRed'] = DRAFT_MATERIAL_CARDS[0];
+CARD_LOOKUP['CeramicsYellow'] = DRAFT_MATERIAL_CARDS[1];
+CARD_LOOKUP['CeramicsBlue'] = DRAFT_MATERIAL_CARDS[2];
+CARD_LOOKUP['CanvasRed'] = DRAFT_MATERIAL_CARDS[3];
+CARD_LOOKUP['CanvasYellow'] = DRAFT_MATERIAL_CARDS[4];
+CARD_LOOKUP['CanvasBlue'] = DRAFT_MATERIAL_CARDS[5];
+CARD_LOOKUP['FabricOrange'] = DRAFT_MATERIAL_CARDS[6];
+CARD_LOOKUP['FabricGreen'] = DRAFT_MATERIAL_CARDS[7];
+CARD_LOOKUP['FabricPurple'] = DRAFT_MATERIAL_CARDS[8];
+CARD_LOOKUP['CanvasCeramics'] = DRAFT_MATERIAL_CARDS[9];
+CARD_LOOKUP['CeramicsFabric'] = DRAFT_MATERIAL_CARDS[10];
 CARD_LOOKUP['CanvasFabric'] = DRAFT_MATERIAL_CARDS[11];
 
 CARD_LOOKUP['Alum'] = ACTION_CARDS[0];
-CARD_LOOKUP['CreamOfTartar'] = ACTION_CARDS[1];
-CARD_LOOKUP['GumArabic'] = ACTION_CARDS[2];
-CARD_LOOKUP['Potash'] = ACTION_CARDS[3];
-CARD_LOOKUP['LinseedOil'] = ACTION_CARDS[4];
-CARD_LOOKUP['Warehouse'] = ACTION_CARDS[5];
+CARD_LOOKUP['GumArabic'] = ACTION_CARDS[1];
+CARD_LOOKUP['LinseedOil'] = ACTION_CARDS[2];
+CARD_LOOKUP['Warehouse'] = ACTION_CARDS[3];
+CARD_LOOKUP['Gondola'] = ACTION_CARDS[4];
 CARD_LOOKUP['Chalk'] = CHALK_CARD;
 
 const SELL_CARD_LOOKUP: Record<string, SellCardData> = {};
@@ -479,42 +471,41 @@ export function getCardColors(card: string): Color[] {
 }
 
 export const DRAFT_COPY_COUNTS: Record<string, number> = {};
-DRAFT_COPY_COUNTS['Lac'] = 3;
-DRAFT_COPY_COUNTS['Brazilwood'] = 3;
-DRAFT_COPY_COUNTS['Pomegranate'] = 3;
-DRAFT_COPY_COUNTS['Sumac'] = 3;
-DRAFT_COPY_COUNTS['Elderberry'] = 3;
-DRAFT_COPY_COUNTS['Turnsole'] = 3;
-DRAFT_COPY_COUNTS['Madder'] = 3;
-DRAFT_COPY_COUNTS['Turmeric'] = 3;
-DRAFT_COPY_COUNTS['Dyer\'s Greenweed'] = 3;
-DRAFT_COPY_COUNTS['Verdigris'] = 3;
-DRAFT_COPY_COUNTS['Orchil'] = 3;
+DRAFT_COPY_COUNTS['Realgar'] = 3;
+DRAFT_COPY_COUNTS['Kermes'] = 3;
+DRAFT_COPY_COUNTS['Litharge'] = 3;
+DRAFT_COPY_COUNTS['Malachite'] = 3;
+DRAFT_COPY_COUNTS['Woad'] = 3;
 DRAFT_COPY_COUNTS['Logwood'] = 3;
-DRAFT_COPY_COUNTS['Vermilion'] = 3;
-DRAFT_COPY_COUNTS['Saffron'] = 3;
-DRAFT_COPY_COUNTS['Persian Berries'] = 3;
-DRAFT_COPY_COUNTS['Azurite'] = 3;
+DRAFT_COPY_COUNTS['Dragon\'s Blood'] = 3;
+DRAFT_COPY_COUNTS['Orpiment'] = 3;
+DRAFT_COPY_COUNTS['Green Earth'] = 3;
+DRAFT_COPY_COUNTS['Verdigris'] = 3;
+DRAFT_COPY_COUNTS['Brazilwood'] = 3;
 DRAFT_COPY_COUNTS['Indigo'] = 3;
+DRAFT_COPY_COUNTS['Cinnabar'] = 3;
+DRAFT_COPY_COUNTS['Saffron'] = 3;
+DRAFT_COPY_COUNTS['Copper Resinate'] = 3;
+DRAFT_COPY_COUNTS['Azurite'] = 3;
+DRAFT_COPY_COUNTS['Lapis Lazuli'] = 3;
 DRAFT_COPY_COUNTS['Cochineal'] = 3;
-DRAFT_COPY_COUNTS['Terra Cotta'] = 1;
-DRAFT_COPY_COUNTS['Ochre Ware'] = 1;
-DRAFT_COPY_COUNTS['Cobalt Ware'] = 1;
-DRAFT_COPY_COUNTS['Cinnabar & Canvas'] = 1;
-DRAFT_COPY_COUNTS['Orpiment & Canvas'] = 1;
-DRAFT_COPY_COUNTS['Ultramarine & Canvas'] = 1;
-DRAFT_COPY_COUNTS['Alizarin & Fabric'] = 1;
-DRAFT_COPY_COUNTS['Fustic & Fabric'] = 1;
-DRAFT_COPY_COUNTS['Pastel & Fabric'] = 1;
-DRAFT_COPY_COUNTS['Clay & Canvas'] = 1;
-DRAFT_COPY_COUNTS['Clay & Fabric'] = 1;
+DRAFT_COPY_COUNTS['Ceramics & Red'] = 2;
+DRAFT_COPY_COUNTS['Ceramics & Yellow'] = 2;
+DRAFT_COPY_COUNTS['Ceramics & Blue'] = 2;
+DRAFT_COPY_COUNTS['Canvas & Red'] = 2;
+DRAFT_COPY_COUNTS['Canvas & Yellow'] = 2;
+DRAFT_COPY_COUNTS['Canvas & Blue'] = 2;
+DRAFT_COPY_COUNTS['Fabric & Orange'] = 2;
+DRAFT_COPY_COUNTS['Fabric & Green'] = 2;
+DRAFT_COPY_COUNTS['Fabric & Purple'] = 2;
+DRAFT_COPY_COUNTS['Canvas & Ceramics'] = 1;
+DRAFT_COPY_COUNTS['Ceramics & Fabric'] = 1;
 DRAFT_COPY_COUNTS['Canvas & Fabric'] = 1;
-DRAFT_COPY_COUNTS['Alum'] = 4;
-DRAFT_COPY_COUNTS['Cream of Tartar'] = 4;
-DRAFT_COPY_COUNTS['Gum Arabic'] = 4;
-DRAFT_COPY_COUNTS['Potash'] = 4;
-DRAFT_COPY_COUNTS['Linseed Oil'] = 4;
-DRAFT_COPY_COUNTS['Warehouse'] = 4;
+DRAFT_COPY_COUNTS['Alum'] = 5;
+DRAFT_COPY_COUNTS['Gum Arabic'] = 5;
+DRAFT_COPY_COUNTS['Linseed Oil'] = 5;
+DRAFT_COPY_COUNTS['Warehouse'] = 5;
+DRAFT_COPY_COUNTS['Gondola'] = 5;
 
 export function getDraftCopies(name: string): number {
   return DRAFT_COPY_COUNTS[name] ?? 1;
@@ -527,18 +518,17 @@ export interface CardCategory {
 }
 
 export const DRAFT_CARD_CATEGORIES: CardCategory[] = [
-  { label: 'Primary Dyes', cardNames: ['Lac', 'Brazilwood', 'Pomegranate', 'Sumac', 'Elderberry', 'Turnsole'], totalCopies: 18 },
-  { label: 'Secondary Dyes', cardNames: ['Madder', 'Turmeric', 'Dyer\'s Greenweed', 'Verdigris', 'Orchil', 'Logwood'], totalCopies: 18 },
-  { label: 'Tertiary Dyes', cardNames: ['Vermilion', 'Saffron', 'Persian Berries', 'Azurite', 'Indigo', 'Cochineal'], totalCopies: 18 },
-  { label: 'Action Cards', cardNames: ['Alum', 'Cream of Tartar', 'Gum Arabic', 'Potash', 'Linseed Oil', 'Warehouse'], totalCopies: 24 },
-  { label: 'Double Materials', cardNames: [], totalCopies: 0 },
-  { label: 'Material + Color', cardNames: ['Terra Cotta', 'Ochre Ware', 'Cobalt Ware', 'Cinnabar & Canvas', 'Orpiment & Canvas', 'Ultramarine & Canvas', 'Alizarin & Fabric', 'Fustic & Fabric', 'Pastel & Fabric'], totalCopies: 9 },
-  { label: 'Dual Materials', cardNames: ['Clay & Canvas', 'Clay & Fabric', 'Canvas & Fabric'], totalCopies: 3 },
+  { label: 'Primary Dyes', cardNames: ['Realgar', 'Kermes', 'Litharge', 'Malachite', 'Woad', 'Logwood'], totalCopies: 18 },
+  { label: 'Secondary Dyes', cardNames: ['Dragon\'s Blood', 'Orpiment', 'Green Earth', 'Verdigris', 'Brazilwood', 'Indigo'], totalCopies: 18 },
+  { label: 'Tertiary Dyes', cardNames: ['Cinnabar', 'Saffron', 'Copper Resinate', 'Azurite', 'Lapis Lazuli', 'Cochineal'], totalCopies: 18 },
+  { label: 'Action Cards', cardNames: ['Alum', 'Gum Arabic', 'Linseed Oil', 'Warehouse', 'Gondola'], totalCopies: 25 },
+  { label: 'Material + Color', cardNames: ['Ceramics & Red', 'Ceramics & Yellow', 'Ceramics & Blue', 'Canvas & Red', 'Canvas & Yellow', 'Canvas & Blue', 'Fabric & Orange', 'Fabric & Green', 'Fabric & Purple'], totalCopies: 18 },
+  { label: 'Dual Materials', cardNames: ['Canvas & Ceramics', 'Ceramics & Fabric', 'Canvas & Fabric'], totalCopies: 3 },
 ];
 
 export function getStarterCardCategories(numPlayers: number): CardCategory[] {
-  const starterDyeNames = ['Basic Red', 'Basic Yellow', 'Basic Blue'];
-  const starterMaterialNames = ['Ceramics', 'Paintings', 'Textiles'];
+  const starterDyeNames = ['Red', 'Yellow', 'Blue'];
+  const starterMaterialNames = ['Ceramics', 'Canvas', 'Fabric'];
   return [
     { label: 'Starter Dyes', cardNames: starterDyeNames, totalCopies: starterDyeNames.length * numPlayers },
     { label: 'Starter Materials', cardNames: starterMaterialNames, totalCopies: starterMaterialNames.length * numPlayers },

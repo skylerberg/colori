@@ -10,7 +10,7 @@ use colori_core::game_log::{DrawEvent, StructuredGameLog, StructuredLogEntry};
 use colori_core::ismcts::MctsConfig;
 use colori_core::mcts_impl::{tree_stats, ColoriSearcher, SearchNode as MctsNode, TreeStats};
 use colori_core::replay::{GameReplay, replay_to};
-use colori_core::scoring::calculate_score;
+use colori_core::scoring::{format_half_points, score_in_half_points};
 use colori_core::types::{
     Card, CardInstance, Choice, Color, GamePhase, GameState, SellCardInstance, ALL_COLORS, ALL_MATERIAL_TYPES,
 };
@@ -562,7 +562,7 @@ fn render_summary(ui: &mut egui::Ui, game: &StructuredGameLog) {
         if let Some(ref final_scores) = game.final_scores {
             if final_scores.len() == 1 {
                 let score = final_scores[0].score;
-                let result = if score >= 16 { "Win" } else { "Loss" };
+                let result = if score >= 16.0 { "Win" } else { "Loss" };
                 ui.label(format!("Result: {} ({})", result, score));
             } else {
                 let best = final_scores
@@ -653,7 +653,10 @@ fn render_final_state(
                         }
                     }
                     ui.label(format!("Deck size: {}", stats.deck_size));
-                    ui.label(format!("Ducats: {}", stats.ducats));
+                    ui.label(format!(
+                        "Ducats: {} | Silver: {} | Boats: {}",
+                        stats.ducats, stats.silver, stats.boats
+                    ));
                     for &mt in &ALL_MATERIAL_TYPES {
                         let count = stats.materials.get(mt);
                         if count > 0 {
@@ -840,14 +843,17 @@ fn render_replayed_state(ui: &mut egui::Ui, state: &GameState, game: &Structured
             .get(i)
             .cloned()
             .unwrap_or_else(|| format!("Player {}", i));
-        let score = calculate_score(player);
+        let score = format_half_points(score_in_half_points(player));
 
         egui::CollapsingHeader::new(
             egui::RichText::new(format!("{} ({})", name, score)).color(color),
         )
         .default_open(true)
         .show(ui, |ui| {
-            ui.label(format!("Ducats: {}", player.ducats));
+            ui.label(format!(
+                "Ducats: {} | Silver: {} | Boats: {}",
+                player.ducats, player.silver, player.boats
+            ));
 
             // Card counts
             ui.label(format!(

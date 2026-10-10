@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { PlayerState } from '../data/types';
-  import { getSellCardData } from '../data/cards';
+  import { playerScore } from '../gameUtils';
 
   let { players, playerNames, selectedPlayerIndex, onSelectPlayer }: {
     players: PlayerState[];
@@ -12,11 +12,7 @@
   let currentPlayer = $derived(players[selectedPlayerIndex]);
   let currentName = $derived(playerNames[selectedPlayerIndex]);
 
-  let score = $derived(
-    currentPlayer
-      ? currentPlayer.completedSellCards.reduce((sum, sellCard) => sum + getSellCardData(sellCard.card).ducats, 0) + currentPlayer.ducats
-      : 0
-  );
+  let score = $derived(currentPlayer ? playerScore(currentPlayer) : 0);
 
   let totalMaterials = $derived(
     currentPlayer
@@ -53,6 +49,12 @@
     <span class="stat">Materials: {totalMaterials}</span>
     {#if currentPlayer && currentPlayer.ducats > 0}
       <span class="stat">Ducats: {currentPlayer.ducats}</span>
+    {/if}
+    {#if currentPlayer && currentPlayer.silver > 0}
+      <span class="stat">Silver: {currentPlayer.silver}</span>
+    {/if}
+    {#if currentPlayer && currentPlayer.boats > 0}
+      <span class="stat">Boats: {currentPlayer.boats}</span>
     {/if}
   </span>
 </div>

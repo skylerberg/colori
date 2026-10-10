@@ -7,7 +7,7 @@ use crate::action_phase::{
     for_each_unique_card_type_in_workshop_area,
 };
 use crate::apply_choice::resolve_card_types_to_ids;
-use crate::colors::{can_mix, perform_mix_unchecked, PRIMARIES, SECONDARIES};
+use crate::colors::{can_mix, can_supply_mix, perform_mix_unchecked, PRIMARIES, SECONDARIES};
 use crate::types::*;
 use smallvec::SmallVec;
 
@@ -26,9 +26,10 @@ pub(crate) fn should_force_max_workshop(state: &GameState, player: &PlayerState)
         return false;
     }
     for id in player.drafted_cards.iter() {
-        match state.card_lookup[id as usize].ability() {
-            Ability::MoveToDraftPool | Ability::DrawCards { .. } => return false,
-            _ => {}
+        for ability in state.card_lookup[id as usize].destroy_abilities() {
+            if matches!(ability, Ability::MoveToDraftPool | Ability::DrawCards { .. }) {
+                return false;
+            }
         }
     }
     for id in player.workshop_cards.iter() {
@@ -119,6 +120,7 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                 Some(Ability::MixColors { count }) => {
                     enumerate_mix_sequences(
                         &player.color_wheel,
+                        player.silver,
                         *count,
                         choices,
                         |mixes| Choice::MixAll { mixes },
@@ -148,8 +150,9 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                         choices.push(Choice::GainMaterial { material: m });
                     }
                 }
-                // Instant abilities (DrawCards, GainDucats) should never be on top
-                // when waiting for a choice — they get processed immediately.
+                // Instant abilities (DrawCards, GainDucats, GainSilver, GainBoats)
+                // should never be on top when waiting for a choice — they get
+                // processed immediately.
                 Some(_) => {}
             }
         }
@@ -164,6 +167,23 @@ pub fn enumerate_choices(state: &GameState) -> Vec<Choice> {
 }
 
 // ── Choice availability ──
+
+/// Whether `mixes` can be made one after another, within the `granted` number
+/// of mixes.
+fn mix_sequence_is_valid(player: &PlayerState, mixes: &[(Color, Color)], granted: u32) -> bool {
+    if mixes.len() as u32 > granted {
+        return false;
+    }
+    let mut wheel = player.color_wheel.clone();
+    let mut silver = player.silver;
+    for &(a, b) in mixes {
+        if !can_mix(a, b) || !can_supply_mix(&wheel, silver, a, b) {
+            return false;
+        }
+        perform_mix_unchecked(&mut wheel, &mut silver, a, b);
+    }
+    true
+}
 
 /// Check common preconditions for all destroy-drafted-card variants:
 /// ability stack is empty and the card exists in the current player's drafted_cards.
@@ -193,7 +213,7 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
             if !check_destroy_preconditions(state, card) {
                 return false;
             }
-            match card.ability() {
+            match card.destroy_abilities()[0] {
                 Ability::Sell => !can_sell_to_any_sell_card(state),
                 Ability::MixColors { .. } => false,
                 Ability::Workshop { .. } => false,
@@ -298,15 +318,9 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
         Choice::MixAll { mixes } => {
             if let GamePhase::Action { ref action_state } = state.phase {
                 match action_state.ability_stack.last() {
-                    Some(Ability::MixColors { .. }) => {
-                        if mixes.is_empty() {
-                            return true;
-                        }
+                    Some(Ability::MixColors { count }) => {
                         let player = &state.players[action_state.current_player_index];
-                        let (a, b) = mixes[0];
-                        player.color_wheel.get(a) > 0
-                            && player.color_wheel.get(b) > 0
-                            && can_mix(a, b)
+                        mix_sequence_is_valid(player, mixes, *count)
                     }
                     _ => false,
                 }
@@ -318,26 +332,14 @@ pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
             if !check_destroy_preconditions(state, card) {
                 return false;
             }
-            if mixes.is_empty() {
-                return true;
-            }
+            let Ability::MixColors { count } = card.destroy_abilities()[0] else {
+                return false;
+            };
             let player = &state.players[match &state.phase {
                 GamePhase::Action { action_state } => action_state.current_player_index,
                 _ => return false,
             }];
-            let (a, b) = mixes[0];
-            if player.color_wheel.get(a) == 0 || player.color_wheel.get(b) == 0 || !can_mix(a, b) {
-                return false;
-            }
-            if mixes.len() > 1 {
-                let mut wheel = player.color_wheel.clone();
-                perform_mix_unchecked(&mut wheel, a, b);
-                let (c, d) = mixes[1];
-                if wheel.get(c) == 0 || wheel.get(d) == 0 || !can_mix(c, d) {
-                    return false;
-                }
-            }
-            true
+            mix_sequence_is_valid(player, mixes, count)
         }
         Choice::DestroyAndSell { card, sell_card } => {
             if !check_destroy_preconditions(state, card) {

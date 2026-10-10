@@ -5,7 +5,7 @@ use colori_core::draw_phase::execute_draw_phase;
 use colori_core::game_log::{DrawEvent, DrawLog};
 use colori_core::ismcts::{MctsConfig};
 use colori_core::mcts_impl::ColoriSearcher;
-use colori_core::scoring::{calculate_score, HeuristicParams};
+use colori_core::scoring::{calculate_ducat_score, score_in_half_points, HeuristicParams};
 use colori_core::setup::create_initial_game_state;
 use colori_core::types::{Card, Choice, GameState, PlayerState};
 use colori_core::unordered_cards::{
@@ -24,7 +24,7 @@ fn deserialize_state(json: &str) -> GameState {
     state.card_lookup = get_card_registry();
     state.sell_card_lookup = get_sell_card_registry();
     for p in state.players.iter_mut() {
-        p.cached_score = calculate_score(p);
+        p.cached_ducat_score = calculate_ducat_score(p);
     }
     state
 }
@@ -135,9 +135,9 @@ pub fn wasm_advance_draft(state_json: &str) -> String {
 pub fn wasm_calculate_scores(players_json: &str) -> String {
     let players: Vec<PlayerState> =
         serde_json::from_str(players_json).expect("Failed to parse players JSON");
-    let scores: Vec<u32> = players
+    let scores: Vec<f64> = players
         .iter()
-        .map(|p| calculate_score(p))
+        .map(|p| score_in_half_points(p) as f64 / 2.0)
         .collect();
     serde_json::to_string(&scores).expect("Failed to serialize scores")
 }

@@ -129,7 +129,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'action-phase-concept',
     title: 'Action Phase',
-    text: 'After drafting, each player takes a turn. On your turn, trash drafted cards one at a time to trigger abilities like Workshop (store colors/materials), Mix Colors (combine two adjacent colors into one), Sell (complete a sell card), Draw Cards, or Move a card from your Workshop to your Draft Pool. Between trashes you can also spend a ducat for a single Workshop pick, a single Mix, or a Sell. When your turn ends, your workshop is shuffled onto the bottom of your deck and whatever is left in your draft pool becomes your new workshop.',
+    text: 'After drafting, each player takes a turn. On your turn, trash drafted cards one at a time to trigger abilities like Workshop (store colors/materials), Mix Colors (combine two adjacent colors into one), Sell (complete a sell card), or Move a card from your Workshop to your Draft Pool. Some cards do two of these, one after the other. Between trashes you can also spend a ducat for a single Workshop pick, a single Mix, or a Sell. When your turn ends, your workshop is shuffled onto the bottom of your deck and whatever is left in your draft pool becomes your new workshop.',
     buttons: [backButton, nextButton],
   });
 
@@ -137,6 +137,13 @@ function createTour(): Shepherd.Tour {
     id: 'ducats-explained',
     title: 'Ducats',
     text: 'Ducats are your score, and you collect one at the start of rounds 3, 5 and 6. They are also spendable: on your turn, one ducat buys a single Workshop pick, a single Mix, or a Sell. A bought Sell still costs you the material and colors, so what the ducat really buys is a sale in a round where nothing you drafted would let you make one.',
+    buttons: [backButton, nextButton],
+  });
+
+  newTour.addStep({
+    id: 'silver-and-boats-explained',
+    title: 'Silver and Boats',
+    text: 'Some workshop cards pay out silver or a boat. Silver is a wild primary: it stands in for a Red, Yellow or Blue you lack, in a mix or a sale. A boat is a wild material for a sale. Whatever you still hold at the end is worth half a point each.',
     buttons: [backButton, nextButton],
   });
 
@@ -151,7 +158,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'end-game',
     title: 'Good Luck!',
-    text: 'The game ends after 6 rounds. Most ducats wins. Good luck, vendecolori!',
+    text: 'The game ends after 6 rounds. Most points wins: your ducats, plus half a point for each silver and boat. Good luck, vendecolori!',
     buttons: [
       backButton,
       {

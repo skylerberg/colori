@@ -100,11 +100,19 @@ pub struct LogPlayerState {
 #[serde(rename_all = "camelCase")]
 pub struct FinalScore {
     pub name: String,
-    pub score: u32,
+    /// Points, which end in .5 when silver and boats add an odd half.
+    pub score: f64,
     #[serde(default)]
     pub completed_sell_cards: u32,
     #[serde(default)]
     pub color_wheel_total: u32,
+}
+
+impl FinalScore {
+    /// The score as a whole number of half points, for exact comparison.
+    pub fn half_points(&self) -> u32 {
+        (self.score * 2.0).round() as u32
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -114,6 +122,10 @@ pub struct FinalPlayerStats {
     pub deck_size: usize,
     pub completed_sell_cards: Vec<SellCardInstance>,
     pub ducats: u32,
+    #[serde(default)]
+    pub silver: u32,
+    #[serde(default)]
+    pub boats: u32,
     pub color_wheel: ColorWheel,
     pub materials: Materials,
 }
