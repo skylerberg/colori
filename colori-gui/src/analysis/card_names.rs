@@ -7,7 +7,7 @@ pub fn card_display_name(card: Card) -> &'static str {
 }
 
 /// Get human-readable display name for a sell card.
-/// Format: "2-star Textiles [Vermilion]" or "3-star Ceramics [Amber, Red]"
+/// Format: "Potter [Amber]" or "Painter [Teal, Green]"
 pub fn sell_card_display_name(sell_card: SellCard) -> String {
     let colors = sell_card
         .color_cost()
@@ -15,12 +15,7 @@ pub fn sell_card_display_name(sell_card: SellCard) -> String {
         .map(|c| format!("{:?}", c))
         .collect::<Vec<_>>()
         .join(", ");
-    format!(
-        "{}-ducat {:?} [{}]",
-        sell_card.ducats(),
-        sell_card.required_material(),
-        colors
-    )
+    format!("{} [{}]", sell_card.buyer().name(), colors)
 }
 
 /// Get draft copies by card name string (used in normalization).

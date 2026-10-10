@@ -101,13 +101,13 @@ export const DYE_CARDS: DyeCardData[] = [
   {
     kind: 'dye',
     name: 'Lapis Lazuli',
-    colors: ['Indigo'],
+    colors: ['Ultramarine'],
     destroyAbilities: [{ type: 'workshop', count: 3 }],
   },
   {
     kind: 'dye',
     name: 'Cochineal',
-    colors: ['Magenta'],
+    colors: ['Fuchsia'],
     destroyAbilities: [{ type: 'workshop', count: 3 }],
   },
 ];
@@ -273,7 +273,7 @@ export const ACTION_CARDS: ActionCardData[] = [
 
 export const PRIMARIES: Color[] = ['Red', 'Yellow', 'Blue'];
 export const SECONDARIES: Color[] = ['Orange', 'Green', 'Purple'];
-export const TERTIARIES: Color[] = ['Vermilion', 'Amber', 'Chartreuse', 'Teal', 'Indigo', 'Magenta'];
+export const TERTIARIES: Color[] = ['Vermilion', 'Amber', 'Chartreuse', 'Teal', 'Ultramarine', 'Fuchsia'];
 
 export const STARTER_DECK_SIZE = 7;
 
@@ -285,60 +285,66 @@ export const CHALK_CARD: ActionCardData = {
 };
 
 export const SELL_CARDS: SellCardData[] = [
-  { kind: 'sellCard', ducats: 2, requiredMaterial: 'Textiles', colorCost: ['Vermilion'] },
-  { kind: 'sellCard', ducats: 2, requiredMaterial: 'Textiles', colorCost: ['Amber'] },
-  { kind: 'sellCard', ducats: 2, requiredMaterial: 'Textiles', colorCost: ['Chartreuse'] },
-  { kind: 'sellCard', ducats: 2, requiredMaterial: 'Textiles', colorCost: ['Teal'] },
-  { kind: 'sellCard', ducats: 2, requiredMaterial: 'Textiles', colorCost: ['Indigo'] },
-  { kind: 'sellCard', ducats: 2, requiredMaterial: 'Textiles', colorCost: ['Magenta'] },
-  { kind: 'sellCard', ducats: 2, requiredMaterial: 'Textiles', colorCost: ['Orange', 'Red'] },
-  { kind: 'sellCard', ducats: 2, requiredMaterial: 'Textiles', colorCost: ['Orange', 'Yellow'] },
-  { kind: 'sellCard', ducats: 2, requiredMaterial: 'Textiles', colorCost: ['Orange', 'Blue'] },
-  { kind: 'sellCard', ducats: 2, requiredMaterial: 'Textiles', colorCost: ['Green', 'Red'] },
-  { kind: 'sellCard', ducats: 2, requiredMaterial: 'Textiles', colorCost: ['Green', 'Yellow'] },
-  { kind: 'sellCard', ducats: 2, requiredMaterial: 'Textiles', colorCost: ['Green', 'Blue'] },
-  { kind: 'sellCard', ducats: 2, requiredMaterial: 'Textiles', colorCost: ['Purple', 'Red'] },
-  { kind: 'sellCard', ducats: 2, requiredMaterial: 'Textiles', colorCost: ['Purple', 'Yellow'] },
-  { kind: 'sellCard', ducats: 2, requiredMaterial: 'Textiles', colorCost: ['Purple', 'Blue'] },
-  { kind: 'sellCard', ducats: 2, requiredMaterial: 'Textiles', colorCost: ['Red', 'Red', 'Red'] },
-  { kind: 'sellCard', ducats: 2, requiredMaterial: 'Textiles', colorCost: ['Yellow', 'Yellow', 'Yellow'] },
-  { kind: 'sellCard', ducats: 2, requiredMaterial: 'Textiles', colorCost: ['Blue', 'Blue', 'Blue'] },
-  { kind: 'sellCard', ducats: 3, requiredMaterial: 'Ceramics', colorCost: ['Vermilion', 'Red'] },
-  { kind: 'sellCard', ducats: 3, requiredMaterial: 'Ceramics', colorCost: ['Vermilion', 'Yellow'] },
-  { kind: 'sellCard', ducats: 3, requiredMaterial: 'Ceramics', colorCost: ['Vermilion', 'Blue'] },
-  { kind: 'sellCard', ducats: 3, requiredMaterial: 'Ceramics', colorCost: ['Amber', 'Red'] },
-  { kind: 'sellCard', ducats: 3, requiredMaterial: 'Ceramics', colorCost: ['Amber', 'Yellow'] },
-  { kind: 'sellCard', ducats: 3, requiredMaterial: 'Ceramics', colorCost: ['Amber', 'Blue'] },
-  { kind: 'sellCard', ducats: 3, requiredMaterial: 'Ceramics', colorCost: ['Chartreuse', 'Red'] },
-  { kind: 'sellCard', ducats: 3, requiredMaterial: 'Ceramics', colorCost: ['Chartreuse', 'Yellow'] },
-  { kind: 'sellCard', ducats: 3, requiredMaterial: 'Ceramics', colorCost: ['Chartreuse', 'Blue'] },
-  { kind: 'sellCard', ducats: 3, requiredMaterial: 'Ceramics', colorCost: ['Teal', 'Red'] },
-  { kind: 'sellCard', ducats: 3, requiredMaterial: 'Ceramics', colorCost: ['Teal', 'Yellow'] },
-  { kind: 'sellCard', ducats: 3, requiredMaterial: 'Ceramics', colorCost: ['Teal', 'Blue'] },
-  { kind: 'sellCard', ducats: 3, requiredMaterial: 'Ceramics', colorCost: ['Indigo', 'Red'] },
-  { kind: 'sellCard', ducats: 3, requiredMaterial: 'Ceramics', colorCost: ['Indigo', 'Yellow'] },
-  { kind: 'sellCard', ducats: 3, requiredMaterial: 'Ceramics', colorCost: ['Indigo', 'Blue'] },
-  { kind: 'sellCard', ducats: 3, requiredMaterial: 'Ceramics', colorCost: ['Magenta', 'Red'] },
-  { kind: 'sellCard', ducats: 3, requiredMaterial: 'Ceramics', colorCost: ['Magenta', 'Yellow'] },
-  { kind: 'sellCard', ducats: 3, requiredMaterial: 'Ceramics', colorCost: ['Magenta', 'Blue'] },
-  { kind: 'sellCard', ducats: 4, requiredMaterial: 'Paintings', colorCost: ['Vermilion', 'Orange'] },
-  { kind: 'sellCard', ducats: 4, requiredMaterial: 'Paintings', colorCost: ['Vermilion', 'Green'] },
-  { kind: 'sellCard', ducats: 4, requiredMaterial: 'Paintings', colorCost: ['Vermilion', 'Purple'] },
-  { kind: 'sellCard', ducats: 4, requiredMaterial: 'Paintings', colorCost: ['Amber', 'Orange'] },
-  { kind: 'sellCard', ducats: 4, requiredMaterial: 'Paintings', colorCost: ['Amber', 'Green'] },
-  { kind: 'sellCard', ducats: 4, requiredMaterial: 'Paintings', colorCost: ['Amber', 'Purple'] },
-  { kind: 'sellCard', ducats: 4, requiredMaterial: 'Paintings', colorCost: ['Chartreuse', 'Orange'] },
-  { kind: 'sellCard', ducats: 4, requiredMaterial: 'Paintings', colorCost: ['Chartreuse', 'Green'] },
-  { kind: 'sellCard', ducats: 4, requiredMaterial: 'Paintings', colorCost: ['Chartreuse', 'Purple'] },
-  { kind: 'sellCard', ducats: 4, requiredMaterial: 'Paintings', colorCost: ['Teal', 'Orange'] },
-  { kind: 'sellCard', ducats: 4, requiredMaterial: 'Paintings', colorCost: ['Teal', 'Green'] },
-  { kind: 'sellCard', ducats: 4, requiredMaterial: 'Paintings', colorCost: ['Teal', 'Purple'] },
-  { kind: 'sellCard', ducats: 4, requiredMaterial: 'Paintings', colorCost: ['Indigo', 'Orange'] },
-  { kind: 'sellCard', ducats: 4, requiredMaterial: 'Paintings', colorCost: ['Indigo', 'Green'] },
-  { kind: 'sellCard', ducats: 4, requiredMaterial: 'Paintings', colorCost: ['Indigo', 'Purple'] },
-  { kind: 'sellCard', ducats: 4, requiredMaterial: 'Paintings', colorCost: ['Magenta', 'Orange'] },
-  { kind: 'sellCard', ducats: 4, requiredMaterial: 'Paintings', colorCost: ['Magenta', 'Green'] },
-  { kind: 'sellCard', ducats: 4, requiredMaterial: 'Paintings', colorCost: ['Magenta', 'Purple'] },
+  { kind: 'sellCard', name: 'Shipwright', ducats: 4, requiredMaterials: ['Textiles'], requiredBoats: 1, colorCost: ['Purple', 'Green'] },
+  { kind: 'sellCard', name: 'Shipwright', ducats: 4, requiredMaterials: ['Textiles'], requiredBoats: 1, colorCost: ['Orange', 'Green'] },
+  { kind: 'sellCard', name: 'Shipwright', ducats: 4, requiredMaterials: ['Textiles'], requiredBoats: 1, colorCost: ['Purple', 'Orange'] },
+  { kind: 'sellCard', name: 'Glassmaker', ducats: 3, requiredMaterials: [], requiredBoats: 0, colorCost: ['Vermilion', 'Blue', 'Blue'] },
+  { kind: 'sellCard', name: 'Glassmaker', ducats: 3, requiredMaterials: [], requiredBoats: 0, colorCost: ['Amber', 'Blue', 'Blue'] },
+  { kind: 'sellCard', name: 'Glassmaker', ducats: 3, requiredMaterials: [], requiredBoats: 0, colorCost: ['Chartreuse', 'Red', 'Red'] },
+  { kind: 'sellCard', name: 'Glassmaker', ducats: 3, requiredMaterials: [], requiredBoats: 0, colorCost: ['Teal', 'Red', 'Red'] },
+  { kind: 'sellCard', name: 'Glassmaker', ducats: 3, requiredMaterials: [], requiredBoats: 0, colorCost: ['Ultramarine', 'Yellow', 'Yellow'] },
+  { kind: 'sellCard', name: 'Glassmaker', ducats: 3, requiredMaterials: [], requiredBoats: 0, colorCost: ['Fuchsia', 'Yellow', 'Yellow'] },
+  { kind: 'sellCard', name: 'Dyer', ducats: 2, requiredMaterials: ['Textiles'], requiredBoats: 0, colorCost: ['Red', 'Red'] },
+  { kind: 'sellCard', name: 'Dyer', ducats: 2, requiredMaterials: ['Textiles'], requiredBoats: 0, colorCost: ['Red', 'Yellow'] },
+  { kind: 'sellCard', name: 'Dyer', ducats: 2, requiredMaterials: ['Textiles'], requiredBoats: 0, colorCost: ['Red', 'Blue'] },
+  { kind: 'sellCard', name: 'Dyer', ducats: 2, requiredMaterials: ['Textiles'], requiredBoats: 0, colorCost: ['Yellow', 'Yellow'] },
+  { kind: 'sellCard', name: 'Dyer', ducats: 2, requiredMaterials: ['Textiles'], requiredBoats: 0, colorCost: ['Blue', 'Yellow'] },
+  { kind: 'sellCard', name: 'Dyer', ducats: 2, requiredMaterials: ['Textiles'], requiredBoats: 0, colorCost: ['Blue', 'Blue'] },
+  { kind: 'sellCard', name: 'Dyer', ducats: 2, requiredMaterials: ['Textiles'], requiredBoats: 0, colorCost: ['Orange'] },
+  { kind: 'sellCard', name: 'Dyer', ducats: 2, requiredMaterials: ['Textiles'], requiredBoats: 0, colorCost: ['Green'] },
+  { kind: 'sellCard', name: 'Dyer', ducats: 2, requiredMaterials: ['Textiles'], requiredBoats: 0, colorCost: ['Purple'] },
+  { kind: 'sellCard', name: 'Illuminator', ducats: 2, requiredMaterials: [], requiredBoats: 0, colorCost: ['Vermilion'] },
+  { kind: 'sellCard', name: 'Illuminator', ducats: 2, requiredMaterials: [], requiredBoats: 0, colorCost: ['Amber'] },
+  { kind: 'sellCard', name: 'Illuminator', ducats: 2, requiredMaterials: [], requiredBoats: 0, colorCost: ['Chartreuse'] },
+  { kind: 'sellCard', name: 'Illuminator', ducats: 2, requiredMaterials: [], requiredBoats: 0, colorCost: ['Teal'] },
+  { kind: 'sellCard', name: 'Illuminator', ducats: 2, requiredMaterials: [], requiredBoats: 0, colorCost: ['Ultramarine'] },
+  { kind: 'sellCard', name: 'Illuminator', ducats: 2, requiredMaterials: [], requiredBoats: 0, colorCost: ['Fuchsia'] },
+  { kind: 'sellCard', name: 'Potter', ducats: 3, requiredMaterials: ['Ceramics'], requiredBoats: 0, colorCost: ['Vermilion'] },
+  { kind: 'sellCard', name: 'Potter', ducats: 3, requiredMaterials: ['Ceramics'], requiredBoats: 0, colorCost: ['Amber'] },
+  { kind: 'sellCard', name: 'Potter', ducats: 3, requiredMaterials: ['Ceramics'], requiredBoats: 0, colorCost: ['Chartreuse'] },
+  { kind: 'sellCard', name: 'Potter', ducats: 3, requiredMaterials: ['Ceramics'], requiredBoats: 0, colorCost: ['Teal'] },
+  { kind: 'sellCard', name: 'Potter', ducats: 3, requiredMaterials: ['Ceramics'], requiredBoats: 0, colorCost: ['Ultramarine'] },
+  { kind: 'sellCard', name: 'Potter', ducats: 3, requiredMaterials: ['Ceramics'], requiredBoats: 0, colorCost: ['Fuchsia'] },
+  { kind: 'sellCard', name: 'Tilemaker', ducats: 4, requiredMaterials: ['Ceramics', 'Ceramics'], requiredBoats: 0, colorCost: ['Vermilion'] },
+  { kind: 'sellCard', name: 'Tilemaker', ducats: 4, requiredMaterials: ['Ceramics', 'Ceramics'], requiredBoats: 0, colorCost: ['Amber'] },
+  { kind: 'sellCard', name: 'Tilemaker', ducats: 4, requiredMaterials: ['Ceramics', 'Ceramics'], requiredBoats: 0, colorCost: ['Chartreuse'] },
+  { kind: 'sellCard', name: 'Tilemaker', ducats: 4, requiredMaterials: ['Ceramics', 'Ceramics'], requiredBoats: 0, colorCost: ['Teal'] },
+  { kind: 'sellCard', name: 'Tilemaker', ducats: 4, requiredMaterials: ['Ceramics', 'Ceramics'], requiredBoats: 0, colorCost: ['Ultramarine'] },
+  { kind: 'sellCard', name: 'Tilemaker', ducats: 4, requiredMaterials: ['Ceramics', 'Ceramics'], requiredBoats: 0, colorCost: ['Fuchsia'] },
+  { kind: 'sellCard', name: 'Painter', ducats: 4, requiredMaterials: ['Paintings'], requiredBoats: 0, colorCost: ['Vermilion', 'Orange'] },
+  { kind: 'sellCard', name: 'Painter', ducats: 4, requiredMaterials: ['Paintings'], requiredBoats: 0, colorCost: ['Vermilion', 'Green'] },
+  { kind: 'sellCard', name: 'Painter', ducats: 4, requiredMaterials: ['Paintings'], requiredBoats: 0, colorCost: ['Vermilion', 'Purple'] },
+  { kind: 'sellCard', name: 'Painter', ducats: 4, requiredMaterials: ['Paintings'], requiredBoats: 0, colorCost: ['Amber', 'Orange'] },
+  { kind: 'sellCard', name: 'Painter', ducats: 4, requiredMaterials: ['Paintings'], requiredBoats: 0, colorCost: ['Amber', 'Green'] },
+  { kind: 'sellCard', name: 'Painter', ducats: 4, requiredMaterials: ['Paintings'], requiredBoats: 0, colorCost: ['Amber', 'Purple'] },
+  { kind: 'sellCard', name: 'Painter', ducats: 4, requiredMaterials: ['Paintings'], requiredBoats: 0, colorCost: ['Chartreuse', 'Orange'] },
+  { kind: 'sellCard', name: 'Painter', ducats: 4, requiredMaterials: ['Paintings'], requiredBoats: 0, colorCost: ['Chartreuse', 'Green'] },
+  { kind: 'sellCard', name: 'Painter', ducats: 4, requiredMaterials: ['Paintings'], requiredBoats: 0, colorCost: ['Chartreuse', 'Purple'] },
+  { kind: 'sellCard', name: 'Painter', ducats: 4, requiredMaterials: ['Paintings'], requiredBoats: 0, colorCost: ['Teal', 'Orange'] },
+  { kind: 'sellCard', name: 'Painter', ducats: 4, requiredMaterials: ['Paintings'], requiredBoats: 0, colorCost: ['Teal', 'Green'] },
+  { kind: 'sellCard', name: 'Painter', ducats: 4, requiredMaterials: ['Paintings'], requiredBoats: 0, colorCost: ['Teal', 'Purple'] },
+  { kind: 'sellCard', name: 'Painter', ducats: 4, requiredMaterials: ['Paintings'], requiredBoats: 0, colorCost: ['Ultramarine', 'Orange'] },
+  { kind: 'sellCard', name: 'Painter', ducats: 4, requiredMaterials: ['Paintings'], requiredBoats: 0, colorCost: ['Ultramarine', 'Green'] },
+  { kind: 'sellCard', name: 'Painter', ducats: 4, requiredMaterials: ['Paintings'], requiredBoats: 0, colorCost: ['Ultramarine', 'Purple'] },
+  { kind: 'sellCard', name: 'Painter', ducats: 4, requiredMaterials: ['Paintings'], requiredBoats: 0, colorCost: ['Fuchsia', 'Orange'] },
+  { kind: 'sellCard', name: 'Painter', ducats: 4, requiredMaterials: ['Paintings'], requiredBoats: 0, colorCost: ['Fuchsia', 'Green'] },
+  { kind: 'sellCard', name: 'Painter', ducats: 4, requiredMaterials: ['Paintings'], requiredBoats: 0, colorCost: ['Fuchsia', 'Purple'] },
+  { kind: 'sellCard', name: 'Master Painter', ducats: 5, requiredMaterials: ['Paintings'], requiredBoats: 0, colorCost: ['Vermilion', 'Teal'] },
+  { kind: 'sellCard', name: 'Master Painter', ducats: 5, requiredMaterials: ['Paintings'], requiredBoats: 0, colorCost: ['Vermilion', 'Fuchsia'] },
+  { kind: 'sellCard', name: 'Master Painter', ducats: 5, requiredMaterials: ['Paintings'], requiredBoats: 0, colorCost: ['Amber', 'Ultramarine'] },
+  { kind: 'sellCard', name: 'Master Painter', ducats: 5, requiredMaterials: ['Paintings'], requiredBoats: 0, colorCost: ['Chartreuse', 'Amber'] },
+  { kind: 'sellCard', name: 'Master Painter', ducats: 5, requiredMaterials: ['Paintings'], requiredBoats: 0, colorCost: ['Chartreuse', 'Fuchsia'] },
+  { kind: 'sellCard', name: 'Master Painter', ducats: 5, requiredMaterials: ['Paintings'], requiredBoats: 0, colorCost: ['Ultramarine', 'Teal'] },
 ];
 
 const CARD_LOOKUP: Record<string, AnyCardData> = {};
@@ -358,7 +364,7 @@ CARD_LOOKUP['Orpiment'] = DYE_CARDS[7];
 CARD_LOOKUP['GreenEarth'] = DYE_CARDS[8];
 CARD_LOOKUP['Verdigris'] = DYE_CARDS[9];
 CARD_LOOKUP['Brazilwood'] = DYE_CARDS[10];
-CARD_LOOKUP['IndigoDye'] = DYE_CARDS[11];
+CARD_LOOKUP['Indigo'] = DYE_CARDS[11];
 CARD_LOOKUP['Cinnabar'] = DYE_CARDS[12];
 CARD_LOOKUP['Saffron'] = DYE_CARDS[13];
 CARD_LOOKUP['CopperResinate'] = DYE_CARDS[14];
@@ -391,60 +397,66 @@ CARD_LOOKUP['Gondola'] = ACTION_CARDS[4];
 CARD_LOOKUP['Chalk'] = CHALK_CARD;
 
 const SELL_CARD_LOOKUP: Record<string, SellCardData> = {};
-SELL_CARD_LOOKUP['Textiles2Vermilion'] = SELL_CARDS[0];
-SELL_CARD_LOOKUP['Textiles2Amber'] = SELL_CARDS[1];
-SELL_CARD_LOOKUP['Textiles2Chartreuse'] = SELL_CARDS[2];
-SELL_CARD_LOOKUP['Textiles2Teal'] = SELL_CARDS[3];
-SELL_CARD_LOOKUP['Textiles2Indigo'] = SELL_CARDS[4];
-SELL_CARD_LOOKUP['Textiles2Magenta'] = SELL_CARDS[5];
-SELL_CARD_LOOKUP['Textiles2OrangeRed'] = SELL_CARDS[6];
-SELL_CARD_LOOKUP['Textiles2OrangeYellow'] = SELL_CARDS[7];
-SELL_CARD_LOOKUP['Textiles2OrangeBlue'] = SELL_CARDS[8];
-SELL_CARD_LOOKUP['Textiles2GreenRed'] = SELL_CARDS[9];
-SELL_CARD_LOOKUP['Textiles2GreenYellow'] = SELL_CARDS[10];
-SELL_CARD_LOOKUP['Textiles2GreenBlue'] = SELL_CARDS[11];
-SELL_CARD_LOOKUP['Textiles2PurpleRed'] = SELL_CARDS[12];
-SELL_CARD_LOOKUP['Textiles2PurpleYellow'] = SELL_CARDS[13];
-SELL_CARD_LOOKUP['Textiles2PurpleBlue'] = SELL_CARDS[14];
-SELL_CARD_LOOKUP['Textiles2RedRedRed'] = SELL_CARDS[15];
-SELL_CARD_LOOKUP['Textiles2YellowYellowYellow'] = SELL_CARDS[16];
-SELL_CARD_LOOKUP['Textiles2BlueBlueBlue'] = SELL_CARDS[17];
-SELL_CARD_LOOKUP['Ceramics3VermilionRed'] = SELL_CARDS[18];
-SELL_CARD_LOOKUP['Ceramics3VermilionYellow'] = SELL_CARDS[19];
-SELL_CARD_LOOKUP['Ceramics3VermilionBlue'] = SELL_CARDS[20];
-SELL_CARD_LOOKUP['Ceramics3AmberRed'] = SELL_CARDS[21];
-SELL_CARD_LOOKUP['Ceramics3AmberYellow'] = SELL_CARDS[22];
-SELL_CARD_LOOKUP['Ceramics3AmberBlue'] = SELL_CARDS[23];
-SELL_CARD_LOOKUP['Ceramics3ChartreuseRed'] = SELL_CARDS[24];
-SELL_CARD_LOOKUP['Ceramics3ChartreuseYellow'] = SELL_CARDS[25];
-SELL_CARD_LOOKUP['Ceramics3ChartreuseBlue'] = SELL_CARDS[26];
-SELL_CARD_LOOKUP['Ceramics3TealRed'] = SELL_CARDS[27];
-SELL_CARD_LOOKUP['Ceramics3TealYellow'] = SELL_CARDS[28];
-SELL_CARD_LOOKUP['Ceramics3TealBlue'] = SELL_CARDS[29];
-SELL_CARD_LOOKUP['Ceramics3IndigoRed'] = SELL_CARDS[30];
-SELL_CARD_LOOKUP['Ceramics3IndigoYellow'] = SELL_CARDS[31];
-SELL_CARD_LOOKUP['Ceramics3IndigoBlue'] = SELL_CARDS[32];
-SELL_CARD_LOOKUP['Ceramics3MagentaRed'] = SELL_CARDS[33];
-SELL_CARD_LOOKUP['Ceramics3MagentaYellow'] = SELL_CARDS[34];
-SELL_CARD_LOOKUP['Ceramics3MagentaBlue'] = SELL_CARDS[35];
-SELL_CARD_LOOKUP['Paintings4VermilionOrange'] = SELL_CARDS[36];
-SELL_CARD_LOOKUP['Paintings4VermilionGreen'] = SELL_CARDS[37];
-SELL_CARD_LOOKUP['Paintings4VermilionPurple'] = SELL_CARDS[38];
-SELL_CARD_LOOKUP['Paintings4AmberOrange'] = SELL_CARDS[39];
-SELL_CARD_LOOKUP['Paintings4AmberGreen'] = SELL_CARDS[40];
-SELL_CARD_LOOKUP['Paintings4AmberPurple'] = SELL_CARDS[41];
-SELL_CARD_LOOKUP['Paintings4ChartreuseOrange'] = SELL_CARDS[42];
-SELL_CARD_LOOKUP['Paintings4ChartreuseGreen'] = SELL_CARDS[43];
-SELL_CARD_LOOKUP['Paintings4ChartreusePurple'] = SELL_CARDS[44];
-SELL_CARD_LOOKUP['Paintings4TealOrange'] = SELL_CARDS[45];
-SELL_CARD_LOOKUP['Paintings4TealGreen'] = SELL_CARDS[46];
-SELL_CARD_LOOKUP['Paintings4TealPurple'] = SELL_CARDS[47];
-SELL_CARD_LOOKUP['Paintings4IndigoOrange'] = SELL_CARDS[48];
-SELL_CARD_LOOKUP['Paintings4IndigoGreen'] = SELL_CARDS[49];
-SELL_CARD_LOOKUP['Paintings4IndigoPurple'] = SELL_CARDS[50];
-SELL_CARD_LOOKUP['Paintings4MagentaOrange'] = SELL_CARDS[51];
-SELL_CARD_LOOKUP['Paintings4MagentaGreen'] = SELL_CARDS[52];
-SELL_CARD_LOOKUP['Paintings4MagentaPurple'] = SELL_CARDS[53];
+SELL_CARD_LOOKUP['ShipwrightPurpleGreen'] = SELL_CARDS[0];
+SELL_CARD_LOOKUP['ShipwrightOrangeGreen'] = SELL_CARDS[1];
+SELL_CARD_LOOKUP['ShipwrightPurpleOrange'] = SELL_CARDS[2];
+SELL_CARD_LOOKUP['GlassmakerVermilionBlue'] = SELL_CARDS[3];
+SELL_CARD_LOOKUP['GlassmakerAmberBlue'] = SELL_CARDS[4];
+SELL_CARD_LOOKUP['GlassmakerChartreuseRed'] = SELL_CARDS[5];
+SELL_CARD_LOOKUP['GlassmakerTealRed'] = SELL_CARDS[6];
+SELL_CARD_LOOKUP['GlassmakerUltramarineYellow'] = SELL_CARDS[7];
+SELL_CARD_LOOKUP['GlassmakerFuchsiaYellow'] = SELL_CARDS[8];
+SELL_CARD_LOOKUP['DyerRedRed'] = SELL_CARDS[9];
+SELL_CARD_LOOKUP['DyerRedYellow'] = SELL_CARDS[10];
+SELL_CARD_LOOKUP['DyerRedBlue'] = SELL_CARDS[11];
+SELL_CARD_LOOKUP['DyerYellowYellow'] = SELL_CARDS[12];
+SELL_CARD_LOOKUP['DyerBlueYellow'] = SELL_CARDS[13];
+SELL_CARD_LOOKUP['DyerBlueBlue'] = SELL_CARDS[14];
+SELL_CARD_LOOKUP['DyerOrange'] = SELL_CARDS[15];
+SELL_CARD_LOOKUP['DyerGreen'] = SELL_CARDS[16];
+SELL_CARD_LOOKUP['DyerPurple'] = SELL_CARDS[17];
+SELL_CARD_LOOKUP['IlluminatorVermilion'] = SELL_CARDS[18];
+SELL_CARD_LOOKUP['IlluminatorAmber'] = SELL_CARDS[19];
+SELL_CARD_LOOKUP['IlluminatorChartreuse'] = SELL_CARDS[20];
+SELL_CARD_LOOKUP['IlluminatorTeal'] = SELL_CARDS[21];
+SELL_CARD_LOOKUP['IlluminatorUltramarine'] = SELL_CARDS[22];
+SELL_CARD_LOOKUP['IlluminatorFuchsia'] = SELL_CARDS[23];
+SELL_CARD_LOOKUP['PotterVermilion'] = SELL_CARDS[24];
+SELL_CARD_LOOKUP['PotterAmber'] = SELL_CARDS[25];
+SELL_CARD_LOOKUP['PotterChartreuse'] = SELL_CARDS[26];
+SELL_CARD_LOOKUP['PotterTeal'] = SELL_CARDS[27];
+SELL_CARD_LOOKUP['PotterUltramarine'] = SELL_CARDS[28];
+SELL_CARD_LOOKUP['PotterFuchsia'] = SELL_CARDS[29];
+SELL_CARD_LOOKUP['TilemakerVermilion'] = SELL_CARDS[30];
+SELL_CARD_LOOKUP['TilemakerAmber'] = SELL_CARDS[31];
+SELL_CARD_LOOKUP['TilemakerChartreuse'] = SELL_CARDS[32];
+SELL_CARD_LOOKUP['TilemakerTeal'] = SELL_CARDS[33];
+SELL_CARD_LOOKUP['TilemakerUltramarine'] = SELL_CARDS[34];
+SELL_CARD_LOOKUP['TilemakerFuchsia'] = SELL_CARDS[35];
+SELL_CARD_LOOKUP['PainterVermilionOrange'] = SELL_CARDS[36];
+SELL_CARD_LOOKUP['PainterVermilionGreen'] = SELL_CARDS[37];
+SELL_CARD_LOOKUP['PainterVermilionPurple'] = SELL_CARDS[38];
+SELL_CARD_LOOKUP['PainterAmberOrange'] = SELL_CARDS[39];
+SELL_CARD_LOOKUP['PainterAmberGreen'] = SELL_CARDS[40];
+SELL_CARD_LOOKUP['PainterAmberPurple'] = SELL_CARDS[41];
+SELL_CARD_LOOKUP['PainterChartreuseOrange'] = SELL_CARDS[42];
+SELL_CARD_LOOKUP['PainterChartreuseGreen'] = SELL_CARDS[43];
+SELL_CARD_LOOKUP['PainterChartreusePurple'] = SELL_CARDS[44];
+SELL_CARD_LOOKUP['PainterTealOrange'] = SELL_CARDS[45];
+SELL_CARD_LOOKUP['PainterTealGreen'] = SELL_CARDS[46];
+SELL_CARD_LOOKUP['PainterTealPurple'] = SELL_CARDS[47];
+SELL_CARD_LOOKUP['PainterUltramarineOrange'] = SELL_CARDS[48];
+SELL_CARD_LOOKUP['PainterUltramarineGreen'] = SELL_CARDS[49];
+SELL_CARD_LOOKUP['PainterUltramarinePurple'] = SELL_CARDS[50];
+SELL_CARD_LOOKUP['PainterFuchsiaOrange'] = SELL_CARDS[51];
+SELL_CARD_LOOKUP['PainterFuchsiaGreen'] = SELL_CARDS[52];
+SELL_CARD_LOOKUP['PainterFuchsiaPurple'] = SELL_CARDS[53];
+SELL_CARD_LOOKUP['MasterPainterVermilionTeal'] = SELL_CARDS[54];
+SELL_CARD_LOOKUP['MasterPainterVermilionFuchsia'] = SELL_CARDS[55];
+SELL_CARD_LOOKUP['MasterPainterAmberUltramarine'] = SELL_CARDS[56];
+SELL_CARD_LOOKUP['MasterPainterChartreuseAmber'] = SELL_CARDS[57];
+SELL_CARD_LOOKUP['MasterPainterChartreuseFuchsia'] = SELL_CARDS[58];
+SELL_CARD_LOOKUP['MasterPainterUltramarineTeal'] = SELL_CARDS[59];
 
 export function getCardData(card: Card): AnyCardData {
   return CARD_LOOKUP[card];

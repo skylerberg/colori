@@ -28,8 +28,8 @@
     { color: 'Amber', ring: 'outer', startAngleDeg: 60, spanDeg: 60 },
     { color: 'Chartreuse', ring: 'outer', startAngleDeg: 120, spanDeg: 60 },
     { color: 'Teal', ring: 'outer', startAngleDeg: 180, spanDeg: 60 },
-    { color: 'Indigo', ring: 'outer', startAngleDeg: 240, spanDeg: 60 },
-    { color: 'Magenta', ring: 'outer', startAngleDeg: 300, spanDeg: 60 },
+    { color: 'Ultramarine', ring: 'outer', startAngleDeg: 240, spanDeg: 60 },
+    { color: 'Fuchsia', ring: 'outer', startAngleDeg: 300, spanDeg: 60 },
   ];
 
   const RING_RADII: Record<string, { inner: number; outer: number }> = {
@@ -58,8 +58,8 @@
     'Amber': { angle: 90, ring: 'tertiary' },
     'Chartreuse': { angle: 150, ring: 'tertiary' },
     'Teal': { angle: 210, ring: 'tertiary' },
-    'Indigo': { angle: 270, ring: 'tertiary' },
-    'Magenta': { angle: 330, ring: 'tertiary' },
+    'Ultramarine': { angle: 270, ring: 'tertiary' },
+    'Fuchsia': { angle: 330, ring: 'tertiary' },
   };
 
   function labelXY(color: string): [number, number] {

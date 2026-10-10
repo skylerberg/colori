@@ -309,23 +309,42 @@ pub fn process_ability_stack<R: Rng>(state: &mut GameState, rng: &mut R) {
     }
 }
 
+/// Boats a sale would take from `player`: those the card asks for outright,
+/// plus one for each material it asks for that the player has not stored.
+#[inline]
+pub(crate) fn boats_to_sell(player: &PlayerState, sell_card: SellCard) -> u32 {
+    let materials = sell_card.required_materials();
+    let mut boats = sell_card.required_boats();
+    for (i, &material) in materials.iter().enumerate() {
+        let needed = 1 + materials[..i].iter().filter(|&&earlier| earlier == material).count() as u32;
+        if player.materials.get(material) < needed {
+            boats += 1;
+        }
+    }
+    boats
+}
+
 #[inline]
 pub(crate) fn can_afford_sell_card(player: &PlayerState, sell_card: &SellCard) -> bool {
-    (player.materials.get(sell_card.required_material()) >= 1 || player.boats >= 1)
+    boats_to_sell(player, *sell_card) <= player.boats
         && can_pay_cost(&player.color_wheel, player.silver, sell_card.color_cost())
 }
 
-/// Sell to the buyer at `index`, paying with the material and colours it asks
+/// Sell to the buyer at `index`, paying with the materials and colours it asks
 /// for before any boat or silver standing in for them.
 pub(crate) fn sell_to_buyer(player: &mut PlayerState, index: usize) {
     // Order-preserving, so the slot a buyer occupied is not visibly shuffled
     // when an earlier one sells.
     let sold = player.buyers.remove(index);
 
-    if !player.materials.decrement(sold.sell_card.required_material()) {
-        assert!(player.boats >= 1, "Not enough stored material");
-        player.boats -= 1;
+    let mut boats = sold.sell_card.required_boats();
+    for &material in sold.sell_card.required_materials() {
+        if !player.materials.decrement(material) {
+            boats += 1;
+        }
     }
+    assert!(player.boats >= boats, "Not enough stored material or boats");
+    player.boats -= boats;
     let paid = pay_cost(&mut player.color_wheel, &mut player.silver, sold.sell_card.color_cost());
     assert!(paid, "Cannot pay sell card color cost");
 

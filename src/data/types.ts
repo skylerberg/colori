@@ -1,5 +1,5 @@
 export type Color = 'Red' | 'Vermilion' | 'Orange' | 'Amber' | 'Yellow' |
-  'Chartreuse' | 'Green' | 'Teal' | 'Blue' | 'Indigo' | 'Purple' | 'Magenta';
+  'Chartreuse' | 'Green' | 'Teal' | 'Blue' | 'Ultramarine' | 'Purple' | 'Fuchsia';
 
 export type MaterialType = 'Textiles' | 'Ceramics' | 'Paintings';
 
@@ -21,7 +21,7 @@ export type Ability =
 // Card variant name strings from Rust
 export type Card = 'BasicRed' | 'BasicYellow' | 'BasicBlue'
   | 'Realgar' | 'Kermes' | 'Litharge' | 'Malachite' | 'Woad' | 'Logwood'
-  | 'DragonsBlood' | 'Orpiment' | 'GreenEarth' | 'Verdigris' | 'Brazilwood' | 'IndigoDye'
+  | 'DragonsBlood' | 'Orpiment' | 'GreenEarth' | 'Verdigris' | 'Brazilwood' | 'Indigo'
   | 'Cinnabar' | 'Saffron' | 'CopperResinate' | 'Azurite' | 'LapisLazuli' | 'Cochineal'
   | 'StarterCeramics' | 'StarterCanvas' | 'StarterFabric'
   | 'CeramicsRed' | 'CeramicsYellow' | 'CeramicsBlue'
@@ -30,24 +30,27 @@ export type Card = 'BasicRed' | 'BasicYellow' | 'BasicBlue'
   | 'CanvasCeramics' | 'CeramicsFabric' | 'CanvasFabric'
   | 'Alum' | 'GumArabic' | 'LinseedOil' | 'Warehouse' | 'Gondola' | 'Chalk';
 
-export type SellCard = 'Textiles2Vermilion' | 'Textiles2Amber' | 'Textiles2Chartreuse'
-  | 'Textiles2Teal' | 'Textiles2Indigo' | 'Textiles2Magenta'
-  | 'Textiles2OrangeRed' | 'Textiles2OrangeYellow' | 'Textiles2OrangeBlue'
-  | 'Textiles2GreenRed' | 'Textiles2GreenYellow' | 'Textiles2GreenBlue'
-  | 'Textiles2PurpleRed' | 'Textiles2PurpleYellow' | 'Textiles2PurpleBlue'
-  | 'Textiles2RedRedRed' | 'Textiles2YellowYellowYellow' | 'Textiles2BlueBlueBlue'
-  | 'Ceramics3VermilionRed' | 'Ceramics3VermilionYellow' | 'Ceramics3VermilionBlue'
-  | 'Ceramics3AmberRed' | 'Ceramics3AmberYellow' | 'Ceramics3AmberBlue'
-  | 'Ceramics3ChartreuseRed' | 'Ceramics3ChartreuseYellow' | 'Ceramics3ChartreuseBlue'
-  | 'Ceramics3TealRed' | 'Ceramics3TealYellow' | 'Ceramics3TealBlue'
-  | 'Ceramics3IndigoRed' | 'Ceramics3IndigoYellow' | 'Ceramics3IndigoBlue'
-  | 'Ceramics3MagentaRed' | 'Ceramics3MagentaYellow' | 'Ceramics3MagentaBlue'
-  | 'Paintings4VermilionOrange' | 'Paintings4VermilionGreen' | 'Paintings4VermilionPurple'
-  | 'Paintings4AmberOrange' | 'Paintings4AmberGreen' | 'Paintings4AmberPurple'
-  | 'Paintings4ChartreuseOrange' | 'Paintings4ChartreuseGreen' | 'Paintings4ChartreusePurple'
-  | 'Paintings4TealOrange' | 'Paintings4TealGreen' | 'Paintings4TealPurple'
-  | 'Paintings4IndigoOrange' | 'Paintings4IndigoGreen' | 'Paintings4IndigoPurple'
-  | 'Paintings4MagentaOrange' | 'Paintings4MagentaGreen' | 'Paintings4MagentaPurple';
+export type SellCard =
+  | 'ShipwrightPurpleGreen' | 'ShipwrightOrangeGreen' | 'ShipwrightPurpleOrange'
+  | 'GlassmakerVermilionBlue' | 'GlassmakerAmberBlue' | 'GlassmakerChartreuseRed'
+  | 'GlassmakerTealRed' | 'GlassmakerUltramarineYellow' | 'GlassmakerFuchsiaYellow'
+  | 'DyerRedRed' | 'DyerRedYellow' | 'DyerRedBlue'
+  | 'DyerYellowYellow' | 'DyerBlueYellow' | 'DyerBlueBlue'
+  | 'DyerOrange' | 'DyerGreen' | 'DyerPurple'
+  | 'IlluminatorVermilion' | 'IlluminatorAmber' | 'IlluminatorChartreuse'
+  | 'IlluminatorTeal' | 'IlluminatorUltramarine' | 'IlluminatorFuchsia'
+  | 'PotterVermilion' | 'PotterAmber' | 'PotterChartreuse'
+  | 'PotterTeal' | 'PotterUltramarine' | 'PotterFuchsia'
+  | 'TilemakerVermilion' | 'TilemakerAmber' | 'TilemakerChartreuse'
+  | 'TilemakerTeal' | 'TilemakerUltramarine' | 'TilemakerFuchsia'
+  | 'PainterVermilionOrange' | 'PainterVermilionGreen' | 'PainterVermilionPurple'
+  | 'PainterAmberOrange' | 'PainterAmberGreen' | 'PainterAmberPurple'
+  | 'PainterChartreuseOrange' | 'PainterChartreuseGreen' | 'PainterChartreusePurple'
+  | 'PainterTealOrange' | 'PainterTealGreen' | 'PainterTealPurple'
+  | 'PainterUltramarineOrange' | 'PainterUltramarineGreen' | 'PainterUltramarinePurple'
+  | 'PainterFuchsiaOrange' | 'PainterFuchsiaGreen' | 'PainterFuchsiaPurple'
+  | 'MasterPainterVermilionTeal' | 'MasterPainterVermilionFuchsia' | 'MasterPainterAmberUltramarine'
+  | 'MasterPainterChartreuseAmber' | 'MasterPainterChartreuseFuchsia' | 'MasterPainterUltramarineTeal';
 
 // Card data interfaces (for the lookup maps)
 export interface DyeCardData {
@@ -86,8 +89,13 @@ export interface ActionCardData {
 
 export interface SellCardData {
   kind: 'sellCard';
+  // The buyer's trade, e.g. "Potter". Several sell cards share one.
+  name: string;
   ducats: number;
-  requiredMaterial: MaterialType;
+  // One entry per unit, so a Tilemaker lists Ceramics twice.
+  requiredMaterials: MaterialType[];
+  // Boats the sale takes outright, before any standing in for a material.
+  requiredBoats: number;
   colorCost: Color[];
 }
 

@@ -29,7 +29,7 @@ pub fn can_mix(a: Color, b: Color) -> bool {
 }
 
 /// Compute the result of mixing two colors on the 12-color wheel.
-/// Colors are arranged: Red(0), Vermilion(1), Orange(2), ..., Magenta(11).
+/// Colors are arranged: Red(0), Vermilion(1), Orange(2), ..., Fuchsia(11).
 /// Mixing two colors produces the color at the midpoint between them
 /// on the shorter arc of the wheel.
 pub fn mix_result(a: Color, b: Color) -> Color {
@@ -52,8 +52,8 @@ pub const TERTIARIES: [Color; 6] = [
     Color::Amber,
     Color::Chartreuse,
     Color::Teal,
-    Color::Indigo,
-    Color::Magenta,
+    Color::Ultramarine,
+    Color::Fuchsia,
 ];
 
 /// The 9 color pairs that can legally be mixed:
@@ -89,8 +89,8 @@ pub fn unmix_components(color: Color) -> (Color, Color) {
         Color::Amber => (Color::Yellow, Color::Orange),
         Color::Chartreuse => (Color::Yellow, Color::Green),
         Color::Teal => (Color::Blue, Color::Green),
-        Color::Indigo => (Color::Blue, Color::Purple),
-        Color::Magenta => (Color::Red, Color::Purple),
+        Color::Ultramarine => (Color::Blue, Color::Purple),
+        Color::Fuchsia => (Color::Red, Color::Purple),
         _ => panic!("Cannot unmix primary color {:?}", color),
     }
 }

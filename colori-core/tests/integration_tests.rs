@@ -4,10 +4,10 @@ use colori_core::buyers_phase::initialize_buyers_phase;
 use colori_core::deck::Deck;
 use colori_core::game_log::{DrawEvent, DrawLog};
 use colori_core::draw_phase::{execute_draw_phase, round_income};
-use colori_core::cards::{draft_copies, draft_deck_cards, starter_deck};
+use colori_core::cards::{draft_copies, draft_deck_cards, sell_card_copies, sell_deck_cards, starter_deck};
 use colori_core::scoring::{calculate_ducat_score, score_in_half_points};
 use colori_core::setup::create_initial_game_state;
-use colori_core::types::{Ability, SellCard, Card, Choice, Color, ColorWheel, DucatPurchase, GamePhase, GameState, MaterialType, ALL_MATERIAL_TYPES};
+use colori_core::types::{Ability, Buyer, SellCard, Card, Choice, Color, ColorWheel, DucatPurchase, GamePhase, GameState, MaterialType, PlayerState, ALL_MATERIAL_TYPES, ALL_SELL_CARDS};
 use colori_core::unordered_cards::{UnorderedCards, UnorderedSellCards};
 use colori_core::unordered_cards::{
     get_sell_card_registry, get_card_registry, set_sell_card_registry, set_card_registry,
@@ -249,7 +249,7 @@ fn generate_invalid_choices(state: &GameState) -> Vec<Choice> {
             invalid.push(Choice::EndTurn);
             invalid.push(Choice::SkipWorkshop);
             invalid.push(Choice::SelectSellCard {
-                sell_card: SellCard::Textiles2Vermilion,
+                sell_card: SellCard::IlluminatorVermilion,
             });
             invalid.push(Choice::GainSecondary {
                 color: Color::Orange,
@@ -291,7 +291,7 @@ fn generate_invalid_choices(state: &GameState) -> Vec<Choice> {
                 // Empty stack: these require specific abilities on stack
                 invalid.push(Choice::SkipWorkshop);
                 invalid.push(Choice::SelectSellCard {
-                    sell_card: SellCard::Textiles2Vermilion,
+                    sell_card: SellCard::IlluminatorVermilion,
                 });
                 invalid.push(Choice::GainSecondary {
                     color: Color::Orange,
@@ -312,7 +312,7 @@ fn generate_invalid_choices(state: &GameState) -> Vec<Choice> {
                     Ability::Workshop { .. } => {
                         invalid.push(Choice::EndTurn);
                         invalid.push(Choice::SelectSellCard {
-                            sell_card: SellCard::Textiles2Vermilion,
+                            sell_card: SellCard::IlluminatorVermilion,
                         });
                         invalid.push(Choice::GainSecondary {
                             color: Color::Orange,
@@ -959,8 +959,8 @@ fn test_sell_card_deck_card_count() {
         let state = create_initial_game_state(num_players, &ai_players, &mut rng);
         let total_sell_cards = state.sell_card_deck.len() + state.sell_card_display.len() as u32;
         assert_eq!(
-            total_sell_cards, 54,
-            "Total sell cards should be 54 (players={})",
+            total_sell_cards, 96,
+            "Total sell cards should be 96 (players={})",
             num_players
         );
     }
@@ -1016,9 +1016,9 @@ fn test_starting_color_wheel() {
             Color::Chartreuse,
             Color::Green,
             Color::Teal,
-            Color::Indigo,
+            Color::Ultramarine,
             Color::Purple,
-            Color::Magenta,
+            Color::Fuchsia,
         ];
         for &color in &non_primary {
             assert_eq!(
@@ -1481,6 +1481,17 @@ fn test_silver_stands_in_for_a_missing_primary_in_a_mix() {
     assert_eq!(state.players[0].color_wheel.get(Color::Orange), 0);
 }
 
+/// Give `player` exactly what `sell_card` asks for.
+fn stock_for(player: &mut PlayerState, sell_card: SellCard) {
+    for &material in sell_card.required_materials() {
+        player.materials.increment(material);
+    }
+    player.boats += sell_card.required_boats();
+    for &color in sell_card.color_cost() {
+        player.color_wheel.increment(color);
+    }
+}
+
 /// Give player 0 a buyer for `sell_card` and a pending Sell.
 fn state_selling(sell_card: SellCard) -> GameState {
     let (mut state, _, _, _) = setup_action_state_with(false, None, None, Some(Ability::Sell));
@@ -1494,12 +1505,12 @@ fn state_selling(sell_card: SellCard) -> GameState {
 
 #[test]
 fn test_a_boat_and_silver_stand_in_for_what_a_sale_is_missing() {
-    let sell_card = SellCard::Ceramics3VermilionRed;
+    let sell_card = SellCard::DyerRedYellow;
     let mut state = state_selling(sell_card);
-    state.players[0].color_wheel.set(Color::Vermilion, 1);
+    state.players[0].color_wheel.set(Color::Yellow, 1);
     let select = Choice::SelectSellCard { sell_card };
 
-    assert!(enumerate_choices(&state).is_empty(), "no Ceramics and no Red");
+    assert!(enumerate_choices(&state).is_empty(), "no Textiles and no Red");
     state.players[0].boats = 1;
     assert!(!check_choice_available(&state, &select), "still no Red");
     state.players[0].silver = 1;
@@ -1509,7 +1520,7 @@ fn test_a_boat_and_silver_stand_in_for_what_a_sale_is_missing() {
     apply_choice_to_state(&mut state, &select, &mut rng);
     let player = &state.players[0];
     assert_eq!((player.boats, player.silver), (0, 0));
-    assert_eq!(player.color_wheel.get(Color::Vermilion), 0);
+    assert_eq!(player.color_wheel.get(Color::Yellow), 0);
     assert_eq!(player.completed_sell_cards.len(), 1);
     assert_eq!(player.cached_ducat_score, calculate_ducat_score(player));
     assert_eq!(score_in_half_points(player), 2 * sell_card.ducats());
@@ -1517,12 +1528,10 @@ fn test_a_boat_and_silver_stand_in_for_what_a_sale_is_missing() {
 
 #[test]
 fn test_a_sale_spends_what_it_asks_for_before_any_boat_or_silver() {
-    let sell_card = SellCard::Ceramics3VermilionRed;
+    let sell_card = SellCard::DyerRedYellow;
     let mut state = state_selling(sell_card);
     let player = &mut state.players[0];
-    player.color_wheel.set(Color::Vermilion, 1);
-    player.color_wheel.set(Color::Red, 1);
-    player.materials.increment(MaterialType::Ceramics);
+    stock_for(player, sell_card);
     player.boats = 1;
     player.silver = 1;
 
@@ -1530,8 +1539,120 @@ fn test_a_sale_spends_what_it_asks_for_before_any_boat_or_silver() {
     apply_choice_to_state(&mut state, &Choice::SelectSellCard { sell_card }, &mut rng);
     let player = &state.players[0];
     assert_eq!((player.boats, player.silver), (1, 1));
-    assert_eq!(player.materials.get(MaterialType::Ceramics), 0);
+    assert_eq!(player.materials.get(MaterialType::Textiles), 0);
     assert_eq!(player.color_wheel.get(Color::Red), 0);
+}
+
+#[test]
+fn test_a_shipwright_takes_a_boat_as_well_as_its_textiles() {
+    let sell_card = SellCard::ShipwrightPurpleGreen;
+    let select = Choice::SelectSellCard { sell_card };
+    let mut state = state_selling(sell_card);
+    let player = &mut state.players[0];
+    player.color_wheel.set(Color::Purple, 1);
+    player.color_wheel.set(Color::Green, 1);
+    player.materials.increment(MaterialType::Textiles);
+    assert!(!check_choice_available(&state, &select), "no boat");
+
+    state.players[0].boats = 1;
+    assert!(check_choice_available(&state, &select));
+    let mut rng = WyRand::seed_from_u64(3);
+    apply_choice_to_state(&mut state, &select, &mut rng);
+    let player = &state.players[0];
+    assert_eq!(player.boats, 0);
+    assert_eq!(player.materials.get(MaterialType::Textiles), 0);
+    assert_eq!(player.cached_ducat_score, 4);
+}
+
+#[test]
+fn test_a_shipwright_without_textiles_takes_a_second_boat() {
+    let sell_card = SellCard::ShipwrightOrangeGreen;
+    let select = Choice::SelectSellCard { sell_card };
+    let mut state = state_selling(sell_card);
+    let player = &mut state.players[0];
+    player.color_wheel.set(Color::Orange, 1);
+    player.color_wheel.set(Color::Green, 1);
+    player.boats = 1;
+    assert!(!check_choice_available(&state, &select), "one boat cannot be both");
+
+    state.players[0].boats = 2;
+    let mut rng = WyRand::seed_from_u64(3);
+    apply_choice_to_state(&mut state, &select, &mut rng);
+    assert_eq!(state.players[0].boats, 0);
+}
+
+#[test]
+fn test_a_tilemaker_takes_two_ceramics() {
+    let sell_card = SellCard::TilemakerTeal;
+    let select = Choice::SelectSellCard { sell_card };
+    let mut state = state_selling(sell_card);
+    let player = &mut state.players[0];
+    player.color_wheel.set(Color::Teal, 1);
+    player.materials.increment(MaterialType::Ceramics);
+    assert!(!check_choice_available(&state, &select), "one Ceramics short");
+
+    // A boat covers the second.
+    state.players[0].boats = 1;
+    let mut rng = WyRand::seed_from_u64(3);
+    apply_choice_to_state(&mut state, &select, &mut rng);
+    let player = &state.players[0];
+    assert_eq!(player.materials.get(MaterialType::Ceramics), 0);
+    assert_eq!(player.boats, 0);
+    assert_eq!(player.cached_ducat_score, 4);
+}
+
+#[test]
+fn test_glassmakers_and_illuminators_take_no_material() {
+    for sell_card in [SellCard::GlassmakerAmberBlue, SellCard::IlluminatorFuchsia] {
+        let mut state = state_selling(sell_card);
+        for &color in sell_card.color_cost() {
+            state.players[0].color_wheel.increment(color);
+        }
+        let mut rng = WyRand::seed_from_u64(3);
+        apply_choice_to_state(&mut state, &Choice::SelectSellCard { sell_card }, &mut rng);
+        let player = &state.players[0];
+        assert_eq!(player.completed_sell_cards.len(), 1, "{:?}", sell_card);
+        assert_eq!(player.color_wheel.counts.iter().sum::<u32>(), 0);
+        assert_eq!(player.cached_ducat_score, sell_card.ducats());
+    }
+}
+
+#[test]
+fn test_sell_deck_composition() {
+    let mut rng = WyRand::seed_from_u64(1);
+    let state = create_initial_game_state(2, &[true, true], &mut rng);
+    let in_play = |sell_card: SellCard| {
+        let in_deck = state
+            .sell_card_deck
+            .iter()
+            .filter(|&id| state.sell_card_lookup[id as usize] == sell_card)
+            .count();
+        let on_display = state.sell_card_display.iter().filter(|c| c.sell_card == sell_card).count();
+        in_deck + on_display
+    };
+    for (sell_card, copies) in sell_deck_cards() {
+        assert_eq!(in_play(sell_card), copies, "copies of {:?}", sell_card);
+    }
+
+    let cards_of = |buyer: Buyer| ALL_SELL_CARDS.iter().filter(|c| c.buyer() == buyer).count();
+    let expected = [
+        (Buyer::Shipwright, 3, 1, 4),
+        (Buyer::Glassmaker, 6, 1, 3),
+        (Buyer::Dyer, 9, 3, 2),
+        (Buyer::Illuminator, 6, 1, 2),
+        (Buyer::Potter, 6, 4, 3),
+        (Buyer::Tilemaker, 6, 1, 4),
+        (Buyer::Painter, 18, 1, 4),
+        (Buyer::MasterPainter, 6, 1, 5),
+    ];
+    for (buyer, cards, copies, ducats) in expected {
+        assert_eq!(cards_of(buyer), cards, "{:?} cards", buyer);
+        assert_eq!(buyer.ducats(), ducats, "{:?} ducats", buyer);
+        for sell_card in ALL_SELL_CARDS.iter().filter(|c| c.buyer() == buyer) {
+            assert_eq!(sell_card_copies(*sell_card), copies, "{:?} copies", sell_card);
+        }
+    }
+    assert_eq!(sell_deck_cards().map(|(_, copies)| copies).sum::<usize>(), 96);
 }
 
 #[test]
@@ -1856,10 +1977,7 @@ fn test_selling_takes_from_your_buyers_and_leaves_the_display_alone() {
     let sell_card = state.sell_card_display[0].sell_card;
     let instance = state.sell_card_display.remove(0);
     state.players[0].buyers.push(instance);
-    state.players[0].materials.increment(sell_card.required_material());
-    for &color in sell_card.color_cost() {
-        state.players[0].color_wheel.increment(color);
-    }
+    stock_for(&mut state.players[0], sell_card);
 
     let display_before: Vec<SellCard> =
         state.sell_card_display.iter().map(|c| c.sell_card).collect();
@@ -2126,10 +2244,7 @@ fn test_a_ducat_buys_a_sale_that_pays_for_itself() {
     let instance = state.sell_card_display.remove(0);
     let sell_card = instance.sell_card;
     state.players[0].buyers.push(instance);
-    state.players[0].materials.increment(sell_card.required_material());
-    for &color in sell_card.color_cost() {
-        state.players[0].color_wheel.increment(color);
-    }
+    stock_for(&mut state.players[0], sell_card);
     state.players[0].ducats = 1;
     state.players[0].cached_ducat_score = calculate_ducat_score(&state.players[0]);
     let score_before = state.players[0].cached_ducat_score;

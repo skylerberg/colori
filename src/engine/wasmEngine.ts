@@ -1,4 +1,4 @@
-import type { GameState, Choice, PlayerState, Color, Card, DrawEvent } from '../data/types';
+import type { GameState, Choice, PlayerState, Color, Card, DrawEvent, MaterialType } from '../data/types';
 import { mixResult, silverToCoverCost } from '../data/colors';
 import { getCardData, getSellCardData, getAnyCardData } from '../data/cards';
 import init, {
@@ -103,14 +103,14 @@ export function getChoiceLogMessage(
       return `${name} moved ${cardName} from workshop to draft pool`;
     }
     case 'selectSellCard': {
-      return `${name} sold to a ${getSellCardData(choice.sellCard).ducats}-ducat buyer`;
+      return `${name} sold to a ${getSellCardData(choice.sellCard).name} for ${getSellCardData(choice.sellCard).ducats} ducats`;
     }
     case 'spendDucat': {
       const bought = { workshop: 'a workshop pick', mixColors: 'a mix', sell: 'a sale' }[choice.purchase];
       return `${name} spent a ducat for ${bought}`;
     }
     case 'takeBuyer': {
-      return `${name} claimed a ${getSellCardData(choice.sellCard).ducats}-ducat buyer`;
+      return `${name} claimed a ${getSellCardData(choice.sellCard).name} (${getSellCardData(choice.sellCard).ducats} ducats)`;
     }
     case 'drawBuyer':
       return `${name} claimed a buyer off the top of the deck`;
@@ -136,7 +136,7 @@ export function getChoiceLogMessage(
     }
     case 'destroyAndSell': {
       const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
-      return `${name} destroyed ${cardName} from drafted cards, sold to a ${getSellCardData(choice.sellCard).ducats}-ducat sell card`;
+      return `${name} destroyed ${cardName} from drafted cards, sold to a ${getSellCardData(choice.sellCard).name} for ${getSellCardData(choice.sellCard).ducats} ducats`;
     }
     case 'destroyAndWorkshop': {
       const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
@@ -184,8 +184,20 @@ export function canSell(state: GameState, sellCardInstanceId: number): boolean {
   const sellCardInstance = player.buyers.find(g => g.instanceId === sellCardInstanceId);
   if (!sellCardInstance) return false;
   const sellCard = getSellCardData(sellCardInstance.card);
-  // A boat stands in for the material, and silver for missing primaries.
-  if (player.materials[sellCard.requiredMaterial] < 1 && player.boats < 1) return false;
+  // Mirrors `action_phase::boats_to_sell`: a boat stands in for each material
+  // the player lacks, on top of any the card asks for outright.
+  let boatsNeeded = sellCard.requiredBoats;
+  const used: Partial<Record<MaterialType, number>> = {};
+  for (const material of sellCard.requiredMaterials) {
+    const taken = used[material] ?? 0;
+    if (player.materials[material] > taken) {
+      used[material] = taken + 1;
+    } else {
+      boatsNeeded++;
+    }
+  }
+  if (boatsNeeded > player.boats) return false;
+  // Silver stands in for missing primaries.
   const silverNeeded = silverToCoverCost(player.colorWheel, sellCard.colorCost);
   return silverNeeded !== null && silverNeeded <= player.silver;
 }

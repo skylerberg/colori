@@ -10,11 +10,11 @@ Colori is a deck-building game for 2–5 players about dyeing materials and sell
 
 The color wheel has 12 colors arranged in a circle:
 
-**Red** → Vermilion → **Orange** → Amber → **Yellow** → Chartreuse → **Green** → Teal → **Blue** → Indigo → **Purple** → Magenta → (back to Red)
+**Red** → Vermilion → **Orange** → Amber → **Yellow** → Chartreuse → **Green** → Teal → **Blue** → Ultramarine → **Purple** → Fuchsia → (back to Red)
 
 - **Primary colors**: Red, Yellow, Blue
 - **Secondary colors**: Orange (between Red and Yellow), Green (between Yellow and Blue), Purple (between Blue and Red)
-- **Tertiary colors**: Vermilion (between Red and Orange), Amber (between Orange and Yellow), Chartreuse (between Yellow and Green), Teal (between Green and Blue), Indigo (between Blue and Purple), Magenta (between Purple and Red)
+- **Tertiary colors**: Vermilion (between Red and Orange), Amber (between Orange and Yellow), Chartreuse (between Yellow and Green), Teal (between Green and Blue), Ultramarine (between Blue and Purple), Fuchsia (between Purple and Red)
 
 Each player has their own color wheel that tracks how many of each color they have stored.
 
@@ -40,7 +40,7 @@ Starting deck materials gain 1 material when workshopped. Imports cards gain a m
 Each action card has a destroy ability plus workshop abilities that trigger when the card is chosen during Workshop resolution. See the card reference below.
 
 **Sell Cards** (single deck):
-Each sell card requires 1 of a specific material type and a set of colors as its cost. All sell cards are shuffled into a single deck. Each sell card is worth 2–4 ducats.
+Each sell card is a buyer: a tradesperson who wants a set of colors and, for most trades, one or two stored materials. All sell cards are shuffled into a single deck. Each sell card is worth 2–5 ducats.
 
 Sell cards are not completed straight out of the display. Each round, before drafting, players claim cards into their own **buyers** section, and for the rest of that round a player can only sell to the cards sitting there.
 
@@ -49,7 +49,7 @@ Sell cards are not completed straight out of the display. Each round, before dra
 Two things a player can hold besides colors, materials and ducats:
 
 - **Silver** is a wild primary. One silver stands in for a Red, Yellow or Blue the player's wheel lacks, whenever a primary would be spent: as an input to a mix, or in a sell card's color cost.
-- A **boat** is a wild material. One boat stands in for the material a sell card requires when the player has none of it stored.
+- A **boat** is a wild material. One boat stands in for a material a sell card requires that the player has not stored. Shipwrights also ask for a boat outright.
 
 What is asked for is always spent first; silver and boats only cover what is missing. Each silver and each boat still held at the end of the game is worth **half a point**.
 
@@ -173,8 +173,8 @@ Complete mixing pairs (two inputs → one output):
 | Orange | Yellow | Amber |
 | Yellow | Green | Chartreuse |
 | Green | Blue | Teal |
-| Blue | Purple | Indigo |
-| Purple | Red | Magenta |
+| Blue | Purple | Ultramarine |
+| Purple | Red | Fuchsia |
 | Red | Yellow | Orange |
 | Yellow | Blue | Green |
 | Blue | Red | Purple |
@@ -191,7 +191,7 @@ You **must** sell to one of your own buyers if you are able to. If you cannot af
 
 To sell to a buyer:
 1. Choose a sell card from your **buyers** section.
-2. Spend 1 stored material of the required type, or a boat if you have none.
+2. Spend the stored materials the card asks for, with a boat standing in for each one you lack. A Shipwright also takes a boat of its own.
 3. Pay the color cost by removing the required colors from your color wheel, spending a silver for each primary you lack.
 4. The sell card goes to your **completed sell cards** area.
 5. The buyer slot it occupied stays empty until the next buyers phase refills it.
@@ -270,8 +270,8 @@ One of each per player.
 | Saffron | 1 Amber | Workshop ×3 |
 | Copper Resinate | 1 Chartreuse | Workshop ×3 |
 | Azurite | 1 Teal | Workshop ×3 |
-| Lapis Lazuli | 1 Indigo | Workshop ×3 |
-| Cochineal | 1 Magenta | Workshop ×3 |
+| Lapis Lazuli | 1 Ultramarine | Workshop ×3 |
+| Cochineal | 1 Fuchsia | Workshop ×3 |
 
 ### Imports Cards
 
@@ -306,12 +306,20 @@ Every one of these is titled "Imports"; they are told apart by what they gain.
 
 ### Sell Cards
 
-Sell cards do not have names. Each sell card requires 1 of a specific material type and a set of colors as its cost.
+A sell card is named for the buyer's trade. The trade sets what the sale is worth and which materials it takes; the colors tell two cards of one trade apart.
 
-| Material | Ducats | Requirement |
-|----------|--------|-------------|
-| Textiles | 2 | One tertiary, one secondary + one primary, or triple primary (3 of same primary color) |
-| Ceramics | 3 | One tertiary + one primary |
-| Paintings | 4 | One tertiary + one secondary |
+| Buyer | Ducats | Materials | Colors | Cards | Copies of each |
+|-------|--------|-----------|--------|-------|----------------|
+| Dyer | 2 | 1 Textiles | Two primaries (any pair, alike or not) | 6 | 3 |
+| Dyer | 2 | 1 Textiles | One secondary | 3 | 3 |
+| Illuminator | 2 | — | One tertiary | 6 | 1 |
+| Glassmaker | 3 | — | One tertiary + two of one primary | 6 | 1 |
+| Potter | 3 | 1 Ceramics | One tertiary | 6 | 4 |
+| Shipwright | 4 | 1 boat + 1 Textiles | Two different secondaries | 3 | 1 |
+| Tilemaker | 4 | 2 Ceramics | One tertiary | 6 | 1 |
+| Painter | 4 | 1 Paintings | One tertiary + one secondary | 18 | 1 |
+| Master Painter | 5 | 1 Paintings | Two tertiaries | 6 | 1 |
+
+That is 60 different cards and 96 in the deck. The six Glassmakers pair each tertiary with a primary it does not contain: Vermilion and Amber with Blue, Chartreuse and Teal with Red, Ultramarine and Fuchsia with Yellow.
 
 All sell cards are shuffled into a single deck. 5 sell cards are displayed face-up at all times.
