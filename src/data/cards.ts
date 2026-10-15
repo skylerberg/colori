@@ -271,9 +271,7 @@ export const ACTION_CARDS: ActionCardData[] = [
   },
 ];
 
-export const PRIMARIES: Color[] = ['Red', 'Yellow', 'Blue'];
 export const SECONDARIES: Color[] = ['Orange', 'Green', 'Purple'];
-export const TERTIARIES: Color[] = ['Vermilion', 'Amber', 'Chartreuse', 'Teal', 'Ultramarine', 'Fuchsia'];
 
 export const STARTER_DECK_SIZE = 7;
 

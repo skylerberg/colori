@@ -116,10 +116,6 @@ export function getChoiceLogMessage(
       return `${name} claimed a buyer off the top of the deck`;
     case 'gainSecondary':
       return `${name} gained ${choice.color}`;
-    case 'gainPrimary':
-      return `${name} gained ${choice.color}`;
-    case 'gainMaterial':
-      return `${name} gained 1 ${choice.material}`;
     case 'mixAll': {
       if (choice.mixes.length === 0) return `${name} skipped remaining mixes`;
       const parts = choice.mixes.map(([a, b]) => `mixed ${a} + ${b} to make ${mixResult(a, b)}`);

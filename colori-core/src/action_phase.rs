@@ -1,7 +1,7 @@
 use crate::colors::{can_pay_cost, can_supply_mix, pay_cost, perform_mix, VALID_MIX_PAIRS};
 use crate::types::{
     Ability, AbilityStack, ActionState, Card, Color, DucatPurchase, GamePhase, GameState,
-    MaterialType, PlayerState, PlayerTurn, SellCard,
+    PlayerState, PlayerTurn, SellCard,
 };
 use crate::unordered_cards::UnorderedCards;
 use smallvec::SmallVec;
@@ -19,33 +19,6 @@ pub(crate) fn for_each_unique_card_type(
         if seen & bit != 0 { continue; }
         seen |= bit;
         f(card);
-    }
-}
-
-/// Iterate over unique card types across the player's workshop area —
-/// both freshly drawn workshop cards and already-processed workshopped cards
-/// — deduplicating by card variant.
-pub(crate) fn for_each_unique_card_type_in_workshop_area(
-    player: &PlayerState,
-    card_lookup: &[Card; 256],
-    f: impl FnMut(Card),
-) {
-    let union = player.workshop_cards.union(player.workshopped_cards);
-    for_each_unique_card_type(&union, card_lookup, f);
-}
-
-/// Remove `id` from whichever of the player's workshop-area buckets
-/// (`workshop_cards` or `workshopped_cards`) contains it. Returns `true` on
-/// success.
-pub(crate) fn remove_from_workshop_area(player: &mut PlayerState, id: u8) -> bool {
-    if player.workshop_cards.contains(id) {
-        player.workshop_cards.remove(id);
-        true
-    } else if player.workshopped_cards.contains(id) {
-        player.workshopped_cards.remove(id);
-        true
-    } else {
-        false
     }
 }
 
@@ -123,12 +96,6 @@ pub fn process_ability_stack(state: &mut GameState, player_index: usize) {
                 }
             }
             Ability::GainSecondary => {
-                return; // always needs input
-            }
-            Ability::GainPrimary => {
-                return; // always needs input
-            }
-            Ability::GainMaterial => {
                 return; // always needs input
             }
         }
@@ -302,7 +269,8 @@ pub fn skip_mix(state: &mut GameState, player_index: usize) {
     process_ability_stack(state, player_index);
 }
 
-/// Move the selected workshop-area cards into the player's draft pool.
+/// Move an unworkshopped card into the player's draft pool, or fizzle when
+/// there is none.
 ///
 /// Nothing is destroyed here. A card in the draft pool can be destroyed later
 /// in the turn through the ordinary drafted-card path, which triggers its
@@ -311,20 +279,17 @@ pub fn skip_mix(state: &mut GameState, player_index: usize) {
 /// include this one, so destroying now and destroying later reach the same
 /// state. What is new is the option to leave the card in the pool, from where
 /// end of turn returns it to the workshop instead of the bottom of the deck.
-pub fn resolve_move_to_draft_pool(
-    state: &mut GameState,
-    player_index: usize,
-    selected_cards: UnorderedCards,
-) {
+pub fn resolve_move_to_draft_pool(state: &mut GameState, player_index: usize, target: Option<u8>) {
     ability_stack_mut(state, player_index).pop();
 
-    for id in selected_cards.iter() {
-        let removed = remove_from_workshop_area(&mut state.players[player_index], id);
+    if let Some(id) = target {
+        let player = &mut state.players[player_index];
         assert!(
-            removed,
-            "Card not found in player's workshop area (workshopCards or workshoppedCards)"
+            player.workshop_cards.contains(id),
+            "Card not found in player's workshopCards"
         );
-        state.players[player_index].drafted_cards.insert(id);
+        player.workshop_cards.remove(id);
+        player.drafted_cards.insert(id);
     }
 
     process_ability_stack(state, player_index);
@@ -348,12 +313,6 @@ pub fn resolve_select_sell_card(state: &mut GameState, player_index: usize, sell
 
 pub fn resolve_gain_color(state: &mut GameState, player_index: usize, color: Color) {
     state.players[player_index].color_wheel.increment(color);
-    ability_stack_mut(state, player_index).pop();
-    process_ability_stack(state, player_index);
-}
-
-pub fn resolve_gain_material(state: &mut GameState, player_index: usize, material: MaterialType) {
-    state.players[player_index].materials.increment(material);
     ability_stack_mut(state, player_index).pop();
     process_ability_stack(state, player_index);
 }

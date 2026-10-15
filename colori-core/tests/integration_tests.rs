@@ -11,7 +11,7 @@ use colori_core::draw_phase::{execute_draw_phase, round_income, RoundIncome};
 use colori_core::cards::{draft_copies, draft_deck_cards, sell_card_copies, sell_deck_cards, starter_deck};
 use colori_core::scoring::{calculate_ducat_score, score_in_half_points};
 use colori_core::setup::create_initial_game_state;
-use colori_core::types::{Ability, AbilityStack, ActionState, Buyer, SellCard, Card, Choice, Color, ColorWheel, DucatPurchase, GamePhase, GameState, MaterialType, PlayerState, PlayerTurn, ALL_MATERIAL_TYPES, ALL_SELL_CARDS};
+use colori_core::types::{Ability, AbilityStack, ActionState, Buyer, SellCard, Card, Choice, Color, ColorWheel, DucatPurchase, GamePhase, GameState, MaterialType, PlayerState, PlayerTurn, ALL_SELL_CARDS};
 use colori_core::unordered_cards::{UnorderedCards, UnorderedSellCards};
 use colori_core::unordered_cards::{
     get_sell_card_registry, get_card_registry, set_sell_card_registry, set_card_registry,
@@ -282,9 +282,6 @@ fn generate_invalid_choices(state: &GameState, player: usize) -> Vec<Choice> {
             invalid.push(Choice::GainSecondary {
                 color: Color::Orange,
             });
-            invalid.push(Choice::GainPrimary {
-                color: Color::Red,
-            });
             invalid.push(Choice::MixAll {
                 mixes: SmallVec::new(),
             });
@@ -325,16 +322,10 @@ fn generate_invalid_choices(state: &GameState, player: usize) -> Vec<Choice> {
                 invalid.push(Choice::GainSecondary {
                     color: Color::Orange,
                 });
-                invalid.push(Choice::GainPrimary {
-                    color: Color::Red,
-                });
                 invalid.push(Choice::MixAll {
                     mixes: SmallVec::new(),
                 });
                 invalid.push(Choice::MoveToDraftPool { card: None });
-                invalid.push(Choice::GainMaterial {
-                    material: MaterialType::Textiles,
-                });
             } else {
                 let top = stack.last().unwrap();
                 match top {
@@ -367,34 +358,6 @@ fn generate_invalid_choices(state: &GameState, player: usize) -> Vec<Choice> {
                             color: Color::Vermilion,
                         });
                         invalid.push(Choice::EndTurn);
-                    }
-                    Ability::GainPrimary => {
-                        // Secondary colors are invalid for GainPrimary
-                        invalid.push(Choice::GainPrimary {
-                            color: Color::Orange,
-                        });
-                        invalid.push(Choice::GainPrimary {
-                            color: Color::Green,
-                        });
-                        invalid.push(Choice::GainPrimary {
-                            color: Color::Purple,
-                        });
-                        // Tertiary colors are invalid for GainPrimary
-                        invalid.push(Choice::GainPrimary {
-                            color: Color::Vermilion,
-                        });
-                        invalid.push(Choice::EndTurn);
-                    }
-                    Ability::GainMaterial => {
-                        // Color gains are invalid while GainMaterial is on the stack
-                        invalid.push(Choice::GainPrimary {
-                            color: Color::Red,
-                        });
-                        invalid.push(Choice::GainSecondary {
-                            color: Color::Orange,
-                        });
-                        invalid.push(Choice::EndTurn);
-                        invalid.push(Choice::SkipWorkshop);
                     }
                     Ability::MixColors { .. } => {
                         // Non-adjacent colors are invalid
@@ -1130,127 +1093,98 @@ fn setup_action_state_with(
 }
 
 #[test]
-fn test_destroy_cards_enumerates_workshopped_target() {
-    let (state, _alum_id, _ws_id, _wsc_id) = setup_action_state_with(
+fn test_move_to_draft_pool_targets_only_unworkshopped_cards() {
+    let (state, _, _, _) = setup_action_state_with(
+        false,
+        Some(Card::StarterCeramics),
+        Some(Card::StarterCanvas),
+        Some(Ability::MoveToDraftPool),
+    );
+
+    let canvas = Choice::MoveToDraftPool { card: Some(Card::StarterCanvas) };
+    let ceramics = Choice::MoveToDraftPool { card: Some(Card::StarterCeramics) };
+    assert_eq!(enumerate_choices(&state, 0), vec![canvas.clone()]);
+    assert!(check_choice_available(&state, 0, &canvas));
+    assert!(!check_choice_available(&state, 0, &ceramics), "a workshopped card cannot be moved");
+    assert!(
+        !check_choice_available(&state, 0, &Choice::MoveToDraftPool { card: None }),
+        "the move is mandatory while there is a card to move"
+    );
+}
+
+#[test]
+fn test_move_to_draft_pool_fizzles_when_only_workshopped_cards_remain() {
+    let (state, _, _, _) = setup_action_state_with(
         false,
         Some(Card::StarterCeramics),
         None,
         Some(Ability::MoveToDraftPool),
     );
-
-    let choices = enumerate_choices(&state, 0);
-    let wanted = Choice::MoveToDraftPool { card: Some(Card::StarterCeramics) };
-    assert!(
-        choices.iter().any(|c| matches!(c, Choice::MoveToDraftPool { card: Some(Card::StarterCeramics) })),
-        "enumerate_choices should include workshopped-card target; got {:?}",
-        choices
-    );
-    assert!(check_choice_available(&state, 0, &wanted));
-}
-
-#[test]
-fn test_destroy_cards_skip_when_both_areas_empty() {
-    let (state, _, _, _) = setup_action_state_with(false, None, None, Some(Ability::MoveToDraftPool));
-    let choices = enumerate_choices(&state, 0);
-    assert_eq!(choices.len(), 1);
-    assert!(matches!(choices[0], Choice::MoveToDraftPool { card: None }));
-}
-
-#[test]
-fn test_gain_material_enumerates_every_material_type() {
-    let (state, _, _, _) = setup_action_state_with(false, None, None, Some(Ability::GainMaterial));
-
-    let choices = enumerate_choices(&state, 0);
-    assert_eq!(choices.len(), ALL_MATERIAL_TYPES.len());
-    for &material in ALL_MATERIAL_TYPES.iter() {
-        let wanted = Choice::GainMaterial { material };
-        assert!(
-            choices.contains(&wanted),
-            "enumerate_choices should include GainMaterial for {:?}; got {:?}",
-            material,
-            choices
-        );
-        assert!(check_choice_available(&state, 0, &wanted));
-    }
-}
-
-#[test]
-fn test_gain_material_stores_the_chosen_material() {
-    let (mut state, _, _, _) =
-        setup_action_state_with(false, None, None, Some(Ability::GainMaterial));
-    let before = state.players[0].materials.get(MaterialType::Paintings);
-
-    let mut rng = WyRand::seed_from_u64(7);
-    apply_choice_to_state(
-        &mut state,
-        0,
-        &Choice::GainMaterial { material: MaterialType::Paintings },
-        &mut rng,
-    );
-
     assert_eq!(
-        state.players[0].materials.get(MaterialType::Paintings),
-        before + 1
+        enumerate_choices(&state, 0),
+        vec![Choice::MoveToDraftPool { card: None }]
     );
-    if let GamePhase::Action { ref action_state } = state.phase {
-        assert!(action_state.turns[0].ability_stack.is_empty());
-    } else {
-        panic!("Expected action phase");
-    }
 }
 
 #[test]
-fn test_destroy_and_destroy_cards_enumerates_workshopped_target() {
+fn test_destroying_alum_targets_only_unworkshopped_cards() {
     // No ability on the stack — enumerating destroy-drafted choices for Alum.
     let (state, _, _, _) = setup_action_state_with(
         true,
         Some(Card::StarterCeramics),
-        None,
+        Some(Card::StarterCanvas),
         None,
     );
 
     let choices = enumerate_choices(&state, 0);
-    let wanted = Choice::DestroyAndMoveToDraftPool {
+    let moves: Vec<&Choice> = choices
+        .iter()
+        .filter(|c| matches!(c, Choice::DestroyAndMoveToDraftPool { .. }))
+        .collect();
+    let canvas = Choice::DestroyAndMoveToDraftPool {
         card: Card::Alum,
-        target: Some(Card::StarterCeramics),
+        target: Some(Card::StarterCanvas),
     };
-    assert!(
-        choices.iter().any(|c| matches!(
-            c,
-            Choice::DestroyAndMoveToDraftPool { card: Card::Alum, target: Some(Card::StarterCeramics) }
-        )),
-        "enumerate_choices should include DestroyAndMoveToDraftPool targeting workshopped card; got {:?}",
-        choices
-    );
-    assert!(check_choice_available(&state, 0, &wanted));
+    assert_eq!(moves, vec![&canvas]);
+    assert!(check_choice_available(&state, 0, &canvas));
+    assert!(!check_choice_available(
+        &state,
+        0,
+        &Choice::DestroyAndMoveToDraftPool { card: Card::Alum, target: Some(Card::StarterCeramics) }
+    ));
+    assert!(!check_choice_available(
+        &state,
+        0,
+        &Choice::DestroyAndMoveToDraftPool { card: Card::Alum, target: None }
+    ));
 }
 
-/// A rotated workshop card can be moved, and the move does not destroy it:
-/// it lands in the draft pool, where the ordinary destroy path can pick it up
-/// later — or leave it there for end of turn to return to the workshop.
+/// The move does not destroy the card: it lands in the draft pool, where the
+/// ordinary destroy path can pick it up later — or leave it there for end of
+/// turn to return to the workshop.
 #[test]
-fn test_apply_move_to_draft_pool_moves_workshopped_card_without_destroying_it() {
-    let (mut state, _, ws_id, _) = setup_action_state_with(
+fn test_apply_move_to_draft_pool_moves_the_card_without_destroying_it() {
+    let (mut state, _, _, wsc_id) = setup_action_state_with(
         false,
-        Some(Card::StarterCeramics),
         None,
+        Some(Card::StarterCanvas),
         Some(Ability::MoveToDraftPool),
     );
-    let ws_id = ws_id.unwrap();
+    let wsc_id = wsc_id.unwrap();
 
     let mut rng = WyRand::seed_from_u64(99);
     apply_choice_to_state(
         &mut state,
         0,
-        &Choice::MoveToDraftPool { card: Some(Card::StarterCeramics) },
+        &Choice::MoveToDraftPool { card: Some(Card::StarterCanvas) },
         &mut rng,
     );
 
-    assert!(!state.players[0].workshopped_cards.contains(ws_id),
-        "moved card should have left workshopped_cards");
-    assert!(state.players[0].drafted_cards.contains(ws_id),
+    assert!(!state.players[0].workshop_cards.contains(wsc_id),
+        "moved card should have left the workshop");
+    assert!(state.players[0].drafted_cards.contains(wsc_id),
         "moved card should be in the draft pool");
-    assert!(!state.destroyed_pile.contains(ws_id),
+    assert!(!state.destroyed_pile.contains(wsc_id),
         "the move must not destroy the card");
     if let GamePhase::Action { ref action_state } = state.phase {
         assert!(action_state.turns[0].ability_stack.is_empty(),

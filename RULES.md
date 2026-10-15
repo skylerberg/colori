@@ -189,7 +189,7 @@ Complete mixing pairs (two inputs → one output):
 
 ### Move a Card from Workshop to Draft Pool
 
-Choose one card from your **workshop** and move it to your **draft pool**. You may pick any card currently in your workshop area, including cards that have already been used during a Workshop resolution this turn (the rotated cards whose colors and materials have already been stored). If your workshop is empty the ability fizzles.
+Choose one card from your **workshop** that has not been workshopped this turn and move it to your **draft pool**. Rotated cards, whose colors and materials have already been stored, cannot be moved. If every card in your workshop is rotated, or it is empty, the ability fizzles.
 
 The moved card is now an ordinary drafted card. You may destroy it later in your turn to trigger its ability, exactly as with a card you drafted; triggered abilities are pushed onto the ability stack, so chain reactions are possible. Or you may leave it in the draft pool, in which case end of turn moves it into your workshop instead of onto the bottom of your deck.
 

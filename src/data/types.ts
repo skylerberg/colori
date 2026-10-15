@@ -3,7 +3,6 @@ export type Color = 'Red' | 'Vermilion' | 'Orange' | 'Amber' | 'Yellow' |
 
 export type MaterialType = 'Textiles' | 'Ceramics' | 'Paintings';
 
-export const ALL_MATERIAL_TYPES: MaterialType[] = ['Textiles', 'Ceramics', 'Paintings'];
 
 export type Ability =
   | { type: 'workshop'; count: number }
@@ -12,8 +11,6 @@ export type Ability =
   | { type: 'sell' }
   | { type: 'gainDucats'; count: number }
   | { type: 'gainSecondary' }
-  | { type: 'gainPrimary' }
-  | { type: 'gainMaterial' }
   | { type: 'gainWildPrimaries'; count: number }
   | { type: 'gainBoats'; count: number };
 
@@ -182,8 +179,6 @@ export type Choice =
   | { type: 'moveToDraftPool'; card: Card | null }
   | { type: 'selectSellCard'; sellCard: SellCard }
   | { type: 'gainSecondary'; color: Color }
-  | { type: 'gainPrimary'; color: Color }
-  | { type: 'gainMaterial'; material: MaterialType }
   | { type: 'mixAll'; mixes: [Color, Color][] }
   | { type: 'destroyAndMix'; card: Card; mixes: [Color, Color][] }
   | { type: 'destroyAndSell'; card: Card; sellCard: SellCard }

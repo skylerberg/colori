@@ -1,7 +1,7 @@
 use crate::action_phase::{
     ability_stack, ability_stack_mut, boats_to_sell, can_afford_sell_card, can_buy_with_ducat,
     destroy_drafted_card, end_player_turn, initialize_action_phase, process_ability_stack,
-    resolve_gain_color, resolve_gain_material, resolve_move_to_draft_pool, resolve_select_sell_card,
+    resolve_gain_color, resolve_move_to_draft_pool, resolve_select_sell_card,
     resolve_spend_ducat, resolve_workshop_choice, sell_to_buyer, skip_workshop,
 };
 use crate::colors::{
@@ -378,13 +378,8 @@ fn random_action_step<R: Rng>(
             }
         }
         Some(Ability::MoveToDraftPool) => {
-            let p = &state.players[player_index];
-            let area = p.workshop_cards.union(p.workshopped_cards);
-            let mut selected = UnorderedCards::new();
-            if let Some(id) = area.pick_random(rng) {
-                selected.insert(id);
-            }
-            resolve_move_to_draft_pool(state, player_index, selected);
+            let target = state.players[player_index].workshop_cards.pick_random(rng);
+            resolve_move_to_draft_pool(state, player_index, target);
         }
         Some(Ability::MixColors { count }) => {
             let remaining_mixes = *count;
@@ -408,14 +403,6 @@ fn random_action_step<R: Rng>(
         Some(Ability::GainSecondary) => {
             let color = SECONDARIES[rng.random_range(0..SECONDARIES.len())];
             resolve_gain_color(state, player_index, color);
-        }
-        Some(Ability::GainPrimary) => {
-            let color = PRIMARIES[rng.random_range(0..PRIMARIES.len())];
-            resolve_gain_color(state, player_index, color);
-        }
-        Some(Ability::GainMaterial) => {
-            let material = ALL_MATERIAL_TYPES[rng.random_range(0..ALL_MATERIAL_TYPES.len())];
-            resolve_gain_material(state, player_index, material);
         }
         // Instant abilities should never be on top waiting — they get processed immediately
         Some(_) => panic!("Unexpected ability on stack top during rollout"),
@@ -720,7 +707,7 @@ fn ability_priority(
             }
         }
         Ability::MoveToDraftPool => {
-            if player.workshop_cards.is_empty() && player.workshopped_cards.is_empty() {
+            if player.workshop_cards.is_empty() {
                 params.rollout_destroy_no_targets
             } else {
                 params.rollout_destroy_with_targets
@@ -743,13 +730,6 @@ fn action_workshop_value(
         match ability {
             Ability::GainDucats { count } => {
                 return count * params.rollout_ws_action_gain_ducats_value;
-            }
-            Ability::GainPrimary => {
-                let mut best = 0u32;
-                for &c in &PRIMARIES {
-                    best = best.max(cache.color_demand(c));
-                }
-                return best * mult / 10;
             }
             Ability::GainSecondary => {
                 let mut best = 0u32;
@@ -784,14 +764,6 @@ fn action_workshop_value(
                     best = best.max(cache.material_demand(m, params));
                 }
                 return count * (params.rollout_ws_action_gain_ducats_value / 2 + best);
-            }
-            Ability::GainMaterial => {
-                // Worth as much as workshopping a card that stores the best-demanded material
-                let mut best = 0u32;
-                for &m in &ALL_MATERIAL_TYPES {
-                    best = best.max(cache.material_demand(m, params));
-                }
-                return best;
             }
             _ => {}
         }
@@ -848,28 +820,6 @@ fn pick_best_color<R: Rng>(
         }
     }
     best_color
-}
-
-/// Pick the material type most needed by the sell cards on display.
-#[inline(always)]
-fn pick_best_material<R: Rng>(
-    cache: &SellCardCache,
-    params: &HeuristicParams,
-    rng: &mut R,
-) -> MaterialType {
-    if rng.random_bool(params.rollout_epsilon) {
-        return ALL_MATERIAL_TYPES[rng.random_range(0..ALL_MATERIAL_TYPES.len())];
-    }
-    let mut best_material = ALL_MATERIAL_TYPES[0];
-    let mut best_score = 0u32;
-    for &m in &ALL_MATERIAL_TYPES {
-        let score = cache.material_demand(m, params);
-        if score > best_score {
-            best_score = score;
-            best_material = m;
-        }
-    }
-    best_material
 }
 
 /// The suppliable mix whose output the player's buyers want most, if any want
@@ -1195,22 +1145,15 @@ fn heuristic_action_step<R: Rng>(
             resolve_workshop_choice(state, player_index, selected);
         }
         Some(Ability::MoveToDraftPool) => {
-            let area = {
-                let p = &state.players[player_index];
-                p.workshop_cards.union(p.workshopped_cards)
-            };
-            if area.is_empty() {
-                resolve_move_to_draft_pool(state, player_index, UnorderedCards::new());
+            let workshop = state.players[player_index].workshop_cards;
+            if workshop.is_empty() {
+                resolve_move_to_draft_pool(state, player_index, None);
                 return;
             }
 
             // Epsilon: random
             if rng.random_bool(params.rollout_epsilon) {
-                let mut selected = UnorderedCards::new();
-                if let Some(id) = area.pick_random(rng) {
-                    selected.insert(id);
-                }
-                resolve_move_to_draft_pool(state, player_index, selected);
+                resolve_move_to_draft_pool(state, player_index, workshop.pick_random(rng));
                 return;
             }
 
@@ -1220,7 +1163,7 @@ fn heuristic_action_step<R: Rng>(
             // card most worth having there.
             let mut best_id: Option<u8> = None;
             let mut best_score = 0u32;
-            for id in area.iter() {
+            for id in workshop.iter() {
                 let card = state.card_lookup[id as usize];
                 let score = destruction_priority(card, &state.players[player_index], &cache, params);
                 if score > best_score || best_id.is_none() {
@@ -1229,11 +1172,7 @@ fn heuristic_action_step<R: Rng>(
                 }
             }
 
-            let mut selected = UnorderedCards::new();
-            if let Some(id) = best_id {
-                selected.insert(id);
-            }
-            resolve_move_to_draft_pool(state, player_index, selected);
+            resolve_move_to_draft_pool(state, player_index, best_id);
         }
         Some(Ability::MixColors { count }) => {
             let remaining_mixes = *count;
@@ -1268,14 +1207,6 @@ fn heuristic_action_step<R: Rng>(
         Some(Ability::GainSecondary) => {
             let color = pick_best_color(&SECONDARIES, &cache, params, rng);
             resolve_gain_color(state, player_index, color);
-        }
-        Some(Ability::GainPrimary) => {
-            let color = pick_best_color(&PRIMARIES, &cache, params, rng);
-            resolve_gain_color(state, player_index, color);
-        }
-        Some(Ability::GainMaterial) => {
-            let material = pick_best_material(&cache, params, rng);
-            resolve_gain_material(state, player_index, material);
         }
         Some(_) => panic!("Unexpected ability on stack top during rollout"),
     }

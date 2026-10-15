@@ -53,15 +53,11 @@ fn find_display_sell_card_instance(state: &GameState, sell_card: &SellCard) -> u
     panic!("Sell card type {:?} not found in sell card display", sell_card);
 }
 
-/// The first card of type `card` anywhere in the player's workshop area.
-fn find_workshop_area_card(state: &GameState, player_index: usize, card: &Card) -> UnorderedCards {
-    let player = &state.players[player_index];
-    let area = player.workshop_cards.union(player.workshopped_cards);
-    let mut selected = UnorderedCards::new();
-    if let Some(id) = area.iter().find(|&id| state.card_lookup[id as usize] == *card) {
-        selected.insert(id);
-    }
-    selected
+/// The workshop card a Move to Draft Pool takes; `None` when it fizzles.
+fn move_target(state: &GameState, player_index: usize, card: &Option<Card>) -> Option<u8> {
+    card.map(|card| {
+        find_card_instance(state, &card, &state.players[player_index].workshop_cards) as u8
+    })
 }
 
 /// Resolve a list of card types to instance IDs from a card set, tracking used IDs
@@ -160,21 +156,15 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, player_index: usize, choice: 
             skip_workshop(state, player_index);
         }
         Choice::MoveToDraftPool { card } => {
-            let selected = match card {
-                Some(card) => find_workshop_area_card(state, player_index, card),
-                None => UnorderedCards::new(),
-            };
-            resolve_move_to_draft_pool(state, player_index, selected);
+            let target = move_target(state, player_index, card);
+            resolve_move_to_draft_pool(state, player_index, target);
         }
         Choice::SelectSellCard { sell_card } => {
             let sell_card_instance_id = find_sell_card_instance(state, player_index, sell_card);
             resolve_select_sell_card(state, player_index, sell_card_instance_id);
         }
-        Choice::GainSecondary { color } | Choice::GainPrimary { color } => {
+        Choice::GainSecondary { color } => {
             resolve_gain_color(state, player_index, *color);
-        }
-        Choice::GainMaterial { material } => {
-            resolve_gain_material(state, player_index, *material);
         }
         Choice::MixAll { mixes } => {
             resolve_mix_sequence(state, player_index, mixes);
@@ -210,11 +200,8 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, player_index: usize, choice: 
         Choice::DestroyAndMoveToDraftPool { card, target } => {
             let card_instance_id = get_drafted_card_instance(state, player_index, card);
             destroy_drafted_card(state, player_index, card_instance_id);
-            let selected = match target {
-                Some(target) => find_workshop_area_card(state, player_index, target),
-                None => UnorderedCards::new(),
-            };
-            resolve_move_to_draft_pool(state, player_index, selected);
+            let target = move_target(state, player_index, target);
+            resolve_move_to_draft_pool(state, player_index, target);
         }
         Choice::SpendDucat { purchase } => {
             resolve_spend_ducat(state, player_index, *purchase);
