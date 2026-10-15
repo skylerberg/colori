@@ -1,21 +1,15 @@
 <script lang="ts">
-  import type { GameState, Choice } from '../data/types';
+  import type { Choice, PlayerState } from '../data/types';
   import { canSell } from '../engine/wasmEngine';
   import SellCardDisplay from './SellCardDisplay.svelte';
 
-  let { gameState, onAction }: {
-    gameState: GameState;
+  let { player, onAction }: {
+    player: PlayerState;
     onAction: (choice: Choice) => void;
   } = $props();
 
-  let activePlayer = $derived(
-    gameState.phase.type === 'action'
-      ? gameState.players[gameState.phase.actionState.currentPlayerIndex]
-      : null
-  );
-
   function handleSellCardSelect(sellCardInstanceId: number) {
-    const sellCardInstance = activePlayer?.buyers.find(b => b.instanceId === sellCardInstanceId);
+    const sellCardInstance = player.buyers.find(b => b.instanceId === sellCardInstanceId);
     if (!sellCardInstance) return;
     onAction({ type: 'selectSellCard', sellCard: sellCardInstance.card });
   }
@@ -23,12 +17,12 @@
 
 <div class="prompt-section">
   <h3>Choose a Buyer</h3>
-  {#if activePlayer && (activePlayer.boats > 0 || activePlayer.wildPrimaries > 0)}
+  {#if player.boats > 0 || player.wildPrimaries > 0}
     <p class="hint">A boat covers a material you lack, and a wild primary covers a primary you lack. What a buyer asks for is spent first.</p>
   {/if}
   <div class="sell-card-side">
     <SellCardDisplay
-      sellCards={(activePlayer?.buyers ?? []).filter(g => canSell(gameState, g.instanceId))}
+      sellCards={player.buyers.filter(g => canSell(player, g.instanceId))}
       title="Your Buyers"
       selectable={true}
       onSelect={handleSellCardSelect}

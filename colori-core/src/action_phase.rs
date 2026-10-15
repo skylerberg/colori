@@ -1,14 +1,11 @@
-use crate::colors::{
-    can_pay_cost, can_supply_mix, pay_cost, perform_mix, perform_mix_unchecked, VALID_MIX_PAIRS,
-};
+use crate::colors::{can_pay_cost, can_supply_mix, pay_cost, perform_mix, VALID_MIX_PAIRS};
 use crate::draw_log_helpers::{is_replaying, record_player_deck_draw, replay_player_deck_draw};
 use crate::types::{
     Ability, AbilityStack, ActionState, Card, Color, DucatPurchase, GamePhase, GameState,
-    MaterialType, PlayerState, SellCard,
+    MaterialType, PlayerState, PlayerTurn, SellCard,
 };
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
-use smallvec::SmallVec;
 
 /// Iterate over unique card types in a card set, deduplicating by card variant.
 pub(crate) fn for_each_unique_card_type(
@@ -208,16 +205,19 @@ fn push_abilities_to_stack(
 }
 
 pub fn initialize_action_phase(state: &mut GameState) {
-    let action_state = ActionState {
-        current_player_index: ((state.round - 1) as usize) % state.players.len(),
-        ability_stack: SmallVec::new(),
+    let turns = state.players.iter().map(|_| PlayerTurn::default()).collect();
+    state.phase = GamePhase::Action {
+        action_state: ActionState { turns },
     };
-    state.phase = GamePhase::Action { action_state };
 }
 
-pub fn destroy_drafted_card<R: Rng>(state: &mut GameState, card_instance_id: u32, rng: &mut R) {
+pub fn destroy_drafted_card<R: Rng>(
+    state: &mut GameState,
+    player_index: usize,
+    card_instance_id: u32,
+    rng: &mut R,
+) {
     let id = card_instance_id as u8;
-    let player_index = get_action_state(state).current_player_index;
     let player = &mut state.players[player_index];
 
     assert!(
@@ -230,24 +230,22 @@ pub fn destroy_drafted_card<R: Rng>(state: &mut GameState, card_instance_id: u32
     state.destroyed_pile.insert(id);
 
     // The stack is LIFO, so the first ability listed goes on last.
-    let action_state = get_action_state_mut(state);
+    let stack = ability_stack_mut(state, player_index);
     for &ability in card.destroy_abilities().iter().rev() {
-        action_state.ability_stack.push(ability);
+        stack.push(ability);
     }
-    process_ability_stack(state, rng);
+    process_ability_stack(state, player_index, rng);
 }
 
-pub fn process_ability_stack<R: Rng>(state: &mut GameState, rng: &mut R) {
+pub fn process_ability_stack<R: Rng>(state: &mut GameState, player_index: usize, rng: &mut R) {
     loop {
-        let action_state = get_action_state(state);
-        let Some(ability) = action_state.ability_stack.last().copied() else {
+        let Some(ability) = ability_stack(state, player_index).last().copied() else {
             return;
         };
-        let player_index = action_state.current_player_index;
 
         match ability {
             Ability::DrawCards { count } => {
-                get_action_state_mut(state).ability_stack.pop();
+                ability_stack_mut(state, player_index).pop();
                 if is_replaying(state) {
                     replay_player_deck_draw(state, player_index);
                 } else {
@@ -260,25 +258,25 @@ pub fn process_ability_stack<R: Rng>(state: &mut GameState, rng: &mut R) {
             }
             Ability::Workshop { .. } => {
                 if state.players[player_index].workshop_cards.is_empty() {
-                    get_action_state_mut(state).ability_stack.pop();
+                    ability_stack_mut(state, player_index).pop();
                     continue;
                 } else {
                     return; // waiting for input
                 }
             }
             Ability::GainDucats { count } => {
-                get_action_state_mut(state).ability_stack.pop();
+                ability_stack_mut(state, player_index).pop();
                 state.players[player_index].ducats += count;
                 state.players[player_index].cached_ducat_score += count;
                 continue;
             }
             Ability::GainWildPrimaries { count } => {
-                get_action_state_mut(state).ability_stack.pop();
+                ability_stack_mut(state, player_index).pop();
                 state.players[player_index].wild_primaries += count;
                 continue;
             }
             Ability::GainBoats { count } => {
-                get_action_state_mut(state).ability_stack.pop();
+                ability_stack_mut(state, player_index).pop();
                 state.players[player_index].boats += count;
                 continue;
             }
@@ -289,10 +287,10 @@ pub fn process_ability_stack<R: Rng>(state: &mut GameState, rng: &mut R) {
                 return; // always needs input
             }
             Ability::Sell => {
-                if can_sell_to_any_sell_card(state) {
+                if can_sell_to_any_buyer(&state.players[player_index]) {
                     return; // waiting for input
                 } else {
-                    get_action_state_mut(state).ability_stack.pop();
+                    ability_stack_mut(state, player_index).pop();
                     continue;
                 }
             }
@@ -352,19 +350,15 @@ pub(crate) fn sell_to_buyer(player: &mut PlayerState, index: usize) {
     player.completed_sell_cards.push(sold);
 }
 
-/// Whether the acting player can sell to one of their own buyers. The shared
-/// display is not sellable to — cards must be claimed first, in the buyers
-/// phase.
+/// Whether `player` can sell to one of their own buyers. The shared display is
+/// not sellable to — cards must be claimed first, in the buyers phase.
 #[inline]
-pub fn can_sell_to_any_sell_card(state: &GameState) -> bool {
-    let action_state = get_action_state(state);
-    let player = &state.players[action_state.current_player_index];
+pub fn can_sell_to_any_buyer(player: &PlayerState) -> bool {
     player
         .buyers
         .iter()
         .any(|b| can_afford_sell_card(player, &b.sell_card))
 }
-
 
 /// Whether the player can make any mix at all, counting a wild primary as whichever
 /// primary is missing.
@@ -379,15 +373,14 @@ pub fn can_mix_any(player: &PlayerState) -> bool {
 ///
 /// A purchase that cannot act would pop straight off the stack and burn the
 /// ducat, so it is never offered.
-pub fn can_buy_with_ducat(state: &GameState, purchase: DucatPurchase) -> bool {
-    let player = &state.players[get_action_state(state).current_player_index];
+pub fn can_buy_with_ducat(player: &PlayerState, purchase: DucatPurchase) -> bool {
     if player.ducats == 0 {
         return false;
     }
     match purchase {
         DucatPurchase::Workshop => !player.workshop_cards.is_empty(),
         DucatPurchase::MixColors => can_mix_any(player),
-        DucatPurchase::Sell => can_sell_to_any_sell_card(state),
+        DucatPurchase::Sell => can_sell_to_any_buyer(player),
     }
 }
 
@@ -398,32 +391,34 @@ pub fn can_buy_with_ducat(state: &GameState, purchase: DucatPurchase) -> bool {
 /// have resolution paths and choice enumerators, and pushing keeps the
 /// top-level menu three choices wider instead of multiplying by what each
 /// ability could then do.
-pub fn resolve_spend_ducat<R: Rng>(state: &mut GameState, purchase: DucatPurchase, rng: &mut R) {
-    let player_index = get_action_state(state).current_player_index;
+pub fn resolve_spend_ducat<R: Rng>(
+    state: &mut GameState,
+    player_index: usize,
+    purchase: DucatPurchase,
+    rng: &mut R,
+) {
     let player = &mut state.players[player_index];
     assert!(player.ducats >= 1, "Cannot spend a ducat without one");
     player.ducats -= 1;
     player.cached_ducat_score -= 1;
 
-    get_action_state_mut(state).ability_stack.push(purchase.ability());
-    process_ability_stack(state, rng);
+    ability_stack_mut(state, player_index).push(purchase.ability());
+    process_ability_stack(state, player_index, rng);
 }
 
 pub fn resolve_workshop_choice<R: Rng>(
     state: &mut GameState,
+    player_index: usize,
     selected_cards: UnorderedCards,
     rng: &mut R,
 ) {
-    let action_state = get_action_state(state);
-    let count = match action_state.ability_stack.last() {
+    let count = match ability_stack(state, player_index).last() {
         Some(Ability::Workshop { count }) => *count,
         _ => panic!("No pending workshop choice"),
     };
-    let player_index = action_state.current_player_index;
     let remaining = count - selected_cards.len();
 
-    // Pop the Workshop ability from the stack
-    get_action_state_mut(state).ability_stack.pop();
+    ability_stack_mut(state, player_index).pop();
 
     let (action_ids, action_count, non_action_ids, non_action_count) =
         partition_action_cards(&selected_cards, &state.card_lookup);
@@ -442,65 +437,42 @@ pub fn resolve_workshop_choice<R: Rng>(
         action_count,
     );
 
-    let stack = &mut get_action_state_mut(state).ability_stack;
-    push_abilities_to_stack(stack, &collected, Some(remaining));
+    push_abilities_to_stack(ability_stack_mut(state, player_index), &collected, Some(remaining));
 
-    process_ability_stack(state, rng);
+    process_ability_stack(state, player_index, rng);
 }
 
-
-pub fn skip_workshop<R: Rng>(state: &mut GameState, rng: &mut R) {
-    get_action_state_mut(state).ability_stack.pop();
-    process_ability_stack(state, rng);
+pub fn skip_workshop<R: Rng>(state: &mut GameState, player_index: usize, rng: &mut R) {
+    ability_stack_mut(state, player_index).pop();
+    process_ability_stack(state, player_index, rng);
 }
 
 pub fn resolve_mix_colors<R: Rng>(
     state: &mut GameState,
+    player_index: usize,
     color_a: Color,
     color_b: Color,
     rng: &mut R,
 ) {
-    let player_index = get_action_state(state).current_player_index;
     let player = &mut state.players[player_index];
     let success = perform_mix(&mut player.color_wheel, &mut player.wild_primaries, color_a, color_b);
     if !success {
         panic!("Cannot mix {:?} and {:?}", color_a, color_b);
     }
-    finish_mix(state, rng);
-}
 
-/// Same as `resolve_mix_colors` but skips the `can_mix` and supply checks.
-/// The caller must guarantee the mix is valid.
-pub fn resolve_mix_colors_unchecked<R: Rng>(
-    state: &mut GameState,
-    color_a: Color,
-    color_b: Color,
-    rng: &mut R,
-) {
-    let player_index = get_action_state(state).current_player_index;
-    let player = &mut state.players[player_index];
-    perform_mix_unchecked(&mut player.color_wheel, &mut player.wild_primaries, color_a, color_b);
-    finish_mix(state, rng);
-}
-
-/// Decrement the remaining mix count and process the ability stack.
-fn finish_mix<R: Rng>(state: &mut GameState, rng: &mut R) {
-    let action_state = get_action_state_mut(state);
-    match action_state.ability_stack.last_mut() {
-        Some(Ability::MixColors { count }) => {
-            *count -= 1;
-            if *count == 0 {
-                action_state.ability_stack.pop();
-            }
+    let stack = ability_stack_mut(state, player_index);
+    if let Some(Ability::MixColors { count }) = stack.last_mut() {
+        *count -= 1;
+        if *count == 0 {
+            stack.pop();
         }
-        _ => {}
     }
-    process_ability_stack(state, rng);
+    process_ability_stack(state, player_index, rng);
 }
 
-pub fn skip_mix<R: Rng>(state: &mut GameState, rng: &mut R) {
-    get_action_state_mut(state).ability_stack.pop();
-    process_ability_stack(state, rng);
+pub fn skip_mix<R: Rng>(state: &mut GameState, player_index: usize, rng: &mut R) {
+    ability_stack_mut(state, player_index).pop();
+    process_ability_stack(state, player_index, rng);
 }
 
 /// Move the selected workshop-area cards into the player's draft pool.
@@ -514,12 +486,11 @@ pub fn skip_mix<R: Rng>(state: &mut GameState, rng: &mut R) {
 /// end of turn returns it to the workshop instead of the bottom of the deck.
 pub fn resolve_move_to_draft_pool<R: Rng>(
     state: &mut GameState,
+    player_index: usize,
     selected_cards: UnorderedCards,
     rng: &mut R,
 ) {
-    let player_index = get_action_state(state).current_player_index;
-
-    get_action_state_mut(state).ability_stack.pop();
+    ability_stack_mut(state, player_index).pop();
 
     for id in selected_cards.iter() {
         let removed = remove_from_workshop_area(&mut state.players[player_index], id);
@@ -530,18 +501,16 @@ pub fn resolve_move_to_draft_pool<R: Rng>(
         state.players[player_index].drafted_cards.insert(id);
     }
 
-    process_ability_stack(state, rng);
+    process_ability_stack(state, player_index, rng);
 }
 
 pub fn resolve_select_sell_card<R: Rng>(
     state: &mut GameState,
+    player_index: usize,
     sell_card_instance_id: u32,
     rng: &mut R,
 ) {
-    let player_index = get_action_state(state).current_player_index;
-
-    // Pop the Sell ability from the stack
-    get_action_state_mut(state).ability_stack.pop();
+    ability_stack_mut(state, player_index).pop();
 
     let player = &mut state.players[player_index];
     let sell_card_index = player
@@ -553,30 +522,29 @@ pub fn resolve_select_sell_card<R: Rng>(
     sell_to_buyer(player, sell_card_index);
 
     // The freed slot stays empty until the next buyers phase.
-    process_ability_stack(state, rng);
+    process_ability_stack(state, player_index, rng);
 }
 
-pub fn resolve_gain_color<R: Rng>(state: &mut GameState, color: Color, rng: &mut R) {
-    let player_index = get_action_state(state).current_player_index;
+pub fn resolve_gain_color<R: Rng>(state: &mut GameState, player_index: usize, color: Color, rng: &mut R) {
     state.players[player_index].color_wheel.increment(color);
-    get_action_state_mut(state).ability_stack.pop();
-    process_ability_stack(state, rng);
+    ability_stack_mut(state, player_index).pop();
+    process_ability_stack(state, player_index, rng);
 }
 
 pub fn resolve_gain_material<R: Rng>(
     state: &mut GameState,
+    player_index: usize,
     material: MaterialType,
     rng: &mut R,
 ) {
-    let player_index = get_action_state(state).current_player_index;
     state.players[player_index].materials.increment(material);
-    get_action_state_mut(state).ability_stack.pop();
-    process_ability_stack(state, rng);
+    ability_stack_mut(state, player_index).pop();
+    process_ability_stack(state, player_index, rng);
 }
 
-
-pub fn end_player_turn<R: Rng>(state: &mut GameState, rng: &mut R) {
-    let player_index = get_action_state(state).current_player_index;
+/// End `player_index`'s turn. Everyone acts at once, so the round ends with
+/// whoever finishes last.
+pub fn end_player_turn<R: Rng>(state: &mut GameState, player_index: usize, rng: &mut R) {
     let player = &mut state.players[player_index];
 
     // The whole workshop area is shuffled onto the bottom of the deck, and
@@ -588,17 +556,16 @@ pub fn end_player_turn<R: Rng>(state: &mut GameState, rng: &mut R) {
     player.workshopped_cards = UnorderedCards::new();
     player.drafted_cards = UnorderedCards::new();
 
-    let num_players = state.players.len();
-    let starting_player = ((state.round - 1) as usize) % num_players;
-
     let action_state = get_action_state_mut(state);
-    action_state.current_player_index = (action_state.current_player_index + 1) % num_players;
+    let turn = &mut action_state.turns[player_index];
+    debug_assert!(
+        !turn.ended && turn.ability_stack.is_empty(),
+        "Player {player_index} ended a turn that was over or still had abilities pending"
+    );
+    turn.ended = true;
 
-    if action_state.current_player_index == starting_player {
+    if action_state.turns.iter().all(|turn| turn.ended) {
         end_round(state, rng);
-    } else {
-        let action_state = get_action_state_mut(state);
-        action_state.ability_stack.clear();
     }
 }
 
@@ -625,4 +592,14 @@ pub(crate) fn get_action_state_mut(state: &mut GameState) -> &mut ActionState {
         GamePhase::Action { action_state } => action_state,
         _ => panic!("Expected action phase"),
     }
+}
+
+#[inline]
+pub(crate) fn ability_stack(state: &GameState, player_index: usize) -> &AbilityStack {
+    &get_action_state(state).turns[player_index].ability_stack
+}
+
+#[inline]
+pub(crate) fn ability_stack_mut(state: &mut GameState, player_index: usize) -> &mut AbilityStack {
+    &mut get_action_state_mut(state).turns[player_index].ability_stack
 }

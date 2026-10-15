@@ -1,4 +1,4 @@
-use colori_core::colori_game::{apply_choice_to_state, enumerate_choices};
+use colori_core::colori_game::{apply_choice_to_state, enumerate_choices, ActionPhaseViews};
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::game_log::{DrawEvent, DrawLog, FinalPlayerStats, FinalScore, PlayerVariant};
 use colori_core::ismcts::MctsConfig;
@@ -187,6 +187,50 @@ fn variant_to_player_variant(variant: &NamedVariant) -> PlayerVariant {
 
 // ── Game loop ──
 
+fn is_taking_turn(state: &GameState, player_index: usize) -> bool {
+    matches!(&state.phase, GamePhase::Action { action_state } if !action_state.turns[player_index].ended)
+}
+
+#[derive(Default)]
+struct EntryLog {
+    entries: Vec<StructuredLogEntry>,
+    seq: u32,
+}
+
+impl EntryLog {
+    /// Apply the choice to the game and log it, returning what it drew.
+    fn play(
+        &mut self,
+        state: &mut GameState,
+        player_index: usize,
+        choice: &Choice,
+        phase: &str,
+        rng: &mut WyRand,
+    ) -> Vec<DrawEvent> {
+        self.seq += 1;
+        // Before applying: the choice that ends a round moves it on.
+        let round = state.round;
+
+        state.draw_log = Some(DrawLog::Recording(Vec::new()));
+        apply_choice_to_state(state, player_index, choice, rng);
+        let draws = match state.draw_log.take() {
+            Some(DrawLog::Recording(events)) => events,
+            _ => Vec::new(),
+        };
+
+        self.entries.push(StructuredLogEntry {
+            seq: self.seq,
+            timestamp: now_epoch_millis(),
+            round,
+            phase: phase.to_string(),
+            player_index,
+            choice: choice.clone(),
+            draws: draws.clone(),
+        });
+        draws
+    }
+}
+
 pub fn run_game(
     _game_index: usize,
     player_variants: &[NamedVariant],
@@ -231,91 +275,77 @@ pub fn run_game(
         _ => Vec::new(),
     };
 
-    let mut entries: Vec<StructuredLogEntry> = Vec::new();
-    let mut seq: u32 = 0;
+    let mut log = EntryLog::default();
     let mut searcher = ColoriSearcher::new(&state);
     let mut player_time = vec![std::time::Duration::ZERO; num_players];
     let mut player_iterations_count = vec![0u64; num_players];
 
-    // Main game loop
-    while !matches!(state.phase, GamePhase::GameOver) {
-        let (player_index, phase_str) = match &state.phase {
-            GamePhase::Buyers { buyers_state } => {
-                (buyers_state.current_player_index, "buyers")
-            }
-            GamePhase::Draft { draft_state } => {
-                (draft_state.current_player_index, "draft")
-            }
-            GamePhase::Action { action_state } => {
-                (action_state.current_player_index, "action")
-            }
-            GamePhase::Draw => {
-                break;
-            }
-            GamePhase::GameOver => break,
-        };
-
+    let mut decide = |searcher: &mut ColoriSearcher, state: &GameState, player_index: usize, rng: &mut WyRand| {
         let config = &shuffled_variants[player_index].ai;
-
-        // Check if this is the first draft pick of round 1
         let is_first_pick = state.round == 1
             && matches!(&state.phase, GamePhase::Draft { draft_state } if draft_state.pick_number == 0);
-
-        let choice: Choice = if is_first_pick && config.random_first_pick {
+        if is_first_pick && config.random_first_pick {
             // No search ran, so nothing to carry forward.
             searcher.clear_tree();
-            enumerate_choices(&state)
+            return enumerate_choices(state, player_index)
                 .choose(rng)
                 .expect("No choices available")
-                .clone()
-        } else {
-            let max_rollout_round = std::cmp::max(8, state.round + 2);
-            let mcts_start = std::time::Instant::now();
-            let result = searcher.search(&state, player_index, config, Some(max_rollout_round), rng);
-            player_time[player_index] += mcts_start.elapsed();
-            player_iterations_count[player_index] += result.iterations_used as u64;
-            result.choice.clone()
-        };
+                .clone();
+        }
+        let max_rollout_round = std::cmp::max(8, state.round + 2);
+        let mcts_start = std::time::Instant::now();
+        let result = searcher.search(state, player_index, config, Some(max_rollout_round), rng);
+        player_time[player_index] += mcts_start.elapsed();
+        player_iterations_count[player_index] += result.iterations_used as u64;
+        result.choice
+    };
 
-        seq += 1;
+    while !matches!(state.phase, GamePhase::GameOver) {
+        match &state.phase {
+            GamePhase::Buyers { buyers_state } => {
+                let player_index = buyers_state.current_player_index;
+                let choice = decide(&mut searcher, &state, player_index, rng);
+                log.play(&mut state, player_index, &choice, "buyers", rng);
+                searcher.clear_tree();
+            }
+            GamePhase::Draft { draft_state } => {
+                let player_index = draft_state.current_player_index;
+                let choice = decide(&mut searcher, &state, player_index, rng);
+                log.play(&mut state, player_index, &choice, "draft", rng);
+                searcher.clear_tree();
+            }
+            GamePhase::Action { .. } => {
+                // Everyone acts at once. Each player decides their whole turn
+                // on their own view of the phase, blind to everyone else's,
+                // and each choice is played into the game as it is made.
+                let mut views = ActionPhaseViews::new(&state);
+                for player_index in 0..num_players {
+                    searcher.clear_tree();
+                    while is_taking_turn(views.view(player_index), player_index) {
+                        let view = views.view(player_index);
+                        let choice = decide(&mut searcher, view, player_index, rng);
+                        let prev_workshop_len = view.players[player_index].workshop_cards.len();
 
-        // Snapshot state for information revelation check
-        let prev_workshop_len = state.players[player_index].workshop_cards.len();
-        let prev_sell_deck_len = state.sell_card_deck.len();
+                        let draws = log.play(&mut state, player_index, &choice, "action", rng);
+                        views.apply(player_index, &choice, &draws);
 
-        // Capture round before applying choice (end_round may increment it)
-        let round = state.round;
-
-        // Enable draw recording before applying the choice
-        state.draw_log = Some(DrawLog::Recording(Vec::new()));
-        apply_choice_to_state(&mut state, &choice, rng);
-        let draws = match state.draw_log.take() {
-            Some(DrawLog::Recording(events)) => events,
-            _ => Vec::new(),
-        };
-
-        entries.push(StructuredLogEntry {
-            seq,
-            timestamp: now_epoch_millis(),
-            round,
-            phase: phase_str.to_string(),
-            player_index,
-            choice: choice.clone(),
-            draws,
-        });
-
-        // Reuse subtree only if same player is still active and no information was revealed
-        let same_player_action = matches!(&state.phase, GamePhase::Action { action_state }
-            if action_state.current_player_index == player_index);
-        let info_revealed =
-            state.players[player_index].workshop_cards.len() != prev_workshop_len ||
-            state.sell_card_deck.len() != prev_sell_deck_len;
-        if same_player_action && !info_revealed {
-            searcher.reuse_subtree(&choice);
-        } else {
-            searcher.clear_tree();
+                        // Carry the subtree forward only while the turn goes on
+                        // and nothing new was drawn.
+                        let view = views.view(player_index);
+                        if is_taking_turn(view, player_index)
+                            && view.players[player_index].workshop_cards.len() == prev_workshop_len
+                        {
+                            searcher.reuse_subtree(&choice);
+                        } else {
+                            searcher.clear_tree();
+                        }
+                    }
+                }
+            }
+            GamePhase::Draw | GamePhase::GameOver => break,
         }
     }
+    let entries = log.entries;
 
     let game_ended_at = Some(now_epoch_secs_string());
 

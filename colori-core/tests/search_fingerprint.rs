@@ -55,12 +55,16 @@ fn position(players: usize, seed: u64, steps: usize) -> Option<GameState> {
             }
             _ => {}
         }
-        let choices = enumerate_choices(&state);
+        let player = match get_game_status(&state, None) {
+            GameStatus::AwaitingAction { player_index } => player_index,
+            GameStatus::Terminated { .. } => return None,
+        };
+        let choices = enumerate_choices(&state, player);
         if choices.is_empty() {
             return None;
         }
         let choice = choices[rng.random_range(0..choices.len())].clone();
-        apply_choice_to_state(&mut state, &choice, &mut rng);
+        apply_choice_to_state(&mut state, player, &choice, &mut rng);
     }
 
     match get_game_status(&state, None) {
@@ -145,12 +149,22 @@ fn fingerprint_reuse(out: &mut String, players: usize, seed: u64, steps: usize, 
         describe_tree(out, searcher.tree().expect("a search leaves a tree"));
 
         let choice = outcome.choice.clone();
-        apply_choice_to_state(&mut state, &choice, &mut rng);
+        apply_choice_to_state(&mut state, player, &choice, &mut rng);
         // Carry the subtree forward, which is what makes this a reuse test at
         // all. A searcher that is never re-rooted never exercises the paths
-        // where the bugs have actually lived.
-        let reused = searcher.reuse_subtree(&choice);
-        let _ = writeln!(out, "  reuse_subtree -> {reused}");
+        // where the bugs have actually lived. The tree is the searching
+        // player's, so it carries over only to their next decision.
+        let same_player = matches!(
+            get_game_status(&state, None),
+            GameStatus::AwaitingAction { player_index } if player_index == player
+        );
+        if same_player {
+            let reused = searcher.reuse_subtree(&choice);
+            let _ = writeln!(out, "  reuse_subtree -> {reused}");
+        } else {
+            searcher.clear_tree();
+            let _ = writeln!(out, "  clear_tree: player {player} is not next");
+        }
     }
 }
 

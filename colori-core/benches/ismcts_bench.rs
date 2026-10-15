@@ -65,12 +65,13 @@ fn position(seed: u64, steps: usize) -> (GameState, usize) {
         if matches!(get_game_status(&state, None), GameStatus::Terminated { .. }) {
             return (state, taken);
         }
-        let choices = enumerate_choices(&state);
+        let player = active_player(&state);
+        let choices = enumerate_choices(&state, player);
         if choices.is_empty() {
             return (state, taken);
         }
         let choice = choices[rng.random_range(0..choices.len())].clone();
-        apply_choice_to_state(&mut state, &choice, &mut rng);
+        apply_choice_to_state(&mut state, player, &choice, &mut rng);
     }
     (state, steps)
 }
@@ -103,7 +104,7 @@ fn bench_search(c: &mut Criterion) {
         }
         let player = active_player(&state);
         let horizon = max_rollout_round(&state);
-        let branching = enumerate_choices(&state).len();
+        let branching = enumerate_choices(&state, player).len();
         // One legal choice takes the fast path and returns without searching,
         // so such a position would time nothing at all.
         assert!(branching >= 2, "{name}: branching {branching} is a forced move");

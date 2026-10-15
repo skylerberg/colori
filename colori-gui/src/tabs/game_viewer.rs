@@ -5,11 +5,11 @@ use eframe::egui;
 use rand::SeedableRng;
 use wyrand::WyRand;
 
-use colori_core::colori_game::enumerate_choices;
+use colori_core::colori_game::{enumerate_choices, ActionPhaseViews};
 use colori_core::game_log::{DrawEvent, StructuredGameLog, StructuredLogEntry};
 use colori_core::ismcts::MctsConfig;
 use colori_core::mcts_impl::{tree_stats, ColoriSearcher, SearchNode as MctsNode, TreeStats};
-use colori_core::replay::{GameReplay, replay_to};
+use colori_core::replay::{GameReplay, replay_to, replay_view_to};
 use colori_core::scoring::{format_half_points, score_in_half_points};
 use colori_core::types::{
     Card, CardInstance, Choice, Color, GamePhase, GameState, SellCardInstance, ALL_COLORS, ALL_MATERIAL_TYPES,
@@ -239,16 +239,21 @@ impl GameViewerState {
     }
 
     fn start_mcts_analysis(&mut self) {
-        let state = match &self.replayed_state {
-            Some(s) => s.clone(),
-            None => return,
+        let (Some(game), Some(initial_state_json), Some(entry_index)) =
+            (&self.game, &self.initial_state_json, self.selected_entry_index)
+        else {
+            return;
         };
-
-        let player_index = match &state.phase {
-            GamePhase::Draft { draft_state } => draft_state.current_player_index,
-            GamePhase::Action { action_state } => action_state.current_player_index,
-            _ => return,
+        let Some(entry) = game.entries.get(entry_index) else {
+            return;
         };
+        // Search what the player knew, not the replayed state, which in an
+        // action phase holds moves others made that this player could not see.
+        let state = replay_view_to(initial_state_json, &game.initial_draws, &game.entries, entry_index);
+        if !matches!(state.phase, GamePhase::Draft { .. } | GamePhase::Action { .. }) {
+            return;
+        }
+        let player_index = entry.player_index;
 
         let config = self.mcts_config.to_mcts_config();
         let max_rollout_round = std::cmp::max(8, state.round + 2);
@@ -302,23 +307,35 @@ impl GameViewerState {
         std::thread::spawn(move || {
             let mut replay = GameReplay::new(&initial_state_json, &initial_draws);
             let mut mcts_rng = WyRand::from_rng(&mut rand::rng());
+            // What each player has seen of the current action phase.
+            let mut views: Option<(u32, ActionPhaseViews)> = None;
 
             for (entry_index, entry) in entries.iter().enumerate() {
                 // Fix current_player_index for draft entries before running MCTS
                 replay.fix_current_player_for_next(entry);
 
-                // Run MCTS if the state is in a decision phase
-                let player_index = match &replay.state.phase {
-                    GamePhase::Draft { draft_state } => Some(draft_state.current_player_index),
-                    GamePhase::Action { action_state } => Some(action_state.current_player_index),
+                if matches!(replay.state.phase, GamePhase::Action { .. })
+                    && views.as_ref().is_none_or(|(round, _)| *round != replay.state.round)
+                {
+                    views = Some((replay.state.round, ActionPhaseViews::new(&replay.state)));
+                }
+
+                // Run MCTS if the state is in a decision phase, on what the
+                // player making the choice knew of it
+                let search_state = match &replay.state.phase {
+                    GamePhase::Draft { .. } => Some(&replay.state),
+                    GamePhase::Action { .. } => {
+                        views.as_ref().map(|(_, views)| views.view(entry.player_index))
+                    }
                     _ => None,
                 };
 
-                if let Some(player_index) = player_index {
-                    let max_rollout_round = std::cmp::max(8, replay.state.round + 2);
-                    let mut searcher = ColoriSearcher::new(&replay.state);
+                if let Some(search_state) = search_state {
+                    let player_index = entry.player_index;
+                    let max_rollout_round = std::cmp::max(8, search_state.round + 2);
+                    let mut searcher = ColoriSearcher::new(search_state);
                     let result = searcher.search(
-                        &replay.state,
+                        search_state,
                         player_index,
                         &config,
                         Some(max_rollout_round),
@@ -327,16 +344,14 @@ impl GameViewerState {
                     let mut agrees = choices_equivalent(&result.choice, &entry.choice);
 
                     // If the MCTS disagrees but its preferred choice appears later
-                    // in the same player's action turn, treat it as a reordering
+                    // in the same player's action turn, treat it as a reordering.
+                    // Other players' moves may be interleaved with theirs.
                     if !agrees && entry.phase == "action" {
                         let mcts_choice = &result.choice;
                         agrees = entries[entry_index + 1..]
                             .iter()
-                            .take_while(|e| {
-                                e.phase == "action"
-                                    && e.player_index == entry.player_index
-                                    && e.round == entry.round
-                            })
+                            .filter(|e| e.player_index == entry.player_index)
+                            .take_while(|e| e.phase == "action" && e.round == entry.round)
                             .any(|e| choices_equivalent(mcts_choice, &e.choice));
                     }
 
@@ -360,7 +375,16 @@ impl GameViewerState {
                 }
 
                 // Advance state by applying this entry's choice
+                let action_round = match replay.state.phase {
+                    GamePhase::Action { .. } => Some(replay.state.round),
+                    _ => None,
+                };
                 replay.apply_entry(entry);
+                if let (Some(round), Some((views_round, views))) = (action_round, views.as_mut()) {
+                    if round == *views_round {
+                        views.apply(entry.player_index, &entry.choice, &entry.draws);
+                    }
+                }
             }
         });
     }
@@ -505,7 +529,8 @@ impl GameViewerState {
                         .id_salt("state_scroll")
                         .show(ui, |ui| {
                             if let Some(state) = replayed_state {
-                                render_replayed_state(ui, state, game);
+                                let next_entry = selected_entry.and_then(|i| game.entries.get(i));
+                                render_replayed_state(ui, state, game, next_entry.map(|e| e.player_index));
                                 ui.add_space(12.0);
                                 // While a manual MCTS run is in progress, don't
                                 // show the stale batch result underneath the spinner
@@ -788,7 +813,13 @@ fn render_timeline(
 
 // ── Replayed state display ──
 
-fn render_replayed_state(ui: &mut egui::Ui, state: &GameState, game: &StructuredGameLog) {
+/// `actor` is the player whose choice comes next in the log, if one does.
+fn render_replayed_state(
+    ui: &mut egui::Ui,
+    state: &GameState,
+    game: &StructuredGameLog,
+    actor: Option<usize>,
+) {
     ui.heading("Game State");
 
     // Phase info
@@ -811,12 +842,11 @@ fn render_replayed_state(ui: &mut egui::Ui, state: &GameState, game: &Structured
             format!("Draft (pick {}, {}'s turn)", draft_state.pick_number + 1, name)
         }
         GamePhase::Action { action_state } => {
-            let name = game
-                .player_names
-                .get(action_state.current_player_index)
-                .cloned()
-                .unwrap_or_else(|| format!("Player {}", action_state.current_player_index));
-            format!("Action ({}'s turn)", name)
+            let acting: Vec<String> = (0..action_state.turns.len())
+                .filter(|&i| !action_state.turns[i].ended)
+                .map(|i| game.player_names.get(i).cloned().unwrap_or_else(|| format!("Player {}", i)))
+                .collect();
+            format!("Action ({} still acting)", acting.join(", "))
         }
         GamePhase::GameOver => "Game Over".to_string(),
     };
@@ -953,7 +983,7 @@ fn render_replayed_state(ui: &mut egui::Ui, state: &GameState, game: &Structured
     }
 
     // Available choices
-    let choices = enumerate_choices(state);
+    let choices = actor.map(|actor| enumerate_choices(state, actor)).unwrap_or_default();
     if !choices.is_empty() {
         ui.add_space(4.0);
         egui::CollapsingHeader::new(format!("Available Choices ({})", choices.len()))

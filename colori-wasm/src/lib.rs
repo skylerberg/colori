@@ -1,5 +1,4 @@
 use colori_core::apply_choice::apply_choice;
-use colori_core::colori_game::enumerate_choices;
 use colori_core::draft_phase::{advance_draft, simultaneous_pick};
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::game_log::{DrawEvent, DrawLog};
@@ -102,13 +101,13 @@ pub fn wasm_execute_draw_phase(state_json: &str) -> String {
 }
 
 #[wasm_bindgen]
-pub fn wasm_apply_choice(state_json: &str, choice_json: &str) -> String {
+pub fn wasm_apply_choice(state_json: &str, player_index: u32, choice_json: &str) -> String {
     let mut state = deserialize_state(state_json);
     let choice: Choice =
         serde_json::from_str(choice_json).expect("Failed to parse choice JSON");
     let mut rng = WyRand::from_rng(&mut rand::rng());
     state.draw_log = Some(DrawLog::Recording(Vec::new()));
-    apply_choice(&mut state, &choice, &mut rng);
+    apply_choice(&mut state, player_index as usize, &choice, &mut rng);
     serialize_state_with_draws(&mut state)
 }
 
@@ -140,12 +139,4 @@ pub fn wasm_calculate_scores(players_json: &str) -> String {
         .map(|p| score_in_half_points(p) as f64 / 2.0)
         .collect();
     serde_json::to_string(&scores).expect("Failed to serialize scores")
-}
-
-/// Get legal actions as JSON.
-#[wasm_bindgen]
-pub fn wasm_get_legal_actions(game_state_json: &str) -> String {
-    let state = deserialize_state(game_state_json);
-    let choices = enumerate_choices(&state);
-    serde_json::to_string(&choices).expect("Failed to serialize choices")
 }

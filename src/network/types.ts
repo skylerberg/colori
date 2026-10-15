@@ -1,4 +1,4 @@
-import type { CardInstance, SellCardInstance, Color, MaterialType, Ability } from '../data/types';
+import type { CardInstance, SellCardInstance, Color, MaterialType, PlayerTurn } from '../data/types';
 import type { Choice } from '../data/types';
 
 export interface SanitizedPlayerState {
@@ -31,8 +31,7 @@ export interface SanitizedBuyersState {
 }
 
 export interface SanitizedActionState {
-  currentPlayerIndex: number;
-  abilityStack: Ability[];
+  turns: PlayerTurn[];
 }
 
 export type SanitizedGamePhase =

@@ -26,12 +26,14 @@ describe('wasm_run_ismcts', () => {
     expect(choice.type).toBe('draftPick');
   });
 
-  it('returns a choice during the action phase', () => {
+  it('returns a choice for any player during the action phase', () => {
     const state = setupActionGame(3);
-    const phase = (state as { phase: { type: string; actionState?: { currentPlayerIndex: number } } }).phase;
+    const phase = (state as { phase: { type: string } }).phase;
     expect(phase.type).toBe('action');
-    const choice = runSearch(state, phase.actionState!.currentPlayerIndex, 200);
-    expect(choice).toHaveProperty('type');
+    // Everyone acts at once, so any seat can be searched for.
+    for (const player of [0, 1, 2]) {
+      expect(runSearch(state, player, 200)).toHaveProperty('type');
+    }
   });
 
   it('is unaffected by the iteration budget being tiny', () => {

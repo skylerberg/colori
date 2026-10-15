@@ -8,10 +8,14 @@
   import { mixWheelState } from '../stores/mixWheelState.svelte';
   import CardModal from './CardModal.svelte';
 
-  let { gameState, activePlayerIndex, aiThinking, elapsedSeconds, gameLog, onLeaveGame, selectedPlayerIndex = 0, onSelectPlayer, aiError, onRetryAI, hidePlayerCards = false, draftCardOrder, children }: {
+  let { gameState, actingPlayers, thinkingPlayers, controlledPlayerIndex, elapsedSeconds, gameLog, onLeaveGame, selectedPlayerIndex = 0, onSelectPlayer, aiError, onRetryAI, hidePlayerCards = false, draftCardOrder, children }: {
     gameState: GameState;
-    activePlayerIndex: number;
-    aiThinking: boolean;
+    // Players with a decision to make; in the action phase, everyone whose
+    // turn is not over.
+    actingPlayers: number[];
+    thinkingPlayers: number[];
+    // The player whose choices this screen is showing, or -1.
+    controlledPlayerIndex: number;
     elapsedSeconds: number;
     gameLog: string[];
     onLeaveGame: () => void;
@@ -32,7 +36,7 @@
   let currentPlayer = $derived(gameState.players[selectedPlayerIndex]);
   let currentPlayerName = $derived(gameState.playerNames[selectedPlayerIndex]);
   let isAI = $derived(gameState.aiPlayers[selectedPlayerIndex]);
-  let isActive = $derived(selectedPlayerIndex === activePlayerIndex);
+  let isControlled = $derived(selectedPlayerIndex === controlledPlayerIndex);
 
   // Stats
   let score = $derived(playerScore(currentPlayer));
@@ -79,13 +83,13 @@
         <button
           class="player-tab"
           class:active={i === selectedPlayerIndex}
-          class:is-turn={i === activePlayerIndex}
+          class:is-turn={actingPlayers.includes(i)}
           onclick={() => onSelectPlayer?.(i)}
         >
-          {#if i === activePlayerIndex}<span class="turn-dot"></span>{/if}
+          {#if actingPlayers.includes(i)}<span class="turn-dot"></span>{/if}
           {gameState.playerNames[i]}
           {#if gameState.aiPlayers[i]}<span class="ai-badge">AI</span>{/if}
-          {#if aiThinking && i === activePlayerIndex}<span class="thinking-spinner"></span>{/if}
+          {#if thinkingPlayers.includes(i)}<span class="thinking-spinner"></span>{/if}
         </button>
       {/each}
     </div>
@@ -169,12 +173,12 @@
               <div class="section-title">Color Wheel</div>
               <div class="wheel-container">
                 <ColorWheelDisplay
-                  wheel={selectedPlayerIndex === activePlayerIndex ? (mixWheelState.simulatedWheel ?? currentPlayer.colorWheel) : currentPlayer.colorWheel}
+                  wheel={isControlled ? (mixWheelState.simulatedWheel ?? currentPlayer.colorWheel) : currentPlayer.colorWheel}
                   size={400}
-                  interactive={selectedPlayerIndex === activePlayerIndex && !!mixWheelState.onColorClick}
-                  onColorClick={selectedPlayerIndex === activePlayerIndex ? (mixWheelState.onColorClick ?? undefined) : undefined}
-                  selectedColors={selectedPlayerIndex === activePlayerIndex ? mixWheelState.selectedColors : []}
-                  wildPrimaries={selectedPlayerIndex === activePlayerIndex ? mixWheelState.simulatedWildPrimaries : 0}
+                  interactive={isControlled && !!mixWheelState.onColorClick}
+                  onColorClick={isControlled ? (mixWheelState.onColorClick ?? undefined) : undefined}
+                  selectedColors={isControlled ? mixWheelState.selectedColors : []}
+                  wildPrimaries={isControlled ? mixWheelState.simulatedWildPrimaries : 0}
                 />
               </div>
             </div>
@@ -590,11 +594,6 @@
     min-height: 0;
     overflow-y: visible;
     overflow-x: hidden;
-  }
-
-  /* Draft / prompt section */
-  .draft-section {
-    /* Container for draft or action prompts */
   }
 
   .color-wheel-panel {

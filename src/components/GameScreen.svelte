@@ -1,16 +1,17 @@
 <script lang="ts">
-  import type { GameState, Choice, Card, CardInstance, Ability } from '../data/types';
+  import type { GameState, Choice, Card, Ability, DrawEvent, StructuredLogEntry } from '../data/types';
   import { executeDrawPhase, applyChoice, simultaneousPick, advanceDraft, getChoiceLogMessage, cloneGameState } from '../engine/wasmEngine';
   import { getCardData } from '../data/cards';
   import { AIController, type DraftPicker } from '../ai/aiController';
+  import { AIActionTurns } from '../ai/actionTurns';
   import type { GameLogAccumulator } from '../gameLog';
-  import { getActivePlayerIndex, isCurrentPlayerAI, orderByDraftOrder } from '../gameUtils';
+  import { actingPlayers, isTakingActionTurn } from '../gameUtils';
   import GameLayout from './GameLayout.svelte';
   import BuyersPhaseView from './BuyersPhaseView.svelte';
   import DraftPhaseView from './DraftPhaseView.svelte';
   import ActionPhaseView from './ActionPhaseView.svelte';
-  import CardList from './CardList.svelte';
   import { startTutorial, cancelTutorial } from '../tutorial/tutorial';
+  import { untrack } from 'svelte';
 
   let { gameState, gameStartTime, onGameUpdated, initialGameLog, onLeaveGame, gameLogAccumulator, aiIterations, aiStyle }: {
     gameState: GameState;
@@ -37,51 +38,11 @@
   // svelte-ignore state_referenced_locally
   let draftCardOrder: number[][] = $state(gameState.players.map(() => []));
   let drawExecutedForRound: number | null = $state(null);
+  // A buyers claim or draft pick being searched for.
   let aiThinking = $state(false);
   let aiError: string | null = $state(null);
   // svelte-ignore state_referenced_locally
   let gameLog: string[] = $state(initialGameLog);
-
-  let undoStack: {
-    gameState: GameState;
-    logLength: number;
-    accumulatorLength: number;
-    draftCardOrder: number[][];
-  }[] = $state([]);
-  let undoPlayerIndex: number | null = $state(null);
-
-  function pushUndoSnapshot() {
-    if (gameState.phase.type !== 'action') return;
-    const currentIdx = gameState.phase.actionState.currentPlayerIndex;
-    if (currentIdx !== undoPlayerIndex) {
-      undoStack = [];
-      undoPlayerIndex = currentIdx;
-    }
-    undoStack.push({
-      gameState: cloneGameState(gameState),
-      logLength: gameLog.length,
-      accumulatorLength: gameLogAccumulator?.getLog().entries.length ?? 0,
-      draftCardOrder: draftCardOrder.map(order => [...order]),
-    });
-  }
-
-  function performUndo() {
-    if (undoStack.length === 0) return;
-    const snapshot = undoStack.pop()!;
-    pendingDestroyCard = null;
-    gameState = snapshot.gameState;
-    gameLog = gameLog.slice(0, snapshot.logLength);
-    gameLogAccumulator?.truncateEntries(snapshot.accumulatorLength);
-    draftCardOrder = snapshot.draftCardOrder;
-    onGameUpdated(gameState, gameLog);
-  }
-
-  $effect(() => {
-    if (gameState.phase.type !== 'action') {
-      undoStack = [];
-      undoPlayerIndex = null;
-    }
-  });
 
   // Start tutorial on first mount (checks localStorage internally)
   let tutorialStarted = false;
@@ -106,7 +67,15 @@
   const aiController = new AIController();
   // svelte-ignore state_referenced_locally
   aiController.aiStyle = aiStyle;
-  $effect(() => () => aiController.terminate());
+  const aiActionTurns = new AIActionTurns(aiController);
+  let thinkingInActionPhase: number[] = $state([]);
+
+  $effect(() => {
+    return () => {
+      aiActionTurns.cancel();
+      aiController.terminate();
+    };
+  });
 
   let humanPicked = $state(false);
   let humanPlayerIndex = $derived(gameState.aiPlayers.findIndex(ai => !ai));
@@ -124,27 +93,69 @@
     }
   });
 
-  let activePlayerIndex = $derived(
-    gameState.phase.type === 'draft' ? humanPlayerIndex : getActivePlayerIndex(gameState)
-  );
   let selectedPlayerIndex = $state(0);
-  let selectedPlayer = $derived(gameState.players[selectedPlayerIndex]);
+
+  function isActingHuman(playerIndex: number): boolean {
+    return !gameState.aiPlayers[playerIndex] && isTakingActionTurn(gameState, playerIndex);
+  }
+
+  // The human whose action view is mounted. It stays mounted while another
+  // player's board is looked at, so a half-planned move survives the visit.
+  let actionViewSeat = $state(-1);
+  $effect(() => {
+    if (isActingHuman(selectedPlayerIndex)) actionViewSeat = selectedPlayerIndex;
+  });
+
   let isViewingActiveHuman = $derived.by(() => {
-    if (gameState.phase.type === 'draft') {
-      return selectedPlayerIndex === humanPlayerIndex && !humanPicked;
+    switch (gameState.phase.type) {
+      case 'draft':
+        return selectedPlayerIndex === humanPlayerIndex && !humanPicked;
+      case 'buyers':
+        return selectedPlayerIndex === gameState.phase.buyersState.currentPlayerIndex
+          && !gameState.aiPlayers[selectedPlayerIndex];
+      case 'action':
+        return selectedPlayerIndex === actionViewSeat && isActingHuman(selectedPlayerIndex);
+      default:
+        return false;
     }
-    return selectedPlayerIndex === activePlayerIndex && activePlayerIndex >= 0 && !gameState.aiPlayers[selectedPlayerIndex];
+  });
+
+  let shownActingPlayers = $derived(
+    gameState.phase.type === 'draft'
+      ? (humanPlayerIndex >= 0 && !humanPicked ? [humanPlayerIndex] : [])
+      : actingPlayers(gameState)
+  );
+
+  let thinkingPlayers = $derived.by(() => {
+    switch (gameState.phase.type) {
+      case 'buyers':
+        return aiThinking ? [gameState.phase.buyersState.currentPlayerIndex] : [];
+      case 'draft':
+        return aiThinking ? gameState.aiPlayers.flatMap((ai, i) => (ai ? [i] : [])) : [];
+      case 'action':
+        return thinkingInActionPhase;
+      default:
+        return [];
+    }
+  });
+
+  let waitingText = $derived.by(() => {
+    if (gameState.phase.type === 'draft') return aiThinking ? 'Thinking...' : 'Waiting...';
+    if (thinkingPlayers.includes(selectedPlayerIndex)) return 'Thinking...';
+    if (gameState.phase.type === 'action' && !isTakingActionTurn(gameState, selectedPlayerIndex)) {
+      return 'Turn over — waiting for the others...';
+    }
+    return 'Waiting...';
   });
 
   function selectPlayer(index: number) {
     selectedPlayerIndex = index;
   }
 
-  // ── Compound choice tracking ──
-  // When a human destroys a drafted card with a compound-able ability,
-  // we remember it so the follow-up choice can be combined into a single
-  // compound choice in the game log. The UI flow is unchanged.
-  let pendingDestroyCard: Card | null = $state(null);
+  // ── Compound choices ──
+  // When a human destroys a drafted card with a compound-able ability, the
+  // follow-up choice that answers it is logged together with the destroy as a
+  // single compound choice. The UI flow is unchanged.
 
   // The follow-up choices that answer each ability a destroy can open with.
   const ANSWERS: Partial<Record<Choice['type'], Ability['type']>> = {
@@ -187,50 +198,162 @@
     }
   }
 
+  // ── Action phase ──
+  // Everyone acts at once, so moves from different players interleave. Each
+  // step is one logged choice by one player, kept so that a player can undo
+  // their own moves by replaying everyone else's from the start of the phase.
+
+  interface ActionStep {
+    playerIndex: number;
+    // As applied to the engine: a destroy, then the follow-up answering it.
+    choices: Choice[];
+    draws: DrawEvent[][];
+    entry: StructuredLogEntry | null;
+  }
+
+  let actionPhase: { round: number; start: GameState; logLength: number } | null = null;
+  let actionSteps: ActionStep[] = $state.raw([]);
+  // Each player's destroy that is still waiting for the choice answering it.
+  const awaitingFollowUp = new Map<number, ActionStep>();
+
+  function beginActionPhase() {
+    actionPhase = { round: gameState.round, start: cloneGameState(gameState), logLength: gameLog.length };
+    actionSteps = [];
+    awaitingFollowUp.clear();
+  }
+
+  function loggedChoice(step: ActionStep): Choice {
+    const [first, followUp] = step.choices;
+    return followUp ? buildCompoundChoice((first as { card: Card }).card, followUp)! : first;
+  }
+
+  function reviseEntry(step: ActionStep) {
+    if (!step.entry) return;
+    const draws = step.draws.flat();
+    step.entry.choice = loggedChoice(step);
+    step.entry.draws = draws.length > 0 ? draws : undefined;
+  }
+
+  function syncActionLog() {
+    const lines = actionSteps.flatMap(step => {
+      const message = getChoiceLogMessage(gameState, loggedChoice(step), step.playerIndex);
+      return message ? message.split('\n') : [];
+    });
+    gameLog = [...gameLog.slice(0, actionPhase!.logLength), ...lines];
+  }
+
+  function playActionChoice(playerIndex: number, choice: Choice) {
+    const draws = applyChoice(gameState, playerIndex, choice);
+    const awaiting = awaitingFollowUp.get(playerIndex);
+    awaitingFollowUp.delete(playerIndex);
+
+    if (awaiting && buildCompoundChoice((awaiting.choices[0] as { card: Card }).card, choice)) {
+      awaiting.choices.push(choice);
+      awaiting.draws.push(draws);
+      reviseEntry(awaiting);
+      actionSteps = [...actionSteps];
+    } else {
+      const entry = gameLogAccumulator?.recordChoice(actionPhase!.start, choice, playerIndex, draws) ?? null;
+      const step: ActionStep = { playerIndex, choices: [choice], draws: [draws], entry };
+      actionSteps = [...actionSteps, step];
+      if (isCompoundableDestroy(choice)) awaitingFollowUp.set(playerIndex, step);
+    }
+
+    syncActionLog();
+    onGameUpdated(gameState, gameLog);
+  }
+
+  function lastStepOf(playerIndex: number): number {
+    for (let i = actionSteps.length - 1; i >= 0; i--) {
+      if (actionSteps[i].playerIndex === playerIndex) return i;
+    }
+    return -1;
+  }
+
+  function canUndo(playerIndex: number): boolean {
+    return isTakingActionTurn(gameState, playerIndex) && lastStepOf(playerIndex) >= 0;
+  }
+
+  // Take back the player's last choice, then replay the phase without it.
+  function undoActionChoice(playerIndex: number) {
+    if (!canUndo(playerIndex)) return;
+    const index = lastStepOf(playerIndex);
+    const step = actionSteps[index];
+    if (step.choices.length > 1) {
+      step.choices.pop();
+      step.draws.pop();
+      reviseEntry(step);
+      actionSteps = [...actionSteps];
+    } else {
+      if (step.entry) gameLogAccumulator?.removeEntry(step.entry);
+      actionSteps = actionSteps.filter((_, i) => i !== index);
+    }
+
+    const state = cloneGameState(actionPhase!.start);
+    for (const s of actionSteps) {
+      for (const choice of s.choices) applyChoice(state, s.playerIndex, choice);
+    }
+    gameState = state;
+
+    // A destroy left as the player's last move is again waiting for its follow-up.
+    awaitingFollowUp.delete(playerIndex);
+    const last = actionSteps[lastStepOf(playerIndex)];
+    if (last && last.choices.length === 1 && isCompoundableDestroy(last.choices[0])) {
+      const stack = state.phase.type === 'action' ? state.phase.actionState.turns[playerIndex].abilityStack : [];
+      if (stack.at(-1)?.type === firstDestroyAbility(last.choices[0].card)?.type) {
+        awaitingFollowUp.set(playerIndex, last);
+      }
+    }
+
+    syncActionLog();
+    onGameUpdated(gameState, gameLog);
+  }
+
+  // Start each AI's turn as the phase opens, and again after a failed one is retried.
+  $effect(() => {
+    if (gameState.phase.type !== 'action' || aiError) return;
+    untrack(() => {
+      if (actionPhase?.round !== gameState.round) beginActionPhase();
+      startAITurns();
+    });
+  });
+
+  function startAITurns() {
+    const aiSeats = gameState.aiPlayers.flatMap((ai, i) => (ai ? [i] : []));
+    aiActionTurns.start(
+      gameState,
+      aiSeats,
+      seat => aiIterations[seat],
+      (seat, choice) => {
+        if (!isTakingActionTurn(gameState, seat)) return false;
+        playActionChoice(seat, choice);
+        return true;
+      },
+      () => { thinkingInActionPhase = aiActionTurns.thinking; },
+      e => {
+        console.error('AI action error:', e);
+        aiError = String(e);
+      },
+    );
+  }
+
+  // ── Buyers and draft ──
+
   // Unified action handler for both human UI and AI choices
-  function handleAction(choice: Choice) {
+  function handleAction(playerIndex: number, choice: Choice) {
     // Draft picks use simultaneous picking
     if (gameState.phase.type === 'draft' && choice.type === 'draftPick') {
       handleDraftPick(choice);
       return;
     }
-
-    const playerIdx = getActivePlayerIndex(gameState);
-
-    // Check if this follow-up can be combined with a pending destroy
-    if (pendingDestroyCard !== null) {
-      const compound = buildCompoundChoice(pendingDestroyCard, choice);
-      if (compound !== null) {
-        pendingDestroyCard = null;
-        // Replace the destroy log entry + this follow-up with the compound choice
-        gameLogAccumulator?.replaceLastEntry(gameState, compound, playerIdx);
-        const draws = applyChoice(gameState, choice);
-        gameLogAccumulator?.attachDrawsToLastEntry(draws);
-        // Replace log message: remove the destroy message and add compound message
-        const compoundLogMsg = getChoiceLogMessage(gameState, compound, playerIdx);
-        // Pop the destroy log message we added earlier
-        gameLog.pop();
-        if (compoundLogMsg) addLog(compoundLogMsg);
-        onGameUpdated(gameState, gameLog);
-        return;
-      }
-      // Follow-up wasn't compound-able (e.g. gainPrimary from a workshopped action card)
-      pendingDestroyCard = null;
+    if (gameState.phase.type === 'action') {
+      playActionChoice(playerIndex, choice);
+      return;
     }
 
-    // Push undo snapshot for action phase choices (except endTurn)
-    if (gameState.phase.type === 'action' && choice.type !== 'endTurn') {
-      pushUndoSnapshot();
-    }
-
-    // Check if this is a destroy that starts a compound sequence
-    if (isCompoundableDestroy(choice)) {
-      pendingDestroyCard = choice.card as Card;
-    }
-
-    const logMsg = getChoiceLogMessage(gameState, choice, playerIdx);
-    gameLogAccumulator?.recordChoice(gameState, choice, playerIdx);
-    const draws = applyChoice(gameState, choice);
+    const logMsg = getChoiceLogMessage(gameState, choice, playerIndex);
+    gameLogAccumulator?.recordChoice(gameState, choice, playerIndex);
+    const draws = applyChoice(gameState, playerIndex, choice);
     gameLogAccumulator?.attachDrawsToLastEntry(draws);
     if (logMsg) addLog(logMsg);
 
@@ -315,57 +438,65 @@
     }
   });
 
-  // Trigger AI turn when the active player is AI (action phase only)
+  // Trigger the AI's claim when an AI is seated in the buyers phase
   $effect(() => {
     if (aiThinking || aiError) return;
-    if (gameState.phase.type === 'gameOver') return;
-    if (gameState.phase.type === 'draw') return;
-    if (gameState.phase.type === 'draft') return; // draft AI handled by resolveAIDraftPicks
+    if (gameState.phase.type !== 'buyers') return;
 
-    if (!isCurrentPlayerAI(gameState)) return;
-
-    const playerIdx = getActivePlayerIndex(gameState);
+    const playerIdx = gameState.phase.buyersState.currentPlayerIndex;
+    if (!gameState.aiPlayers[playerIdx]) return;
 
     aiThinking = true;
 
     aiController.getAIChoice(gameState, playerIdx, aiIterations[playerIdx]).then((choice) => {
       aiThinking = false;
-      handleAction(choice);
+      handleAction(playerIdx, choice);
     }).catch((e) => {
-      console.error('AI action error:', e);
+      console.error('AI buyers error:', e);
       aiThinking = false;
       aiError = String(e);
     });
   });
 </script>
 
-<GameLayout {gameState} {activePlayerIndex} {aiThinking} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} {selectedPlayerIndex} onSelectPlayer={selectPlayer} {aiError} onRetryAI={() => { aiError = null; }} hidePlayerCards={isViewingActiveHuman && gameState.phase.type === 'action'} {draftCardOrder}>
+<GameLayout {gameState} actingPlayers={shownActingPlayers} {thinkingPlayers} controlledPlayerIndex={isViewingActiveHuman ? selectedPlayerIndex : -1} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} {selectedPlayerIndex} onSelectPlayer={selectPlayer} {aiError} onRetryAI={() => { aiError = null; }} hidePlayerCards={isViewingActiveHuman && gameState.phase.type === 'action'} {draftCardOrder}>
   {#if gameState.phase.type === 'buyers'}
     {#if isViewingActiveHuman}
-      <BuyersPhaseView {gameState} onAction={handleAction} />
+      <BuyersPhaseView {gameState} onAction={(choice) => handleAction(selectedPlayerIndex, choice)} />
     {:else}
       <div class="waiting-indicator">
         <span class="waiting-spinner"></span>
-        <span class="waiting-text">{aiThinking && selectedPlayerIndex === activePlayerIndex ? 'Thinking...' : 'Waiting...'}</span>
+        <span class="waiting-text">{waitingText}</span>
       </div>
     {/if}
   {:else if gameState.phase.type === 'draft'}
     {#if isViewingActiveHuman}
-      <DraftPhaseView {gameState} onAction={handleAction} playerIndex={humanPlayerIndex} selectable={!humanPicked} />
+      <DraftPhaseView {gameState} onAction={(choice) => handleAction(humanPlayerIndex, choice)} playerIndex={humanPlayerIndex} selectable={!humanPicked} />
     {:else}
       <div class="waiting-indicator">
         <span class="waiting-spinner"></span>
-        <span class="waiting-text">{aiThinking ? 'Thinking...' : 'Waiting...'}</span>
+        <span class="waiting-text">{waitingText}</span>
       </div>
     {/if}
   {:else if gameState.phase.type === 'action'}
-    <div style:display={isViewingActiveHuman ? 'contents' : 'none'}>
-      <ActionPhaseView {gameState} onAction={handleAction} onUndo={performUndo} undoAvailable={undoStack.length > 0} {draftCardOrder} />
-    </div>
+    {#if actionViewSeat >= 0 && isActingHuman(actionViewSeat)}
+      {#key actionViewSeat}
+        <div style:display={isViewingActiveHuman ? 'contents' : 'none'}>
+          <ActionPhaseView
+            {gameState}
+            playerIndex={actionViewSeat}
+            onAction={(choice) => handleAction(actionViewSeat, choice)}
+            onUndo={() => undoActionChoice(actionViewSeat)}
+            undoAvailable={canUndo(actionViewSeat)}
+            {draftCardOrder}
+          />
+        </div>
+      {/key}
+    {/if}
     {#if !isViewingActiveHuman}
       <div class="waiting-indicator">
         <span class="waiting-spinner"></span>
-        <span class="waiting-text">{aiThinking && selectedPlayerIndex === activePlayerIndex ? 'Thinking...' : 'Waiting...'}</span>
+        <span class="waiting-text">{waitingText}</span>
       </div>
     {/if}
   {/if}

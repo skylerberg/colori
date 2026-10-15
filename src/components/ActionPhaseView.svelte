@@ -8,29 +8,29 @@
 
   let {
     gameState,
+    playerIndex,
     onAction,
     onUndo,
     undoAvailable,
     draftCardOrder,
   }: {
     gameState: GameState;
+    playerIndex: number;
     onAction: (choice: Choice) => void;
     onUndo: () => void;
     undoAvailable: boolean;
     draftCardOrder?: number[][];
   } = $props();
 
-  let actionState = $derived(
-    gameState.phase.type === 'action' ? gameState.phase.actionState : null
+  let turn = $derived(
+    gameState.phase.type === 'action' ? gameState.phase.actionState.turns[playerIndex] : null
   );
 
-  let currentPlayer = $derived(
-    actionState ? gameState.players[actionState.currentPlayerIndex] : null
-  );
+  let currentPlayer = $derived(turn ? gameState.players[playerIndex] : null);
 
   let topAbility: Ability | null = $derived(
-    actionState && actionState.abilityStack.length > 0
-      ? actionState.abilityStack[actionState.abilityStack.length - 1]
+    turn && turn.abilityStack.length > 0
+      ? turn.abilityStack[turn.abilityStack.length - 1]
       : null
   );
   let hasPendingChoice = $derived(topAbility !== null);
@@ -41,14 +41,14 @@
   let workshoppedIds = $derived(
     currentPlayer ? currentPlayer.workshoppedCards.map(c => c.instanceId) : []
   );
-  let hasAbilitiesQueued = $derived((actionState?.abilityStack.length ?? 0) > 0);
+  let hasAbilitiesQueued = $derived((turn?.abilityStack.length ?? 0) > 0);
 
   // Cards moved in from the workshop are not in the draft order, so
   // `orderByDraftOrder` appends them after the ones that were drafted.
   let draftedDisplayCards = $derived.by(() => {
-    if (!currentPlayer || !actionState) return [];
+    if (!currentPlayer) return [];
     return draftCardOrder
-      ? orderByDraftOrder(currentPlayer.draftedCards, draftCardOrder[actionState.currentPlayerIndex])
+      ? orderByDraftOrder(currentPlayer.draftedCards, draftCardOrder[playerIndex])
       : currentPlayer.draftedCards;
   });
 
@@ -122,7 +122,7 @@
     return {
       workshop: currentPlayer.workshopCards.length > 0,
       mixColors: canMixAny(currentPlayer.colorWheel, currentPlayer.wildPrimaries),
-      sell: currentPlayer.buyers.some(b => canSell(gameState, b.instanceId)),
+      sell: currentPlayer.buyers.some(b => canSell(currentPlayer!, b.instanceId)),
     };
   });
 
@@ -130,12 +130,12 @@
 
 </script>
 
-{#if actionState && currentPlayer}
+{#if turn && currentPlayer}
   <div class="action-phase">
-    <h2 class="phase-title">Action Phase - {gameState.playerNames[actionState.currentPlayerIndex]}'s Turn</h2>
+    <h2 class="phase-title">Action Phase - {gameState.playerNames[playerIndex]}'s Turn</h2>
     <div class="queue-status">
       {#if hasAbilitiesQueued}
-        <span class="queue-info">Abilities queued: {actionState.abilityStack.length}</span>
+        <span class="queue-info">Abilities queued: {turn.abilityStack.length}</span>
       {/if}
       {#if hasPendingChoice}
         <span class="pending-info">Awaiting your choice...</span>
@@ -143,7 +143,7 @@
     </div>
 
     {#if hasPendingChoice && !workshopPendingChoice}
-      <AbilityPrompt {gameState} {onAction} />
+      <AbilityPrompt {gameState} {playerIndex} {onAction} />
     {/if}
 
     <div class="sections">

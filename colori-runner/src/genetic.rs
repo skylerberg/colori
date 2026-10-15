@@ -1,11 +1,12 @@
 use crate::cli::{TrainArgs, load_heuristic_params};
-use colori_core::colori_game::apply_choice_to_state;
+use colori_core::colori_game::{apply_choice_to_state, ActionPhaseViews};
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::ismcts::MctsConfig;
 use colori_core::mcts_impl::ColoriSearcher;
 use colori_core::scoring::{score_in_half_points, HeuristicParams};
 use colori_core::setup::create_initial_game_state;
-use colori_core::types::GamePhase;
+use colori_core::game_log::DrawLog;
+use colori_core::types::{GamePhase, GameState};
 use rand::RngExt;
 use rand::SeedableRng;
 use std::sync::atomic::Ordering;
@@ -260,6 +261,10 @@ fn tournament_select(
     fitness[best_idx].0
 }
 
+fn is_taking_turn(state: &GameState, player_index: usize) -> bool {
+    matches!(&state.phase, GamePhase::Action { action_state } if !action_state.turns[player_index].ended)
+}
+
 fn run_ga_game(
     params_a: &HeuristicParams,
     params_b: &HeuristicParams,
@@ -285,27 +290,47 @@ fn run_ga_game(
 
     execute_draw_phase(&mut state, rng);
 
-    let max_steps = 5000;
-    for _ in 0..max_steps {
+    let decide = |state: &GameState, player_index: usize, rng: &mut WyRand| {
+        let mut searcher = ColoriSearcher::new(state);
+        searcher.search(state, player_index, &configs[player_index], None, rng).choice
+    };
+
+    let mut decisions = 0;
+    while decisions < 5000 {
         match &state.phase {
             GamePhase::GameOver => break,
-            GamePhase::Draw => {
-                execute_draw_phase(&mut state, rng);
-                continue;
+            GamePhase::Draw => execute_draw_phase(&mut state, rng),
+            GamePhase::Buyers { buyers_state } => {
+                let player_index = buyers_state.current_player_index;
+                let choice = decide(&state, player_index, rng);
+                apply_choice_to_state(&mut state, player_index, &choice, rng);
+                decisions += 1;
             }
-            _ => {}
+            GamePhase::Draft { draft_state } => {
+                let player_index = draft_state.current_player_index;
+                let choice = decide(&state, player_index, rng);
+                apply_choice_to_state(&mut state, player_index, &choice, rng);
+                decisions += 1;
+            }
+            GamePhase::Action { .. } => {
+                // Each player decides their turn blind to the other's, as
+                // they would acting at the same time.
+                let mut views = ActionPhaseViews::new(&state);
+                for player_index in 0..num_players {
+                    while is_taking_turn(views.view(player_index), player_index) {
+                        let choice = decide(views.view(player_index), player_index, rng);
+                        state.draw_log = Some(DrawLog::Recording(Vec::new()));
+                        apply_choice_to_state(&mut state, player_index, &choice, rng);
+                        let draws = match state.draw_log.take() {
+                            Some(DrawLog::Recording(events)) => events,
+                            _ => Vec::new(),
+                        };
+                        views.apply(player_index, &choice, &draws);
+                        decisions += 1;
+                    }
+                }
+            }
         }
-
-        let player_index = match &state.phase {
-            GamePhase::Draft { draft_state } => draft_state.current_player_index,
-            GamePhase::Action { action_state } => action_state.current_player_index,
-            _ => continue,
-        };
-
-        let config = &configs[player_index];
-        let mut searcher = ColoriSearcher::new(&state);
-        let result = searcher.search(&state, player_index, config, None, rng);
-        apply_choice_to_state(&mut state, &result.choice, rng);
     }
 
     let score_a = score_in_half_points(&state.players[0]);

@@ -813,11 +813,27 @@ pub struct BuyersState {
     pub current_player_index: usize,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerTurn {
+    pub ability_stack: AbilityStack,
+    pub ended: bool,
+}
+
+/// Everyone takes their action turn at the same time, so each seat has its own
+/// abilities waiting to resolve and ends its own turn.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActionState {
-    pub current_player_index: usize,
-    pub ability_stack: AbilityStack,
+    pub turns: FixedVec<PlayerTurn, MAX_PLAYERS>,
+}
+
+impl ActionState {
+    /// The lowest seat still taking its turn. Order means nothing here; this
+    /// is for drivers that make one decision at a time.
+    pub fn first_unended(&self) -> Option<usize> {
+        self.turns.iter().position(|turn| !turn.ended)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

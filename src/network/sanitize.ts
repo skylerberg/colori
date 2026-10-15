@@ -38,12 +38,14 @@ export function sanitizeGameState(
       },
     };
   } else if (fullState.phase.type === 'action') {
-    const actionState = fullState.phase.actionState;
+    // Everyone's turn is public, as it is played.
     phase = {
       type: 'action',
       actionState: {
-        currentPlayerIndex: actionState.currentPlayerIndex,
-        abilityStack: actionState.abilityStack.map(a => ({ ...a })),
+        turns: fullState.phase.actionState.turns.map(turn => ({
+          abilityStack: turn.abilityStack.map(a => ({ ...a })),
+          ended: turn.ended,
+        })),
       },
     };
   } else if (fullState.phase.type === 'buyers') {

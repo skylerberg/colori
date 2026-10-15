@@ -81,7 +81,7 @@ Each player has:
 
 ## Round Structure
 
-The game is played over **7 rounds**. Each round has four phases. The starting player rotates each round: player `(round - 1) % numPlayers` goes first.
+The game is played over **7 rounds**. Each round has four phases. The starting player rotates each round: player `(round - 1) % numPlayers` claims first in the Buyers Phase.
 
 At the start of the later rounds, every player collects income:
 
@@ -130,7 +130,9 @@ If both the display and the deck are empty there is nothing to claim, and the sl
 
 ### 4. Action Phase
 
-Each player takes one turn, starting with the starting player for the round. On your turn, you may destroy any number of your **drafted** cards, one at a time. Each destroyed card triggers its destroy ability (see Abilities below); a card with two resolves them in the order printed. You must fully resolve a card's abilities before destroying another card. When you are done destroying cards (or choose to stop), your turn ends.
+Everyone takes their turn at the same time. Nothing you do on your turn touches anyone else's cards, colors, materials or buyers, so there is no turn order: you can watch the others play, but nothing they do changes what you can do. The round ends once everyone has ended their turn.
+
+On your turn, you may destroy any number of your **drafted** cards, one at a time. Each destroyed card triggers its destroy ability (see Abilities below); a card with two resolves them in the order printed. You must fully resolve a card's abilities before destroying another card. When you are done destroying cards (or choose to stop), your turn ends.
 
 **Spending ducats.** Between destroys — whenever no ability is waiting on you — you may spend **1 ducat** for any of:
 
@@ -146,9 +148,9 @@ Buying a Sell does not conjure a sale out of nothing: it still spends the materi
 
 You cannot buy something that would do nothing: Sell needs an affordable buyer, Workshop needs a card in your workshop, and Mix Colors needs two colors on your wheel that can be mixed.
 
-At the end of each player's turn:
-- Every card in the workshop — including the rotated ones already used this round — is shuffled together and placed on the **bottom** of that player's personal deck.
-- Any un-destroyed drafted cards move into the player's workshop, where they are available from the start of the next round.
+At the end of your turn:
+- Every card in your workshop — including the rotated ones already used this round — is shuffled together and placed on the **bottom** of your personal deck.
+- Any un-destroyed drafted cards move into your workshop, where they are available from the start of the next round.
 
 All player information (workshop, drafted cards, color wheel, stored materials, ducats) is public during the action phase.
 
