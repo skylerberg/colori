@@ -2,7 +2,7 @@
   import type { GameState, Choice, Card, CardInstance, Ability } from '../data/types';
   import { executeDrawPhase, applyChoice, simultaneousPick, advanceDraft, getChoiceLogMessage, cloneGameState } from '../engine/wasmEngine';
   import { getCardData } from '../data/cards';
-  import { AIController, type PrecomputeRequest } from '../ai/aiController';
+  import { AIController, type DraftPicker } from '../ai/aiController';
   import type { GameLogAccumulator } from '../gameLog';
   import { getActivePlayerIndex, isCurrentPlayerAI, orderByDraftOrder } from '../gameUtils';
   import GameLayout from './GameLayout.svelte';
@@ -106,9 +106,9 @@
   const aiController = new AIController();
   // svelte-ignore state_referenced_locally
   aiController.aiStyle = aiStyle;
+  $effect(() => () => aiController.terminate());
 
-  // Simultaneous draft state
-  let submittedDraftPicks: Set<number> = $state(new Set());
+  let humanPicked = $state(false);
   let humanPlayerIndex = $derived(gameState.aiPlayers.findIndex(ai => !ai));
 
   // When the phase is 'draw', automatically execute the draw phase.
@@ -118,8 +118,7 @@
       addLog(`Round ${gameState.round} began`);
       const drawPhaseDraws = executeDrawPhase(gameState);
       gameLogAccumulator?.recordDrawPhaseDraws(drawPhaseDraws);
-      // Reset draft state for the new round
-      submittedDraftPicks = new Set();
+      humanPicked = false;
       draftCardOrder = gameState.players.map(() => []);
       onGameUpdated(gameState, gameLog);
     }
@@ -132,7 +131,7 @@
   let selectedPlayer = $derived(gameState.players[selectedPlayerIndex]);
   let isViewingActiveHuman = $derived.by(() => {
     if (gameState.phase.type === 'draft') {
-      return selectedPlayerIndex === humanPlayerIndex && !submittedDraftPicks.has(humanPlayerIndex);
+      return selectedPlayerIndex === humanPlayerIndex && !humanPicked;
     }
     return selectedPlayerIndex === activePlayerIndex && activePlayerIndex >= 0 && !gameState.aiPlayers[selectedPlayerIndex];
   });
@@ -251,33 +250,26 @@
     if (newCard) {
       draftCardOrder[humanPlayerIndex] = [...draftCardOrder[humanPlayerIndex], newCard.instanceId];
     }
-    submittedDraftPicks.add(humanPlayerIndex);
+    humanPicked = true;
     onGameUpdated(gameState, gameLog);
-    resolveAIDraftPicks();
+  }
+
+  function aiDraftPickers(): DraftPicker[] {
+    if (gameState.phase.type !== 'draft') return [];
+    const { hands } = gameState.phase.draftState;
+    return gameState.aiPlayers.flatMap((isAI, playerIndex) =>
+      isAI && hands[playerIndex].length > 0 ? [{ playerIndex, iterations: aiIterations[playerIndex] }] : []
+    );
   }
 
   async function resolveAIDraftPicks() {
+    aiThinking = true;
     try {
-      aiThinking = true;
-      const ds = gameState.phase.type === 'draft' ? gameState.phase.draftState : null;
-      if (!ds) return;
-
-      const aiIndices = gameState.aiPlayers
-        .map((isAI, idx) => isAI ? idx : -1)
-        .filter(idx => idx >= 0)
-        .filter(idx => !submittedDraftPicks.has(idx))
-        .filter(idx => ds.hands[idx].length > 0);
-
-      // Resolve all AI picks in parallel
       const results = await Promise.all(
-        aiIndices.map(async (playerIdx) => {
-          const precomputed = aiController.waitForPrecomputedChoice(playerIdx, ds.pickNumber);
-          if (precomputed !== null) {
-            return { playerIdx, choice: await precomputed };
-          }
-          const choice = await aiController.getAIChoice(gameState, playerIdx, aiIterations[playerIdx]);
-          return { playerIdx, choice };
-        })
+        aiDraftPickers().map(async (picker) => ({
+          playerIdx: picker.playerIndex,
+          choice: await aiController.draftPick(gameState, picker),
+        }))
       );
 
       // Apply all AI picks
@@ -298,7 +290,7 @@
 
       // Advance draft (rotate hands)
       advanceDraft(gameState);
-      submittedDraftPicks = new Set();
+      humanPicked = false;
       onGameUpdated(gameState, gameLog);
     } catch (e) {
       console.error('AI draft error:', e);
@@ -308,41 +300,24 @@
     }
   }
 
-  // Precompute all AI players' draft picks while human is deciding
+  // The AI players' draft picks are searched while the human decides and
+  // applied once they have picked, or straight away when nobody is human.
   $effect(() => {
     if (gameState.phase.type !== 'draft') {
-      aiController.cancelPrecomputation();
+      aiController.cancelDraftPicks();
       return;
     }
-    const ds = gameState.phase.draftState;
-    if (aiThinking) return;
-    if (submittedDraftPicks.has(humanPlayerIndex)) return; // human already picked
-
-    const requests: PrecomputeRequest[] = [];
-
-    for (let idx = 0; idx < gameState.players.length; idx++) {
-      if (gameState.aiPlayers[idx] && ds.hands[idx].length > 0) {
-        const clone = cloneGameState(gameState);
-        const cloneDs = (clone.phase as { type: 'draft'; draftState: typeof ds }).draftState;
-        cloneDs.currentPlayerIndex = idx;
-
-        requests.push({
-          gameState: clone,
-          playerIndex: idx,
-          pickNumber: ds.pickNumber,
-          iterations: aiIterations[idx],
-        });
-      }
-    }
-
-    if (requests.length > 0) {
-      aiController.precomputeDraftPicks(requests);
+    if (aiThinking || aiError) return;
+    if (humanPlayerIndex >= 0 && !humanPicked) {
+      aiController.startDraftPicks(gameState, aiDraftPickers());
+    } else {
+      resolveAIDraftPicks();
     }
   });
 
   // Trigger AI turn when the active player is AI (action phase only)
   $effect(() => {
-    if (aiThinking) return;
+    if (aiThinking || aiError) return;
     if (gameState.phase.type === 'gameOver') return;
     if (gameState.phase.type === 'draw') return;
     if (gameState.phase.type === 'draft') return; // draft AI handled by resolveAIDraftPicks
@@ -376,11 +351,11 @@
     {/if}
   {:else if gameState.phase.type === 'draft'}
     {#if isViewingActiveHuman}
-      <DraftPhaseView {gameState} onAction={handleAction} playerIndex={humanPlayerIndex} selectable={!submittedDraftPicks.has(humanPlayerIndex)} />
+      <DraftPhaseView {gameState} onAction={handleAction} playerIndex={humanPlayerIndex} selectable={!humanPicked} />
     {:else}
       <div class="waiting-indicator">
         <span class="waiting-spinner"></span>
-        <span class="waiting-text">{aiThinking && selectedPlayerIndex === activePlayerIndex ? 'Thinking...' : 'Waiting...'}</span>
+        <span class="waiting-text">{aiThinking ? 'Thinking...' : 'Waiting...'}</span>
       </div>
     {/if}
   {:else if gameState.phase.type === 'action'}

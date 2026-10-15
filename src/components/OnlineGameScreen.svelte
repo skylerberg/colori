@@ -54,6 +54,7 @@
   // AI controller (host only)
   // svelte-ignore state_referenced_locally
   const aiController = role === 'host' ? new AIController() : null;
+  $effect(() => () => aiController?.terminate());
   let aiGenerationSeq = 0;
 
   let gameState = $derived.by(() => {
@@ -234,12 +235,12 @@
       const mySeq = ++aiGenerationSeq;
       const snapshotAI = [...gameState.aiPlayers];
       Promise.all(
-        aiPlayerIndices.map(playerIdx => {
-          return aiController!.getAIChoice(gameState!, playerIdx, 100000).then(choice => ({
+        aiPlayerIndices.map(playerIdx =>
+          aiController!.draftPick(gameState!, { playerIndex: playerIdx, iterations: 100000 }).then(choice => ({
             playerIdx,
             choice,
-          }));
-        })
+          }))
+        )
       ).then(results => {
         if (mySeq !== aiGenerationSeq) {
           aiThinking = false;
