@@ -244,10 +244,11 @@ fn position(seed: u64, round: u32, min_branching: usize) -> Option<GameState> {
             }
             _ => {}
         }
-        if matches!(get_game_status(&state, None), GameStatus::Terminated { .. }) {
-            return None;
-        }
-        let choices = enumerate_choices(&state);
+        let player = match get_game_status(&state, None) {
+            GameStatus::AwaitingAction { player_index } => player_index,
+            GameStatus::Terminated { .. } => return None,
+        };
+        let choices = enumerate_choices(&state, player);
         if choices.is_empty() {
             return None;
         }
@@ -259,7 +260,7 @@ fn position(seed: u64, round: u32, min_branching: usize) -> Option<GameState> {
             return Some(state);
         }
         let choice = choices[rng.random_range(0..choices.len())].clone();
-        apply_choice_to_state(&mut state, &choice, &mut rng);
+        apply_choice_to_state(&mut state, player, &choice, &mut rng);
     }
 }
 
@@ -299,7 +300,7 @@ fn report_search() {
             GameStatus::AwaitingAction { player_index } => player_index,
             GameStatus::Terminated { .. } => unreachable!("position() rejects terminal states"),
         };
-        let branching = enumerate_choices(&state).len();
+        let branching = enumerate_choices(&state, player).len();
         let horizon = max_rollout_round(&state);
         let config = config(ITERATIONS, false);
 
@@ -438,8 +439,8 @@ fn play_game(seed: u64, config: &MctsConfig, stats: &mut GameStats) {
 
         let horizon = max_rollout_round(&state);
         let outcome = searchers[player].search(&state, player, config, horizon, &mut rng);
-        stats.observe(&state, enumerate_choices(&state).len(), outcome.iterations_used);
-        apply_choice_to_state(&mut state, &outcome.choice, &mut rng);
+        stats.observe(&state, enumerate_choices(&state, player).len(), outcome.iterations_used);
+        apply_choice_to_state(&mut state, player, &outcome.choice, &mut rng);
     }
 
     for player in state.players.iter() {

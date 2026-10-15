@@ -60,7 +60,7 @@ impl GameReplay {
             // Solo mode: use apply_choice_to_state so phantom draft removals
             // are replayed correctly via player_pick's draw log handling.
             self.draft_picks_in_round = 0;
-            apply_choice_to_state(&mut self.state, &entry.choice, &mut self.rng);
+            apply_choice_to_state(&mut self.state, entry.player_index, &entry.choice, &mut self.rng);
         } else if let Choice::DraftPick { card } = &entry.choice {
             simultaneous_pick(&mut self.state, entry.player_index, *card);
             self.draft_picks_in_round += 1;
@@ -70,7 +70,7 @@ impl GameReplay {
             }
         } else {
             self.draft_picks_in_round = 0;
-            apply_choice_to_state(&mut self.state, &entry.choice, &mut self.rng);
+            apply_choice_to_state(&mut self.state, entry.player_index, &entry.choice, &mut self.rng);
         }
 
         self.state.draw_log = None;
@@ -95,9 +95,40 @@ pub fn replay_to(
     entries: &[StructuredLogEntry],
     stop_before_index: usize,
 ) -> GameState {
+    replay_filtered(initial_state_json, initial_draws, entries, stop_before_index, |_| true)
+}
+
+/// What the player making the entry at `stop_before_index` knew when they
+/// made it: the game replayed to just before it, less any moves the others
+/// had made in the same action phase. Everyone acts at once, unseen, so those
+/// are not theirs to know — and they touch nothing of this player's.
+pub fn replay_view_to(
+    initial_state_json: &serde_json::Value,
+    initial_draws: &[DrawEvent],
+    entries: &[StructuredLogEntry],
+    stop_before_index: usize,
+) -> GameState {
+    let Some(next) = entries.get(stop_before_index) else {
+        return replay_to(initial_state_json, initial_draws, entries, stop_before_index);
+    };
+    replay_filtered(initial_state_json, initial_draws, entries, stop_before_index, |entry| {
+        !(next.phase == "action"
+            && entry.phase == "action"
+            && entry.round == next.round
+            && entry.player_index != next.player_index)
+    })
+}
+
+fn replay_filtered(
+    initial_state_json: &serde_json::Value,
+    initial_draws: &[DrawEvent],
+    entries: &[StructuredLogEntry],
+    stop_before_index: usize,
+    include: impl Fn(&StructuredLogEntry) -> bool,
+) -> GameState {
     let mut replay = GameReplay::new(initial_state_json, initial_draws);
 
-    for entry in &entries[..stop_before_index] {
+    for entry in entries[..stop_before_index].iter().filter(|entry| include(entry)) {
         replay.apply_entry(entry);
     }
 

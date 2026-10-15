@@ -42,8 +42,8 @@ export function executeDrawPhase(state: GameState): DrawEvent[] {
   return result.draws;
 }
 
-export function applyChoice(state: GameState, choice: Choice): DrawEvent[] {
-  const resultJson = wasm_apply_choice(JSON.stringify(state), JSON.stringify(choice));
+export function applyChoice(state: GameState, playerIndex: number, choice: Choice): DrawEvent[] {
+  const resultJson = wasm_apply_choice(JSON.stringify(state), playerIndex, JSON.stringify(choice));
   const result: { state: GameState; draws: DrawEvent[] } = JSON.parse(resultJson);
   Object.assign(state, result.state);
   return result.draws;
@@ -176,9 +176,7 @@ export function determineWinners(players: PlayerState[], playerNames: string[]):
     .map(r => r.name);
 }
 
-export function canSell(state: GameState, sellCardInstanceId: number): boolean {
-  if (state.phase.type !== 'action') return false;
-  const player = state.players[state.phase.actionState.currentPlayerIndex];
+export function canSell(player: PlayerState, sellCardInstanceId: number): boolean {
   // Only the player's own buyers are sellable; the shared display is claimed
   // from during the buyers phase and never sold to directly.
   const sellCardInstance = player.buyers.find(g => g.instanceId === sellCardInstanceId);

@@ -13,7 +13,8 @@ export function setupDraftGame(numPlayers: number): GameState {
 /// get past it.
 function resolveBuyers(state: GameState) {
   while (state.phase.type === 'buyers') {
-    applyChoice(state, { type: 'takeBuyer', sellCard: state.sellCardDisplay[0].card });
+    const claimant = state.phase.buyersState.currentPlayerIndex;
+    applyChoice(state, claimant, { type: 'takeBuyer', sellCard: state.sellCardDisplay[0].card });
   }
 }
 
@@ -28,7 +29,7 @@ export function setupActionGame(numPlayers: number): GameState {
     if (hand.length === 0) break;
 
     // Pick the first card in hand
-    applyChoice(state, { type: 'draftPick', card: hand[0].card });
+    applyChoice(state, ds.currentPlayerIndex, { type: 'draftPick', card: hand[0].card });
   }
 
   return state;

@@ -1,4 +1,4 @@
-import type { GameState, Choice, DrawEvent, StructuredGameLog } from './data/types';
+import type { GameState, Choice, DrawEvent, StructuredGameLog, StructuredLogEntry } from './data/types';
 import { calculateScores } from './engine/wasmEngine';
 
 export class GameLogAccumulator {
@@ -42,20 +42,13 @@ export class GameLogAccumulator {
     }
   }
 
-  truncateEntries(length: number) {
-    this.log.entries = this.log.entries.slice(0, length);
-    this.seq = length;
+  removeEntry(entry: StructuredLogEntry) {
+    const index = this.log.entries.indexOf(entry);
+    if (index >= 0) this.log.entries.splice(index, 1);
   }
 
-  /** Replace the last entry's choice with a compound choice (preserving draws). */
-  replaceLastEntry(_state: GameState, compoundChoice: Choice, _playerIndex: number) {
-    const lastEntry = this.log.entries[this.log.entries.length - 1];
-    if (lastEntry) {
-      lastEntry.choice = compoundChoice;
-    }
-  }
-
-  recordChoice(state: GameState, choice: Choice, playerIndex: number, draws?: DrawEvent[]) {
+  /** Returns the new entry, which stays revisable in place. */
+  recordChoice(state: GameState, choice: Choice, playerIndex: number, draws?: DrawEvent[]): StructuredLogEntry {
     let phase: string;
     if (state.phase.type === 'draft') {
       phase = 'draft';
@@ -65,7 +58,7 @@ export class GameLogAccumulator {
       phase = state.phase.type;
     }
 
-    this.log.entries.push({
+    const entry: StructuredLogEntry = {
       seq: this.seq++,
       timestamp: Date.now(),
       round: state.round,
@@ -73,7 +66,9 @@ export class GameLogAccumulator {
       playerIndex,
       choice,
       draws: draws && draws.length > 0 ? draws : undefined,
-    });
+    };
+    this.log.entries.push(entry);
+    return entry;
   }
 
   finalize(state: GameState) {

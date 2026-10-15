@@ -7,9 +7,12 @@
 //!   parameters, the precomputed card table, per-player scores at the root, the
 //!   rollout horizon. Keeping it out of `GameState` means it is not copied on
 //!   every determinization.
-//! * [`DraftModel`] holds the DUCT bandit over opponent draft picks. Those picks
-//!   are deliberately not tree nodes, so they live in the search's side state
-//!   and are advanced through the `advance` hook.
+//! * [`OpponentModel`] plays the opponents' simultaneous moves: the DUCT
+//!   bandit over their draft picks, and a tree per opponent over their own
+//!   action turn (`crate::opponent_turns`). Neither is part of the searching
+//!   player's tree, where every move is conditioned on the moves above it, so
+//!   they live in the search's side state and are advanced through the
+//!   `advance` hook.
 //! * The rollout is handed over whole, so the expert policy can keep resolving
 //!   an entire draft phase in one step.
 
@@ -20,6 +23,7 @@ use crate::choices::enumerate_choices_into;
 use crate::colori_game::{apply_choice_to_state, determinize_in_place};
 use crate::ismcts::MctsConfig;
 use crate::ismcts::{advance_past_opponent_draft_picks, OpponentDraftStats};
+use crate::opponent_turns::{OpponentTurns, TurnPolicy};
 use crate::rollout::{apply_heuristic_rollout_step, apply_rollout_step};
 use crate::scoring::{
     calculate_ducat_score, compute_heuristic_rewards, compute_terminal_rewards, heuristic_score,
@@ -35,6 +39,9 @@ pub type SearchNode = mcts::Node<Choice>;
 
 /// Constant for one search. Never cloned per iteration.
 pub struct SearchContext {
+    /// The player searching. In the action phase everyone acts at once, and
+    /// this is who the tree is for.
+    pub perspective: usize,
     pub heuristic_params: HeuristicParams,
     pub card_table: CardHeuristicTable,
     /// Scores at the root, restored after every determinization because
@@ -59,6 +66,7 @@ impl SearchContext {
     /// from its config, so both implementations search to the same depth.
     pub fn new(
         state: &GameState,
+        perspective: usize,
         params: &HeuristicParams,
         use_heuristic_eval: bool,
         max_rollout_round: Option<u32>,
@@ -88,6 +96,7 @@ impl SearchContext {
         }
 
         Self {
+            perspective,
             heuristic_params: params.clone(),
             card_table: CardHeuristicTable::new(params),
             cached_ducat_scores,
@@ -116,22 +125,44 @@ impl SearchContext {
     }
 }
 
-/// A flat bandit over opponent draft picks, plus this iteration's picks so they
-/// can be credited once the iteration's payoffs are known.
+/// The opponents' simultaneous moves, played outside the tree and rewarded
+/// separately once each iteration's payoffs are known.
 ///
-/// Opponent draft picks are not modelled as tree nodes — branching on them would
-/// be ruinous — so they are resolved here and rewarded separately.
+/// Draft picks get a flat bandit, plus this iteration's picks so they can be
+/// credited; action turns get a tree per opponent.
 #[derive(Default)]
-pub struct DraftModel {
-    stats: OpponentDraftStats,
+pub struct OpponentModel {
+    draft_stats: OpponentDraftStats,
     pick_log: Vec<(u32, usize, Card)>,
+    turns: OpponentTurns,
+}
+
+impl GameState {
+    /// Whose choice the search makes next. In the action phase that is always
+    /// the searching player: `advance` has already played every opponent's
+    /// turn, and the round ends with the searcher's.
+    fn search_actor(&self, ctx: &SearchContext) -> usize {
+        match &self.phase {
+            GamePhase::Buyers { buyers_state } => buyers_state.current_player_index,
+            GamePhase::Draft { draft_state } => draft_state.current_player_index,
+            GamePhase::Action { action_state } => {
+                debug_assert!(
+                    !action_state.turns[ctx.perspective].ended,
+                    "The searcher's turn is over but the round is not, so an opponent \
+                     was left unplayed"
+                );
+                ctx.perspective
+            }
+            GamePhase::Draw | GamePhase::GameOver => 0,
+        }
+    }
 }
 
 impl Game for GameState {
     type Choice = Choice;
     type Rewards = Rewards;
     type Context = SearchContext;
-    type Side = DraftModel;
+    type Side = OpponentModel;
 
     // Branching runs from a handful to about forty, and `Choice` keeps its
     // payloads inline, so most nodes stay on the linear scan. See the crossover
@@ -150,29 +181,23 @@ impl Game for GameState {
         if ctx.max_rollout_round.is_some_and(|mr| self.round > mr) {
             return Status::Terminal(ctx.evaluate(self));
         }
-        let player = match &self.phase {
-            GamePhase::Buyers { buyers_state } => buyers_state.current_player_index,
-            GamePhase::Draft { draft_state } => draft_state.current_player_index,
-            GamePhase::Action { action_state } => action_state.current_player_index,
-            GamePhase::Draw => 0,
-            GamePhase::GameOver => unreachable!("handled above"),
-        };
         Status::Active {
-            player: player as u8,
+            player: self.search_actor(ctx) as u8,
         }
     }
 
-    fn choices_into(&self, _ctx: &SearchContext, out: &mut Vec<Self::Choice>) {
-        enumerate_choices_into(self, out);
+    fn choices_into(&self, ctx: &SearchContext, out: &mut Vec<Self::Choice>) {
+        enumerate_choices_into(self, self.search_actor(ctx), out);
     }
 
     fn apply_choice<R: Rng + ?Sized>(
         &mut self,
-        _ctx: &SearchContext,
+        ctx: &SearchContext,
         choice: &Self::Choice,
         mut rng: &mut R,
     ) {
-        apply_choice_to_state(self, choice, &mut rng);
+        let actor = self.search_actor(ctx);
+        apply_choice_to_state(self, actor, choice, &mut rng);
     }
 
     fn rollout<R: Rng + ?Sized>(&mut self, ctx: &SearchContext, mut rng: &mut R) -> Rewards {
@@ -226,18 +251,40 @@ impl Game for GameState {
     fn advance<R: Rng + ?Sized>(
         &mut self,
         ctx: &SearchContext,
-        side: &mut DraftModel,
+        side: &mut OpponentModel,
         perspective: u8,
         mut rng: &mut R,
     ) {
         advance_past_opponent_draft_picks(
             self,
             perspective as usize,
-            &mut side.stats,
+            &mut side.draft_stats,
             &mut side.pick_log,
             ctx.exploration_constant,
             &mut rng,
         );
+        // The draft may just have ended, so this runs after it.
+        if matches!(self.phase, GamePhase::Action { .. }) {
+            let policy = TurnPolicy {
+                heuristic: ctx.heuristic_rollout,
+                heuristic_draft: ctx.heuristic_draft,
+                params: &ctx.heuristic_params,
+            };
+            side.turns.play(
+                self,
+                perspective as usize,
+                ctx.exploration_constant,
+                &policy,
+                &mut rng,
+            );
+        }
+    }
+
+    fn init_side(&self, _ctx: &SearchContext, side: &mut OpponentModel) {
+        *side = OpponentModel {
+            turns: OpponentTurns::for_root(self),
+            ..OpponentModel::default()
+        };
     }
 
     fn heuristic_bias(&self, ctx: &SearchContext, perspective: u8) -> f32 {
@@ -249,15 +296,17 @@ impl Game for GameState {
         ) as f32
     }
 
-    fn begin_iteration(side: &mut DraftModel) {
+    fn begin_iteration(side: &mut OpponentModel) {
         side.pick_log.clear();
+        side.turns.begin_iteration();
     }
 
-    fn credit_iteration(side: &mut DraftModel, rewards: &Rewards) {
+    fn credit_iteration(side: &mut OpponentModel, rewards: &Rewards) {
         for &(pick_round, player, card) in &side.pick_log {
-            side.stats
+            side.draft_stats
                 .record_outcome(pick_round as usize, player, card, rewards[player]);
         }
+        side.turns.credit(rewards);
     }
 }
 
@@ -346,6 +395,7 @@ impl ColoriSearcher {
     ) -> SearchOutcome {
         let context = SearchContext::new(
             state,
+            player_index,
             &config.heuristic_params,
             config.use_heuristic_eval,
             max_rollout_round,
@@ -365,12 +415,9 @@ impl ColoriSearcher {
             early_termination: config.early_termination,
             min_reward: 0.0,
             max_reward: reward_ceiling(state),
-            // Knobs that apply only at a simultaneous node. This game is
-            // sequential throughout, so none is reachable — demonstrated by
-            // running the behaviour fingerprint with their flattened
-            // predecessors set to absurd values and getting a byte-identical
-            // result, with the nudge control confirming the harness was still
-            // measuring. Grouped now, so a future knob will not touch this.
+            // Knobs that apply only at a simultaneous node. The tree never
+            // holds one: opponents' simultaneous moves are played outside it,
+            // by `OpponentModel`.
             simultaneous: mcts::SimultaneousConfig::default(),
         };
 
@@ -392,8 +439,10 @@ impl ColoriSearcher {
     }
 
     /// Re-root at `choice` so the next search inherits its statistics. Only
-    /// sound when the next search continues from that position with no hidden
-    /// information revealed in between; the caller owns that judgement.
+    /// sound when the same player's next search continues from that position
+    /// with no hidden information revealed in between; the caller owns that
+    /// judgement. The tree is that player's: in an action phase it holds none
+    /// of anyone else's moves.
     pub fn reuse_subtree(&mut self, choice: &Choice) -> bool {
         self.inner.reuse_subtree(choice)
     }
@@ -475,7 +524,7 @@ mod tests {
             );
             let choice = outcome.choice;
 
-            enumerate_choices_into(&state, &mut choices_buf);
+            enumerate_choices_into(&state, player_index, &mut choices_buf);
             assert!(
                 choices_buf.contains(&choice),
                 "seed={seed} players={num_players} step={step} round={} phase={:?}: \
@@ -484,14 +533,14 @@ mod tests {
                 state.phase
             );
             assert!(
-                check_choice_available(&state, &choice),
+                check_choice_available(&state, player_index, &choice),
                 "seed={seed} players={num_players} step={step} round={} phase={:?}: \
                  chose {choice:?}, which is not available",
                 state.round,
                 state.phase
             );
 
-            apply_choice_to_state(&mut state, &choice, &mut rng);
+            apply_choice_to_state(&mut state, player_index, &choice, &mut rng);
         }
 
         panic!("seed={seed} players={num_players}: game did not finish in 5000 steps");

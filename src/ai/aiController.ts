@@ -8,31 +8,29 @@ export interface DraftPicker {
 }
 
 export class AIController {
-  private worker: Worker;
+  // One per seat, so seats can think at the same time: a worker serves one
+  // search at a time, and a second would take over the first's reply.
+  private workers = new Map<number, Worker>();
   aiStyle: string = 'ga';
 
   private draftWorkers = new Set<Worker>();
   private startedDraftPicks = new Map<string, Promise<Choice>>();
 
-  constructor() {
-    this.worker = new AIWorkerModule();
-  }
-
-  // One search at a time: concurrent calls would share the worker's onmessage.
   getAIChoice(
     gameState: GameState,
     playerIndex: number,
     iterations: number,
   ): Promise<Choice> {
+    const worker = this.workerFor(playerIndex);
     return new Promise((resolve, reject) => {
-      this.worker.onmessage = (event: MessageEvent<AIWorkerResponse>) => {
+      worker.onmessage = (event: MessageEvent<AIWorkerResponse>) => {
         if (event.data.type === 'error') {
           reject(new Error(event.data.message));
         } else {
           resolve(event.data.choice as Choice);
         }
       };
-      this.worker.postMessage(this.request(gameState, playerIndex, iterations));
+      worker.postMessage(this.request(gameState, playerIndex, iterations));
     });
   }
 
@@ -61,8 +59,20 @@ export class AIController {
   }
 
   terminate(): void {
-    this.worker.terminate();
+    for (const worker of this.workers.values()) {
+      worker.terminate();
+    }
+    this.workers.clear();
     this.cancelDraftPicks();
+  }
+
+  private workerFor(playerIndex: number): Worker {
+    let worker = this.workers.get(playerIndex);
+    if (!worker) {
+      worker = new AIWorkerModule();
+      this.workers.set(playerIndex, worker);
+    }
+    return worker;
   }
 
   // Each draft pick gets its own worker so every AI's pick is searched at once.

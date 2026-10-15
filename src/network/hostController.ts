@@ -6,7 +6,7 @@ import { createInitialGameState, executeDrawPhase, simultaneousPick, advanceDraf
 import { sanitizeGameState } from './sanitize';
 import type { StructuredGameLog } from '../data/types';
 import { GameLogAccumulator } from '../gameLog';
-import { getActivePlayerIndex } from '../gameUtils';
+import { isTakingActionTurn } from '../gameUtils';
 
 const DISCONNECT_GRACE_MS = 60_000;
 const MAX_NAME_LENGTH = 20;
@@ -346,8 +346,9 @@ export class HostController {
     this.applyAction(choice, playerIndex);
   }
 
-  applyAction(choice: Choice, playerIndex: number) {
-    if (!this.gameState) return;
+  /** Returns whether the choice was taken. */
+  applyAction(choice: Choice, playerIndex: number): boolean {
+    if (!this.gameState) return false;
     const peerId = this.playerIndexToPeer.get(playerIndex);
 
     if (this.gameState.phase.type === 'draft' && choice.type === 'draftPick') {
@@ -355,7 +356,7 @@ export class HostController {
         if (peerId) {
           this.network.sendToGuest({ type: 'error', message: 'Already picked this round', context: 'draftPick' }, peerId);
         }
-        return;
+        return false;
       }
 
       const ds = this.gameState.phase.draftState;
@@ -363,7 +364,7 @@ export class HostController {
         if (peerId) {
           this.network.sendToGuest({ type: 'error', message: 'No cards to pick this round', context: 'draftPick' }, peerId);
         }
-        return;
+        return false;
       }
 
       try {
@@ -374,7 +375,7 @@ export class HostController {
         if (peerId) {
           this.network.sendToGuest({ type: 'error', message: 'Invalid draft pick', context: 'draftPick' }, peerId);
         }
-        return;
+        return false;
       }
       this.submittedDraftPicks.add(playerIndex);
       this.broadcastGameState([]);
@@ -396,7 +397,7 @@ export class HostController {
           advanceDraft(this.gameState);
         } catch (e) {
           console.error('advanceDraft failed', e);
-          return;
+          return true;
         }
         this.submittedDraftPicks.clear();
         this.executeDrawIfNeeded();
@@ -404,15 +405,19 @@ export class HostController {
         this.onGameStateChanged?.(this.gameState);
         this.onLogUpdated?.(this.gameLog);
       }
-      return;
+      return true;
     }
 
-    const activeIndex = getActivePlayerIndex(this.gameState);
-    if (activeIndex !== playerIndex) {
+    // In the action phase everyone acts at once, until they end their turn.
+    const phase = this.gameState.phase;
+    const mayAct = phase.type === 'action'
+      ? isTakingActionTurn(this.gameState, playerIndex)
+      : phase.type === 'buyers' && phase.buyersState.currentPlayerIndex === playerIndex;
+    if (!mayAct) {
       if (peerId) {
         this.network.sendToGuest({ type: 'error', message: 'Not your turn', context: 'action' }, peerId);
       }
-      return;
+      return false;
     }
 
     let newLogEntries: string[] = [];
@@ -421,14 +426,14 @@ export class HostController {
       const logMsg = getChoiceLogMessage(this.gameState, choice, playerIndex);
       newLogEntries = logMsg ? logMsg.split('\n') : [];
 
-      const draws = applyChoice(this.gameState, choice);
+      const draws = applyChoice(this.gameState, playerIndex, choice);
       this.structuredLog?.attachDrawsToLastEntry(draws);
     } catch (e) {
       console.error('applyChoice failed', e);
       if (peerId) {
         this.network.sendToGuest({ type: 'error', message: 'Invalid action', context: 'action' }, peerId);
       }
-      return;
+      return false;
     }
 
     this.gameLog.push(...newLogEntries);
@@ -436,6 +441,7 @@ export class HostController {
     this.broadcastGameState(newLogEntries);
     this.onGameStateChanged?.(this.gameState);
     this.onLogUpdated?.(this.gameLog);
+    return true;
   }
 
   private executeDrawIfNeeded() {

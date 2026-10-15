@@ -1,17 +1,23 @@
 import type { GameState, CardInstance, PlayerState } from './data/types';
 import { getSellCardData } from './data/cards';
 
-export function getActivePlayerIndex(gs: GameState): number {
-  if (gs.phase.type === 'buyers') {
-    return gs.phase.buyersState.currentPlayerIndex;
+// Players with a decision to make: one at a time in the buyers phase and the
+// draft, and everyone still taking their turn in the action phase.
+export function actingPlayers(gs: GameState): number[] {
+  switch (gs.phase.type) {
+    case 'buyers':
+      return [gs.phase.buyersState.currentPlayerIndex];
+    case 'draft':
+      return [gs.phase.draftState.currentPlayerIndex];
+    case 'action':
+      return gs.phase.actionState.turns.flatMap((turn, i) => (turn.ended ? [] : [i]));
+    default:
+      return [];
   }
-  if (gs.phase.type === 'draft') {
-    return gs.phase.draftState.currentPlayerIndex;
-  }
-  if (gs.phase.type === 'action') {
-    return gs.phase.actionState.currentPlayerIndex;
-  }
-  return -1;
+}
+
+export function isTakingActionTurn(gs: GameState, playerIndex: number): boolean {
+  return gs.phase.type === 'action' && !gs.phase.actionState.turns[playerIndex].ended;
 }
 
 // Mirrors `colori_core::scoring::score_in_half_points`: sell cards and ducats
@@ -19,11 +25,6 @@ export function getActivePlayerIndex(gs: GameState): number {
 export function playerScore(player: Pick<PlayerState, 'completedSellCards' | 'ducats' | 'wildPrimaries' | 'boats'>): number {
   const sold = player.completedSellCards.reduce((sum, sellCard) => sum + getSellCardData(sellCard.card).ducats, 0);
   return sold + player.ducats + (player.wildPrimaries + player.boats) / 2;
-}
-
-export function isCurrentPlayerAI(gs: GameState): boolean {
-  const idx = getActivePlayerIndex(gs);
-  return idx >= 0 && gs.aiPlayers[idx];
 }
 
 export function orderByDraftOrder(cards: CardInstance[], draftOrder: number[]): CardInstance[] {

@@ -29,23 +29,12 @@ fn phase_name(phase: &GamePhase) -> &'static str {
     }
 }
 
-/// Get the instance ID of a drafted card belonging to the current action-phase player.
-fn get_drafted_card_instance(state: &GameState, card: &Card) -> u32 {
-    let drafted = match &state.phase {
-        GamePhase::Action { action_state } => {
-            state.players[action_state.current_player_index].drafted_cards
-        }
-        _ => panic!("Expected action phase"),
-    };
-    find_card_instance(state, card, &drafted)
+fn get_drafted_card_instance(state: &GameState, player_index: usize, card: &Card) -> u32 {
+    find_card_instance(state, card, &state.players[player_index].drafted_cards)
 }
 
-/// Find the first instance of a sell card type among the acting player's buyers.
-fn find_sell_card_instance(state: &GameState, sell_card: &SellCard) -> u32 {
-    let player_index = match &state.phase {
-        GamePhase::Action { action_state } => action_state.current_player_index,
-        _ => panic!("Expected action phase"),
-    };
+/// Find the first instance of a sell card type among the player's buyers.
+fn find_sell_card_instance(state: &GameState, player_index: usize, sell_card: &SellCard) -> u32 {
     for sell_card_instance in state.players[player_index].buyers.iter() {
         if sell_card_instance.sell_card == *sell_card {
             return sell_card_instance.instance_id;
@@ -62,6 +51,17 @@ fn find_display_sell_card_instance(state: &GameState, sell_card: &SellCard) -> u
         }
     }
     panic!("Sell card type {:?} not found in sell card display", sell_card);
+}
+
+/// The first card of type `card` anywhere in the player's workshop area.
+fn find_workshop_area_card(state: &GameState, player_index: usize, card: &Card) -> UnorderedCards {
+    let player = &state.players[player_index];
+    let area = player.workshop_cards.union(player.workshopped_cards);
+    let mut selected = UnorderedCards::new();
+    if let Some(id) = area.iter().find(|&id| state.card_lookup[id as usize] == *card) {
+        selected.insert(id);
+    }
+    selected
 }
 
 /// Resolve a list of card types to instance IDs from a card set, tracking used IDs
@@ -90,150 +90,144 @@ pub(crate) fn resolve_card_types_to_ids(
     Some(ids)
 }
 
-/// Make `mixes` against the mix ability on top of the stack, forfeiting any
-/// mixes it grants beyond them.
-fn resolve_mix_sequence<R: Rng>(state: &mut GameState, mixes: &[(Color, Color)], rng: &mut R) {
-    let granted = match get_action_state(state).ability_stack.last() {
+/// Make `mixes` against the mix ability on top of the player's stack,
+/// forfeiting any mixes it grants beyond them.
+fn resolve_mix_sequence<R: Rng>(
+    state: &mut GameState,
+    player_index: usize,
+    mixes: &[(Color, Color)],
+    rng: &mut R,
+) {
+    let granted = match ability_stack(state, player_index).last() {
         Some(Ability::MixColors { count }) => *count,
         _ => panic!("No pending mix"),
     };
     for &(a, b) in mixes {
-        resolve_mix_colors(state, a, b, rng);
+        resolve_mix_colors(state, player_index, a, b, rng);
     }
     // Checked against the count rather than the stack: once this ability is
     // used up, a mix left on top belongs to something else.
     if (mixes.len() as u32) < granted {
-        skip_mix(state, rng);
+        skip_mix(state, player_index, rng);
     }
 }
 
-pub fn apply_choice<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R) {
+fn resolve_workshop_card_types<R: Rng>(
+    state: &mut GameState,
+    player_index: usize,
+    card_types: &[Card],
+    rng: &mut R,
+) {
+    let card_instance_ids = resolve_card_types_to_ids(
+        card_types,
+        &state.players[player_index].workshop_cards,
+        &state.card_lookup,
+    )
+    .expect("Card types not found in workshop");
+    resolve_workshop_choice(state, player_index, card_instance_ids, rng);
+}
+
+/// Apply `player_index`'s choice. The buyers phase and the draft seat one
+/// player at a time, and it must be theirs; in the action phase anyone still
+/// taking their turn may choose.
+pub fn apply_choice<R: Rng>(state: &mut GameState, player_index: usize, choice: &Choice, rng: &mut R) {
+    match &state.phase {
+        GamePhase::Buyers { buyers_state } => assert_eq!(
+            buyers_state.current_player_index, player_index,
+            "Player {player_index} claimed a buyer out of turn"
+        ),
+        GamePhase::Draft { draft_state } => assert_eq!(
+            draft_state.current_player_index, player_index,
+            "Player {player_index} drafted out of turn"
+        ),
+        GamePhase::Action { action_state } => assert!(
+            !action_state.turns[player_index].ended,
+            "Player {player_index} acted after ending their turn"
+        ),
+        GamePhase::Draw | GamePhase::GameOver => {}
+    }
+
     match choice {
         Choice::DraftPick { card } => {
             let hand = match &state.phase {
-                GamePhase::Draft { draft_state } => {
-                    draft_state.hands[draft_state.current_player_index]
-                }
+                GamePhase::Draft { draft_state } => draft_state.hands[player_index],
                 _ => panic!("Expected draft phase"),
             };
             let card_instance_id = find_card_instance(state, card, &hand);
             player_pick(state, card_instance_id, rng);
         }
         Choice::DestroyDraftedCard { card } => {
-            let card_instance_id = get_drafted_card_instance(state, card);
-            destroy_drafted_card(state, card_instance_id, rng);
+            let card_instance_id = get_drafted_card_instance(state, player_index, card);
+            destroy_drafted_card(state, player_index, card_instance_id, rng);
         }
         Choice::EndTurn => {
-            end_player_turn(state, rng);
+            end_player_turn(state, player_index, rng);
         }
         Choice::Workshop { card_types } => {
-            let workshop = match &state.phase {
-                GamePhase::Action { action_state } => {
-                    state.players[action_state.current_player_index].workshop_cards
-                }
-                _ => panic!("Expected action phase"),
-            };
-            let card_instance_ids = resolve_card_types_to_ids(card_types, &workshop, &state.card_lookup)
-                .expect("Card types not found in workshop");
-            resolve_workshop_choice(state, card_instance_ids, rng);
+            resolve_workshop_card_types(state, player_index, card_types, rng);
         }
         Choice::SkipWorkshop => {
-            skip_workshop(state, rng);
+            skip_workshop(state, player_index, rng);
         }
         Choice::MoveToDraftPool { card } => {
-            let mut selected = UnorderedCards::new();
-            if let Some(card) = card {
-                let area = match &state.phase {
-                    GamePhase::Action { action_state } => {
-                        let p = &state.players[action_state.current_player_index];
-                        p.workshop_cards.union(p.workshopped_cards)
-                    }
-                    _ => panic!("Expected action phase"),
-                };
-                for id in area.iter() {
-                    if state.card_lookup[id as usize] == *card {
-                        selected.insert(id);
-                        break;
-                    }
-                }
-            }
-            resolve_move_to_draft_pool(state, selected, rng);
+            let selected = match card {
+                Some(card) => find_workshop_area_card(state, player_index, card),
+                None => UnorderedCards::new(),
+            };
+            resolve_move_to_draft_pool(state, player_index, selected, rng);
         }
         Choice::SelectSellCard { sell_card } => {
-            let sell_card_instance_id = find_sell_card_instance(state, sell_card);
-            resolve_select_sell_card(state, sell_card_instance_id, rng);
+            let sell_card_instance_id = find_sell_card_instance(state, player_index, sell_card);
+            resolve_select_sell_card(state, player_index, sell_card_instance_id, rng);
         }
-        Choice::GainSecondary { color } => {
-            resolve_gain_color(state, *color, rng);
-        }
-        Choice::GainPrimary { color } => {
-            resolve_gain_color(state, *color, rng);
+        Choice::GainSecondary { color } | Choice::GainPrimary { color } => {
+            resolve_gain_color(state, player_index, *color, rng);
         }
         Choice::GainMaterial { material } => {
-            resolve_gain_material(state, *material, rng);
+            resolve_gain_material(state, player_index, *material, rng);
         }
         Choice::MixAll { mixes } => {
-            resolve_mix_sequence(state, mixes, rng);
+            resolve_mix_sequence(state, player_index, mixes, rng);
         }
         Choice::DestroyAndMix { card, mixes } => {
-            let card_instance_id = get_drafted_card_instance(state, card);
-            destroy_drafted_card(state, card_instance_id, rng);
-            resolve_mix_sequence(state, mixes, rng);
+            let card_instance_id = get_drafted_card_instance(state, player_index, card);
+            destroy_drafted_card(state, player_index, card_instance_id, rng);
+            resolve_mix_sequence(state, player_index, mixes, rng);
         }
         Choice::DestroyAndSell { card, sell_card } => {
-            let card_instance_id = get_drafted_card_instance(state, card);
-            let sell_card_instance_id = find_sell_card_instance(state, sell_card);
-            destroy_drafted_card(state, card_instance_id, rng);
-            resolve_select_sell_card(state, sell_card_instance_id, rng);
+            let card_instance_id = get_drafted_card_instance(state, player_index, card);
+            let sell_card_instance_id = find_sell_card_instance(state, player_index, sell_card);
+            destroy_drafted_card(state, player_index, card_instance_id, rng);
+            resolve_select_sell_card(state, player_index, sell_card_instance_id, rng);
         }
         Choice::DestroyAndWorkshop { card, workshop_cards } => {
-            let card_instance_id = get_drafted_card_instance(state, card);
-            destroy_drafted_card(state, card_instance_id, rng);
+            let card_instance_id = get_drafted_card_instance(state, player_index, card);
+            destroy_drafted_card(state, player_index, card_instance_id, rng);
             // With nothing in the workshop the ability has already fizzled, and
             // whatever is on top now is not this choice's to skip.
             let pending = matches!(
-                get_action_state(state).ability_stack.last(),
+                ability_stack(state, player_index).last(),
                 Some(Ability::Workshop { .. })
             );
             if !pending {
                 assert!(workshop_cards.is_empty(), "No pending workshop choice");
             } else if workshop_cards.is_empty() {
-                skip_workshop(state, rng);
+                skip_workshop(state, player_index, rng);
             } else {
-                let workshop = match &state.phase {
-                    GamePhase::Action { action_state } => {
-                        state.players[action_state.current_player_index].workshop_cards
-                    }
-                    _ => panic!("Expected action phase"),
-                };
-                let card_instance_ids = resolve_card_types_to_ids(workshop_cards, &workshop, &state.card_lookup)
-                    .expect("Card types not found in workshop");
-                resolve_workshop_choice(state, card_instance_ids, rng);
+                resolve_workshop_card_types(state, player_index, workshop_cards, rng);
             }
         }
         Choice::DestroyAndMoveToDraftPool { card, target } => {
-            let card_instance_id = get_drafted_card_instance(state, card);
-            destroy_drafted_card(state, card_instance_id, rng);
-            let mut selected = UnorderedCards::new();
-            if let Some(target_card) = target {
-                let area = match &state.phase {
-                    GamePhase::Action { action_state } => {
-                        let p = &state.players[action_state.current_player_index];
-                        p.workshop_cards.union(p.workshopped_cards)
-                    }
-                    _ => panic!("Expected action phase"),
-                };
-                for id in area.iter() {
-                    if state.card_lookup[id as usize] == *target_card {
-                        selected.insert(id);
-                        break;
-                    }
-                }
-            }
-            resolve_move_to_draft_pool(state, selected, rng);
+            let card_instance_id = get_drafted_card_instance(state, player_index, card);
+            destroy_drafted_card(state, player_index, card_instance_id, rng);
+            let selected = match target {
+                Some(target) => find_workshop_area_card(state, player_index, target),
+                None => UnorderedCards::new(),
+            };
+            resolve_move_to_draft_pool(state, player_index, selected, rng);
         }
         Choice::SpendDucat { purchase } => {
-            resolve_spend_ducat(state, *purchase, rng);
+            resolve_spend_ducat(state, player_index, *purchase, rng);
         }
         Choice::TakeBuyer { sell_card } => {
             let instance_id = find_display_sell_card_instance(state, sell_card);

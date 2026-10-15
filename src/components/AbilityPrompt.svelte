@@ -6,24 +6,23 @@
   import SecondaryColorPrompt from './SecondaryColorPrompt.svelte';
   import MaterialPrompt from './MaterialPrompt.svelte';
 
-  let { gameState, onAction }: {
+  let { gameState, playerIndex, onAction }: {
     gameState: GameState;
+    playerIndex: number;
     onAction: (choice: Choice) => void;
   } = $props();
 
-  let actionState = $derived(
-    gameState.phase.type === 'action' ? gameState.phase.actionState : null
+  let turn = $derived(
+    gameState.phase.type === 'action' ? gameState.phase.actionState.turns[playerIndex] : null
   );
 
   let topAbility: Ability | null = $derived(
-    actionState && actionState.abilityStack.length > 0
-      ? actionState.abilityStack[actionState.abilityStack.length - 1]
+    turn && turn.abilityStack.length > 0
+      ? turn.abilityStack[turn.abilityStack.length - 1]
       : null
   );
 
-  let currentPlayer = $derived(
-    actionState ? gameState.players[actionState.currentPlayerIndex] : null
-  );
+  let currentPlayer = $derived(turn ? gameState.players[playerIndex] : null);
 </script>
 
 {#if topAbility && currentPlayer}
@@ -36,7 +35,7 @@
         {onAction}
       />
     {:else if topAbility.type === 'sell'}
-      <SellCardSelectPrompt {gameState} {onAction} />
+      <SellCardSelectPrompt player={currentPlayer} {onAction} />
     {:else if topAbility.type === 'gainPrimary'}
       <PrimaryColorPrompt {onAction} />
     {:else if topAbility.type === 'gainSecondary'}

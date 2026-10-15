@@ -1,9 +1,11 @@
 use crate::apply_choice::apply_choice;
 use crate::draw_phase::execute_draw_phase;
+use crate::game_log::{DrawEvent, DrawLog};
 use crate::scoring::compute_terminal_rewards;
 use crate::types::*;
 use crate::unordered_cards::UnorderedCards;
-use rand::Rng;
+use rand::{Rng, SeedableRng};
+use wyrand::WyRand;
 
 
 pub use crate::choices::{check_choice_available, enumerate_choices, enumerate_choices_into};
@@ -11,13 +13,58 @@ pub use crate::rollout::{apply_rollout_step, apply_heuristic_rollout_step};
 
 // ── Apply choice with AI post-processing ──
 
-pub fn apply_choice_to_state<R: Rng>(state: &mut GameState, choice: &Choice, rng: &mut R) {
-    apply_choice(state, choice, rng);
+/// Apply the choice and, if it ended the round, run the next draw phase.
+pub fn apply_choice_to_state<R: Rng>(
+    state: &mut GameState,
+    player_index: usize,
+    choice: &Choice,
+    rng: &mut R,
+) {
+    apply_choice(state, player_index, choice, rng);
 
-    if matches!(choice, Choice::EndTurn) {
-        if matches!(state.phase, GamePhase::Draw) {
-            execute_draw_phase(state, rng);
+    if matches!(state.phase, GamePhase::Draw) {
+        execute_draw_phase(state, rng);
+    }
+}
+
+// ── Simultaneous action phase ──
+
+/// Each player's view of an action phase: the state as the phase began, with
+/// only that player's own choices applied since.
+///
+/// Everyone acts at once, and the search models each opponent as unable to
+/// see the searcher's moves. An AI is held to the same by searching its view
+/// rather than the live state, where turns others have already finished would
+/// tell it what they did.
+pub struct ActionPhaseViews {
+    views: Vec<GameState>,
+}
+
+impl ActionPhaseViews {
+    pub fn new(state: &GameState) -> Self {
+        assert!(
+            matches!(state.phase, GamePhase::Action { .. }),
+            "Action phase views start from an action phase"
+        );
+        Self {
+            views: state.players.iter().map(|_| state.clone()).collect(),
         }
+    }
+
+    pub fn view(&self, player_index: usize) -> &GameState {
+        &self.views[player_index]
+    }
+
+    /// Bring `player_index`'s view up to date with a choice they made, given
+    /// what applying it to the live game drew. Replaying those draws keeps
+    /// what the view holds of the player identical to the live state.
+    pub fn apply(&mut self, player_index: usize, choice: &Choice, draws: &[DrawEvent]) {
+        let view = &mut self.views[player_index];
+        view.draw_log = Some(DrawLog::Replaying(draws.iter().cloned().collect()));
+        // Every draw is replayed, so this generator decides nothing.
+        let mut rng = WyRand::seed_from_u64(0);
+        apply_choice_to_state(view, player_index, choice, &mut rng);
+        view.draw_log = None;
     }
 }
 
@@ -25,6 +72,8 @@ pub fn apply_choice_to_state<R: Rng>(state: &mut GameState, choice: &Choice, rng
 
 #[derive(Debug)]
 pub enum GameStatus {
+    /// In the action phase everyone still taking their turn may act; this
+    /// names the lowest such seat, for drivers that take one decision at a time.
     AwaitingAction { player_index: usize },
     Terminated { scores: [f64; MAX_PLAYERS] },
 }
@@ -46,7 +95,9 @@ pub fn get_game_status(state: &GameState, max_round: Option<u32>) -> GameStatus 
             player_index: draft_state.current_player_index,
         },
         GamePhase::Action { action_state } => GameStatus::AwaitingAction {
-            player_index: action_state.current_player_index,
+            player_index: action_state
+                .first_unended()
+                .expect("The round ends as the last turn does"),
         },
         GamePhase::GameOver => GameStatus::Terminated {
             scores: compute_terminal_rewards(&state.players),

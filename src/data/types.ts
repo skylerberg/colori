@@ -137,9 +137,15 @@ export interface DraftState {
   hands: CardInstance[][];
 }
 
-export interface ActionState {
-  currentPlayerIndex: number;
+export interface PlayerTurn {
   abilityStack: Ability[];
+  ended: boolean;
+}
+
+// Everyone takes their action turn at once, each with their own abilities
+// waiting to resolve.
+export interface ActionState {
+  turns: PlayerTurn[];
 }
 
 export type DucatPurchase = 'workshop' | 'mixColors' | 'sell';

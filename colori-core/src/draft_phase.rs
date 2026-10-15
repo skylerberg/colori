@@ -271,7 +271,7 @@ pub fn simultaneous_pick(state: &mut GameState, player_index: usize, card: crate
 mod tests {
     use super::DRAFT_HAND_SIZE;
     use crate::apply_choice::apply_choice;
-    use crate::colori_game::enumerate_choices;
+    use crate::colori_game::{enumerate_choices, get_game_status, GameStatus};
     use crate::draw_phase::execute_draw_phase;
     use crate::scoring::calculate_ducat_score;
     use crate::setup::create_initial_game_state;
@@ -307,8 +307,16 @@ mod tests {
     /// so a test that cares about the draft can get to it.
     fn resolve_buyers<R: rand::Rng>(state: &mut GameState, rng: &mut R) {
         while matches!(state.phase, GamePhase::Buyers { .. }) {
-            let choices = enumerate_choices(state);
-            apply_choice(state, &choices[0], rng);
+            let player = actor(state);
+            let choices = enumerate_choices(state, player);
+            apply_choice(state, player, &choices[0], rng);
+        }
+    }
+
+    fn actor(state: &GameState) -> usize {
+        match get_game_status(state, None) {
+            GameStatus::AwaitingAction { player_index } => player_index,
+            GameStatus::Terminated { .. } => panic!("No one acts in a finished game"),
         }
     }
 
@@ -333,8 +341,9 @@ mod tests {
                 break;
             }
 
-            let choices = enumerate_choices(&state);
-            apply_choice(&mut state, &choices[0], &mut rng);
+            let player = actor(&state);
+            let choices = enumerate_choices(&state, player);
+            apply_choice(&mut state, player, &choices[0], &mut rng);
         }
 
         // Now at round 2 draw phase - execute draw, then claim buyers
@@ -362,11 +371,11 @@ mod tests {
         // for each AI pick.
 
         // AI player 1 picks
-        let choices = enumerate_choices(&state);
+        let choices = enumerate_choices(&state, 1);
         assert!(!choices.is_empty(), "AI player 1 should have draft choices");
         // Round trip before applying choice (simulating frontend state passing)
         state = round_trip(&state);
-        apply_choice(&mut state, &choices[0], &mut rng);
+        apply_choice(&mut state, 1, &choices[0], &mut rng);
         // Round trip after applying choice (the applyChoice WASM call returns serialized state)
         state = round_trip(&state);
 
@@ -379,10 +388,10 @@ mod tests {
         }
 
         // AI player 2 picks
-        let choices = enumerate_choices(&state);
+        let choices = enumerate_choices(&state, 2);
         assert!(!choices.is_empty(), "AI player 2 should have draft choices");
         state = round_trip(&state);
-        apply_choice(&mut state, &choices[0], &mut rng);
+        apply_choice(&mut state, 2, &choices[0], &mut rng);
         state = round_trip(&state);
 
         if let GamePhase::Draft { ref draft_state } = state.phase {
@@ -399,7 +408,7 @@ mod tests {
         // After rotation, each hand should hold one card fewer.
 
         // The human (player 0) should now pick. They should see their hand.
-        let choices = enumerate_choices(&state);
+        let choices = enumerate_choices(&state, 0);
 
         // The human should have choices (may be fewer than hand size due to dedup of same card types)
         let hand_size = if let GamePhase::Draft { ref draft_state } = state.phase {

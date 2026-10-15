@@ -1,10 +1,10 @@
-import Shepherd from 'shepherd.js';
+import Shepherd, { type StepOptionsButton, type Tour } from 'shepherd.js';
 import 'shepherd.js/dist/css/shepherd.css';
 import './tutorialStyles.css';
 
 const TUTORIAL_SEEN_KEY = 'colori-tutorial-seen';
 
-let tour: Shepherd.Tour | null = null;
+let tour: Tour | null = null;
 
 /** Scroll the game-content container to bring an element into view */
 function scrollGameContent(el: HTMLElement) {
@@ -17,7 +17,7 @@ function scrollGameContent(el: HTMLElement) {
   }
 }
 
-function createTour(): Shepherd.Tour {
+function createTour(): Tour {
   const newTour = new Shepherd.Tour({
     useModalOverlay: true,
     defaultStepOptions: {
@@ -28,19 +28,19 @@ function createTour(): Shepherd.Tour {
     },
   });
 
-  const backButton: Shepherd.Step.StepOptionsButton = {
+  const backButton: StepOptionsButton = {
     text: 'Back',
     action() { return newTour.back(); },
     classes: 'shepherd-button-secondary',
   };
 
-  const nextButton: Shepherd.Step.StepOptionsButton = {
+  const nextButton: StepOptionsButton = {
     text: 'Next',
     action() { return newTour.next(); },
     classes: 'shepherd-button-primary',
   };
 
-  const skipButton: Shepherd.Step.StepOptionsButton = {
+  const skipButton: StepOptionsButton = {
     text: 'Skip',
     action() { return newTour.cancel(); },
     classes: 'shepherd-button-skip',
@@ -129,7 +129,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'action-phase-concept',
     title: 'Action Phase',
-    text: 'After drafting, each player takes a turn. On your turn, trash drafted cards one at a time to trigger abilities like Workshop (store colors/materials), Mix Colors (combine two adjacent colors into one), Sell (complete a sell card), or Move a card from your Workshop to your Draft Pool. Some cards do two of these, one after the other. Between trashes you can also spend a ducat for a single Workshop pick, a single Mix, or a Sell. When your turn ends, your workshop is shuffled onto the bottom of your deck and whatever is left in your draft pool becomes your new workshop.',
+    text: 'After drafting, everyone takes their turn at the same time. On your turn, trash drafted cards one at a time to trigger abilities like Workshop (store colors/materials), Mix Colors (combine two adjacent colors into one), Sell (complete a sell card), or Move a card from your Workshop to your Draft Pool. Some cards do two of these, one after the other. Between trashes you can also spend a ducat for a single Workshop pick, a single Mix, or a Sell. When your turn ends, your workshop is shuffled onto the bottom of your deck and whatever is left in your draft pool becomes your new workshop.',
     buttons: [backButton, nextButton],
   });
 

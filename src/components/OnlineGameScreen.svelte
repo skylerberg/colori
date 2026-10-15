@@ -5,15 +5,18 @@
   import type { GuestController } from '../network/guestController';
   import { sanitizedToGameState } from '../network/stateAdapter';
   import { AIController } from '../ai/aiController';
-  import { getActivePlayerIndex, isCurrentPlayerAI } from '../gameUtils';
+  import { AIActionTurns } from '../ai/actionTurns';
+  import { actingPlayers, isTakingActionTurn } from '../gameUtils';
+  import { untrack } from 'svelte';
   import GameLayout from './GameLayout.svelte';
+  import BuyersPhaseView from './BuyersPhaseView.svelte';
   import DraftPhaseView from './DraftPhaseView.svelte';
   import ActionPhaseView from './ActionPhaseView.svelte';
 
   let { role, hostController, guestController, initialGuestState, onGameOver, gameStartTime, onLeaveGame }: {
     role: 'host' | 'guest';
-    hostController?: HostController;
-    guestController?: GuestController;
+    hostController?: HostController | null;
+    guestController?: GuestController | null;
     initialGuestState?: SanitizedGameState | null;
     onGameOver: (gameState: GameState, structuredLog?: StructuredGameLog) => void;
     gameStartTime: number;
@@ -32,6 +35,7 @@
   let guestGameLog: string[] = $state(initialGuestState?.logEntries ? [...initialGuestState.logEntries] : []);
 
   // Shared state
+  // A buyers claim or draft picks being searched for.
   let aiThinking = $state(false);
   // svelte-ignore state_referenced_locally
   let effectiveStartTime = $state(gameStartTime);
@@ -54,8 +58,16 @@
   // AI controller (host only)
   // svelte-ignore state_referenced_locally
   const aiController = role === 'host' ? new AIController() : null;
-  $effect(() => () => aiController?.terminate());
+  const aiActionTurns = aiController ? new AIActionTurns(aiController) : null;
+  let thinkingInActionPhase: number[] = $state([]);
   let aiGenerationSeq = 0;
+
+  $effect(() => {
+    return () => {
+      aiActionTurns?.cancel();
+      aiController?.terminate();
+    };
+  });
 
   let gameState = $derived.by(() => {
     if (role === 'host') {
@@ -72,11 +84,30 @@
     role === 'host' ? 0 : (guestSanitizedState?.myPlayerIndex ?? -1)
   );
 
-  let activePlayerIndex = $derived(
-    gameState ? getActivePlayerIndex(gameState) : -1
+  let acting = $derived(gameState ? actingPlayers(gameState) : []);
+
+  // Whether this player has a buyers claim or an action turn to make.
+  let isMyTurn = $derived(
+    gameState !== null && gameState.phase.type !== 'draft' && acting.includes(myPlayerIndex)
   );
 
-  let isMyTurn = $derived(activePlayerIndex === myPlayerIndex);
+  let thinkingPlayers = $derived.by(() => {
+    if (!gameState) return [];
+    switch (gameState.phase.type) {
+      case 'buyers':
+        return aiThinking ? acting : [];
+      case 'draft':
+        return aiThinking ? gameState.aiPlayers.flatMap((ai, i) => (ai ? [i] : [])) : [];
+      case 'action':
+        return thinkingInActionPhase;
+      default:
+        return [];
+    }
+  });
+
+  let waitingFor = $derived(
+    gameState ? acting.filter(i => i !== myPlayerIndex).map(i => gameState!.playerNames[i]).join(', ') : ''
+  );
 
   let selectedPlayerIndex = $state(0);
 
@@ -275,9 +306,14 @@
       return;
     }
 
-    if (!isCurrentPlayerAI(gameState)) return;
+    if (gameState.phase.type === 'action') {
+      untrack(() => startAITurns());
+      return;
+    }
 
-    const playerIdx = getActivePlayerIndex(gameState);
+    if (gameState.phase.type !== 'buyers') return;
+    const playerIdx = gameState.phase.buyersState.currentPlayerIndex;
+    if (!gameState.aiPlayers[playerIdx]) return;
     aiThinking = true;
     const mySeq = ++aiGenerationSeq;
 
@@ -286,21 +322,41 @@
       if (mySeq !== aiGenerationSeq) return;
       if (!hostController) return;
       const curState = hostController.getGameState();
-      if (!curState || curState.phase.type === 'gameOver') return;
-      // Abandon if this player is no longer AI (reconnected) or no longer the active player.
+      if (!curState || curState.phase.type !== 'buyers') return;
+      // Abandon if this player is no longer AI (reconnected) or no longer the one claiming.
       if (!curState.aiPlayers[playerIdx]) return;
-      if (getActivePlayerIndex(curState) !== playerIdx) return;
+      if (curState.phase.buyersState.currentPlayerIndex !== playerIdx) return;
       hostController.applyAction(choice, playerIdx);
     }).catch((e) => {
-      console.error('AI action error:', e);
+      console.error('AI buyers error:', e);
       aiThinking = false;
     });
   });
 
+  // Each AI seat plays its action turn on its own view, as the phase opens or
+  // as it takes over from a player who left.
+  function startAITurns() {
+    if (!gameState || !hostController || !aiActionTurns) return;
+    const aiSeats = gameState.aiPlayers.flatMap((ai, i) => (ai ? [i] : []));
+    aiActionTurns.start(
+      gameState,
+      aiSeats,
+      () => 100000,
+      (seat, choice) => {
+        const curState = hostController!.getGameState();
+        // A player who reconnected takes their turn back.
+        if (!curState?.aiPlayers[seat] || !isTakingActionTurn(curState, seat)) return false;
+        return hostController!.applyAction(choice, seat);
+      },
+      () => { thinkingInActionPhase = aiActionTurns.thinking; },
+      e => console.error('AI action error:', e),
+    );
+  }
+
 </script>
 
 {#if gameState}
-  <GameLayout {gameState} {activePlayerIndex} {aiThinking} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} {selectedPlayerIndex} onSelectPlayer={selectPlayer} {draftCardOrder}>
+  <GameLayout {gameState} actingPlayers={acting} {thinkingPlayers} controlledPlayerIndex={isMyTurn && selectedPlayerIndex === myPlayerIndex ? myPlayerIndex : -1} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} {selectedPlayerIndex} onSelectPlayer={selectPlayer} {draftCardOrder}>
     {#if connectionBanner}
       <div class="connection-banner" class:warn={connectionBanner.kind === 'warn'}>{connectionBanner.text}</div>
     {/if}
@@ -309,14 +365,16 @@
       <div class="connection-banner warn">Connection to host appears stalled{latencyMs > 0 ? ` (last ping ${latencyMs}ms)` : ''}…</div>
     {/if}
 
-    {#if !isMyTurn && !aiThinking && gameState.phase.type === 'action'}
+    {#if !isMyTurn && waitingFor && (gameState.phase.type === 'action' || gameState.phase.type === 'buyers')}
       <div class="waiting-banner">
         <div class="spinner"></div>
-        <p>Waiting for {gameState.playerNames[activePlayerIndex] ?? 'other player'}...</p>
+        <p>Waiting for {waitingFor}...</p>
       </div>
     {/if}
 
-    {#if gameState.phase.type === 'draft'}
+    {#if gameState.phase.type === 'buyers' && isMyTurn}
+      <BuyersPhaseView {gameState} onAction={handleAction} />
+    {:else if gameState.phase.type === 'draft'}
       <DraftPhaseView {gameState} onAction={handleAction} playerIndex={myPlayerIndex} selectable={!hasPicked} />
       {#if hasPicked}
         <div class="waiting-banner">
@@ -324,7 +382,7 @@
         </div>
       {/if}
     {:else if gameState.phase.type === 'action' && isMyTurn}
-      <ActionPhaseView {gameState} onAction={handleAction} onUndo={() => {}} undoAvailable={false} {draftCardOrder} />
+      <ActionPhaseView {gameState} playerIndex={myPlayerIndex} onAction={handleAction} onUndo={() => {}} undoAvailable={false} {draftCardOrder} />
     {/if}
   </GameLayout>
 {/if}

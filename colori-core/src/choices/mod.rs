@@ -3,7 +3,7 @@ mod mix_sequences;
 mod multiset;
 
 use crate::action_phase::{
-    can_afford_sell_card, can_buy_with_ducat, can_sell_to_any_sell_card, for_each_unique_card_type,
+    can_afford_sell_card, can_buy_with_ducat, can_sell_to_any_buyer, for_each_unique_card_type,
     for_each_unique_card_type_in_workshop_area,
 };
 use crate::apply_choice::resolve_card_types_to_ids;
@@ -45,28 +45,39 @@ pub(crate) fn should_force_max_workshop(state: &GameState, player: &PlayerState)
 
 // ── Choice enumeration ──
 
-pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
+/// What `player_index` may choose now. The buyers phase and the draft seat one
+/// player at a time and offer nothing to anyone else; in the action phase
+/// everyone still taking their turn has choices.
+pub fn enumerate_choices_into(state: &GameState, player_index: usize, choices: &mut Vec<Choice>) {
     choices.clear();
     match &state.phase {
-        GamePhase::Buyers { .. } => {
-            enumerate_buyer_choices(state, choices);
+        GamePhase::Buyers { buyers_state } => {
+            if buyers_state.current_player_index == player_index {
+                enumerate_buyer_choices(state, choices);
+            }
         }
         GamePhase::Draft { draft_state } => {
-            let hand = draft_state.hands[draft_state.current_player_index];
-            for_each_unique_card_type(&hand, &state.card_lookup, |card| {
-                choices.push(Choice::DraftPick { card });
-            });
+            if draft_state.current_player_index == player_index {
+                let hand = draft_state.hands[player_index];
+                for_each_unique_card_type(&hand, &state.card_lookup, |card| {
+                    choices.push(Choice::DraftPick { card });
+                });
+            }
         }
         GamePhase::Action { action_state } => {
-            let player = &state.players[action_state.current_player_index];
+            let turn = &action_state.turns[player_index];
+            if turn.ended {
+                return;
+            }
+            let player = &state.players[player_index];
 
-            match action_state.ability_stack.last() {
+            match turn.ability_stack.last() {
                 None => {
                     for_each_unique_card_type(&player.drafted_cards, &state.card_lookup, |card| {
                         enumerate_destroy_choices(state, player, card, choices);
                     });
                     for purchase in ALL_DUCAT_PURCHASES {
-                        if can_buy_with_ducat(state, purchase) {
+                        if can_buy_with_ducat(player, purchase) {
                             choices.push(Choice::SpendDucat { purchase });
                         }
                     }
@@ -160,9 +171,9 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
     }
 }
 
-pub fn enumerate_choices(state: &GameState) -> Vec<Choice> {
+pub fn enumerate_choices(state: &GameState, player_index: usize) -> Vec<Choice> {
     let mut choices = Vec::new();
-    enumerate_choices_into(state, &mut choices);
+    enumerate_choices_into(state, player_index, &mut choices);
     choices
 }
 
@@ -185,217 +196,143 @@ fn mix_sequence_is_valid(player: &PlayerState, mixes: &[(Color, Color)], granted
     true
 }
 
-/// Check common preconditions for all destroy-drafted-card variants:
-/// ability stack is empty and the card exists in the current player's drafted_cards.
-fn check_destroy_preconditions(state: &GameState, card: &Card) -> bool {
-    if let GamePhase::Action { ref action_state } = state.phase {
-        action_state.ability_stack.is_empty()
-            && state.players[action_state.current_player_index]
-                .drafted_cards
-                .iter()
-                .any(|id| state.card_lookup[id as usize] == *card)
-    } else {
-        false
+/// The player's pending abilities, while they are still taking their action
+/// turn.
+fn open_turn_stack(state: &GameState, player_index: usize) -> Option<&AbilityStack> {
+    match &state.phase {
+        GamePhase::Action { action_state } => {
+            let turn = &action_state.turns[player_index];
+            (!turn.ended).then_some(&turn.ability_stack)
+        }
+        _ => None,
     }
 }
 
-pub fn check_choice_available(state: &GameState, choice: &Choice) -> bool {
+/// The ability the player must answer next, if they are mid-turn and one is
+/// waiting.
+fn pending_ability(state: &GameState, player_index: usize) -> Option<Ability> {
+    open_turn_stack(state, player_index).and_then(|stack| stack.last().copied())
+}
+
+/// Check common preconditions for all destroy-drafted-card variants: the
+/// player is between abilities and holds the card in their draft pool.
+fn check_destroy_preconditions(state: &GameState, player_index: usize, card: &Card) -> bool {
+    open_turn_stack(state, player_index).is_some_and(|stack| stack.is_empty())
+        && state.players[player_index]
+            .drafted_cards
+            .iter()
+            .any(|id| state.card_lookup[id as usize] == *card)
+}
+
+pub fn check_choice_available(state: &GameState, player_index: usize, choice: &Choice) -> bool {
+    let player = &state.players[player_index];
     match choice {
         Choice::DraftPick { card } => {
             if let GamePhase::Draft { ref draft_state } = state.phase {
-                let hand = draft_state.hands[draft_state.current_player_index];
-                hand.iter().any(|id| state.card_lookup[id as usize] == *card)
+                draft_state.current_player_index == player_index
+                    && draft_state.hands[player_index]
+                        .iter()
+                        .any(|id| state.card_lookup[id as usize] == *card)
             } else {
                 false
             }
         }
         Choice::DestroyDraftedCard { card } => {
-            if !check_destroy_preconditions(state, card) {
+            if !check_destroy_preconditions(state, player_index, card) {
                 return false;
             }
             match card.destroy_abilities()[0] {
-                Ability::Sell => !can_sell_to_any_sell_card(state),
+                Ability::Sell => !can_sell_to_any_buyer(player),
                 Ability::MixColors { .. } => false,
                 Ability::Workshop { .. } => false,
                 Ability::MoveToDraftPool => false,
                 _ => true,
             }
         }
-        Choice::EndTurn => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                action_state.ability_stack.is_empty()
-            } else {
-                false
-            }
-        }
+        Choice::EndTurn => open_turn_stack(state, player_index).is_some_and(|stack| stack.is_empty()),
         Choice::Workshop { card_types } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                match action_state.ability_stack.last() {
-                    Some(Ability::Workshop { .. }) => {
-                        if card_types.is_empty() {
-                            return false;
-                        }
-                        let player = &state.players[action_state.current_player_index];
-                        resolve_card_types_to_ids(card_types, &player.workshop_cards, &state.card_lookup).is_some()
-                    }
-                    _ => false,
-                }
-            } else {
-                false
-            }
+            matches!(pending_ability(state, player_index), Some(Ability::Workshop { .. }))
+                && !card_types.is_empty()
+                && resolve_card_types_to_ids(card_types, &player.workshop_cards, &state.card_lookup).is_some()
         }
         Choice::SkipWorkshop => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                matches!(
-                    action_state.ability_stack.last(),
-                    Some(Ability::Workshop { .. })
-                )
-            } else {
-                false
-            }
+            matches!(pending_ability(state, player_index), Some(Ability::Workshop { .. }))
         }
         Choice::MoveToDraftPool { card } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                match action_state.ability_stack.last() {
-                    Some(Ability::MoveToDraftPool) => {
-                        let player = &state.players[action_state.current_player_index];
-                        let area = player.workshop_cards.union(player.workshopped_cards);
-                        match card {
-                            // The move is mandatory when there is anything to
-                            // move, so this stands only for the fizzle.
-                            None => area.is_empty(),
-                            Some(card) => {
-                                area.iter().any(|id| state.card_lookup[id as usize] == *card)
-                            }
-                        }
-                    }
-                    _ => false,
-                }
-            } else {
-                false
+            if !matches!(pending_ability(state, player_index), Some(Ability::MoveToDraftPool)) {
+                return false;
+            }
+            let area = player.workshop_cards.union(player.workshopped_cards);
+            match card {
+                // The move is mandatory when there is anything to move, so
+                // this stands only for the fizzle.
+                None => area.is_empty(),
+                Some(card) => area.iter().any(|id| state.card_lookup[id as usize] == *card),
             }
         }
         Choice::SelectSellCard { sell_card } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                match action_state.ability_stack.last() {
-                    Some(Ability::Sell) => {
-                        let player = &state.players[action_state.current_player_index];
-                        player.buyers.iter().any(|b| b.sell_card == *sell_card && can_afford_sell_card(player, &b.sell_card))
-                    }
-                    _ => false,
-                }
-            } else {
-                false
-            }
+            matches!(pending_ability(state, player_index), Some(Ability::Sell))
+                && player.buyers.iter().any(|b| b.sell_card == *sell_card && can_afford_sell_card(player, &b.sell_card))
         }
         Choice::GainSecondary { color } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                matches!(
-                    action_state.ability_stack.last(),
-                    Some(Ability::GainSecondary)
-                ) && SECONDARIES.contains(color)
-            } else {
-                false
-            }
+            matches!(pending_ability(state, player_index), Some(Ability::GainSecondary))
+                && SECONDARIES.contains(color)
         }
         Choice::GainPrimary { color } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                matches!(
-                    action_state.ability_stack.last(),
-                    Some(Ability::GainPrimary)
-                ) && PRIMARIES.contains(color)
-            } else {
-                false
-            }
+            matches!(pending_ability(state, player_index), Some(Ability::GainPrimary))
+                && PRIMARIES.contains(color)
         }
         Choice::GainMaterial { .. } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                matches!(action_state.ability_stack.last(), Some(Ability::GainMaterial))
-            } else {
-                false
-            }
+            matches!(pending_ability(state, player_index), Some(Ability::GainMaterial))
         }
-        Choice::MixAll { mixes } => {
-            if let GamePhase::Action { ref action_state } = state.phase {
-                match action_state.ability_stack.last() {
-                    Some(Ability::MixColors { count }) => {
-                        let player = &state.players[action_state.current_player_index];
-                        mix_sequence_is_valid(player, mixes, *count)
-                    }
-                    _ => false,
-                }
-            } else {
-                false
-            }
-        }
+        Choice::MixAll { mixes } => match pending_ability(state, player_index) {
+            Some(Ability::MixColors { count }) => mix_sequence_is_valid(player, mixes, count),
+            _ => false,
+        },
         Choice::DestroyAndMix { card, mixes } => {
-            if !check_destroy_preconditions(state, card) {
+            if !check_destroy_preconditions(state, player_index, card) {
                 return false;
             }
             let Ability::MixColors { count } = card.destroy_abilities()[0] else {
                 return false;
             };
-            let player = &state.players[match &state.phase {
-                GamePhase::Action { action_state } => action_state.current_player_index,
-                _ => return false,
-            }];
             mix_sequence_is_valid(player, mixes, count)
         }
         Choice::DestroyAndSell { card, sell_card } => {
-            if !check_destroy_preconditions(state, card) {
-                return false;
-            }
-            let player = &state.players[match &state.phase {
-                GamePhase::Action { action_state } => action_state.current_player_index,
-                _ => return false,
-            }];
-            player.buyers.iter().any(|b| b.sell_card == *sell_card && can_afford_sell_card(player, &b.sell_card))
+            check_destroy_preconditions(state, player_index, card)
+                && player.buyers.iter().any(|b| b.sell_card == *sell_card && can_afford_sell_card(player, &b.sell_card))
         }
         Choice::DestroyAndWorkshop { card, workshop_cards } => {
-            if !check_destroy_preconditions(state, card) {
-                return false;
-            }
-            if workshop_cards.is_empty() {
-                return true;
-            }
-            let player = &state.players[match &state.phase {
-                GamePhase::Action { action_state } => action_state.current_player_index,
-                _ => return false,
-            }];
-            resolve_card_types_to_ids(workshop_cards, &player.workshop_cards, &state.card_lookup).is_some()
+            check_destroy_preconditions(state, player_index, card)
+                && (workshop_cards.is_empty()
+                    || resolve_card_types_to_ids(workshop_cards, &player.workshop_cards, &state.card_lookup).is_some())
         }
         Choice::DestroyAndMoveToDraftPool { card, target } => {
-            if !check_destroy_preconditions(state, card) {
+            if !check_destroy_preconditions(state, player_index, card) {
                 return false;
             }
             match target {
                 None => true,
                 Some(target_card) => {
-                    let player = &state.players[match &state.phase {
-                        GamePhase::Action { action_state } => action_state.current_player_index,
-                        _ => return false,
-                    }];
                     let area = player.workshop_cards.union(player.workshopped_cards);
                     area.iter().any(|id| state.card_lookup[id as usize] == *target_card)
                 }
             }
         }
         Choice::SpendDucat { purchase } => {
-            let stack_empty = matches!(
-                &state.phase,
-                GamePhase::Action { action_state } if action_state.ability_stack.is_empty()
-            );
-            stack_empty && can_buy_with_ducat(state, *purchase)
+            open_turn_stack(state, player_index).is_some_and(|stack| stack.is_empty())
+                && can_buy_with_ducat(player, *purchase)
         }
         Choice::TakeBuyer { sell_card } => {
-            matches!(state.phase, GamePhase::Buyers { .. })
+            matches!(&state.phase, GamePhase::Buyers { buyers_state } if buyers_state.current_player_index == player_index)
                 && state
                     .sell_card_display
                     .iter()
                     .any(|c| c.sell_card == *sell_card)
         }
         Choice::DrawBuyer => {
-            matches!(state.phase, GamePhase::Buyers { .. }) && !state.sell_card_deck.is_empty()
+            matches!(&state.phase, GamePhase::Buyers { buyers_state } if buyers_state.current_player_index == player_index)
+                && !state.sell_card_deck.is_empty()
         }
     }
 }

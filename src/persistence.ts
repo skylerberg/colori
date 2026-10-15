@@ -1,4 +1,4 @@
-import type { GameState, StructuredGameLog } from './data/types';
+import type { Ability, GameState, PlayerTurn, StructuredGameLog } from './data/types';
 
 const STORAGE_KEY = 'colori-saved-game';
 
@@ -35,6 +35,7 @@ export function loadGame(): SavedGame | null {
       clearSavedGame();
       return null;
     }
+    migrateActionPhase(data.gameState);
     return data as SavedGame;
   } catch {
     clearSavedGame();
@@ -48,4 +49,24 @@ export function clearSavedGame(): void {
   } catch {
     // ignore
   }
+}
+
+// A game saved when the action phase still went round the table one turn at a
+// time: the seats before the current one, from the round's starting player,
+// had ended their turns.
+function migrateActionPhase(state: GameState) {
+  const phase = state.phase as {
+    type: string;
+    actionState?: { currentPlayerIndex?: number; abilityStack?: Ability[]; turns?: PlayerTurn[] };
+  };
+  if (phase.type !== 'action' || !phase.actionState || phase.actionState.turns) return;
+  const { currentPlayerIndex = 0, abilityStack = [] } = phase.actionState;
+  const count = state.players.length;
+  const seatOrder = (i: number) => (i - (state.round - 1) + count * state.round) % count;
+  phase.actionState = {
+    turns: state.players.map((_, i) => ({
+      abilityStack: i === currentPlayerIndex ? abilityStack : [],
+      ended: seatOrder(i) < seatOrder(currentPlayerIndex),
+    })),
+  };
 }
