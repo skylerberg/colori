@@ -1,5 +1,5 @@
 import type { GameState, Choice, PlayerState, Color, Card, DrawEvent, MaterialType } from '../data/types';
-import { mixResult, silverToCoverCost } from '../data/colors';
+import { mixResult, wildPrimariesToCoverCost } from '../data/colors';
 import { getCardData, getSellCardData, getAnyCardData } from '../data/cards';
 import init, {
   wasm_create_initial_game_state,
@@ -197,7 +197,7 @@ export function canSell(state: GameState, sellCardInstanceId: number): boolean {
     }
   }
   if (boatsNeeded > player.boats) return false;
-  // Silver stands in for missing primaries.
-  const silverNeeded = silverToCoverCost(player.colorWheel, sellCard.colorCost);
-  return silverNeeded !== null && silverNeeded <= player.silver;
+  // Wild primaries cover the primaries the wheel lacks.
+  const wildPrimariesNeeded = wildPrimariesToCoverCost(player.colorWheel, sellCard.colorCost);
+  return wildPrimariesNeeded !== null && wildPrimariesNeeded <= player.wildPrimaries;
 }

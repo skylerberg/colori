@@ -19,7 +19,7 @@ export function sanitizeGameState(
       materials: { ...p.materials },
       completedSellCards: [...p.completedSellCards],
       ducats: p.ducats,
-      silver: p.silver,
+      wildPrimaries: p.wildPrimaries,
       boats: p.boats,
     };
   });

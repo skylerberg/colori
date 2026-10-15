@@ -31,7 +31,7 @@
     {#if topAbility.type === 'mixColors'}
       <MixColorPrompt
         colorWheel={currentPlayer.colorWheel}
-        silver={currentPlayer.silver}
+        wildPrimaries={currentPlayer.wildPrimaries}
         remaining={topAbility.count}
         {onAction}
       />

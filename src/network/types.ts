@@ -16,7 +16,7 @@ export interface SanitizedPlayerState {
   materials: Record<MaterialType, number>;
   completedSellCards: SellCardInstance[];
   ducats: number;
-  silver: number;
+  wildPrimaries: number;
   boats: number;
 }
 

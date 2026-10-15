@@ -15,10 +15,10 @@ export function getActivePlayerIndex(gs: GameState): number {
 }
 
 // Mirrors `colori_core::scoring::score_in_half_points`: sell cards and ducats
-// at face value, plus half a point for each unspent silver and boat.
-export function playerScore(player: Pick<PlayerState, 'completedSellCards' | 'ducats' | 'silver' | 'boats'>): number {
+// at face value, plus half a point for each unspent wild primary and boat.
+export function playerScore(player: Pick<PlayerState, 'completedSellCards' | 'ducats' | 'wildPrimaries' | 'boats'>): number {
   const sold = player.completedSellCards.reduce((sum, sellCard) => sum + getSellCardData(sellCard.card).ducats, 0);
-  return sold + player.ducats + (player.silver + player.boats) / 2;
+  return sold + player.ducats + (player.wildPrimaries + player.boats) / 2;
 }
 
 export function isCurrentPlayerAI(gs: GameState): boolean {

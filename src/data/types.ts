@@ -15,7 +15,7 @@ export type Ability =
   | { type: 'gainSecondary' }
   | { type: 'gainPrimary' }
   | { type: 'gainMaterial' }
-  | { type: 'gainSilver'; count: number }
+  | { type: 'gainWildPrimaries'; count: number }
   | { type: 'gainBoats'; count: number };
 
 // Card variant name strings from Rust
@@ -127,7 +127,7 @@ export interface PlayerState {
   completedSellCards: SellCardInstance[];
   ducats: number;
   // Wild primaries and wild materials. Each is worth half a point unspent.
-  silver: number;
+  wildPrimaries: number;
   boats: number;
 }
 
@@ -237,7 +237,7 @@ export interface FinalPlayerStats {
   deckSize: number;
   completedSellCards: SellCardInstance[];
   ducats: number;
-  silver?: number;
+  wildPrimaries?: number;
   boats?: number;
   colorWheel: Record<Color, number>;
   materials: Record<MaterialType, number>;

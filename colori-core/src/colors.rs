@@ -106,11 +106,11 @@ pub fn perform_unmix(wheel: &mut ColorWheel, color: Color) -> bool {
     true
 }
 
-/// Silver needed for `color` to take part in a mix or a payment: none if the
-/// wheel has it, one if it is a primary silver can stand in for, and `None` if
-/// it is a secondary or tertiary the wheel lacks.
+/// Wild primaries needed for `color` to take part in a mix or a payment: none
+/// if the wheel has it, one if it is a primary the wheel lacks, and `None` if it
+/// is a secondary or tertiary the wheel lacks.
 #[inline]
-fn silver_to_supply(wheel: &ColorWheel, color: Color) -> Option<u32> {
+fn wild_primaries_to_supply(wheel: &ColorWheel, color: Color) -> Option<u32> {
     if wheel.get(color) > 0 {
         Some(0)
     } else if is_primary(color) {
@@ -120,70 +120,70 @@ fn silver_to_supply(wheel: &ColorWheel, color: Color) -> Option<u32> {
     }
 }
 
-/// Whether the valid mix pair `(a, b)` can be made from the wheel, with silver
-/// covering any primary it lacks.
+/// Whether the valid mix pair `(a, b)` can be made from the wheel, with wild
+/// primaries covering any primary it lacks.
 #[inline]
-pub fn can_supply_mix(wheel: &ColorWheel, silver: u32, a: Color, b: Color) -> bool {
-    match (silver_to_supply(wheel, a), silver_to_supply(wheel, b)) {
-        (Some(x), Some(y)) => x + y <= silver,
+pub fn can_supply_mix(wheel: &ColorWheel, wild_primaries: u32, a: Color, b: Color) -> bool {
+    match (wild_primaries_to_supply(wheel, a), wild_primaries_to_supply(wheel, b)) {
+        (Some(x), Some(y)) => x + y <= wild_primaries,
         _ => false,
     }
 }
 
 #[inline]
-pub fn perform_mix(wheel: &mut ColorWheel, silver: &mut u32, a: Color, b: Color) -> bool {
-    if !can_mix(a, b) || !can_supply_mix(wheel, *silver, a, b) {
+pub fn perform_mix(wheel: &mut ColorWheel, wild_primaries: &mut u32, a: Color, b: Color) -> bool {
+    if !can_mix(a, b) || !can_supply_mix(wheel, *wild_primaries, a, b) {
         return false;
     }
-    perform_mix_unchecked(wheel, silver, a, b);
+    perform_mix_unchecked(wheel, wild_primaries, a, b);
     true
 }
 
 /// Performs a mix without checking `can_mix` or `can_supply_mix`; the caller
-/// must guarantee both. Stored colours are spent before silver.
+/// must guarantee both. Stored colours are spent before wild primaries.
 #[inline]
-pub fn perform_mix_unchecked(wheel: &mut ColorWheel, silver: &mut u32, a: Color, b: Color) {
+pub fn perform_mix_unchecked(wheel: &mut ColorWheel, wild_primaries: &mut u32, a: Color, b: Color) {
     for color in [a, b] {
         if !wheel.decrement(color) {
-            *silver -= 1;
+            *wild_primaries -= 1;
         }
     }
     wheel.increment(mix_result(a, b));
 }
 
-/// Silver needed to cover the primaries in `cost` that the wheel lacks, or
+/// Wild primaries needed to cover the primaries in `cost` that the wheel lacks, or
 /// `None` when a secondary or tertiary is missing.
 #[inline]
-pub fn silver_to_cover_cost(wheel: &ColorWheel, cost: &[Color]) -> Option<u32> {
+pub fn wild_primaries_to_cover_cost(wheel: &ColorWheel, cost: &[Color]) -> Option<u32> {
     let mut used = [0u32; 12];
-    let mut silver = 0;
+    let mut wild_primaries = 0;
     for &c in cost {
         let idx = c.index();
         if wheel.counts[idx] > used[idx] {
             used[idx] += 1;
         } else if is_primary(c) {
-            silver += 1;
+            wild_primaries += 1;
         } else {
             return None;
         }
     }
-    Some(silver)
+    Some(wild_primaries)
 }
 
 #[inline]
-pub fn can_pay_cost(wheel: &ColorWheel, silver: u32, cost: &[Color]) -> bool {
-    silver_to_cover_cost(wheel, cost).is_some_and(|needed| needed <= silver)
+pub fn can_pay_cost(wheel: &ColorWheel, wild_primaries: u32, cost: &[Color]) -> bool {
+    wild_primaries_to_cover_cost(wheel, cost).is_some_and(|needed| needed <= wild_primaries)
 }
 
-/// Stored colours are spent before silver.
+/// Stored colours are spent before wild primaries.
 #[inline]
-pub fn pay_cost(wheel: &mut ColorWheel, silver: &mut u32, cost: &[Color]) -> bool {
-    if !can_pay_cost(wheel, *silver, cost) {
+pub fn pay_cost(wheel: &mut ColorWheel, wild_primaries: &mut u32, cost: &[Color]) -> bool {
+    if !can_pay_cost(wheel, *wild_primaries, cost) {
         return false;
     }
     for &c in cost {
         if !wheel.decrement(c) {
-            *silver -= 1;
+            *wild_primaries -= 1;
         }
     }
     true
@@ -257,19 +257,19 @@ mod tests {
     }
 
     #[test]
-    fn test_silver_covers_a_missing_primary_in_a_mix() {
+    fn test_a_wild_primary_covers_a_missing_primary_in_a_mix() {
         let mut wheel = ColorWheel::new();
         wheel.set(Color::Orange, 1);
-        let mut silver = 1;
-        assert!(can_supply_mix(&wheel, silver, Color::Red, Color::Orange));
-        assert!(perform_mix(&mut wheel, &mut silver, Color::Red, Color::Orange));
-        assert_eq!(silver, 0);
+        let mut wild_primaries = 1;
+        assert!(can_supply_mix(&wheel, wild_primaries, Color::Red, Color::Orange));
+        assert!(perform_mix(&mut wheel, &mut wild_primaries, Color::Red, Color::Orange));
+        assert_eq!(wild_primaries, 0);
         assert_eq!(wheel.get(Color::Vermilion), 1);
         assert_eq!(wheel.get(Color::Orange), 0);
     }
 
     #[test]
-    fn test_silver_cannot_cover_a_missing_secondary() {
+    fn test_a_wild_primary_cannot_cover_a_missing_secondary() {
         let mut wheel = ColorWheel::new();
         wheel.set(Color::Red, 1);
         assert!(!can_supply_mix(&wheel, 5, Color::Red, Color::Orange));
@@ -277,25 +277,25 @@ mod tests {
     }
 
     #[test]
-    fn test_a_mix_spends_stored_colors_before_silver() {
+    fn test_a_mix_spends_stored_colors_before_wild_primaries() {
         let mut wheel = ColorWheel::new();
         wheel.set(Color::Red, 1);
-        let mut silver = 2;
-        assert!(perform_mix(&mut wheel, &mut silver, Color::Red, Color::Yellow));
-        assert_eq!(silver, 1);
+        let mut wild_primaries = 2;
+        assert!(perform_mix(&mut wheel, &mut wild_primaries, Color::Red, Color::Yellow));
+        assert_eq!(wild_primaries, 1);
         assert_eq!(wheel.get(Color::Red), 0);
         assert_eq!(wheel.get(Color::Orange), 1);
     }
 
     #[test]
-    fn test_paying_a_cost_spends_silver_only_for_the_shortfall() {
+    fn test_paying_a_cost_spends_wild_primaries_only_for_the_shortfall() {
         let mut wheel = ColorWheel::new();
         wheel.set(Color::Blue, 2);
         let cost = [Color::Blue, Color::Blue, Color::Blue];
         assert!(!can_pay_cost(&wheel, 0, &cost));
-        let mut silver = 2;
-        assert!(pay_cost(&mut wheel, &mut silver, &cost));
-        assert_eq!(silver, 1);
+        let mut wild_primaries = 2;
+        assert!(pay_cost(&mut wheel, &mut wild_primaries, &cost));
+        assert_eq!(wild_primaries, 1);
         assert_eq!(wheel.get(Color::Blue), 0);
     }
 }

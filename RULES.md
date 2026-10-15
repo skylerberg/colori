@@ -2,7 +2,7 @@
 
 ## Overview
 
-Colori is a deck-building game for 2–5 players about dyeing materials and selling to sell cards. Players draft dye, material, and action cards, destroy them to store colors on a color wheel, mix colors, and sell to sell cards worth ducats. The game lasts 6 rounds. The player with the most points wins.
+Colori is a deck-building game for 2–5 players about dyeing materials and selling to sell cards. Players draft dye, material, and action cards, destroy them to store colors on a color wheel, mix colors, and sell to sell cards worth ducats. The game lasts 7 rounds. The player with the most points wins.
 
 ## Components
 
@@ -44,14 +44,14 @@ Each sell card is a buyer: a tradesperson who wants a set of colors and, for mos
 
 Sell cards are not completed straight out of the display. Each round, before drafting, players claim cards into their own **buyers** section, and for the rest of that round a player can only sell to the cards sitting there.
 
-### Silver and Boats
+### Wild Primaries and Boats
 
 Two things a player can hold besides colors, materials and ducats:
 
-- **Silver** is a wild primary. One silver stands in for a Red, Yellow or Blue the player's wheel lacks, whenever a primary would be spent: as an input to a mix, or in a sell card's color cost.
+- A **wild primary** stands in for a Red, Yellow or Blue the player's wheel lacks, whenever a primary would be spent: as an input to a mix, or in a sell card's color cost.
 - A **boat** is a wild material. One boat stands in for a material a sell card requires that the player has not stored. Shipwrights also ask for a boat outright.
 
-What is asked for is always spent first; silver and boats only cover what is missing. Each silver and each boat still held at the end of the game is worth **half a point**.
+What is asked for is always spent first; wild primaries and boats only cover what is missing. Each wild primary and each boat still held at the end of the game is worth **half a point**.
 
 ### Decks
 
@@ -76,14 +76,21 @@ Each player has:
 - **Color Wheel** (tracks stored colors)
 - **Stored Materials** (tracks Textiles, Ceramics, and Paintings counts)
 - **Ducats** (count toward final score)
-- **Silver** and **Boats** (wilds; half a point each at the end)
+- **Wild Primaries** and **Boats** (wilds; half a point each at the end)
 - **Completed Sell Cards** (scored sell cards, kept in a separate area)
 
 ## Round Structure
 
-The game is played over **6 rounds**. Each round has four phases. The starting player rotates each round: player `(round - 1) % numPlayers` goes first.
+The game is played over **7 rounds**. Each round has four phases. The starting player rotates each round: player `(round - 1) % numPlayers` goes first.
 
-Players collect **1 ducat** at the start of rounds **3**, **5** and **6**.
+At the start of the later rounds, every player collects income:
+
+| Round | Income |
+|-------|--------|
+| 4 | 1 ducat |
+| 5 | 1 boat |
+| 6 | 1 ducat |
+| 7 | 1 ducat, 1 boat and 1 wild primary |
 
 ### 1. Draw Phase
 
@@ -101,7 +108,7 @@ Buyer slots per player:
 |-------|-------|
 | 1 | 1 |
 | 2–3 | 2 |
-| 4–6 | 3 |
+| 4–7 | 3 |
 
 Starting with the starting player and going round-robin in turn order, each player with an empty slot claims **one** card, and this repeats until nobody has an empty slot left. A slot only needs filling if it is empty — a buyer that was not sold last round stays where it is.
 
@@ -113,12 +120,11 @@ If both the display and the deck are empty there is nothing to claim, and the sl
 
 ### 3. Draft Phase
 
-1. Deal 5 cards from the draft deck to each player as a draft hand (these are private — other players cannot see them).
+1. Deal 4 cards from the draft deck to each player as a draft hand (these are private — other players cannot see them).
 2. Each player simultaneously picks 1 card from their hand and places it face-down.
 3. Players pass their remaining cards to the left.
-4. Repeat steps 2–3 until 4 cards have been picked.
-5. The 5th remaining card in each hand is destroyed (no ability triggers).
-6. All drafted cards are placed face-up in each player's drafted cards area.
+4. Repeat steps 2–3 until each hand is down to its last card, after 3 picks. Each player takes the last card passed to them, so everyone drafts 4 cards and nothing is left over.
+5. All drafted cards are placed face-up in each player's drafted cards area.
 
 **Local multiplayer note**: Since all players share one device, a "Pass device to [player name]" screen is shown between picks to keep draft hands private.
 
@@ -162,8 +168,8 @@ For each chosen card:
 ### Mix Colors ×N
 
 Perform up to N mix operations on your color wheel. You may stop early. For each mix:
-1. Choose two colors that are exactly **2 positions apart** (e.g., Red and Orange, Yellow and Green). Each must be on your wheel, or be a primary you have a silver to stand in for.
-2. Remove one of each from your wheel, spending a silver for any primary you lack.
+1. Choose two colors that are exactly **2 positions apart** (e.g., Red and Orange, Yellow and Green). Each must be on your wheel, or be a primary you have a wild primary to stand in for.
+2. Remove one of each from your wheel, spending a wild primary for any primary you lack.
 3. Add one of the color **between** them to your wheel.
 
 Complete mixing pairs (two inputs → one output):
@@ -192,7 +198,7 @@ You **must** sell to one of your own buyers if you are able to. If you cannot af
 To sell to a buyer:
 1. Choose a sell card from your **buyers** section.
 2. Spend the stored materials the card asks for, with a boat standing in for each one you lack. A Shipwright also takes a boat of its own.
-3. Pay the color cost by removing the required colors from your color wheel, spending a silver for each primary you lack.
+3. Pay the color cost by removing the required colors from your color wheel, spending a wild primary for each primary you lack.
 4. The sell card goes to your **completed sell cards** area.
 5. The buyer slot it occupied stays empty until the next buyers phase refills it.
 
@@ -204,19 +210,19 @@ Gain N ducats. Ducats count toward your final score, and can be spent during you
 
 Choose one of the three secondary colors (Orange, Green, or Purple) and add it to your color wheel. This ability never fizzles.
 
-### Gain Silver ×N
+### Gain Wild Primaries ×N
 
-Gain N silver. See Silver and Boats above.
+Gain N wild primaries. See Wild Primaries and Boats above.
 
 ### Gain a Boat
 
-Gain 1 boat. See Silver and Boats above.
+Gain 1 boat. See Wild Primaries and Boats above.
 
 ## End of Game
 
-The game ends when **round 6** is completed.
+The game ends when **round 7** is completed.
 
-Each player's score = total ducats (from sell cards and gold) + ½ point for each silver and each boat they still hold. The player with the highest score wins. If tied, the player with the most completed sell cards wins. If still tied, the player with the most colors (total count) on their color wheel wins. If still tied, those players share the victory.
+Each player's score = total ducats (from sell cards and gold) + ½ point for each wild primary and each boat they still hold. The player with the highest score wins. If tied, the player with the most completed sell cards wins. If still tied, the player with the most colors (total count) on their color wheel wins. If still tied, those players share the victory.
 
 ---
 
@@ -234,7 +240,7 @@ One of each per player.
 | Ceramics | 1 Ceramics | Sell |
 | Canvas | 1 Paintings | Sell |
 | Fabric | 1 Textiles | Sell |
-| Chalk | Gain Silver ×1 | Mix Colors ×2 |
+| Chalk | Gain Wild Primary ×1 | Mix Colors ×2 |
 
 ### Dye Cards
 
@@ -301,7 +307,7 @@ Every one of these is titled "Imports"; they are told apart by what they gain.
 | Alum | Move to Draft Pool | Gain Ducats ×1 |
 | Gum Arabic | Move to Draft Pool | Any Secondary |
 | Linseed Oil | Move to Draft Pool | Mix Colors ×3 |
-| Warehouse | Move to Draft Pool | Gain Silver ×2 |
+| Warehouse | Move to Draft Pool | Gain Wild Primaries ×2 |
 | Gondola | Move to Draft Pool | Gain a Boat |
 
 ### Sell Cards

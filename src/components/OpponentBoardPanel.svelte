@@ -28,7 +28,7 @@
       <span>Sell Cards: {sellCardCount}</span>
       <span>Materials: {totalMaterials}</span>
       {#if player.ducats > 0}<span>Ducats: {player.ducats}</span>{/if}
-      {#if player.silver > 0}<span>Silver: {player.silver}</span>{/if}
+      {#if player.wildPrimaries > 0}<span>Wild primaries: {player.wildPrimaries}</span>{/if}
       {#if player.boats > 0}<span>Boats: {player.boats}</span>{/if}
     </span>
     <span class="chevron" class:open={expanded}></span>
@@ -52,8 +52,8 @@
           {#if player.ducats > 0}
             <div class="ducats-count">Ducats: {player.ducats}</div>
           {/if}
-          {#if player.silver > 0}
-            <div class="ducats-count">Silver: {player.silver}</div>
+          {#if player.wildPrimaries > 0}
+            <div class="ducats-count">Wild primaries: {player.wildPrimaries}</div>
           {/if}
           {#if player.boats > 0}
             <div class="ducats-count">Boats: {player.boats}</div>

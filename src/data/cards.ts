@@ -261,7 +261,7 @@ export const ACTION_CARDS: ActionCardData[] = [
     kind: 'action',
     name: 'Warehouse',
     destroyAbilities: [{ type: 'moveToDraftPool' }],
-    workshopAbilities: [{ type: 'gainSilver', count: 2 }],
+    workshopAbilities: [{ type: 'gainWildPrimaries', count: 2 }],
   },
   {
     kind: 'action',
@@ -281,7 +281,7 @@ export const CHALK_CARD: ActionCardData = {
   kind: 'action',
   name: 'Chalk',
   destroyAbilities: [{ type: 'mixColors', count: 2 }],
-  workshopAbilities: [{ type: 'gainSilver', count: 1 }],
+  workshopAbilities: [{ type: 'gainWildPrimaries', count: 1 }],
 };
 
 export const SELL_CARDS: SellCardData[] = [

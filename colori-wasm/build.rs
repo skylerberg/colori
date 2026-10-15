@@ -14,7 +14,7 @@ fn format_ability(ability: &Ability) -> String {
         Ability::GainSecondary => "{ type: 'gainSecondary' }".to_string(),
         Ability::GainPrimary => "{ type: 'gainPrimary' }".to_string(),
         Ability::GainMaterial => "{ type: 'gainMaterial' }".to_string(),
-        Ability::GainSilver { count } => format!("{{ type: 'gainSilver', count: {} }}", count),
+        Ability::GainWildPrimaries { count } => format!("{{ type: 'gainWildPrimaries', count: {} }}", count),
         Ability::GainBoats { count } => format!("{{ type: 'gainBoats', count: {} }}", count),
     }
 }

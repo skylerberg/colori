@@ -654,8 +654,8 @@ fn render_final_state(
                     }
                     ui.label(format!("Deck size: {}", stats.deck_size));
                     ui.label(format!(
-                        "Ducats: {} | Silver: {} | Boats: {}",
-                        stats.ducats, stats.silver, stats.boats
+                        "Ducats: {} | Wild primaries: {} | Boats: {}",
+                        stats.ducats, stats.wild_primaries, stats.boats
                     ));
                     for &mt in &ALL_MATERIAL_TYPES {
                         let count = stats.materials.get(mt);
@@ -851,8 +851,8 @@ fn render_replayed_state(ui: &mut egui::Ui, state: &GameState, game: &Structured
         .default_open(true)
         .show(ui, |ui| {
             ui.label(format!(
-                "Ducats: {} | Silver: {} | Boats: {}",
-                player.ducats, player.silver, player.boats
+                "Ducats: {} | Wild primaries: {} | Boats: {}",
+                player.ducats, player.wild_primaries, player.boats
             ));
 
             // Card counts

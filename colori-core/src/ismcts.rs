@@ -6,7 +6,7 @@
 //! picks — which is deliberately not part of the tree, so it is not part of the
 //! generic search either.
 
-use crate::draft_phase::player_pick;
+use crate::draft_phase::{player_pick, DRAFT_HAND_SIZE};
 use crate::scoring::HeuristicParams;
 use crate::types::*;
 use rand::Rng;
@@ -133,8 +133,9 @@ struct OpponentPickStat {
 }
 
 pub(crate) struct OpponentDraftStats {
-    // [pick_round][player_index][card as usize] -> per-card stats
-    stats: [[[OpponentPickStat; NUM_CARDS]; MAX_PLAYERS]; 4],
+    // [pick_round][player_index][card as usize] -> per-card stats. A draft
+    // never gets as far as pick number DRAFT_HAND_SIZE.
+    stats: [[[OpponentPickStat; NUM_CARDS]; MAX_PLAYERS]; DRAFT_HAND_SIZE as usize],
 }
 
 impl Default for OpponentDraftStats {
@@ -146,7 +147,7 @@ impl Default for OpponentDraftStats {
 impl OpponentDraftStats {
     pub(crate) fn new() -> Self {
         OpponentDraftStats {
-            stats: [[[OpponentPickStat::default(); NUM_CARDS]; MAX_PLAYERS]; 4],
+            stats: [[[OpponentPickStat::default(); NUM_CARDS]; MAX_PLAYERS]; DRAFT_HAND_SIZE as usize],
         }
     }
 

@@ -74,7 +74,7 @@
     interactive?: boolean;
     onColorClick?: (color: Color) => void;
     selectedColors?: Color[];
-    // Silver on hand: lets a primary the wheel lacks be picked anyway.
+    // Wild primaries on hand: let a primary the wheel lacks be picked anyway.
     wildPrimaries?: number;
     size?: number;
     hidden?: boolean;

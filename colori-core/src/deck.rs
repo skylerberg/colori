@@ -19,20 +19,20 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::fixed_vec::FixedVec;
+use crate::types::NUM_ROUNDS;
 use crate::unordered_cards::UnorderedCards;
 
 /// How many segments a deck can hold.
 ///
 /// This is the exact structural bound for the standard game rather than a
-/// round number: the only way to add a segment is to end a round, so six
-/// rounds can create at most six on top of the starting deck. Measured over
-/// 8 000 random games, no deck exceeded five, and 99.4% held three or fewer.
+/// round number: the only way to add a segment is to end a round, so each
+/// round can create at most one on top of the starting deck.
 ///
 /// A longer game — `--max-rounds` in solo simulation — can outrun it, and a
 /// push onto a full deck then merges into the deepest segment. That loses the
 /// order between the last two pushes and nothing else, at the bottom of a deck
 /// already deeper than the remaining rounds can draw.
-pub const MAX_DECK_SEGMENTS: usize = 7;
+pub const MAX_DECK_SEGMENTS: usize = 1 + NUM_ROUNDS as usize;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -114,7 +114,7 @@ impl Deck {
             return;
         }
         if self.segments.len() == MAX_DECK_SEGMENTS {
-            // See MAX_DECK_SEGMENTS: unreachable in a six-round game. Merging
+            // See MAX_DECK_SEGMENTS: unreachable in a standard game. Merging
             // into the deepest segment loses the order between the last two
             // pushes and nothing else.
             let last = self.segments.len() - 1;

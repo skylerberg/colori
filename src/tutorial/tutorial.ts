@@ -103,7 +103,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'draft-phase',
     title: 'Draft Phase',
-    text: "During the Draft Phase, you're dealt 5 cards from a shared draft deck. Pick 1 card, then pass your remaining cards to the next player. You'll make 4 picks — the 5th card is trashed without triggering its ability.",
+    text: "During the Draft Phase, you're dealt 4 cards from a shared draft deck. Pick 1 card, then pass your remaining cards to the next player. After 3 picks, the last card passed to you is yours too, so you always draft 4.",
     attachTo: { element: '.draft-section', on: 'bottom' },
     buttons: [backButton, nextButton],
   });
@@ -136,14 +136,14 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'ducats-explained',
     title: 'Ducats',
-    text: 'Ducats are your score, and you collect one at the start of rounds 3, 5 and 6. They are also spendable: on your turn, one ducat buys a single Workshop pick, a single Mix, or a Sell. A bought Sell still costs you the material and colors, so what the ducat really buys is a sale in a round where nothing you drafted would let you make one.',
+    text: 'Ducats are your score, and you collect one at the start of rounds 4, 6 and 7. They are also spendable: on your turn, one ducat buys a single Workshop pick, a single Mix, or a Sell. A bought Sell still costs you the material and colors, so what the ducat really buys is a sale in a round where nothing you drafted would let you make one.',
     buttons: [backButton, nextButton],
   });
 
   newTour.addStep({
-    id: 'silver-and-boats-explained',
-    title: 'Silver and Boats',
-    text: 'Some workshop cards pay out silver or a boat. Silver is a wild primary: it stands in for a Red, Yellow or Blue you lack, in a mix or a sale. A boat is a wild material for a sale. Whatever you still hold at the end is worth half a point each.',
+    id: 'wild-primaries-and-boats-explained',
+    title: 'Wild Primaries and Boats',
+    text: 'Some workshop cards pay out a wild primary or a boat, and so do the late rounds: a boat at the start of round 5, and a boat and a wild primary at the start of round 7. A wild primary stands in for a Red, Yellow or Blue you lack, in a mix or a sale. A boat is a wild material for a sale. Whatever you still hold at the end is worth half a point each.',
     buttons: [backButton, nextButton],
   });
 
@@ -158,7 +158,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'end-game',
     title: 'Good Luck!',
-    text: 'The game ends after 6 rounds. Most points wins: your ducats, plus half a point for each silver and boat. Good luck, vendecolori!',
+    text: 'The game ends after 7 rounds. Most points wins: your ducats, plus half a point for each wild primary and boat. Good luck, vendecolori!',
     buttons: [
       backButton,
       {

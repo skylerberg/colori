@@ -13,7 +13,7 @@ use crate::colors::{
     SECONDARIES, VALID_MIX_PAIRS,
 };
 use crate::draw_phase::{collect_round_income, WORKSHOP_SIZE};
-use crate::draft_phase::player_pick;
+use crate::draft_phase::{deal_draft_hand, player_pick};
 use crate::buyers_phase::{
     anything_to_claim, claim_from_deck, claim_from_display, draw_buyer, needs_a_buyer, take_buyer,
 };
@@ -129,78 +129,54 @@ fn rollout_resolve_buyers_phase<R: Rng>(
 
 // ── Rollout draw+draft shortcut ──
 
-fn rollout_draw_and_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
+/// Stand-in for a round's draw, buyers and draft phases. Every player keeps
+/// the whole hand dealt to them: a draft only shares the dealt cards out, so
+/// with nobody choosing, dealing straight to the players is the same thing.
+/// `buyer_params` claims buyers by the heuristic instead of at random.
+fn rollout_draw_and_draft<R: Rng>(state: &mut GameState, buyer_params: Option<&HeuristicParams>, rng: &mut R) {
     let num_players = state.players.len();
 
     collect_round_income(state);
 
-    // Step 1: top each player's workshop back up to full
     for i in 0..num_players {
         let player = &mut state.players[i];
         let count = WORKSHOP_SIZE.saturating_sub(player.workshop_cards.len());
         player.deck.draw_into(&mut player.workshop_cards, count, rng);
     }
 
-    rollout_fill_buyers(state, None, rng);
+    rollout_fill_buyers(state, buyer_params, rng);
 
-    // Step 2: Draw 4 cards per player from draft_deck, restocking from destroyed_pile
-    // only when the deck runs out (mirrors initialize_draft ordering)
     let mut dealt = [UnorderedCards::new(); MAX_PLAYERS];
-    for i in 0..num_players {
-        let deck_len = state.draft_deck.len();
-        if deck_len >= 4 {
-            dealt[i] = state.draft_deck.draw_multiple(4, rng);
-        } else {
-            // Take everything remaining from draft_deck
-            dealt[i] = state.draft_deck;
-            state.draft_deck = UnorderedCards::new();
-            let remaining = 4 - deck_len;
-            if remaining > 0 && !state.destroyed_pile.is_empty() {
-                // Restock draft_deck from destroyed_pile
-                state.draft_deck = state.destroyed_pile;
-                state.destroyed_pile = UnorderedCards::new();
-                let available = state.draft_deck.len().min(remaining);
-                if available > 0 {
-                    let drawn = state.draft_deck.draw_multiple(available, rng);
-                    dealt[i] = dealt[i].union(drawn);
-                }
-            }
-        }
+    for hand in &mut dealt[..num_players] {
+        *hand = deal_draft_hand(state, rng);
     }
 
-    // Step 3: If any player got 0 cards, return all dealt cards to destroyed_pile
-    if (0..num_players).any(|i| dealt[i].is_empty()) {
+    // As in `initialize_draft`, a player dealt nothing means no draft at all.
+    if dealt[..num_players].iter().any(|hand| hand.is_empty()) {
+        for hand in &dealt[..num_players] {
+            state.destroyed_pile = state.destroyed_pile.union(*hand);
+        }
+    } else {
         for i in 0..num_players {
-            state.destroyed_pile = state.destroyed_pile.union(dealt[i]);
+            state.players[i].drafted_cards = dealt[i];
         }
-        state.destroyed_pile = state.destroyed_pile.union(state.draft_deck);
-        state.draft_deck = UnorderedCards::new();
-        initialize_action_phase(state);
-        return;
     }
 
-    // Step 4: Assign dealt cards as drafted_cards
-    for i in 0..num_players {
-        state.players[i].drafted_cards = dealt[i];
-    }
-
-    // Step 5: Remaining draft_deck cards go to destroyed_pile
     state.destroyed_pile = state.destroyed_pile.union(state.draft_deck);
     state.draft_deck = UnorderedCards::new();
 
-    // Step 6: Go directly to action phase
     initialize_action_phase(state);
 }
 
 // ── Fused rollout step ──
 
-/// The mix pairs the stock can supply, with silver covering missing primaries.
+/// The mix pairs the stock can supply, with wild primaries covering missing ones.
 #[inline(always)]
-fn suppliable_mix_pairs(wheel: &ColorWheel, silver: u32) -> ([(Color, Color); 9], usize) {
+fn suppliable_mix_pairs(wheel: &ColorWheel, wild_primaries: u32) -> ([(Color, Color); 9], usize) {
     let mut pairs = [(Color::Red, Color::Red); 9];
     let mut count = 0usize;
     for &(a, b) in &VALID_MIX_PAIRS {
-        if can_supply_mix(wheel, silver, a, b) {
+        if can_supply_mix(wheel, wild_primaries, a, b) {
             pairs[count] = (a, b);
             count += 1;
         }
@@ -211,22 +187,22 @@ fn suppliable_mix_pairs(wheel: &ColorWheel, silver: u32) -> ([(Color, Color); 9]
 #[inline(always)]
 fn apply_mixes(player: &mut PlayerState, mixes: &MixSequence) {
     for &(a, b) in mixes {
-        perform_mix_unchecked(&mut player.color_wheel, &mut player.silver, a, b);
+        perform_mix_unchecked(&mut player.color_wheel, &mut player.wild_primaries, a, b);
     }
 }
 
 #[inline(always)]
 fn random_mix_seq<R: Rng>(
     wheel: &ColorWheel,
-    silver: u32,
+    wild_primaries: u32,
     remaining: u32,
     rng: &mut R,
 ) -> MixSequence {
     let mut mixes = MixSequence::new();
     let mut sim_wheel = wheel.clone();
-    let mut sim_silver = silver;
+    let mut sim_wild_primaries = wild_primaries;
     for _ in 0..remaining.min(MAX_MIX_SEQUENCE as u32) {
-        let (pairs, pair_count) = suppliable_mix_pairs(&sim_wheel, sim_silver);
+        let (pairs, pair_count) = suppliable_mix_pairs(&sim_wheel, sim_wild_primaries);
         if pair_count == 0 {
             break;
         }
@@ -236,7 +212,7 @@ fn random_mix_seq<R: Rng>(
         }
         let (a, b) = pairs[target];
         mixes.push((a, b));
-        perform_mix_unchecked(&mut sim_wheel, &mut sim_silver, a, b);
+        perform_mix_unchecked(&mut sim_wheel, &mut sim_wild_primaries, a, b);
     }
     mixes
 }
@@ -292,11 +268,7 @@ fn handle_action_no_pending(state: &mut GameState, player_index: usize, heuristi
         // No drafted cards left — end turn and advance to next round
         end_player_turn(state, rng);
         if matches!(state.phase, GamePhase::Draw) {
-            if heuristic_draft {
-                heuristic_rollout_draw_and_draft(state, params, rng);
-            } else {
-                rollout_draw_and_draft(state, rng);
-            }
+            rollout_draw_and_draft(state, heuristic_draft.then_some(params), rng);
         }
         return;
     }
@@ -310,7 +282,7 @@ fn handle_action_no_pending(state: &mut GameState, player_index: usize, heuristi
     match card.destroy_abilities() {
         &[Ability::MixColors { count }] => {
             let player = &mut state.players[player_index];
-            let mixes = random_mix_seq(&player.color_wheel, player.silver, count, rng);
+            let mixes = random_mix_seq(&player.color_wheel, player.wild_primaries, count, rng);
             player.drafted_cards.remove(card_id);
             apply_mixes(player, &mixes);
             state.destroyed_pile.insert(card_id);
@@ -405,7 +377,7 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, 
                     let remaining_mixes = *count;
                     let player = &mut state.players[player_index];
                     let mixes =
-                        random_mix_seq(&player.color_wheel, player.silver, remaining_mixes, rng);
+                        random_mix_seq(&player.color_wheel, player.wild_primaries, remaining_mixes, rng);
                     apply_mixes(player, &mixes);
                     if let GamePhase::Action { ref mut action_state } = state.phase {
                         action_state.ability_stack.pop();
@@ -462,17 +434,17 @@ fn ability_category(ability: Ability) -> (u8, u32) {
     }
 }
 
-/// Given a hand of cards, pick the instance ID of the card to drop.
-/// Drops the most redundant card (most other cards share its ability type).
-/// Among equally redundant Workshop cards, drops the one with the lowest count.
+/// Given a draft hand, pick the instance ID of the card to pass on: the most
+/// redundant one (most other cards share its ability type). Among equally
+/// redundant Workshop cards, it is the one with the lowest count.
 #[inline(always)]
-fn pick_card_to_drop<R: Rng>(
+fn pick_card_to_pass<R: Rng>(
     hand: &UnorderedCards,
     card_lookup: &[Card; 256],
     params: &HeuristicParams,
     rng: &mut R,
 ) -> u8 {
-    // Epsilon: random drop
+    // Epsilon: random pass
     if rng.random_bool(params.rollout_epsilon) {
         return hand.pick_random(rng).unwrap();
     }
@@ -503,9 +475,9 @@ fn pick_card_to_drop<R: Rng>(
         }
     }
 
-    // Among cards with max redundancy, pick the worst to drop
-    let mut best_drop: Option<u8> = None;
-    let mut best_drop_wc = u32::MAX; // for Workshop: lower = worse = drop first
+    // Among cards with max redundancy, pick the worst to pass
+    let mut best_pass: Option<u8> = None;
+    let mut best_pass_wc = u32::MAX; // for Workshop: lower = worse = pass first
     let mut candidates = 0u32;
 
     for i in 0..count {
@@ -515,142 +487,43 @@ fn pick_card_to_drop<R: Rng>(
         }
         let (id, cat, wc) = cards[i];
         if cat == 0 {
-            // Workshop: prefer dropping lowest workshop count
-            if wc < best_drop_wc {
-                best_drop_wc = wc;
-                best_drop = Some(id);
+            // Workshop: prefer passing the lowest workshop count
+            if wc < best_pass_wc {
+                best_pass_wc = wc;
+                best_pass = Some(id);
                 candidates = 1;
-            } else if wc == best_drop_wc {
+            } else if wc == best_pass_wc {
                 candidates += 1;
                 if rng.random_range(0..candidates) == 0 {
-                    best_drop = Some(id);
+                    best_pass = Some(id);
                 }
             }
         } else {
             // Non-workshop: pick randomly among equal redundancy
             candidates += 1;
-            if best_drop.is_none() || rng.random_range(0..candidates) == 0 {
-                best_drop = Some(id);
+            if best_pass.is_none() || rng.random_range(0..candidates) == 0 {
+                best_pass = Some(id);
             }
         }
     }
 
-    best_drop.unwrap()
+    best_pass.unwrap()
 }
 
-/// Like `rollout_draw_and_draft` but deals 5 cards per player and uses
-/// the heuristic to drop the most redundant card, keeping the best 4.
-fn heuristic_rollout_draw_and_draft<R: Rng>(state: &mut GameState, params: &HeuristicParams, rng: &mut R) {
-    let num_players = state.players.len();
-
-    collect_round_income(state);
-
-    // Step 1: top each player's workshop back up to full
-    for i in 0..num_players {
-        let player = &mut state.players[i];
-        let count = WORKSHOP_SIZE.saturating_sub(player.workshop_cards.len());
-        player.deck.draw_into(&mut player.workshop_cards, count, rng);
-    }
-
-    rollout_fill_buyers(state, Some(params), rng);
-
-    // Step 2: Draw 5 cards per player from draft_deck (instead of 4)
-    let mut dealt = [UnorderedCards::new(); MAX_PLAYERS];
-    for i in 0..num_players {
-        let deck_len = state.draft_deck.len();
-        if deck_len >= 5 {
-            dealt[i] = state.draft_deck.draw_multiple(5, rng);
-        } else {
-            dealt[i] = state.draft_deck;
-            state.draft_deck = UnorderedCards::new();
-            let remaining = 5 - deck_len;
-            if remaining > 0 && !state.destroyed_pile.is_empty() {
-                state.draft_deck = state.destroyed_pile;
-                state.destroyed_pile = UnorderedCards::new();
-                let available = state.draft_deck.len().min(remaining);
-                if available > 0 {
-                    let drawn = state.draft_deck.draw_multiple(available, rng);
-                    dealt[i] = dealt[i].union(drawn);
-                }
-            }
-        }
-    }
-
-    // Step 3: If any player got 0 cards, return all dealt cards to destroyed_pile
-    if (0..num_players).any(|i| dealt[i].is_empty()) {
-        for i in 0..num_players {
-            state.destroyed_pile = state.destroyed_pile.union(dealt[i]);
-        }
-        state.destroyed_pile = state.destroyed_pile.union(state.draft_deck);
-        state.draft_deck = UnorderedCards::new();
-        initialize_action_phase(state);
-        return;
-    }
-
-    // Step 4: For each player, drop the most redundant card
-    for i in 0..num_players {
-        if dealt[i].len() > 4 {
-            let drop_id = pick_card_to_drop(&dealt[i], &state.card_lookup, params, rng);
-            dealt[i].remove(drop_id);
-            state.destroyed_pile.insert(drop_id);
-        }
-    }
-
-    // Step 5: Assign remaining cards as drafted_cards
-    for i in 0..num_players {
-        state.players[i].drafted_cards = dealt[i];
-    }
-
-    // Step 6: Remaining draft_deck cards go to destroyed_pile
-    state.destroyed_pile = state.destroyed_pile.union(state.draft_deck);
-    state.draft_deck = UnorderedCards::new();
-
-    // Step 7: Go directly to action phase
-    initialize_action_phase(state);
-}
-
-/// Heuristic draft loop: for each player's hand, identify the card to drop,
-/// then pick all other cards via player_pick.
+/// Heuristic draft loop: each player passes on the card the heuristic rates
+/// most redundant and takes another, until the draft ends.
 fn heuristic_draft_loop<R: Rng>(state: &mut GameState, params: &HeuristicParams, rng: &mut R) {
-    loop {
-        let (_player, hand, card_to_drop) = {
-            if let GamePhase::Draft { ref draft_state } = state.phase {
-                let player = draft_state.current_player_index;
-                let hand = draft_state.hands[player];
-                if hand.is_empty() {
-                    break;
-                }
-                // Only compute drop card when hand has more than 1 card
-                // (with 1 card, it'll be picked anyway — it's the last card which gets destroyed)
-                let drop = if hand.len() > 1 {
-                    Some(pick_card_to_drop(&hand, &state.card_lookup, params, rng))
-                } else {
-                    None
-                };
-                (player, hand, drop)
-            } else {
-                break;
-            }
-        };
-
-        // Pick a card that is NOT the one we want to drop
-        let card_id = if let Some(drop_id) = card_to_drop {
-            // Find any card in hand that isn't the drop card
-            let mut pick = None;
-            for id in hand.iter() {
-                if id != drop_id {
-                    pick = Some(id);
-                    break;
-                }
-            }
-            // If all cards are the drop card (shouldn't happen with len > 1), just pick any
-            pick.unwrap_or_else(|| hand.iter().next().unwrap()) as u32
+    while let GamePhase::Draft { ref draft_state } = state.phase {
+        let hand = draft_state.hands[draft_state.current_player_index];
+        let pass = if hand.len() > 1 {
+            Some(pick_card_to_pass(&hand, &state.card_lookup, params, rng))
         } else {
-            // Single card in hand, just pick it (it'll be the last discarded card)
-            hand.iter().next().unwrap() as u32
+            None
         };
-
-        player_pick(state, card_id, rng);
+        let Some(card_id) = hand.iter().find(|&id| Some(id) != pass) else {
+            break;
+        };
+        player_pick(state, card_id as u32, rng);
     }
 }
 
@@ -691,20 +564,20 @@ impl SellCardCache {
             let ducats = sc.sell_card.ducats();
             let cost = sc.sell_card.color_cost();
             let total_colors = cost.len() as u32;
-            // Boats and silver count as the material and primaries they can
+            // Boats and wild primaries count as the material and primaries they can
             // stand in for, so what the cache calls affordable is exactly
             // what `can_afford_sell_card` does.
             let has_material = boats_to_sell(player, sc.sell_card) <= player.boats;
 
             let mut have = 0u32;
             let mut missing = 0u32;
-            let mut silver_left = player.silver;
+            let mut wild_primaries_left = player.wild_primaries;
             for (i, &c) in cost.iter().enumerate() {
                 let needed = 1 + cost[..i].iter().filter(|&&earlier| earlier == c).count() as u32;
                 if wheel.get(c) >= needed {
                     have += 1;
-                } else if is_primary(c) && silver_left > 0 {
-                    silver_left -= 1;
+                } else if is_primary(c) && wild_primaries_left > 0 {
+                    wild_primaries_left -= 1;
                     have += 1;
                 } else {
                     missing += 1;
@@ -805,7 +678,7 @@ fn ability_priority(
             }
         }
         Ability::MixColors { count } => {
-            let (_, valid_pairs) = suppliable_mix_pairs(&player.color_wheel, player.silver);
+            let (_, valid_pairs) = suppliable_mix_pairs(&player.color_wheel, player.wild_primaries);
             let valid_pairs = valid_pairs as u32;
             if valid_pairs == 0 {
                 params.rollout_mix_no_pairs
@@ -871,16 +744,16 @@ fn action_workshop_value(
                 // Score based on best mix output demands for valid pairs
                 let mut best_total = 0u32;
                 for &(a, b) in &VALID_MIX_PAIRS {
-                    if can_supply_mix(&player.color_wheel, player.silver, a, b) {
+                    if can_supply_mix(&player.color_wheel, player.wild_primaries, a, b) {
                         let output = mix_result(a, b);
                         best_total = best_total.max(cache.color_demand(output) * count);
                     }
                 }
                 return best_total * mult / 10;
             }
-            // Silver and boats are half a ducat each, plus whatever the
+            // Wild primaries and boats are half a ducat each, plus whatever the
             // primary or material they can stand in for is worth.
-            Ability::GainSilver { count } => {
+            Ability::GainWildPrimaries { count } => {
                 let mut best = 0u32;
                 for &c in &PRIMARIES {
                     best = best.max(cache.color_demand(c));
@@ -984,11 +857,11 @@ fn pick_best_material<R: Rng>(
 /// The suppliable mix whose output the player's buyers want most, if any want
 /// one at all.
 #[inline(always)]
-fn most_demanded_mix(wheel: &ColorWheel, silver: u32, cache: &SellCardCache) -> Option<(Color, Color)> {
+fn most_demanded_mix(wheel: &ColorWheel, wild_primaries: u32, cache: &SellCardCache) -> Option<(Color, Color)> {
     let mut best_pair = None;
     let mut best_score = 0u32;
     for &(a, b) in &VALID_MIX_PAIRS {
-        if can_supply_mix(wheel, silver, a, b) {
+        if can_supply_mix(wheel, wild_primaries, a, b) {
             let score = cache.color_demand(mix_result(a, b));
             if score > best_score {
                 best_score = score;
@@ -1003,25 +876,25 @@ fn most_demanded_mix(wheel: &ColorWheel, silver: u32, cache: &SellCardCache) -> 
 #[inline(always)]
 fn heuristic_mix_seq<R: Rng>(
     wheel: &ColorWheel,
-    silver: u32,
+    wild_primaries: u32,
     remaining: u32,
     cache: &SellCardCache,
     params: &HeuristicParams,
     rng: &mut R,
 ) -> MixSequence {
     if rng.random_bool(params.rollout_epsilon) {
-        return random_mix_seq(wheel, silver, remaining, rng);
+        return random_mix_seq(wheel, wild_primaries, remaining, rng);
     }
 
     let mut mixes = MixSequence::new();
     let mut sim_wheel = wheel.clone();
-    let mut sim_silver = silver;
+    let mut sim_wild_primaries = wild_primaries;
     for _ in 0..remaining.min(MAX_MIX_SEQUENCE as u32) {
-        let (pairs, pair_count) = suppliable_mix_pairs(&sim_wheel, sim_silver);
+        let (pairs, pair_count) = suppliable_mix_pairs(&sim_wheel, sim_wild_primaries);
         if pair_count == 0 {
             break;
         }
-        let (a, b) = match most_demanded_mix(&sim_wheel, sim_silver, cache) {
+        let (a, b) = match most_demanded_mix(&sim_wheel, sim_wild_primaries, cache) {
             Some(pair) => pair,
             // If no mix is useful, skip mixing (50% chance) or do random
             None => {
@@ -1032,7 +905,7 @@ fn heuristic_mix_seq<R: Rng>(
             }
         };
         mixes.push((a, b));
-        perform_mix_unchecked(&mut sim_wheel, &mut sim_silver, a, b);
+        perform_mix_unchecked(&mut sim_wheel, &mut sim_wild_primaries, a, b);
     }
     mixes
 }
@@ -1042,21 +915,21 @@ fn heuristic_mix_seq<R: Rng>(
 #[inline(always)]
 fn two_step_heuristic_mix_seq<R: Rng>(
     wheel: &ColorWheel,
-    silver: u32,
+    wild_primaries: u32,
     remaining: u32,
     cache: &SellCardCache,
     params: &HeuristicParams,
     rng: &mut R,
 ) -> MixSequence {
     if remaining < 2 {
-        return heuristic_mix_seq(wheel, silver, remaining, cache, params, rng);
+        return heuristic_mix_seq(wheel, wild_primaries, remaining, cache, params, rng);
     }
 
     if rng.random_bool(params.rollout_epsilon) {
-        return random_mix_seq(wheel, silver, remaining, rng);
+        return random_mix_seq(wheel, wild_primaries, remaining, rng);
     }
 
-    let (pairs1, pair1_count) = suppliable_mix_pairs(wheel, silver);
+    let (pairs1, pair1_count) = suppliable_mix_pairs(wheel, wild_primaries);
     if pair1_count == 0 {
         return MixSequence::new();
     }
@@ -1077,11 +950,11 @@ fn two_step_heuristic_mix_seq<R: Rng>(
 
         // Simulate first mix and evaluate second using flat demand (avoids recomputing proximity)
         let mut sim_wheel = wheel.clone();
-        let mut sim_silver = silver;
-        perform_mix_unchecked(&mut sim_wheel, &mut sim_silver, a1, b1);
+        let mut sim_wild_primaries = wild_primaries;
+        perform_mix_unchecked(&mut sim_wheel, &mut sim_wild_primaries, a1, b1);
 
         for &(a2, b2) in &VALID_MIX_PAIRS {
-            if can_supply_mix(&sim_wheel, sim_silver, a2, b2) {
+            if can_supply_mix(&sim_wheel, sim_wild_primaries, a2, b2) {
                 let output2 = mix_result(a2, b2);
                 let score2 = cache.flat_demand[output2.index()];
                 let total = score1 + score2;
@@ -1098,21 +971,21 @@ fn two_step_heuristic_mix_seq<R: Rng>(
         if rng.random_bool(0.5) {
             return MixSequence::new();
         }
-        return random_mix_seq(wheel, silver, remaining, rng);
+        return random_mix_seq(wheel, wild_primaries, remaining, rng);
     }
 
     if best_combo.len() == 2 && remaining > 2 {
         let mut sim_wheel = wheel.clone();
-        let mut sim_silver = silver;
+        let mut sim_wild_primaries = wild_primaries;
         for &(a, b) in &best_combo {
-            perform_mix_unchecked(&mut sim_wheel, &mut sim_silver, a, b);
+            perform_mix_unchecked(&mut sim_wheel, &mut sim_wild_primaries, a, b);
         }
         while (best_combo.len() as u32) < remaining.min(MAX_MIX_SEQUENCE as u32) {
-            let Some((a, b)) = most_demanded_mix(&sim_wheel, sim_silver, cache) else {
+            let Some((a, b)) = most_demanded_mix(&sim_wheel, sim_wild_primaries, cache) else {
                 break;
             };
             best_combo.push((a, b));
-            perform_mix_unchecked(&mut sim_wheel, &mut sim_silver, a, b);
+            perform_mix_unchecked(&mut sim_wheel, &mut sim_wild_primaries, a, b);
         }
     }
 
@@ -1125,11 +998,7 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     if drafted.is_empty() {
         end_player_turn(state, rng);
         if matches!(state.phase, GamePhase::Draw) {
-            if heuristic_draft {
-                heuristic_rollout_draw_and_draft(state, params, rng);
-            } else {
-                rollout_draw_and_draft(state, rng);
-            }
+            rollout_draw_and_draft(state, heuristic_draft.then_some(params), rng);
         }
         return;
     }
@@ -1175,7 +1044,7 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     if best_priority <= params.rollout_end_turn_threshold && rng.random_bool(end_turn_prob) {
         end_player_turn(state, rng);
         if matches!(state.phase, GamePhase::Draw) {
-            rollout_draw_and_draft(state, rng);
+            rollout_draw_and_draft(state, None, rng);
         }
         return;
     }
@@ -1186,7 +1055,7 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     match card.destroy_abilities() {
         &[Ability::MixColors { count }] => {
             let player = &mut state.players[player_index];
-            let mixes = two_step_heuristic_mix_seq(&player.color_wheel, player.silver, count, &cache, params, rng);
+            let mixes = two_step_heuristic_mix_seq(&player.color_wheel, player.wild_primaries, count, &cache, params, rng);
             player.drafted_cards.remove(card_id);
             apply_mixes(player, &mixes);
             state.destroyed_pile.insert(card_id);
@@ -1335,7 +1204,7 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                 Some(Ability::MixColors { count }) => {
                     let remaining_mixes = *count;
                     let player = &mut state.players[player_index];
-                    let mixes = two_step_heuristic_mix_seq(&player.color_wheel, player.silver, remaining_mixes, &cache, params, rng);
+                    let mixes = two_step_heuristic_mix_seq(&player.color_wheel, player.wild_primaries, remaining_mixes, &cache, params, rng);
                     apply_mixes(player, &mixes);
                     if let GamePhase::Action { ref mut action_state } = state.phase {
                         action_state.ability_stack.pop();

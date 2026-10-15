@@ -29,7 +29,7 @@
     <span class="stat" title="Completed sell cards">Sell Cards: {sellCardCount}</span>
     <span class="stat" title="Stored materials">Materials: {totalMaterials}</span>
     {#if ducats > 0}<span class="stat" title="Ducats">Ducats: {ducats}</span>{/if}
-    {#if player.silver > 0}<span class="stat" title="Silver: a wild primary, worth half a point">Silver: {player.silver}</span>{/if}
+    {#if player.wildPrimaries > 0}<span class="stat" title="A wild primary, worth half a point">Wild primaries: {player.wildPrimaries}</span>{/if}
     {#if player.boats > 0}<span class="stat" title="Boats: a wild material, worth half a point">Boats: {player.boats}</span>{/if}
     <span class="stat" title="Deck size">Deck: {deckSize}</span>
   </div>

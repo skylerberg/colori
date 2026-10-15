@@ -14,6 +14,10 @@ pub const MAX_MIX_SEQUENCE: usize = 3;
 pub type MixSequence = SmallVec<[(Color, Color); MAX_MIX_SEQUENCE]>;
 
 pub const MAX_PLAYERS: usize = 4;
+
+/// Rounds in a game. Solo simulations can set their own `GameState::max_rounds`.
+pub const NUM_ROUNDS: u32 = 7;
+
 pub const MAX_SELL_CARD_DISPLAY: usize = 5;
 
 /// Buyer slots a player can ever hold. See `buyers_phase::buyer_capacity`.
@@ -127,8 +131,8 @@ pub enum Ability {
     GainPrimary,
     #[serde(rename = "gainMaterial")]
     GainMaterial,
-    #[serde(rename = "gainSilver")]
-    GainSilver { count: u32 },
+    #[serde(rename = "gainWildPrimaries")]
+    GainWildPrimaries { count: u32 },
     #[serde(rename = "gainBoats")]
     GainBoats { count: u32 },
 }
@@ -285,9 +289,9 @@ const CARD_DATA: [CardProperties; NUM_CARDS] = [
     action("Alum", MOVE_TO_DRAFT_POOL, &[Ability::GainDucats { count: 1 }]),
     action("Gum Arabic", MOVE_TO_DRAFT_POOL, &[Ability::GainSecondary]),
     action("Linseed Oil", MOVE_TO_DRAFT_POOL, &[Ability::MixColors { count: 3 }]),
-    action("Warehouse", MOVE_TO_DRAFT_POOL, &[Ability::GainSilver { count: 2 }]),
+    action("Warehouse", MOVE_TO_DRAFT_POOL, &[Ability::GainWildPrimaries { count: 2 }]),
     action("Gondola", MOVE_TO_DRAFT_POOL, &[Ability::GainBoats { count: 1 }]),
-    action("Chalk", MIX_2, &[Ability::GainSilver { count: 1 }]),
+    action("Chalk", MIX_2, &[Ability::GainWildPrimaries { count: 1 }]),
 ];
 
 impl Card {
@@ -747,12 +751,12 @@ pub struct PlayerState {
     /// Wild primaries: each covers a Red, Yellow or Blue the wheel lacks, in a
     /// mix or a sale. Unspent, each is worth half a point.
     #[serde(default)]
-    pub silver: u32,
+    pub wild_primaries: u32,
     /// Wild materials: each covers the material a sale needs. Unspent, each is
     /// worth half a point.
     #[serde(default)]
     pub boats: u32,
-    /// Ducats from sell cards and gold. The half points for silver and boats
+    /// Ducats from sell cards and gold. The half points for wild primaries and boats
     /// are not in here; `scoring::score_in_half_points` adds them.
     #[serde(skip)]
     pub cached_ducat_score: u32,
@@ -864,7 +868,7 @@ pub struct GameState {
 }
 
 fn default_max_rounds() -> u32 {
-    6
+    NUM_ROUNDS
 }
 
 fn default_card_lookup() -> [Card; 256] {

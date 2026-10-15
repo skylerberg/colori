@@ -5,126 +5,100 @@ use crate::types::{CardInstance, DraftState, GamePhase, GameState, MAX_PLAYERS};
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
 
-pub fn initialize_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
-    if is_replaying(state) {
-        replay_draft_deals(state);
-        return;
-    }
+/// Cards dealt into each draft hand. Hands pass until each is down to its last
+/// card, which goes to whoever it was passed to, so a player drafts exactly
+/// this many and nothing is left over to destroy.
+pub const DRAFT_HAND_SIZE: u32 = 4;
 
+pub fn initialize_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
     let num_players = state.players.len();
     // Solo mode: deal 2 hands so the player gets hand rotation
     let num_hands = if num_players == 1 { 2 } else { num_players };
     let mut hands = [UnorderedCards::new(); MAX_PLAYERS];
 
-    for i in 0..num_hands {
-        let deck_len = state.draft_deck.len();
-        if deck_len >= 5 {
-            hands[i] = state.draft_deck.draw_multiple(5, rng);
-        } else {
-            // Take everything from deck directly
-            hands[i] = state.draft_deck;
-            state.draft_deck = UnorderedCards::new();
-            let remaining = 5 - deck_len;
-            if remaining > 0 {
-                if state.draft_deck.is_empty() && !state.destroyed_pile.is_empty() {
-                    state.draft_deck = state.destroyed_pile;
-                    state.destroyed_pile = UnorderedCards::new();
-                }
-                let available = state.draft_deck.len().min(remaining);
-                if available > 0 {
-                    let drawn = state.draft_deck.draw_multiple(available, rng);
-                    hands[i] = hands[i].union(drawn);
-                }
-            }
+    if is_replaying(state) {
+        replay_draft_deals(state, &mut hands);
+    } else {
+        for hand in &mut hands[..num_hands] {
+            *hand = deal_draft_hand(state, rng);
         }
+        record_draft_deals(state, &hands[..num_hands]);
     }
 
-    if (0..num_hands).any(|i| hands[i].is_empty()) {
-        for i in 0..num_hands {
-            state.destroyed_pile = state.destroyed_pile.union(hands[i]);
+    if hands[..num_hands].iter().any(|hand| hand.is_empty()) {
+        for hand in &hands[..num_hands] {
+            state.destroyed_pile = state.destroyed_pile.union(*hand);
         }
         initialize_action_phase(state);
         return;
     }
 
-    let draft_state = DraftState {
-        pick_number: 0,
-        current_player_index: ((state.round - 1) as usize) % num_players,
-        hands,
-        num_hands,
+    state.phase = GamePhase::Draft {
+        draft_state: DraftState {
+            pick_number: 0,
+            current_player_index: ((state.round - 1) as usize) % num_players,
+            hands,
+            num_hands,
+        },
     };
+}
 
-    state.phase = GamePhase::Draft { draft_state };
+/// Deal one draft hand. When the draft deck runs short, the hand takes what is
+/// left and the destroyed pile becomes the new draft deck.
+pub(crate) fn deal_draft_hand<R: Rng>(state: &mut GameState, rng: &mut R) -> UnorderedCards {
+    if state.draft_deck.len() >= DRAFT_HAND_SIZE {
+        return state.draft_deck.draw_multiple(DRAFT_HAND_SIZE, rng);
+    }
+    let hand = std::mem::take(&mut state.draft_deck);
+    state.draft_deck = std::mem::take(&mut state.destroyed_pile);
+    hand.union(state.draft_deck.draw_multiple(DRAFT_HAND_SIZE - hand.len(), rng))
+}
 
-    // Record the hands dealt, phantom solo hands included.
-    if let Some(DrawLog::Recording(log)) = &mut state.draw_log {
-        if let GamePhase::Draft { ref draft_state } = state.phase {
-            for i in 0..draft_state.num_hands {
-                let cards: Vec<CardInstance> = draft_state.hands[i]
-                    .iter()
-                    .map(|id| CardInstance {
-                        instance_id: id as u32,
-                        card: state.card_lookup[id as usize],
-                    })
-                    .collect();
-                if !cards.is_empty() {
-                    log.push(DrawEvent::DraftDeal {
-                        player_index: i,
-                        cards,
-                    });
-                }
-            }
+/// Record the hands dealt, phantom solo hands included.
+fn record_draft_deals(state: &mut GameState, hands: &[UnorderedCards]) {
+    let Some(DrawLog::Recording(log)) = &mut state.draw_log else {
+        return;
+    };
+    for (player_index, hand) in hands.iter().enumerate() {
+        if hand.is_empty() {
+            continue;
         }
+        let cards = hand
+            .iter()
+            .map(|id| CardInstance {
+                instance_id: id as u32,
+                card: state.card_lookup[id as usize],
+            })
+            .collect();
+        log.push(DrawEvent::DraftDeal { player_index, cards });
     }
 }
 
 /// In replay mode, consume DraftDeal events to set up draft hands.
-fn replay_draft_deals(state: &mut GameState) {
-    let num_players = state.players.len();
-    let mut hands = [UnorderedCards::new(); MAX_PLAYERS];
-    let mut num_hands = 0;
-
-    // Pop DraftDeal events from the replay queue
+fn replay_draft_deals(state: &mut GameState, hands: &mut [UnorderedCards; MAX_PLAYERS]) {
     loop {
-        let is_draft_deal = matches!(
-            &state.draw_log,
-            Some(DrawLog::Replaying(q)) if matches!(q.front(), Some(DrawEvent::DraftDeal { .. }))
-        );
-        if !is_draft_deal {
-            break;
-        }
         let event = match &mut state.draw_log {
-            Some(DrawLog::Replaying(queue)) => queue.pop_front(),
+            Some(DrawLog::Replaying(queue))
+                if matches!(queue.front(), Some(DrawEvent::DraftDeal { .. })) =>
+            {
+                queue.pop_front()
+            }
             _ => break,
         };
         if let Some(DrawEvent::DraftDeal { player_index, cards }) = event {
             for card in &cards {
                 let id = card.instance_id as u8;
+                // A card the deck no longer holds was dealt after the deck ran
+                // short and the destroyed pile was shuffled back in.
+                if !state.draft_deck.contains(id) {
+                    state.draft_deck = state.draft_deck.union(state.destroyed_pile);
+                    state.destroyed_pile = UnorderedCards::new();
+                }
                 state.draft_deck.remove(id);
                 hands[player_index].insert(id);
             }
-            if player_index + 1 > num_hands {
-                num_hands = player_index + 1;
-            }
         }
     }
-
-    // Check if any hands are empty (same logic as initialize_draft)
-    if (0..num_hands).any(|i| hands[i].is_empty()) {
-        for i in 0..num_hands {
-            state.destroyed_pile = state.destroyed_pile.union(hands[i]);
-        }
-        crate::action_phase::initialize_action_phase(state);
-        return;
-    }
-
-    let draft_state = DraftState {
-        pick_number: 0,
-        current_player_index: ((state.round - 1) as usize) % num_players,
-        hands,
-        num_hands,
-    };
-    state.phase = GamePhase::Draft { draft_state };
 }
 
 pub fn player_pick<R: Rng>(state: &mut GameState, card_instance_id: u32, rng: &mut R) {
@@ -222,54 +196,51 @@ fn phantom_draft_removal<R: Rng>(state: &mut GameState, hand_idx: usize, rng: &m
     removed_id
 }
 
+
 pub fn advance_draft(state: &mut GameState) {
     let num_players = state.players.len();
-    let round = state.round;
+    let starting = ((state.round - 1) as usize) % num_players;
 
-    let (pick_number, n) = {
-        let draft_state = match &mut state.phase {
-            GamePhase::Draft { draft_state } => draft_state,
-            _ => panic!("Expected draft phase"),
-        };
-
-        let n = draft_state.num_hands;
-        let last = draft_state.hands[n - 1];
-        for i in (1..n).rev() {
-            draft_state.hands[i] = draft_state.hands[i - 1];
-        }
-        draft_state.hands[0] = last;
-
-        draft_state.pick_number += 1;
-        (draft_state.pick_number, n)
+    let GamePhase::Draft { draft_state } = &mut state.phase else {
+        panic!("Expected draft phase");
     };
+    let n = draft_state.num_hands;
+    draft_state.hands[..n].rotate_right(1);
+    draft_state.pick_number += 1;
 
-    let all_hands_empty = if let GamePhase::Draft { ref draft_state } = state.phase {
-        (0..n).all(|i| draft_state.hands[i].is_empty())
-    } else {
-        false
-    };
-
-    if pick_number >= 4 || all_hands_empty {
-        if let GamePhase::Draft { ref draft_state } = state.phase {
-            for i in 0..draft_state.num_hands {
-                state.destroyed_pile = state.destroyed_pile.union(draft_state.hands[i]);
-            }
-        }
-        initialize_action_phase(state);
-    } else {
-        if let GamePhase::Draft { ref mut draft_state } = state.phase {
-            let starting = ((round - 1) as usize) % num_players;
-            let mut current = starting;
-            // Skip past players with empty hands
-            while draft_state.hands[current].is_empty() {
-                current = (current + 1) % num_players;
-                if current == starting {
-                    break;
-                }
-            }
-            draft_state.current_player_index = current;
+    // Skip past players with empty hands
+    let mut current = starting;
+    while draft_state.hands[current].is_empty() {
+        current = (current + 1) % num_players;
+        if current == starting {
+            break;
         }
     }
+    draft_state.current_player_index = current;
+
+    end_draft_if_no_choice_left(state);
+}
+
+/// Once no hand holds more than one card there is nothing left to choose, so
+/// each player takes the card passed to them and the draft is over. A solo
+/// game's phantom hand has nobody to take its card, so that card is destroyed.
+fn end_draft_if_no_choice_left(state: &mut GameState) {
+    let (hands, num_hands) = match &state.phase {
+        GamePhase::Draft { draft_state } => (draft_state.hands, draft_state.num_hands),
+        _ => panic!("Expected draft phase"),
+    };
+    if hands[..num_hands].iter().any(|hand| hand.len() > 1) {
+        return;
+    }
+    for (i, hand) in hands[..num_hands].iter().enumerate() {
+        if i < state.players.len() {
+            let player = &mut state.players[i];
+            player.drafted_cards = player.drafted_cards.union(*hand);
+        } else {
+            state.destroyed_pile = state.destroyed_pile.union(*hand);
+        }
+    }
+    initialize_action_phase(state);
 }
 
 pub fn simultaneous_pick(state: &mut GameState, player_index: usize, card: crate::types::Card) {
@@ -298,6 +269,7 @@ pub fn simultaneous_pick(state: &mut GameState, player_index: usize, card: crate
 
 #[cfg(test)]
 mod tests {
+    use super::DRAFT_HAND_SIZE;
     use crate::apply_choice::apply_choice;
     use crate::colori_game::enumerate_choices;
     use crate::draw_phase::execute_draw_phase;
@@ -371,13 +343,13 @@ mod tests {
         assert!(matches!(state.phase, GamePhase::Draft { .. }));
         assert_eq!(state.round, 2);
 
-        // Verify all 3 hands have 5 cards
+        // Verify all 3 hands are full
         if let GamePhase::Draft { ref draft_state } = state.phase {
             for i in 0..3 {
                 assert_eq!(
                     draft_state.hands[i].len(),
-                    5,
-                    "Hand {} should have 5 cards before any picks",
+                    DRAFT_HAND_SIZE,
+                    "Hand {} should be full before any picks",
                     i
                 );
             }
@@ -398,20 +370,11 @@ mod tests {
         // Round trip after applying choice (the applyChoice WASM call returns serialized state)
         state = round_trip(&state);
 
-        // Check hand[0] after first AI pick + round trips
         if let GamePhase::Draft { ref draft_state } = state.phase {
             assert_eq!(
                 draft_state.hands[0].len(),
-                5,
-                "Hand 0 should still have 5 cards after player 1's pick (pick 1 done)"
-            );
-        }
-
-        if let GamePhase::Draft { ref draft_state } = state.phase {
-            assert_eq!(
-                draft_state.hands[0].len(),
-                5,
-                "Hand 0 should still have 5 cards after player 1's pick"
+                DRAFT_HAND_SIZE,
+                "Hand 0 should still be full after player 1's pick"
             );
         }
 
@@ -425,15 +388,15 @@ mod tests {
         if let GamePhase::Draft { ref draft_state } = state.phase {
             assert_eq!(
                 draft_state.hands[0].len(),
-                5,
-                "Hand 0 should still have 5 cards after player 2's pick"
+                DRAFT_HAND_SIZE,
+                "Hand 0 should still be full after player 2's pick"
             );
         }
 
         // After player 2 picks, all players have picked once, so advance_draft rotates hands.
         // Now it should be player 1's turn again (starting player for pick 2).
         // But first check that hand 0 still has the right number of cards.
-        // After rotation, each hand should have 4 cards (since one was picked from each).
+        // After rotation, each hand should hold one card fewer.
 
         // The human (player 0) should now pick. They should see their hand.
         let choices = enumerate_choices(&state);
@@ -452,13 +415,13 @@ mod tests {
             hand_size,
         );
 
-        // Player 0 hasn't picked yet, so their hand should still have 5 cards.
+        // Player 0 hasn't picked yet, so their hand should still be full.
         // (Rotation only happens after ALL players in a round have picked.)
         if let GamePhase::Draft { ref draft_state } = state.phase {
             assert_eq!(
                 draft_state.hands[0].len(),
-                5,
-                "Hand 0 should have 5 cards - player 0 hasn't picked yet"
+                DRAFT_HAND_SIZE,
+                "Hand 0 should be full - player 0 hasn't picked yet"
             );
         }
     }

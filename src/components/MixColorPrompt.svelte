@@ -1,12 +1,12 @@
 <script lang="ts">
   import type { Color, Choice } from '../data/types';
-  import { isPrimary, mixWithSilver } from '../data/colors';
+  import { isPrimary, mixWithWildPrimaries } from '../data/colors';
   import { mixWheelState } from '../stores/mixWheelState.svelte';
   import { onDestroy } from 'svelte';
 
-  let { colorWheel, silver, remaining, onAction }: {
+  let { colorWheel, wildPrimaries, remaining, onAction }: {
     colorWheel: Record<Color, number>;
-    silver: number;
+    wildPrimaries: number;
     remaining: number;
     onAction: (choice: Choice) => void;
   } = $props();
@@ -16,16 +16,16 @@
 
   $effect(() => {
     colorWheel;
-    silver;
+    wildPrimaries;
     plannedMixes = [];
     selectedMixColors = [];
   });
 
   // What the planned mixes leave behind, replayed from the real stock.
   let simulated = $derived.by(() => {
-    let stock = { wheel: { ...colorWheel }, silver };
+    let stock = { wheel: { ...colorWheel }, wildPrimaries };
     for (const [a, b] of plannedMixes) {
-      stock = mixWithSilver(stock.wheel, stock.silver, a, b) ?? stock;
+      stock = mixWithWildPrimaries(stock.wheel, stock.wildPrimaries, a, b) ?? stock;
     }
     return stock;
   });
@@ -33,7 +33,7 @@
   // Push state to the shared store so GameLayout's wheel becomes interactive
   $effect(() => {
     mixWheelState.simulatedWheel = simulated.wheel;
-    mixWheelState.simulatedSilver = simulated.silver;
+    mixWheelState.simulatedWildPrimaries = simulated.wildPrimaries;
     mixWheelState.selectedColors = selectedMixColors;
     mixWheelState.onColorClick = handleMixColorClick;
   });
@@ -50,7 +50,7 @@
       selectedMixColors = [color];
     } else if (first === color) {
       selectedMixColors = [];
-    } else if (mixWithSilver(simulated.wheel, simulated.silver, first, color)) {
+    } else if (mixWithWildPrimaries(simulated.wheel, simulated.wildPrimaries, first, color)) {
       plannedMixes = [...plannedMixes, [first, color]];
       selectedMixColors = [];
 
@@ -74,18 +74,18 @@
     selectedMixColors = [];
   }
 
-  let silverHint = $derived.by(() => {
-    if (simulated.silver === 0) return '';
+  let wildPrimaryHint = $derived.by(() => {
+    if (simulated.wildPrimaries === 0) return '';
     const emptyPrimary = selectedMixColors.some(c => isPrimary(c) && simulated.wheel[c] === 0);
     return emptyPrimary
-      ? ' This mix will spend silver for the primary you lack.'
-      : ` Silver (${simulated.silver}) can stand in for a primary you lack.`;
+      ? ' This mix will spend a wild primary for the primary you lack.'
+      : ` Wild primaries (${simulated.wildPrimaries}) can stand in for a primary you lack.`;
   });
 </script>
 
 <div class="prompt-section">
   <h3>Mix Colors: Select two adjacent colors on the wheel ({mixRemaining} remaining)</h3>
-  <p class="hint">Click colors on the wheel to mix. Two adjacent colors with at least 1 stored each.{silverHint}</p>
+  <p class="hint">Click colors on the wheel to mix. Two adjacent colors with at least 1 stored each.{wildPrimaryHint}</p>
   <div class="mix-actions">
     <button class="skip-btn" onclick={handleSkipMix}>
       {plannedMixes.length > 0 ? 'Submit Mixes' : 'Skip Remaining Mixes'}

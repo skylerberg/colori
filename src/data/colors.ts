@@ -38,52 +38,52 @@ export function isPrimary(color: Color): boolean {
   return PRIMARY_INDICES.has(colorIndex(color));
 }
 
-// Silver is a wild primary: it covers a Red, Yellow or Blue the wheel lacks,
-// and stored colors are always spent first. These mirror `colori_core::colors`.
+// A wild primary covers a Red, Yellow or Blue the wheel lacks, and stored
+// colors are always spent first. These mirror `colori_core::colors`.
 
-// Mix a and b, or return null when the wheel and silver cannot supply them.
-export function mixWithSilver(
+// Mix a and b, or return null when the wheel and wild primaries cannot supply them.
+export function mixWithWildPrimaries(
   wheel: Record<Color, number>,
-  silver: number,
+  wildPrimaries: number,
   a: Color,
   b: Color,
-): { wheel: Record<Color, number>; silver: number } | null {
+): { wheel: Record<Color, number>; wildPrimaries: number } | null {
   if (!canMix(a, b)) return null;
   const next = { ...wheel };
-  let silverLeft = silver;
+  let wildPrimariesLeft = wildPrimaries;
   for (const color of [a, b]) {
     if (next[color] > 0) {
       next[color]--;
-    } else if (isPrimary(color) && silverLeft > 0) {
-      silverLeft--;
+    } else if (isPrimary(color) && wildPrimariesLeft > 0) {
+      wildPrimariesLeft--;
     } else {
       return null;
     }
   }
   next[mixResult(a, b)]++;
-  return { wheel: next, silver: silverLeft };
+  return { wheel: next, wildPrimaries: wildPrimariesLeft };
 }
 
-export function canMixAny(wheel: Record<Color, number>, silver: number): boolean {
+export function canMixAny(wheel: Record<Color, number>, wildPrimaries: number): boolean {
   return WHEEL_ORDER.some((a, i) =>
-    WHEEL_ORDER.slice(i + 1).some(b => mixWithSilver(wheel, silver, a, b) !== null));
+    WHEEL_ORDER.slice(i + 1).some(b => mixWithWildPrimaries(wheel, wildPrimaries, a, b) !== null));
 }
 
-// Silver needed to pay `cost`, or null when a secondary or tertiary is missing.
-export function silverToCoverCost(wheel: Record<Color, number>, cost: Color[]): number | null {
+// Wild primaries needed to pay `cost`, or null when a secondary or tertiary is missing.
+export function wildPrimariesToCoverCost(wheel: Record<Color, number>, cost: Color[]): number | null {
   const used: Partial<Record<Color, number>> = {};
-  let silver = 0;
+  let wildPrimaries = 0;
   for (const c of cost) {
     const taken = used[c] ?? 0;
     if (wheel[c] > taken) {
       used[c] = taken + 1;
     } else if (isPrimary(c)) {
-      silver++;
+      wildPrimaries++;
     } else {
       return null;
     }
   }
-  return silver;
+  return wildPrimaries;
 }
 
 // Returns the color produced by mixing a and b.

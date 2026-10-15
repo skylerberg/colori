@@ -100,7 +100,7 @@ pub struct LogPlayerState {
 #[serde(rename_all = "camelCase")]
 pub struct FinalScore {
     pub name: String,
-    /// Points, which end in .5 when silver and boats add an odd half.
+    /// Points, which end in .5 when wild primaries and boats add an odd half.
     pub score: f64,
     #[serde(default)]
     pub completed_sell_cards: u32,
@@ -123,7 +123,7 @@ pub struct FinalPlayerStats {
     pub completed_sell_cards: Vec<SellCardInstance>,
     pub ducats: u32,
     #[serde(default)]
-    pub silver: u32,
+    pub wild_primaries: u32,
     #[serde(default)]
     pub boats: u32,
     pub color_wheel: ColorWheel,

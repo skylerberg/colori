@@ -98,8 +98,8 @@
                 {#if player.ducats > 0}
                   <div class="ducats-count">Ducats: {player.ducats}</div>
                 {/if}
-                {#if player.silver > 0}
-                  <div class="ducats-count">Silver: {player.silver} (½ point each)</div>
+                {#if player.wildPrimaries > 0}
+                  <div class="ducats-count">Wild primaries: {player.wildPrimaries} (½ point each)</div>
                 {/if}
                 {#if player.boats > 0}
                   <div class="ducats-count">Boats: {player.boats} (½ point each)</div>

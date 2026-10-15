@@ -20,7 +20,7 @@ function resolveBuyers(state: GameState) {
 export function setupActionGame(numPlayers: number): GameState {
   const state = setupDraftGame(numPlayers);
 
-  // Play through the entire draft: each player picks 4 cards
+  // Play through the entire draft
   while (state.phase.type === 'draft') {
     const ds = state.phase.draftState;
 

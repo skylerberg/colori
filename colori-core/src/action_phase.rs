@@ -272,9 +272,9 @@ pub fn process_ability_stack<R: Rng>(state: &mut GameState, rng: &mut R) {
                 state.players[player_index].cached_ducat_score += count;
                 continue;
             }
-            Ability::GainSilver { count } => {
+            Ability::GainWildPrimaries { count } => {
                 get_action_state_mut(state).ability_stack.pop();
-                state.players[player_index].silver += count;
+                state.players[player_index].wild_primaries += count;
                 continue;
             }
             Ability::GainBoats { count } => {
@@ -327,11 +327,11 @@ pub(crate) fn boats_to_sell(player: &PlayerState, sell_card: SellCard) -> u32 {
 #[inline]
 pub(crate) fn can_afford_sell_card(player: &PlayerState, sell_card: &SellCard) -> bool {
     boats_to_sell(player, *sell_card) <= player.boats
-        && can_pay_cost(&player.color_wheel, player.silver, sell_card.color_cost())
+        && can_pay_cost(&player.color_wheel, player.wild_primaries, sell_card.color_cost())
 }
 
 /// Sell to the buyer at `index`, paying with the materials and colours it asks
-/// for before any boat or silver standing in for them.
+/// for before any boat or wild primary standing in for them.
 pub(crate) fn sell_to_buyer(player: &mut PlayerState, index: usize) {
     // Order-preserving, so the slot a buyer occupied is not visibly shuffled
     // when an earlier one sells.
@@ -345,7 +345,7 @@ pub(crate) fn sell_to_buyer(player: &mut PlayerState, index: usize) {
     }
     assert!(player.boats >= boats, "Not enough stored material or boats");
     player.boats -= boats;
-    let paid = pay_cost(&mut player.color_wheel, &mut player.silver, sold.sell_card.color_cost());
+    let paid = pay_cost(&mut player.color_wheel, &mut player.wild_primaries, sold.sell_card.color_cost());
     assert!(paid, "Cannot pay sell card color cost");
 
     player.cached_ducat_score += sold.sell_card.ducats();
@@ -366,13 +366,13 @@ pub fn can_sell_to_any_sell_card(state: &GameState) -> bool {
 }
 
 
-/// Whether the player can make any mix at all, counting silver as whichever
+/// Whether the player can make any mix at all, counting a wild primary as whichever
 /// primary is missing.
 #[inline]
 pub fn can_mix_any(player: &PlayerState) -> bool {
     VALID_MIX_PAIRS
         .iter()
-        .any(|&(a, b)| can_supply_mix(&player.color_wheel, player.silver, a, b))
+        .any(|&(a, b)| can_supply_mix(&player.color_wheel, player.wild_primaries, a, b))
 }
 
 /// Whether spending a ducat on `purchase` would actually do something.
@@ -462,7 +462,7 @@ pub fn resolve_mix_colors<R: Rng>(
 ) {
     let player_index = get_action_state(state).current_player_index;
     let player = &mut state.players[player_index];
-    let success = perform_mix(&mut player.color_wheel, &mut player.silver, color_a, color_b);
+    let success = perform_mix(&mut player.color_wheel, &mut player.wild_primaries, color_a, color_b);
     if !success {
         panic!("Cannot mix {:?} and {:?}", color_a, color_b);
     }
@@ -479,7 +479,7 @@ pub fn resolve_mix_colors_unchecked<R: Rng>(
 ) {
     let player_index = get_action_state(state).current_player_index;
     let player = &mut state.players[player_index];
-    perform_mix_unchecked(&mut player.color_wheel, &mut player.silver, color_a, color_b);
+    perform_mix_unchecked(&mut player.color_wheel, &mut player.wild_primaries, color_a, color_b);
     finish_mix(state, rng);
 }
 
