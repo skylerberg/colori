@@ -1,6 +1,6 @@
-import type { GameState, Choice, PlayerState, Color, Card, DrawEvent, MaterialType } from '../data/types';
+import type { GameState, Choice, PlayerState, Card, DrawEvent, MaterialType } from '../data/types';
 import { mixResult, wildPrimariesToCoverCost } from '../data/colors';
-import { getCardData, getSellCardData, getAnyCardData } from '../data/cards';
+import { getSellCardData, getAnyCardData } from '../data/cards';
 import init, {
   wasm_create_initial_game_state,
   wasm_execute_draw_phase,
