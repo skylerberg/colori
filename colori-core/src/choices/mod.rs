@@ -17,30 +17,17 @@ use multiset::{count_card_types, enumerate_multiset_subsets, enumerate_multiset_
 
 /// Whether sub-maximum workshop subsets can be skipped during enumeration.
 ///
-/// Holding picks back only pays off when something later in the turn could
-/// still add to the workshop or consume a card left sitting in it. When
-/// nothing can, workshopping fewer cards than allowed is strictly worse and
-/// the smaller subsets are dead branches in the search tree.
+/// Nothing enters the workshop mid-turn, so holding picks back only pays off
+/// when something later in the turn could consume a card left sitting in it.
+/// When nothing can, workshopping fewer cards than allowed is strictly worse
+/// and the smaller subsets are dead branches in the search tree.
 pub(crate) fn should_force_max_workshop(state: &GameState, player: &PlayerState) -> bool {
-    if !state.force_max_workshop {
-        return false;
-    }
-    for id in player.drafted_cards.iter() {
-        for ability in state.card_lookup[id as usize].destroy_abilities() {
-            if matches!(ability, Ability::MoveToDraftPool | Ability::DrawCards { .. }) {
-                return false;
-            }
-        }
-    }
-    for id in player.workshop_cards.iter() {
-        let card = state.card_lookup[id as usize];
-        for &wa in card.workshop_abilities() {
-            if matches!(wa, Ability::DrawCards { .. }) {
-                return false;
-            }
-        }
-    }
-    true
+    state.force_max_workshop
+        && !player.drafted_cards.iter().any(|id| {
+            state.card_lookup[id as usize]
+                .destroy_abilities()
+                .contains(&Ability::MoveToDraftPool)
+        })
 }
 
 // ── Choice enumeration ──
@@ -161,7 +148,7 @@ pub fn enumerate_choices_into(state: &GameState, player_index: usize, choices: &
                         choices.push(Choice::GainMaterial { material: m });
                     }
                 }
-                // Instant abilities (DrawCards, GainDucats, GainWildPrimaries, GainBoats)
+                // Instant abilities (GainDucats, GainWildPrimaries, GainBoats)
                 // should never be on top when waiting for a choice — they get
                 // processed immediately.
                 Some(_) => {}

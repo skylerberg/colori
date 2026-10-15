@@ -27,11 +27,10 @@ pub fn get_draft_copies_by_name(name: &str) -> u32 {
 }
 
 /// Format an ability as human-readable text.
-/// Examples: "Workshop x3", "Draw x2", "Mix x2", "Destroy x1", "Sell"
+/// Examples: "Workshop x3", "Mix x2", "Sell"
 pub fn format_ability(ability: &Ability) -> String {
     match ability {
         Ability::Workshop { count } => format!("Workshop x{}", count),
-        Ability::DrawCards { count } => format!("Draw x{}", count),
         Ability::MixColors { count } => format!("Mix x{}", count),
         Ability::MoveToDraftPool => "Move to Draft Pool".to_string(),
         Ability::Sell => "Sell".to_string(),

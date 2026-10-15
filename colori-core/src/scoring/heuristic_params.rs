@@ -42,8 +42,6 @@ pub struct HeuristicParams {
     pub rollout_workshop_empty: u32,
     pub rollout_destroy_with_targets: u32,
     pub rollout_destroy_no_targets: u32,
-    pub rollout_draw_base: u32,
-    pub rollout_draw_count_weight: u32,
     pub rollout_other_priority: u32,
     pub rollout_end_turn_threshold: u32,
     pub rollout_end_turn_probability_early: f64,
@@ -52,8 +50,6 @@ pub struct HeuristicParams {
     pub rollout_ws_material_base_multiplier: u32,
     pub rollout_ws_material_colors_met_multiplier: u32,
     pub rollout_ws_action_gain_ducats_value: u32,
-    pub rollout_ws_action_draw_value: u32,
-    pub rollout_ws_action_workshop_per_card: u32,
     pub rollout_ws_action_color_demand_multiplier: u32,
 }
 
@@ -116,8 +112,6 @@ struct HeuristicParamsRaw {
     rollout_workshop_empty: u32,
     rollout_destroy_with_targets: u32,
     rollout_destroy_no_targets: u32,
-    rollout_draw_base: u32,
-    rollout_draw_count_weight: u32,
     rollout_other_priority: u32,
     rollout_end_turn_threshold: u32,
     rollout_end_turn_probability_early: f64,
@@ -130,10 +124,6 @@ struct HeuristicParamsRaw {
     rollout_ws_action_bonus: Option<u32>,
     #[serde(default)]
     rollout_ws_action_gain_ducats_value: Option<u32>,
-    #[serde(default)]
-    rollout_ws_action_draw_value: Option<u32>,
-    #[serde(default)]
-    rollout_ws_action_workshop_per_card: Option<u32>,
     #[serde(default)]
     rollout_ws_action_color_demand_multiplier: Option<u32>,
 }
@@ -180,8 +170,6 @@ impl From<HeuristicParamsRaw> for HeuristicParams {
             rollout_workshop_empty: raw.rollout_workshop_empty,
             rollout_destroy_with_targets: raw.rollout_destroy_with_targets,
             rollout_destroy_no_targets: raw.rollout_destroy_no_targets,
-            rollout_draw_base: raw.rollout_draw_base,
-            rollout_draw_count_weight: raw.rollout_draw_count_weight,
             rollout_other_priority: raw.rollout_other_priority,
             rollout_end_turn_threshold: raw.rollout_end_turn_threshold,
             rollout_end_turn_probability_early: raw.rollout_end_turn_probability_early,
@@ -190,8 +178,6 @@ impl From<HeuristicParamsRaw> for HeuristicParams {
             rollout_ws_material_base_multiplier: raw.rollout_ws_material_base_multiplier,
             rollout_ws_material_colors_met_multiplier: raw.rollout_ws_material_colors_met_multiplier,
             rollout_ws_action_gain_ducats_value: raw.rollout_ws_action_gain_ducats_value.unwrap_or(bonus),
-            rollout_ws_action_draw_value: raw.rollout_ws_action_draw_value.unwrap_or(bonus),
-            rollout_ws_action_workshop_per_card: raw.rollout_ws_action_workshop_per_card.unwrap_or(bonus),
             rollout_ws_action_color_demand_multiplier: raw.rollout_ws_action_color_demand_multiplier.unwrap_or(bonus),
         }
     }

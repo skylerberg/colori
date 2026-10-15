@@ -324,17 +324,13 @@ pub fn run_game(
                     while is_taking_turn(views.view(player_index), player_index) {
                         let view = views.view(player_index);
                         let choice = decide(&mut searcher, view, player_index, rng);
-                        let prev_workshop_len = view.players[player_index].workshop_cards.len();
 
-                        let draws = log.play(&mut state, player_index, &choice, "action", rng);
-                        views.apply(player_index, &choice, &draws);
+                        log.play(&mut state, player_index, &choice, "action", rng);
+                        views.apply(player_index, &choice);
 
-                        // Carry the subtree forward only while the turn goes on
-                        // and nothing new was drawn.
-                        let view = views.view(player_index);
-                        if is_taking_turn(view, player_index)
-                            && view.players[player_index].workshop_cards.len() == prev_workshop_len
-                        {
+                        // Nothing hidden is revealed during a turn, so the
+                        // subtree stays sound for as long as the turn goes on.
+                        if is_taking_turn(views.view(player_index), player_index) {
                             searcher.reuse_subtree(&choice);
                         } else {
                             searcher.clear_tree();

@@ -7,7 +7,6 @@ export const ALL_MATERIAL_TYPES: MaterialType[] = ['Textiles', 'Ceramics', 'Pain
 
 export type Ability =
   | { type: 'workshop'; count: number }
-  | { type: 'drawCards'; count: number }
   | { type: 'mixColors'; count: number }
   | { type: 'moveToDraftPool' }
   | { type: 'sell' }

@@ -6,7 +6,6 @@ use std::io::Write;
 fn format_ability(ability: &Ability) -> String {
     match ability {
         Ability::Workshop { count } => format!("{{ type: 'workshop', count: {} }}", count),
-        Ability::DrawCards { count } => format!("{{ type: 'drawCards', count: {} }}", count),
         Ability::MixColors { count } => format!("{{ type: 'mixColors', count: {} }}", count),
         Ability::MoveToDraftPool => "{ type: 'moveToDraftPool' }".to_string(),
         Ability::Sell => "{ type: 'sell' }".to_string(),

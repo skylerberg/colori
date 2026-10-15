@@ -414,10 +414,6 @@ fn generate_invalid_choices(state: &GameState, player: usize) -> Vec<Choice> {
                         invalid.push(Choice::EndTurn);
                         invalid.push(Choice::SkipWorkshop);
                     }
-                    Ability::DrawCards { .. } => {
-                        invalid.push(Choice::EndTurn);
-                        invalid.push(Choice::SkipWorkshop);
-                    }
                     Ability::GainDucats { .. }
                     | Ability::GainWildPrimaries { .. }
                     | Ability::GainBoats { .. } => {
@@ -2406,7 +2402,7 @@ fn random_turns(state: &GameState, rng: &mut WyRand) -> Vec<Vec<Choice>> {
             loop {
                 let choices = enumerate_choices(views.view(player), player);
                 let choice = choices[rng.random_range(0..choices.len())].clone();
-                views.apply(player, &choice, &[]);
+                views.apply(player, &choice);
                 let ended = matches!(choice, Choice::EndTurn);
                 turn.push(choice);
                 if ended {
@@ -2509,10 +2505,8 @@ fn test_a_view_shows_only_its_own_players_moves() {
 
         for (player, turn) in turns.iter().enumerate().take(2) {
             for choice in turn {
-                live.draw_log = Some(DrawLog::Recording(Vec::new()));
                 apply_choice_to_state(&mut live, player, choice, &mut rng);
-                let draws = take_recording(&mut live);
-                views.apply(player, choice, &draws);
+                views.apply(player, choice);
             }
         }
 

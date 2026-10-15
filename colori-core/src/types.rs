@@ -115,8 +115,6 @@ impl DucatPurchase {
 pub enum Ability {
     #[serde(rename = "workshop")]
     Workshop { count: u32 },
-    #[serde(rename = "drawCards")]
-    DrawCards { count: u32 },
     #[serde(rename = "mixColors")]
     MixColors { count: u32 },
     #[serde(rename = "moveToDraftPool")]

@@ -3,7 +3,6 @@ import type { Ability, AnyCardData } from './types';
 export function formatSingleAbility(a: Ability): string {
   switch (a.type) {
     case 'workshop': return `Workshop x${a.count}`;
-    case 'drawCards': return `Draw x${a.count}`;
     case 'mixColors': return `Mix x${a.count}`;
     case 'moveToDraftPool': return 'Move a card from workshop to draft pool';
     case 'sell': return 'Sell';
