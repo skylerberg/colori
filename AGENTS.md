@@ -41,7 +41,7 @@ Rust workspace plus a Svelte frontend:
 
 ## Architecture Notes
 
-- Game state flows through phases: Draw → Draft → Action → Game Over (repeats for 6 rounds)
+- Game state flows through phases: Draw → Draft → Action → Game Over (repeats for 7 rounds)
 - All game logic lives in Rust (`colori-core`); other crates and the frontend consume it through bindings
 - AI uses Information Set MCTS (for imperfect information)
 - Frontend runs AI in Web Workers; draft picks are precomputed for responsiveness

@@ -31,7 +31,7 @@
 
 {#if draftState}
     <div class="draft-phase">
-      <h2 class="phase-title">Draft - Round {gameState.round}, Pick {draftState.pickNumber + 1} of 4</h2>
+      <h2 class="phase-title">Draft - Round {gameState.round}, Pick {draftState.pickNumber + 1} of 3</h2>
 
       <div class="draft-cards">
         <h3 class="section-label">{playerIndex !== undefined ? 'Pick a card' : `${gameState.playerNames[viewingPlayerIndex]}'s Turn - Pick a card`}</h3>

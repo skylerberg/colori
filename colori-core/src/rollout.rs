@@ -13,7 +13,7 @@ use crate::colors::{
     SECONDARIES, VALID_MIX_PAIRS,
 };
 use crate::draw_phase::{collect_round_income, WORKSHOP_SIZE};
-use crate::draft_phase::player_pick;
+use crate::draft_phase::{deal_draft_hand, player_pick};
 use crate::buyers_phase::{
     anything_to_claim, claim_from_deck, claim_from_display, draw_buyer, needs_a_buyer, take_buyer,
 };
@@ -129,66 +129,42 @@ fn rollout_resolve_buyers_phase<R: Rng>(
 
 // ── Rollout draw+draft shortcut ──
 
-fn rollout_draw_and_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
+/// Stand-in for a round's draw, buyers and draft phases. Every player keeps
+/// the whole hand dealt to them: a draft only shares the dealt cards out, so
+/// with nobody choosing, dealing straight to the players is the same thing.
+/// `buyer_params` claims buyers by the heuristic instead of at random.
+fn rollout_draw_and_draft<R: Rng>(state: &mut GameState, buyer_params: Option<&HeuristicParams>, rng: &mut R) {
     let num_players = state.players.len();
 
     collect_round_income(state);
 
-    // Step 1: top each player's workshop back up to full
     for i in 0..num_players {
         let player = &mut state.players[i];
         let count = WORKSHOP_SIZE.saturating_sub(player.workshop_cards.len());
         player.deck.draw_into(&mut player.workshop_cards, count, rng);
     }
 
-    rollout_fill_buyers(state, None, rng);
+    rollout_fill_buyers(state, buyer_params, rng);
 
-    // Step 2: Draw 4 cards per player from draft_deck, restocking from destroyed_pile
-    // only when the deck runs out (mirrors initialize_draft ordering)
     let mut dealt = [UnorderedCards::new(); MAX_PLAYERS];
-    for i in 0..num_players {
-        let deck_len = state.draft_deck.len();
-        if deck_len >= 4 {
-            dealt[i] = state.draft_deck.draw_multiple(4, rng);
-        } else {
-            // Take everything remaining from draft_deck
-            dealt[i] = state.draft_deck;
-            state.draft_deck = UnorderedCards::new();
-            let remaining = 4 - deck_len;
-            if remaining > 0 && !state.destroyed_pile.is_empty() {
-                // Restock draft_deck from destroyed_pile
-                state.draft_deck = state.destroyed_pile;
-                state.destroyed_pile = UnorderedCards::new();
-                let available = state.draft_deck.len().min(remaining);
-                if available > 0 {
-                    let drawn = state.draft_deck.draw_multiple(available, rng);
-                    dealt[i] = dealt[i].union(drawn);
-                }
-            }
-        }
+    for hand in &mut dealt[..num_players] {
+        *hand = deal_draft_hand(state, rng);
     }
 
-    // Step 3: If any player got 0 cards, return all dealt cards to destroyed_pile
-    if (0..num_players).any(|i| dealt[i].is_empty()) {
+    // As in `initialize_draft`, a player dealt nothing means no draft at all.
+    if dealt[..num_players].iter().any(|hand| hand.is_empty()) {
+        for hand in &dealt[..num_players] {
+            state.destroyed_pile = state.destroyed_pile.union(*hand);
+        }
+    } else {
         for i in 0..num_players {
-            state.destroyed_pile = state.destroyed_pile.union(dealt[i]);
+            state.players[i].drafted_cards = dealt[i];
         }
-        state.destroyed_pile = state.destroyed_pile.union(state.draft_deck);
-        state.draft_deck = UnorderedCards::new();
-        initialize_action_phase(state);
-        return;
     }
 
-    // Step 4: Assign dealt cards as drafted_cards
-    for i in 0..num_players {
-        state.players[i].drafted_cards = dealt[i];
-    }
-
-    // Step 5: Remaining draft_deck cards go to destroyed_pile
     state.destroyed_pile = state.destroyed_pile.union(state.draft_deck);
     state.draft_deck = UnorderedCards::new();
 
-    // Step 6: Go directly to action phase
     initialize_action_phase(state);
 }
 
@@ -292,11 +268,7 @@ fn handle_action_no_pending(state: &mut GameState, player_index: usize, heuristi
         // No drafted cards left — end turn and advance to next round
         end_player_turn(state, rng);
         if matches!(state.phase, GamePhase::Draw) {
-            if heuristic_draft {
-                heuristic_rollout_draw_and_draft(state, params, rng);
-            } else {
-                rollout_draw_and_draft(state, rng);
-            }
+            rollout_draw_and_draft(state, heuristic_draft.then_some(params), rng);
         }
         return;
     }
@@ -462,17 +434,17 @@ fn ability_category(ability: Ability) -> (u8, u32) {
     }
 }
 
-/// Given a hand of cards, pick the instance ID of the card to drop.
-/// Drops the most redundant card (most other cards share its ability type).
-/// Among equally redundant Workshop cards, drops the one with the lowest count.
+/// Given a draft hand, pick the instance ID of the card to pass on: the most
+/// redundant one (most other cards share its ability type). Among equally
+/// redundant Workshop cards, it is the one with the lowest count.
 #[inline(always)]
-fn pick_card_to_drop<R: Rng>(
+fn pick_card_to_pass<R: Rng>(
     hand: &UnorderedCards,
     card_lookup: &[Card; 256],
     params: &HeuristicParams,
     rng: &mut R,
 ) -> u8 {
-    // Epsilon: random drop
+    // Epsilon: random pass
     if rng.random_bool(params.rollout_epsilon) {
         return hand.pick_random(rng).unwrap();
     }
@@ -503,9 +475,9 @@ fn pick_card_to_drop<R: Rng>(
         }
     }
 
-    // Among cards with max redundancy, pick the worst to drop
-    let mut best_drop: Option<u8> = None;
-    let mut best_drop_wc = u32::MAX; // for Workshop: lower = worse = drop first
+    // Among cards with max redundancy, pick the worst to pass
+    let mut best_pass: Option<u8> = None;
+    let mut best_pass_wc = u32::MAX; // for Workshop: lower = worse = pass first
     let mut candidates = 0u32;
 
     for i in 0..count {
@@ -515,142 +487,43 @@ fn pick_card_to_drop<R: Rng>(
         }
         let (id, cat, wc) = cards[i];
         if cat == 0 {
-            // Workshop: prefer dropping lowest workshop count
-            if wc < best_drop_wc {
-                best_drop_wc = wc;
-                best_drop = Some(id);
+            // Workshop: prefer passing the lowest workshop count
+            if wc < best_pass_wc {
+                best_pass_wc = wc;
+                best_pass = Some(id);
                 candidates = 1;
-            } else if wc == best_drop_wc {
+            } else if wc == best_pass_wc {
                 candidates += 1;
                 if rng.random_range(0..candidates) == 0 {
-                    best_drop = Some(id);
+                    best_pass = Some(id);
                 }
             }
         } else {
             // Non-workshop: pick randomly among equal redundancy
             candidates += 1;
-            if best_drop.is_none() || rng.random_range(0..candidates) == 0 {
-                best_drop = Some(id);
+            if best_pass.is_none() || rng.random_range(0..candidates) == 0 {
+                best_pass = Some(id);
             }
         }
     }
 
-    best_drop.unwrap()
+    best_pass.unwrap()
 }
 
-/// Like `rollout_draw_and_draft` but deals 5 cards per player and uses
-/// the heuristic to drop the most redundant card, keeping the best 4.
-fn heuristic_rollout_draw_and_draft<R: Rng>(state: &mut GameState, params: &HeuristicParams, rng: &mut R) {
-    let num_players = state.players.len();
-
-    collect_round_income(state);
-
-    // Step 1: top each player's workshop back up to full
-    for i in 0..num_players {
-        let player = &mut state.players[i];
-        let count = WORKSHOP_SIZE.saturating_sub(player.workshop_cards.len());
-        player.deck.draw_into(&mut player.workshop_cards, count, rng);
-    }
-
-    rollout_fill_buyers(state, Some(params), rng);
-
-    // Step 2: Draw 5 cards per player from draft_deck (instead of 4)
-    let mut dealt = [UnorderedCards::new(); MAX_PLAYERS];
-    for i in 0..num_players {
-        let deck_len = state.draft_deck.len();
-        if deck_len >= 5 {
-            dealt[i] = state.draft_deck.draw_multiple(5, rng);
-        } else {
-            dealt[i] = state.draft_deck;
-            state.draft_deck = UnorderedCards::new();
-            let remaining = 5 - deck_len;
-            if remaining > 0 && !state.destroyed_pile.is_empty() {
-                state.draft_deck = state.destroyed_pile;
-                state.destroyed_pile = UnorderedCards::new();
-                let available = state.draft_deck.len().min(remaining);
-                if available > 0 {
-                    let drawn = state.draft_deck.draw_multiple(available, rng);
-                    dealt[i] = dealt[i].union(drawn);
-                }
-            }
-        }
-    }
-
-    // Step 3: If any player got 0 cards, return all dealt cards to destroyed_pile
-    if (0..num_players).any(|i| dealt[i].is_empty()) {
-        for i in 0..num_players {
-            state.destroyed_pile = state.destroyed_pile.union(dealt[i]);
-        }
-        state.destroyed_pile = state.destroyed_pile.union(state.draft_deck);
-        state.draft_deck = UnorderedCards::new();
-        initialize_action_phase(state);
-        return;
-    }
-
-    // Step 4: For each player, drop the most redundant card
-    for i in 0..num_players {
-        if dealt[i].len() > 4 {
-            let drop_id = pick_card_to_drop(&dealt[i], &state.card_lookup, params, rng);
-            dealt[i].remove(drop_id);
-            state.destroyed_pile.insert(drop_id);
-        }
-    }
-
-    // Step 5: Assign remaining cards as drafted_cards
-    for i in 0..num_players {
-        state.players[i].drafted_cards = dealt[i];
-    }
-
-    // Step 6: Remaining draft_deck cards go to destroyed_pile
-    state.destroyed_pile = state.destroyed_pile.union(state.draft_deck);
-    state.draft_deck = UnorderedCards::new();
-
-    // Step 7: Go directly to action phase
-    initialize_action_phase(state);
-}
-
-/// Heuristic draft loop: for each player's hand, identify the card to drop,
-/// then pick all other cards via player_pick.
+/// Heuristic draft loop: each player passes on the card the heuristic rates
+/// most redundant and takes another, until the draft ends.
 fn heuristic_draft_loop<R: Rng>(state: &mut GameState, params: &HeuristicParams, rng: &mut R) {
-    loop {
-        let (_player, hand, card_to_drop) = {
-            if let GamePhase::Draft { ref draft_state } = state.phase {
-                let player = draft_state.current_player_index;
-                let hand = draft_state.hands[player];
-                if hand.is_empty() {
-                    break;
-                }
-                // Only compute drop card when hand has more than 1 card
-                // (with 1 card, it'll be picked anyway — it's the last card which gets destroyed)
-                let drop = if hand.len() > 1 {
-                    Some(pick_card_to_drop(&hand, &state.card_lookup, params, rng))
-                } else {
-                    None
-                };
-                (player, hand, drop)
-            } else {
-                break;
-            }
-        };
-
-        // Pick a card that is NOT the one we want to drop
-        let card_id = if let Some(drop_id) = card_to_drop {
-            // Find any card in hand that isn't the drop card
-            let mut pick = None;
-            for id in hand.iter() {
-                if id != drop_id {
-                    pick = Some(id);
-                    break;
-                }
-            }
-            // If all cards are the drop card (shouldn't happen with len > 1), just pick any
-            pick.unwrap_or_else(|| hand.iter().next().unwrap()) as u32
+    while let GamePhase::Draft { ref draft_state } = state.phase {
+        let hand = draft_state.hands[draft_state.current_player_index];
+        let pass = if hand.len() > 1 {
+            Some(pick_card_to_pass(&hand, &state.card_lookup, params, rng))
         } else {
-            // Single card in hand, just pick it (it'll be the last discarded card)
-            hand.iter().next().unwrap() as u32
+            None
         };
-
-        player_pick(state, card_id, rng);
+        let Some(card_id) = hand.iter().find(|&id| Some(id) != pass) else {
+            break;
+        };
+        player_pick(state, card_id as u32, rng);
     }
 }
 
@@ -1125,11 +998,7 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     if drafted.is_empty() {
         end_player_turn(state, rng);
         if matches!(state.phase, GamePhase::Draw) {
-            if heuristic_draft {
-                heuristic_rollout_draw_and_draft(state, params, rng);
-            } else {
-                rollout_draw_and_draft(state, rng);
-            }
+            rollout_draw_and_draft(state, heuristic_draft.then_some(params), rng);
         }
         return;
     }
@@ -1175,7 +1044,7 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     if best_priority <= params.rollout_end_turn_threshold && rng.random_bool(end_turn_prob) {
         end_player_turn(state, rng);
         if matches!(state.phase, GamePhase::Draw) {
-            rollout_draw_and_draft(state, rng);
+            rollout_draw_and_draft(state, None, rng);
         }
         return;
     }

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Colori is a deck-building game for 2–5 players about dyeing materials and selling to sell cards. Players draft dye, material, and action cards, destroy them to store colors on a color wheel, mix colors, and sell to sell cards worth ducats. The game lasts 6 rounds. The player with the most points wins.
+Colori is a deck-building game for 2–5 players about dyeing materials and selling to sell cards. Players draft dye, material, and action cards, destroy them to store colors on a color wheel, mix colors, and sell to sell cards worth ducats. The game lasts 7 rounds. The player with the most points wins.
 
 ## Components
 
@@ -81,9 +81,16 @@ Each player has:
 
 ## Round Structure
 
-The game is played over **6 rounds**. Each round has four phases. The starting player rotates each round: player `(round - 1) % numPlayers` goes first.
+The game is played over **7 rounds**. Each round has four phases. The starting player rotates each round: player `(round - 1) % numPlayers` goes first.
 
-Players collect **1 ducat** at the start of rounds **3**, **5** and **6**.
+At the start of the later rounds, every player collects income:
+
+| Round | Income |
+|-------|--------|
+| 4 | 1 ducat |
+| 5 | 1 boat |
+| 6 | 1 ducat |
+| 7 | 1 ducat, 1 boat and 1 wild primary |
 
 ### 1. Draw Phase
 
@@ -101,7 +108,7 @@ Buyer slots per player:
 |-------|-------|
 | 1 | 1 |
 | 2–3 | 2 |
-| 4–6 | 3 |
+| 4–7 | 3 |
 
 Starting with the starting player and going round-robin in turn order, each player with an empty slot claims **one** card, and this repeats until nobody has an empty slot left. A slot only needs filling if it is empty — a buyer that was not sold last round stays where it is.
 
@@ -113,12 +120,11 @@ If both the display and the deck are empty there is nothing to claim, and the sl
 
 ### 3. Draft Phase
 
-1. Deal 5 cards from the draft deck to each player as a draft hand (these are private — other players cannot see them).
+1. Deal 4 cards from the draft deck to each player as a draft hand (these are private — other players cannot see them).
 2. Each player simultaneously picks 1 card from their hand and places it face-down.
 3. Players pass their remaining cards to the left.
-4. Repeat steps 2–3 until 4 cards have been picked.
-5. The 5th remaining card in each hand is destroyed (no ability triggers).
-6. All drafted cards are placed face-up in each player's drafted cards area.
+4. Repeat steps 2–3 until each hand is down to its last card, after 3 picks. Each player takes the last card passed to them, so everyone drafts 4 cards and nothing is left over.
+5. All drafted cards are placed face-up in each player's drafted cards area.
 
 **Local multiplayer note**: Since all players share one device, a "Pass device to [player name]" screen is shown between picks to keep draft hands private.
 
@@ -214,7 +220,7 @@ Gain 1 boat. See Wild Primaries and Boats above.
 
 ## End of Game
 
-The game ends when **round 6** is completed.
+The game ends when **round 7** is completed.
 
 Each player's score = total ducats (from sell cards and gold) + ½ point for each wild primary and each boat they still hold. The player with the highest score wins. If tied, the player with the most completed sell cards wins. If still tied, the player with the most colors (total count) on their color wheel wins. If still tied, those players share the victory.
 

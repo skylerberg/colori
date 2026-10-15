@@ -14,6 +14,10 @@ pub const MAX_MIX_SEQUENCE: usize = 3;
 pub type MixSequence = SmallVec<[(Color, Color); MAX_MIX_SEQUENCE]>;
 
 pub const MAX_PLAYERS: usize = 4;
+
+/// Rounds in a game. Solo simulations can set their own `GameState::max_rounds`.
+pub const NUM_ROUNDS: u32 = 7;
+
 pub const MAX_SELL_CARD_DISPLAY: usize = 5;
 
 /// Buyer slots a player can ever hold. See `buyers_phase::buyer_capacity`.
@@ -864,7 +868,7 @@ pub struct GameState {
 }
 
 fn default_max_rounds() -> u32 {
-    6
+    NUM_ROUNDS
 }
 
 fn default_card_lookup() -> [Card; 256] {

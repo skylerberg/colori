@@ -1,9 +1,10 @@
 use colori_core::colori_game::{apply_choice_to_state, check_choice_available, enumerate_choices};
 use colori_core::apply_choice::apply_choice;
 use colori_core::buyers_phase::initialize_buyers_phase;
-use colori_core::deck::Deck;
+use colori_core::deck::{Deck, MAX_DECK_SEGMENTS};
+use colori_core::draft_phase::DRAFT_HAND_SIZE;
 use colori_core::game_log::{DrawEvent, DrawLog};
-use colori_core::draw_phase::{execute_draw_phase, round_income};
+use colori_core::draw_phase::{execute_draw_phase, round_income, RoundIncome};
 use colori_core::cards::{draft_copies, draft_deck_cards, sell_card_copies, sell_deck_cards, starter_deck};
 use colori_core::scoring::{calculate_ducat_score, score_in_half_points};
 use colori_core::setup::create_initial_game_state;
@@ -759,7 +760,7 @@ fn test_stress_two_player_long_games() {
 
 #[test]
 fn test_draft_deck_recycling() {
-    // 4-player games deal 120 draft cards over 6 rounds from a 90-card deck,
+    // 4-player games deal 112 draft cards over 7 rounds from a 100-card deck,
     // so the destroyed pile must be recycled.
     for seed in 700..800 {
         let state = run_random_game_with_invariants(seed, 4);
@@ -1828,8 +1829,8 @@ fn test_a_dry_deck_yields_fewer_cards_rather_than_reshuffling() {
     assert_eq!(player.deck.draw_into(&mut hand, 1, &mut rng), 0);
 }
 
-/// A six-round game can create at most seven segments — the starting deck plus
-/// one per round end — so `MAX_DECK_SEGMENTS` is never reached in real play.
+/// A game can create at most one segment per round on top of the starting
+/// deck, which is what `MAX_DECK_SEGMENTS` allows for.
 #[test]
 fn test_decks_stay_well_inside_the_segment_cap() {
     for seed in 0..30 {
@@ -1837,13 +1838,71 @@ fn test_decks_stay_well_inside_the_segment_cap() {
             let state = run_random_game_with_invariants(seed, num_players);
             for (pi, player) in state.players.iter().enumerate() {
                 assert!(
-                    player.deck.segment_count() <= 7,
+                    player.deck.segment_count() <= MAX_DECK_SEGMENTS,
                     "player {pi} ended with {} deck segments (seed={seed}, players={num_players})",
                     player.deck.segment_count(),
                 );
             }
         }
     }
+}
+
+// ── Draft ──
+
+/// Start round 1 and claim buyers, leaving the game at the start of the draft.
+fn state_at_first_draft(seed: u64, num_players: usize) -> (GameState, WyRand) {
+    let mut rng = WyRand::seed_from_u64(seed);
+    let mut state = create_initial_game_state(num_players, &vec![true; num_players], &mut rng);
+    execute_draw_phase(&mut state, &mut rng);
+    while matches!(state.phase, GamePhase::Buyers { .. }) {
+        let choices = enumerate_choices(&state);
+        apply_choice_to_state(&mut state, &choices[0], &mut rng);
+    }
+    (state, rng)
+}
+
+/// Every hand passes until it is down to one card, which goes to whoever it was
+/// passed to: one pick fewer than the hand size, a full hand drafted each, and
+/// nothing left over to destroy.
+#[test]
+fn test_each_player_drafts_a_full_hand_and_nothing_is_destroyed() {
+    for num_players in 2..=4 {
+        for seed in 0..5 {
+            let (mut state, mut rng) = state_at_first_draft(seed, num_players);
+            let destroyed_before = state.destroyed_pile;
+
+            let mut picks = 0;
+            while matches!(state.phase, GamePhase::Draft { .. }) {
+                let choices = enumerate_choices(&state);
+                apply_choice_to_state(&mut state, &choices[rng.random_range(0..choices.len())], &mut rng);
+                picks += 1;
+            }
+
+            let context = format!("players={num_players}, seed={seed}");
+            assert!(matches!(state.phase, GamePhase::Action { .. }), "{context}");
+            assert_eq!(picks, num_players * (DRAFT_HAND_SIZE as usize - 1), "{context}");
+            for player in state.players.iter() {
+                assert_eq!(player.drafted_cards.len(), DRAFT_HAND_SIZE, "{context}");
+            }
+            assert_eq!(state.destroyed_pile, destroyed_before, "{context}");
+        }
+    }
+}
+
+/// Solo: the phantom hand sheds a card per pick and its last card has nobody
+/// to go to, so the whole phantom hand is destroyed.
+#[test]
+fn test_solo_draft_destroys_the_phantom_hand() {
+    let (mut state, mut rng) = state_at_first_draft(3, 1);
+    let destroyed_before = state.destroyed_pile.len();
+
+    while matches!(state.phase, GamePhase::Draft { .. }) {
+        let choices = enumerate_choices(&state);
+        apply_choice_to_state(&mut state, &choices[0], &mut rng);
+    }
+
+    assert_eq!(state.players[0].drafted_cards.len(), DRAFT_HAND_SIZE);
+    assert_eq!(state.destroyed_pile.len(), destroyed_before + DRAFT_HAND_SIZE);
 }
 
 // ── Buyers phase ──
@@ -2085,7 +2144,9 @@ fn take_recording(state: &mut GameState) -> Vec<DrawEvent> {
 /// to cover falls through to that RNG and the states come apart.
 #[test]
 fn test_a_recorded_game_replays_to_the_same_state() {
-    for num_players in 1..=3 {
+    // Four players outdraw the draft deck, so the replay has to follow the
+    // destroyed pile being shuffled back in.
+    for num_players in 1..=4 {
         for seed in 0..4 {
             let mut rng = WyRand::seed_from_u64(seed * 31 + num_players as u64);
             let ai_players = vec![true; num_players];
@@ -2131,22 +2192,36 @@ fn test_a_recorded_game_replays_to_the_same_state() {
 // ── Ducat income and spending ──
 
 #[test]
-fn test_income_arrives_in_rounds_three_five_and_six() {
-    for round in 1..=6u32 {
+fn test_income_arrives_in_rounds_four_to_seven() {
+    for round in 1..=7u32 {
         let mut rng = WyRand::seed_from_u64(round as u64);
         let mut state = create_initial_game_state(2, &[true, true], &mut rng);
         state.round = round;
-        let before: Vec<u32> = state.players.iter().map(|p| p.ducats).collect();
+        let before: Vec<(u32, u32, u32)> = state
+            .players
+            .iter()
+            .map(|p| (p.ducats, p.boats, p.wild_primaries))
+            .collect();
 
         execute_draw_phase(&mut state, &mut rng);
 
-        let expected = if matches!(round, 3 | 5 | 6) { 1 } else { 0 };
+        let expected = match round {
+            4 | 6 => RoundIncome { ducats: 1, boats: 0, wild_primaries: 0 },
+            5 => RoundIncome { ducats: 0, boats: 1, wild_primaries: 0 },
+            7 => RoundIncome { ducats: 1, boats: 1, wild_primaries: 1 },
+            _ => RoundIncome::default(),
+        };
         assert_eq!(round_income(round), expected);
         for (i, player) in state.players.iter().enumerate() {
+            let (ducats, boats, wild_primaries) = before[i];
             assert_eq!(
-                player.ducats,
-                before[i] + expected,
-                "player {i} ducats after the round {round} draw phase"
+                (player.ducats, player.boats, player.wild_primaries),
+                (
+                    ducats + expected.ducats,
+                    boats + expected.boats,
+                    wild_primaries + expected.wild_primaries
+                ),
+                "player {i} ducats, boats and wild primaries after the round {round} draw phase"
             );
             assert_eq!(
                 player.cached_ducat_score,

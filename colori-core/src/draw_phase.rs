@@ -16,31 +16,39 @@ fn top_up_count(player: &PlayerState) -> u32 {
     WORKSHOP_SIZE.saturating_sub(player.workshop_cards.len())
 }
 
-/// Ducats every player collects at the start of `round`.
-///
-/// Income arrives in rounds 3, 5 and 6. It is worth a point on its own, but
-/// its real use is that a ducat buys a workshop pick, a mix or a sale — see
+/// What every player collects at the start of a round.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct RoundIncome {
+    pub ducats: u32,
+    pub boats: u32,
+    pub wild_primaries: u32,
+}
+
+/// Income for `round`: a ducat in rounds 4 and 6, a boat in round 5, and a
+/// ducat, a boat and a wild primary in round 7. A ducat is a point on its own,
+/// but its real use is that it buys a workshop pick, a mix or a sale — see
 /// `Choice::SpendDucat`.
-pub fn round_income(round: u32) -> u32 {
+pub fn round_income(round: u32) -> RoundIncome {
     match round {
-        3 | 5 | 6 => 1,
-        _ => 0,
+        4 | 6 => RoundIncome { ducats: 1, ..RoundIncome::default() },
+        5 => RoundIncome { boats: 1, ..RoundIncome::default() },
+        7 => RoundIncome { ducats: 1, boats: 1, wild_primaries: 1 },
+        _ => RoundIncome::default(),
     }
 }
 
 /// Hand out the round's income. Deterministic, so it needs no draw-log event
 /// to replay.
 ///
-/// The rollout's draw+draft shortcuts stand in for this whole function and
-/// call straight into here, so the rule lives in one place.
+/// The rollout's draw+draft shortcut stands in for this whole function and
+/// calls straight into here, so the rule lives in one place.
 pub fn collect_round_income(state: &mut GameState) {
     let income = round_income(state.round);
-    if income == 0 {
-        return;
-    }
     for player in state.players.iter_mut() {
-        player.ducats += income;
-        player.cached_ducat_score += income;
+        player.ducats += income.ducats;
+        player.cached_ducat_score += income.ducats;
+        player.boats += income.boats;
+        player.wild_primaries += income.wild_primaries;
     }
 }
 
