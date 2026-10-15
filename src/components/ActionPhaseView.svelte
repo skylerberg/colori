@@ -89,9 +89,7 @@
 
   function handleMoveToDraftPool(instanceId: number) {
     if (!topAbility || topAbility.type !== 'moveToDraftPool' || !currentPlayer) return;
-    const ci =
-      currentPlayer.workshopCards.find(c => c.instanceId === instanceId)
-      ?? currentPlayer.workshoppedCards.find(c => c.instanceId === instanceId);
+    const ci = currentPlayer.workshopCards.find(c => c.instanceId === instanceId);
     if (!ci) return;
     onAction({ type: 'moveToDraftPool', card: ci.card });
   }
@@ -181,11 +179,10 @@
           <CardList
             cards={workshopDisplayCards}
             selectable={true}
-            rotatedSelectable={true}
             rotatedIds={workshoppedIds}
             onCardClick={handleMoveToDraftPool}
           />
-          {#if workshopDisplayCards.length === 0}
+          {#if currentPlayer.workshopCards.length === 0}
             <button class="confirm-btn skip-btn" onclick={handleNothingToMove}>
               Nothing to move
             </button>

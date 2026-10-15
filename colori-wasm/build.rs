@@ -1,4 +1,5 @@
 use colori_core::cards::*;
+use colori_core::colors::SECONDARIES;
 use colori_core::types::*;
 use std::fmt::Write as FmtWrite;
 use std::io::Write;
@@ -6,14 +7,11 @@ use std::io::Write;
 fn format_ability(ability: &Ability) -> String {
     match ability {
         Ability::Workshop { count } => format!("{{ type: 'workshop', count: {} }}", count),
-        Ability::DrawCards { count } => format!("{{ type: 'drawCards', count: {} }}", count),
         Ability::MixColors { count } => format!("{{ type: 'mixColors', count: {} }}", count),
         Ability::MoveToDraftPool => "{ type: 'moveToDraftPool' }".to_string(),
         Ability::Sell => "{ type: 'sell' }".to_string(),
         Ability::GainDucats { count } => format!("{{ type: 'gainDucats', count: {} }}", count),
         Ability::GainSecondary => "{ type: 'gainSecondary' }".to_string(),
-        Ability::GainPrimary => "{ type: 'gainPrimary' }".to_string(),
-        Ability::GainMaterial => "{ type: 'gainMaterial' }".to_string(),
         Ability::GainWildPrimaries { count } => format!("{{ type: 'gainWildPrimaries', count: {} }}", count),
         Ability::GainBoats { count } => format!("{{ type: 'gainBoats', count: {} }}", count),
     }
@@ -128,6 +126,7 @@ fn write_action_card(out: &mut String, card: &Card) {
 fn main() {
     println!("cargo:rerun-if-changed=../colori-core/src/types.rs");
     println!("cargo:rerun-if-changed=../colori-core/src/cards.rs");
+    println!("cargo:rerun-if-changed=../colori-core/src/colors.rs");
     println!("cargo:rerun-if-changed=build.rs");
 
     let mut out = String::new();
@@ -171,65 +170,9 @@ fn main() {
     }
     out.push_str("];\n\n");
 
-    // PRIMARIES, SECONDARIES, TERTIARIES — derived from dye card colors
-    let dyes = draft_dye_cards();
-    let mut primaries: Vec<&'static str> = Vec::new();
-    let mut secondaries: Vec<&'static str> = Vec::new();
-    let mut tertiaries: Vec<&'static str> = Vec::new();
-
-    for card in &dyes {
-        let colors = card.colors();
-        if colors.len() == 3 {
-            // Primary dye (pure or 2+1) — collect unique primary colors
-            let color_name = format_color(&colors[0]);
-            if !primaries.contains(&color_name) {
-                primaries.push(color_name);
-            }
-        } else if colors.len() == 2 {
-            // Secondary dye — first color is the secondary color
-            let color_name = format_color(&colors[0]);
-            if !secondaries.contains(&color_name) {
-                secondaries.push(color_name);
-            }
-        } else if colors.len() == 1 {
-            // Tertiary dye — single color is the tertiary color
-            let color_name = format_color(&colors[0]);
-            if !tertiaries.contains(&color_name) {
-                tertiaries.push(color_name);
-            }
-        }
-    }
-
-    write!(
-        out,
-        "export const PRIMARIES: Color[] = [{}];\n",
-        primaries
-            .iter()
-            .map(|c| format!("'{}'", c))
-            .collect::<Vec<_>>()
-            .join(", ")
-    )
-    .unwrap();
-    write!(
-        out,
-        "export const SECONDARIES: Color[] = [{}];\n",
-        secondaries
-            .iter()
-            .map(|c| format!("'{}'", c))
-            .collect::<Vec<_>>()
-            .join(", ")
-    )
-    .unwrap();
-    write!(
-        out,
-        "export const TERTIARIES: Color[] = [{}];\n\n",
-        tertiaries
-            .iter()
-            .map(|c| format!("'{}'", c))
-            .collect::<Vec<_>>()
-            .join(", ")
-    )
-    .unwrap();
+    let secondaries: Vec<String> =
+        SECONDARIES.iter().map(|c| format!("'{}'", format_color(c))).collect();
+    write!(out, "export const SECONDARIES: Color[] = [{}];\n\n", secondaries.join(", ")).unwrap();
 
     write!(out, "export const STARTER_DECK_SIZE = {};\n\n", starter_deck().len()).unwrap();
 

@@ -1,6 +1,5 @@
 use crate::apply_choice::apply_choice;
 use crate::draw_phase::execute_draw_phase;
-use crate::game_log::{DrawEvent, DrawLog};
 use crate::scoring::compute_terminal_rewards;
 use crate::types::*;
 use crate::unordered_cards::UnorderedCards;
@@ -55,16 +54,11 @@ impl ActionPhaseViews {
         &self.views[player_index]
     }
 
-    /// Bring `player_index`'s view up to date with a choice they made, given
-    /// what applying it to the live game drew. Replaying those draws keeps
-    /// what the view holds of the player identical to the live state.
-    pub fn apply(&mut self, player_index: usize, choice: &Choice, draws: &[DrawEvent]) {
-        let view = &mut self.views[player_index];
-        view.draw_log = Some(DrawLog::Replaying(draws.iter().cloned().collect()));
-        // Every draw is replayed, so this generator decides nothing.
+    /// Bring `player_index`'s view up to date with a choice they made.
+    pub fn apply(&mut self, player_index: usize, choice: &Choice) {
+        // Nothing in a turn is random, so this generator decides nothing.
         let mut rng = WyRand::seed_from_u64(0);
-        apply_choice_to_state(view, player_index, choice, &mut rng);
-        view.draw_log = None;
+        apply_choice_to_state(&mut self.views[player_index], player_index, choice, &mut rng);
     }
 }
 

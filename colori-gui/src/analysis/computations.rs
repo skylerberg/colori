@@ -290,9 +290,6 @@ pub fn format_choice(choice: &Choice) -> String {
         Choice::GainSecondary { color } => {
             format!("Gained {:?} (secondary)", color)
         }
-        Choice::GainPrimary { color } => {
-            format!("Gained {:?} (primary)", color)
-        }
         Choice::MixAll { mixes } => {
             if mixes.is_empty() {
                 "Skipped mixing".to_string()
@@ -301,9 +298,6 @@ pub fn format_choice(choice: &Choice) -> String {
                     mixes.iter().map(|(a, b)| format!("{:?}+{:?}", a, b)).collect();
                 format!("Mixed {}", mix_strs.join(", "))
             }
-        }
-        Choice::GainMaterial { material } => {
-            format!("Gained {:?}", material)
         }
         Choice::DestroyAndMix {
             card,
@@ -403,8 +397,6 @@ fn choice_type_name(choice: &Choice) -> String {
         Choice::MoveToDraftPool { .. } => "moveToDraftPool".to_string(),
         Choice::SelectSellCard { .. } => "selectSellCard".to_string(),
         Choice::GainSecondary { .. } => "gainSecondary".to_string(),
-        Choice::GainPrimary { .. } => "gainPrimary".to_string(),
-        Choice::GainMaterial { .. } => "gainMaterial".to_string(),
         Choice::MixAll { .. } => "mixAll".to_string(),
         Choice::DestroyAndMix { .. } => "destroyAndMix".to_string(),
         Choice::DestroyAndSell { .. } => "destroyAndSell".to_string(),

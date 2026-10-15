@@ -4,10 +4,9 @@ mod multiset;
 
 use crate::action_phase::{
     can_afford_sell_card, can_buy_with_ducat, can_sell_to_any_buyer, for_each_unique_card_type,
-    for_each_unique_card_type_in_workshop_area,
 };
 use crate::apply_choice::resolve_card_types_to_ids;
-use crate::colors::{can_mix, can_supply_mix, perform_mix_unchecked, PRIMARIES, SECONDARIES};
+use crate::colors::{can_mix, can_supply_mix, perform_mix_unchecked, SECONDARIES};
 use crate::types::*;
 use smallvec::SmallVec;
 
@@ -17,30 +16,18 @@ use multiset::{count_card_types, enumerate_multiset_subsets, enumerate_multiset_
 
 /// Whether sub-maximum workshop subsets can be skipped during enumeration.
 ///
-/// Holding picks back only pays off when something later in the turn could
-/// still add to the workshop or consume a card left sitting in it. When
-/// nothing can, workshopping fewer cards than allowed is strictly worse and
-/// the smaller subsets are dead branches in the search tree.
+/// Nothing enters the workshop mid-turn, so holding picks back only pays off
+/// when a drafted card could still move one of the cards left unworkshopped
+/// into the draft pool. When none can, workshopping fewer cards than allowed
+/// is strictly worse and the smaller subsets are dead branches in the search
+/// tree.
 pub(crate) fn should_force_max_workshop(state: &GameState, player: &PlayerState) -> bool {
-    if !state.force_max_workshop {
-        return false;
-    }
-    for id in player.drafted_cards.iter() {
-        for ability in state.card_lookup[id as usize].destroy_abilities() {
-            if matches!(ability, Ability::MoveToDraftPool | Ability::DrawCards { .. }) {
-                return false;
-            }
-        }
-    }
-    for id in player.workshop_cards.iter() {
-        let card = state.card_lookup[id as usize];
-        for &wa in card.workshop_abilities() {
-            if matches!(wa, Ability::DrawCards { .. }) {
-                return false;
-            }
-        }
-    }
-    true
+    state.force_max_workshop
+        && !player.drafted_cards.iter().any(|id| {
+            state.card_lookup[id as usize]
+                .destroy_abilities()
+                .contains(&Ability::MoveToDraftPool)
+        })
 }
 
 // ── Choice enumeration ──
@@ -120,10 +107,10 @@ pub fn enumerate_choices_into(state: &GameState, player_index: usize, choices: &
                     }
                 }
                 Some(Ability::MoveToDraftPool) => {
-                    if player.workshop_cards.is_empty() && player.workshopped_cards.is_empty() {
+                    if player.workshop_cards.is_empty() {
                         choices.push(Choice::MoveToDraftPool { card: None });
                     } else {
-                        for_each_unique_card_type_in_workshop_area(player, &state.card_lookup, |card| {
+                        for_each_unique_card_type(&player.workshop_cards, &state.card_lookup, |card| {
                             choices.push(Choice::MoveToDraftPool { card: Some(card) });
                         });
                     }
@@ -151,17 +138,7 @@ pub fn enumerate_choices_into(state: &GameState, player_index: usize, choices: &
                         choices.push(Choice::GainSecondary { color: c });
                     }
                 }
-                Some(Ability::GainPrimary) => {
-                    for &c in PRIMARIES.iter() {
-                        choices.push(Choice::GainPrimary { color: c });
-                    }
-                }
-                Some(Ability::GainMaterial) => {
-                    for &m in ALL_MATERIAL_TYPES.iter() {
-                        choices.push(Choice::GainMaterial { material: m });
-                    }
-                }
-                // Instant abilities (DrawCards, GainDucats, GainWildPrimaries, GainBoats)
+                // Instant abilities (GainDucats, GainWildPrimaries, GainBoats)
                 // should never be on top when waiting for a choice — they get
                 // processed immediately.
                 Some(_) => {}
@@ -214,6 +191,19 @@ fn pending_ability(state: &GameState, player_index: usize) -> Option<Ability> {
     open_turn_stack(state, player_index).and_then(|stack| stack.last().copied())
 }
 
+/// Whether `target` is a legal answer to Move to Draft Pool. The move is
+/// mandatory when the workshop has a card to move, so `None` stands only for
+/// the fizzle.
+fn move_target_is_valid(state: &GameState, player: &PlayerState, target: &Option<Card>) -> bool {
+    match target {
+        None => player.workshop_cards.is_empty(),
+        Some(card) => player
+            .workshop_cards
+            .iter()
+            .any(|id| state.card_lookup[id as usize] == *card),
+    }
+}
+
 /// Check common preconditions for all destroy-drafted-card variants: the
 /// player is between abilities and holds the card in their draft pool.
 fn check_destroy_preconditions(state: &GameState, player_index: usize, card: &Card) -> bool {
@@ -262,13 +252,7 @@ pub fn check_choice_available(state: &GameState, player_index: usize, choice: &C
             if !matches!(pending_ability(state, player_index), Some(Ability::MoveToDraftPool)) {
                 return false;
             }
-            let area = player.workshop_cards.union(player.workshopped_cards);
-            match card {
-                // The move is mandatory when there is anything to move, so
-                // this stands only for the fizzle.
-                None => area.is_empty(),
-                Some(card) => area.iter().any(|id| state.card_lookup[id as usize] == *card),
-            }
+            move_target_is_valid(state, player, card)
         }
         Choice::SelectSellCard { sell_card } => {
             matches!(pending_ability(state, player_index), Some(Ability::Sell))
@@ -277,13 +261,6 @@ pub fn check_choice_available(state: &GameState, player_index: usize, choice: &C
         Choice::GainSecondary { color } => {
             matches!(pending_ability(state, player_index), Some(Ability::GainSecondary))
                 && SECONDARIES.contains(color)
-        }
-        Choice::GainPrimary { color } => {
-            matches!(pending_ability(state, player_index), Some(Ability::GainPrimary))
-                && PRIMARIES.contains(color)
-        }
-        Choice::GainMaterial { .. } => {
-            matches!(pending_ability(state, player_index), Some(Ability::GainMaterial))
         }
         Choice::MixAll { mixes } => match pending_ability(state, player_index) {
             Some(Ability::MixColors { count }) => mix_sequence_is_valid(player, mixes, count),
@@ -311,13 +288,7 @@ pub fn check_choice_available(state: &GameState, player_index: usize, choice: &C
             if !check_destroy_preconditions(state, player_index, card) {
                 return false;
             }
-            match target {
-                None => true,
-                Some(target_card) => {
-                    let area = player.workshop_cards.union(player.workshopped_cards);
-                    area.iter().any(|id| state.card_lookup[id as usize] == *target_card)
-                }
-            }
+            move_target_is_valid(state, player, target)
         }
         Choice::SpendDucat { purchase } => {
             open_turn_stack(state, player_index).is_some_and(|stack| stack.is_empty())

@@ -2,9 +2,7 @@
   import type { GameState, Choice, Ability } from '../data/types';
   import MixColorPrompt from './MixColorPrompt.svelte';
   import SellCardSelectPrompt from './SellCardSelectPrompt.svelte';
-  import PrimaryColorPrompt from './PrimaryColorPrompt.svelte';
   import SecondaryColorPrompt from './SecondaryColorPrompt.svelte';
-  import MaterialPrompt from './MaterialPrompt.svelte';
 
   let { gameState, playerIndex, onAction }: {
     gameState: GameState;
@@ -36,12 +34,8 @@
       />
     {:else if topAbility.type === 'sell'}
       <SellCardSelectPrompt player={currentPlayer} {onAction} />
-    {:else if topAbility.type === 'gainPrimary'}
-      <PrimaryColorPrompt {onAction} />
     {:else if topAbility.type === 'gainSecondary'}
       <SecondaryColorPrompt {onAction} />
-    {:else if topAbility.type === 'gainMaterial'}
-      <MaterialPrompt {onAction} />
     {/if}
   </div>
 {/if}

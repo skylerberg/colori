@@ -5,7 +5,6 @@ use colori_core::ismcts::MctsConfig;
 use colori_core::mcts_impl::ColoriSearcher;
 use colori_core::scoring::{score_in_half_points, HeuristicParams};
 use colori_core::setup::create_initial_game_state;
-use colori_core::game_log::DrawLog;
 use colori_core::types::{GamePhase, GameState};
 use rand::RngExt;
 use rand::SeedableRng;
@@ -57,22 +56,18 @@ enum Gene {
     RolloutWorkshopEmpty = 34,
     RolloutDestroyWithTargets = 35,
     RolloutDestroyNoTargets = 36,
-    RolloutDrawBase = 37,
-    RolloutDrawCountWeight = 38,
-    RolloutOtherPriority = 39,
-    RolloutEndTurnThreshold = 40,
-    RolloutEndTurnProbabilityEarly = 41,
-    RolloutEndTurnProbabilityLate = 42,
-    RolloutEndTurnMaxRound = 43,
-    RolloutWsMaterialBaseMultiplier = 44,
-    RolloutWsMaterialColorsMetMultiplier = 45,
-    RolloutWsActionGainDucatsValue = 46,
-    RolloutWsActionDrawValue = 47,
-    RolloutWsActionWorkshopPerCard = 48,
-    RolloutWsActionColorDemandMultiplier = 49,
+    RolloutOtherPriority = 37,
+    RolloutEndTurnThreshold = 38,
+    RolloutEndTurnProbabilityEarly = 39,
+    RolloutEndTurnProbabilityLate = 40,
+    RolloutEndTurnMaxRound = 41,
+    RolloutWsMaterialBaseMultiplier = 42,
+    RolloutWsMaterialColorsMetMultiplier = 43,
+    RolloutWsActionGainDucatsValue = 44,
+    RolloutWsActionColorDemandMultiplier = 45,
 }
 
-const NUM_GENES: usize = 50;
+const NUM_GENES: usize = 46;
 
 trait GeneTarget: Clone {
     fn to_genes(&self) -> Vec<f64>;
@@ -122,8 +117,6 @@ impl GeneTarget for HeuristicParams {
         v[RolloutWorkshopEmpty as usize] = self.rollout_workshop_empty as f64;
         v[RolloutDestroyWithTargets as usize] = self.rollout_destroy_with_targets as f64;
         v[RolloutDestroyNoTargets as usize] = self.rollout_destroy_no_targets as f64;
-        v[RolloutDrawBase as usize] = self.rollout_draw_base as f64;
-        v[RolloutDrawCountWeight as usize] = self.rollout_draw_count_weight as f64;
         v[RolloutOtherPriority as usize] = self.rollout_other_priority as f64;
         v[RolloutEndTurnThreshold as usize] = self.rollout_end_turn_threshold as f64;
         v[RolloutEndTurnProbabilityEarly as usize] = self.rollout_end_turn_probability_early;
@@ -132,8 +125,6 @@ impl GeneTarget for HeuristicParams {
         v[RolloutWsMaterialBaseMultiplier as usize] = self.rollout_ws_material_base_multiplier as f64;
         v[RolloutWsMaterialColorsMetMultiplier as usize] = self.rollout_ws_material_colors_met_multiplier as f64;
         v[RolloutWsActionGainDucatsValue as usize] = self.rollout_ws_action_gain_ducats_value as f64;
-        v[RolloutWsActionDrawValue as usize] = self.rollout_ws_action_draw_value as f64;
-        v[RolloutWsActionWorkshopPerCard as usize] = self.rollout_ws_action_workshop_per_card as f64;
         v[RolloutWsActionColorDemandMultiplier as usize] = self.rollout_ws_action_color_demand_multiplier as f64;
         v
     }
@@ -179,8 +170,6 @@ impl GeneTarget for HeuristicParams {
             rollout_workshop_empty: v[RolloutWorkshopEmpty as usize].round().max(0.0) as u32,
             rollout_destroy_with_targets: v[RolloutDestroyWithTargets as usize].round().max(0.0) as u32,
             rollout_destroy_no_targets: v[RolloutDestroyNoTargets as usize].round().max(0.0) as u32,
-            rollout_draw_base: v[RolloutDrawBase as usize].round().max(0.0) as u32,
-            rollout_draw_count_weight: v[RolloutDrawCountWeight as usize].round().max(0.0) as u32,
             rollout_other_priority: v[RolloutOtherPriority as usize].round().max(0.0) as u32,
             rollout_end_turn_threshold: v[RolloutEndTurnThreshold as usize].round().max(0.0) as u32,
             rollout_end_turn_probability_early: v[RolloutEndTurnProbabilityEarly as usize].clamp(0.0, 1.0),
@@ -189,8 +178,6 @@ impl GeneTarget for HeuristicParams {
             rollout_ws_material_base_multiplier: v[RolloutWsMaterialBaseMultiplier as usize].round().max(0.0) as u32,
             rollout_ws_material_colors_met_multiplier: v[RolloutWsMaterialColorsMetMultiplier as usize].round().max(0.0) as u32,
             rollout_ws_action_gain_ducats_value: v[RolloutWsActionGainDucatsValue as usize].round().max(0.0) as u32,
-            rollout_ws_action_draw_value: v[RolloutWsActionDrawValue as usize].round().max(0.0) as u32,
-            rollout_ws_action_workshop_per_card: v[RolloutWsActionWorkshopPerCard as usize].round().max(0.0) as u32,
             rollout_ws_action_color_demand_multiplier: v[RolloutWsActionColorDemandMultiplier as usize].round().max(0.0) as u32,
         }
     }
@@ -209,16 +196,12 @@ impl GeneTarget for HeuristicParams {
             Gene::RolloutWorkshopEmpty as usize,
             Gene::RolloutDestroyWithTargets as usize,
             Gene::RolloutDestroyNoTargets as usize,
-            Gene::RolloutDrawBase as usize,
-            Gene::RolloutDrawCountWeight as usize,
             Gene::RolloutOtherPriority as usize,
             Gene::RolloutEndTurnThreshold as usize,
             Gene::RolloutEndTurnMaxRound as usize,
             Gene::RolloutWsMaterialBaseMultiplier as usize,
             Gene::RolloutWsMaterialColorsMetMultiplier as usize,
             Gene::RolloutWsActionGainDucatsValue as usize,
-            Gene::RolloutWsActionDrawValue as usize,
-            Gene::RolloutWsActionWorkshopPerCard as usize,
             Gene::RolloutWsActionColorDemandMultiplier as usize,
         ]
     }
@@ -319,13 +302,8 @@ fn run_ga_game(
                 for player_index in 0..num_players {
                     while is_taking_turn(views.view(player_index), player_index) {
                         let choice = decide(views.view(player_index), player_index, rng);
-                        state.draw_log = Some(DrawLog::Recording(Vec::new()));
                         apply_choice_to_state(&mut state, player_index, &choice, rng);
-                        let draws = match state.draw_log.take() {
-                            Some(DrawLog::Recording(events)) => events,
-                            _ => Vec::new(),
-                        };
-                        views.apply(player_index, &choice, &draws);
+                        views.apply(player_index, &choice);
                         decisions += 1;
                     }
                 }

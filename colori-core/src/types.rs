@@ -115,8 +115,6 @@ impl DucatPurchase {
 pub enum Ability {
     #[serde(rename = "workshop")]
     Workshop { count: u32 },
-    #[serde(rename = "drawCards")]
-    DrawCards { count: u32 },
     #[serde(rename = "mixColors")]
     MixColors { count: u32 },
     #[serde(rename = "moveToDraftPool")]
@@ -127,10 +125,6 @@ pub enum Ability {
     GainDucats { count: u32 },
     #[serde(rename = "gainSecondary")]
     GainSecondary,
-    #[serde(rename = "gainPrimary")]
-    GainPrimary,
-    #[serde(rename = "gainMaterial")]
-    GainMaterial,
     #[serde(rename = "gainWildPrimaries")]
     GainWildPrimaries { count: u32 },
     #[serde(rename = "gainBoats")]
@@ -922,10 +916,6 @@ pub enum Choice {
     },
     #[serde(rename = "gainSecondary")]
     GainSecondary { color: Color },
-    #[serde(rename = "gainPrimary")]
-    GainPrimary { color: Color },
-    #[serde(rename = "gainMaterial")]
-    GainMaterial { material: MaterialType },
     #[serde(rename = "mixAll")]
     MixAll { mixes: MixSequence },
     #[serde(rename = "destroyAndMix", alias = "destroyAndMixAll")]

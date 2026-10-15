@@ -382,7 +382,7 @@ impl GameViewerState {
                 replay.apply_entry(entry);
                 if let (Some(round), Some((views_round, views))) = (action_round, views.as_mut()) {
                     if round == *views_round {
-                        views.apply(entry.player_index, &entry.choice, &entry.draws);
+                        views.apply(entry.player_index, &entry.choice);
                     }
                 }
             }
