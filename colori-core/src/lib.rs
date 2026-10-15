@@ -18,5 +18,6 @@ pub mod replay;
 pub(crate) mod rollout;
 pub mod scoring;
 pub mod setup;
+mod transposition;
 pub mod types;
 pub mod unordered_cards;

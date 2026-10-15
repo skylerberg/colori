@@ -8,7 +8,9 @@ use wyrand::WyRand;
 use colori_core::colori_game::{enumerate_choices, ActionPhaseViews};
 use colori_core::game_log::{DrawEvent, StructuredGameLog, StructuredLogEntry};
 use colori_core::ismcts::MctsConfig;
-use colori_core::mcts_impl::{tree_stats, ColoriSearcher, SearchNode as MctsNode, TreeStats};
+use colori_core::mcts_impl::{
+    tree_stats, ColoriSearcher, Retained, SearchGraph, SearchNode as MctsNode, TreeStats,
+};
 use colori_core::replay::{GameReplay, replay_to, replay_view_to};
 use colori_core::scoring::{format_half_points, score_in_half_points};
 use colori_core::types::{
@@ -47,7 +49,7 @@ fn phase_name(phase: &str) -> &str {
 pub struct MctsAnalysisResult {
     pub iterations_used: u32,
     pub tree_stats: TreeStats,
-    pub root: MctsNode,
+    pub retained: Retained,
 }
 
 struct BatchMctsEntry {
@@ -87,6 +89,7 @@ struct MctsGuiConfig {
     use_heuristic_eval: bool,
     heuristic_rollout: bool,
     early_termination: bool,
+    transpositions: bool,
     heuristic_params_path: String,
 }
 
@@ -98,6 +101,7 @@ impl Default for MctsGuiConfig {
             use_heuristic_eval: true,
             heuristic_rollout: true,
             early_termination: true,
+            transpositions: false,
             heuristic_params_path: "genetic-algorithm/batch-lki08w-gen-32.json".to_string(),
         }
     }
@@ -119,6 +123,7 @@ impl MctsGuiConfig {
             use_heuristic_eval: self.use_heuristic_eval,
             heuristic_rollout: self.heuristic_rollout,
             early_termination: self.early_termination,
+            transpositions: self.transpositions,
             ..MctsConfig::new(heuristic_params)
         }
     }
@@ -272,13 +277,11 @@ impl GameViewerState {
                 Some(max_rollout_round),
                 &mut rng,
             );
-            if let Some(root) = searcher.take_tree() {
-                let tree_stats = tree_stats(&root);
-                let iterations_used = root.visits();
+            if let Some(retained) = searcher.take_retained() {
                 let _ = tx.send(MctsAnalysisResult {
-                    iterations_used,
-                    tree_stats,
-                    root,
+                    iterations_used: retained.visits(),
+                    tree_stats: retained.stats(),
+                    retained,
                 });
             }
         });
@@ -355,13 +358,11 @@ impl GameViewerState {
                             .any(|e| choices_equivalent(mcts_choice, &e.choice));
                     }
 
-                    if let Some(root) = searcher.take_tree() {
-                        let tree_stats = tree_stats(&root);
-                        let iterations_used = root.visits();
+                    if let Some(retained) = searcher.take_retained() {
                         let analysis = MctsAnalysisResult {
-                            iterations_used,
-                            tree_stats,
-                            root,
+                            iterations_used: retained.visits(),
+                            tree_stats: retained.stats(),
+                            retained,
                         };
                         let batch_entry = BatchMctsEntry {
                             mcts_best_choice: result.choice,
@@ -1026,6 +1027,7 @@ fn render_mcts_section(
             ui.checkbox(&mut config.use_heuristic_eval, "Heuristic eval");
             ui.checkbox(&mut config.heuristic_rollout, "Heuristic rollout");
             ui.checkbox(&mut config.early_termination, "Early termination");
+            ui.checkbox(&mut config.transpositions, "Transpositions");
             ui.horizontal(|ui| {
                 ui.label("Heuristic params file:");
                 ui.text_edit_singleline(&mut config.heuristic_params_path);
@@ -1063,7 +1065,10 @@ fn render_mcts_section(
         ));
 
         ui.add_space(4.0);
-        render_mcts_children(ui, &result.root, 0);
+        match &result.retained {
+            Retained::Tree(root) => render_mcts_children(ui, root, 0),
+            Retained::Graph(graph) => render_graph_children(ui, graph, graph.root().id(), 0),
+        }
     }
 }
 
@@ -1128,6 +1133,64 @@ fn render_mcts_children(ui: &mut egui::Ui, node: &MctsNode, depth: usize) {
         .default_open(false)
         .show(ui, |ui| {
             render_mcts_children(ui, child, depth + 1);
+        });
+    }
+}
+
+/// [`render_mcts_children`] for a transposition graph. "Visits" are this
+/// position's selections of each link; "Position visits" count every route into
+/// the successor, which is where a merged position shows.
+fn render_graph_children(ui: &mut egui::Ui, graph: &SearchGraph, node: usize, depth: usize) {
+    let Some(node) = graph.node(node) else {
+        return;
+    };
+    let mut edges: Vec<_> = node.edges().filter(|edge| edge.visits() > 0).collect();
+    edges.sort_by(|a, b| b.visits().cmp(&a.visits()));
+
+    let max_choice_chars = 30;
+
+    egui::Grid::new(format!("mcts_graph_grid_d{}_n{}", depth, node.id()))
+        .striped(true)
+        .min_col_width(40.0)
+        .show(ui, |ui| {
+            ui.strong("Choice");
+            ui.strong("Visits");
+            ui.strong("Avg Reward");
+            ui.strong("Position visits");
+            ui.end_row();
+
+            for edge in &edges {
+                let choice_text = format_choice(edge.choice());
+                let truncated = if choice_text.len() > max_choice_chars {
+                    format!("{}…", &choice_text[..max_choice_chars])
+                } else {
+                    choice_text.clone()
+                };
+                let target = edge.target();
+                ui.label(egui::RichText::new(&truncated).monospace());
+                ui.label(format!("{}", edge.visits()));
+                ui.label(format!("{:.3}", target.map_or(0.0, |t| t.mean_reward())));
+                ui.label(format!("{}", target.map_or(0, |t| t.visits())));
+                ui.end_row();
+            }
+        });
+
+    for (i, edge) in edges.iter().enumerate() {
+        let Some(target) = edge.target() else {
+            continue;
+        };
+        if target.edges().len() == 0 {
+            continue;
+        }
+        egui::CollapsingHeader::new(
+            egui::RichText::new(format!("▶ {}", format_choice(edge.choice())))
+                .monospace()
+                .small(),
+        )
+        .id_salt(format!("mcts_graph_d{}_n{}_c{}", depth, node.id(), i))
+        .default_open(false)
+        .show(ui, |ui| {
+            render_graph_children(ui, graph, target.id(), depth + 1);
         });
     }
 }

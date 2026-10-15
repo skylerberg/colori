@@ -11,6 +11,9 @@
 //! move is the *last* thing to move, so it is a poor tripwire on its own. The
 //! per-child visit and reward vector is what catches drift.
 //!
+//! Two records: `search.txt` for the tree search, `search_graph.txt` for the
+//! transposition graph over the same positions.
+//!
 //! To regenerate after an intentional change:
 //!
 //! ```text
@@ -26,13 +29,14 @@ use colori_core::choices::enumerate_choices;
 use colori_core::colori_game::{apply_choice_to_state, get_game_status, GameStatus};
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::ismcts::MctsConfig;
-use colori_core::mcts_impl::{ColoriSearcher, SearchNode};
+use colori_core::mcts_impl::{ColoriSearcher, SearchGraph, SearchNode};
 use colori_core::scoring::HeuristicParams;
 use colori_core::types::{GamePhase, GameState};
 use rand::{RngExt, SeedableRng};
 use wyrand::WyRand;
 
 const EXPECTED: &str = include_str!("fingerprints/search.txt");
+const EXPECTED_GRAPH: &str = include_str!("fingerprints/search_graph.txt");
 const PARAMS_JSON: &str = include_str!("../../genetic-algorithm/batch-lki08w-gen-32.json");
 
 fn params() -> HeuristicParams {
@@ -101,6 +105,47 @@ fn describe_tree(out: &mut String, root: &SearchNode) {
     }
 }
 
+/// One row per root link, sorted by choice: the link's own visits, and its
+/// successor's visits and reward over every route into it — which is where a
+/// merged position differs from a tree child.
+fn describe_graph(out: &mut String, graph: &SearchGraph) {
+    let root = graph.root();
+    let _ = writeln!(
+        out,
+        "  root visits={} nodes={} edges={} depth={}",
+        root.visits(),
+        graph.node_count(),
+        graph.edge_count(),
+        graph.max_depth()
+    );
+    let mut links: Vec<String> = root
+        .edges()
+        .map(|edge| {
+            let (visits, reward) = edge
+                .target()
+                .map_or((0, 0.0), |t| (t.visits(), t.cumulative_reward()));
+            format!(
+                "  link {:?} visits={} position_visits={visits} reward={reward:.12e}",
+                edge.choice(),
+                edge.visits(),
+            )
+        })
+        .collect();
+    links.sort();
+    for line in links {
+        let _ = writeln!(out, "{line}");
+    }
+}
+
+/// Write the tree of a tree search, or the graph of a transposition search.
+fn describe(out: &mut String, searcher: &ColoriSearcher) {
+    match (searcher.tree(), searcher.graph()) {
+        (Some(tree), _) => describe_tree(out, tree),
+        (None, Some(graph)) => describe_graph(out, graph),
+        (None, None) => panic!("a search leaves a tree or a graph"),
+    }
+}
+
 /// Search, re-root, search again — the usage the docs prescribe, and the one a
 /// fresh searcher per case cannot exercise.
 ///
@@ -110,7 +155,14 @@ fn describe_tree(out: &mut String, root: &SearchNode) {
 /// next search. None of those are reachable by constructing a searcher, calling
 /// `search` once and throwing it away, so a fingerprint that only does that is
 /// blind to the entire class.
-fn fingerprint_reuse(out: &mut String, players: usize, seed: u64, steps: usize, iterations: u32) {
+fn fingerprint_reuse(
+    out: &mut String,
+    players: usize,
+    seed: u64,
+    steps: usize,
+    iterations: u32,
+    transpositions: bool,
+) {
     let Some(mut state) = position(players, seed, steps) else {
         let _ = writeln!(out, "reuse players={players} seed={seed}: no position");
         return;
@@ -132,6 +184,7 @@ fn fingerprint_reuse(out: &mut String, players: usize, seed: u64, steps: usize, 
             iterations,
             early_termination: true,
             time_limit_ms: None,
+            transpositions,
             ..MctsConfig::new(params())
         };
 
@@ -146,7 +199,7 @@ fn fingerprint_reuse(out: &mut String, players: usize, seed: u64, steps: usize, 
             "  chose {:?} used={} reused={} stop={:?}",
             outcome.choice, outcome.iterations_used, outcome.reused_iterations, outcome.stop_reason
         );
-        describe_tree(out, searcher.tree().expect("a search leaves a tree"));
+        describe(out, &searcher);
 
         let choice = outcome.choice.clone();
         apply_choice_to_state(&mut state, player, &choice, &mut rng);
@@ -168,7 +221,7 @@ fn fingerprint_reuse(out: &mut String, players: usize, seed: u64, steps: usize, 
     }
 }
 
-fn generate() -> String {
+fn generate(transpositions: bool) -> String {
     let mut out = String::new();
 
     // Player count is the branching-factor axis. Budget and the two policy
@@ -195,6 +248,7 @@ fn generate() -> String {
                             early_termination,
                             progressive_bias_weight,
                             time_limit_ms: None,
+                            transpositions,
                             ..MctsConfig::new(params())
                         };
                         let mut searcher = ColoriSearcher::new(&state);
@@ -216,7 +270,7 @@ fn generate() -> String {
                             outcome.reused_iterations,
                             outcome.stop_reason
                         );
-                        describe_tree(&mut out, searcher.tree().expect("a search leaves a tree"));
+                        describe(&mut out, &searcher);
                     }
                 }
             }
@@ -225,7 +279,7 @@ fn generate() -> String {
     for (players, seed, steps, iterations) in
         [(2usize, 11u64, 12usize, 400u32), (3, 23, 50, 400), (4, 11, 30, 800)]
     {
-        fingerprint_reuse(&mut out, players, seed, steps, iterations);
+        fingerprint_reuse(&mut out, players, seed, steps, iterations, transpositions);
     }
 
     out
@@ -233,22 +287,29 @@ fn generate() -> String {
 
 #[test]
 fn search_behaviour_matches_the_recorded_fingerprint() {
-    let actual = generate();
+    check(generate(false), EXPECTED, "search.txt");
+}
 
+#[test]
+fn graph_search_behaviour_matches_the_recorded_fingerprint() {
+    check(generate(true), EXPECTED_GRAPH, "search_graph.txt");
+}
+
+fn check(actual: String, expected: &str, file: &str) {
     if std::env::var("COLORI_WRITE_FINGERPRINT").is_ok() {
         std::fs::write(
-            concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fingerprints/search.txt"),
+            format!("{}/tests/fingerprints/{file}", env!("CARGO_MANIFEST_DIR")),
             &actual,
         )
         .expect("write fingerprint");
-        eprintln!("fingerprint rewritten; commit it deliberately");
+        eprintln!("{file} rewritten; commit it deliberately");
         return;
     }
 
-    if actual != EXPECTED {
+    if actual != expected {
         let first_difference = actual
             .lines()
-            .zip(EXPECTED.lines())
+            .zip(expected.lines())
             .enumerate()
             .find(|(_, (a, b))| a != b)
             .map(|(line, (a, b))| format!("line {}:\n  now      {a}\n  recorded {b}", line + 1))
@@ -256,11 +317,11 @@ fn search_behaviour_matches_the_recorded_fingerprint() {
                 format!(
                     "no differing line; lengths differ ({} vs {} lines)",
                     actual.lines().count(),
-                    EXPECTED.lines().count()
+                    expected.lines().count()
                 )
             });
         panic!(
-            "search behaviour changed against the recorded fingerprint.\n\n{first_difference}\n\n\
+            "search behaviour changed against the recorded fingerprint {file}.\n\n{first_difference}\n\n\
              If the change was intended, regenerate with \
              COLORI_WRITE_FINGERPRINT=1 cargo test -p colori-core --test search_fingerprint \
              and review the diff — it is the record of what the search used to do."

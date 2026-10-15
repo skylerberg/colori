@@ -17,7 +17,7 @@
 //!   an entire draft phase in one step.
 
 use mcts::rand_core::Rng;
-use mcts::{Game, Status};
+use mcts::{ChoicesOnRevisit, Game, Status};
 
 use crate::choices::enumerate_choices_into;
 use crate::colori_game::{apply_choice_to_state, determinize_in_place};
@@ -36,6 +36,10 @@ pub type Rewards = [f64; MAX_PLAYERS];
 /// A node of the search tree, re-exported so consumers can inspect a tree
 /// without depending on `mcts` directly.
 pub type SearchNode = mcts::Node<Choice>;
+
+/// The graph a transposition search leaves behind, keyed as
+/// `crate::transposition` keys positions.
+pub type SearchGraph = mcts::Graph<Choice, u128>;
 
 /// Constant for one search. Never cloned per iteration.
 pub struct SearchContext {
@@ -59,6 +63,11 @@ pub struct SearchContext {
     pub force_max_workshop: bool,
     /// Used by the DUCT bandit, which runs its own UCB outside the tree.
     pub exploration_constant: f64,
+    /// The round whose action phase the search began in, if it began in one:
+    /// the only stretch of play in which the searcher's turn starts the same
+    /// way on every iteration, and so the only states a transposition search
+    /// may merge.
+    pub merge_round: Option<u32>,
 }
 
 impl SearchContext {
@@ -108,6 +117,7 @@ impl SearchContext {
             no_rollout,
             force_max_workshop,
             exploration_constant,
+            merge_round: matches!(state.phase, GamePhase::Action { .. }).then_some(state.round),
         }
     }
 
@@ -169,10 +179,10 @@ impl Game for GameState {
     // measured in the mcts crate's benchmarks/BASELINE.md.
     const CHILD_INDEX_THRESHOLD: usize = 16;
 
-    // Determinization only reshuffles what is hidden from the searching player;
-    // their own hand, workshop and materials are known, so their legal choices
-    // at the root do not vary. `root_choices_are_invariant` asserts this.
-    const ROOT_CHOICES_INVARIANT: bool = false;
+    // What the searching player may do at the root depends on opponents' draft
+    // picks, which vary by iteration. See
+    // `root_choice_set_varies_so_the_fast_path_stays_off`.
+    const CHOICES_ON_REVISIT: ChoicesOnRevisit = ChoicesOnRevisit::MayChange;
 
     fn status(&self, ctx: &SearchContext) -> Status<Rewards> {
         if matches!(self.phase, GamePhase::GameOver) {
@@ -361,6 +371,31 @@ pub fn tree_stats(node: &SearchNode) -> TreeStats {
     }
 }
 
+/// [`tree_stats`] for a transposition search's graph: every position counted
+/// once however many routes reach it, and the branching factor over the links
+/// the search opened.
+pub fn graph_stats(graph: &SearchGraph) -> TreeStats {
+    let mut internal = 0usize;
+    let mut links = 0usize;
+    for id in 0..graph.node_count() {
+        let node = graph.node(id).expect("every id below the count names a node");
+        let opened = node.edges().len();
+        if opened != 0 {
+            internal += 1;
+            links += opened;
+        }
+    }
+    TreeStats {
+        total_nodes: graph.node_count(),
+        max_depth: graph.max_depth(),
+        avg_branching_factor: if internal == 0 {
+            0.0
+        } else {
+            links as f64 / internal as f64
+        },
+    }
+}
+
 /// What a search decided.
 pub struct SearchOutcome {
     pub choice: Choice,
@@ -373,15 +408,22 @@ pub struct SearchOutcome {
 /// Holds the reusable buffers and the retained tree across a player's moves.
 ///
 /// Keep one per player for the length of a game and call [`Self::search`] each
-/// turn; [`Self::reuse_subtree`] carries the relevant subtree forward.
+/// turn; [`Self::reuse_subtree`] carries the relevant subtree forward. Searches
+/// as a tree, or as a transposition graph when [`MctsConfig::transpositions`] is
+/// on; switching between the two drops whatever was retained.
 pub struct ColoriSearcher {
-    inner: mcts::Searcher<GameState>,
+    inner: Inner,
+}
+
+enum Inner {
+    Tree(mcts::Searcher<GameState>),
+    Graph(mcts::GraphSearcher<GameState>),
 }
 
 impl ColoriSearcher {
     pub fn new(state: &GameState) -> Self {
         Self {
-            inner: mcts::Searcher::new(state),
+            inner: Inner::Tree(mcts::Searcher::new(state)),
         }
     }
 
@@ -421,14 +463,20 @@ impl ColoriSearcher {
             simultaneous: mcts::SimultaneousConfig::default(),
         };
 
-        let result = self.inner.search(
-            state,
-            &context,
-            player_index as u8,
-            &search_config,
-            None,
-            rng,
-        );
+        match (&self.inner, config.transpositions) {
+            (Inner::Tree(_), true) => self.inner = Inner::Graph(mcts::GraphSearcher::new(state)),
+            (Inner::Graph(_), false) => self.inner = Inner::Tree(mcts::Searcher::new(state)),
+            _ => {}
+        }
+        let perspective = player_index as u8;
+        let result = match &mut self.inner {
+            Inner::Tree(searcher) => {
+                searcher.search(state, &context, perspective, &search_config, None, rng)
+            }
+            Inner::Graph(searcher) => {
+                searcher.search(state, &context, perspective, &search_config, None, rng)
+            }
+        };
 
         SearchOutcome {
             choice: result.choice,
@@ -444,21 +492,73 @@ impl ColoriSearcher {
     /// judgement. The tree is that player's: in an action phase it holds none
     /// of anyone else's moves.
     pub fn reuse_subtree(&mut self, choice: &Choice) -> bool {
-        self.inner.reuse_subtree(choice)
+        match &mut self.inner {
+            Inner::Tree(searcher) => searcher.reuse_subtree(choice),
+            Inner::Graph(searcher) => searcher.reuse_subtree(choice),
+        }
     }
 
     pub fn clear_tree(&mut self) {
-        self.inner.clear_tree();
+        match &mut self.inner {
+            Inner::Tree(searcher) => searcher.clear_tree(),
+            Inner::Graph(searcher) => searcher.clear_graph(),
+        }
     }
 
+    /// The retained tree, when searching as a tree.
     pub fn tree(&self) -> Option<&SearchNode> {
-        self.inner.tree()
+        match &self.inner {
+            Inner::Tree(searcher) => searcher.tree(),
+            Inner::Graph(_) => None,
+        }
     }
 
-    /// Take the retained tree, for handing to something that outlives this
+    /// The retained graph, when searching for transpositions.
+    pub fn graph(&self) -> Option<&SearchGraph> {
+        match &self.inner {
+            Inner::Graph(searcher) => searcher.graph(),
+            Inner::Tree(_) => None,
+        }
+    }
+
+    /// The shape of whatever is retained, tree or graph.
+    pub fn stats(&self) -> Option<TreeStats> {
+        match &self.inner {
+            Inner::Tree(searcher) => searcher.tree().map(tree_stats),
+            Inner::Graph(searcher) => searcher.graph().map(graph_stats),
+        }
+    }
+
+    /// Take whatever is retained, for handing to something that outlives this
     /// searcher — the GUI renders it on another thread.
-    pub fn take_tree(&mut self) -> Option<SearchNode> {
-        self.inner.take_tree()
+    pub fn take_retained(&mut self) -> Option<Retained> {
+        match &mut self.inner {
+            Inner::Tree(searcher) => searcher.take_tree().map(Retained::Tree),
+            Inner::Graph(searcher) => searcher.take_graph().map(Retained::Graph),
+        }
+    }
+}
+
+/// A finished search's tree or graph, owned.
+pub enum Retained {
+    Tree(SearchNode),
+    Graph(SearchGraph),
+}
+
+impl Retained {
+    /// Iterations the root has seen.
+    pub fn visits(&self) -> u32 {
+        match self {
+            Retained::Tree(root) => root.visits(),
+            Retained::Graph(graph) => graph.root().visits(),
+        }
+    }
+
+    pub fn stats(&self) -> TreeStats {
+        match self {
+            Retained::Tree(root) => tree_stats(root),
+            Retained::Graph(graph) => graph_stats(graph),
+        }
     }
 }
 
@@ -486,12 +586,19 @@ mod tests {
 
     /// Every move the search returns must be one the game would actually allow.
     fn play_full_game_checking_legality(num_players: usize, seed: u64) {
+        play_full_game(num_players, seed, &config(10), false);
+    }
+
+    /// [`play_full_game_checking_legality`] under `config`, re-rooting the
+    /// searcher whenever the same player is still acting if `reuse` is set —
+    /// the runner's policy, and the path where a retained graph meets a new
+    /// search.
+    fn play_full_game(num_players: usize, seed: u64, config: &MctsConfig, reuse: bool) {
         let mut rng = WyRand::seed_from_u64(seed);
         let ai_players = vec![true; num_players];
         let mut state = create_initial_game_state(num_players, &ai_players, &mut rng);
         execute_draw_phase(&mut state, &mut rng);
 
-        let config = config(10);
         let mut searchers: Vec<ColoriSearcher> = (0..num_players)
             .map(|_| ColoriSearcher::new(&state))
             .collect();
@@ -518,7 +625,7 @@ mod tests {
             let outcome = searchers[player_index].search(
                 &state,
                 player_index,
-                &config,
+                config,
                 max_rollout_round,
                 &mut rng,
             );
@@ -541,6 +648,17 @@ mod tests {
             );
 
             apply_choice_to_state(&mut state, player_index, &choice, &mut rng);
+            if reuse {
+                let same_player = matches!(
+                    get_game_status(&state, None),
+                    GameStatus::AwaitingAction { player_index: next } if next == player_index
+                );
+                if same_player {
+                    searchers[player_index].reuse_subtree(&choice);
+                } else {
+                    searchers[player_index].clear_tree();
+                }
+            }
         }
 
         panic!("seed={seed} players={num_players}: game did not finish in 5000 steps");
@@ -567,8 +685,71 @@ mod tests {
         }
     }
 
+    /// Whole games through the transposition graph. Debug builds recompute every
+    /// merged position's key on every visit and panic if it moved, so this is
+    /// where a key that read an opponent's hidden picks or a round's random draw
+    /// would show — every search during a draft reaches the action phase below
+    /// its root.
+    #[test]
+    fn valid_moves_through_the_graph() {
+        let config = MctsConfig {
+            transpositions: true,
+            ..config(150)
+        };
+        for players in [2, 3, 4] {
+            play_full_game(players, 7, &config, true);
+        }
+    }
+
+    #[test]
+    fn a_graph_search_merges_a_turns_positions() {
+        let mut rng = WyRand::seed_from_u64(19);
+        let mut state = create_initial_game_state(3, &[true; 3], &mut rng);
+        execute_draw_phase(&mut state, &mut rng);
+        // Random play to the start of round 2's action phase: every player's
+        // view of it, since nobody has moved.
+        while !(state.round == 2 && matches!(state.phase, GamePhase::Action { .. })) {
+            if matches!(state.phase, GamePhase::Draw) {
+                execute_draw_phase(&mut state, &mut rng);
+                continue;
+            }
+            let GameStatus::AwaitingAction { player_index } = get_game_status(&state, None) else {
+                unreachable!("round 2 is reached");
+            };
+            let mut choices = Vec::new();
+            enumerate_choices_into(&state, player_index, &mut choices);
+            let choice = choices[(rng.next_u64() % choices.len() as u64) as usize].clone();
+            apply_choice_to_state(&mut state, player_index, &choice, &mut rng);
+        }
+        let player = 1;
+        let config = MctsConfig {
+            transpositions: true,
+            ..config(3_000)
+        };
+        let mut searcher = ColoriSearcher::new(&state);
+        searcher.search(&state, player, &config, Some(4), &mut rng);
+        let graph = searcher.graph().expect("a transposition search leaves a graph");
+
+        let mut keyed = std::collections::HashSet::new();
+        let mut entered_by_links = 0u64;
+        for id in 0..graph.node_count() {
+            let node = graph.node(id).expect("a node");
+            if let Some(key) = node.key() {
+                assert!(keyed.insert((*key, node.reward_player())), "a position has two vertices");
+            }
+            entered_by_links += node.edges().map(|e| e.visits() as u64).sum::<u64>();
+        }
+        assert!(!keyed.is_empty(), "nothing in the turn was merged under a key");
+        let positions_entered: u64 = (0..graph.node_count())
+            .filter_map(|id| graph.node(id))
+            .filter(|node| !node.is_root())
+            .map(|node| node.visits() as u64)
+            .sum();
+        assert_eq!(entered_by_links, positions_entered);
+    }
+
     /// The root's choice set is *not* stable across determinizations, which is
-    /// why `ROOT_CHOICES_INVARIANT` is off.
+    /// why `CHOICES_ON_REVISIT` claims nothing.
     ///
     /// An earlier version of this test claimed the opposite and passed, because
     /// it determinized and then enumerated without running `advance` in
@@ -583,7 +764,10 @@ mod tests {
     /// attempt to turn the flag back on fails in the tests above.
     #[test]
     fn root_choice_set_varies_so_the_fast_path_stays_off() {
-        assert!(!<GameState as Game>::ROOT_CHOICES_INVARIANT);
+        assert_eq!(
+            <GameState as Game>::CHOICES_ON_REVISIT,
+            ChoicesOnRevisit::MayChange
+        );
     }
 
     #[test]
