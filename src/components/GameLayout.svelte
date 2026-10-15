@@ -96,7 +96,7 @@
       <span class="stat-sep">|</span>
       <span class="stat">Ducats: {currentPlayer.ducats}</span>
       <span class="stat-sep">|</span>
-      <span class="stat" title="A wild primary, worth half a point">Silver: {currentPlayer.silver}</span>
+      <span class="stat" title="A wild primary, worth half a point">Wild primaries: {currentPlayer.wildPrimaries}</span>
       <span class="stat-sep">|</span>
       <span class="stat" title="A wild material, worth half a point">Boats: {currentPlayer.boats}</span>
       <span class="stat-sep">|</span>
@@ -174,7 +174,7 @@
                   interactive={selectedPlayerIndex === activePlayerIndex && !!mixWheelState.onColorClick}
                   onColorClick={selectedPlayerIndex === activePlayerIndex ? (mixWheelState.onColorClick ?? undefined) : undefined}
                   selectedColors={selectedPlayerIndex === activePlayerIndex ? mixWheelState.selectedColors : []}
-                  wildPrimaries={selectedPlayerIndex === activePlayerIndex ? mixWheelState.simulatedSilver : 0}
+                  wildPrimaries={selectedPlayerIndex === activePlayerIndex ? mixWheelState.simulatedWildPrimaries : 0}
                 />
               </div>
             </div>

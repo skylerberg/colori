@@ -65,7 +65,7 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
                 buyers: FixedVec::new(),
                 completed_sell_cards: SmallVec::new(),
                 ducats: 0,
-                silver: 0,
+                wild_primaries: 0,
                 boats: 0,
                 cached_ducat_score: 0,
             }

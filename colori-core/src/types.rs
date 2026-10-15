@@ -127,8 +127,8 @@ pub enum Ability {
     GainPrimary,
     #[serde(rename = "gainMaterial")]
     GainMaterial,
-    #[serde(rename = "gainSilver")]
-    GainSilver { count: u32 },
+    #[serde(rename = "gainWildPrimaries")]
+    GainWildPrimaries { count: u32 },
     #[serde(rename = "gainBoats")]
     GainBoats { count: u32 },
 }
@@ -285,9 +285,9 @@ const CARD_DATA: [CardProperties; NUM_CARDS] = [
     action("Alum", MOVE_TO_DRAFT_POOL, &[Ability::GainDucats { count: 1 }]),
     action("Gum Arabic", MOVE_TO_DRAFT_POOL, &[Ability::GainSecondary]),
     action("Linseed Oil", MOVE_TO_DRAFT_POOL, &[Ability::MixColors { count: 3 }]),
-    action("Warehouse", MOVE_TO_DRAFT_POOL, &[Ability::GainSilver { count: 2 }]),
+    action("Warehouse", MOVE_TO_DRAFT_POOL, &[Ability::GainWildPrimaries { count: 2 }]),
     action("Gondola", MOVE_TO_DRAFT_POOL, &[Ability::GainBoats { count: 1 }]),
-    action("Chalk", MIX_2, &[Ability::GainSilver { count: 1 }]),
+    action("Chalk", MIX_2, &[Ability::GainWildPrimaries { count: 1 }]),
 ];
 
 impl Card {
@@ -747,12 +747,12 @@ pub struct PlayerState {
     /// Wild primaries: each covers a Red, Yellow or Blue the wheel lacks, in a
     /// mix or a sale. Unspent, each is worth half a point.
     #[serde(default)]
-    pub silver: u32,
+    pub wild_primaries: u32,
     /// Wild materials: each covers the material a sale needs. Unspent, each is
     /// worth half a point.
     #[serde(default)]
     pub boats: u32,
-    /// Ducats from sell cards and gold. The half points for silver and boats
+    /// Ducats from sell cards and gold. The half points for wild primaries and boats
     /// are not in here; `scoring::score_in_half_points` adds them.
     #[serde(skip)]
     pub cached_ducat_score: u32,

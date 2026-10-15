@@ -121,7 +121,7 @@
     if (!currentPlayer || hasPendingChoice || currentPlayer.ducats < 1) return none;
     return {
       workshop: currentPlayer.workshopCards.length > 0,
-      mixColors: canMixAny(currentPlayer.colorWheel, currentPlayer.silver),
+      mixColors: canMixAny(currentPlayer.colorWheel, currentPlayer.wildPrimaries),
       sell: currentPlayer.buyers.some(b => canSell(gameState, b.instanceId)),
     };
   });

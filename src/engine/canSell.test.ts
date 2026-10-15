@@ -7,7 +7,7 @@ import type { Color, GameState, MaterialType, PlayerState, SellCard } from '../d
 // buyers without a round trip; these pin it to the cases the Rust tests cover.
 function stateWith(
   sellCard: SellCard,
-  stock: { colors?: Color[]; materials?: MaterialType[]; boats?: number; silver?: number },
+  stock: { colors?: Color[]; materials?: MaterialType[]; boats?: number; wildPrimaries?: number },
 ): GameState {
   const colorWheel = Object.fromEntries(ALL_COLORS.map(c => [c, 0])) as Record<Color, number>;
   for (const c of stock.colors ?? []) colorWheel[c]++;
@@ -18,7 +18,7 @@ function stateWith(
     colorWheel,
     materials,
     boats: stock.boats ?? 0,
-    silver: stock.silver ?? 0,
+    wildPrimaries: stock.wildPrimaries ?? 0,
   } as unknown as PlayerState;
   return {
     players: [player],
@@ -39,9 +39,9 @@ describe('canSell', () => {
     expect(canSell(stateWith('GlassmakerAmberBlue', { colors: ['Amber', 'Blue'] }), 7)).toBe(false);
   });
 
-  it('lets silver cover a missing primary but not a tertiary', () => {
-    expect(canSell(stateWith('GlassmakerAmberBlue', { colors: ['Amber', 'Blue'], silver: 1 }), 7)).toBe(true);
-    expect(canSell(stateWith('GlassmakerAmberBlue', { colors: ['Blue', 'Blue'], silver: 3 }), 7)).toBe(false);
+  it('lets a wild primary cover a missing primary but not a tertiary', () => {
+    expect(canSell(stateWith('GlassmakerAmberBlue', { colors: ['Amber', 'Blue'], wildPrimaries: 1 }), 7)).toBe(true);
+    expect(canSell(stateWith('GlassmakerAmberBlue', { colors: ['Blue', 'Blue'], wildPrimaries: 3 }), 7)).toBe(false);
   });
 
   it('takes a boat from a shipwright on top of its textiles', () => {

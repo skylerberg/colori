@@ -23,8 +23,8 @@
 
 <div class="prompt-section">
   <h3>Choose a Buyer</h3>
-  {#if activePlayer && (activePlayer.boats > 0 || activePlayer.silver > 0)}
-    <p class="hint">A boat covers a material you lack and silver a primary you lack. What a buyer asks for is spent first.</p>
+  {#if activePlayer && (activePlayer.boats > 0 || activePlayer.wildPrimaries > 0)}
+    <p class="hint">A boat covers a material you lack, and a wild primary covers a primary you lack. What a buyer asks for is spent first.</p>
   {/if}
   <div class="sell-card-side">
     <SellCardDisplay

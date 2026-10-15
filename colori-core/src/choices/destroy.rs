@@ -18,7 +18,7 @@ pub(super) fn enumerate_destroy_choices(
         Ability::MixColors { count } => {
             enumerate_mix_sequences(
                 &player.color_wheel,
-                player.silver,
+                player.wild_primaries,
                 count,
                 choices,
                 |mixes| Choice::DestroyAndMix { card, mixes },

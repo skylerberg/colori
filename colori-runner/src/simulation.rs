@@ -345,7 +345,7 @@ pub fn run_game(
                 deck_size: (p.deck.len() + p.workshop_cards.len() + p.workshopped_cards.len() + p.drafted_cards.len()) as usize,
                 completed_sell_cards: p.completed_sell_cards.to_vec(),
                 ducats: p.ducats,
-                silver: p.silver,
+                wild_primaries: p.wild_primaries,
                 boats: p.boats,
                 color_wheel: p.color_wheel.clone(),
                 materials: p.materials.clone(),

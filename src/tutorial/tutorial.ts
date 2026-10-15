@@ -141,9 +141,9 @@ function createTour(): Shepherd.Tour {
   });
 
   newTour.addStep({
-    id: 'silver-and-boats-explained',
-    title: 'Silver and Boats',
-    text: 'Some workshop cards pay out silver or a boat. Silver is a wild primary: it stands in for a Red, Yellow or Blue you lack, in a mix or a sale. A boat is a wild material for a sale. Whatever you still hold at the end is worth half a point each.',
+    id: 'wild-primaries-and-boats-explained',
+    title: 'Wild Primaries and Boats',
+    text: 'Some workshop cards pay out a wild primary or a boat. A wild primary stands in for a Red, Yellow or Blue you lack, in a mix or a sale. A boat is a wild material for a sale. Whatever you still hold at the end is worth half a point each.',
     buttons: [backButton, nextButton],
   });
 
@@ -158,7 +158,7 @@ function createTour(): Shepherd.Tour {
   newTour.addStep({
     id: 'end-game',
     title: 'Good Luck!',
-    text: 'The game ends after 6 rounds. Most points wins: your ducats, plus half a point for each silver and boat. Good luck, vendecolori!',
+    text: 'The game ends after 6 rounds. Most points wins: your ducats, plus half a point for each wild primary and boat. Good luck, vendecolori!',
     buttons: [
       backButton,
       {

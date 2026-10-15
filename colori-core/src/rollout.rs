@@ -194,13 +194,13 @@ fn rollout_draw_and_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
 
 // ── Fused rollout step ──
 
-/// The mix pairs the stock can supply, with silver covering missing primaries.
+/// The mix pairs the stock can supply, with wild primaries covering missing ones.
 #[inline(always)]
-fn suppliable_mix_pairs(wheel: &ColorWheel, silver: u32) -> ([(Color, Color); 9], usize) {
+fn suppliable_mix_pairs(wheel: &ColorWheel, wild_primaries: u32) -> ([(Color, Color); 9], usize) {
     let mut pairs = [(Color::Red, Color::Red); 9];
     let mut count = 0usize;
     for &(a, b) in &VALID_MIX_PAIRS {
-        if can_supply_mix(wheel, silver, a, b) {
+        if can_supply_mix(wheel, wild_primaries, a, b) {
             pairs[count] = (a, b);
             count += 1;
         }
@@ -211,22 +211,22 @@ fn suppliable_mix_pairs(wheel: &ColorWheel, silver: u32) -> ([(Color, Color); 9]
 #[inline(always)]
 fn apply_mixes(player: &mut PlayerState, mixes: &MixSequence) {
     for &(a, b) in mixes {
-        perform_mix_unchecked(&mut player.color_wheel, &mut player.silver, a, b);
+        perform_mix_unchecked(&mut player.color_wheel, &mut player.wild_primaries, a, b);
     }
 }
 
 #[inline(always)]
 fn random_mix_seq<R: Rng>(
     wheel: &ColorWheel,
-    silver: u32,
+    wild_primaries: u32,
     remaining: u32,
     rng: &mut R,
 ) -> MixSequence {
     let mut mixes = MixSequence::new();
     let mut sim_wheel = wheel.clone();
-    let mut sim_silver = silver;
+    let mut sim_wild_primaries = wild_primaries;
     for _ in 0..remaining.min(MAX_MIX_SEQUENCE as u32) {
-        let (pairs, pair_count) = suppliable_mix_pairs(&sim_wheel, sim_silver);
+        let (pairs, pair_count) = suppliable_mix_pairs(&sim_wheel, sim_wild_primaries);
         if pair_count == 0 {
             break;
         }
@@ -236,7 +236,7 @@ fn random_mix_seq<R: Rng>(
         }
         let (a, b) = pairs[target];
         mixes.push((a, b));
-        perform_mix_unchecked(&mut sim_wheel, &mut sim_silver, a, b);
+        perform_mix_unchecked(&mut sim_wheel, &mut sim_wild_primaries, a, b);
     }
     mixes
 }
@@ -310,7 +310,7 @@ fn handle_action_no_pending(state: &mut GameState, player_index: usize, heuristi
     match card.destroy_abilities() {
         &[Ability::MixColors { count }] => {
             let player = &mut state.players[player_index];
-            let mixes = random_mix_seq(&player.color_wheel, player.silver, count, rng);
+            let mixes = random_mix_seq(&player.color_wheel, player.wild_primaries, count, rng);
             player.drafted_cards.remove(card_id);
             apply_mixes(player, &mixes);
             state.destroyed_pile.insert(card_id);
@@ -405,7 +405,7 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, 
                     let remaining_mixes = *count;
                     let player = &mut state.players[player_index];
                     let mixes =
-                        random_mix_seq(&player.color_wheel, player.silver, remaining_mixes, rng);
+                        random_mix_seq(&player.color_wheel, player.wild_primaries, remaining_mixes, rng);
                     apply_mixes(player, &mixes);
                     if let GamePhase::Action { ref mut action_state } = state.phase {
                         action_state.ability_stack.pop();
@@ -691,20 +691,20 @@ impl SellCardCache {
             let ducats = sc.sell_card.ducats();
             let cost = sc.sell_card.color_cost();
             let total_colors = cost.len() as u32;
-            // Boats and silver count as the material and primaries they can
+            // Boats and wild primaries count as the material and primaries they can
             // stand in for, so what the cache calls affordable is exactly
             // what `can_afford_sell_card` does.
             let has_material = boats_to_sell(player, sc.sell_card) <= player.boats;
 
             let mut have = 0u32;
             let mut missing = 0u32;
-            let mut silver_left = player.silver;
+            let mut wild_primaries_left = player.wild_primaries;
             for (i, &c) in cost.iter().enumerate() {
                 let needed = 1 + cost[..i].iter().filter(|&&earlier| earlier == c).count() as u32;
                 if wheel.get(c) >= needed {
                     have += 1;
-                } else if is_primary(c) && silver_left > 0 {
-                    silver_left -= 1;
+                } else if is_primary(c) && wild_primaries_left > 0 {
+                    wild_primaries_left -= 1;
                     have += 1;
                 } else {
                     missing += 1;
@@ -805,7 +805,7 @@ fn ability_priority(
             }
         }
         Ability::MixColors { count } => {
-            let (_, valid_pairs) = suppliable_mix_pairs(&player.color_wheel, player.silver);
+            let (_, valid_pairs) = suppliable_mix_pairs(&player.color_wheel, player.wild_primaries);
             let valid_pairs = valid_pairs as u32;
             if valid_pairs == 0 {
                 params.rollout_mix_no_pairs
@@ -871,16 +871,16 @@ fn action_workshop_value(
                 // Score based on best mix output demands for valid pairs
                 let mut best_total = 0u32;
                 for &(a, b) in &VALID_MIX_PAIRS {
-                    if can_supply_mix(&player.color_wheel, player.silver, a, b) {
+                    if can_supply_mix(&player.color_wheel, player.wild_primaries, a, b) {
                         let output = mix_result(a, b);
                         best_total = best_total.max(cache.color_demand(output) * count);
                     }
                 }
                 return best_total * mult / 10;
             }
-            // Silver and boats are half a ducat each, plus whatever the
+            // Wild primaries and boats are half a ducat each, plus whatever the
             // primary or material they can stand in for is worth.
-            Ability::GainSilver { count } => {
+            Ability::GainWildPrimaries { count } => {
                 let mut best = 0u32;
                 for &c in &PRIMARIES {
                     best = best.max(cache.color_demand(c));
@@ -984,11 +984,11 @@ fn pick_best_material<R: Rng>(
 /// The suppliable mix whose output the player's buyers want most, if any want
 /// one at all.
 #[inline(always)]
-fn most_demanded_mix(wheel: &ColorWheel, silver: u32, cache: &SellCardCache) -> Option<(Color, Color)> {
+fn most_demanded_mix(wheel: &ColorWheel, wild_primaries: u32, cache: &SellCardCache) -> Option<(Color, Color)> {
     let mut best_pair = None;
     let mut best_score = 0u32;
     for &(a, b) in &VALID_MIX_PAIRS {
-        if can_supply_mix(wheel, silver, a, b) {
+        if can_supply_mix(wheel, wild_primaries, a, b) {
             let score = cache.color_demand(mix_result(a, b));
             if score > best_score {
                 best_score = score;
@@ -1003,25 +1003,25 @@ fn most_demanded_mix(wheel: &ColorWheel, silver: u32, cache: &SellCardCache) -> 
 #[inline(always)]
 fn heuristic_mix_seq<R: Rng>(
     wheel: &ColorWheel,
-    silver: u32,
+    wild_primaries: u32,
     remaining: u32,
     cache: &SellCardCache,
     params: &HeuristicParams,
     rng: &mut R,
 ) -> MixSequence {
     if rng.random_bool(params.rollout_epsilon) {
-        return random_mix_seq(wheel, silver, remaining, rng);
+        return random_mix_seq(wheel, wild_primaries, remaining, rng);
     }
 
     let mut mixes = MixSequence::new();
     let mut sim_wheel = wheel.clone();
-    let mut sim_silver = silver;
+    let mut sim_wild_primaries = wild_primaries;
     for _ in 0..remaining.min(MAX_MIX_SEQUENCE as u32) {
-        let (pairs, pair_count) = suppliable_mix_pairs(&sim_wheel, sim_silver);
+        let (pairs, pair_count) = suppliable_mix_pairs(&sim_wheel, sim_wild_primaries);
         if pair_count == 0 {
             break;
         }
-        let (a, b) = match most_demanded_mix(&sim_wheel, sim_silver, cache) {
+        let (a, b) = match most_demanded_mix(&sim_wheel, sim_wild_primaries, cache) {
             Some(pair) => pair,
             // If no mix is useful, skip mixing (50% chance) or do random
             None => {
@@ -1032,7 +1032,7 @@ fn heuristic_mix_seq<R: Rng>(
             }
         };
         mixes.push((a, b));
-        perform_mix_unchecked(&mut sim_wheel, &mut sim_silver, a, b);
+        perform_mix_unchecked(&mut sim_wheel, &mut sim_wild_primaries, a, b);
     }
     mixes
 }
@@ -1042,21 +1042,21 @@ fn heuristic_mix_seq<R: Rng>(
 #[inline(always)]
 fn two_step_heuristic_mix_seq<R: Rng>(
     wheel: &ColorWheel,
-    silver: u32,
+    wild_primaries: u32,
     remaining: u32,
     cache: &SellCardCache,
     params: &HeuristicParams,
     rng: &mut R,
 ) -> MixSequence {
     if remaining < 2 {
-        return heuristic_mix_seq(wheel, silver, remaining, cache, params, rng);
+        return heuristic_mix_seq(wheel, wild_primaries, remaining, cache, params, rng);
     }
 
     if rng.random_bool(params.rollout_epsilon) {
-        return random_mix_seq(wheel, silver, remaining, rng);
+        return random_mix_seq(wheel, wild_primaries, remaining, rng);
     }
 
-    let (pairs1, pair1_count) = suppliable_mix_pairs(wheel, silver);
+    let (pairs1, pair1_count) = suppliable_mix_pairs(wheel, wild_primaries);
     if pair1_count == 0 {
         return MixSequence::new();
     }
@@ -1077,11 +1077,11 @@ fn two_step_heuristic_mix_seq<R: Rng>(
 
         // Simulate first mix and evaluate second using flat demand (avoids recomputing proximity)
         let mut sim_wheel = wheel.clone();
-        let mut sim_silver = silver;
-        perform_mix_unchecked(&mut sim_wheel, &mut sim_silver, a1, b1);
+        let mut sim_wild_primaries = wild_primaries;
+        perform_mix_unchecked(&mut sim_wheel, &mut sim_wild_primaries, a1, b1);
 
         for &(a2, b2) in &VALID_MIX_PAIRS {
-            if can_supply_mix(&sim_wheel, sim_silver, a2, b2) {
+            if can_supply_mix(&sim_wheel, sim_wild_primaries, a2, b2) {
                 let output2 = mix_result(a2, b2);
                 let score2 = cache.flat_demand[output2.index()];
                 let total = score1 + score2;
@@ -1098,21 +1098,21 @@ fn two_step_heuristic_mix_seq<R: Rng>(
         if rng.random_bool(0.5) {
             return MixSequence::new();
         }
-        return random_mix_seq(wheel, silver, remaining, rng);
+        return random_mix_seq(wheel, wild_primaries, remaining, rng);
     }
 
     if best_combo.len() == 2 && remaining > 2 {
         let mut sim_wheel = wheel.clone();
-        let mut sim_silver = silver;
+        let mut sim_wild_primaries = wild_primaries;
         for &(a, b) in &best_combo {
-            perform_mix_unchecked(&mut sim_wheel, &mut sim_silver, a, b);
+            perform_mix_unchecked(&mut sim_wheel, &mut sim_wild_primaries, a, b);
         }
         while (best_combo.len() as u32) < remaining.min(MAX_MIX_SEQUENCE as u32) {
-            let Some((a, b)) = most_demanded_mix(&sim_wheel, sim_silver, cache) else {
+            let Some((a, b)) = most_demanded_mix(&sim_wheel, sim_wild_primaries, cache) else {
                 break;
             };
             best_combo.push((a, b));
-            perform_mix_unchecked(&mut sim_wheel, &mut sim_silver, a, b);
+            perform_mix_unchecked(&mut sim_wheel, &mut sim_wild_primaries, a, b);
         }
     }
 
@@ -1186,7 +1186,7 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     match card.destroy_abilities() {
         &[Ability::MixColors { count }] => {
             let player = &mut state.players[player_index];
-            let mixes = two_step_heuristic_mix_seq(&player.color_wheel, player.silver, count, &cache, params, rng);
+            let mixes = two_step_heuristic_mix_seq(&player.color_wheel, player.wild_primaries, count, &cache, params, rng);
             player.drafted_cards.remove(card_id);
             apply_mixes(player, &mixes);
             state.destroyed_pile.insert(card_id);
@@ -1335,7 +1335,7 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
                 Some(Ability::MixColors { count }) => {
                     let remaining_mixes = *count;
                     let player = &mut state.players[player_index];
-                    let mixes = two_step_heuristic_mix_seq(&player.color_wheel, player.silver, remaining_mixes, &cache, params, rng);
+                    let mixes = two_step_heuristic_mix_seq(&player.color_wheel, player.wild_primaries, remaining_mixes, &cache, params, rng);
                     apply_mixes(player, &mixes);
                     if let GamePhase::Action { ref mut action_state } = state.phase {
                         action_state.ability_stack.pop();

@@ -47,15 +47,15 @@ pub fn calculate_ducat_score(player: &PlayerState) -> u32 {
 }
 
 /// A player's score, counted in half points so it stays whole: every ducat is
-/// two, and each unspent silver or boat is one.
+/// two, and each unspent wild primary or boat is one.
 pub fn score_in_half_points(player: &PlayerState) -> u32 {
-    2 * calculate_ducat_score(player) + player.silver + player.boats
+    2 * calculate_ducat_score(player) + player.wild_primaries + player.boats
 }
 
 /// `score_in_half_points` off the cache, for the search's hot paths.
 #[inline]
 fn cached_half_points(player: &PlayerState) -> u32 {
-    2 * player.cached_ducat_score + player.silver + player.boats
+    2 * player.cached_ducat_score + player.wild_primaries + player.boats
 }
 
 /// "12" or "12.5".
@@ -160,7 +160,7 @@ pub fn buyer_alignment(player: &PlayerState, sell_card: SellCard, params: &Heuri
     let cost = sell_card.color_cost();
     let cost_len = cost.len() as f64;
     for &color in cost {
-        if player.color_wheel.get(color) > 0 || (is_primary(color) && player.silver > 0) {
+        if player.color_wheel.get(color) > 0 || (is_primary(color) && player.wild_primaries > 0) {
             alignment += (params.sell_card_color_alignment / cost_len) * ducats;
         }
     }
@@ -176,9 +176,9 @@ pub fn heuristic_score(
 ) -> f64 {
     let score = cached_half_points(player) as f64 / 2.0;
 
-    // Beyond their half point, silver and boats are worth what they can stand
+    // Beyond their half point, wild primaries and boats are worth what they can stand
     // in for: any primary, and whichever material is weighted highest.
-    let mut color_score = params.primary_color_value * player.silver as f64;
+    let mut color_score = params.primary_color_value * player.wild_primaries as f64;
     for &c in &PRIMARIES {
         color_score += params.primary_color_value * player.color_wheel.get(c) as f64;
     }
@@ -282,7 +282,7 @@ mod tests {
             materials: Materials::new(),
             completed_sell_cards,
             ducats,
-            silver: 0,
+            wild_primaries: 0,
             boats: 0,
             cached_ducat_score: 0,
         };
@@ -345,9 +345,9 @@ mod tests {
     }
 
     #[test]
-    fn test_silver_and_boats_are_worth_half_a_point_each() {
+    fn test_wild_primaries_and_boats_are_worth_half_a_point_each() {
         let mut p1 = make_player(3, &[], [0; 12]);
-        p1.silver = 1;
+        p1.wild_primaries = 1;
         let mut p2 = make_player(3, &[], [0; 12]);
         assert_eq!(score_in_half_points(&p1), 7);
         assert_eq!(format_half_points(score_in_half_points(&p1)), "3.5");
@@ -358,7 +358,7 @@ mod tests {
         players.push(p2.clone());
         assert_eq!(compute_terminal_rewards(&players), [1.0, 0.0, 0.0, 0.0]);
 
-        // A boat is worth exactly what a silver is.
+        // A boat is worth exactly what a wild primary is.
         p2.boats = 1;
         let mut players = FixedVec::new();
         players.push(p1);

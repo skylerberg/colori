@@ -50,8 +50,8 @@
     {#if currentPlayer && currentPlayer.ducats > 0}
       <span class="stat">Ducats: {currentPlayer.ducats}</span>
     {/if}
-    {#if currentPlayer && currentPlayer.silver > 0}
-      <span class="stat">Silver: {currentPlayer.silver}</span>
+    {#if currentPlayer && currentPlayer.wildPrimaries > 0}
+      <span class="stat">Wild primaries: {currentPlayer.wildPrimaries}</span>
     {/if}
     {#if currentPlayer && currentPlayer.boats > 0}
       <span class="stat">Boats: {currentPlayer.boats}</span>

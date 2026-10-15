@@ -120,7 +120,7 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                 Some(Ability::MixColors { count }) => {
                     enumerate_mix_sequences(
                         &player.color_wheel,
-                        player.silver,
+                        player.wild_primaries,
                         *count,
                         choices,
                         |mixes| Choice::MixAll { mixes },
@@ -150,7 +150,7 @@ pub fn enumerate_choices_into(state: &GameState, choices: &mut Vec<Choice>) {
                         choices.push(Choice::GainMaterial { material: m });
                     }
                 }
-                // Instant abilities (DrawCards, GainDucats, GainSilver, GainBoats)
+                // Instant abilities (DrawCards, GainDucats, GainWildPrimaries, GainBoats)
                 // should never be on top when waiting for a choice — they get
                 // processed immediately.
                 Some(_) => {}
@@ -175,12 +175,12 @@ fn mix_sequence_is_valid(player: &PlayerState, mixes: &[(Color, Color)], granted
         return false;
     }
     let mut wheel = player.color_wheel.clone();
-    let mut silver = player.silver;
+    let mut wild_primaries = player.wild_primaries;
     for &(a, b) in mixes {
-        if !can_mix(a, b) || !can_supply_mix(&wheel, silver, a, b) {
+        if !can_mix(a, b) || !can_supply_mix(&wheel, wild_primaries, a, b) {
             return false;
         }
-        perform_mix_unchecked(&mut wheel, &mut silver, a, b);
+        perform_mix_unchecked(&mut wheel, &mut wild_primaries, a, b);
     }
     true
 }

@@ -390,7 +390,7 @@ fn generate_invalid_choices(state: &GameState) -> Vec<Choice> {
                         invalid.push(Choice::SkipWorkshop);
                     }
                     Ability::GainDucats { .. }
-                    | Ability::GainSilver { .. }
+                    | Ability::GainWildPrimaries { .. }
                     | Ability::GainBoats { .. } => {
                         // Auto-resolved, but just in case
                         invalid.push(Choice::EndTurn);
@@ -1236,7 +1236,7 @@ fn test_apply_move_to_draft_pool_moves_workshopped_card_without_destroying_it() 
 }
 
 #[test]
-fn test_score_is_ducats_plus_half_points_for_silver_and_boats() {
+fn test_score_is_ducats_plus_half_points_for_wild_primaries_and_boats() {
     for seed in 50..60 {
         for num_players in 2..=4 {
             let state = run_full_game_with_invariants(seed, num_players);
@@ -1254,7 +1254,7 @@ fn test_score_is_ducats_plus_half_points_for_silver_and_boats() {
                 );
                 assert_eq!(
                     score_in_half_points(player),
-                    2 * (sell_card_ducats + player.ducats) + player.silver + player.boats,
+                    2 * (sell_card_ducats + player.ducats) + player.wild_primaries + player.boats,
                     "Score mismatch for player {} (seed={}, players={})",
                     i, seed, num_players,
                 );
@@ -1288,17 +1288,17 @@ fn pending_ability(state: &GameState) -> Option<Ability> {
 }
 
 #[test]
-fn test_workshopping_warehouse_gains_two_silver() {
+fn test_workshopping_warehouse_gains_two_wild_primaries() {
     let state = state_after_workshopping(Card::Warehouse);
-    assert_eq!(state.players[0].silver, 2);
-    assert_eq!(pending_ability(&state), None, "silver arrives without a choice");
+    assert_eq!(state.players[0].wild_primaries, 2);
+    assert_eq!(pending_ability(&state), None, "wild primaries arrive without a choice");
     assert_eq!(score_in_half_points(&state.players[0]), 2);
 }
 
 #[test]
-fn test_workshopping_chalk_gains_one_silver() {
+fn test_workshopping_chalk_gains_one_wild_primary() {
     let state = state_after_workshopping(Card::Chalk);
-    assert_eq!(state.players[0].silver, 1);
+    assert_eq!(state.players[0].wild_primaries, 1);
     assert_eq!(pending_ability(&state), None);
 }
 
@@ -1361,7 +1361,7 @@ fn test_mix_sequences_offer_each_outcome_once() {
         let mut after = state.clone();
         let mut rng = WyRand::seed_from_u64(3);
         apply_choice_to_state(&mut after, choice, &mut rng);
-        let outcome = (after.players[0].color_wheel.counts, after.players[0].silver);
+        let outcome = (after.players[0].color_wheel.counts, after.players[0].wild_primaries);
         assert!(!outcomes.contains(&outcome), "{:?} repeats an earlier outcome", choice);
         outcomes.push(outcome);
     }
@@ -1457,7 +1457,7 @@ fn test_an_imports_card_still_mixes_when_the_workshop_is_empty() {
 }
 
 #[test]
-fn test_silver_stands_in_for_a_missing_primary_in_a_mix() {
+fn test_a_wild_primary_stands_in_for_a_missing_primary_in_a_mix() {
     let mut state = state_with_drafted(Card::Realgar);
     let player = &mut state.players[0];
     player.color_wheel = ColorWheel::new();
@@ -1467,16 +1467,16 @@ fn test_silver_stands_in_for_a_missing_primary_in_a_mix() {
         card: Card::Realgar,
         mixes: SmallVec::from_slice(&[(Color::Red, Color::Orange)]),
     };
-    assert!(!enumerate_choices(&state).contains(&mix), "no Red and no silver");
+    assert!(!enumerate_choices(&state).contains(&mix), "no Red and no wild primary");
     assert!(!check_choice_available(&state, &mix));
 
-    state.players[0].silver = 1;
+    state.players[0].wild_primaries = 1;
     assert!(enumerate_choices(&state).contains(&mix));
     assert!(check_choice_available(&state, &mix));
 
     let mut rng = WyRand::seed_from_u64(3);
     apply_choice_to_state(&mut state, &mix, &mut rng);
-    assert_eq!(state.players[0].silver, 0);
+    assert_eq!(state.players[0].wild_primaries, 0);
     assert_eq!(state.players[0].color_wheel.get(Color::Vermilion), 1);
     assert_eq!(state.players[0].color_wheel.get(Color::Orange), 0);
 }
@@ -1504,7 +1504,7 @@ fn state_selling(sell_card: SellCard) -> GameState {
 }
 
 #[test]
-fn test_a_boat_and_silver_stand_in_for_what_a_sale_is_missing() {
+fn test_a_boat_and_a_wild_primary_stand_in_for_what_a_sale_is_missing() {
     let sell_card = SellCard::DyerRedYellow;
     let mut state = state_selling(sell_card);
     state.players[0].color_wheel.set(Color::Yellow, 1);
@@ -1513,13 +1513,13 @@ fn test_a_boat_and_silver_stand_in_for_what_a_sale_is_missing() {
     assert!(enumerate_choices(&state).is_empty(), "no Textiles and no Red");
     state.players[0].boats = 1;
     assert!(!check_choice_available(&state, &select), "still no Red");
-    state.players[0].silver = 1;
+    state.players[0].wild_primaries = 1;
     assert!(enumerate_choices(&state).contains(&select));
 
     let mut rng = WyRand::seed_from_u64(3);
     apply_choice_to_state(&mut state, &select, &mut rng);
     let player = &state.players[0];
-    assert_eq!((player.boats, player.silver), (0, 0));
+    assert_eq!((player.boats, player.wild_primaries), (0, 0));
     assert_eq!(player.color_wheel.get(Color::Yellow), 0);
     assert_eq!(player.completed_sell_cards.len(), 1);
     assert_eq!(player.cached_ducat_score, calculate_ducat_score(player));
@@ -1527,18 +1527,18 @@ fn test_a_boat_and_silver_stand_in_for_what_a_sale_is_missing() {
 }
 
 #[test]
-fn test_a_sale_spends_what_it_asks_for_before_any_boat_or_silver() {
+fn test_a_sale_spends_what_it_asks_for_before_any_boat_or_wild_primary() {
     let sell_card = SellCard::DyerRedYellow;
     let mut state = state_selling(sell_card);
     let player = &mut state.players[0];
     stock_for(player, sell_card);
     player.boats = 1;
-    player.silver = 1;
+    player.wild_primaries = 1;
 
     let mut rng = WyRand::seed_from_u64(3);
     apply_choice_to_state(&mut state, &Choice::SelectSellCard { sell_card }, &mut rng);
     let player = &state.players[0];
-    assert_eq!((player.boats, player.silver), (1, 1));
+    assert_eq!((player.boats, player.wild_primaries), (1, 1));
     assert_eq!(player.materials.get(MaterialType::Textiles), 0);
     assert_eq!(player.color_wheel.get(Color::Red), 0);
 }
@@ -1665,7 +1665,7 @@ fn test_starter_deck_composition() {
         cards.sort_by_key(|&c| c as usize);
         expected.sort_by_key(|&c| c as usize);
         assert_eq!(cards, expected);
-        assert_eq!((player.silver, player.boats, player.ducats), (0, 0, 0));
+        assert_eq!((player.wild_primaries, player.boats, player.ducats), (0, 0, 0));
     }
 }
 
