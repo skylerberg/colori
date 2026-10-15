@@ -1,32 +1,24 @@
 import type { GameState, Choice } from '../data/types';
-import type { AIWorkerResponse } from './aiWorker';
+import type { AIWorkerRequest, AIWorkerResponse } from './aiWorker';
 import AIWorkerModule from './aiWorker?worker';
 
-export interface PrecomputeRequest {
-  gameState: GameState;
+export interface DraftPicker {
   playerIndex: number;
-  pickNumber: number;
   iterations: number;
-}
-
-interface PrecomputeEntry {
-  worker: Worker;
-  result: Choice | null;
-  resolve: ((choice: Choice) => void) | null;
-  reject: ((error: Error) => void) | null;
 }
 
 export class AIController {
   private worker: Worker;
   aiStyle: string = 'ga';
 
-  private precomputeMap = new Map<string, PrecomputeEntry>();
-  private generationId = 0;
+  private draftWorkers = new Set<Worker>();
+  private startedDraftPicks = new Map<string, Promise<Choice>>();
 
   constructor() {
     this.worker = new AIWorkerModule();
   }
 
+  // One search at a time: concurrent calls would share the worker's onmessage.
   getAIChoice(
     gameState: GameState,
     playerIndex: number,
@@ -40,92 +32,69 @@ export class AIController {
           resolve(event.data.choice as Choice);
         }
       };
-      const plain = JSON.parse(JSON.stringify({
-        gameState,
-        playerIndex,
-        iterations,
-        aiStyle: this.aiStyle,
-      }));
-      this.worker.postMessage(plain);
+      this.worker.postMessage(this.request(gameState, playerIndex, iterations));
     });
   }
 
-  precomputeDraftPicks(requests: PrecomputeRequest[]): void {
-    this.cancelPrecomputation();
-    const gen = this.generationId;
-
-    for (const req of requests) {
-      const key = `${req.playerIndex}:${req.pickNumber}`;
-      const worker = new AIWorkerModule();
-      const entry: PrecomputeEntry = { worker, result: null, resolve: null, reject: null };
-
-      worker.onmessage = (event: MessageEvent<AIWorkerResponse>) => {
-        if (gen !== this.generationId) return;
-        if (event.data.type === 'error') {
-          console.error(`AI precompute error for player ${req.playerIndex}:`, event.data.message);
-          entry.result = null;
-          if (entry.reject) {
-            entry.reject(new Error(event.data.message));
-            entry.reject = null;
-            entry.resolve = null;
-          }
-        } else {
-          const choice = event.data.choice as Choice;
-          entry.result = choice;
-          if (entry.resolve) {
-            entry.resolve(choice);
-            entry.resolve = null;
-          }
-        }
-      };
-
-      const plain = JSON.parse(JSON.stringify({
-        gameState: req.gameState,
-        playerIndex: req.playerIndex,
-        iterations: req.iterations,
-        aiStyle: this.aiStyle,
-      }));
-      worker.postMessage(plain);
-      this.precomputeMap.set(key, entry);
+  /** Starts searching each picker's draft pick, replacing any not yet claimed. */
+  startDraftPicks(gameState: GameState, pickers: DraftPicker[]): void {
+    this.cancelDraftPicks();
+    for (const picker of pickers) {
+      this.startedDraftPicks.set(draftPickKey(gameState, picker.playerIndex), this.searchDraftPick(gameState, picker));
     }
   }
 
-  waitForPrecomputedChoice(playerIndex: number, pickNumber: number): Promise<Choice> | null {
-    const key = `${playerIndex}:${pickNumber}`;
-    const entry = this.precomputeMap.get(key);
-    if (!entry) return null;
-
-    if (entry.result !== null) {
-      const choice = entry.result;
-      entry.worker.terminate();
-      this.precomputeMap.delete(key);
-      return Promise.resolve(choice);
-    }
-
-    return new Promise((resolve, reject) => {
-      entry.resolve = (choice: Choice) => {
-        entry.worker.terminate();
-        this.precomputeMap.delete(key);
-        resolve(choice);
-      };
-      entry.reject = (error: Error) => {
-        entry.worker.terminate();
-        this.precomputeMap.delete(key);
-        reject(error);
-      };
-    });
+  /** The pick started for this player at this point of the draft, or a new search. */
+  draftPick(gameState: GameState, picker: DraftPicker): Promise<Choice> {
+    const key = draftPickKey(gameState, picker.playerIndex);
+    const started = this.startedDraftPicks.get(key);
+    this.startedDraftPicks.delete(key);
+    return started ?? this.searchDraftPick(gameState, picker);
   }
 
-  cancelPrecomputation(): void {
-    this.generationId++;
-    for (const entry of this.precomputeMap.values()) {
-      entry.worker.terminate();
+  cancelDraftPicks(): void {
+    for (const worker of this.draftWorkers) {
+      worker.terminate();
     }
-    this.precomputeMap.clear();
+    this.draftWorkers.clear();
+    this.startedDraftPicks.clear();
   }
 
   terminate(): void {
     this.worker.terminate();
-    this.cancelPrecomputation();
+    this.cancelDraftPicks();
   }
+
+  // Each draft pick gets its own worker so every AI's pick is searched at once.
+  private searchDraftPick(gameState: GameState, { playerIndex, iterations }: DraftPicker): Promise<Choice> {
+    const request = this.request(gameState, playerIndex, iterations);
+    // The search picks from the current player's hand.
+    if (request.gameState.phase.type === 'draft') {
+      request.gameState.phase.draftState.currentPlayerIndex = playerIndex;
+    }
+    const worker = new AIWorkerModule();
+    this.draftWorkers.add(worker);
+    return new Promise((resolve, reject) => {
+      worker.onmessage = (event: MessageEvent<AIWorkerResponse>) => {
+        worker.terminate();
+        this.draftWorkers.delete(worker);
+        if (event.data.type === 'error') {
+          reject(new Error(event.data.message));
+        } else {
+          resolve(event.data.choice as Choice);
+        }
+      };
+      worker.postMessage(request);
+    });
+  }
+
+  // A plain copy: Svelte state proxies can't be posted to a worker.
+  private request(gameState: GameState, playerIndex: number, iterations: number): AIWorkerRequest {
+    return JSON.parse(JSON.stringify({ gameState, playerIndex, iterations, aiStyle: this.aiStyle }));
+  }
+}
+
+function draftPickKey(gameState: GameState, playerIndex: number): string {
+  const pickNumber = gameState.phase.type === 'draft' ? gameState.phase.draftState.pickNumber : -1;
+  return `${gameState.round}:${pickNumber}:${playerIndex}`;
 }
