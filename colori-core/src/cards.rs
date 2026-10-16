@@ -77,8 +77,7 @@ pub fn draft_copies(card: Card) -> usize {
 /// Copies of `sell_card` in the sell card deck.
 pub fn sell_card_copies(sell_card: SellCard) -> usize {
     match sell_card.buyer() {
-        Buyer::Dyer => 3,
-        Buyer::Potter => 4,
+        Buyer::Dyer | Buyer::Potter => 2,
         _ => 1,
     }
 }

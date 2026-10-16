@@ -319,16 +319,16 @@ A sell card is named for the buyer's trade. The trade sets what the sale is wort
 
 | Buyer | Ducats | Materials | Colors | Cards | Copies of each |
 |-------|--------|-----------|--------|-------|----------------|
-| Dyer | 2 | 1 Textiles | Two primaries (any pair, alike or not) | 6 | 3 |
-| Dyer | 2 | 1 Textiles | One secondary | 3 | 3 |
+| Dyer | 2 | 1 Textiles | Two primaries (any pair, alike or not) | 6 | 2 |
+| Dyer | 2 | 1 Textiles | One secondary | 3 | 2 |
 | Illuminator | 2 | — | One tertiary | 6 | 1 |
 | Glassmaker | 3 | — | One tertiary + two of one primary | 6 | 1 |
-| Potter | 3 | 1 Ceramics | One tertiary | 6 | 4 |
+| Potter | 3 | 1 Ceramics | One tertiary | 6 | 2 |
 | Shipwright | 4 | 1 boat + 1 Textiles | Two different secondaries | 3 | 1 |
 | Tilemaker | 4 | 2 Ceramics | One tertiary | 6 | 1 |
 | Painter | 4 | 1 Paintings | One tertiary + one secondary | 18 | 1 |
 | Master Painter | 5 | 1 Paintings | Two tertiaries | 6 | 1 |
 
-That is 60 different cards and 96 in the deck. The six Glassmakers pair each tertiary with a primary it does not contain: Vermilion and Amber with Blue, Chartreuse and Teal with Red, Ultramarine and Fuchsia with Yellow.
+That is 60 different cards and 75 in the deck. The six Glassmakers pair each tertiary with a primary it does not contain: Vermilion and Amber with Blue, Chartreuse and Teal with Red, Ultramarine and Fuchsia with Yellow.
 
 All sell cards are shuffled into a single deck. 7 sell cards are displayed face-up at all times.

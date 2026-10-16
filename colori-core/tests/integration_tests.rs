@@ -941,8 +941,8 @@ fn test_sell_card_deck_card_count() {
         let state = create_initial_game_state(num_players, &ai_players, &mut rng);
         let total_sell_cards = state.sell_card_deck.len() + state.sell_card_display.len() as u32;
         assert_eq!(
-            total_sell_cards, 96,
-            "Total sell cards should be 96 (players={})",
+            total_sell_cards, 75,
+            "Total sell cards should be 75 (players={})",
             num_players
         );
     }
@@ -1605,9 +1605,9 @@ fn test_sell_deck_composition() {
     let expected = [
         (Buyer::Shipwright, 3, 1, 4),
         (Buyer::Glassmaker, 6, 1, 3),
-        (Buyer::Dyer, 9, 3, 2),
+        (Buyer::Dyer, 9, 2, 2),
         (Buyer::Illuminator, 6, 1, 2),
-        (Buyer::Potter, 6, 4, 3),
+        (Buyer::Potter, 6, 2, 3),
         (Buyer::Tilemaker, 6, 1, 4),
         (Buyer::Painter, 18, 1, 4),
         (Buyer::MasterPainter, 6, 1, 5),
@@ -1619,7 +1619,7 @@ fn test_sell_deck_composition() {
             assert_eq!(sell_card_copies(*sell_card), copies, "{:?} copies", sell_card);
         }
     }
-    assert_eq!(sell_deck_cards().map(|(_, copies)| copies).sum::<usize>(), 96);
+    assert_eq!(sell_deck_cards().map(|(_, copies)| copies).sum::<usize>(), 75);
 }
 
 #[test]
