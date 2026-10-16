@@ -11,7 +11,7 @@ use colori_core::draw_phase::{execute_draw_phase, round_income, RoundIncome};
 use colori_core::cards::{draft_copies, draft_deck_cards, sell_card_copies, sell_deck_cards, starter_deck};
 use colori_core::scoring::{calculate_ducat_score, score_in_half_points};
 use colori_core::setup::create_initial_game_state;
-use colori_core::types::{Ability, AbilityStack, ActionState, Buyer, SellCard, Card, Choice, Color, ColorWheel, DucatPurchase, GamePhase, GameState, MaterialType, PlayerState, PlayerTurn, ALL_SELL_CARDS};
+use colori_core::types::{Ability, AbilityStack, ActionState, Buyer, SellCard, Card, Choice, Color, ColorWheel, DucatPurchase, GamePhase, GameState, MaterialType, PlayerState, PlayerTurn, ALL_SELL_CARDS, MAX_SELL_CARD_DISPLAY};
 use colori_core::unordered_cards::{UnorderedCards, UnorderedSellCards};
 use colori_core::unordered_cards::{
     get_sell_card_registry, get_card_registry, set_sell_card_registry, set_card_registry,
@@ -1962,14 +1962,15 @@ fn test_claiming_goes_round_robin() {
     assert_eq!(order, vec![1, 2, 0, 1, 2, 0]);
 }
 
-/// A claimed card is replaced at once, so every player picks from five.
+/// A claimed card is replaced at once, so every player picks from a full
+/// display.
 #[test]
 fn test_the_display_refills_after_every_claim() {
     let (mut state, mut rng) = state_at_buyers_phase(5, 4, 4);
     while matches!(state.phase, GamePhase::Buyers { .. }) {
         assert_eq!(
             state.sell_card_display.len(),
-            5,
+            MAX_SELL_CARD_DISPLAY,
             "the display should be full whenever someone is choosing"
         );
         let player = actor(&state);

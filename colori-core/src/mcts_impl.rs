@@ -37,6 +37,10 @@ pub type Rewards = [f64; MAX_PLAYERS];
 /// without depending on `mcts` directly.
 pub type SearchNode = mcts::Node<Choice>;
 
+/// Why a search stopped, re-exported so consumers can name the outcome without
+/// depending on `mcts` directly.
+pub use mcts::StopReason;
+
 /// The graph a transposition search leaves behind, keyed as
 /// `crate::transposition` keys positions.
 pub type SearchGraph = mcts::Graph<Choice, u128>;
