@@ -319,7 +319,8 @@ pub fn check_choice_available(state: &GameState, player_index: usize, choice: &C
 fn enumerate_buyer_choices(state: &GameState, choices: &mut Vec<Choice>) {
     let display = &state.sell_card_display;
     for (i, instance) in display.iter().enumerate() {
-        // At most five entries, so a scan beats any bookkeeping.
+        // At most `MAX_SELL_CARD_DISPLAY` entries, so a scan beats any
+        // bookkeeping.
         if display[..i].iter().any(|c| c.sell_card == instance.sell_card) {
             continue;
         }

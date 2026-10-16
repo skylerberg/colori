@@ -56,7 +56,7 @@ What is asked for is always spent first; wild primaries and boats only cover wha
 ### Decks
 
 - **Draft Deck**: 100 cards — 54 dye cards, 21 Imports cards and 25 action cards. When the draft deck runs out, shuffle all destroyed cards back in.
-- **Sell Card Deck**: Contains all sell cards. 5 sell cards are displayed face-up at all times, replaced from the deck as soon as one is claimed.
+- **Sell Card Deck**: Contains all sell cards. 7 sell cards are displayed face-up at all times, replaced from the deck as soon as one is claimed.
 - **Personal Deck**: Each player has their own deck that they draw from and build over the course of the game. There is no discard pile: cards return to the deck by being placed on the **bottom** at the end of a round, so a card you put down will not come back up until everything above it has been drawn.
 
 ## Setup
@@ -65,7 +65,7 @@ What is asked for is always spent first; wild primaries and boats only cover wha
 2. Each player starts with 1 Red, 1 Yellow, and 1 Blue already stored on their color wheel.
 3. Each player starts with 1 ducat and 1 boat.
 4. Place the dye, Imports, and action cards into the draft deck. Shuffle it.
-5. Shuffle the sell card deck and reveal 5 sell cards face-up in the sell card display.
+5. Shuffle the sell card deck and reveal 7 sell cards face-up in the sell card display.
 
 ## Player Area
 
@@ -114,7 +114,7 @@ Buyer slots per player:
 Starting with the starting player and going round-robin in turn order, each player with an empty slot claims **one** card, and this repeats until nobody has an empty slot left. A slot only needs filling if it is empty — a buyer that was not sold last round stays where it is.
 
 To claim, take either:
-- one of the 5 face-up sell cards, which is **replaced from the deck immediately**, so the next player also chooses from five; or
+- one of the 7 face-up sell cards, which is **replaced from the deck immediately**, so the next player also chooses from a full display; or
 - the **top card of the sell card deck**, unseen.
 
 If both the display and the deck are empty there is nothing to claim, and the slot stays empty.
@@ -331,4 +331,4 @@ A sell card is named for the buyer's trade. The trade sets what the sale is wort
 
 That is 60 different cards and 96 in the deck. The six Glassmakers pair each tertiary with a primary it does not contain: Vermilion and Amber with Blue, Chartreuse and Teal with Red, Ultramarine and Fuchsia with Yellow.
 
-All sell cards are shuffled into a single deck. 5 sell cards are displayed face-up at all times.
+All sell cards are shuffled into a single deck. 7 sell cards are displayed face-up at all times.

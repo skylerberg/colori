@@ -29,7 +29,7 @@ use colori_core::choices::enumerate_choices;
 use colori_core::colori_game::{apply_choice_to_state, get_game_status, GameStatus};
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::ismcts::MctsConfig;
-use colori_core::mcts_impl::{ColoriSearcher, SearchGraph, SearchNode};
+use colori_core::mcts_impl::{ColoriSearcher, SearchGraph, SearchNode, StopReason};
 use colori_core::scoring::HeuristicParams;
 use colori_core::types::{GamePhase, GameState};
 use rand::{RngExt, SeedableRng};
@@ -138,11 +138,21 @@ fn describe_graph(out: &mut String, graph: &SearchGraph) {
 }
 
 /// Write the tree of a tree search, or the graph of a transposition search.
-fn describe(out: &mut String, searcher: &ColoriSearcher) {
+fn describe(out: &mut String, searcher: &ColoriSearcher, stop_reason: StopReason) {
     match (searcher.tree(), searcher.graph()) {
         (Some(tree), _) => describe_tree(out, tree),
         (None, Some(graph)) => describe_graph(out, graph),
-        (None, None) => panic!("a search leaves a tree or a graph"),
+        // A position with one legal choice returns before a root is built, so
+        // there is no tree to describe; the `chose ... stop=SingleChoice` line
+        // above is all that position contributes.
+        (None, None) => {
+            assert_eq!(
+                stop_reason,
+                StopReason::SingleChoice,
+                "a search that ran leaves a tree or a graph"
+            );
+            let _ = writeln!(out, "  no search: one legal choice");
+        }
     }
 }
 
@@ -199,7 +209,7 @@ fn fingerprint_reuse(
             "  chose {:?} used={} reused={} stop={:?}",
             outcome.choice, outcome.iterations_used, outcome.reused_iterations, outcome.stop_reason
         );
-        describe(out, &searcher);
+        describe(out, &searcher, outcome.stop_reason);
 
         let choice = outcome.choice.clone();
         apply_choice_to_state(&mut state, player, &choice, &mut rng);
@@ -270,7 +280,7 @@ fn generate(transpositions: bool) -> String {
                             outcome.reused_iterations,
                             outcome.stop_reason
                         );
-                        describe(&mut out, &searcher);
+                        describe(&mut out, &searcher, outcome.stop_reason);
                     }
                 }
             }

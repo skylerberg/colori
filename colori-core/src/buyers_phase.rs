@@ -92,7 +92,7 @@ fn advance_buyers<R: Rng>(state: &mut GameState, rng: &mut R) {
 }
 
 /// Claim a face-up sell card, and reveal its replacement immediately so the
-/// next player also picks from five.
+/// next player also picks from a full display.
 pub fn take_buyer<R: Rng>(state: &mut GameState, sell_card_instance_id: u32, rng: &mut R) {
     let player_index = current_player(state);
     claim_from_display(state, player_index, sell_card_instance_id, rng);

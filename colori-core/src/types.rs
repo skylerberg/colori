@@ -18,7 +18,9 @@ pub const MAX_PLAYERS: usize = 4;
 /// Rounds in a game. Solo simulations can set their own `GameState::max_rounds`.
 pub const NUM_ROUNDS: u32 = 7;
 
-pub const MAX_SELL_CARD_DISPLAY: usize = 5;
+/// Size of the face-up sell card display: the number revealed at setup, and the
+/// count each claim is replaced back up to.
+pub const MAX_SELL_CARD_DISPLAY: usize = 7;
 
 /// Buyer slots a player can ever hold. See `buyers_phase::buyer_capacity`.
 pub const MAX_BUYERS: usize = 3;
@@ -946,8 +948,8 @@ pub enum Choice {
         #[serde(rename = "sellCard")]
         sell_card: SellCard,
     },
-    /// Take the top of the sell card deck unseen, rather than one of the five
-    /// face up.
+    /// Take the top of the sell card deck unseen, rather than one of the
+    /// face-up cards on display.
     #[serde(rename = "drawBuyer")]
     DrawBuyer,
 }

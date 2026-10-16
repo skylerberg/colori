@@ -96,7 +96,7 @@ function createTour(): Tour {
   newTour.addStep({
     id: 'buyers-phase',
     title: 'Buyers Phase',
-    text: 'Before drafting, players take turns claiming sell cards into their own Buyers section — one at a time, going round the table until everyone is full. You can only sell to cards in your own Buyers, so this is where you decide what to aim for. Take one of the 5 face-up cards, or gamble on the top of the deck unseen. You get 1 slot to start, a 2nd in round 2 and a 3rd in round 4.',
+    text: 'Before drafting, players take turns claiming sell cards into their own Buyers section — one at a time, going round the table until everyone is full. You can only sell to cards in your own Buyers, so this is where you decide what to aim for. Take one of the 7 face-up cards, or gamble on the top of the deck unseen. You get 1 slot to start, a 2nd in round 2 and a 3rd in round 4.',
     buttons: [backButton, nextButton],
   });
 
