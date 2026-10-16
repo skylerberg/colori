@@ -19,7 +19,7 @@
 use mcts::rand_core::Rng;
 use mcts::{ChoicesOnRevisit, Game, Status};
 
-use crate::choices::enumerate_choices_into;
+use crate::choices::{enumerate_choices, enumerate_choices_into};
 use crate::colori_game::{apply_choice_to_state, determinize_in_place};
 use crate::ismcts::MctsConfig;
 use crate::ismcts::{advance_past_opponent_draft_picks, OpponentDraftStats};
@@ -145,6 +145,37 @@ pub struct OpponentModel {
     draft_stats: OpponentDraftStats,
     pick_log: Vec<(u32, usize, Card)>,
     turns: OpponentTurns,
+}
+
+/// Why a search for `player_index` cannot run on `state`, if it cannot.
+///
+/// The shared search panics when a position offers the searching player no
+/// choices, and a panic compiled to wasm reaches JS only as
+/// `RuntimeError: unreachable` — no message, no location. The web AI is asked
+/// from an async view that can describe a turn that has already ended, so it
+/// checks here and reports a real error instead of trapping.
+///
+/// Returns `None` when a search is safe to run.
+pub fn search_refusal(state: &GameState, player_index: usize) -> Option<String> {
+    if player_index >= state.players.len() {
+        return Some(format!("player {player_index} is not seated at this table"));
+    }
+    if matches!(state.phase, GamePhase::GameOver) {
+        return Some("the game is over".to_string());
+    }
+    if enumerate_choices(state, player_index).is_empty() {
+        let phase = match &state.phase {
+            GamePhase::Draw => "draw",
+            GamePhase::Buyers { .. } => "buyers",
+            GamePhase::Draft { .. } => "draft",
+            GamePhase::Action { .. } => "action",
+            GamePhase::GameOver => "game over",
+        };
+        return Some(format!(
+            "player {player_index} has no legal choices in the {phase} phase"
+        ));
+    }
+    None
 }
 
 impl GameState {
@@ -683,6 +714,39 @@ mod tests {
         for seed in 0..5 {
             play_full_game_checking_legality(4, seed);
         }
+    }
+
+    /// A seat whose turn has ended, or a finished game, is refused before the
+    /// search rather than trapping inside it.
+    #[test]
+    fn search_refuses_a_position_with_no_choices() {
+        let mut rng = WyRand::seed_from_u64(3);
+        let mut state = create_initial_game_state(3, &[true; 3], &mut rng);
+        execute_draw_phase(&mut state, &mut rng);
+        while !matches!(state.phase, GamePhase::Action { .. }) {
+            if matches!(state.phase, GamePhase::Draw) {
+                execute_draw_phase(&mut state, &mut rng);
+                continue;
+            }
+            let GameStatus::AwaitingAction { player_index } = get_game_status(&state, None) else {
+                unreachable!("round 1 reaches its action phase");
+            };
+            let choices = enumerate_choices(&state, player_index);
+            let pick = rng.next_u64() % choices.len() as u64;
+            apply_choice_to_state(&mut state, player_index, &choices[pick as usize], &mut rng);
+        }
+        assert!(search_refusal(&state, 0).is_none());
+
+        // Play seat 0's turn out, leaving the others still acting.
+        while matches!(&state.phase, GamePhase::Action { action_state } if !action_state.turns[0].ended)
+        {
+            let choices = enumerate_choices(&state, 0);
+            let pick = rng.next_u64() % choices.len() as u64;
+            apply_choice_to_state(&mut state, 0, &choices[pick as usize], &mut rng);
+        }
+        assert!(matches!(state.phase, GamePhase::Action { .. }));
+        let refusal = search_refusal(&state, 0).expect("an ended turn has no choices");
+        assert!(refusal.contains("no legal choices"), "{refusal}");
     }
 
     /// Whole games through the transposition graph. Debug builds recompute every

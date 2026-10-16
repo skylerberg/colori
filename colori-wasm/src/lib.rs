@@ -3,7 +3,7 @@ use colori_core::draft_phase::{advance_draft, simultaneous_pick};
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::game_log::{DrawEvent, DrawLog};
 use colori_core::ismcts::{MctsConfig};
-use colori_core::mcts_impl::ColoriSearcher;
+use colori_core::mcts_impl::{search_refusal, ColoriSearcher};
 use colori_core::scoring::{calculate_ducat_score, score_in_half_points, HeuristicParams};
 use colori_core::setup::create_initial_game_state;
 use colori_core::types::{Card, Choice, GameState, PlayerState};
@@ -16,6 +16,24 @@ use wyrand::WyRand;
 use wasm_bindgen::prelude::*;
 
 const TRAINED_PARAMS_JSON: &str = include_str!("../../genetic-algorithm/batch-lki08w-gen-32.json");
+
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = console)]
+    fn error(msg: &str);
+}
+
+/// Report panics to the browser console when the module is initialized.
+///
+/// Without a hook a panic is only the wasm `unreachable` trap, which reaches
+/// JS as `RuntimeError: unreachable` with no message or location — undebuggable
+/// from the browser side.
+#[wasm_bindgen(start)]
+pub fn install_panic_hook() {
+    std::panic::set_hook(Box::new(|info| {
+        error(&format!("colori wasm panicked: {info}"));
+    }));
+}
 
 fn deserialize_state(json: &str) -> GameState {
     let mut state: GameState =
@@ -40,8 +58,12 @@ pub fn wasm_run_ismcts(
     player_index: u32,
     iterations: u32,
     _ai_style: &str,
-) -> String {
+) -> Result<String, JsError> {
     let game_state = deserialize_state(game_state_json);
+    let player_index = player_index as usize;
+    if let Some(refusal) = search_refusal(&game_state, player_index) {
+        return Err(JsError::new(&format!("cannot run the AI here: {refusal}")));
+    }
 
     let max_rollout_round = std::cmp::max(8, game_state.round + 2);
 
@@ -53,13 +75,13 @@ pub fn wasm_run_ismcts(
     let mut searcher = ColoriSearcher::new(&game_state);
     let result = searcher.search(
         &game_state,
-        player_index as usize,
+        player_index,
         &config,
         Some(max_rollout_round),
         &mut rng,
     );
 
-    serde_json::to_string(&result.choice).expect("Failed to serialize choice")
+    Ok(serde_json::to_string(&result.choice).expect("Failed to serialize choice"))
 }
 
 #[wasm_bindgen]
