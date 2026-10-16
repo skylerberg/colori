@@ -174,11 +174,18 @@ pub fn heuristic_score(
     params: &HeuristicParams,
     card_table: &CardHeuristicTable,
 ) -> f64 {
-    let score = cached_half_points(player) as f64 / 2.0;
+    // A ducat still in hand scores its point plus a premium for the Workshop,
+    // Mix or Sell it can still buy (`unspent_ducat_multiplier`). Ducats already
+    // banked in completed sell cards get no premium: that choice is spent.
+    let score = cached_half_points(player) as f64 / 2.0
+        + (params.unspent_ducat_multiplier - 1.0) * player.ducats as f64;
 
     // Beyond their half point, wild primaries and boats are worth what they can stand
-    // in for: any primary, and whichever material is weighted highest.
-    let mut color_score = params.primary_color_value * player.wild_primaries as f64;
+    // in for: any primary, and whichever material is weighted highest. The
+    // multipliers price the flexibility of a wild over the one resource it is
+    // being compared against.
+    let mut color_score =
+        params.primary_color_value * params.wild_primary_multiplier * player.wild_primaries as f64;
     for &c in &PRIMARIES {
         color_score += params.primary_color_value * player.color_wheel.get(c) as f64;
     }
@@ -196,6 +203,7 @@ pub fn heuristic_score(
             .stored_ceramics_weight
             .max(params.stored_paintings_weight)
             .max(params.stored_textiles_weight)
+            * params.boat_multiplier
             * player.boats as f64;
 
     let mut total_quality = 0.0;
@@ -364,5 +372,36 @@ mod tests {
         players.push(p1);
         players.push(p2);
         assert_eq!(compute_terminal_rewards(&players), [0.5, 0.5, 0.0, 0.0]);
+    }
+
+    /// The three resource multipliers default to 1.0 on a params file written
+    /// before they existed, and scaling one moves only the term it names.
+    #[test]
+    fn test_wild_boat_and_ducat_multipliers_scale_their_own_term() {
+        const BASELINE: &str =
+            include_str!("../../../genetic-algorithm/batch-lki08w-gen-32.json");
+        let mut params: HeuristicParams =
+            serde_json::from_str(BASELINE).expect("baseline params parse");
+        assert_eq!(params.wild_primary_multiplier, 1.0);
+        assert_eq!(params.boat_multiplier, 1.0);
+        assert_eq!(params.unspent_ducat_multiplier, 1.0);
+
+        let lookup = [Card::BasicRed; 256];
+        let mut player = make_player(3, &[], [0; 12]);
+        player.wild_primaries = 1;
+        player.boats = 1;
+        let base = heuristic_score(&player, &lookup, &params, &CardHeuristicTable::new(&params));
+
+        params.wild_primary_multiplier = 2.0;
+        params.boat_multiplier = 2.0;
+        params.unspent_ducat_multiplier = 2.0;
+        let boosted = heuristic_score(&player, &lookup, &params, &CardHeuristicTable::new(&params));
+
+        let best_material = params
+            .stored_ceramics_weight
+            .max(params.stored_paintings_weight)
+            .max(params.stored_textiles_weight);
+        let expected = base + params.primary_color_value + best_material + player.ducats as f64;
+        assert!((boosted - expected).abs() < 1e-9, "{boosted} != {expected}");
     }
 }

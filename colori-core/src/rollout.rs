@@ -713,7 +713,10 @@ fn ability_priority(
                 params.rollout_destroy_with_targets
             }
         }
-        _ => params.rollout_other_priority,
+        // Every destroy ability in the game is a Workshop, Mix, Sell or Move
+        // to Draft Pool, all handled above. A future one that is not gets no
+        // priority rather than a panic mid-rollout.
+        _ => 0,
     }
 }
 

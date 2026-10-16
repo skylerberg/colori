@@ -56,6 +56,9 @@ const PARAM_GROUPS: &[(&str, &[&str])] = &[
     ("Sell Card Weights", &[
         "sell_card_material_alignment", "sell_card_color_alignment",
     ]),
+    ("Wild Resource Multipliers", &[
+        "wild_primary_multiplier", "boat_multiplier", "unspent_ducat_multiplier",
+    ]),
     ("Action Card Overrides", &[
         "alum_quality", "gum_arabic_quality", "warehouse_quality",
         "gondola_quality", "linseed_oil_quality",
@@ -70,7 +73,7 @@ const PARAM_GROUPS: &[(&str, &[&str])] = &[
     ("Rollout General", &[
         "rollout_epsilon", "rollout_end_turn_threshold",
         "rollout_end_turn_probability_early", "rollout_end_turn_probability_late",
-        "rollout_end_turn_max_round", "rollout_other_priority",
+        "rollout_end_turn_max_round",
     ]),
     ("Rollout Sell", &[
         "rollout_sell_affordable_multiplier", "rollout_sell_base",
@@ -108,6 +111,9 @@ fn get_param_value(params: &HeuristicParams, name: &str) -> Option<f64> {
         "dual_material_quality" => Some(params.dual_material_quality),
         "sell_card_material_alignment" => Some(params.sell_card_material_alignment),
         "sell_card_color_alignment" => Some(params.sell_card_color_alignment),
+        "wild_primary_multiplier" => Some(params.wild_primary_multiplier),
+        "boat_multiplier" => Some(params.boat_multiplier),
+        "unspent_ducat_multiplier" => Some(params.unspent_ducat_multiplier),
         "heuristic_round_threshold" => Some(params.heuristic_round_threshold as f64),
         "heuristic_lookahead" => Some(params.heuristic_lookahead as f64),
         "alum_quality" => Some(params.alum_quality),
@@ -130,7 +136,6 @@ fn get_param_value(params: &HeuristicParams, name: &str) -> Option<f64> {
         "rollout_workshop_empty" => Some(params.rollout_workshop_empty as f64),
         "rollout_destroy_with_targets" => Some(params.rollout_destroy_with_targets as f64),
         "rollout_destroy_no_targets" => Some(params.rollout_destroy_no_targets as f64),
-        "rollout_other_priority" => Some(params.rollout_other_priority as f64),
         "rollout_end_turn_threshold" => Some(params.rollout_end_turn_threshold as f64),
         "rollout_end_turn_probability_early" => Some(params.rollout_end_turn_probability_early),
         "rollout_end_turn_probability_late" => Some(params.rollout_end_turn_probability_late),
