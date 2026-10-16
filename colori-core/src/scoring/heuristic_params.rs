@@ -19,6 +19,13 @@ pub struct HeuristicParams {
     pub dual_material_quality: f64,
     pub sell_card_material_alignment: f64,
     pub sell_card_color_alignment: f64,
+    /// Premium on a wild primary over the stored primary it stands in for.
+    pub wild_primary_multiplier: f64,
+    /// Premium on a boat over the best stored material it stands in for.
+    pub boat_multiplier: f64,
+    /// Premium on a ducat still in hand, over the point it scores at game
+    /// end: a held ducat is also the option to buy a Workshop, Mix or Sell.
+    pub unspent_ducat_multiplier: f64,
     pub heuristic_round_threshold: u32,
     pub heuristic_lookahead: u32,
     pub alum_quality: f64,
@@ -42,7 +49,6 @@ pub struct HeuristicParams {
     pub rollout_workshop_empty: u32,
     pub rollout_destroy_with_targets: u32,
     pub rollout_destroy_no_targets: u32,
-    pub rollout_other_priority: u32,
     pub rollout_end_turn_threshold: u32,
     pub rollout_end_turn_probability_early: f64,
     pub rollout_end_turn_probability_late: f64,
@@ -56,6 +62,10 @@ pub struct HeuristicParams {
 /// Raw deserialization helper that supports both the old unified `rolloutWsActionBonus`
 /// field and the new per-ability fields. When the old field is present and a new field
 /// is absent, the old value is used as the default for each new field.
+///
+/// The multiplier fields default to 1.0 — the value that leaves the term they
+/// scale unchanged — so parameter files written before they existed keep the
+/// behaviour they were trained for.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct HeuristicParamsRaw {
@@ -87,6 +97,12 @@ struct HeuristicParamsRaw {
     sell_card_material_alignment: f64,
     #[serde(alias = "buyerColorWeight")]
     sell_card_color_alignment: f64,
+    #[serde(default)]
+    wild_primary_multiplier: Option<f64>,
+    #[serde(default)]
+    boat_multiplier: Option<f64>,
+    #[serde(default)]
+    unspent_ducat_multiplier: Option<f64>,
     heuristic_round_threshold: u32,
     heuristic_lookahead: u32,
     alum_quality: f64,
@@ -112,7 +128,6 @@ struct HeuristicParamsRaw {
     rollout_workshop_empty: u32,
     rollout_destroy_with_targets: u32,
     rollout_destroy_no_targets: u32,
-    rollout_other_priority: u32,
     rollout_end_turn_threshold: u32,
     rollout_end_turn_probability_early: f64,
     rollout_end_turn_probability_late: f64,
@@ -148,6 +163,9 @@ impl From<HeuristicParamsRaw> for HeuristicParams {
             dual_material_quality: raw.dual_material_quality,
             sell_card_material_alignment: raw.sell_card_material_alignment,
             sell_card_color_alignment: raw.sell_card_color_alignment,
+            wild_primary_multiplier: raw.wild_primary_multiplier.unwrap_or(1.0).max(0.0),
+            boat_multiplier: raw.boat_multiplier.unwrap_or(1.0).max(0.0),
+            unspent_ducat_multiplier: raw.unspent_ducat_multiplier.unwrap_or(1.0).max(0.0),
             heuristic_round_threshold: raw.heuristic_round_threshold,
             heuristic_lookahead: raw.heuristic_lookahead,
             alum_quality: raw.alum_quality,
@@ -170,7 +188,6 @@ impl From<HeuristicParamsRaw> for HeuristicParams {
             rollout_workshop_empty: raw.rollout_workshop_empty,
             rollout_destroy_with_targets: raw.rollout_destroy_with_targets,
             rollout_destroy_no_targets: raw.rollout_destroy_no_targets,
-            rollout_other_priority: raw.rollout_other_priority,
             rollout_end_turn_threshold: raw.rollout_end_turn_threshold,
             rollout_end_turn_probability_early: raw.rollout_end_turn_probability_early,
             rollout_end_turn_probability_late: raw.rollout_end_turn_probability_late,

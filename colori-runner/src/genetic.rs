@@ -43,31 +43,33 @@ enum Gene {
     DualMaterialQuality = 21,
     SellCardMaterialAlignment = 22,
     SellCardColorAlignment = 23,
-    HeuristicLookahead = 24,
-    RolloutEpsilon = 25,
-    RolloutSellAffordableMultiplier = 26,
-    RolloutSellBase = 27,
-    RolloutMixBase = 28,
-    RolloutMixPairWeight = 29,
-    RolloutMixCountWeight = 30,
-    RolloutMixNoPairs = 31,
-    RolloutWorkshopBase = 32,
-    RolloutWorkshopCountWeight = 33,
-    RolloutWorkshopEmpty = 34,
-    RolloutDestroyWithTargets = 35,
-    RolloutDestroyNoTargets = 36,
-    RolloutOtherPriority = 37,
-    RolloutEndTurnThreshold = 38,
-    RolloutEndTurnProbabilityEarly = 39,
-    RolloutEndTurnProbabilityLate = 40,
-    RolloutEndTurnMaxRound = 41,
-    RolloutWsMaterialBaseMultiplier = 42,
-    RolloutWsMaterialColorsMetMultiplier = 43,
-    RolloutWsActionGainDucatsValue = 44,
-    RolloutWsActionColorDemandMultiplier = 45,
+    WildPrimaryMultiplier = 24,
+    BoatMultiplier = 25,
+    UnspentDucatMultiplier = 26,
+    HeuristicLookahead = 27,
+    RolloutEpsilon = 28,
+    RolloutSellAffordableMultiplier = 29,
+    RolloutSellBase = 30,
+    RolloutMixBase = 31,
+    RolloutMixPairWeight = 32,
+    RolloutMixCountWeight = 33,
+    RolloutMixNoPairs = 34,
+    RolloutWorkshopBase = 35,
+    RolloutWorkshopCountWeight = 36,
+    RolloutWorkshopEmpty = 37,
+    RolloutDestroyWithTargets = 38,
+    RolloutDestroyNoTargets = 39,
+    RolloutEndTurnThreshold = 40,
+    RolloutEndTurnProbabilityEarly = 41,
+    RolloutEndTurnProbabilityLate = 42,
+    RolloutEndTurnMaxRound = 43,
+    RolloutWsMaterialBaseMultiplier = 44,
+    RolloutWsMaterialColorsMetMultiplier = 45,
+    RolloutWsActionGainDucatsValue = 46,
+    RolloutWsActionColorDemandMultiplier = 47,
 }
 
-const NUM_GENES: usize = 46;
+const NUM_GENES: usize = 48;
 
 trait GeneTarget: Clone {
     fn to_genes(&self) -> Vec<f64>;
@@ -104,6 +106,9 @@ impl GeneTarget for HeuristicParams {
         v[DualMaterialQuality as usize] = self.dual_material_quality;
         v[SellCardMaterialAlignment as usize] = self.sell_card_material_alignment;
         v[SellCardColorAlignment as usize] = self.sell_card_color_alignment;
+        v[WildPrimaryMultiplier as usize] = self.wild_primary_multiplier;
+        v[BoatMultiplier as usize] = self.boat_multiplier;
+        v[UnspentDucatMultiplier as usize] = self.unspent_ducat_multiplier;
         v[HeuristicLookahead as usize] = self.heuristic_lookahead as f64;
         v[RolloutEpsilon as usize] = self.rollout_epsilon;
         v[RolloutSellAffordableMultiplier as usize] = self.rollout_sell_affordable_multiplier as f64;
@@ -117,7 +122,6 @@ impl GeneTarget for HeuristicParams {
         v[RolloutWorkshopEmpty as usize] = self.rollout_workshop_empty as f64;
         v[RolloutDestroyWithTargets as usize] = self.rollout_destroy_with_targets as f64;
         v[RolloutDestroyNoTargets as usize] = self.rollout_destroy_no_targets as f64;
-        v[RolloutOtherPriority as usize] = self.rollout_other_priority as f64;
         v[RolloutEndTurnThreshold as usize] = self.rollout_end_turn_threshold as f64;
         v[RolloutEndTurnProbabilityEarly as usize] = self.rollout_end_turn_probability_early;
         v[RolloutEndTurnProbabilityLate as usize] = self.rollout_end_turn_probability_late;
@@ -148,6 +152,9 @@ impl GeneTarget for HeuristicParams {
             dual_material_quality: v[DualMaterialQuality as usize],
             sell_card_material_alignment: v[SellCardMaterialAlignment as usize],
             sell_card_color_alignment: v[SellCardColorAlignment as usize],
+            wild_primary_multiplier: v[WildPrimaryMultiplier as usize].max(0.0),
+            boat_multiplier: v[BoatMultiplier as usize].max(0.0),
+            unspent_ducat_multiplier: v[UnspentDucatMultiplier as usize].max(0.0),
             heuristic_round_threshold: base.heuristic_round_threshold,
             heuristic_lookahead: (v[HeuristicLookahead as usize].round() as u32).max(1),
             alum_quality: v[AlumQuality as usize],
@@ -170,7 +177,6 @@ impl GeneTarget for HeuristicParams {
             rollout_workshop_empty: v[RolloutWorkshopEmpty as usize].round().max(0.0) as u32,
             rollout_destroy_with_targets: v[RolloutDestroyWithTargets as usize].round().max(0.0) as u32,
             rollout_destroy_no_targets: v[RolloutDestroyNoTargets as usize].round().max(0.0) as u32,
-            rollout_other_priority: v[RolloutOtherPriority as usize].round().max(0.0) as u32,
             rollout_end_turn_threshold: v[RolloutEndTurnThreshold as usize].round().max(0.0) as u32,
             rollout_end_turn_probability_early: v[RolloutEndTurnProbabilityEarly as usize].clamp(0.0, 1.0),
             rollout_end_turn_probability_late: v[RolloutEndTurnProbabilityLate as usize].clamp(0.0, 1.0),
@@ -196,7 +202,6 @@ impl GeneTarget for HeuristicParams {
             Gene::RolloutWorkshopEmpty as usize,
             Gene::RolloutDestroyWithTargets as usize,
             Gene::RolloutDestroyNoTargets as usize,
-            Gene::RolloutOtherPriority as usize,
             Gene::RolloutEndTurnThreshold as usize,
             Gene::RolloutEndTurnMaxRound as usize,
             Gene::RolloutWsMaterialBaseMultiplier as usize,
