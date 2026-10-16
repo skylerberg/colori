@@ -63,8 +63,9 @@ What is asked for is always spent first; wild primaries and boats only cover wha
 
 1. Each player receives a starting personal deck: 1 Red, 1 Yellow, 1 Blue, 1 Ceramics, 1 Canvas, 1 Fabric, 1 Chalk. Shuffle it. The physical game has six of these decks, one per character; they differ only in the portrait in the corner, which makes a deck easy to reassemble after a game.
 2. Each player starts with 1 Red, 1 Yellow, and 1 Blue already stored on their color wheel.
-3. Place the dye, Imports, and action cards into the draft deck. Shuffle it.
-4. Shuffle the sell card deck and reveal 5 sell cards face-up in the sell card display.
+3. Each player starts with 1 ducat and 1 boat.
+4. Place the dye, Imports, and action cards into the draft deck. Shuffle it.
+5. Shuffle the sell card deck and reveal 5 sell cards face-up in the sell card display.
 
 ## Player Area
 
