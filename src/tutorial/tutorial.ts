@@ -136,14 +136,14 @@ function createTour(): Tour {
   newTour.addStep({
     id: 'ducats-explained',
     title: 'Ducats',
-    text: 'Ducats are your score, and you collect one at the start of rounds 4, 6 and 7. They are also spendable: on your turn, one ducat buys a single Workshop pick, a single Mix, or a Sell. A bought Sell still costs you the material and colors, so what the ducat really buys is a sale in a round where nothing you drafted would let you make one.',
+    text: 'Ducats are your score. You start with one and collect another at the start of rounds 4, 6 and 7. They are also spendable: on your turn, one ducat buys a single Workshop pick, a single Mix, or a Sell. A bought Sell still costs you the material and colors, so what the ducat really buys is a sale in a round where nothing you drafted would let you make one.',
     buttons: [backButton, nextButton],
   });
 
   newTour.addStep({
     id: 'wild-primaries-and-boats-explained',
     title: 'Wild Primaries and Boats',
-    text: 'Some workshop cards pay out a wild primary or a boat, and so do the late rounds: a boat at the start of round 5, and a boat and a wild primary at the start of round 7. A wild primary stands in for a Red, Yellow or Blue you lack, in a mix or a sale. A boat is a wild material for a sale. Whatever you still hold at the end is worth half a point each.',
+    text: 'You start with a boat. Some workshop cards pay out a wild primary or a boat, and so do the late rounds: a boat at the start of round 5, and a boat and a wild primary at the start of round 7. A wild primary stands in for a Red, Yellow or Blue you lack, in a mix or a sale. A boat is a wild material for a sale. Whatever you still hold at the end is worth half a point each.',
     buttons: [backButton, nextButton],
   });
 

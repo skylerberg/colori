@@ -13,6 +13,12 @@ jobs:
   rust:
     name: Rust
     runs-on: ubuntu-latest
+    # An empty RUSTFLAGS overrides .cargo/config.toml's target-cpu=native.
+    # rust-cache restores dependencies built on whichever runner saved the
+    # cache, and a runner whose CPU lacks what they were built for dies with
+    # SIGILL.
+    env:
+      RUSTFLAGS: ""
     steps:
       - uses: actions/checkout@v4
 

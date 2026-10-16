@@ -1062,6 +1062,11 @@ fn setup_action_state_with(
 ) -> (GameState, u8, Option<u8>, Option<u8>) {
     let mut rng = WyRand::seed_from_u64(12345);
     let mut state = create_initial_game_state(2, &[true, true], &mut rng);
+    // Count what a card or sale gives from an empty purse.
+    let player = &mut state.players[0];
+    player.ducats = 0;
+    player.boats = 0;
+    player.cached_ducat_score = 0;
 
     let alum_id = find_card_id(&state, Card::Alum);
     remove_card_anywhere(&mut state, alum_id);
@@ -1627,7 +1632,8 @@ fn test_starter_deck_composition() {
         cards.sort_by_key(|&c| c as usize);
         expected.sort_by_key(|&c| c as usize);
         assert_eq!(cards, expected);
-        assert_eq!((player.wild_primaries, player.boats, player.ducats), (0, 0, 0));
+        assert_eq!((player.wild_primaries, player.boats, player.ducats), (0, 1, 1));
+        assert_eq!(player.cached_ducat_score, calculate_ducat_score(player));
     }
 }
 

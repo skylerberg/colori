@@ -1,1093 +1,761 @@
 players=2 seed=11 steps=12 round=1 actor=0 iters=200 early=false bias=0
-  chose DestroyAndMix { card: Chalk, mixes: [(Yellow, Blue)] } used=200 reused=0 stop=Budget
-  root visits=200 nodes=201 depth=7
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue), (Blue, Purple)] } visits=10 reward=1.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue), (Yellow, Blue)] } visits=23 reward=7.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue)] } visits=19 reward=5.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Yellow)] } visits=12 reward=2.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Yellow, Blue), (Blue, Green)] } visits=30 reward=1.200000000000e1
-  child DestroyAndMix { card: Chalk, mixes: [(Yellow, Blue)] } visits=58 reward=2.500000000000e1
-  child DestroyAndMix { card: Chalk, mixes: [] } visits=7 reward=0.000000000000e0
-  child DestroyDraftedCard { card: Orpiment } visits=12 reward=2.000000000000e0
-  child EndTurn visits=29 reward=1.000000000000e1
+  chose DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, BasicYellow] } used=200 reused=0 stop=Budget
+  root visits=200 nodes=201 depth=5
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicRed) } visits=5 reward=0.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicYellow) } visits=16 reward=5.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Chalk) } visits=14 reward=4.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCanvas) } visits=5 reward=0.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, BasicYellow] } visits=24 reward=1.000000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, Chalk] } visits=12 reward=3.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, StarterCanvas] } visits=12 reward=3.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed] } visits=8 reward=3.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow, Chalk] } visits=10 reward=2.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=6 reward=0.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow] } visits=10 reward=2.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [Chalk] } visits=12 reward=3.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [StarterCanvas, Chalk] } visits=14 reward=4.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [StarterCanvas] } visits=10 reward=2.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [] } visits=21 reward=8.000000000000e0
+  child DestroyDraftedCard { card: Orpiment } visits=16 reward=5.000000000000e0
+  child EndTurn visits=5 reward=0.000000000000e0
 players=2 seed=11 steps=12 round=1 actor=0 iters=200 early=false bias=0.5
+  chose DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicYellow) } used=200 reused=0 stop=Budget
+  root visits=200 nodes=201 depth=5
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicRed) } visits=8 reward=1.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicYellow) } visits=21 reward=9.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Chalk) } visits=14 reward=5.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCanvas) } visits=8 reward=1.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, BasicYellow] } visits=12 reward=3.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, Chalk] } visits=10 reward=2.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, StarterCanvas] } visits=15 reward=5.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed] } visits=18 reward=7.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow, Chalk] } visits=9 reward=1.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=13 reward=4.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow] } visits=16 reward=6.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [Chalk] } visits=10 reward=2.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [StarterCanvas, Chalk] } visits=7 reward=0.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [StarterCanvas] } visits=8 reward=1.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [] } visits=12 reward=3.000000000000e0
+  child DestroyDraftedCard { card: Orpiment } visits=9 reward=2.000000000000e0
+  child EndTurn visits=10 reward=2.000000000000e0
+players=2 seed=11 steps=12 round=1 actor=0 iters=200 early=true bias=0
+  chose DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, BasicYellow] } used=200 reused=0 stop=Budget
+  root visits=200 nodes=201 depth=5
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicRed) } visits=5 reward=0.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicYellow) } visits=16 reward=5.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Chalk) } visits=14 reward=4.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCanvas) } visits=5 reward=0.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, BasicYellow] } visits=24 reward=1.000000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, Chalk] } visits=12 reward=3.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, StarterCanvas] } visits=12 reward=3.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed] } visits=8 reward=3.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow, Chalk] } visits=10 reward=2.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=6 reward=0.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow] } visits=10 reward=2.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [Chalk] } visits=12 reward=3.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [StarterCanvas, Chalk] } visits=14 reward=4.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [StarterCanvas] } visits=10 reward=2.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [] } visits=21 reward=8.000000000000e0
+  child DestroyDraftedCard { card: Orpiment } visits=16 reward=5.000000000000e0
+  child EndTurn visits=5 reward=0.000000000000e0
+players=2 seed=11 steps=12 round=1 actor=0 iters=200 early=true bias=0.5
+  chose DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicYellow) } used=200 reused=0 stop=Budget
+  root visits=200 nodes=201 depth=5
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicRed) } visits=8 reward=1.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicYellow) } visits=21 reward=9.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Chalk) } visits=14 reward=5.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCanvas) } visits=8 reward=1.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, BasicYellow] } visits=12 reward=3.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, Chalk] } visits=10 reward=2.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, StarterCanvas] } visits=15 reward=5.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed] } visits=18 reward=7.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow, Chalk] } visits=9 reward=1.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=13 reward=4.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow] } visits=16 reward=6.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [Chalk] } visits=10 reward=2.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [StarterCanvas, Chalk] } visits=7 reward=0.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [StarterCanvas] } visits=8 reward=1.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [] } visits=12 reward=3.000000000000e0
+  child DestroyDraftedCard { card: Orpiment } visits=9 reward=2.000000000000e0
+  child EndTurn visits=10 reward=2.000000000000e0
+players=2 seed=11 steps=12 round=1 actor=0 iters=1000 early=false bias=0
+  chose DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicRed) } used=1000 reused=0 stop=Budget
+  root visits=1000 nodes=1001 depth=8
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicRed) } visits=159 reward=5.900000000000e1
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicYellow) } visits=93 reward=3.000000000000e1
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Chalk) } visits=36 reward=7.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCanvas) } visits=57 reward=1.500000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, BasicYellow] } visits=86 reward=2.700000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, Chalk] } visits=52 reward=1.300000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, StarterCanvas] } visits=27 reward=4.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed] } visits=72 reward=2.100000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow, Chalk] } visits=62 reward=1.700000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=30 reward=5.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow] } visits=27 reward=4.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [Chalk] } visits=52 reward=1.300000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [StarterCanvas, Chalk] } visits=96 reward=3.100000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [StarterCanvas] } visits=24 reward=3.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [] } visits=55 reward=1.400000000000e1
+  child DestroyDraftedCard { card: Orpiment } visits=36 reward=7.000000000000e0
+  child EndTurn visits=36 reward=7.000000000000e0
+players=2 seed=11 steps=12 round=1 actor=0 iters=1000 early=false bias=0.5
+  chose DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed] } used=1000 reused=0 stop=Budget
+  root visits=1000 nodes=1001 depth=7
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicRed) } visits=60 reward=1.500000000000e1
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicYellow) } visits=70 reward=1.900000000000e1
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Chalk) } visits=36 reward=6.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCanvas) } visits=28 reward=3.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, BasicYellow] } visits=34 reward=5.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, Chalk] } visits=76 reward=2.100000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, StarterCanvas] } visits=78 reward=2.200000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed] } visits=89 reward=3.000000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow, Chalk] } visits=40 reward=7.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=48 reward=1.000000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow] } visits=89 reward=2.700000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [Chalk] } visits=48 reward=1.000000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [StarterCanvas, Chalk] } visits=97 reward=3.000000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [StarterCanvas] } visits=22 reward=1.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [] } visits=39 reward=7.000000000000e0
+  child DestroyDraftedCard { card: Orpiment } visits=69 reward=1.900000000000e1
+  child EndTurn visits=77 reward=2.200000000000e1
+players=2 seed=11 steps=12 round=1 actor=0 iters=1000 early=true bias=0
+  chose DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicRed) } used=1000 reused=0 stop=Budget
+  root visits=1000 nodes=1001 depth=8
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicRed) } visits=159 reward=5.900000000000e1
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicYellow) } visits=93 reward=3.000000000000e1
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Chalk) } visits=36 reward=7.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCanvas) } visits=57 reward=1.500000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, BasicYellow] } visits=86 reward=2.700000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, Chalk] } visits=52 reward=1.300000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, StarterCanvas] } visits=27 reward=4.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed] } visits=72 reward=2.100000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow, Chalk] } visits=62 reward=1.700000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=30 reward=5.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow] } visits=27 reward=4.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [Chalk] } visits=52 reward=1.300000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [StarterCanvas, Chalk] } visits=96 reward=3.100000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [StarterCanvas] } visits=24 reward=3.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [] } visits=55 reward=1.400000000000e1
+  child DestroyDraftedCard { card: Orpiment } visits=36 reward=7.000000000000e0
+  child EndTurn visits=36 reward=7.000000000000e0
+players=2 seed=11 steps=12 round=1 actor=0 iters=1000 early=true bias=0.5
+  chose DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed] } used=1000 reused=0 stop=Budget
+  root visits=1000 nodes=1001 depth=7
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicRed) } visits=60 reward=1.500000000000e1
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicYellow) } visits=70 reward=1.900000000000e1
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Chalk) } visits=36 reward=6.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCanvas) } visits=28 reward=3.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, BasicYellow] } visits=34 reward=5.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, Chalk] } visits=76 reward=2.100000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, StarterCanvas] } visits=78 reward=2.200000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed] } visits=89 reward=3.000000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow, Chalk] } visits=40 reward=7.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=48 reward=1.000000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow] } visits=89 reward=2.700000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [Chalk] } visits=48 reward=1.000000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [StarterCanvas, Chalk] } visits=97 reward=3.000000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [StarterCanvas] } visits=22 reward=1.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [] } visits=39 reward=7.000000000000e0
+  child DestroyDraftedCard { card: Orpiment } visits=69 reward=1.900000000000e1
+  child EndTurn visits=77 reward=2.200000000000e1
+players=2 seed=23 steps=50 round=3 actor=0 iters=200 early=false bias=0
   chose EndTurn used=200 reused=0 stop=Budget
   root visits=200 nodes=201 depth=6
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue), (Blue, Purple)] } visits=13 reward=2.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue), (Yellow, Blue)] } visits=30 reward=1.100000000000e1
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue)] } visits=15 reward=3.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Yellow)] } visits=13 reward=2.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Yellow, Blue), (Blue, Green)] } visits=29 reward=9.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Yellow, Blue)] } visits=17 reward=4.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [] } visits=27 reward=9.000000000000e0
-  child DestroyDraftedCard { card: Orpiment } visits=12 reward=2.000000000000e0
-  child EndTurn visits=44 reward=1.900000000000e1
-players=2 seed=11 steps=12 round=1 actor=0 iters=200 early=true bias=0
-  chose DestroyAndMix { card: Chalk, mixes: [(Yellow, Blue)] } used=198 reused=0 stop=Proven
-  root visits=198 nodes=199 depth=7
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue), (Blue, Purple)] } visits=10 reward=1.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue), (Yellow, Blue)] } visits=23 reward=7.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue)] } visits=19 reward=5.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Yellow)] } visits=12 reward=2.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Yellow, Blue), (Blue, Green)] } visits=28 reward=1.000000000000e1
-  child DestroyAndMix { card: Chalk, mixes: [(Yellow, Blue)] } visits=58 reward=2.500000000000e1
-  child DestroyAndMix { card: Chalk, mixes: [] } visits=7 reward=0.000000000000e0
-  child DestroyDraftedCard { card: Orpiment } visits=12 reward=2.000000000000e0
-  child EndTurn visits=29 reward=1.000000000000e1
-players=2 seed=11 steps=12 round=1 actor=0 iters=200 early=true bias=0.5
-  chose EndTurn used=199 reused=0 stop=Proven
-  root visits=199 nodes=200 depth=6
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue), (Blue, Purple)] } visits=13 reward=2.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue), (Yellow, Blue)] } visits=30 reward=1.100000000000e1
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue)] } visits=15 reward=3.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Yellow)] } visits=13 reward=2.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Yellow, Blue), (Blue, Green)] } visits=29 reward=9.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Yellow, Blue)] } visits=17 reward=4.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [] } visits=26 reward=9.000000000000e0
-  child DestroyDraftedCard { card: Orpiment } visits=12 reward=2.000000000000e0
-  child EndTurn visits=44 reward=1.900000000000e1
-players=2 seed=11 steps=12 round=1 actor=0 iters=1000 early=false bias=0
-  chose DestroyAndMix { card: Chalk, mixes: [(Yellow, Blue), (Blue, Green)] } used=1000 reused=0 stop=Budget
-  root visits=1000 nodes=1001 depth=7
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue), (Blue, Purple)] } visits=24 reward=3.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue), (Yellow, Blue)] } visits=58 reward=1.600000000000e1
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue)] } visits=55 reward=1.500000000000e1
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Yellow)] } visits=68 reward=2.000000000000e1
-  child DestroyAndMix { card: Chalk, mixes: [(Yellow, Blue), (Blue, Green)] } visits=424 reward=1.930000000000e2
-  child DestroyAndMix { card: Chalk, mixes: [(Yellow, Blue)] } visits=231 reward=9.400000000000e1
-  child DestroyAndMix { card: Chalk, mixes: [] } visits=17 reward=1.000000000000e0
-  child DestroyDraftedCard { card: Orpiment } visits=27 reward=4.000000000000e0
-  child EndTurn visits=96 reward=3.200000000000e1
-players=2 seed=11 steps=12 round=1 actor=0 iters=1000 early=false bias=0.5
-  chose EndTurn used=1000 reused=0 stop=Budget
-  root visits=1000 nodes=1001 depth=7
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue), (Blue, Purple)] } visits=27 reward=3.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue), (Yellow, Blue)] } visits=183 reward=6.700000000000e1
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue)] } visits=88 reward=2.600000000000e1
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Yellow)] } visits=31 reward=4.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Yellow, Blue), (Blue, Green)] } visits=155 reward=5.300000000000e1
-  child DestroyAndMix { card: Chalk, mixes: [(Yellow, Blue)] } visits=63 reward=1.600000000000e1
-  child DestroyAndMix { card: Chalk, mixes: [] } visits=76 reward=2.100000000000e1
-  child DestroyDraftedCard { card: Orpiment } visits=24 reward=2.000000000000e0
-  child EndTurn visits=353 reward=1.460000000000e2
-players=2 seed=11 steps=12 round=1 actor=0 iters=1000 early=true bias=0
-  chose DestroyAndMix { card: Chalk, mixes: [(Yellow, Blue), (Blue, Green)] } used=1000 reused=0 stop=Budget
-  root visits=1000 nodes=1001 depth=7
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue), (Blue, Purple)] } visits=24 reward=3.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue), (Yellow, Blue)] } visits=58 reward=1.600000000000e1
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue)] } visits=55 reward=1.500000000000e1
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Yellow)] } visits=68 reward=2.000000000000e1
-  child DestroyAndMix { card: Chalk, mixes: [(Yellow, Blue), (Blue, Green)] } visits=424 reward=1.930000000000e2
-  child DestroyAndMix { card: Chalk, mixes: [(Yellow, Blue)] } visits=231 reward=9.400000000000e1
-  child DestroyAndMix { card: Chalk, mixes: [] } visits=17 reward=1.000000000000e0
-  child DestroyDraftedCard { card: Orpiment } visits=27 reward=4.000000000000e0
-  child EndTurn visits=96 reward=3.200000000000e1
-players=2 seed=11 steps=12 round=1 actor=0 iters=1000 early=true bias=0.5
-  chose EndTurn used=1000 reused=0 stop=Budget
-  root visits=1000 nodes=1001 depth=7
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue), (Blue, Purple)] } visits=27 reward=3.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue), (Yellow, Blue)] } visits=183 reward=6.700000000000e1
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue)] } visits=88 reward=2.600000000000e1
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Yellow)] } visits=31 reward=4.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Yellow, Blue), (Blue, Green)] } visits=155 reward=5.300000000000e1
-  child DestroyAndMix { card: Chalk, mixes: [(Yellow, Blue)] } visits=63 reward=1.600000000000e1
-  child DestroyAndMix { card: Chalk, mixes: [] } visits=76 reward=2.100000000000e1
-  child DestroyDraftedCard { card: Orpiment } visits=24 reward=2.000000000000e0
-  child EndTurn visits=353 reward=1.460000000000e2
-players=2 seed=23 steps=50 round=4 actor=0 iters=200 early=false bias=0
-  chose TakeBuyer { sell_card: PainterVermilionGreen } used=200 reused=0 stop=Budget
-  root visits=200 nodes=201 depth=4
-  child DrawBuyer visits=18 reward=2.000000000000e0
-  child TakeBuyer { sell_card: DyerBlueYellow } visits=51 reward=1.400000000000e1
-  child TakeBuyer { sell_card: DyerYellowYellow } visits=24 reward=4.000000000000e0
-  child TakeBuyer { sell_card: MasterPainterVermilionTeal } visits=24 reward=4.000000000000e0
-  child TakeBuyer { sell_card: PainterVermilionGreen } visits=59 reward=1.800000000000e1
-  child TakeBuyer { sell_card: PotterFuchsia } visits=24 reward=4.000000000000e0
-players=2 seed=23 steps=50 round=4 actor=0 iters=200 early=false bias=0.5
-  chose TakeBuyer { sell_card: PotterFuchsia } used=200 reused=0 stop=Budget
-  root visits=200 nodes=201 depth=4
-  child DrawBuyer visits=34 reward=9.000000000000e0
-  child TakeBuyer { sell_card: DyerBlueYellow } visits=16 reward=0.000000000000e0
-  child TakeBuyer { sell_card: DyerYellowYellow } visits=27 reward=5.000000000000e0
-  child TakeBuyer { sell_card: MasterPainterVermilionTeal } visits=45 reward=1.500000000000e1
-  child TakeBuyer { sell_card: PainterVermilionGreen } visits=29 reward=6.000000000000e0
-  child TakeBuyer { sell_card: PotterFuchsia } visits=49 reward=1.700000000000e1
-players=2 seed=23 steps=50 round=4 actor=0 iters=200 early=true bias=0
-  chose TakeBuyer { sell_card: PainterVermilionGreen } used=200 reused=0 stop=Budget
-  root visits=200 nodes=201 depth=4
-  child DrawBuyer visits=18 reward=2.000000000000e0
-  child TakeBuyer { sell_card: DyerBlueYellow } visits=51 reward=1.400000000000e1
-  child TakeBuyer { sell_card: DyerYellowYellow } visits=24 reward=4.000000000000e0
-  child TakeBuyer { sell_card: MasterPainterVermilionTeal } visits=24 reward=4.000000000000e0
-  child TakeBuyer { sell_card: PainterVermilionGreen } visits=59 reward=1.800000000000e1
-  child TakeBuyer { sell_card: PotterFuchsia } visits=24 reward=4.000000000000e0
-players=2 seed=23 steps=50 round=4 actor=0 iters=200 early=true bias=0.5
-  chose TakeBuyer { sell_card: PotterFuchsia } used=200 reused=0 stop=Budget
-  root visits=200 nodes=201 depth=4
-  child DrawBuyer visits=34 reward=9.000000000000e0
-  child TakeBuyer { sell_card: DyerBlueYellow } visits=16 reward=0.000000000000e0
-  child TakeBuyer { sell_card: DyerYellowYellow } visits=27 reward=5.000000000000e0
-  child TakeBuyer { sell_card: MasterPainterVermilionTeal } visits=45 reward=1.500000000000e1
-  child TakeBuyer { sell_card: PainterVermilionGreen } visits=29 reward=6.000000000000e0
-  child TakeBuyer { sell_card: PotterFuchsia } visits=49 reward=1.700000000000e1
-players=2 seed=23 steps=50 round=4 actor=0 iters=1000 early=false bias=0
-  chose TakeBuyer { sell_card: DyerBlueYellow } used=1000 reused=0 stop=Budget
-  root visits=1000 nodes=1001 depth=5
-  child DrawBuyer visits=93 reward=1.400000000000e1
-  child TakeBuyer { sell_card: DyerBlueYellow } visits=315 reward=7.700000000000e1
-  child TakeBuyer { sell_card: DyerYellowYellow } visits=140 reward=2.700000000000e1
-  child TakeBuyer { sell_card: MasterPainterVermilionTeal } visits=160 reward=3.200000000000e1
-  child TakeBuyer { sell_card: PainterVermilionGreen } visits=157 reward=3.100000000000e1
-  child TakeBuyer { sell_card: PotterFuchsia } visits=135 reward=2.500000000000e1
-players=2 seed=23 steps=50 round=4 actor=0 iters=1000 early=false bias=0.5
-  chose TakeBuyer { sell_card: PotterFuchsia } used=1000 reused=0 stop=Budget
-  root visits=1000 nodes=1001 depth=5
-  child DrawBuyer visits=157 reward=3.550000000000e1
-  child TakeBuyer { sell_card: DyerBlueYellow } visits=77 reward=1.000000000000e1
-  child TakeBuyer { sell_card: DyerYellowYellow } visits=74 reward=9.000000000000e0
-  child TakeBuyer { sell_card: MasterPainterVermilionTeal } visits=144 reward=3.200000000000e1
-  child TakeBuyer { sell_card: PainterVermilionGreen } visits=214 reward=5.500000000000e1
-  child TakeBuyer { sell_card: PotterFuchsia } visits=334 reward=9.700000000000e1
-players=2 seed=23 steps=50 round=4 actor=0 iters=1000 early=true bias=0
-  chose TakeBuyer { sell_card: DyerBlueYellow } used=1000 reused=0 stop=Budget
-  root visits=1000 nodes=1001 depth=5
-  child DrawBuyer visits=93 reward=1.400000000000e1
-  child TakeBuyer { sell_card: DyerBlueYellow } visits=315 reward=7.700000000000e1
-  child TakeBuyer { sell_card: DyerYellowYellow } visits=140 reward=2.700000000000e1
-  child TakeBuyer { sell_card: MasterPainterVermilionTeal } visits=160 reward=3.200000000000e1
-  child TakeBuyer { sell_card: PainterVermilionGreen } visits=157 reward=3.100000000000e1
-  child TakeBuyer { sell_card: PotterFuchsia } visits=135 reward=2.500000000000e1
-players=2 seed=23 steps=50 round=4 actor=0 iters=1000 early=true bias=0.5
-  chose TakeBuyer { sell_card: PotterFuchsia } used=1000 reused=0 stop=Budget
-  root visits=1000 nodes=1001 depth=5
-  child DrawBuyer visits=157 reward=3.550000000000e1
-  child TakeBuyer { sell_card: DyerBlueYellow } visits=77 reward=1.000000000000e1
-  child TakeBuyer { sell_card: DyerYellowYellow } visits=74 reward=9.000000000000e0
-  child TakeBuyer { sell_card: MasterPainterVermilionTeal } visits=144 reward=3.200000000000e1
-  child TakeBuyer { sell_card: PainterVermilionGreen } visits=214 reward=5.500000000000e1
-  child TakeBuyer { sell_card: PotterFuchsia } visits=334 reward=9.700000000000e1
-players=3 seed=11 steps=12 round=1 actor=0 iters=200 early=false bias=0
-  chose DestroyDraftedCard { card: FabricOrange } used=200 reused=0 stop=Budget
+  child DestroyAndMix { card: Logwood, mixes: [] } visits=19 reward=1.000000000000e0
+  child DestroyAndMix { card: Realgar, mixes: [] } visits=30 reward=4.000000000000e0
+  child DestroyDraftedCard { card: Verdigris } visits=33 reward=5.000000000000e0
+  child EndTurn visits=118 reward=3.600000000000e1
+players=2 seed=23 steps=50 round=3 actor=0 iters=200 early=false bias=0.5
+  chose EndTurn used=200 reused=0 stop=Budget
   root visits=200 nodes=201 depth=6
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=13 reward=1.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Yellow)] } visits=18 reward=3.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [(Yellow, Blue)] } visits=18 reward=3.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [] } visits=36 reward=1.100000000000e1
-  child DestroyDraftedCard { card: FabricOrange } visits=49 reward=1.600000000000e1
-  child DestroyDraftedCard { card: GreenEarth } visits=24 reward=5.000000000000e0
-  child DestroyDraftedCard { card: Indigo } visits=16 reward=2.000000000000e0
-  child EndTurn visits=26 reward=6.000000000000e0
+  child DestroyAndMix { card: Logwood, mixes: [] } visits=25 reward=2.000000000000e0
+  child DestroyAndMix { card: Realgar, mixes: [] } visits=31 reward=4.000000000000e0
+  child DestroyDraftedCard { card: Verdigris } visits=21 reward=1.000000000000e0
+  child EndTurn visits=123 reward=4.400000000000e1
+players=2 seed=23 steps=50 round=3 actor=0 iters=200 early=true bias=0
+  chose EndTurn used=200 reused=0 stop=Budget
+  root visits=200 nodes=201 depth=6
+  child DestroyAndMix { card: Logwood, mixes: [] } visits=19 reward=1.000000000000e0
+  child DestroyAndMix { card: Realgar, mixes: [] } visits=30 reward=4.000000000000e0
+  child DestroyDraftedCard { card: Verdigris } visits=33 reward=5.000000000000e0
+  child EndTurn visits=118 reward=3.600000000000e1
+players=2 seed=23 steps=50 round=3 actor=0 iters=200 early=true bias=0.5
+  chose EndTurn used=200 reused=0 stop=Budget
+  root visits=200 nodes=201 depth=6
+  child DestroyAndMix { card: Logwood, mixes: [] } visits=25 reward=2.000000000000e0
+  child DestroyAndMix { card: Realgar, mixes: [] } visits=31 reward=4.000000000000e0
+  child DestroyDraftedCard { card: Verdigris } visits=21 reward=1.000000000000e0
+  child EndTurn visits=123 reward=4.400000000000e1
+players=2 seed=23 steps=50 round=3 actor=0 iters=1000 early=false bias=0
+  chose EndTurn used=1000 reused=0 stop=Budget
+  root visits=1000 nodes=1001 depth=7
+  child DestroyAndMix { card: Logwood, mixes: [] } visits=94 reward=1.700000000000e1
+  child DestroyAndMix { card: Realgar, mixes: [] } visits=112 reward=2.200000000000e1
+  child DestroyDraftedCard { card: Verdigris } visits=49 reward=5.000000000000e0
+  child EndTurn visits=745 reward=2.350000000000e2
+players=2 seed=23 steps=50 round=3 actor=0 iters=1000 early=false bias=0.5
+  chose EndTurn used=1000 reused=0 stop=Budget
+  root visits=1000 nodes=1001 depth=7
+  child DestroyAndMix { card: Logwood, mixes: [] } visits=69 reward=8.000000000000e0
+  child DestroyAndMix { card: Realgar, mixes: [] } visits=110 reward=2.000000000000e1
+  child DestroyDraftedCard { card: Verdigris } visits=57 reward=5.000000000000e0
+  child EndTurn visits=764 reward=2.450000000000e2
+players=2 seed=23 steps=50 round=3 actor=0 iters=1000 early=true bias=0
+  chose EndTurn used=1000 reused=0 stop=Budget
+  root visits=1000 nodes=1001 depth=7
+  child DestroyAndMix { card: Logwood, mixes: [] } visits=94 reward=1.700000000000e1
+  child DestroyAndMix { card: Realgar, mixes: [] } visits=112 reward=2.200000000000e1
+  child DestroyDraftedCard { card: Verdigris } visits=49 reward=5.000000000000e0
+  child EndTurn visits=745 reward=2.350000000000e2
+players=2 seed=23 steps=50 round=3 actor=0 iters=1000 early=true bias=0.5
+  chose EndTurn used=1000 reused=0 stop=Budget
+  root visits=1000 nodes=1001 depth=7
+  child DestroyAndMix { card: Logwood, mixes: [] } visits=69 reward=8.000000000000e0
+  child DestroyAndMix { card: Realgar, mixes: [] } visits=110 reward=2.000000000000e1
+  child DestroyDraftedCard { card: Verdigris } visits=57 reward=5.000000000000e0
+  child EndTurn visits=764 reward=2.450000000000e2
+players=3 seed=11 steps=12 round=1 actor=0 iters=200 early=false bias=0
+  chose DestroyDraftedCard { card: Indigo } used=200 reused=0 stop=Budget
+  root visits=200 nodes=201 depth=5
+  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=17 reward=4.000000000000e0
+  child DestroyAndMix { card: Kermes, mixes: [(Red, Yellow)] } visits=23 reward=7.000000000000e0
+  child DestroyAndMix { card: Kermes, mixes: [(Yellow, Blue)] } visits=19 reward=5.000000000000e0
+  child DestroyAndMix { card: Kermes, mixes: [] } visits=13 reward=3.000000000000e0
+  child DestroyDraftedCard { card: FabricOrange } visits=7 reward=0.000000000000e0
+  child DestroyDraftedCard { card: GreenEarth } visits=21 reward=6.000000000000e0
+  child DestroyDraftedCard { card: Indigo } visits=35 reward=1.300000000000e1
+  child EndTurn visits=31 reward=1.100000000000e1
+  child SpendDucat { purchase: MixColors } visits=17 reward=4.000000000000e0
+  child SpendDucat { purchase: Workshop } visits=17 reward=4.000000000000e0
 players=3 seed=11 steps=12 round=1 actor=0 iters=200 early=false bias=0.5
   chose EndTurn used=200 reused=0 stop=Budget
-  root visits=200 nodes=201 depth=6
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=29 reward=8.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Yellow)] } visits=16 reward=2.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [(Yellow, Blue)] } visits=40 reward=1.300000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [] } visits=23 reward=5.000000000000e0
-  child DestroyDraftedCard { card: FabricOrange } visits=20 reward=4.000000000000e0
-  child DestroyDraftedCard { card: GreenEarth } visits=20 reward=4.000000000000e0
-  child DestroyDraftedCard { card: Indigo } visits=13 reward=1.000000000000e0
-  child EndTurn visits=39 reward=1.400000000000e1
+  root visits=200 nodes=201 depth=5
+  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=12 reward=1.000000000000e0
+  child DestroyAndMix { card: Kermes, mixes: [(Red, Yellow)] } visits=27 reward=9.000000000000e0
+  child DestroyAndMix { card: Kermes, mixes: [(Yellow, Blue)] } visits=25 reward=8.000000000000e0
+  child DestroyAndMix { card: Kermes, mixes: [] } visits=16 reward=3.000000000000e0
+  child DestroyDraftedCard { card: FabricOrange } visits=12 reward=1.000000000000e0
+  child DestroyDraftedCard { card: GreenEarth } visits=16 reward=3.000000000000e0
+  child DestroyDraftedCard { card: Indigo } visits=20 reward=5.000000000000e0
+  child EndTurn visits=40 reward=1.700000000000e1
+  child SpendDucat { purchase: MixColors } visits=23 reward=7.000000000000e0
+  child SpendDucat { purchase: Workshop } visits=9 reward=0.000000000000e0
 players=3 seed=11 steps=12 round=1 actor=0 iters=200 early=true bias=0
-  chose DestroyDraftedCard { card: FabricOrange } used=200 reused=0 stop=Budget
-  root visits=200 nodes=201 depth=6
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=13 reward=1.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Yellow)] } visits=18 reward=3.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [(Yellow, Blue)] } visits=18 reward=3.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [] } visits=36 reward=1.100000000000e1
-  child DestroyDraftedCard { card: FabricOrange } visits=49 reward=1.600000000000e1
-  child DestroyDraftedCard { card: GreenEarth } visits=24 reward=5.000000000000e0
-  child DestroyDraftedCard { card: Indigo } visits=16 reward=2.000000000000e0
-  child EndTurn visits=26 reward=6.000000000000e0
+  chose DestroyDraftedCard { card: Indigo } used=200 reused=0 stop=Budget
+  root visits=200 nodes=201 depth=5
+  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=17 reward=4.000000000000e0
+  child DestroyAndMix { card: Kermes, mixes: [(Red, Yellow)] } visits=23 reward=7.000000000000e0
+  child DestroyAndMix { card: Kermes, mixes: [(Yellow, Blue)] } visits=19 reward=5.000000000000e0
+  child DestroyAndMix { card: Kermes, mixes: [] } visits=13 reward=3.000000000000e0
+  child DestroyDraftedCard { card: FabricOrange } visits=7 reward=0.000000000000e0
+  child DestroyDraftedCard { card: GreenEarth } visits=21 reward=6.000000000000e0
+  child DestroyDraftedCard { card: Indigo } visits=35 reward=1.300000000000e1
+  child EndTurn visits=31 reward=1.100000000000e1
+  child SpendDucat { purchase: MixColors } visits=17 reward=4.000000000000e0
+  child SpendDucat { purchase: Workshop } visits=17 reward=4.000000000000e0
 players=3 seed=11 steps=12 round=1 actor=0 iters=200 early=true bias=0.5
-  chose EndTurn used=200 reused=0 stop=Budget
-  root visits=200 nodes=201 depth=6
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=29 reward=8.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Yellow)] } visits=16 reward=2.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [(Yellow, Blue)] } visits=40 reward=1.300000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [] } visits=23 reward=5.000000000000e0
-  child DestroyDraftedCard { card: FabricOrange } visits=20 reward=4.000000000000e0
-  child DestroyDraftedCard { card: GreenEarth } visits=20 reward=4.000000000000e0
-  child DestroyDraftedCard { card: Indigo } visits=13 reward=1.000000000000e0
-  child EndTurn visits=39 reward=1.400000000000e1
+  chose EndTurn used=196 reused=0 stop=Proven
+  root visits=196 nodes=197 depth=5
+  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=12 reward=1.000000000000e0
+  child DestroyAndMix { card: Kermes, mixes: [(Red, Yellow)] } visits=27 reward=9.000000000000e0
+  child DestroyAndMix { card: Kermes, mixes: [(Yellow, Blue)] } visits=23 reward=7.000000000000e0
+  child DestroyAndMix { card: Kermes, mixes: [] } visits=16 reward=3.000000000000e0
+  child DestroyDraftedCard { card: FabricOrange } visits=12 reward=1.000000000000e0
+  child DestroyDraftedCard { card: GreenEarth } visits=16 reward=3.000000000000e0
+  child DestroyDraftedCard { card: Indigo } visits=20 reward=5.000000000000e0
+  child EndTurn visits=38 reward=1.600000000000e1
+  child SpendDucat { purchase: MixColors } visits=23 reward=7.000000000000e0
+  child SpendDucat { purchase: Workshop } visits=9 reward=0.000000000000e0
 players=3 seed=11 steps=12 round=1 actor=0 iters=1000 early=false bias=0
   chose EndTurn used=1000 reused=0 stop=Budget
-  root visits=1000 nodes=1001 depth=7
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=23 reward=2.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Yellow)] } visits=58 reward=1.400000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Yellow, Blue)] } visits=167 reward=5.800000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [] } visits=61 reward=1.500000000000e1
-  child DestroyDraftedCard { card: FabricOrange } visits=139 reward=4.600000000000e1
-  child DestroyDraftedCard { card: GreenEarth } visits=112 reward=3.500000000000e1
-  child DestroyDraftedCard { card: Indigo } visits=27 reward=3.000000000000e0
-  child EndTurn visits=413 reward=1.680000000000e2
+  root visits=1000 nodes=1001 depth=6
+  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=70 reward=2.000000000000e1
+  child DestroyAndMix { card: Kermes, mixes: [(Red, Yellow)] } visits=79 reward=2.400000000000e1
+  child DestroyAndMix { card: Kermes, mixes: [(Yellow, Blue)] } visits=77 reward=2.300000000000e1
+  child DestroyAndMix { card: Kermes, mixes: [] } visits=67 reward=1.900000000000e1
+  child DestroyDraftedCard { card: FabricOrange } visits=33 reward=6.000000000000e0
+  child DestroyDraftedCard { card: GreenEarth } visits=47 reward=1.100000000000e1
+  child DestroyDraftedCard { card: Indigo } visits=70 reward=2.000000000000e1
+  child EndTurn visits=461 reward=2.080000000000e2
+  child SpendDucat { purchase: MixColors } visits=36 reward=7.000000000000e0
+  child SpendDucat { purchase: Workshop } visits=60 reward=1.600000000000e1
 players=3 seed=11 steps=12 round=1 actor=0 iters=1000 early=false bias=0.5
   chose EndTurn used=1000 reused=0 stop=Budget
-  root visits=1000 nodes=1001 depth=7
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=63 reward=1.500000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Yellow)] } visits=79 reward=2.100000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Yellow, Blue)] } visits=79 reward=2.100000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [] } visits=162 reward=5.500000000000e1
-  child DestroyDraftedCard { card: FabricOrange } visits=99 reward=2.900000000000e1
-  child DestroyDraftedCard { card: GreenEarth } visits=52 reward=1.100000000000e1
-  child DestroyDraftedCard { card: Indigo } visits=78 reward=2.200000000000e1
-  child EndTurn visits=388 reward=1.540000000000e2
+  root visits=1000 nodes=1001 depth=6
+  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=80 reward=2.400000000000e1
+  child DestroyAndMix { card: Kermes, mixes: [(Red, Yellow)] } visits=126 reward=4.500000000000e1
+  child DestroyAndMix { card: Kermes, mixes: [(Yellow, Blue)] } visits=78 reward=2.300000000000e1
+  child DestroyAndMix { card: Kermes, mixes: [] } visits=34 reward=5.000000000000e0
+  child DestroyDraftedCard { card: FabricOrange } visits=47 reward=1.000000000000e1
+  child DestroyDraftedCard { card: GreenEarth } visits=44 reward=9.000000000000e0
+  child DestroyDraftedCard { card: Indigo } visits=44 reward=9.000000000000e0
+  child EndTurn visits=449 reward=2.060000000000e2
+  child SpendDucat { purchase: MixColors } visits=76 reward=2.300000000000e1
+  child SpendDucat { purchase: Workshop } visits=22 reward=1.000000000000e0
 players=3 seed=11 steps=12 round=1 actor=0 iters=1000 early=true bias=0
   chose EndTurn used=1000 reused=0 stop=Budget
-  root visits=1000 nodes=1001 depth=7
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=23 reward=2.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Yellow)] } visits=58 reward=1.400000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Yellow, Blue)] } visits=167 reward=5.800000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [] } visits=61 reward=1.500000000000e1
-  child DestroyDraftedCard { card: FabricOrange } visits=139 reward=4.600000000000e1
-  child DestroyDraftedCard { card: GreenEarth } visits=112 reward=3.500000000000e1
-  child DestroyDraftedCard { card: Indigo } visits=27 reward=3.000000000000e0
-  child EndTurn visits=413 reward=1.680000000000e2
+  root visits=1000 nodes=1001 depth=6
+  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=70 reward=2.000000000000e1
+  child DestroyAndMix { card: Kermes, mixes: [(Red, Yellow)] } visits=79 reward=2.400000000000e1
+  child DestroyAndMix { card: Kermes, mixes: [(Yellow, Blue)] } visits=77 reward=2.300000000000e1
+  child DestroyAndMix { card: Kermes, mixes: [] } visits=67 reward=1.900000000000e1
+  child DestroyDraftedCard { card: FabricOrange } visits=33 reward=6.000000000000e0
+  child DestroyDraftedCard { card: GreenEarth } visits=47 reward=1.100000000000e1
+  child DestroyDraftedCard { card: Indigo } visits=70 reward=2.000000000000e1
+  child EndTurn visits=461 reward=2.080000000000e2
+  child SpendDucat { purchase: MixColors } visits=36 reward=7.000000000000e0
+  child SpendDucat { purchase: Workshop } visits=60 reward=1.600000000000e1
 players=3 seed=11 steps=12 round=1 actor=0 iters=1000 early=true bias=0.5
   chose EndTurn used=1000 reused=0 stop=Budget
-  root visits=1000 nodes=1001 depth=7
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=63 reward=1.500000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Yellow)] } visits=79 reward=2.100000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Yellow, Blue)] } visits=79 reward=2.100000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [] } visits=162 reward=5.500000000000e1
-  child DestroyDraftedCard { card: FabricOrange } visits=99 reward=2.900000000000e1
-  child DestroyDraftedCard { card: GreenEarth } visits=52 reward=1.100000000000e1
-  child DestroyDraftedCard { card: Indigo } visits=78 reward=2.200000000000e1
-  child EndTurn visits=388 reward=1.540000000000e2
+  root visits=1000 nodes=1001 depth=6
+  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=80 reward=2.400000000000e1
+  child DestroyAndMix { card: Kermes, mixes: [(Red, Yellow)] } visits=126 reward=4.500000000000e1
+  child DestroyAndMix { card: Kermes, mixes: [(Yellow, Blue)] } visits=78 reward=2.300000000000e1
+  child DestroyAndMix { card: Kermes, mixes: [] } visits=34 reward=5.000000000000e0
+  child DestroyDraftedCard { card: FabricOrange } visits=47 reward=1.000000000000e1
+  child DestroyDraftedCard { card: GreenEarth } visits=44 reward=9.000000000000e0
+  child DestroyDraftedCard { card: Indigo } visits=44 reward=9.000000000000e0
+  child EndTurn visits=449 reward=2.060000000000e2
+  child SpendDucat { purchase: MixColors } visits=76 reward=2.300000000000e1
+  child SpendDucat { purchase: Workshop } visits=22 reward=1.000000000000e0
 players=3 seed=23 steps=50 round=2 actor=2 iters=200 early=false bias=0
-  chose DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Blue, Purple)] } used=200 reused=0 stop=Budget
+  chose DestroyDraftedCard { card: DragonsBlood } used=200 reused=0 stop=Budget
   root visits=200 nodes=201 depth=6
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Blue, Purple)] } visits=56 reward=3.000000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Blue)] } visits=16 reward=5.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Orange)] } visits=17 reward=6.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Purple)] } visits=27 reward=1.200000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=25 reward=1.200000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Orange)] } visits=5 reward=0.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [] } visits=10 reward=2.000000000000e0
-  child DestroyDraftedCard { card: DragonsBlood } visits=22 reward=9.000000000000e0
-  child EndTurn visits=22 reward=9.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cinnabar) } visits=19 reward=6.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCeramics) } visits=21 reward=7.000000000000e0
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [Cinnabar, StarterCeramics] } visits=32 reward=1.300000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [Cinnabar] } visits=6 reward=0.000000000000e0
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [StarterCeramics] } visits=32 reward=1.300000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [] } visits=27 reward=1.000000000000e1
+  child DestroyDraftedCard { card: DragonsBlood } visits=52 reward=2.500000000000e1
+  child EndTurn visits=11 reward=2.000000000000e0
 players=3 seed=23 steps=50 round=2 actor=2 iters=200 early=false bias=0.5
-  chose DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Purple)] } used=200 reused=0 stop=Budget
+  chose DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCeramics) } used=200 reused=0 stop=Budget
   root visits=200 nodes=201 depth=6
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Blue, Purple)] } visits=30 reward=1.600000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Blue)] } visits=24 reward=1.200000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Orange)] } visits=13 reward=4.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Purple)] } visits=39 reward=2.400000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=30 reward=1.700000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Orange)] } visits=13 reward=4.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [] } visits=17 reward=7.000000000000e0
-  child DestroyDraftedCard { card: DragonsBlood } visits=17 reward=7.000000000000e0
-  child EndTurn visits=17 reward=7.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cinnabar) } visits=25 reward=8.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCeramics) } visits=38 reward=1.600000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [Cinnabar, StarterCeramics] } visits=30 reward=1.100000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [Cinnabar] } visits=13 reward=1.000000000000e0
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [StarterCeramics] } visits=25 reward=8.000000000000e0
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [] } visits=20 reward=5.000000000000e0
+  child DestroyDraftedCard { card: DragonsBlood } visits=29 reward=1.100000000000e1
+  child EndTurn visits=20 reward=5.000000000000e0
 players=3 seed=23 steps=50 round=2 actor=2 iters=200 early=true bias=0
-  chose DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Blue, Purple)] } used=196 reused=0 stop=Proven
-  root visits=196 nodes=197 depth=6
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Blue, Purple)] } visits=56 reward=3.000000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Blue)] } visits=16 reward=5.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Orange)] } visits=17 reward=6.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Purple)] } visits=27 reward=1.200000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=22 reward=9.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Orange)] } visits=5 reward=0.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [] } visits=10 reward=2.000000000000e0
-  child DestroyDraftedCard { card: DragonsBlood } visits=21 reward=9.000000000000e0
-  child EndTurn visits=22 reward=9.000000000000e0
+  chose DestroyDraftedCard { card: DragonsBlood } used=200 reused=0 stop=Budget
+  root visits=200 nodes=201 depth=6
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cinnabar) } visits=19 reward=6.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCeramics) } visits=21 reward=7.000000000000e0
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [Cinnabar, StarterCeramics] } visits=32 reward=1.300000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [Cinnabar] } visits=6 reward=0.000000000000e0
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [StarterCeramics] } visits=32 reward=1.300000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [] } visits=27 reward=1.000000000000e1
+  child DestroyDraftedCard { card: DragonsBlood } visits=52 reward=2.500000000000e1
+  child EndTurn visits=11 reward=2.000000000000e0
 players=3 seed=23 steps=50 round=2 actor=2 iters=200 early=true bias=0.5
-  chose DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Purple)] } used=199 reused=0 stop=Proven
+  chose DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCeramics) } used=199 reused=0 stop=Proven
   root visits=199 nodes=200 depth=6
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Blue, Purple)] } visits=30 reward=1.600000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Blue)] } visits=24 reward=1.200000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Orange)] } visits=13 reward=4.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Purple)] } visits=38 reward=2.300000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=30 reward=1.700000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Orange)] } visits=13 reward=4.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [] } visits=17 reward=7.000000000000e0
-  child DestroyDraftedCard { card: DragonsBlood } visits=17 reward=7.000000000000e0
-  child EndTurn visits=17 reward=7.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cinnabar) } visits=25 reward=8.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCeramics) } visits=37 reward=1.600000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [Cinnabar, StarterCeramics] } visits=30 reward=1.100000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [Cinnabar] } visits=13 reward=1.000000000000e0
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [StarterCeramics] } visits=25 reward=8.000000000000e0
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [] } visits=20 reward=5.000000000000e0
+  child DestroyDraftedCard { card: DragonsBlood } visits=29 reward=1.100000000000e1
+  child EndTurn visits=20 reward=5.000000000000e0
 players=3 seed=23 steps=50 round=2 actor=2 iters=1000 early=false bias=0
-  chose DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Purple)] } used=1000 reused=0 stop=Budget
+  chose EndTurn used=1000 reused=0 stop=Budget
   root visits=1000 nodes=1001 depth=7
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Blue, Purple)] } visits=178 reward=8.500000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Blue)] } visits=170 reward=8.100000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Orange)] } visits=62 reward=2.300000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Purple)] } visits=268 reward=1.370000000000e2
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=126 reward=5.700000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Orange)] } visits=39 reward=1.200000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [] } visits=26 reward=6.000000000000e0
-  child DestroyDraftedCard { card: DragonsBlood } visits=58 reward=2.100000000000e1
-  child EndTurn visits=73 reward=2.900000000000e1
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cinnabar) } visits=73 reward=2.000000000000e1
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCeramics) } visits=76 reward=2.100000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [Cinnabar, StarterCeramics] } visits=141 reward=4.800000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [Cinnabar] } visits=127 reward=4.200000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [StarterCeramics] } visits=93 reward=2.800000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [] } visits=155 reward=5.400000000000e1
+  child DestroyDraftedCard { card: DragonsBlood } visits=181 reward=6.500000000000e1
+  child EndTurn visits=154 reward=5.600000000000e1
 players=3 seed=23 steps=50 round=2 actor=2 iters=1000 early=false bias=0.5
-  chose DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Purple)] } used=1000 reused=0 stop=Budget
+  chose DestroyAndWorkshop { card: Cochineal, workshop_cards: [StarterCeramics] } used=1000 reused=0 stop=Budget
   root visits=1000 nodes=1001 depth=7
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Blue, Purple)] } visits=104 reward=4.600000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Blue)] } visits=191 reward=9.700000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Orange)] } visits=28 reward=6.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Purple)] } visits=379 reward=2.130000000000e2
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=85 reward=3.600000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Orange)] } visits=38 reward=1.100000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [] } visits=58 reward=2.100000000000e1
-  child DestroyDraftedCard { card: DragonsBlood } visits=63 reward=2.400000000000e1
-  child EndTurn visits=54 reward=1.900000000000e1
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cinnabar) } visits=84 reward=2.500000000000e1
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCeramics) } visits=106 reward=3.500000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [Cinnabar, StarterCeramics] } visits=147 reward=5.400000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [Cinnabar] } visits=97 reward=3.100000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [StarterCeramics] } visits=183 reward=7.100000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [] } visits=115 reward=3.900000000000e1
+  child DestroyDraftedCard { card: DragonsBlood } visits=117 reward=4.000000000000e1
+  child EndTurn visits=151 reward=5.600000000000e1
 players=3 seed=23 steps=50 round=2 actor=2 iters=1000 early=true bias=0
-  chose DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Purple)] } used=1000 reused=0 stop=Budget
+  chose EndTurn used=1000 reused=0 stop=Budget
   root visits=1000 nodes=1001 depth=7
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Blue, Purple)] } visits=178 reward=8.500000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Blue)] } visits=170 reward=8.100000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Orange)] } visits=62 reward=2.300000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Purple)] } visits=268 reward=1.370000000000e2
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=126 reward=5.700000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Orange)] } visits=39 reward=1.200000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [] } visits=26 reward=6.000000000000e0
-  child DestroyDraftedCard { card: DragonsBlood } visits=58 reward=2.100000000000e1
-  child EndTurn visits=73 reward=2.900000000000e1
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cinnabar) } visits=73 reward=2.000000000000e1
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCeramics) } visits=76 reward=2.100000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [Cinnabar, StarterCeramics] } visits=141 reward=4.800000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [Cinnabar] } visits=127 reward=4.200000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [StarterCeramics] } visits=93 reward=2.800000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [] } visits=155 reward=5.400000000000e1
+  child DestroyDraftedCard { card: DragonsBlood } visits=181 reward=6.500000000000e1
+  child EndTurn visits=154 reward=5.600000000000e1
 players=3 seed=23 steps=50 round=2 actor=2 iters=1000 early=true bias=0.5
-  chose DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Purple)] } used=1000 reused=0 stop=Budget
+  chose DestroyAndWorkshop { card: Cochineal, workshop_cards: [StarterCeramics] } used=1000 reused=0 stop=Budget
   root visits=1000 nodes=1001 depth=7
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Blue, Purple)] } visits=104 reward=4.600000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Blue)] } visits=191 reward=9.700000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Orange)] } visits=28 reward=6.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Purple)] } visits=379 reward=2.130000000000e2
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=85 reward=3.600000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Orange)] } visits=38 reward=1.100000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [] } visits=58 reward=2.100000000000e1
-  child DestroyDraftedCard { card: DragonsBlood } visits=63 reward=2.400000000000e1
-  child EndTurn visits=54 reward=1.900000000000e1
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cinnabar) } visits=84 reward=2.500000000000e1
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCeramics) } visits=106 reward=3.500000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [Cinnabar, StarterCeramics] } visits=147 reward=5.400000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [Cinnabar] } visits=97 reward=3.100000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [StarterCeramics] } visits=183 reward=7.100000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [] } visits=115 reward=3.900000000000e1
+  child DestroyDraftedCard { card: DragonsBlood } visits=117 reward=4.000000000000e1
+  child EndTurn visits=151 reward=5.600000000000e1
 players=4 seed=11 steps=12 round=1 actor=0 iters=200 early=false bias=0
   chose DraftPick { card: Verdigris } used=200 reused=0 stop=Budget
   root visits=200 nodes=201 depth=4
-  child DraftPick { card: Verdigris } visits=142 reward=3.700000000000e1
-  child DraftPick { card: Woad } visits=58 reward=1.000000000000e1
+  child DraftPick { card: Verdigris } visits=156 reward=5.200000000000e1
+  child DraftPick { card: Woad } visits=44 reward=9.000000000000e0
 players=4 seed=11 steps=12 round=1 actor=0 iters=200 early=false bias=0.5
   chose DraftPick { card: Verdigris } used=200 reused=0 stop=Budget
   root visits=200 nodes=201 depth=4
-  child DraftPick { card: Verdigris } visits=128 reward=3.500000000000e1
-  child DraftPick { card: Woad } visits=72 reward=1.600000000000e1
+  child DraftPick { card: Verdigris } visits=166 reward=5.700000000000e1
+  child DraftPick { card: Woad } visits=34 reward=4.000000000000e0
 players=4 seed=11 steps=12 round=1 actor=0 iters=200 early=true bias=0
   chose DraftPick { card: Verdigris } used=200 reused=0 stop=Budget
   root visits=200 nodes=201 depth=4
-  child DraftPick { card: Verdigris } visits=142 reward=3.700000000000e1
-  child DraftPick { card: Woad } visits=58 reward=1.000000000000e1
+  child DraftPick { card: Verdigris } visits=156 reward=5.200000000000e1
+  child DraftPick { card: Woad } visits=44 reward=9.000000000000e0
 players=4 seed=11 steps=12 round=1 actor=0 iters=200 early=true bias=0.5
   chose DraftPick { card: Verdigris } used=200 reused=0 stop=Budget
   root visits=200 nodes=201 depth=4
-  child DraftPick { card: Verdigris } visits=128 reward=3.500000000000e1
-  child DraftPick { card: Woad } visits=72 reward=1.600000000000e1
+  child DraftPick { card: Verdigris } visits=166 reward=5.700000000000e1
+  child DraftPick { card: Woad } visits=34 reward=4.000000000000e0
 players=4 seed=11 steps=12 round=1 actor=0 iters=1000 early=false bias=0
   chose DraftPick { card: Verdigris } used=1000 reused=0 stop=Budget
   root visits=1000 nodes=1001 depth=5
-  child DraftPick { card: Verdigris } visits=846 reward=2.330000000000e2
-  child DraftPick { card: Woad } visits=154 reward=2.800000000000e1
+  child DraftPick { card: Verdigris } visits=839 reward=2.560000000000e2
+  child DraftPick { card: Woad } visits=161 reward=3.500000000000e1
 players=4 seed=11 steps=12 round=1 actor=0 iters=1000 early=false bias=0.5
   chose DraftPick { card: Verdigris } used=1000 reused=0 stop=Budget
   root visits=1000 nodes=1001 depth=5
-  child DraftPick { card: Verdigris } visits=833 reward=2.530000000000e2
-  child DraftPick { card: Woad } visits=167 reward=3.500000000000e1
+  child DraftPick { card: Verdigris } visits=938 reward=2.900000000000e2
+  child DraftPick { card: Woad } visits=62 reward=5.000000000000e0
 players=4 seed=11 steps=12 round=1 actor=0 iters=1000 early=true bias=0
   chose DraftPick { card: Verdigris } used=1000 reused=0 stop=Budget
   root visits=1000 nodes=1001 depth=5
-  child DraftPick { card: Verdigris } visits=846 reward=2.330000000000e2
-  child DraftPick { card: Woad } visits=154 reward=2.800000000000e1
+  child DraftPick { card: Verdigris } visits=839 reward=2.560000000000e2
+  child DraftPick { card: Woad } visits=161 reward=3.500000000000e1
 players=4 seed=11 steps=12 round=1 actor=0 iters=1000 early=true bias=0.5
   chose DraftPick { card: Verdigris } used=1000 reused=0 stop=Budget
   root visits=1000 nodes=1001 depth=5
-  child DraftPick { card: Verdigris } visits=833 reward=2.530000000000e2
-  child DraftPick { card: Woad } visits=167 reward=3.500000000000e1
-players=4 seed=23 steps=50 round=2 actor=1 iters=200 early=false bias=0
-  chose DestroyAndMoveToDraftPool { card: Alum, target: Some(StarterCanvas) } used=200 reused=0 stop=Budget
+  child DraftPick { card: Verdigris } visits=938 reward=2.900000000000e2
+  child DraftPick { card: Woad } visits=62 reward=5.000000000000e0
+players=4 seed=23 steps=50 round=2 actor=2 iters=200 early=false bias=0
+  chose DraftPick { card: Warehouse } used=200 reused=0 stop=Budget
   root visits=200 nodes=201 depth=4
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(BasicYellow) } visits=4 reward=1.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(CanvasBlue) } visits=2 reward=0.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(Cinnabar) } visits=11 reward=7.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(Cochineal) } visits=2 reward=0.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(StarterCanvas) } visits=11 reward=7.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicYellow) } visits=2 reward=0.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(CanvasBlue) } visits=4 reward=1.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cinnabar) } visits=2 reward=0.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cochineal) } visits=2 reward=0.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCanvas) } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, CanvasBlue] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar, CanvasBlue] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar, Cochineal] } visits=6 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar, StarterCanvas] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cochineal, CanvasBlue] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cochineal, StarterCanvas] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cochineal] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterCanvas, CanvasBlue] } visits=6 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterCanvas] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow] } visits=3 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [CanvasBlue] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, CanvasBlue] } visits=6 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, Cochineal, CanvasBlue] } visits=3 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, Cochineal, StarterCanvas] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, Cochineal] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, StarterCanvas, CanvasBlue] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, StarterCanvas] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar] } visits=3 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal, CanvasBlue] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal, StarterCanvas, CanvasBlue] } visits=6 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal, StarterCanvas] } visits=3 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCanvas, CanvasBlue] } visits=3 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCanvas] } visits=3 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, CanvasBlue] } visits=6 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Cinnabar] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Cochineal] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [CanvasBlue] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar, CanvasBlue] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar, Cochineal] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar, StarterCanvas] } visits=6 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cochineal, CanvasBlue] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cochineal, StarterCanvas] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cochineal] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, CanvasBlue] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=2 reward=0.000000000000e0
-  child EndTurn visits=5 reward=2.000000000000e0
-players=4 seed=23 steps=50 round=2 actor=1 iters=200 early=false bias=0.5
-  chose DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Cinnabar] } used=200 reused=0 stop=Budget
+  child DraftPick { card: Brazilwood } visits=92 reward=2.300000000000e1
+  child DraftPick { card: GreenEarth } visits=32 reward=4.000000000000e0
+  child DraftPick { card: Warehouse } visits=76 reward=2.000000000000e1
+players=4 seed=23 steps=50 round=2 actor=2 iters=200 early=false bias=0.5
+  chose DraftPick { card: Warehouse } used=200 reused=0 stop=Budget
   root visits=200 nodes=201 depth=4
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(BasicYellow) } visits=3 reward=1.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(CanvasBlue) } visits=3 reward=1.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(Cinnabar) } visits=3 reward=1.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(Cochineal) } visits=2 reward=0.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(StarterCanvas) } visits=3 reward=1.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicYellow) } visits=2 reward=0.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(CanvasBlue) } visits=3 reward=1.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cinnabar) } visits=4 reward=2.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cochineal) } visits=2 reward=0.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCanvas) } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, CanvasBlue] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar, CanvasBlue] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar, Cochineal] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar, StarterCanvas] } visits=4 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar] } visits=4 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cochineal, CanvasBlue] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cochineal, StarterCanvas] } visits=6 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cochineal] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterCanvas, CanvasBlue] } visits=3 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterCanvas] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [CanvasBlue] } visits=4 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, CanvasBlue] } visits=4 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, Cochineal, CanvasBlue] } visits=3 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, Cochineal, StarterCanvas] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, Cochineal] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, StarterCanvas, CanvasBlue] } visits=5 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, StarterCanvas] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal, CanvasBlue] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal, StarterCanvas, CanvasBlue] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal, StarterCanvas] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCanvas, CanvasBlue] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCanvas] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [] } visits=3 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, CanvasBlue] } visits=5 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Cinnabar] } visits=6 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Cochineal] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=4 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [CanvasBlue] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar, CanvasBlue] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar, Cochineal] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar, StarterCanvas] } visits=3 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cochineal, CanvasBlue] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cochineal, StarterCanvas] } visits=3 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cochineal] } visits=7 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, CanvasBlue] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas] } visits=4 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=2 reward=0.000000000000e0
-  child EndTurn visits=3 reward=1.000000000000e0
-players=4 seed=23 steps=50 round=2 actor=1 iters=200 early=true bias=0
-  chose DestroyAndMoveToDraftPool { card: Alum, target: Some(StarterCanvas) } used=200 reused=0 stop=Budget
+  child DraftPick { card: Brazilwood } visits=60 reward=1.100000000000e1
+  child DraftPick { card: GreenEarth } visits=66 reward=1.300000000000e1
+  child DraftPick { card: Warehouse } visits=74 reward=1.600000000000e1
+players=4 seed=23 steps=50 round=2 actor=2 iters=200 early=true bias=0
+  chose DraftPick { card: Warehouse } used=200 reused=0 stop=Budget
   root visits=200 nodes=201 depth=4
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(BasicYellow) } visits=4 reward=1.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(CanvasBlue) } visits=2 reward=0.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(Cinnabar) } visits=11 reward=7.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(Cochineal) } visits=2 reward=0.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(StarterCanvas) } visits=11 reward=7.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicYellow) } visits=2 reward=0.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(CanvasBlue) } visits=4 reward=1.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cinnabar) } visits=2 reward=0.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cochineal) } visits=2 reward=0.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCanvas) } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, CanvasBlue] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar, CanvasBlue] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar, Cochineal] } visits=6 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar, StarterCanvas] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cochineal, CanvasBlue] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cochineal, StarterCanvas] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cochineal] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterCanvas, CanvasBlue] } visits=6 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterCanvas] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow] } visits=3 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [CanvasBlue] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, CanvasBlue] } visits=6 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, Cochineal, CanvasBlue] } visits=3 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, Cochineal, StarterCanvas] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, Cochineal] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, StarterCanvas, CanvasBlue] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, StarterCanvas] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar] } visits=3 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal, CanvasBlue] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal, StarterCanvas, CanvasBlue] } visits=6 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal, StarterCanvas] } visits=3 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCanvas, CanvasBlue] } visits=3 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCanvas] } visits=3 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, CanvasBlue] } visits=6 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Cinnabar] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Cochineal] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [CanvasBlue] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar, CanvasBlue] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar, Cochineal] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar, StarterCanvas] } visits=6 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cochineal, CanvasBlue] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cochineal, StarterCanvas] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cochineal] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, CanvasBlue] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=2 reward=0.000000000000e0
-  child EndTurn visits=5 reward=2.000000000000e0
-players=4 seed=23 steps=50 round=2 actor=1 iters=200 early=true bias=0.5
-  chose DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Cinnabar] } used=200 reused=0 stop=Budget
+  child DraftPick { card: Brazilwood } visits=92 reward=2.300000000000e1
+  child DraftPick { card: GreenEarth } visits=32 reward=4.000000000000e0
+  child DraftPick { card: Warehouse } visits=76 reward=2.000000000000e1
+players=4 seed=23 steps=50 round=2 actor=2 iters=200 early=true bias=0.5
+  chose DraftPick { card: Warehouse } used=200 reused=0 stop=Budget
   root visits=200 nodes=201 depth=4
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(BasicYellow) } visits=3 reward=1.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(CanvasBlue) } visits=3 reward=1.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(Cinnabar) } visits=3 reward=1.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(Cochineal) } visits=2 reward=0.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(StarterCanvas) } visits=3 reward=1.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicYellow) } visits=2 reward=0.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(CanvasBlue) } visits=3 reward=1.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cinnabar) } visits=4 reward=2.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cochineal) } visits=2 reward=0.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCanvas) } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, CanvasBlue] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar, CanvasBlue] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar, Cochineal] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar, StarterCanvas] } visits=4 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar] } visits=4 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cochineal, CanvasBlue] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cochineal, StarterCanvas] } visits=6 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cochineal] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterCanvas, CanvasBlue] } visits=3 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterCanvas] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [CanvasBlue] } visits=4 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, CanvasBlue] } visits=4 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, Cochineal, CanvasBlue] } visits=3 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, Cochineal, StarterCanvas] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, Cochineal] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, StarterCanvas, CanvasBlue] } visits=5 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, StarterCanvas] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal, CanvasBlue] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal, StarterCanvas, CanvasBlue] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal, StarterCanvas] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCanvas, CanvasBlue] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCanvas] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [] } visits=3 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, CanvasBlue] } visits=5 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Cinnabar] } visits=6 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Cochineal] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=4 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [CanvasBlue] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar, CanvasBlue] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar, Cochineal] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar, StarterCanvas] } visits=3 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar] } visits=2 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cochineal, CanvasBlue] } visits=4 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cochineal, StarterCanvas] } visits=3 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cochineal] } visits=7 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, CanvasBlue] } visits=5 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas] } visits=4 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=2 reward=0.000000000000e0
-  child EndTurn visits=3 reward=1.000000000000e0
-players=4 seed=23 steps=50 round=2 actor=1 iters=1000 early=false bias=0
-  chose DestroyAndMoveToDraftPool { card: Alum, target: Some(StarterCanvas) } used=1000 reused=0 stop=Budget
-  root visits=1000 nodes=1001 depth=4
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(BasicYellow) } visits=21 reward=6.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(CanvasBlue) } visits=8 reward=0.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(Cinnabar) } visits=33 reward=1.300000000000e1
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(Cochineal) } visits=12 reward=2.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(StarterCanvas) } visits=37 reward=1.500000000000e1
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicYellow) } visits=26 reward=9.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(CanvasBlue) } visits=32 reward=1.200000000000e1
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cinnabar) } visits=21 reward=6.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cochineal) } visits=12 reward=2.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCanvas) } visits=22 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, CanvasBlue] } visits=17 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar, CanvasBlue] } visits=8 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar, Cochineal] } visits=23 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar, StarterCanvas] } visits=12 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar] } visits=15 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cochineal, CanvasBlue] } visits=17 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cochineal, StarterCanvas] } visits=24 reward=8.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cochineal] } visits=15 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterCanvas, CanvasBlue] } visits=21 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterCanvas] } visits=17 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow] } visits=12 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [CanvasBlue] } visits=28 reward=1.000000000000e1
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, CanvasBlue] } visits=23 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, Cochineal, CanvasBlue] } visits=21 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, Cochineal, StarterCanvas] } visits=21 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, Cochineal] } visits=10 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, StarterCanvas, CanvasBlue] } visits=17 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, StarterCanvas] } visits=19 reward=5.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar] } visits=8 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal, CanvasBlue] } visits=15 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal, StarterCanvas, CanvasBlue] } visits=17 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal, StarterCanvas] } visits=23 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal] } visits=24 reward=8.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCanvas, CanvasBlue] } visits=15 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCanvas] } visits=23 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [] } visits=17 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, CanvasBlue] } visits=22 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Cinnabar] } visits=15 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Cochineal] } visits=21 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=21 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=26 reward=9.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [CanvasBlue] } visits=12 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar, CanvasBlue] } visits=17 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar, Cochineal] } visits=21 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar, StarterCanvas] } visits=32 reward=1.200000000000e1
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar] } visits=10 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cochineal, CanvasBlue] } visits=28 reward=1.000000000000e1
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cochineal, StarterCanvas] } visits=15 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cochineal] } visits=15 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, CanvasBlue] } visits=19 reward=5.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas] } visits=15 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=10 reward=1.000000000000e0
-  child EndTurn visits=15 reward=3.000000000000e0
-players=4 seed=23 steps=50 round=2 actor=1 iters=1000 early=false bias=0.5
-  chose DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, CanvasBlue] } used=1000 reused=0 stop=Budget
+  child DraftPick { card: Brazilwood } visits=60 reward=1.100000000000e1
+  child DraftPick { card: GreenEarth } visits=66 reward=1.300000000000e1
+  child DraftPick { card: Warehouse } visits=74 reward=1.600000000000e1
+players=4 seed=23 steps=50 round=2 actor=2 iters=1000 early=false bias=0
+  chose DraftPick { card: Warehouse } used=1000 reused=0 stop=Budget
   root visits=1000 nodes=1001 depth=5
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(BasicYellow) } visits=12 reward=2.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(CanvasBlue) } visits=10 reward=1.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(Cinnabar) } visits=10 reward=1.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(Cochineal) } visits=12 reward=2.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(StarterCanvas) } visits=24 reward=9.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicYellow) } visits=9 reward=0.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(CanvasBlue) } visits=12 reward=2.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cinnabar) } visits=32 reward=1.400000000000e1
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cochineal) } visits=12 reward=2.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCanvas) } visits=16 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, CanvasBlue] } visits=23 reward=8.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar, CanvasBlue] } visits=25 reward=9.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar, Cochineal] } visits=23 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar, StarterCanvas] } visits=28 reward=1.100000000000e1
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar] } visits=14 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cochineal, CanvasBlue] } visits=27 reward=9.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cochineal, StarterCanvas] } visits=31 reward=1.200000000000e1
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cochineal] } visits=26 reward=9.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterCanvas, CanvasBlue] } visits=11 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterCanvas] } visits=21 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow] } visits=20 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [CanvasBlue] } visits=26 reward=1.000000000000e1
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, CanvasBlue] } visits=15 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, Cochineal, CanvasBlue] } visits=20 reward=5.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, Cochineal, StarterCanvas] } visits=23 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, Cochineal] } visits=18 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, StarterCanvas, CanvasBlue] } visits=17 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, StarterCanvas] } visits=13 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar] } visits=12 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal, CanvasBlue] } visits=30 reward=1.100000000000e1
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal, StarterCanvas, CanvasBlue] } visits=23 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal, StarterCanvas] } visits=26 reward=9.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal] } visits=16 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCanvas, CanvasBlue] } visits=17 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCanvas] } visits=11 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [] } visits=16 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, CanvasBlue] } visits=34 reward=1.500000000000e1
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Cinnabar] } visits=25 reward=9.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Cochineal] } visits=23 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=16 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=9 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [CanvasBlue] } visits=21 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar, CanvasBlue] } visits=13 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar, Cochineal] } visits=21 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar, StarterCanvas] } visits=28 reward=1.100000000000e1
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar] } visits=11 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cochineal, CanvasBlue] } visits=25 reward=8.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cochineal, StarterCanvas] } visits=16 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cochineal] } visits=21 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, CanvasBlue] } visits=18 reward=5.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas] } visits=14 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=12 reward=2.000000000000e0
-  child EndTurn visits=12 reward=2.000000000000e0
-players=4 seed=23 steps=50 round=2 actor=1 iters=1000 early=true bias=0
-  chose DestroyAndMoveToDraftPool { card: Alum, target: Some(StarterCanvas) } used=1000 reused=0 stop=Budget
-  root visits=1000 nodes=1001 depth=4
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(BasicYellow) } visits=21 reward=6.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(CanvasBlue) } visits=8 reward=0.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(Cinnabar) } visits=33 reward=1.300000000000e1
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(Cochineal) } visits=12 reward=2.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(StarterCanvas) } visits=37 reward=1.500000000000e1
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicYellow) } visits=26 reward=9.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(CanvasBlue) } visits=32 reward=1.200000000000e1
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cinnabar) } visits=21 reward=6.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cochineal) } visits=12 reward=2.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCanvas) } visits=22 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, CanvasBlue] } visits=17 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar, CanvasBlue] } visits=8 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar, Cochineal] } visits=23 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar, StarterCanvas] } visits=12 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar] } visits=15 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cochineal, CanvasBlue] } visits=17 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cochineal, StarterCanvas] } visits=24 reward=8.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cochineal] } visits=15 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterCanvas, CanvasBlue] } visits=21 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterCanvas] } visits=17 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow] } visits=12 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [CanvasBlue] } visits=28 reward=1.000000000000e1
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, CanvasBlue] } visits=23 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, Cochineal, CanvasBlue] } visits=21 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, Cochineal, StarterCanvas] } visits=21 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, Cochineal] } visits=10 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, StarterCanvas, CanvasBlue] } visits=17 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, StarterCanvas] } visits=19 reward=5.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar] } visits=8 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal, CanvasBlue] } visits=15 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal, StarterCanvas, CanvasBlue] } visits=17 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal, StarterCanvas] } visits=23 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal] } visits=24 reward=8.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCanvas, CanvasBlue] } visits=15 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCanvas] } visits=23 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [] } visits=17 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, CanvasBlue] } visits=22 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Cinnabar] } visits=15 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Cochineal] } visits=21 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=21 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=26 reward=9.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [CanvasBlue] } visits=12 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar, CanvasBlue] } visits=17 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar, Cochineal] } visits=21 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar, StarterCanvas] } visits=32 reward=1.200000000000e1
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar] } visits=10 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cochineal, CanvasBlue] } visits=28 reward=1.000000000000e1
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cochineal, StarterCanvas] } visits=15 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cochineal] } visits=15 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, CanvasBlue] } visits=19 reward=5.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas] } visits=15 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=10 reward=1.000000000000e0
-  child EndTurn visits=15 reward=3.000000000000e0
-players=4 seed=23 steps=50 round=2 actor=1 iters=1000 early=true bias=0.5
-  chose DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, CanvasBlue] } used=1000 reused=0 stop=Budget
+  child DraftPick { card: Brazilwood } visits=365 reward=7.500000000000e1
+  child DraftPick { card: GreenEarth } visits=194 reward=3.200000000000e1
+  child DraftPick { card: Warehouse } visits=441 reward=9.400000000000e1
+players=4 seed=23 steps=50 round=2 actor=2 iters=1000 early=false bias=0.5
+  chose DraftPick { card: GreenEarth } used=1000 reused=0 stop=Budget
   root visits=1000 nodes=1001 depth=5
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(BasicYellow) } visits=12 reward=2.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(CanvasBlue) } visits=10 reward=1.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(Cinnabar) } visits=10 reward=1.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(Cochineal) } visits=12 reward=2.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(StarterCanvas) } visits=24 reward=9.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicYellow) } visits=9 reward=0.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(CanvasBlue) } visits=12 reward=2.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cinnabar) } visits=32 reward=1.400000000000e1
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cochineal) } visits=12 reward=2.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCanvas) } visits=16 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, CanvasBlue] } visits=23 reward=8.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar, CanvasBlue] } visits=25 reward=9.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar, Cochineal] } visits=23 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar, StarterCanvas] } visits=28 reward=1.100000000000e1
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cinnabar] } visits=14 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cochineal, CanvasBlue] } visits=27 reward=9.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cochineal, StarterCanvas] } visits=31 reward=1.200000000000e1
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, Cochineal] } visits=26 reward=9.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterCanvas, CanvasBlue] } visits=11 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterCanvas] } visits=21 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow] } visits=20 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [CanvasBlue] } visits=26 reward=1.000000000000e1
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, CanvasBlue] } visits=15 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, Cochineal, CanvasBlue] } visits=20 reward=5.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, Cochineal, StarterCanvas] } visits=23 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, Cochineal] } visits=18 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, StarterCanvas, CanvasBlue] } visits=17 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar, StarterCanvas] } visits=13 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cinnabar] } visits=12 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal, CanvasBlue] } visits=30 reward=1.100000000000e1
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal, StarterCanvas, CanvasBlue] } visits=23 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal, StarterCanvas] } visits=26 reward=9.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [Cochineal] } visits=16 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCanvas, CanvasBlue] } visits=17 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCanvas] } visits=11 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [] } visits=16 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, CanvasBlue] } visits=34 reward=1.500000000000e1
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Cinnabar] } visits=25 reward=9.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Cochineal] } visits=23 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=16 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=9 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [CanvasBlue] } visits=21 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar, CanvasBlue] } visits=13 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar, Cochineal] } visits=21 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar, StarterCanvas] } visits=28 reward=1.100000000000e1
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cinnabar] } visits=11 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cochineal, CanvasBlue] } visits=25 reward=8.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cochineal, StarterCanvas] } visits=16 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Cochineal] } visits=21 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, CanvasBlue] } visits=18 reward=5.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas] } visits=14 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=12 reward=2.000000000000e0
-  child EndTurn visits=12 reward=2.000000000000e0
+  child DraftPick { card: Brazilwood } visits=298 reward=6.000000000000e1
+  child DraftPick { card: GreenEarth } visits=384 reward=8.300000000000e1
+  child DraftPick { card: Warehouse } visits=318 reward=6.600000000000e1
+players=4 seed=23 steps=50 round=2 actor=2 iters=1000 early=true bias=0
+  chose DraftPick { card: Warehouse } used=1000 reused=0 stop=Budget
+  root visits=1000 nodes=1001 depth=5
+  child DraftPick { card: Brazilwood } visits=365 reward=7.500000000000e1
+  child DraftPick { card: GreenEarth } visits=194 reward=3.200000000000e1
+  child DraftPick { card: Warehouse } visits=441 reward=9.400000000000e1
+players=4 seed=23 steps=50 round=2 actor=2 iters=1000 early=true bias=0.5
+  chose DraftPick { card: GreenEarth } used=1000 reused=0 stop=Budget
+  root visits=1000 nodes=1001 depth=5
+  child DraftPick { card: Brazilwood } visits=298 reward=6.000000000000e1
+  child DraftPick { card: GreenEarth } visits=384 reward=8.300000000000e1
+  child DraftPick { card: Warehouse } visits=318 reward=6.600000000000e1
 reuse players=2 seed=11 turn=0 round=1 actor=0 iters=400
-  chose DestroyAndMix { card: Chalk, mixes: [(Yellow, Blue)] } used=400 reused=0 stop=Budget
+  chose DestroyAndWorkshop { card: BasicBlue, workshop_cards: [StarterCanvas, Chalk] } used=400 reused=0 stop=Budget
   root visits=400 nodes=401 depth=6
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue), (Blue, Purple)] } visits=10 reward=0.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue), (Yellow, Blue)] } visits=92 reward=3.600000000000e1
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue)] } visits=14 reward=1.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Red, Yellow)] } visits=27 reward=6.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Yellow, Blue), (Blue, Green)] } visits=24 reward=5.000000000000e0
-  child DestroyAndMix { card: Chalk, mixes: [(Yellow, Blue)] } visits=104 reward=4.200000000000e1
-  child DestroyAndMix { card: Chalk, mixes: [] } visits=36 reward=1.000000000000e1
-  child DestroyDraftedCard { card: Orpiment } visits=16 reward=2.000000000000e0
-  child EndTurn visits=77 reward=2.900000000000e1
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicRed) } visits=29 reward=9.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicYellow) } visits=31 reward=1.000000000000e1
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Chalk) } visits=8 reward=0.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCanvas) } visits=31 reward=1.300000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, BasicYellow] } visits=31 reward=1.000000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, Chalk] } visits=23 reward=6.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed, StarterCanvas] } visits=14 reward=2.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicRed] } visits=8 reward=0.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow, Chalk] } visits=37 reward=1.300000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=18 reward=4.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [BasicYellow] } visits=18 reward=4.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [Chalk] } visits=33 reward=1.100000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [StarterCanvas, Chalk] } visits=43 reward=1.600000000000e1
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [StarterCanvas] } visits=25 reward=7.000000000000e0
+  child DestroyAndWorkshop { card: BasicBlue, workshop_cards: [] } visits=11 reward=1.000000000000e0
+  child DestroyDraftedCard { card: Orpiment } visits=11 reward=1.000000000000e0
+  child EndTurn visits=29 reward=9.000000000000e0
   reuse_subtree -> true
 reuse players=2 seed=11 turn=1 round=1 actor=0 iters=400
-  chose EndTurn used=296 reused=104 stop=Budget
-  root visits=400 nodes=400 depth=6
-  child DestroyDraftedCard { card: Orpiment } visits=45 reward=1.100000000000e1
-  child EndTurn visits=354 reward=1.570000000000e2
-  clear_tree: player 0 is not next
-reuse players=2 seed=11 turn=2 round=1 actor=1 iters=400
-  chose DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicYellow, BasicBlue, Chalk] } used=400 reused=0 stop=Budget
-  root visits=400 nodes=401 depth=5
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, Chalk] } visits=18 reward=1.100000000000e1
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCanvas] } visits=13 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCeramics] } visits=22 reward=1.500000000000e1
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, BasicBlue] } visits=15 reward=9.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Chalk] } visits=16 reward=1.000000000000e1
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=16 reward=1.000000000000e1
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCeramics] } visits=15 reward=9.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, Chalk] } visits=12 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, Chalk] } visits=16 reward=1.000000000000e1
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterCanvas] } visits=8 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Cinnabar, workshop_cards: [BasicBlue, StarterCanvas, Chalk] } visits=9 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: Cinnabar, workshop_cards: [BasicBlue, StarterCeramics, Chalk] } visits=8 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Cinnabar, workshop_cards: [BasicBlue, StarterCeramics, StarterCanvas] } visits=14 reward=8.000000000000e0
-  child DestroyAndWorkshop { card: Cinnabar, workshop_cards: [BasicYellow, BasicBlue, Chalk] } visits=10 reward=5.000000000000e0
-  child DestroyAndWorkshop { card: Cinnabar, workshop_cards: [BasicYellow, BasicBlue, StarterCanvas] } visits=10 reward=5.000000000000e0
-  child DestroyAndWorkshop { card: Cinnabar, workshop_cards: [BasicYellow, BasicBlue, StarterCeramics] } visits=3 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Cinnabar, workshop_cards: [BasicYellow, StarterCanvas, Chalk] } visits=5 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Cinnabar, workshop_cards: [BasicYellow, StarterCeramics, Chalk] } visits=10 reward=5.000000000000e0
-  child DestroyAndWorkshop { card: Cinnabar, workshop_cards: [BasicYellow, StarterCeramics, StarterCanvas] } visits=5 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Cinnabar, workshop_cards: [StarterCeramics, StarterCanvas, Chalk] } visits=6 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterCanvas, Chalk] } visits=15 reward=9.000000000000e0
-  child DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterCeramics, Chalk] } visits=17 reward=1.000000000000e1
-  child DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterCeramics, StarterCanvas] } visits=19 reward=1.200000000000e1
-  child DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicYellow, BasicBlue, Chalk] } visits=23 reward=1.600000000000e1
-  child DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicYellow, BasicBlue, StarterCanvas] } visits=12 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicYellow, BasicBlue, StarterCeramics] } visits=18 reward=1.100000000000e1
-  child DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicYellow, StarterCanvas, Chalk] } visits=17 reward=1.000000000000e1
-  child DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicYellow, StarterCeramics, Chalk] } visits=13 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicYellow, StarterCeramics, StarterCanvas] } visits=9 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: CopperResinate, workshop_cards: [StarterCeramics, StarterCanvas, Chalk] } visits=12 reward=6.000000000000e0
-  child DestroyDraftedCard { card: Indigo } visits=6 reward=2.000000000000e0
-  child EndTurn visits=8 reward=3.000000000000e0
+  chose DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicRed) } used=357 reused=43 stop=Budget
+  root visits=400 nodes=400 depth=7
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicRed) } visits=196 reward=6.200000000000e1
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(BasicYellow) } visits=80 reward=1.900000000000e1
+  child DestroyDraftedCard { card: Orpiment } visits=37 reward=5.000000000000e0
+  child EndTurn visits=86 reward=2.100000000000e1
   reuse_subtree -> true
+reuse players=2 seed=11 turn=2 round=1 actor=0 iters=400
+  chose EndTurn used=204 reused=196 stop=Budget
+  root visits=400 nodes=400 depth=7
+  child DestroyAndWorkshop { card: BasicRed, workshop_cards: [BasicYellow] } visits=75 reward=1.800000000000e1
+  child DestroyDraftedCard { card: Orpiment } visits=64 reward=1.400000000000e1
+  child EndTurn visits=260 reward=9.000000000000e1
+  clear_tree: player 0 is not next
 reuse players=2 seed=11 turn=3 round=1 actor=1 iters=400
-  chose EndTurn used=377 reused=23 stop=Budget
-  root visits=400 nodes=400 depth=8
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterCanvas] } visits=136 reward=8.900000000000e1
-  child DestroyAndWorkshop { card: Cinnabar, workshop_cards: [StarterCeramics, StarterCanvas] } visits=55 reward=3.100000000000e1
-  child DestroyDraftedCard { card: Indigo } visits=74 reward=4.400000000000e1
-  child EndTurn visits=134 reward=8.900000000000e1
+  chose DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicYellow, StarterCeramics, StarterCanvas] } used=400 reused=0 stop=Budget
+  root visits=400 nodes=401 depth=4
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, Chalk] } visits=16 reward=1.300000000000e1
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCanvas] } visits=9 reward=6.000000000000e0
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCeramics] } visits=15 reward=1.100000000000e1
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, BasicBlue] } visits=11 reward=7.000000000000e0
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Chalk] } visits=8 reward=5.000000000000e0
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=6 reward=3.000000000000e0
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCeramics] } visits=15 reward=1.100000000000e1
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, Chalk] } visits=16 reward=1.300000000000e1
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, Chalk] } visits=6 reward=3.000000000000e0
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterCanvas] } visits=10 reward=6.000000000000e0
+  child DestroyAndWorkshop { card: Cinnabar, workshop_cards: [BasicBlue, StarterCanvas, Chalk] } visits=14 reward=1.000000000000e1
+  child DestroyAndWorkshop { card: Cinnabar, workshop_cards: [BasicBlue, StarterCeramics, Chalk] } visits=19 reward=1.600000000000e1
+  child DestroyAndWorkshop { card: Cinnabar, workshop_cards: [BasicBlue, StarterCeramics, StarterCanvas] } visits=5 reward=2.000000000000e0
+  child DestroyAndWorkshop { card: Cinnabar, workshop_cards: [BasicYellow, BasicBlue, Chalk] } visits=7 reward=4.000000000000e0
+  child DestroyAndWorkshop { card: Cinnabar, workshop_cards: [BasicYellow, BasicBlue, StarterCanvas] } visits=7 reward=4.000000000000e0
+  child DestroyAndWorkshop { card: Cinnabar, workshop_cards: [BasicYellow, BasicBlue, StarterCeramics] } visits=6 reward=3.000000000000e0
+  child DestroyAndWorkshop { card: Cinnabar, workshop_cards: [BasicYellow, StarterCanvas, Chalk] } visits=3 reward=0.000000000000e0
+  child DestroyAndWorkshop { card: Cinnabar, workshop_cards: [BasicYellow, StarterCeramics, Chalk] } visits=16 reward=1.300000000000e1
+  child DestroyAndWorkshop { card: Cinnabar, workshop_cards: [BasicYellow, StarterCeramics, StarterCanvas] } visits=7 reward=4.000000000000e0
+  child DestroyAndWorkshop { card: Cinnabar, workshop_cards: [StarterCeramics, StarterCanvas, Chalk] } visits=11 reward=7.000000000000e0
+  child DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterCanvas, Chalk] } visits=17 reward=1.400000000000e1
+  child DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterCeramics, Chalk] } visits=13 reward=9.000000000000e0
+  child DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterCeramics, StarterCanvas] } visits=7 reward=4.000000000000e0
+  child DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicYellow, BasicBlue, Chalk] } visits=16 reward=1.300000000000e1
+  child DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicYellow, BasicBlue, StarterCanvas] } visits=6 reward=3.000000000000e0
+  child DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicYellow, BasicBlue, StarterCeramics] } visits=17 reward=1.400000000000e1
+  child DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicYellow, StarterCanvas, Chalk] } visits=16 reward=1.300000000000e1
+  child DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicYellow, StarterCeramics, Chalk] } visits=19 reward=1.600000000000e1
+  child DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicYellow, StarterCeramics, StarterCanvas] } visits=20 reward=1.700000000000e1
+  child DestroyAndWorkshop { card: CopperResinate, workshop_cards: [StarterCeramics, StarterCanvas, Chalk] } visits=17 reward=1.400000000000e1
+  child DestroyDraftedCard { card: Indigo } visits=13 reward=9.000000000000e0
+  child EndTurn visits=16 reward=1.300000000000e1
+  child SpendDucat { purchase: MixColors } visits=4 reward=1.000000000000e0
+  child SpendDucat { purchase: Workshop } visits=12 reward=8.000000000000e0
   reuse_subtree -> true
 reuse players=3 seed=23 turn=0 round=2 actor=2 iters=400
-  chose DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Blue)] } used=400 reused=0 stop=Budget
-  root visits=400 nodes=401 depth=6
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Blue, Purple)] } visits=87 reward=4.800000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Blue)] } visits=82 reward=4.700000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Orange)] } visits=56 reward=2.800000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue), (Red, Purple)] } visits=54 reward=2.700000000000e1
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Blue)] } visits=17 reward=5.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [(Red, Orange)] } visits=19 reward=6.000000000000e0
-  child DestroyAndMix { card: Kermes, mixes: [] } visits=17 reward=5.000000000000e0
-  child DestroyDraftedCard { card: DragonsBlood } visits=37 reward=1.600000000000e1
-  child EndTurn visits=31 reward=1.300000000000e1
+  chose EndTurn used=400 reused=0 stop=Budget
+  root visits=400 nodes=401 depth=7
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(Cinnabar) } visits=38 reward=1.000000000000e1
+  child DestroyAndMoveToDraftPool { card: Gondola, target: Some(StarterCeramics) } visits=57 reward=1.800000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [Cinnabar, StarterCeramics] } visits=28 reward=6.000000000000e0
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [Cinnabar] } visits=24 reward=5.000000000000e0
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [StarterCeramics] } visits=64 reward=2.100000000000e1
+  child DestroyAndWorkshop { card: Cochineal, workshop_cards: [] } visits=64 reward=2.100000000000e1
+  child DestroyDraftedCard { card: DragonsBlood } visits=26 reward=5.000000000000e0
+  child EndTurn visits=99 reward=3.700000000000e1
   reuse_subtree -> true
-reuse players=3 seed=23 turn=1 round=2 actor=2 iters=400
-  chose DestroyDraftedCard { card: DragonsBlood } used=318 reused=82 stop=Budget
-  root visits=400 nodes=400 depth=6
-  child DestroyDraftedCard { card: DragonsBlood } visits=243 reward=1.350000000000e2
-  child EndTurn visits=156 reward=7.700000000000e1
-  reuse_subtree -> true
-reuse players=3 seed=23 turn=2 round=2 actor=2 iters=400
-  chose EndTurn used=157 reused=243 stop=Budget
+reuse players=3 seed=23 turn=1 round=3 actor=2 iters=400
+  chose DraftPick { card: Indigo } used=301 reused=99 stop=Budget
   root visits=400 nodes=400 depth=5
-  child DestroyDraftedCard { card: DragonsBlood } visits=36 reward=1.200000000000e1
-  child EndTurn visits=363 reward=1.950000000000e2
-  reuse_subtree -> true
-reuse players=3 seed=23 turn=3 round=3 actor=2 iters=400
-  chose DraftPick { card: GumArabic } used=28 reused=363 stop=Proven
-  root visits=391 nodes=391 depth=4
-  child DraftPick { card: Alum } visits=3 reward=0.000000000000e0
-  child DraftPick { card: Azurite } visits=20 reward=1.200000000000e1
-  child DraftPick { card: Brazilwood } visits=13 reward=6.000000000000e0
-  child DraftPick { card: CanvasBlue } visits=13 reward=7.000000000000e0
-  child DraftPick { card: CanvasCeramics } visits=7 reward=3.000000000000e0
-  child DraftPick { card: CanvasFabric } visits=10 reward=6.000000000000e0
-  child DraftPick { card: CanvasRed } visits=8 reward=4.000000000000e0
-  child DraftPick { card: CeramicsBlue } visits=7 reward=3.000000000000e0
-  child DraftPick { card: CeramicsFabric } visits=2 reward=0.000000000000e0
-  child DraftPick { card: CeramicsRed } visits=15 reward=8.000000000000e0
-  child DraftPick { card: CeramicsYellow } visits=4 reward=2.000000000000e0
-  child DraftPick { card: Cinnabar } visits=14 reward=1.000000000000e1
-  child DraftPick { card: Cochineal } visits=11 reward=6.000000000000e0
-  child DraftPick { card: CopperResinate } visits=13 reward=7.000000000000e0
-  child DraftPick { card: DragonsBlood } visits=5 reward=2.000000000000e0
-  child DraftPick { card: FabricGreen } visits=2 reward=0.000000000000e0
-  child DraftPick { card: FabricOrange } visits=22 reward=1.400000000000e1
-  child DraftPick { card: FabricPurple } visits=7 reward=4.000000000000e0
-  child DraftPick { card: Gondola } visits=39 reward=2.800000000000e1
-  child DraftPick { card: GreenEarth } visits=5 reward=1.000000000000e0
-  child DraftPick { card: GumArabic } visits=32 reward=2.200000000000e1
-  child DraftPick { card: Indigo } visits=2 reward=0.000000000000e0
-  child DraftPick { card: Kermes } visits=8 reward=4.000000000000e0
-  child DraftPick { card: LapisLazuli } visits=4 reward=1.000000000000e0
-  child DraftPick { card: LinseedOil } visits=13 reward=6.000000000000e0
-  child DraftPick { card: Litharge } visits=16 reward=9.000000000000e0
-  child DraftPick { card: Logwood } visits=3 reward=0.000000000000e0
-  child DraftPick { card: Malachite } visits=13 reward=7.000000000000e0
-  child DraftPick { card: Orpiment } visits=15 reward=9.000000000000e0
-  child DraftPick { card: Realgar } visits=19 reward=1.100000000000e1
-  child DraftPick { card: Saffron } visits=9 reward=4.000000000000e0
-  child DraftPick { card: Verdigris } visits=12 reward=6.000000000000e0
-  child DraftPick { card: Warehouse } visits=10 reward=4.000000000000e0
-  child DraftPick { card: Woad } visits=14 reward=7.000000000000e0
+  child DraftPick { card: Alum } visits=4 reward=1.000000000000e0
+  child DraftPick { card: Azurite } visits=15 reward=2.000000000000e0
+  child DraftPick { card: Brazilwood } visits=2 reward=0.000000000000e0
+  child DraftPick { card: CanvasBlue } visits=43 reward=1.400000000000e1
+  child DraftPick { card: CanvasCeramics } visits=2 reward=1.000000000000e0
+  child DraftPick { card: CanvasFabric } visits=1 reward=0.000000000000e0
+  child DraftPick { card: CanvasRed } visits=3 reward=1.000000000000e0
+  child DraftPick { card: CeramicsBlue } visits=1 reward=0.000000000000e0
+  child DraftPick { card: CeramicsFabric } visits=1 reward=0.000000000000e0
+  child DraftPick { card: CeramicsRed } visits=1 reward=0.000000000000e0
+  child DraftPick { card: CeramicsYellow } visits=4 reward=3.000000000000e0
+  child DraftPick { card: Cinnabar } visits=2 reward=2.000000000000e0
+  child DraftPick { card: Cochineal } visits=2 reward=2.000000000000e0
+  child DraftPick { card: CopperResinate } visits=4 reward=3.000000000000e0
+  child DraftPick { card: DragonsBlood } visits=3 reward=1.000000000000e0
+  child DraftPick { card: FabricGreen } visits=3 reward=1.000000000000e0
+  child DraftPick { card: FabricOrange } visits=4 reward=1.000000000000e0
+  child DraftPick { card: FabricPurple } visits=1 reward=0.000000000000e0
+  child DraftPick { card: Gondola } visits=3 reward=1.000000000000e0
+  child DraftPick { card: GreenEarth } visits=1 reward=0.000000000000e0
+  child DraftPick { card: GumArabic } visits=6 reward=3.000000000000e0
+  child DraftPick { card: Indigo } visits=202 reward=9.700000000000e1
+  child DraftPick { card: Kermes } visits=1 reward=0.000000000000e0
+  child DraftPick { card: LapisLazuli } visits=3 reward=1.000000000000e0
+  child DraftPick { card: LinseedOil } visits=5 reward=2.000000000000e0
+  child DraftPick { card: Litharge } visits=6 reward=3.000000000000e0
+  child DraftPick { card: Logwood } visits=3 reward=1.000000000000e0
+  child DraftPick { card: Malachite } visits=53 reward=1.900000000000e1
+  child DraftPick { card: Orpiment } visits=5 reward=2.000000000000e0
+  child DraftPick { card: Realgar } visits=5 reward=2.000000000000e0
+  child DraftPick { card: Saffron } visits=5 reward=2.000000000000e0
+  child DraftPick { card: Verdigris } visits=2 reward=0.000000000000e0
+  child DraftPick { card: Warehouse } visits=2 reward=0.000000000000e0
+  child DraftPick { card: Woad } visits=1 reward=0.000000000000e0
   clear_tree: player 2 is not next
-reuse players=4 seed=11 turn=0 round=1 actor=3 iters=800
-  chose DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicRed) } used=800 reused=0 stop=Budget
-  root visits=800 nodes=801 depth=5
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(BasicBlue) } visits=5 reward=0.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(BasicRed) } visits=11 reward=3.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(BasicYellow) } visits=16 reward=6.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(StarterCeramics) } visits=11 reward=3.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(StarterFabric) } visits=9 reward=2.000000000000e0
-  child DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicBlue) } visits=29 reward=1.500000000000e1
-  child DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicRed) } visits=33 reward=1.800000000000e1
-  child DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicYellow) } visits=29 reward=1.600000000000e1
-  child DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCeramics) } visits=29 reward=1.500000000000e1
-  child DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterFabric) } visits=9 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue, StarterCeramics, StarterFabric] } visits=29 reward=1.500000000000e1
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue, StarterCeramics] } visits=25 reward=1.200000000000e1
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue, StarterFabric] } visits=22 reward=1.000000000000e1
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue] } visits=11 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicBlue, StarterCeramics] } visits=35 reward=1.900000000000e1
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicBlue, StarterFabric] } visits=7 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicBlue] } visits=22 reward=1.000000000000e1
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicYellow, BasicBlue] } visits=14 reward=5.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicYellow, StarterCeramics] } visits=14 reward=5.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicYellow, StarterFabric] } visits=16 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicYellow] } visits=11 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, StarterCeramics, StarterFabric] } visits=17 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, StarterCeramics] } visits=5 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, StarterFabric] } visits=16 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed] } visits=7 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, BasicBlue, StarterCeramics] } visits=21 reward=9.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, BasicBlue, StarterFabric] } visits=17 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, BasicBlue] } visits=9 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterCeramics, StarterFabric] } visits=11 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterCeramics] } visits=5 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterFabric] } visits=9 reward=2.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow] } visits=5 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCeramics, StarterFabric] } visits=5 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCeramics] } visits=7 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterFabric] } visits=17 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [] } visits=14 reward=5.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCeramics] } visits=5 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterFabric] } visits=5 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue] } visits=7 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicRed, BasicBlue] } visits=19 reward=8.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicRed, BasicYellow] } visits=14 reward=5.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicRed, StarterCeramics] } visits=17 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicRed, StarterFabric] } visits=16 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicRed] } visits=14 reward=5.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, BasicBlue] } visits=23 reward=1.100000000000e1
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCeramics] } visits=21 reward=9.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterFabric] } visits=14 reward=5.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=19 reward=8.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterFabric] } visits=16 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics] } visits=11 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterFabric] } visits=13 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=14 reward=5.000000000000e0
-  child EndTurn visits=20 reward=9.000000000000e0
-  reuse_subtree -> true
+reuse players=3 seed=23 turn=2 round=3 actor=0 iters=400
+  chose DraftPick { card: Warehouse } used=400 reused=0 stop=Budget
+  root visits=400 nodes=401 depth=5
+  child DraftPick { card: LinseedOil } visits=107 reward=3.600000000000e1
+  child DraftPick { card: Saffron } visits=104 reward=3.600000000000e1
+  child DraftPick { card: Warehouse } visits=189 reward=7.200000000000e1
+  clear_tree: player 0 is not next
+reuse players=3 seed=23 turn=3 round=3 actor=1 iters=400
+  chose DraftPick { card: Brazilwood } used=400 reused=0 stop=Budget
+  root visits=400 nodes=401 depth=5
+  child DraftPick { card: Brazilwood } visits=167 reward=5.100000000000e1
+  child DraftPick { card: CanvasRed } visits=46 reward=8.000000000000e0
+  child DraftPick { card: LinseedOil } visits=71 reward=1.600000000000e1
+  child DraftPick { card: Warehouse } visits=116 reward=3.200000000000e1
+  clear_tree: player 1 is not next
+reuse players=4 seed=11 turn=0 round=1 actor=2 iters=800
+  chose EndTurn used=800 reused=0 stop=Budget
+  root visits=800 nodes=801 depth=7
+  child DestroyAndMix { card: Chalk, mixes: [(Red, Blue)] } visits=96 reward=7.000000000000e0
+  child DestroyAndMix { card: Chalk, mixes: [(Red, Yellow)] } visits=139 reward=1.500000000000e1
+  child DestroyAndMix { card: Chalk, mixes: [(Yellow, Blue)] } visits=145 reward=1.600000000000e1
+  child DestroyAndMix { card: Chalk, mixes: [] } visits=65 reward=2.000000000000e0
+  child DestroyDraftedCard { card: Brazilwood } visits=78 reward=4.000000000000e0
+  child EndTurn visits=277 reward=4.300000000000e1
+  clear_tree: player 2 is not next
 reuse players=4 seed=11 turn=1 round=1 actor=3 iters=800
-  chose DestroyAndWorkshop { card: BasicRed, workshop_cards: [BasicYellow, StarterFabric] } used=767 reused=33 stop=Budget
-  root visits=800 nodes=800 depth=5
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(BasicBlue) } visits=5 reward=0.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(BasicYellow) } visits=16 reward=7.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(StarterCeramics) } visits=10 reward=3.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(StarterFabric) } visits=19 reward=9.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue, StarterCeramics, StarterFabric] } visits=10 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue, StarterCeramics] } visits=5 reward=0.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue, StarterFabric] } visits=16 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue] } visits=20 reward=1.000000000000e1
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, BasicBlue, StarterCeramics] } visits=13 reward=5.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, BasicBlue, StarterFabric] } visits=19 reward=9.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, BasicBlue] } visits=13 reward=5.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterCeramics, StarterFabric] } visits=27 reward=1.500000000000e1
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterCeramics] } visits=13 reward=5.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterFabric] } visits=20 reward=1.000000000000e1
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow] } visits=7 reward=1.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCeramics, StarterFabric] } visits=10 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCeramics] } visits=12 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterFabric] } visits=15 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [] } visits=15 reward=6.000000000000e0
-  child DestroyAndWorkshop { card: BasicRed, workshop_cards: [BasicBlue, StarterCeramics] } visits=35 reward=2.100000000000e1
-  child DestroyAndWorkshop { card: BasicRed, workshop_cards: [BasicBlue, StarterFabric] } visits=13 reward=5.000000000000e0
-  child DestroyAndWorkshop { card: BasicRed, workshop_cards: [BasicBlue] } visits=29 reward=1.600000000000e1
-  child DestroyAndWorkshop { card: BasicRed, workshop_cards: [BasicYellow, BasicBlue] } visits=13 reward=5.000000000000e0
-  child DestroyAndWorkshop { card: BasicRed, workshop_cards: [BasicYellow, StarterCeramics] } visits=33 reward=1.900000000000e1
-  child DestroyAndWorkshop { card: BasicRed, workshop_cards: [BasicYellow, StarterFabric] } visits=44 reward=2.800000000000e1
-  child DestroyAndWorkshop { card: BasicRed, workshop_cards: [BasicYellow] } visits=31 reward=1.800000000000e1
-  child DestroyAndWorkshop { card: BasicRed, workshop_cards: [StarterCeramics, StarterFabric] } visits=22 reward=1.100000000000e1
-  child DestroyAndWorkshop { card: BasicRed, workshop_cards: [StarterCeramics] } visits=12 reward=4.000000000000e0
-  child DestroyAndWorkshop { card: BasicRed, workshop_cards: [StarterFabric] } visits=22 reward=1.100000000000e1
-  child DestroyAndWorkshop { card: BasicRed, workshop_cards: [] } visits=10 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCeramics] } visits=20 reward=1.000000000000e1
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterFabric] } visits=19 reward=9.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue] } visits=27 reward=1.500000000000e1
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, BasicBlue] } visits=20 reward=1.100000000000e1
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCeramics] } visits=27 reward=1.500000000000e1
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterFabric] } visits=10 reward=3.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=25 reward=1.300000000000e1
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterFabric] } visits=23 reward=1.200000000000e1
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics] } visits=20 reward=1.000000000000e1
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterFabric] } visits=18 reward=8.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=26 reward=1.400000000000e1
-  child EndTurn visits=35 reward=2.100000000000e1
+  chose DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicYellow) } used=800 reused=0 stop=Budget
+  root visits=800 nodes=801 depth=5
+  child DestroyAndMoveToDraftPool { card: Alum, target: Some(BasicBlue) } visits=12 reward=4.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Alum, target: Some(BasicRed) } visits=20 reward=9.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Alum, target: Some(BasicYellow) } visits=19 reward=8.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Alum, target: Some(StarterCeramics) } visits=7 reward=1.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Alum, target: Some(StarterFabric) } visits=12 reward=4.000000000000e0
+  child DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicBlue) } visits=44 reward=2.600000000000e1
+  child DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicRed) } visits=34 reward=1.900000000000e1
+  child DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicYellow) } visits=44 reward=2.600000000000e1
+  child DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCeramics) } visits=7 reward=1.000000000000e0
+  child DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterFabric) } visits=14 reward=5.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue, StarterCeramics, StarterFabric] } visits=23 reward=1.100000000000e1
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue, StarterCeramics] } visits=17 reward=7.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue, StarterFabric] } visits=5 reward=0.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue] } visits=7 reward=1.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicBlue, StarterCeramics] } visits=13 reward=4.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicBlue, StarterFabric] } visits=7 reward=1.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicBlue] } visits=20 reward=9.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicYellow, BasicBlue] } visits=31 reward=1.800000000000e1
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicYellow, StarterCeramics] } visits=11 reward=3.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicYellow, StarterFabric] } visits=5 reward=0.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicYellow] } visits=17 reward=7.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, StarterCeramics, StarterFabric] } visits=16 reward=6.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, StarterCeramics] } visits=23 reward=1.100000000000e1
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, StarterFabric] } visits=5 reward=0.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed] } visits=7 reward=1.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, BasicBlue, StarterCeramics] } visits=23 reward=1.100000000000e1
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, BasicBlue, StarterFabric] } visits=14 reward=5.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, BasicBlue] } visits=19 reward=8.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterCeramics, StarterFabric] } visits=5 reward=0.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterCeramics] } visits=13 reward=4.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow, StarterFabric] } visits=7 reward=1.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicYellow] } visits=5 reward=0.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCeramics, StarterFabric] } visits=9 reward=2.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCeramics] } visits=11 reward=3.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterFabric] } visits=11 reward=3.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [] } visits=16 reward=6.000000000000e0
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCeramics] } visits=5 reward=0.000000000000e0
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterFabric] } visits=25 reward=1.200000000000e1
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue] } visits=5 reward=0.000000000000e0
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicRed, BasicBlue] } visits=23 reward=1.100000000000e1
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicRed, BasicYellow] } visits=17 reward=7.000000000000e0
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicRed, StarterCeramics] } visits=12 reward=4.000000000000e0
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicRed, StarterFabric] } visits=9 reward=2.000000000000e0
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicRed] } visits=22 reward=1.000000000000e1
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, BasicBlue] } visits=14 reward=5.000000000000e0
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCeramics] } visits=12 reward=4.000000000000e0
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterFabric] } visits=12 reward=4.000000000000e0
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=5 reward=0.000000000000e0
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterFabric] } visits=27 reward=1.400000000000e1
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics] } visits=5 reward=0.000000000000e0
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterFabric] } visits=12 reward=4.000000000000e0
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=5 reward=0.000000000000e0
+  child EndTurn visits=20 reward=9.000000000000e0
+  child SpendDucat { purchase: MixColors } visits=12 reward=4.000000000000e0
+  child SpendDucat { purchase: Workshop } visits=5 reward=0.000000000000e0
   reuse_subtree -> true
 reuse players=4 seed=11 turn=2 round=1 actor=3 iters=800
   chose EndTurn used=756 reused=44 stop=Budget
-  root visits=800 nodes=800 depth=8
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(BasicBlue) } visits=18 reward=5.000000000000e0
-  child DestroyAndMoveToDraftPool { card: Alum, target: Some(StarterCeramics) } visits=28 reward=1.100000000000e1
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue, StarterCeramics] } visits=99 reward=5.600000000000e1
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue] } visits=40 reward=1.800000000000e1
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCeramics] } visits=18 reward=5.000000000000e0
-  child DestroyAndWorkshop { card: Azurite, workshop_cards: [] } visits=21 reward=7.000000000000e0
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCeramics] } visits=61 reward=3.100000000000e1
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue] } visits=56 reward=2.800000000000e1
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics] } visits=120 reward=7.000000000000e1
-  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=40 reward=1.800000000000e1
-  child EndTurn visits=298 reward=1.940000000000e2
+  root visits=800 nodes=800 depth=5
+  child DestroyAndMoveToDraftPool { card: Alum, target: Some(BasicBlue) } visits=16 reward=7.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Alum, target: Some(BasicRed) } visits=7 reward=1.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Alum, target: Some(StarterCeramics) } visits=8 reward=2.000000000000e0
+  child DestroyAndMoveToDraftPool { card: Alum, target: Some(StarterFabric) } visits=8 reward=2.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue, StarterCeramics, StarterFabric] } visits=8 reward=2.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue, StarterCeramics] } visits=34 reward=2.100000000000e1
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue, StarterFabric] } visits=20 reward=1.000000000000e1
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue] } visits=20 reward=1.000000000000e1
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicBlue, StarterCeramics] } visits=8 reward=2.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicBlue, StarterFabric] } visits=16 reward=7.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicBlue] } visits=21 reward=1.100000000000e1
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, StarterCeramics, StarterFabric] } visits=13 reward=5.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, StarterCeramics] } visits=25 reward=1.400000000000e1
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, StarterFabric] } visits=5 reward=0.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed] } visits=14 reward=6.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCeramics, StarterFabric] } visits=24 reward=1.300000000000e1
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCeramics] } visits=25 reward=1.400000000000e1
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterFabric] } visits=17 reward=8.000000000000e0
+  child DestroyAndWorkshop { card: Azurite, workshop_cards: [] } visits=11 reward=4.000000000000e0
+  child DestroyAndWorkshop { card: BasicYellow, workshop_cards: [BasicBlue, StarterCeramics] } visits=19 reward=9.000000000000e0
+  child DestroyAndWorkshop { card: BasicYellow, workshop_cards: [BasicBlue, StarterFabric] } visits=21 reward=1.100000000000e1
+  child DestroyAndWorkshop { card: BasicYellow, workshop_cards: [BasicBlue] } visits=14 reward=6.000000000000e0
+  child DestroyAndWorkshop { card: BasicYellow, workshop_cards: [BasicRed, BasicBlue] } visits=18 reward=9.000000000000e0
+  child DestroyAndWorkshop { card: BasicYellow, workshop_cards: [BasicRed, StarterCeramics] } visits=23 reward=1.300000000000e1
+  child DestroyAndWorkshop { card: BasicYellow, workshop_cards: [BasicRed, StarterFabric] } visits=16 reward=7.000000000000e0
+  child DestroyAndWorkshop { card: BasicYellow, workshop_cards: [BasicRed] } visits=21 reward=1.100000000000e1
+  child DestroyAndWorkshop { card: BasicYellow, workshop_cards: [StarterCeramics, StarterFabric] } visits=28 reward=1.600000000000e1
+  child DestroyAndWorkshop { card: BasicYellow, workshop_cards: [StarterCeramics] } visits=24 reward=1.300000000000e1
+  child DestroyAndWorkshop { card: BasicYellow, workshop_cards: [StarterFabric] } visits=20 reward=1.000000000000e1
+  child DestroyAndWorkshop { card: BasicYellow, workshop_cards: [] } visits=13 reward=5.000000000000e0
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCeramics] } visits=13 reward=5.000000000000e0
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterFabric] } visits=14 reward=6.000000000000e0
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue] } visits=19 reward=9.000000000000e0
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicRed, BasicBlue] } visits=14 reward=6.000000000000e0
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicRed, StarterCeramics] } visits=28 reward=1.600000000000e1
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicRed, StarterFabric] } visits=34 reward=2.100000000000e1
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicRed] } visits=7 reward=1.000000000000e0
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterFabric] } visits=29 reward=1.700000000000e1
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics] } visits=11 reward=4.000000000000e0
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterFabric] } visits=25 reward=1.400000000000e1
+  child DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=21 reward=1.100000000000e1
+  child EndTurn visits=35 reward=2.200000000000e1
+  child SpendDucat { purchase: MixColors } visits=11 reward=4.000000000000e0
+  child SpendDucat { purchase: Workshop } visits=21 reward=1.100000000000e1
   clear_tree: player 3 is not next
 reuse players=4 seed=11 turn=3 round=2 actor=1 iters=800
-  chose TakeBuyer { sell_card: DyerRedYellow } used=800 reused=0 stop=Budget
-  root visits=800 nodes=801 depth=5
-  child DrawBuyer visits=132 reward=9.000000000000e0
-  child TakeBuyer { sell_card: DyerRedYellow } visits=247 reward=2.800000000000e1
-  child TakeBuyer { sell_card: PotterAmber } visits=183 reward=1.700000000000e1
-  child TakeBuyer { sell_card: PotterFuchsia } visits=126 reward=8.000000000000e0
-  child TakeBuyer { sell_card: PotterTeal } visits=112 reward=6.000000000000e0
+  chose DrawBuyer used=800 reused=0 stop=Budget
+  root visits=800 nodes=801 depth=6
+  child DrawBuyer visits=263 reward=6.500000000000e1
+  child TakeBuyer { sell_card: DyerRedYellow } visits=162 reward=3.500000000000e1
+  child TakeBuyer { sell_card: PotterAmber } visits=84 reward=1.300000000000e1
+  child TakeBuyer { sell_card: PotterFuchsia } visits=156 reward=3.300000000000e1
+  child TakeBuyer { sell_card: PotterTeal } visits=135 reward=2.700000000000e1
   clear_tree: player 1 is not next
