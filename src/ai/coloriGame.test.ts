@@ -39,7 +39,12 @@ describe('wasm_run_ismcts', () => {
 
   it('searches with each kind of advanced AI setting', () => {
     const state = setupDraftGame(2);
-    const settings: AiSettings[] = [{ params: '9iii4n-gen-19' }, { rolloutLookahead: 0 }, { rolloutLookahead: 6 }];
+    const settings: AiSettings[] = [
+      { params: '9iii4n-gen-19' },
+      { params: '9iii4n-gen-19-avoid-alum-warehouse-gondola' },
+      { rolloutLookahead: 0 },
+      { rolloutLookahead: 6 },
+    ];
     for (const aiSettings of settings) {
       expect(runSearch(state, 0, 200, aiSettings).type).toBe('draftPick');
     }

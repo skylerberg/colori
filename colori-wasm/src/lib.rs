@@ -30,6 +30,9 @@ impl AiSettings {
     fn mcts_config(&self, iterations: u32) -> MctsConfig {
         let params_json = match self.params.as_str() {
             "9iii4n-gen-19" => include_str!("../../genetic-algorithm/batch-9iii4n-gen-19.json"),
+            "9iii4n-gen-19-avoid-alum-warehouse-gondola" => include_str!(
+                "../../genetic-algorithm/9iii4n-gen-19-avoid-alum-warehouse-gondola.json"
+            ),
             _ => include_str!("../../genetic-algorithm/batch-lki08w-gen-32.json"),
         };
         let heuristic_params: HeuristicParams =
@@ -208,6 +211,8 @@ mod tests {
     #[test]
     fn each_params_choice_loads_its_own_file() {
         assert_eq!(config(r#"{"params":"9iii4n-gen-19"}"#).heuristic_params.heuristic_lookahead, 1);
+        let avoiding = config(r#"{"params":"9iii4n-gen-19-avoid-alum-warehouse-gondola"}"#);
+        assert_eq!(avoiding.heuristic_params.alum_quality, -50.0);
     }
 
     #[test]
