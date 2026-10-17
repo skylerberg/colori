@@ -9,6 +9,7 @@ import init, {
   wasm_advance_draft,
   wasm_calculate_scores,
 } from '../wasm-pkg/colori_wasm.js';
+import { engineCall } from './engineCall';
 
 let initialized = false;
 
@@ -20,9 +21,10 @@ export async function initEngine(): Promise<void> {
 
 export function createInitialGameState(playerNames: string[], aiPlayers?: boolean[]): GameState {
   const ai = aiPlayers ?? playerNames.map(() => false);
-  const resultJson = wasm_create_initial_game_state(
-    playerNames.length,
-    JSON.stringify(ai),
+  const aiJson = JSON.stringify(ai);
+  const resultJson = engineCall(
+    () => wasm_create_initial_game_state(playerNames.length, aiJson),
+    { call: 'createInitialGameState', players: playerNames.length, ai: aiJson },
   );
   const state: GameState = JSON.parse(resultJson);
   state.playerNames = playerNames;
@@ -36,33 +38,55 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
 // direct assignment or structuredClone, those fields will be silently lost.
 
 export function executeDrawPhase(state: GameState): DrawEvent[] {
-  const resultJson = wasm_execute_draw_phase(JSON.stringify(state));
+  const stateJson = JSON.stringify(state);
+  const resultJson = engineCall(
+    () => wasm_execute_draw_phase(stateJson),
+    { call: 'executeDrawPhase', state: stateJson },
+  );
   const result: { state: GameState; draws: DrawEvent[] } = JSON.parse(resultJson);
   Object.assign(state, result.state);
   return result.draws;
 }
 
 export function applyChoice(state: GameState, playerIndex: number, choice: Choice): DrawEvent[] {
-  const resultJson = wasm_apply_choice(JSON.stringify(state), playerIndex, JSON.stringify(choice));
+  const stateJson = JSON.stringify(state);
+  const choiceJson = JSON.stringify(choice);
+  const resultJson = engineCall(
+    () => wasm_apply_choice(stateJson, playerIndex, choiceJson),
+    { call: 'applyChoice', playerIndex, choice: choiceJson, state: stateJson },
+  );
   const result: { state: GameState; draws: DrawEvent[] } = JSON.parse(resultJson);
   Object.assign(state, result.state);
   return result.draws;
 }
 
 export function simultaneousPick(state: GameState, playerIndex: number, card: Card): void {
-  const resultJson = wasm_simultaneous_pick(JSON.stringify(state), playerIndex, JSON.stringify(card));
+  const stateJson = JSON.stringify(state);
+  const cardJson = JSON.stringify(card);
+  const resultJson = engineCall(
+    () => wasm_simultaneous_pick(stateJson, playerIndex, cardJson),
+    { call: 'simultaneousPick', playerIndex, card: cardJson, state: stateJson },
+  );
   const newState: GameState = JSON.parse(resultJson);
   Object.assign(state, newState);
 }
 
 export function advanceDraft(state: GameState): void {
-  const resultJson = wasm_advance_draft(JSON.stringify(state));
+  const stateJson = JSON.stringify(state);
+  const resultJson = engineCall(
+    () => wasm_advance_draft(stateJson),
+    { call: 'advanceDraft', state: stateJson },
+  );
   const newState: GameState = JSON.parse(resultJson);
   Object.assign(state, newState);
 }
 
 export function calculateScores(players: PlayerState[], playerNames: string[]): { name: string; score: number }[] {
-  const resultJson = wasm_calculate_scores(JSON.stringify(players));
+  const playersJson = JSON.stringify(players);
+  const resultJson = engineCall(
+    () => wasm_calculate_scores(playersJson),
+    { call: 'calculateScores', players: playersJson },
+  );
   const scores: number[] = JSON.parse(resultJson);
   return scores.map((score, i) => ({ name: playerNames[i], score }));
 }

@@ -7,6 +7,7 @@ import { sanitizeGameState } from './sanitize';
 import type { StructuredGameLog } from '../data/types';
 import { GameLogAccumulator } from '../gameLog';
 import { isTakingActionTurn } from '../gameUtils';
+import { reportError } from '../stores/errorReport.svelte';
 
 const DISCONNECT_GRACE_MS = 60_000;
 const MAX_NAME_LENGTH = 20;
@@ -307,7 +308,7 @@ export class HostController {
     try {
       this.gameState = createInitialGameState(playerNames, aiPlayers);
     } catch (e) {
-      console.error('Failed to create game state', e);
+      reportError('Starting the game failed', e);
       return;
     }
     this.structuredLog = new GameLogAccumulator(this.gameState);
@@ -371,9 +372,11 @@ export class HostController {
         this.structuredLog?.recordChoice(this.gameState, choice, playerIndex);
         simultaneousPick(this.gameState, playerIndex, choice.card);
       } catch (e) {
-        console.error('simultaneousPick failed', e);
         if (peerId) {
+          console.error('simultaneousPick failed', e);
           this.network.sendToGuest({ type: 'error', message: 'Invalid draft pick', context: 'draftPick' }, peerId);
+        } else {
+          reportError('A draft pick failed', e);
         }
         return false;
       }
@@ -396,7 +399,7 @@ export class HostController {
         try {
           advanceDraft(this.gameState);
         } catch (e) {
-          console.error('advanceDraft failed', e);
+          reportError('Advancing the draft failed', e);
           return true;
         }
         this.submittedDraftPicks.clear();
@@ -429,9 +432,11 @@ export class HostController {
       const draws = applyChoice(this.gameState, playerIndex, choice);
       this.structuredLog?.attachDrawsToLastEntry(draws);
     } catch (e) {
-      console.error('applyChoice failed', e);
       if (peerId) {
+        console.error('applyChoice failed', e);
         this.network.sendToGuest({ type: 'error', message: 'Invalid action', context: 'action' }, peerId);
+      } else {
+        reportError('A move failed', e);
       }
       return false;
     }
@@ -452,7 +457,7 @@ export class HostController {
         const draws = executeDrawPhase(this.gameState);
         this.structuredLog?.recordDrawPhaseDraws(draws);
       } catch (e) {
-        console.error('executeDrawPhase failed', e);
+        reportError('Starting the round failed', e);
       }
     }
   }

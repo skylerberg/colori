@@ -7,6 +7,8 @@
   import CardList from './CardList.svelte';
   import { mixWheelState } from '../stores/mixWheelState.svelte';
   import CardModal from './CardModal.svelte';
+  import ErrorReport from './ErrorReport.svelte';
+  import type { ErrorReport as Report } from '../errorReport';
 
   let { gameState, actingPlayers, thinkingPlayers, controlledPlayerIndex, elapsedSeconds, gameLog, onLeaveGame, selectedPlayerIndex = 0, onSelectPlayer, aiError, onRetryAI, hidePlayerCards = false, draftCardOrder, children }: {
     gameState: GameState;
@@ -21,7 +23,7 @@
     onLeaveGame: () => void;
     selectedPlayerIndex?: number;
     onSelectPlayer?: (index: number) => void;
-    aiError?: string | null;
+    aiError?: Report | null;
     onRetryAI?: () => void;
     hidePlayerCards?: boolean;
     draftCardOrder?: number[][];
@@ -108,13 +110,13 @@
     </div>
 
     {#if aiError}
-      <div class="ai-error-banner">
-        <strong>AI encountered an error</strong>
-        <pre>{aiError}</pre>
-        {#if onRetryAI}
-          <button class="retry-btn" onclick={onRetryAI}>Retry</button>
-        {/if}
-      </div>
+      <ErrorReport report={aiError}>
+        {#snippet actions()}
+          {#if onRetryAI}
+            <button class="retry-btn" onclick={onRetryAI}>Retry</button>
+          {/if}
+        {/snippet}
+      </ErrorReport>
     {/if}
 
     {#if showContent}
@@ -686,30 +688,6 @@
 
 
   /* AI Error */
-  .ai-error-banner {
-    background: rgba(254, 242, 242, 0.9);
-    border: 1px solid #e74c3c;
-    border-radius: 8px;
-    padding: 12px 16px;
-  }
-
-  .ai-error-banner strong {
-    color: #c0392b;
-    font-size: 0.9rem;
-  }
-
-  .ai-error-banner pre {
-    margin: 8px 0;
-    padding: 8px;
-    background: #fff;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    white-space: pre-wrap;
-    word-break: break-all;
-    user-select: all;
-  }
-
   .retry-btn {
     padding: 8px 20px;
     font-size: 0.8rem;
@@ -876,10 +854,6 @@
       min-height: unset;
       min-width: unset;
       display: inline;
-    }
-
-    .ai-error-banner {
-      padding: 12px 16px;
     }
 
     .retry-btn {

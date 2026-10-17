@@ -1,5 +1,6 @@
 import init, { wasm_run_ismcts } from '../wasm-pkg/colori_wasm.js';
 import type { AiSettings, GameState } from '../data/types';
+import { engineCall } from '../engine/engineCall';
 
 export interface AIWorkerRequest {
   gameState: GameState;
@@ -35,11 +36,13 @@ self.onmessage = async (event: MessageEvent<AIWorkerRequest>) => {
     const { gameState, playerIndex, iterations, aiSettings } = event.data;
     const gameStateJson = JSON.stringify(gameState);
 
-    const resultJson = wasm_run_ismcts(gameStateJson, playerIndex, iterations, JSON.stringify(aiSettings));
+    const aiSettingsJson = JSON.stringify(aiSettings);
+    const resultJson = engineCall(() => wasm_run_ismcts(gameStateJson, playerIndex, iterations, aiSettingsJson));
 
     const choice = JSON.parse(resultJson);
     self.postMessage({ type: 'success', choice } satisfies AIWorkerSuccess);
   } catch (e) {
-    self.postMessage({ type: 'error', message: String(e) } satisfies AIWorkerError);
+    const message = e instanceof Error ? e.message : String(e);
+    self.postMessage({ type: 'error', message } satisfies AIWorkerError);
   }
 };

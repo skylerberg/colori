@@ -1,4 +1,5 @@
 import type { AiSettings, GameState, Choice } from '../data/types';
+import { EngineError } from '../engine/engineCall';
 import type { AIWorkerRequest, AIWorkerResponse } from './aiWorker';
 import AIWorkerModule from './aiWorker?worker';
 
@@ -22,15 +23,19 @@ export class AIController {
     iterations: number,
   ): Promise<Choice> {
     const worker = this.workerFor(playerIndex);
+    const request = this.request(gameState, playerIndex, iterations);
     return new Promise((resolve, reject) => {
       worker.onmessage = (event: MessageEvent<AIWorkerResponse>) => {
         if (event.data.type === 'error') {
-          reject(new Error(event.data.message));
+          // A wasm instance that has failed can't be trusted with the next search.
+          worker.terminate();
+          this.workers.delete(playerIndex);
+          reject(new EngineError(event.data.message, request));
         } else {
           resolve(event.data.choice as Choice);
         }
       };
-      worker.postMessage(this.request(gameState, playerIndex, iterations));
+      worker.postMessage(request);
     });
   }
 
@@ -38,7 +43,10 @@ export class AIController {
   startDraftPicks(gameState: GameState, pickers: DraftPicker[]): void {
     this.cancelDraftPicks();
     for (const picker of pickers) {
-      this.startedDraftPicks.set(draftPickKey(gameState, picker.playerIndex), this.searchDraftPick(gameState, picker));
+      const pick = this.searchDraftPick(gameState, picker);
+      // Whoever claims the pick hears of its failure; until then it is not unhandled.
+      pick.catch(() => {});
+      this.startedDraftPicks.set(draftPickKey(gameState, picker.playerIndex), pick);
     }
   }
 
@@ -89,7 +97,7 @@ export class AIController {
         worker.terminate();
         this.draftWorkers.delete(worker);
         if (event.data.type === 'error') {
-          reject(new Error(event.data.message));
+          reject(new EngineError(event.data.message, request));
         } else {
           resolve(event.data.choice as Choice);
         }

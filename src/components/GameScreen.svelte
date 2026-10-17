@@ -11,6 +11,7 @@
   import DraftPhaseView from './DraftPhaseView.svelte';
   import ActionPhaseView from './ActionPhaseView.svelte';
   import { startTutorial, cancelTutorial } from '../tutorial/tutorial';
+  import { createErrorReport, type ErrorReport } from '../errorReport';
   import { untrack } from 'svelte';
 
   let { gameState, gameStartTime, onGameUpdated, initialGameLog, onLeaveGame, gameLogAccumulator, aiIterations, aiSettings }: {
@@ -40,7 +41,7 @@
   let drawExecutedForRound: number | null = $state(null);
   // A buyers claim or draft pick being searched for.
   let aiThinking = $state(false);
-  let aiError: string | null = $state(null);
+  let aiError: ErrorReport | null = $state(null);
   // svelte-ignore state_referenced_locally
   let gameLog: string[] = $state(initialGameLog);
 
@@ -332,7 +333,7 @@
       () => { thinkingInActionPhase = aiActionTurns.thinking; },
       e => {
         console.error('AI action error:', e);
-        aiError = String(e);
+        aiError = createErrorReport('An AI turn failed', e, gameState);
       },
     );
   }
@@ -417,7 +418,7 @@
       onGameUpdated(gameState, gameLog);
     } catch (e) {
       console.error('AI draft error:', e);
-      aiError = String(e);
+      aiError = createErrorReport('An AI draft pick failed', e, gameState);
     } finally {
       aiThinking = false;
     }
@@ -454,7 +455,7 @@
     }).catch((e) => {
       console.error('AI buyers error:', e);
       aiThinking = false;
-      aiError = String(e);
+      aiError = createErrorReport('An AI buyer claim failed', e, gameState);
     });
   });
 </script>
