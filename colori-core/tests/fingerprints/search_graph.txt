@@ -1,59 +1,59 @@
 players=2 seed=11 steps=12 round=1 actor=0 iters=200 early=false bias=0
   chose EndTurn used=200 reused=0 stop=Budget
   root visits=200 nodes=201 edges=205 depth=7
-  link DestroyAndWorkshop { card: Cinnabar, workshop_cards: [StarterCeramics, StarterCanvas] } visits=11 position_visits=11 reward=1.000000000000e0
+  link DestroyAndWorkshop { card: Cinnabar, workshop_cards: [StarterCeramics, StarterCanvas] } visits=15 position_visits=15 reward=3.000000000000e0
   link DestroyDraftedCard { card: FabricGreen } visits=21 position_visits=21 reward=5.000000000000e0
   link DestroyDraftedCard { card: Orpiment } visits=11 position_visits=11 reward=1.000000000000e0
-  link EndTurn visits=157 position_visits=157 reward=7.800000000000e1
+  link EndTurn visits=153 position_visits=153 reward=7.500000000000e1
 players=2 seed=11 steps=12 round=1 actor=0 iters=200 early=false bias=0.5
   chose EndTurn used=200 reused=0 stop=Budget
   root visits=200 nodes=201 edges=205 depth=7
-  link DestroyAndWorkshop { card: Cinnabar, workshop_cards: [StarterCeramics, StarterCanvas] } visits=34 position_visits=34 reward=1.300000000000e1
-  link DestroyDraftedCard { card: FabricGreen } visits=32 position_visits=32 reward=1.200000000000e1
-  link DestroyDraftedCard { card: Orpiment } visits=43 position_visits=43 reward=1.900000000000e1
-  link EndTurn visits=91 position_visits=91 reward=5.200000000000e1
+  link DestroyAndWorkshop { card: Cinnabar, workshop_cards: [StarterCeramics, StarterCanvas] } visits=25 position_visits=25 reward=6.000000000000e0
+  link DestroyDraftedCard { card: FabricGreen } visits=57 position_visits=57 reward=2.400000000000e1
+  link DestroyDraftedCard { card: Orpiment } visits=53 position_visits=53 reward=2.200000000000e1
+  link EndTurn visits=65 position_visits=65 reward=2.900000000000e1
 players=2 seed=11 steps=12 round=1 actor=0 iters=200 early=true bias=0
-  chose EndTurn used=179 reused=0 stop=Proven
-  root visits=179 nodes=180 edges=184 depth=6
-  link DestroyAndWorkshop { card: Cinnabar, workshop_cards: [StarterCeramics, StarterCanvas] } visits=10 position_visits=10 reward=1.000000000000e0
-  link DestroyDraftedCard { card: FabricGreen } visits=8 position_visits=8 reward=1.000000000000e0
-  link DestroyDraftedCard { card: Orpiment } visits=10 position_visits=10 reward=1.000000000000e0
-  link EndTurn visits=151 position_visits=151 reward=7.600000000000e1
+  chose EndTurn used=190 reused=0 stop=Proven
+  root visits=190 nodes=191 edges=195 depth=7
+  link DestroyAndWorkshop { card: Cinnabar, workshop_cards: [StarterCeramics, StarterCanvas] } visits=13 position_visits=13 reward=2.000000000000e0
+  link DestroyDraftedCard { card: FabricGreen } visits=21 position_visits=21 reward=5.000000000000e0
+  link DestroyDraftedCard { card: Orpiment } visits=11 position_visits=11 reward=1.000000000000e0
+  link EndTurn visits=145 position_visits=145 reward=7.200000000000e1
 players=2 seed=11 steps=12 round=1 actor=0 iters=200 early=true bias=0.5
   chose EndTurn used=200 reused=0 stop=Budget
   root visits=200 nodes=201 edges=205 depth=7
-  link DestroyAndWorkshop { card: Cinnabar, workshop_cards: [StarterCeramics, StarterCanvas] } visits=34 position_visits=34 reward=1.300000000000e1
-  link DestroyDraftedCard { card: FabricGreen } visits=32 position_visits=32 reward=1.200000000000e1
-  link DestroyDraftedCard { card: Orpiment } visits=43 position_visits=43 reward=1.900000000000e1
-  link EndTurn visits=91 position_visits=91 reward=5.200000000000e1
+  link DestroyAndWorkshop { card: Cinnabar, workshop_cards: [StarterCeramics, StarterCanvas] } visits=25 position_visits=25 reward=6.000000000000e0
+  link DestroyDraftedCard { card: FabricGreen } visits=57 position_visits=57 reward=2.400000000000e1
+  link DestroyDraftedCard { card: Orpiment } visits=53 position_visits=53 reward=2.200000000000e1
+  link EndTurn visits=65 position_visits=65 reward=2.900000000000e1
 players=2 seed=11 steps=12 round=1 actor=0 iters=1000 early=false bias=0
   chose EndTurn used=1000 reused=0 stop=Budget
-  root visits=1000 nodes=1001 edges=1005 depth=8
-  link DestroyAndWorkshop { card: Cinnabar, workshop_cards: [StarterCeramics, StarterCanvas] } visits=27 position_visits=27 reward=5.000000000000e0
-  link DestroyDraftedCard { card: FabricGreen } visits=32 position_visits=32 reward=7.000000000000e0
-  link DestroyDraftedCard { card: Orpiment } visits=101 position_visits=101 reward=3.800000000000e1
-  link EndTurn visits=840 position_visits=840 reward=4.290000000000e2
+  root visits=1000 nodes=1001 edges=1005 depth=7
+  link DestroyAndWorkshop { card: Cinnabar, workshop_cards: [StarterCeramics, StarterCanvas] } visits=127 position_visits=127 reward=5.000000000000e1
+  link DestroyDraftedCard { card: FabricGreen } visits=47 position_visits=47 reward=1.300000000000e1
+  link DestroyDraftedCard { card: Orpiment } visits=19 position_visits=19 reward=2.000000000000e0
+  link EndTurn visits=807 position_visits=807 reward=4.050000000000e2
 players=2 seed=11 steps=12 round=1 actor=0 iters=1000 early=false bias=0.5
   chose EndTurn used=1000 reused=0 stop=Budget
-  root visits=1000 nodes=1001 edges=1005 depth=8
-  link DestroyAndWorkshop { card: Cinnabar, workshop_cards: [StarterCeramics, StarterCanvas] } visits=62 position_visits=62 reward=2.000000000000e1
-  link DestroyDraftedCard { card: FabricGreen } visits=89 position_visits=89 reward=3.400000000000e1
-  link DestroyDraftedCard { card: Orpiment } visits=125 position_visits=125 reward=5.300000000000e1
-  link EndTurn visits=724 position_visits=724 reward=4.030000000000e2
+  root visits=1000 nodes=1001 edges=1005 depth=7
+  link DestroyAndWorkshop { card: Cinnabar, workshop_cards: [StarterCeramics, StarterCanvas] } visits=286 position_visits=286 reward=1.280000000000e2
+  link DestroyDraftedCard { card: FabricGreen } visits=171 position_visits=171 reward=6.900000000000e1
+  link DestroyDraftedCard { card: Orpiment } visits=145 position_visits=145 reward=5.600000000000e1
+  link EndTurn visits=398 position_visits=398 reward=1.850000000000e2
 players=2 seed=11 steps=12 round=1 actor=0 iters=1000 early=true bias=0
   chose EndTurn used=1000 reused=0 stop=Budget
-  root visits=1000 nodes=1001 edges=1005 depth=8
-  link DestroyAndWorkshop { card: Cinnabar, workshop_cards: [StarterCeramics, StarterCanvas] } visits=27 position_visits=27 reward=5.000000000000e0
-  link DestroyDraftedCard { card: FabricGreen } visits=32 position_visits=32 reward=7.000000000000e0
-  link DestroyDraftedCard { card: Orpiment } visits=101 position_visits=101 reward=3.800000000000e1
-  link EndTurn visits=840 position_visits=840 reward=4.290000000000e2
+  root visits=1000 nodes=1001 edges=1005 depth=7
+  link DestroyAndWorkshop { card: Cinnabar, workshop_cards: [StarterCeramics, StarterCanvas] } visits=127 position_visits=127 reward=5.000000000000e1
+  link DestroyDraftedCard { card: FabricGreen } visits=47 position_visits=47 reward=1.300000000000e1
+  link DestroyDraftedCard { card: Orpiment } visits=19 position_visits=19 reward=2.000000000000e0
+  link EndTurn visits=807 position_visits=807 reward=4.050000000000e2
 players=2 seed=11 steps=12 round=1 actor=0 iters=1000 early=true bias=0.5
   chose EndTurn used=1000 reused=0 stop=Budget
-  root visits=1000 nodes=1001 edges=1005 depth=8
-  link DestroyAndWorkshop { card: Cinnabar, workshop_cards: [StarterCeramics, StarterCanvas] } visits=62 position_visits=62 reward=2.000000000000e1
-  link DestroyDraftedCard { card: FabricGreen } visits=89 position_visits=89 reward=3.400000000000e1
-  link DestroyDraftedCard { card: Orpiment } visits=125 position_visits=125 reward=5.300000000000e1
-  link EndTurn visits=724 position_visits=724 reward=4.030000000000e2
+  root visits=1000 nodes=1001 edges=1005 depth=7
+  link DestroyAndWorkshop { card: Cinnabar, workshop_cards: [StarterCeramics, StarterCanvas] } visits=286 position_visits=286 reward=1.280000000000e2
+  link DestroyDraftedCard { card: FabricGreen } visits=171 position_visits=171 reward=6.900000000000e1
+  link DestroyDraftedCard { card: Orpiment } visits=145 position_visits=145 reward=5.600000000000e1
+  link EndTurn visits=398 position_visits=398 reward=1.850000000000e2
 players=2 seed=23 steps=50 round=3 actor=1 iters=200 early=false bias=0
   chose MixAll { mixes: [] } used=0 reused=0 stop=SingleChoice
   no search: one legal choice
@@ -79,598 +79,609 @@ players=2 seed=23 steps=50 round=3 actor=1 iters=1000 early=true bias=0.5
   chose MixAll { mixes: [] } used=0 reused=0 stop=SingleChoice
   no search: one legal choice
 players=3 seed=11 steps=12 round=1 actor=0 iters=200 early=false bias=0
-  chose DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Chalk] } used=200 reused=0 stop=Budget
-  root visits=200 nodes=201 edges=207 depth=4
+  chose DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCeramics] } used=200 reused=0 stop=Budget
+  root visits=200 nodes=201 edges=206 depth=4
   link DestroyAndMix { card: Logwood, mixes: [(Red, Blue)] } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyAndMix { card: Logwood, mixes: [(Red, Yellow)] } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndMix { card: Logwood, mixes: [(Red, Yellow)] } visits=10 position_visits=10 reward=4.000000000000e0
   link DestroyAndMix { card: Logwood, mixes: [(Yellow, Blue)] } visits=5 position_visits=5 reward=1.000000000000e0
-  link DestroyAndMix { card: Logwood, mixes: [] } visits=5 position_visits=5 reward=1.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicBlue) } visits=8 position_visits=8 reward=3.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicYellow) } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(Chalk) } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCanvas) } visits=13 position_visits=13 reward=6.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCeramics) } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicBlue) } visits=11 position_visits=11 reward=5.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicYellow) } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(Chalk) } visits=3 position_visits=3 reward=0.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCanvas) } visits=8 position_visits=8 reward=3.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCeramics) } visits=5 position_visits=5 reward=1.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, Chalk] } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndMix { card: Logwood, mixes: [] } visits=8 position_visits=8 reward=3.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicBlue) } visits=5 position_visits=5 reward=1.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicYellow) } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(Chalk) } visits=8 position_visits=8 reward=3.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCanvas) } visits=5 position_visits=5 reward=1.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCeramics) } visits=5 position_visits=5 reward=1.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicBlue) } visits=10 position_visits=10 reward=4.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicYellow) } visits=8 position_visits=8 reward=3.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(Chalk) } visits=10 position_visits=10 reward=4.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCanvas) } visits=10 position_visits=10 reward=4.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCeramics) } visits=3 position_visits=3 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, Chalk] } visits=5 position_visits=5 reward=1.000000000000e0
   link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCanvas] } visits=4 position_visits=4 reward=0.000000000000e0
   link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCeramics] } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue] } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, BasicBlue] } visits=11 position_visits=11 reward=5.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Chalk] } visits=5 position_visits=5 reward=1.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=5 position_visits=5 reward=1.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCeramics] } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Chalk] } visits=13 position_visits=13 reward=6.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue] } visits=5 position_visits=5 reward=1.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, BasicBlue] } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Chalk] } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCeramics] } visits=11 position_visits=11 reward=5.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=5 position_visits=5 reward=1.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Chalk] } visits=7 position_visits=7 reward=2.000000000000e0
   link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, Chalk] } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas] } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, Chalk] } visits=10 position_visits=10 reward=4.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterCanvas] } visits=8 position_visits=8 reward=3.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics] } visits=5 position_visits=5 reward=1.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=5 position_visits=5 reward=1.000000000000e0
-  link EndTurn visits=3 position_visits=3 reward=0.000000000000e0
-  link SpendDucat { purchase: MixColors } visits=3 position_visits=3 reward=0.000000000000e0
-  link SpendDucat { purchase: Workshop } visits=3 position_visits=3 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas] } visits=5 position_visits=5 reward=1.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, Chalk] } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterCanvas] } visits=7 position_visits=7 reward=2.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics] } visits=8 position_visits=8 reward=3.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=4 position_visits=4 reward=0.000000000000e0
+  link EndTurn visits=7 position_visits=7 reward=2.000000000000e0
+  link SpendDucat { purchase: MixColors } visits=8 position_visits=8 reward=3.000000000000e0
+  link SpendDucat { purchase: Workshop } visits=5 position_visits=5 reward=1.000000000000e0
 players=3 seed=11 steps=12 round=1 actor=0 iters=200 early=false bias=0.5
-  chose DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Chalk] } used=200 reused=0 stop=Budget
-  root visits=200 nodes=201 edges=206 depth=4
-  link DestroyAndMix { card: Logwood, mixes: [(Red, Blue)] } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyAndMix { card: Logwood, mixes: [(Red, Yellow)] } visits=6 position_visits=6 reward=2.000000000000e0
-  link DestroyAndMix { card: Logwood, mixes: [(Yellow, Blue)] } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyAndMix { card: Logwood, mixes: [] } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicBlue) } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicYellow) } visits=5 position_visits=5 reward=1.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(Chalk) } visits=5 position_visits=5 reward=1.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCanvas) } visits=6 position_visits=6 reward=2.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCeramics) } visits=8 position_visits=8 reward=4.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicBlue) } visits=5 position_visits=5 reward=1.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicYellow) } visits=10 position_visits=10 reward=5.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(Chalk) } visits=5 position_visits=5 reward=1.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCanvas) } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCeramics) } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, Chalk] } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCanvas] } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCeramics] } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue] } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, BasicBlue] } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Chalk] } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCeramics] } visits=6 position_visits=6 reward=1.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Chalk] } visits=10 position_visits=10 reward=5.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, Chalk] } visits=5 position_visits=5 reward=0.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas] } visits=5 position_visits=5 reward=1.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, Chalk] } visits=5 position_visits=5 reward=0.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterCanvas] } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics] } visits=10 position_visits=10 reward=5.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=5 position_visits=5 reward=1.000000000000e0
-  link EndTurn visits=8 position_visits=8 reward=3.000000000000e0
-  link SpendDucat { purchase: MixColors } visits=4 position_visits=4 reward=0.000000000000e0
-  link SpendDucat { purchase: Workshop } visits=5 position_visits=5 reward=1.000000000000e0
-players=3 seed=11 steps=12 round=1 actor=0 iters=200 early=true bias=0
-  chose DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Chalk] } used=200 reused=0 stop=Budget
-  root visits=200 nodes=201 edges=207 depth=4
+  chose DestroyAndMoveToDraftPool { card: GumArabic, target: Some(Chalk) } used=200 reused=0 stop=Budget
+  root visits=200 nodes=201 edges=202 depth=4
   link DestroyAndMix { card: Logwood, mixes: [(Red, Blue)] } visits=4 position_visits=4 reward=0.000000000000e0
   link DestroyAndMix { card: Logwood, mixes: [(Red, Yellow)] } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyAndMix { card: Logwood, mixes: [(Yellow, Blue)] } visits=5 position_visits=5 reward=1.000000000000e0
-  link DestroyAndMix { card: Logwood, mixes: [] } visits=5 position_visits=5 reward=1.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicBlue) } visits=8 position_visits=8 reward=3.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicYellow) } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(Chalk) } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCanvas) } visits=13 position_visits=13 reward=6.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCeramics) } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicBlue) } visits=11 position_visits=11 reward=5.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicYellow) } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(Chalk) } visits=3 position_visits=3 reward=0.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCanvas) } visits=8 position_visits=8 reward=3.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCeramics) } visits=5 position_visits=5 reward=1.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, Chalk] } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndMix { card: Logwood, mixes: [(Yellow, Blue)] } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndMix { card: Logwood, mixes: [] } visits=6 position_visits=6 reward=2.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicBlue) } visits=8 position_visits=8 reward=4.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicYellow) } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(Chalk) } visits=10 position_visits=10 reward=6.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCanvas) } visits=5 position_visits=5 reward=1.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCeramics) } visits=7 position_visits=7 reward=3.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicBlue) } visits=10 position_visits=10 reward=6.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicYellow) } visits=6 position_visits=6 reward=2.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(Chalk) } visits=5 position_visits=5 reward=1.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCanvas) } visits=7 position_visits=7 reward=3.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCeramics) } visits=9 position_visits=9 reward=5.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, Chalk] } visits=6 position_visits=6 reward=1.000000000000e0
   link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCanvas] } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCeramics] } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCeramics] } visits=8 position_visits=8 reward=3.000000000000e0
   link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue] } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, BasicBlue] } visits=11 position_visits=11 reward=5.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Chalk] } visits=5 position_visits=5 reward=1.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, BasicBlue] } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Chalk] } visits=5 position_visits=5 reward=0.000000000000e0
   link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=5 position_visits=5 reward=1.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCeramics] } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Chalk] } visits=13 position_visits=13 reward=6.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, Chalk] } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCeramics] } visits=5 position_visits=5 reward=1.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=10 position_visits=10 reward=5.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Chalk] } visits=8 position_visits=8 reward=3.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, Chalk] } visits=6 position_visits=6 reward=1.000000000000e0
   link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas] } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, Chalk] } visits=10 position_visits=10 reward=4.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterCanvas] } visits=8 position_visits=8 reward=3.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics] } visits=5 position_visits=5 reward=1.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, Chalk] } visits=8 position_visits=8 reward=3.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterCanvas] } visits=5 position_visits=5 reward=1.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics] } visits=4 position_visits=4 reward=0.000000000000e0
   link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=5 position_visits=5 reward=1.000000000000e0
-  link EndTurn visits=3 position_visits=3 reward=0.000000000000e0
-  link SpendDucat { purchase: MixColors } visits=3 position_visits=3 reward=0.000000000000e0
-  link SpendDucat { purchase: Workshop } visits=3 position_visits=3 reward=0.000000000000e0
-players=3 seed=11 steps=12 round=1 actor=0 iters=200 early=true bias=0.5
-  chose DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Chalk] } used=200 reused=0 stop=Budget
+  link EndTurn visits=4 position_visits=4 reward=0.000000000000e0
+  link SpendDucat { purchase: MixColors } visits=6 position_visits=6 reward=2.000000000000e0
+  link SpendDucat { purchase: Workshop } visits=7 position_visits=7 reward=3.000000000000e0
+players=3 seed=11 steps=12 round=1 actor=0 iters=200 early=true bias=0
+  chose DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCeramics] } used=200 reused=0 stop=Budget
   root visits=200 nodes=201 edges=206 depth=4
   link DestroyAndMix { card: Logwood, mixes: [(Red, Blue)] } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyAndMix { card: Logwood, mixes: [(Red, Yellow)] } visits=6 position_visits=6 reward=2.000000000000e0
-  link DestroyAndMix { card: Logwood, mixes: [(Yellow, Blue)] } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyAndMix { card: Logwood, mixes: [] } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicBlue) } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicYellow) } visits=5 position_visits=5 reward=1.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(Chalk) } visits=5 position_visits=5 reward=1.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCanvas) } visits=6 position_visits=6 reward=2.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCeramics) } visits=8 position_visits=8 reward=4.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicBlue) } visits=5 position_visits=5 reward=1.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicYellow) } visits=10 position_visits=10 reward=5.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(Chalk) } visits=5 position_visits=5 reward=1.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCanvas) } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCeramics) } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, Chalk] } visits=7 position_visits=7 reward=2.000000000000e0
+  link DestroyAndMix { card: Logwood, mixes: [(Red, Yellow)] } visits=10 position_visits=10 reward=4.000000000000e0
+  link DestroyAndMix { card: Logwood, mixes: [(Yellow, Blue)] } visits=5 position_visits=5 reward=1.000000000000e0
+  link DestroyAndMix { card: Logwood, mixes: [] } visits=8 position_visits=8 reward=3.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicBlue) } visits=5 position_visits=5 reward=1.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicYellow) } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(Chalk) } visits=8 position_visits=8 reward=3.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCanvas) } visits=5 position_visits=5 reward=1.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCeramics) } visits=5 position_visits=5 reward=1.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicBlue) } visits=10 position_visits=10 reward=4.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicYellow) } visits=8 position_visits=8 reward=3.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(Chalk) } visits=10 position_visits=10 reward=4.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCanvas) } visits=10 position_visits=10 reward=4.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCeramics) } visits=3 position_visits=3 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, Chalk] } visits=5 position_visits=5 reward=1.000000000000e0
   link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCanvas] } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCeramics] } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue] } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, BasicBlue] } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Chalk] } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCeramics] } visits=6 position_visits=6 reward=1.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Chalk] } visits=10 position_visits=10 reward=5.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, Chalk] } visits=5 position_visits=5 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCeramics] } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue] } visits=5 position_visits=5 reward=1.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, BasicBlue] } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Chalk] } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCeramics] } visits=11 position_visits=11 reward=5.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=5 position_visits=5 reward=1.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Chalk] } visits=7 position_visits=7 reward=2.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, Chalk] } visits=4 position_visits=4 reward=0.000000000000e0
   link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas] } visits=5 position_visits=5 reward=1.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, Chalk] } visits=5 position_visits=5 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, Chalk] } visits=4 position_visits=4 reward=0.000000000000e0
   link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterCanvas] } visits=7 position_visits=7 reward=2.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics] } visits=10 position_visits=10 reward=5.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=5 position_visits=5 reward=1.000000000000e0
-  link EndTurn visits=8 position_visits=8 reward=3.000000000000e0
-  link SpendDucat { purchase: MixColors } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics] } visits=8 position_visits=8 reward=3.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=4 position_visits=4 reward=0.000000000000e0
+  link EndTurn visits=7 position_visits=7 reward=2.000000000000e0
+  link SpendDucat { purchase: MixColors } visits=8 position_visits=8 reward=3.000000000000e0
   link SpendDucat { purchase: Workshop } visits=5 position_visits=5 reward=1.000000000000e0
+players=3 seed=11 steps=12 round=1 actor=0 iters=200 early=true bias=0.5
+  chose DestroyAndMoveToDraftPool { card: GumArabic, target: Some(Chalk) } used=200 reused=0 stop=Budget
+  root visits=200 nodes=201 edges=202 depth=4
+  link DestroyAndMix { card: Logwood, mixes: [(Red, Blue)] } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndMix { card: Logwood, mixes: [(Red, Yellow)] } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndMix { card: Logwood, mixes: [(Yellow, Blue)] } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndMix { card: Logwood, mixes: [] } visits=6 position_visits=6 reward=2.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicBlue) } visits=8 position_visits=8 reward=4.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicYellow) } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(Chalk) } visits=10 position_visits=10 reward=6.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCanvas) } visits=5 position_visits=5 reward=1.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCeramics) } visits=7 position_visits=7 reward=3.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicBlue) } visits=10 position_visits=10 reward=6.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicYellow) } visits=6 position_visits=6 reward=2.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(Chalk) } visits=5 position_visits=5 reward=1.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCanvas) } visits=7 position_visits=7 reward=3.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCeramics) } visits=9 position_visits=9 reward=5.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, Chalk] } visits=6 position_visits=6 reward=1.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCanvas] } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCeramics] } visits=8 position_visits=8 reward=3.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue] } visits=7 position_visits=7 reward=2.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, BasicBlue] } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Chalk] } visits=5 position_visits=5 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=5 position_visits=5 reward=1.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCeramics] } visits=5 position_visits=5 reward=1.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=10 position_visits=10 reward=5.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Chalk] } visits=8 position_visits=8 reward=3.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, Chalk] } visits=6 position_visits=6 reward=1.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas] } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, Chalk] } visits=8 position_visits=8 reward=3.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterCanvas] } visits=5 position_visits=5 reward=1.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics] } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=5 position_visits=5 reward=1.000000000000e0
+  link EndTurn visits=4 position_visits=4 reward=0.000000000000e0
+  link SpendDucat { purchase: MixColors } visits=6 position_visits=6 reward=2.000000000000e0
+  link SpendDucat { purchase: Workshop } visits=7 position_visits=7 reward=3.000000000000e0
 players=3 seed=11 steps=12 round=1 actor=0 iters=1000 early=false bias=0
-  chose DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterCanvas] } used=1000 reused=0 stop=Budget
-  root visits=1000 nodes=1001 edges=1104 depth=6
-  link DestroyAndMix { card: Logwood, mixes: [(Red, Blue)] } visits=33 position_visits=33 reward=9.000000000000e0
-  link DestroyAndMix { card: Logwood, mixes: [(Red, Yellow)] } visits=11 position_visits=11 reward=0.000000000000e0
-  link DestroyAndMix { card: Logwood, mixes: [(Yellow, Blue)] } visits=14 position_visits=14 reward=1.000000000000e0
-  link DestroyAndMix { card: Logwood, mixes: [] } visits=35 position_visits=35 reward=1.000000000000e1
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicBlue) } visits=40 position_visits=40 reward=1.200000000000e1
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicYellow) } visits=33 position_visits=33 reward=9.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(Chalk) } visits=10 position_visits=10 reward=0.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCanvas) } visits=37 position_visits=37 reward=1.100000000000e1
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCeramics) } visits=33 position_visits=33 reward=9.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicBlue) } visits=64 position_visits=64 reward=2.400000000000e1
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicYellow) } visits=19 position_visits=19 reward=3.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(Chalk) } visits=24 position_visits=24 reward=5.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCanvas) } visits=35 position_visits=35 reward=1.000000000000e1
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCeramics) } visits=21 position_visits=21 reward=4.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, Chalk] } visits=37 position_visits=37 reward=1.100000000000e1
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCanvas] } visits=14 position_visits=14 reward=1.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCeramics] } visits=56 position_visits=56 reward=2.000000000000e1
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue] } visits=21 position_visits=21 reward=4.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, BasicBlue] } visits=46 position_visits=46 reward=1.500000000000e1
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Chalk] } visits=46 position_visits=46 reward=1.500000000000e1
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=26 position_visits=26 reward=6.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCeramics] } visits=28 position_visits=28 reward=9.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=33 position_visits=33 reward=9.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Chalk] } visits=33 position_visits=33 reward=9.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, Chalk] } visits=11 position_visits=11 reward=0.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas] } visits=21 position_visits=21 reward=4.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, Chalk] } visits=33 position_visits=33 reward=9.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterCanvas] } visits=64 position_visits=64 reward=2.400000000000e1
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics] } visits=14 position_visits=14 reward=1.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=19 position_visits=19 reward=3.000000000000e0
-  link EndTurn visits=54 position_visits=54 reward=1.900000000000e1
-  link SpendDucat { purchase: MixColors } visits=19 position_visits=19 reward=3.000000000000e0
-  link SpendDucat { purchase: Workshop } visits=16 position_visits=16 reward=2.000000000000e0
+  chose DestroyAndMix { card: Logwood, mixes: [(Yellow, Blue)] } used=1000 reused=0 stop=Budget
+  root visits=1000 nodes=1001 edges=1110 depth=5
+  link DestroyAndMix { card: Logwood, mixes: [(Red, Blue)] } visits=11 position_visits=11 reward=0.000000000000e0
+  link DestroyAndMix { card: Logwood, mixes: [(Red, Yellow)] } visits=30 position_visits=30 reward=7.000000000000e0
+  link DestroyAndMix { card: Logwood, mixes: [(Yellow, Blue)] } visits=62 position_visits=62 reward=2.100000000000e1
+  link DestroyAndMix { card: Logwood, mixes: [] } visits=33 position_visits=33 reward=8.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicBlue) } visits=37 position_visits=37 reward=1.000000000000e1
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicYellow) } visits=11 position_visits=11 reward=0.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(Chalk) } visits=44 position_visits=44 reward=1.300000000000e1
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCanvas) } visits=53 position_visits=53 reward=1.700000000000e1
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCeramics) } visits=49 position_visits=49 reward=1.500000000000e1
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicBlue) } visits=35 position_visits=35 reward=9.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicYellow) } visits=55 position_visits=55 reward=1.800000000000e1
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(Chalk) } visits=28 position_visits=28 reward=6.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCanvas) } visits=30 position_visits=30 reward=7.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCeramics) } visits=20 position_visits=20 reward=3.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, Chalk] } visits=18 position_visits=18 reward=2.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCanvas] } visits=11 position_visits=11 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCeramics] } visits=38 position_visits=38 reward=1.000000000000e1
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue] } visits=23 position_visits=23 reward=4.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, BasicBlue] } visits=11 position_visits=11 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Chalk] } visits=38 position_visits=38 reward=1.000000000000e1
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=11 position_visits=11 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCeramics] } visits=49 position_visits=49 reward=1.500000000000e1
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=20 position_visits=20 reward=3.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Chalk] } visits=35 position_visits=35 reward=9.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, Chalk] } visits=33 position_visits=33 reward=8.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas] } visits=15 position_visits=15 reward=1.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, Chalk] } visits=28 position_visits=28 reward=6.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterCanvas] } visits=33 position_visits=33 reward=8.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics] } visits=30 position_visits=30 reward=7.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=11 position_visits=11 reward=0.000000000000e0
+  link EndTurn visits=37 position_visits=37 reward=1.000000000000e1
+  link SpendDucat { purchase: MixColors } visits=28 position_visits=28 reward=6.000000000000e0
+  link SpendDucat { purchase: Workshop } visits=33 position_visits=33 reward=8.000000000000e0
 players=3 seed=11 steps=12 round=1 actor=0 iters=1000 early=false bias=0.5
-  chose DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCanvas) } used=1000 reused=0 stop=Budget
-  root visits=1000 nodes=1001 edges=1105 depth=5
-  link DestroyAndMix { card: Logwood, mixes: [(Red, Blue)] } visits=23 position_visits=23 reward=4.000000000000e0
-  link DestroyAndMix { card: Logwood, mixes: [(Red, Yellow)] } visits=21 position_visits=21 reward=3.000000000000e0
-  link DestroyAndMix { card: Logwood, mixes: [(Yellow, Blue)] } visits=19 position_visits=19 reward=2.000000000000e0
-  link DestroyAndMix { card: Logwood, mixes: [] } visits=23 position_visits=23 reward=4.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicBlue) } visits=39 position_visits=39 reward=1.200000000000e1
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicYellow) } visits=29 position_visits=29 reward=7.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(Chalk) } visits=31 position_visits=31 reward=8.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCanvas) } visits=44 position_visits=44 reward=1.500000000000e1
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCeramics) } visits=35 position_visits=35 reward=1.000000000000e1
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicBlue) } visits=47 position_visits=47 reward=1.600000000000e1
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicYellow) } visits=45 position_visits=45 reward=1.500000000000e1
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(Chalk) } visits=23 position_visits=23 reward=4.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCanvas) } visits=58 position_visits=58 reward=2.200000000000e1
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCeramics) } visits=35 position_visits=35 reward=1.000000000000e1
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, Chalk] } visits=30 position_visits=30 reward=7.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCanvas] } visits=14 position_visits=14 reward=0.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCeramics] } visits=27 position_visits=27 reward=6.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue] } visits=47 position_visits=47 reward=1.600000000000e1
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, BasicBlue] } visits=23 position_visits=23 reward=4.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Chalk] } visits=22 position_visits=22 reward=3.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=21 position_visits=21 reward=3.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCeramics] } visits=31 position_visits=31 reward=8.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=33 position_visits=33 reward=9.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Chalk] } visits=42 position_visits=42 reward=1.300000000000e1
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, Chalk] } visits=28 position_visits=28 reward=6.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas] } visits=25 position_visits=25 reward=5.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, Chalk] } visits=17 position_visits=17 reward=1.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterCanvas] } visits=34 position_visits=34 reward=9.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics] } visits=50 position_visits=50 reward=1.800000000000e1
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=29 position_visits=29 reward=7.000000000000e0
-  link EndTurn visits=25 position_visits=25 reward=5.000000000000e0
-  link SpendDucat { purchase: MixColors } visits=13 position_visits=13 reward=0.000000000000e0
-  link SpendDucat { purchase: Workshop } visits=17 position_visits=17 reward=2.000000000000e0
+  chose DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicBlue) } used=1000 reused=0 stop=Budget
+  root visits=1000 nodes=1001 edges=1121 depth=5
+  link DestroyAndMix { card: Logwood, mixes: [(Red, Blue)] } visits=16 position_visits=16 reward=1.000000000000e0
+  link DestroyAndMix { card: Logwood, mixes: [(Red, Yellow)] } visits=29 position_visits=29 reward=7.000000000000e0
+  link DestroyAndMix { card: Logwood, mixes: [(Yellow, Blue)] } visits=14 position_visits=14 reward=0.000000000000e0
+  link DestroyAndMix { card: Logwood, mixes: [] } visits=27 position_visits=27 reward=6.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicBlue) } visits=33 position_visits=33 reward=9.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicYellow) } visits=21 position_visits=21 reward=3.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(Chalk) } visits=37 position_visits=37 reward=1.100000000000e1
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCanvas) } visits=18 position_visits=18 reward=2.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCeramics) } visits=37 position_visits=37 reward=1.100000000000e1
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicBlue) } visits=62 position_visits=62 reward=2.400000000000e1
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicYellow) } visits=39 position_visits=39 reward=1.200000000000e1
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(Chalk) } visits=34 position_visits=34 reward=9.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCanvas) } visits=32 position_visits=32 reward=8.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCeramics) } visits=36 position_visits=36 reward=1.000000000000e1
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, Chalk] } visits=22 position_visits=22 reward=3.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCanvas] } visits=40 position_visits=40 reward=1.200000000000e1
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCeramics] } visits=38 position_visits=38 reward=1.100000000000e1
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue] } visits=32 position_visits=32 reward=8.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, BasicBlue] } visits=19 position_visits=19 reward=2.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Chalk] } visits=36 position_visits=36 reward=1.000000000000e1
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=40 position_visits=40 reward=1.200000000000e1
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCeramics] } visits=21 position_visits=21 reward=3.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=40 position_visits=40 reward=1.200000000000e1
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Chalk] } visits=26 position_visits=26 reward=5.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, Chalk] } visits=24 position_visits=24 reward=4.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas] } visits=30 position_visits=30 reward=7.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, Chalk] } visits=28 position_visits=28 reward=6.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterCanvas] } visits=38 position_visits=38 reward=1.100000000000e1
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics] } visits=30 position_visits=30 reward=7.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=25 position_visits=25 reward=5.000000000000e0
+  link EndTurn visits=14 position_visits=14 reward=0.000000000000e0
+  link SpendDucat { purchase: MixColors } visits=24 position_visits=24 reward=5.000000000000e0
+  link SpendDucat { purchase: Workshop } visits=38 position_visits=38 reward=1.200000000000e1
 players=3 seed=11 steps=12 round=1 actor=0 iters=1000 early=true bias=0
-  chose DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterCanvas] } used=1000 reused=0 stop=Budget
-  root visits=1000 nodes=1001 edges=1104 depth=6
-  link DestroyAndMix { card: Logwood, mixes: [(Red, Blue)] } visits=33 position_visits=33 reward=9.000000000000e0
-  link DestroyAndMix { card: Logwood, mixes: [(Red, Yellow)] } visits=11 position_visits=11 reward=0.000000000000e0
-  link DestroyAndMix { card: Logwood, mixes: [(Yellow, Blue)] } visits=14 position_visits=14 reward=1.000000000000e0
-  link DestroyAndMix { card: Logwood, mixes: [] } visits=35 position_visits=35 reward=1.000000000000e1
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicBlue) } visits=40 position_visits=40 reward=1.200000000000e1
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicYellow) } visits=33 position_visits=33 reward=9.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(Chalk) } visits=10 position_visits=10 reward=0.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCanvas) } visits=37 position_visits=37 reward=1.100000000000e1
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCeramics) } visits=33 position_visits=33 reward=9.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicBlue) } visits=64 position_visits=64 reward=2.400000000000e1
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicYellow) } visits=19 position_visits=19 reward=3.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(Chalk) } visits=24 position_visits=24 reward=5.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCanvas) } visits=35 position_visits=35 reward=1.000000000000e1
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCeramics) } visits=21 position_visits=21 reward=4.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, Chalk] } visits=37 position_visits=37 reward=1.100000000000e1
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCanvas] } visits=14 position_visits=14 reward=1.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCeramics] } visits=56 position_visits=56 reward=2.000000000000e1
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue] } visits=21 position_visits=21 reward=4.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, BasicBlue] } visits=46 position_visits=46 reward=1.500000000000e1
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Chalk] } visits=46 position_visits=46 reward=1.500000000000e1
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=26 position_visits=26 reward=6.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCeramics] } visits=28 position_visits=28 reward=9.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=33 position_visits=33 reward=9.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Chalk] } visits=33 position_visits=33 reward=9.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, Chalk] } visits=11 position_visits=11 reward=0.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas] } visits=21 position_visits=21 reward=4.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, Chalk] } visits=33 position_visits=33 reward=9.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterCanvas] } visits=64 position_visits=64 reward=2.400000000000e1
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics] } visits=14 position_visits=14 reward=1.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=19 position_visits=19 reward=3.000000000000e0
-  link EndTurn visits=54 position_visits=54 reward=1.900000000000e1
-  link SpendDucat { purchase: MixColors } visits=19 position_visits=19 reward=3.000000000000e0
-  link SpendDucat { purchase: Workshop } visits=16 position_visits=16 reward=2.000000000000e0
+  chose DestroyAndMix { card: Logwood, mixes: [(Yellow, Blue)] } used=1000 reused=0 stop=Budget
+  root visits=1000 nodes=1001 edges=1110 depth=5
+  link DestroyAndMix { card: Logwood, mixes: [(Red, Blue)] } visits=11 position_visits=11 reward=0.000000000000e0
+  link DestroyAndMix { card: Logwood, mixes: [(Red, Yellow)] } visits=30 position_visits=30 reward=7.000000000000e0
+  link DestroyAndMix { card: Logwood, mixes: [(Yellow, Blue)] } visits=62 position_visits=62 reward=2.100000000000e1
+  link DestroyAndMix { card: Logwood, mixes: [] } visits=33 position_visits=33 reward=8.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicBlue) } visits=37 position_visits=37 reward=1.000000000000e1
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicYellow) } visits=11 position_visits=11 reward=0.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(Chalk) } visits=44 position_visits=44 reward=1.300000000000e1
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCanvas) } visits=53 position_visits=53 reward=1.700000000000e1
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCeramics) } visits=49 position_visits=49 reward=1.500000000000e1
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicBlue) } visits=35 position_visits=35 reward=9.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicYellow) } visits=55 position_visits=55 reward=1.800000000000e1
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(Chalk) } visits=28 position_visits=28 reward=6.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCanvas) } visits=30 position_visits=30 reward=7.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCeramics) } visits=20 position_visits=20 reward=3.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, Chalk] } visits=18 position_visits=18 reward=2.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCanvas] } visits=11 position_visits=11 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCeramics] } visits=38 position_visits=38 reward=1.000000000000e1
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue] } visits=23 position_visits=23 reward=4.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, BasicBlue] } visits=11 position_visits=11 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Chalk] } visits=38 position_visits=38 reward=1.000000000000e1
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=11 position_visits=11 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCeramics] } visits=49 position_visits=49 reward=1.500000000000e1
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=20 position_visits=20 reward=3.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Chalk] } visits=35 position_visits=35 reward=9.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, Chalk] } visits=33 position_visits=33 reward=8.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas] } visits=15 position_visits=15 reward=1.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, Chalk] } visits=28 position_visits=28 reward=6.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterCanvas] } visits=33 position_visits=33 reward=8.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics] } visits=30 position_visits=30 reward=7.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=11 position_visits=11 reward=0.000000000000e0
+  link EndTurn visits=37 position_visits=37 reward=1.000000000000e1
+  link SpendDucat { purchase: MixColors } visits=28 position_visits=28 reward=6.000000000000e0
+  link SpendDucat { purchase: Workshop } visits=33 position_visits=33 reward=8.000000000000e0
 players=3 seed=11 steps=12 round=1 actor=0 iters=1000 early=true bias=0.5
-  chose DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCanvas) } used=1000 reused=0 stop=Budget
-  root visits=1000 nodes=1001 edges=1105 depth=5
-  link DestroyAndMix { card: Logwood, mixes: [(Red, Blue)] } visits=23 position_visits=23 reward=4.000000000000e0
-  link DestroyAndMix { card: Logwood, mixes: [(Red, Yellow)] } visits=21 position_visits=21 reward=3.000000000000e0
-  link DestroyAndMix { card: Logwood, mixes: [(Yellow, Blue)] } visits=19 position_visits=19 reward=2.000000000000e0
-  link DestroyAndMix { card: Logwood, mixes: [] } visits=23 position_visits=23 reward=4.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicBlue) } visits=39 position_visits=39 reward=1.200000000000e1
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicYellow) } visits=29 position_visits=29 reward=7.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(Chalk) } visits=31 position_visits=31 reward=8.000000000000e0
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCanvas) } visits=44 position_visits=44 reward=1.500000000000e1
-  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCeramics) } visits=35 position_visits=35 reward=1.000000000000e1
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicBlue) } visits=47 position_visits=47 reward=1.600000000000e1
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicYellow) } visits=45 position_visits=45 reward=1.500000000000e1
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(Chalk) } visits=23 position_visits=23 reward=4.000000000000e0
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCanvas) } visits=58 position_visits=58 reward=2.200000000000e1
-  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCeramics) } visits=35 position_visits=35 reward=1.000000000000e1
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, Chalk] } visits=30 position_visits=30 reward=7.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCanvas] } visits=14 position_visits=14 reward=0.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCeramics] } visits=27 position_visits=27 reward=6.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue] } visits=47 position_visits=47 reward=1.600000000000e1
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, BasicBlue] } visits=23 position_visits=23 reward=4.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Chalk] } visits=22 position_visits=22 reward=3.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=21 position_visits=21 reward=3.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCeramics] } visits=31 position_visits=31 reward=8.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=33 position_visits=33 reward=9.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Chalk] } visits=42 position_visits=42 reward=1.300000000000e1
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, Chalk] } visits=28 position_visits=28 reward=6.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas] } visits=25 position_visits=25 reward=5.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, Chalk] } visits=17 position_visits=17 reward=1.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterCanvas] } visits=34 position_visits=34 reward=9.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics] } visits=50 position_visits=50 reward=1.800000000000e1
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=29 position_visits=29 reward=7.000000000000e0
-  link EndTurn visits=25 position_visits=25 reward=5.000000000000e0
-  link SpendDucat { purchase: MixColors } visits=13 position_visits=13 reward=0.000000000000e0
-  link SpendDucat { purchase: Workshop } visits=17 position_visits=17 reward=2.000000000000e0
+  chose DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicBlue) } used=1000 reused=0 stop=Budget
+  root visits=1000 nodes=1001 edges=1121 depth=5
+  link DestroyAndMix { card: Logwood, mixes: [(Red, Blue)] } visits=16 position_visits=16 reward=1.000000000000e0
+  link DestroyAndMix { card: Logwood, mixes: [(Red, Yellow)] } visits=29 position_visits=29 reward=7.000000000000e0
+  link DestroyAndMix { card: Logwood, mixes: [(Yellow, Blue)] } visits=14 position_visits=14 reward=0.000000000000e0
+  link DestroyAndMix { card: Logwood, mixes: [] } visits=27 position_visits=27 reward=6.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicBlue) } visits=33 position_visits=33 reward=9.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(BasicYellow) } visits=21 position_visits=21 reward=3.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(Chalk) } visits=37 position_visits=37 reward=1.100000000000e1
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCanvas) } visits=18 position_visits=18 reward=2.000000000000e0
+  link DestroyAndMoveToDraftPool { card: GumArabic, target: Some(StarterCeramics) } visits=37 position_visits=37 reward=1.100000000000e1
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicBlue) } visits=62 position_visits=62 reward=2.400000000000e1
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(BasicYellow) } visits=39 position_visits=39 reward=1.200000000000e1
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(Chalk) } visits=34 position_visits=34 reward=9.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCanvas) } visits=32 position_visits=32 reward=8.000000000000e0
+  link DestroyAndMoveToDraftPool { card: LinseedOil, target: Some(StarterCeramics) } visits=36 position_visits=36 reward=1.000000000000e1
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, Chalk] } visits=22 position_visits=22 reward=3.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCanvas] } visits=40 position_visits=40 reward=1.200000000000e1
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCeramics] } visits=38 position_visits=38 reward=1.100000000000e1
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue] } visits=32 position_visits=32 reward=8.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, BasicBlue] } visits=19 position_visits=19 reward=2.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, Chalk] } visits=36 position_visits=36 reward=1.000000000000e1
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCanvas] } visits=40 position_visits=40 reward=1.200000000000e1
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow, StarterCeramics] } visits=21 position_visits=21 reward=3.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicYellow] } visits=40 position_visits=40 reward=1.200000000000e1
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [Chalk] } visits=26 position_visits=26 reward=5.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, Chalk] } visits=24 position_visits=24 reward=4.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas] } visits=30 position_visits=30 reward=7.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, Chalk] } visits=28 position_visits=28 reward=6.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterCanvas] } visits=38 position_visits=38 reward=1.100000000000e1
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics] } visits=30 position_visits=30 reward=7.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [] } visits=25 position_visits=25 reward=5.000000000000e0
+  link EndTurn visits=14 position_visits=14 reward=0.000000000000e0
+  link SpendDucat { purchase: MixColors } visits=24 position_visits=24 reward=5.000000000000e0
+  link SpendDucat { purchase: Workshop } visits=38 position_visits=38 reward=1.200000000000e1
 players=3 seed=23 steps=50 round=3 actor=1 iters=200 early=false bias=0
-  chose DraftPick { card: Brazilwood } used=200 reused=0 stop=Budget
+  chose DraftPick { card: Orpiment } used=200 reused=0 stop=Budget
   root visits=200 nodes=201 edges=200 depth=4
-  link DraftPick { card: Brazilwood } visits=168 position_visits=168 reward=9.500000000000e1
-  link DraftPick { card: GreenEarth } visits=18 position_visits=18 reward=5.000000000000e0
-  link DraftPick { card: Orpiment } visits=14 position_visits=14 reward=3.000000000000e0
+  link DraftPick { card: Brazilwood } visits=112 position_visits=112 reward=5.700000000000e1
+  link DraftPick { card: GreenEarth } visits=19 position_visits=19 reward=5.000000000000e0
+  link DraftPick { card: Orpiment } visits=69 position_visits=69 reward=4.300000000000e1
 players=3 seed=23 steps=50 round=3 actor=1 iters=200 early=false bias=0.5
   chose DraftPick { card: Brazilwood } used=200 reused=0 stop=Budget
   root visits=200 nodes=201 edges=200 depth=4
-  link DraftPick { card: Brazilwood } visits=127 position_visits=127 reward=7.500000000000e1
-  link DraftPick { card: GreenEarth } visits=44 position_visits=44 reward=1.900000000000e1
-  link DraftPick { card: Orpiment } visits=29 position_visits=29 reward=1.000000000000e1
+  link DraftPick { card: Brazilwood } visits=92 position_visits=92 reward=5.600000000000e1
+  link DraftPick { card: GreenEarth } visits=46 position_visits=46 reward=2.300000000000e1
+  link DraftPick { card: Orpiment } visits=62 position_visits=62 reward=3.600000000000e1
 players=3 seed=23 steps=50 round=3 actor=1 iters=200 early=true bias=0
-  chose DraftPick { card: Brazilwood } used=180 reused=0 stop=Proven
-  root visits=180 nodes=181 edges=180 depth=4
-  link DraftPick { card: Brazilwood } visits=162 position_visits=162 reward=9.100000000000e1
-  link DraftPick { card: GreenEarth } visits=7 position_visits=7 reward=1.000000000000e0
-  link DraftPick { card: Orpiment } visits=11 position_visits=11 reward=2.000000000000e0
+  chose DraftPick { card: Orpiment } used=200 reused=0 stop=Budget
+  root visits=200 nodes=201 edges=200 depth=4
+  link DraftPick { card: Brazilwood } visits=112 position_visits=112 reward=5.700000000000e1
+  link DraftPick { card: GreenEarth } visits=19 position_visits=19 reward=5.000000000000e0
+  link DraftPick { card: Orpiment } visits=69 position_visits=69 reward=4.300000000000e1
 players=3 seed=23 steps=50 round=3 actor=1 iters=200 early=true bias=0.5
   chose DraftPick { card: Brazilwood } used=200 reused=0 stop=Budget
   root visits=200 nodes=201 edges=200 depth=4
-  link DraftPick { card: Brazilwood } visits=127 position_visits=127 reward=7.500000000000e1
-  link DraftPick { card: GreenEarth } visits=44 position_visits=44 reward=1.900000000000e1
-  link DraftPick { card: Orpiment } visits=29 position_visits=29 reward=1.000000000000e1
+  link DraftPick { card: Brazilwood } visits=92 position_visits=92 reward=5.600000000000e1
+  link DraftPick { card: GreenEarth } visits=46 position_visits=46 reward=2.300000000000e1
+  link DraftPick { card: Orpiment } visits=62 position_visits=62 reward=3.600000000000e1
 players=3 seed=23 steps=50 round=3 actor=1 iters=1000 early=false bias=0
-  chose DraftPick { card: Brazilwood } used=1000 reused=0 stop=Budget
+  chose DraftPick { card: Orpiment } used=1000 reused=0 stop=Budget
   root visits=1000 nodes=1001 edges=1000 depth=5
-  link DraftPick { card: Brazilwood } visits=549 position_visits=549 reward=3.130000000000e2
-  link DraftPick { card: GreenEarth } visits=192 position_visits=192 reward=9.800000000000e1
-  link DraftPick { card: Orpiment } visits=259 position_visits=259 reward=1.390000000000e2
+  link DraftPick { card: Brazilwood } visits=136 position_visits=136 reward=6.900000000000e1
+  link DraftPick { card: GreenEarth } visits=341 position_visits=341 reward=1.940000000000e2
+  link DraftPick { card: Orpiment } visits=523 position_visits=523 reward=3.100000000000e2
 players=3 seed=23 steps=50 round=3 actor=1 iters=1000 early=false bias=0.5
-  chose DraftPick { card: Brazilwood } used=1000 reused=0 stop=Budget
-  root visits=1000 nodes=1001 edges=1000 depth=5
-  link DraftPick { card: Brazilwood } visits=637 position_visits=637 reward=3.690000000000e2
-  link DraftPick { card: GreenEarth } visits=208 position_visits=208 reward=1.060000000000e2
-  link DraftPick { card: Orpiment } visits=155 position_visits=155 reward=8.000000000000e1
+  chose DraftPick { card: Orpiment } used=1000 reused=0 stop=Budget
+  root visits=1000 nodes=1001 edges=1000 depth=4
+  link DraftPick { card: Brazilwood } visits=325 position_visits=325 reward=1.880000000000e2
+  link DraftPick { card: GreenEarth } visits=300 position_visits=300 reward=1.720000000000e2
+  link DraftPick { card: Orpiment } visits=375 position_visits=375 reward=2.230000000000e2
 players=3 seed=23 steps=50 round=3 actor=1 iters=1000 early=true bias=0
-  chose DraftPick { card: Brazilwood } used=1000 reused=0 stop=Budget
+  chose DraftPick { card: Orpiment } used=1000 reused=0 stop=Budget
   root visits=1000 nodes=1001 edges=1000 depth=5
-  link DraftPick { card: Brazilwood } visits=549 position_visits=549 reward=3.130000000000e2
-  link DraftPick { card: GreenEarth } visits=192 position_visits=192 reward=9.800000000000e1
-  link DraftPick { card: Orpiment } visits=259 position_visits=259 reward=1.390000000000e2
+  link DraftPick { card: Brazilwood } visits=136 position_visits=136 reward=6.900000000000e1
+  link DraftPick { card: GreenEarth } visits=341 position_visits=341 reward=1.940000000000e2
+  link DraftPick { card: Orpiment } visits=523 position_visits=523 reward=3.100000000000e2
 players=3 seed=23 steps=50 round=3 actor=1 iters=1000 early=true bias=0.5
-  chose DraftPick { card: Brazilwood } used=1000 reused=0 stop=Budget
-  root visits=1000 nodes=1001 edges=1000 depth=5
-  link DraftPick { card: Brazilwood } visits=637 position_visits=637 reward=3.690000000000e2
-  link DraftPick { card: GreenEarth } visits=208 position_visits=208 reward=1.060000000000e2
-  link DraftPick { card: Orpiment } visits=155 position_visits=155 reward=8.000000000000e1
+  chose DraftPick { card: Orpiment } used=1000 reused=0 stop=Budget
+  root visits=1000 nodes=1001 edges=1000 depth=4
+  link DraftPick { card: Brazilwood } visits=325 position_visits=325 reward=1.880000000000e2
+  link DraftPick { card: GreenEarth } visits=300 position_visits=300 reward=1.720000000000e2
+  link DraftPick { card: Orpiment } visits=375 position_visits=375 reward=2.230000000000e2
 players=4 seed=11 steps=12 round=1 actor=0 iters=200 early=false bias=0
   chose DraftPick { card: Alum } used=200 reused=0 stop=Budget
-  root visits=200 nodes=201 edges=200 depth=4
-  link DraftPick { card: Alum } visits=115 position_visits=115 reward=2.700000000000e1
-  link DraftPick { card: Logwood } visits=85 position_visits=85 reward=1.700000000000e1
+  root visits=200 nodes=201 edges=200 depth=5
+  link DraftPick { card: Alum } visits=165 position_visits=165 reward=4.600000000000e1
+  link DraftPick { card: Logwood } visits=35 position_visits=35 reward=4.000000000000e0
 players=4 seed=11 steps=12 round=1 actor=0 iters=200 early=false bias=0.5
-  chose DraftPick { card: Logwood } used=200 reused=0 stop=Budget
-  root visits=200 nodes=201 edges=200 depth=4
-  link DraftPick { card: Alum } visits=70 position_visits=70 reward=1.300000000000e1
-  link DraftPick { card: Logwood } visits=130 position_visits=130 reward=3.400000000000e1
-players=4 seed=11 steps=12 round=1 actor=0 iters=200 early=true bias=0
   chose DraftPick { card: Alum } used=200 reused=0 stop=Budget
   root visits=200 nodes=201 edges=200 depth=4
-  link DraftPick { card: Alum } visits=115 position_visits=115 reward=2.700000000000e1
-  link DraftPick { card: Logwood } visits=85 position_visits=85 reward=1.700000000000e1
+  link DraftPick { card: Alum } visits=121 position_visits=121 reward=3.400000000000e1
+  link DraftPick { card: Logwood } visits=79 position_visits=79 reward=1.700000000000e1
+players=4 seed=11 steps=12 round=1 actor=0 iters=200 early=true bias=0
+  chose DraftPick { card: Alum } used=200 reused=0 stop=Budget
+  root visits=200 nodes=201 edges=200 depth=5
+  link DraftPick { card: Alum } visits=165 position_visits=165 reward=4.600000000000e1
+  link DraftPick { card: Logwood } visits=35 position_visits=35 reward=4.000000000000e0
 players=4 seed=11 steps=12 round=1 actor=0 iters=200 early=true bias=0.5
-  chose DraftPick { card: Logwood } used=200 reused=0 stop=Budget
+  chose DraftPick { card: Alum } used=200 reused=0 stop=Budget
   root visits=200 nodes=201 edges=200 depth=4
-  link DraftPick { card: Alum } visits=70 position_visits=70 reward=1.300000000000e1
-  link DraftPick { card: Logwood } visits=130 position_visits=130 reward=3.400000000000e1
+  link DraftPick { card: Alum } visits=121 position_visits=121 reward=3.400000000000e1
+  link DraftPick { card: Logwood } visits=79 position_visits=79 reward=1.700000000000e1
 players=4 seed=11 steps=12 round=1 actor=0 iters=1000 early=false bias=0
   chose DraftPick { card: Alum } used=1000 reused=0 stop=Budget
   root visits=1000 nodes=1001 edges=1000 depth=5
-  link DraftPick { card: Alum } visits=502 position_visits=502 reward=1.270000000000e2
-  link DraftPick { card: Logwood } visits=498 position_visits=498 reward=1.230000000000e2
+  link DraftPick { card: Alum } visits=860 position_visits=860 reward=2.280000000000e2
+  link DraftPick { card: Logwood } visits=140 position_visits=140 reward=2.300000000000e1
 players=4 seed=11 steps=12 round=1 actor=0 iters=1000 early=false bias=0.5
-  chose DraftPick { card: Logwood } used=1000 reused=0 stop=Budget
+  chose DraftPick { card: Alum } used=1000 reused=0 stop=Budget
   root visits=1000 nodes=1001 edges=1000 depth=5
-  link DraftPick { card: Alum } visits=426 position_visits=426 reward=1.000000000000e2
-  link DraftPick { card: Logwood } visits=574 position_visits=574 reward=1.390000000000e2
+  link DraftPick { card: Alum } visits=702 position_visits=702 reward=1.770000000000e2
+  link DraftPick { card: Logwood } visits=298 position_visits=298 reward=6.100000000000e1
 players=4 seed=11 steps=12 round=1 actor=0 iters=1000 early=true bias=0
   chose DraftPick { card: Alum } used=1000 reused=0 stop=Budget
   root visits=1000 nodes=1001 edges=1000 depth=5
-  link DraftPick { card: Alum } visits=502 position_visits=502 reward=1.270000000000e2
-  link DraftPick { card: Logwood } visits=498 position_visits=498 reward=1.230000000000e2
+  link DraftPick { card: Alum } visits=860 position_visits=860 reward=2.280000000000e2
+  link DraftPick { card: Logwood } visits=140 position_visits=140 reward=2.300000000000e1
 players=4 seed=11 steps=12 round=1 actor=0 iters=1000 early=true bias=0.5
-  chose DraftPick { card: Logwood } used=1000 reused=0 stop=Budget
+  chose DraftPick { card: Alum } used=1000 reused=0 stop=Budget
   root visits=1000 nodes=1001 edges=1000 depth=5
-  link DraftPick { card: Alum } visits=426 position_visits=426 reward=1.000000000000e2
-  link DraftPick { card: Logwood } visits=574 position_visits=574 reward=1.390000000000e2
+  link DraftPick { card: Alum } visits=702 position_visits=702 reward=1.770000000000e2
+  link DraftPick { card: Logwood } visits=298 position_visits=298 reward=6.100000000000e1
 players=4 seed=23 steps=50 round=2 actor=3 iters=200 early=false bias=0
-  chose DraftPick { card: Warehouse } used=200 reused=0 stop=Budget
-  root visits=200 nodes=201 edges=200 depth=5
-  link DraftPick { card: Gondola } visits=28 position_visits=28 reward=2.000000000000e0
-  link DraftPick { card: GumArabic } visits=52 position_visits=52 reward=8.000000000000e0
-  link DraftPick { card: Litharge } visits=48 position_visits=48 reward=7.000000000000e0
-  link DraftPick { card: Warehouse } visits=72 position_visits=72 reward=1.400000000000e1
+  chose DraftPick { card: Litharge } used=200 reused=0 stop=Budget
+  root visits=200 nodes=201 edges=200 depth=4
+  link DraftPick { card: Gondola } visits=32 position_visits=32 reward=6.000000000000e0
+  link DraftPick { card: GumArabic } visits=46 position_visits=46 reward=1.100000000000e1
+  link DraftPick { card: Litharge } visits=70 position_visits=70 reward=2.000000000000e1
+  link DraftPick { card: Warehouse } visits=52 position_visits=52 reward=1.300000000000e1
 players=4 seed=23 steps=50 round=2 actor=3 iters=200 early=false bias=0.5
   chose DraftPick { card: Warehouse } used=200 reused=0 stop=Budget
-  root visits=200 nodes=201 edges=200 depth=5
-  link DraftPick { card: Gondola } visits=25 position_visits=25 reward=3.000000000000e0
-  link DraftPick { card: GumArabic } visits=65 position_visits=65 reward=1.900000000000e1
-  link DraftPick { card: Litharge } visits=31 position_visits=31 reward=5.000000000000e0
-  link DraftPick { card: Warehouse } visits=79 position_visits=79 reward=2.500000000000e1
+  root visits=200 nodes=201 edges=200 depth=4
+  link DraftPick { card: Gondola } visits=43 position_visits=43 reward=9.000000000000e0
+  link DraftPick { card: GumArabic } visits=49 position_visits=49 reward=1.100000000000e1
+  link DraftPick { card: Litharge } visits=23 position_visits=23 reward=2.000000000000e0
+  link DraftPick { card: Warehouse } visits=85 position_visits=85 reward=2.600000000000e1
 players=4 seed=23 steps=50 round=2 actor=3 iters=200 early=true bias=0
-  chose DraftPick { card: Warehouse } used=200 reused=0 stop=Budget
-  root visits=200 nodes=201 edges=200 depth=5
-  link DraftPick { card: Gondola } visits=28 position_visits=28 reward=2.000000000000e0
-  link DraftPick { card: GumArabic } visits=52 position_visits=52 reward=8.000000000000e0
-  link DraftPick { card: Litharge } visits=48 position_visits=48 reward=7.000000000000e0
-  link DraftPick { card: Warehouse } visits=72 position_visits=72 reward=1.400000000000e1
+  chose DraftPick { card: Litharge } used=200 reused=0 stop=Budget
+  root visits=200 nodes=201 edges=200 depth=4
+  link DraftPick { card: Gondola } visits=32 position_visits=32 reward=6.000000000000e0
+  link DraftPick { card: GumArabic } visits=46 position_visits=46 reward=1.100000000000e1
+  link DraftPick { card: Litharge } visits=70 position_visits=70 reward=2.000000000000e1
+  link DraftPick { card: Warehouse } visits=52 position_visits=52 reward=1.300000000000e1
 players=4 seed=23 steps=50 round=2 actor=3 iters=200 early=true bias=0.5
   chose DraftPick { card: Warehouse } used=200 reused=0 stop=Budget
-  root visits=200 nodes=201 edges=200 depth=5
-  link DraftPick { card: Gondola } visits=25 position_visits=25 reward=3.000000000000e0
-  link DraftPick { card: GumArabic } visits=65 position_visits=65 reward=1.900000000000e1
-  link DraftPick { card: Litharge } visits=31 position_visits=31 reward=5.000000000000e0
-  link DraftPick { card: Warehouse } visits=79 position_visits=79 reward=2.500000000000e1
+  root visits=200 nodes=201 edges=200 depth=4
+  link DraftPick { card: Gondola } visits=43 position_visits=43 reward=9.000000000000e0
+  link DraftPick { card: GumArabic } visits=49 position_visits=49 reward=1.100000000000e1
+  link DraftPick { card: Litharge } visits=23 position_visits=23 reward=2.000000000000e0
+  link DraftPick { card: Warehouse } visits=85 position_visits=85 reward=2.600000000000e1
 players=4 seed=23 steps=50 round=2 actor=3 iters=1000 early=false bias=0
   chose DraftPick { card: Warehouse } used=1000 reused=0 stop=Budget
   root visits=1000 nodes=1001 edges=1000 depth=5
-  link DraftPick { card: Gondola } visits=150 position_visits=150 reward=2.800000000000e1
-  link DraftPick { card: GumArabic } visits=175 position_visits=175 reward=3.500000000000e1
-  link DraftPick { card: Litharge } visits=117 position_visits=117 reward=2.000000000000e1
-  link DraftPick { card: Warehouse } visits=558 position_visits=558 reward=1.480000000000e2
+  link DraftPick { card: Gondola } visits=131 position_visits=131 reward=2.500000000000e1
+  link DraftPick { card: GumArabic } visits=227 position_visits=227 reward=5.300000000000e1
+  link DraftPick { card: Litharge } visits=222 position_visits=222 reward=5.100000000000e1
+  link DraftPick { card: Warehouse } visits=420 position_visits=420 reward=1.120000000000e2
 players=4 seed=23 steps=50 round=2 actor=3 iters=1000 early=false bias=0.5
-  chose DraftPick { card: Warehouse } used=1000 reused=0 stop=Budget
+  chose DraftPick { card: GumArabic } used=1000 reused=0 stop=Budget
   root visits=1000 nodes=1001 edges=1000 depth=5
-  link DraftPick { card: Gondola } visits=115 position_visits=115 reward=2.000000000000e1
-  link DraftPick { card: GumArabic } visits=329 position_visits=329 reward=8.500000000000e1
-  link DraftPick { card: Litharge } visits=67 position_visits=67 reward=7.000000000000e0
-  link DraftPick { card: Warehouse } visits=489 position_visits=489 reward=1.370000000000e2
+  link DraftPick { card: Gondola } visits=193 position_visits=193 reward=4.400000000000e1
+  link DraftPick { card: GumArabic } visits=365 position_visits=365 reward=1.020000000000e2
+  link DraftPick { card: Litharge } visits=95 position_visits=95 reward=1.500000000000e1
+  link DraftPick { card: Warehouse } visits=347 position_visits=347 reward=9.300000000000e1
 players=4 seed=23 steps=50 round=2 actor=3 iters=1000 early=true bias=0
   chose DraftPick { card: Warehouse } used=1000 reused=0 stop=Budget
   root visits=1000 nodes=1001 edges=1000 depth=5
-  link DraftPick { card: Gondola } visits=150 position_visits=150 reward=2.800000000000e1
-  link DraftPick { card: GumArabic } visits=175 position_visits=175 reward=3.500000000000e1
-  link DraftPick { card: Litharge } visits=117 position_visits=117 reward=2.000000000000e1
-  link DraftPick { card: Warehouse } visits=558 position_visits=558 reward=1.480000000000e2
+  link DraftPick { card: Gondola } visits=131 position_visits=131 reward=2.500000000000e1
+  link DraftPick { card: GumArabic } visits=227 position_visits=227 reward=5.300000000000e1
+  link DraftPick { card: Litharge } visits=222 position_visits=222 reward=5.100000000000e1
+  link DraftPick { card: Warehouse } visits=420 position_visits=420 reward=1.120000000000e2
 players=4 seed=23 steps=50 round=2 actor=3 iters=1000 early=true bias=0.5
-  chose DraftPick { card: Warehouse } used=1000 reused=0 stop=Budget
+  chose DraftPick { card: GumArabic } used=1000 reused=0 stop=Budget
   root visits=1000 nodes=1001 edges=1000 depth=5
-  link DraftPick { card: Gondola } visits=115 position_visits=115 reward=2.000000000000e1
-  link DraftPick { card: GumArabic } visits=329 position_visits=329 reward=8.500000000000e1
-  link DraftPick { card: Litharge } visits=67 position_visits=67 reward=7.000000000000e0
-  link DraftPick { card: Warehouse } visits=489 position_visits=489 reward=1.370000000000e2
+  link DraftPick { card: Gondola } visits=193 position_visits=193 reward=4.400000000000e1
+  link DraftPick { card: GumArabic } visits=365 position_visits=365 reward=1.020000000000e2
+  link DraftPick { card: Litharge } visits=95 position_visits=95 reward=1.500000000000e1
+  link DraftPick { card: Warehouse } visits=347 position_visits=347 reward=9.300000000000e1
 reuse players=2 seed=11 turn=0 round=1 actor=0 iters=400
   chose EndTurn used=400 reused=0 stop=Budget
-  root visits=400 nodes=401 edges=405 depth=8
-  link DestroyAndWorkshop { card: Cinnabar, workshop_cards: [StarterCeramics, StarterCanvas] } visits=40 position_visits=40 reward=1.400000000000e1
-  link DestroyDraftedCard { card: FabricGreen } visits=44 position_visits=44 reward=1.700000000000e1
-  link DestroyDraftedCard { card: Orpiment } visits=66 position_visits=66 reward=2.700000000000e1
-  link EndTurn visits=250 position_visits=250 reward=1.310000000000e2
+  root visits=400 nodes=401 edges=405 depth=7
+  link DestroyAndWorkshop { card: Cinnabar, workshop_cards: [StarterCeramics, StarterCanvas] } visits=62 position_visits=62 reward=2.800000000000e1
+  link DestroyDraftedCard { card: FabricGreen } visits=8 position_visits=8 reward=0.000000000000e0
+  link DestroyDraftedCard { card: Orpiment } visits=78 position_visits=78 reward=3.700000000000e1
+  link EndTurn visits=252 position_visits=252 reward=1.430000000000e2
   clear_tree: player 0 is not next
 reuse players=2 seed=11 turn=1 round=1 actor=1 iters=400
-  chose DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterCanvas, StarterFabric] } used=400 reused=0 stop=Budget
-  root visits=400 nodes=401 edges=469 depth=7
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, Chalk] } visits=18 position_visits=18 reward=9.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCanvas] } visits=8 position_visits=8 reward=2.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCeramics] } visits=26 position_visits=26 reward=1.500000000000e1
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterFabric] } visits=20 position_visits=20 reward=1.000000000000e1
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, Chalk] } visits=12 position_visits=12 reward=5.000000000000e0
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, StarterFabric] } visits=27 position_visits=27 reward=1.600000000000e1
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, Chalk] } visits=31 position_visits=31 reward=1.900000000000e1
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterCanvas] } visits=21 position_visits=21 reward=1.100000000000e1
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterFabric] } visits=26 position_visits=26 reward=1.500000000000e1
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterFabric, Chalk] } visits=15 position_visits=15 reward=7.000000000000e0
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterCanvas, Chalk] } visits=12 position_visits=12 reward=5.000000000000e0
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterCanvas, StarterFabric] } visits=33 position_visits=33 reward=2.000000000000e1
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterCeramics, Chalk] } visits=8 position_visits=8 reward=2.000000000000e0
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterCeramics, StarterCanvas] } visits=14 position_visits=14 reward=6.000000000000e0
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterCeramics, StarterFabric] } visits=15 position_visits=15 reward=7.000000000000e0
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterFabric, Chalk] } visits=12 position_visits=12 reward=5.000000000000e0
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [StarterCanvas, StarterFabric, Chalk] } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [StarterCeramics, StarterCanvas, Chalk] } visits=18 position_visits=18 reward=9.000000000000e0
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [StarterCeramics, StarterCanvas, StarterFabric] } visits=15 position_visits=15 reward=7.000000000000e0
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [StarterCeramics, StarterFabric, Chalk] } visits=4 position_visits=4 reward=0.000000000000e0
-  link DestroyDraftedCard { card: DragonsBlood } visits=9 position_visits=9 reward=3.000000000000e0
-  link DestroyDraftedCard { card: Indigo } visits=8 position_visits=8 reward=2.000000000000e0
-  link EndTurn visits=12 position_visits=12 reward=5.000000000000e0
-  link SpendDucat { purchase: MixColors } visits=8 position_visits=8 reward=2.000000000000e0
-  link SpendDucat { purchase: Workshop } visits=24 position_visits=24 reward=1.400000000000e1
+  chose EndTurn used=390 reused=0 stop=Proven
+  root visits=390 nodes=391 edges=449 depth=7
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, Chalk] } visits=16 position_visits=16 reward=8.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCanvas] } visits=17 position_visits=17 reward=9.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterCeramics] } visits=19 position_visits=19 reward=1.100000000000e1
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [BasicBlue, StarterFabric] } visits=7 position_visits=7 reward=2.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, Chalk] } visits=19 position_visits=19 reward=1.100000000000e1
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCanvas, StarterFabric] } visits=21 position_visits=21 reward=1.200000000000e1
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, Chalk] } visits=7 position_visits=7 reward=2.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterCanvas] } visits=18 position_visits=18 reward=1.000000000000e1
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, StarterFabric] } visits=12 position_visits=12 reward=5.000000000000e0
+  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterFabric, Chalk] } visits=7 position_visits=7 reward=2.000000000000e0
+  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterCanvas, Chalk] } visits=13 position_visits=13 reward=6.000000000000e0
+  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterCanvas, StarterFabric] } visits=21 position_visits=21 reward=1.200000000000e1
+  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterCeramics, Chalk] } visits=19 position_visits=19 reward=1.100000000000e1
+  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterCeramics, StarterCanvas] } visits=18 position_visits=18 reward=1.000000000000e1
+  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterCeramics, StarterFabric] } visits=17 position_visits=17 reward=9.000000000000e0
+  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterFabric, Chalk] } visits=14 position_visits=14 reward=7.000000000000e0
+  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [StarterCanvas, StarterFabric, Chalk] } visits=9 position_visits=9 reward=3.000000000000e0
+  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [StarterCeramics, StarterCanvas, Chalk] } visits=4 position_visits=4 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [StarterCeramics, StarterCanvas, StarterFabric] } visits=21 position_visits=21 reward=1.200000000000e1
+  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [StarterCeramics, StarterFabric, Chalk] } visits=19 position_visits=19 reward=1.100000000000e1
+  link DestroyDraftedCard { card: DragonsBlood } visits=14 position_visits=14 reward=7.000000000000e0
+  link DestroyDraftedCard { card: Indigo } visits=4 position_visits=4 reward=0.000000000000e0
+  link EndTurn visits=39 position_visits=39 reward=2.700000000000e1
+  link SpendDucat { purchase: MixColors } visits=16 position_visits=16 reward=8.000000000000e0
+  link SpendDucat { purchase: Workshop } visits=19 position_visits=19 reward=1.100000000000e1
   reuse_subtree -> true
-reuse players=2 seed=11 turn=2 round=1 actor=1 iters=400
-  chose EndTurn used=367 reused=33 stop=Budget
-  root visits=400 nodes=450 edges=530 depth=9
-  link DestroyAndWorkshop { card: CeramicsBlue, workshop_cards: [StarterCeramics, Chalk] } visits=129 position_visits=143 reward=6.700000000000e1
-  link DestroyDraftedCard { card: DragonsBlood } visits=24 position_visits=24 reward=6.000000000000e0
-  link DestroyDraftedCard { card: Indigo } visits=33 position_visits=33 reward=1.000000000000e1
-  link EndTurn visits=121 position_visits=121 reward=5.700000000000e1
-  link SpendDucat { purchase: MixColors } visits=49 position_visits=49 reward=1.800000000000e1
-  link SpendDucat { purchase: Workshop } visits=43 position_visits=43 reward=1.500000000000e1
-  reuse_subtree -> true
-reuse players=2 seed=11 turn=3 round=2 actor=1 iters=400
-  chose DrawBuyer used=279 reused=121 stop=Budget
-  root visits=400 nodes=400 edges=399 depth=5
-  link DrawBuyer visits=129 position_visits=129 reward=7.100000000000e1
-  link TakeBuyer { sell_card: DyerYellowYellow } visits=28 position_visits=28 reward=1.000000000000e1
-  link TakeBuyer { sell_card: PainterChartreuseGreen } visits=44 position_visits=44 reward=2.100000000000e1
-  link TakeBuyer { sell_card: PotterChartreuse } visits=30 position_visits=30 reward=1.100000000000e1
-  link TakeBuyer { sell_card: PotterFuchsia } visits=49 position_visits=49 reward=2.200000000000e1
-  link TakeBuyer { sell_card: PotterUltramarine } visits=66 position_visits=66 reward=3.200000000000e1
-  link TakeBuyer { sell_card: ShipwrightPurpleGreen } visits=53 position_visits=53 reward=2.400000000000e1
+reuse players=2 seed=11 turn=2 round=2 actor=1 iters=400
+  chose TakeBuyer { sell_card: PotterChartreuse } used=361 reused=39 stop=Budget
+  root visits=400 nodes=400 edges=399 depth=4
+  link DrawBuyer visits=48 position_visits=48 reward=2.800000000000e1
+  link TakeBuyer { sell_card: DyerYellowYellow } visits=49 position_visits=49 reward=2.800000000000e1
+  link TakeBuyer { sell_card: PainterChartreuseGreen } visits=15 position_visits=15 reward=5.000000000000e0
+  link TakeBuyer { sell_card: PotterChartreuse } visits=101 position_visits=101 reward=6.600000000000e1
+  link TakeBuyer { sell_card: PotterFuchsia } visits=53 position_visits=53 reward=3.100000000000e1
+  link TakeBuyer { sell_card: PotterUltramarine } visits=42 position_visits=42 reward=2.300000000000e1
+  link TakeBuyer { sell_card: ShipwrightPurpleGreen } visits=91 position_visits=91 reward=5.800000000000e1
   clear_tree: player 1 is not next
+reuse players=2 seed=11 turn=3 round=2 actor=0 iters=400
+  chose TakeBuyer { sell_card: PainterChartreuseGreen } used=400 reused=0 stop=Budget
+  root visits=400 nodes=401 edges=400 depth=4
+  link DrawBuyer visits=56 position_visits=56 reward=2.000000000000e1
+  link TakeBuyer { sell_card: DyerYellowYellow } visits=28 position_visits=28 reward=7.000000000000e0
+  link TakeBuyer { sell_card: PainterChartreuseGreen } visits=93 position_visits=93 reward=4.000000000000e1
+  link TakeBuyer { sell_card: PotterAmber } visits=39 position_visits=39 reward=1.200000000000e1
+  link TakeBuyer { sell_card: PotterFuchsia } visits=64 position_visits=64 reward=2.400000000000e1
+  link TakeBuyer { sell_card: PotterUltramarine } visits=52 position_visits=52 reward=1.800000000000e1
+  link TakeBuyer { sell_card: ShipwrightPurpleGreen } visits=68 position_visits=68 reward=2.600000000000e1
+  clear_tree: player 0 is not next
 reuse players=3 seed=23 turn=0 round=3 actor=1 iters=400
   chose DraftPick { card: Brazilwood } used=400 reused=0 stop=Budget
   root visits=400 nodes=401 edges=400 depth=4
-  link DraftPick { card: Brazilwood } visits=202 position_visits=202 reward=1.130000000000e2
-  link DraftPick { card: GreenEarth } visits=104 position_visits=104 reward=5.300000000000e1
-  link DraftPick { card: Orpiment } visits=94 position_visits=94 reward=4.700000000000e1
+  link DraftPick { card: Brazilwood } visits=224 position_visits=224 reward=1.450000000000e2
+  link DraftPick { card: GreenEarth } visits=63 position_visits=63 reward=3.100000000000e1
+  link DraftPick { card: Orpiment } visits=113 position_visits=113 reward=6.200000000000e1
   clear_tree: player 1 is not next
 reuse players=3 seed=23 turn=1 round=3 actor=2 iters=400
   chose DraftPick { card: GreenEarth } used=400 reused=0 stop=Budget
   root visits=400 nodes=401 edges=400 depth=6
-  link DraftPick { card: GreenEarth } visits=199 position_visits=199 reward=3.100000000000e1
-  link DraftPick { card: Orpiment } visits=201 position_visits=201 reward=2.900000000000e1
+  link DraftPick { card: GreenEarth } visits=228 position_visits=228 reward=5.200000000000e1
+  link DraftPick { card: Orpiment } visits=172 position_visits=172 reward=3.600000000000e1
   clear_tree: player 2 is not next
 reuse players=3 seed=23 turn=2 round=3 actor=0 iters=400
   chose DraftPick { card: Brazilwood } used=400 reused=0 stop=Budget
   root visits=400 nodes=401 edges=400 depth=5
-  link DraftPick { card: Brazilwood } visits=275 position_visits=275 reward=6.100000000000e1
-  link DraftPick { card: Orpiment } visits=125 position_visits=125 reward=2.100000000000e1
+  link DraftPick { card: Brazilwood } visits=303 position_visits=303 reward=7.100000000000e1
+  link DraftPick { card: Orpiment } visits=97 position_visits=97 reward=1.700000000000e1
   clear_tree: player 0 is not next
 reuse players=3 seed=23 turn=3 round=3 actor=1 iters=400
-  chose DraftPick { card: Cochineal } used=383 reused=0 stop=Proven
-  root visits=383 nodes=384 edges=383 depth=5
-  link DraftPick { card: Cochineal } visits=369 position_visits=369 reward=2.260000000000e2
-  link DraftPick { card: FabricPurple } visits=14 position_visits=14 reward=3.000000000000e0
+  chose DraftPick { card: Cochineal } used=400 reused=0 stop=Budget
+  root visits=400 nodes=401 edges=400 depth=5
+  link DraftPick { card: Cochineal } visits=348 position_visits=348 reward=2.000000000000e2
+  link DraftPick { card: FabricPurple } visits=52 position_visits=52 reward=2.100000000000e1
   clear_tree: player 1 is not next
 reuse players=4 seed=11 turn=0 round=1 actor=1 iters=800
   chose EndTurn used=800 reused=0 stop=Budget
   root visits=800 nodes=801 edges=800 depth=6
-  link DestroyDraftedCard { card: StarterCeramics } visits=239 position_visits=239 reward=2.500000000000e1
-  link EndTurn visits=561 position_visits=561 reward=8.800000000000e1
+  link DestroyDraftedCard { card: StarterCeramics } visits=255 position_visits=255 reward=2.400000000000e1
+  link EndTurn visits=545 position_visits=545 reward=7.400000000000e1
   clear_tree: player 1 is not next
 reuse players=4 seed=11 turn=1 round=1 actor=2 iters=800
-  chose DestroyAndMix { card: Realgar, mixes: [(Red, Yellow)] } used=800 reused=0 stop=Budget
-  root visits=800 nodes=801 edges=963 depth=6
-  link DestroyAndMix { card: Realgar, mixes: [(Red, Blue)] } visits=27 position_visits=27 reward=9.000000000000e0
-  link DestroyAndMix { card: Realgar, mixes: [(Red, Yellow)] } visits=43 position_visits=43 reward=1.800000000000e1
-  link DestroyAndMix { card: Realgar, mixes: [(Yellow, Blue)] } visits=21 position_visits=21 reward=6.000000000000e0
-  link DestroyAndMix { card: Realgar, mixes: [] } visits=21 position_visits=21 reward=6.000000000000e0
-  link DestroyAndMix { card: Woad, mixes: [(Red, Blue)] } visits=19 position_visits=19 reward=5.000000000000e0
-  link DestroyAndMix { card: Woad, mixes: [(Red, Yellow)] } visits=27 position_visits=27 reward=9.000000000000e0
-  link DestroyAndMix { card: Woad, mixes: [(Yellow, Blue)] } visits=23 position_visits=23 reward=7.000000000000e0
-  link DestroyAndMix { card: Woad, mixes: [] } visits=10 position_visits=10 reward=1.000000000000e0
-  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue, StarterCanvas, Chalk] } visits=27 position_visits=27 reward=9.000000000000e0
-  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue, StarterCanvas, StarterFabric] } visits=25 position_visits=25 reward=8.000000000000e0
-  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue, StarterFabric, Chalk] } visits=25 position_visits=25 reward=8.000000000000e0
-  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicBlue, Chalk] } visits=29 position_visits=29 reward=1.000000000000e1
-  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicBlue, StarterCanvas] } visits=10 position_visits=10 reward=1.000000000000e0
-  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicBlue, StarterFabric] } visits=36 position_visits=36 reward=1.400000000000e1
-  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, StarterCanvas, Chalk] } visits=25 position_visits=25 reward=8.000000000000e0
-  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, StarterCanvas, StarterFabric] } visits=36 position_visits=36 reward=1.400000000000e1
-  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, StarterFabric, Chalk] } visits=19 position_visits=19 reward=5.000000000000e0
-  link DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCanvas, StarterFabric, Chalk] } visits=27 position_visits=27 reward=9.000000000000e0
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterCanvas, Chalk] } visits=21 position_visits=21 reward=6.000000000000e0
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterCanvas, StarterFabric] } visits=19 position_visits=19 reward=5.000000000000e0
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterFabric, Chalk] } visits=43 position_visits=43 reward=1.800000000000e1
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicRed, BasicBlue, Chalk] } visits=35 position_visits=35 reward=1.300000000000e1
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicRed, BasicBlue, StarterCanvas] } visits=23 position_visits=23 reward=7.000000000000e0
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicRed, BasicBlue, StarterFabric] } visits=27 position_visits=27 reward=9.000000000000e0
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicRed, StarterCanvas, Chalk] } visits=31 position_visits=31 reward=1.100000000000e1
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicRed, StarterCanvas, StarterFabric] } visits=10 position_visits=10 reward=1.000000000000e0
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicRed, StarterFabric, Chalk] } visits=27 position_visits=27 reward=9.000000000000e0
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [StarterCanvas, StarterFabric, Chalk] } visits=42 position_visits=42 reward=1.700000000000e1
-  link EndTurn visits=25 position_visits=25 reward=8.000000000000e0
-  link SpendDucat { purchase: MixColors } visits=15 position_visits=15 reward=3.000000000000e0
-  link SpendDucat { purchase: Sell } visits=17 position_visits=17 reward=4.000000000000e0
-  link SpendDucat { purchase: Workshop } visits=15 position_visits=15 reward=3.000000000000e0
+  chose DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterFabric, Chalk] } used=800 reused=0 stop=Budget
+  root visits=800 nodes=801 edges=949 depth=6
+  link DestroyAndMix { card: Realgar, mixes: [(Red, Blue)] } visits=22 position_visits=22 reward=9.000000000000e0
+  link DestroyAndMix { card: Realgar, mixes: [(Red, Yellow)] } visits=25 position_visits=25 reward=1.100000000000e1
+  link DestroyAndMix { card: Realgar, mixes: [(Yellow, Blue)] } visits=13 position_visits=13 reward=4.000000000000e0
+  link DestroyAndMix { card: Realgar, mixes: [] } visits=22 position_visits=22 reward=9.000000000000e0
+  link DestroyAndMix { card: Woad, mixes: [(Red, Blue)] } visits=13 position_visits=13 reward=4.000000000000e0
+  link DestroyAndMix { card: Woad, mixes: [(Red, Yellow)] } visits=17 position_visits=17 reward=6.000000000000e0
+  link DestroyAndMix { card: Woad, mixes: [(Yellow, Blue)] } visits=15 position_visits=15 reward=5.000000000000e0
+  link DestroyAndMix { card: Woad, mixes: [] } visits=28 position_visits=28 reward=1.300000000000e1
+  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue, StarterCanvas, Chalk] } visits=13 position_visits=13 reward=4.000000000000e0
+  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue, StarterCanvas, StarterFabric] } visits=6 position_visits=6 reward=0.000000000000e0
+  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue, StarterFabric, Chalk] } visits=38 position_visits=38 reward=2.000000000000e1
+  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicBlue, Chalk] } visits=18 position_visits=18 reward=7.000000000000e0
+  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicBlue, StarterCanvas] } visits=15 position_visits=15 reward=5.000000000000e0
+  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicBlue, StarterFabric] } visits=31 position_visits=31 reward=1.500000000000e1
+  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, StarterCanvas, Chalk] } visits=13 position_visits=13 reward=4.000000000000e0
+  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, StarterCanvas, StarterFabric] } visits=29 position_visits=29 reward=1.400000000000e1
+  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, StarterFabric, Chalk] } visits=34 position_visits=34 reward=1.700000000000e1
+  link DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCanvas, StarterFabric, Chalk] } visits=34 position_visits=34 reward=1.700000000000e1
+  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterCanvas, Chalk] } visits=18 position_visits=18 reward=7.000000000000e0
+  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterCanvas, StarterFabric] } visits=13 position_visits=13 reward=4.000000000000e0
+  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterFabric, Chalk] } visits=61 position_visits=61 reward=3.700000000000e1
+  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicRed, BasicBlue, Chalk] } visits=23 position_visits=23 reward=1.000000000000e1
+  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicRed, BasicBlue, StarterCanvas] } visits=29 position_visits=29 reward=1.400000000000e1
+  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicRed, BasicBlue, StarterFabric] } visits=58 position_visits=58 reward=3.400000000000e1
+  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicRed, StarterCanvas, Chalk] } visits=13 position_visits=13 reward=4.000000000000e0
+  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicRed, StarterCanvas, StarterFabric] } visits=45 position_visits=45 reward=2.500000000000e1
+  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicRed, StarterFabric, Chalk] } visits=47 position_visits=47 reward=2.600000000000e1
+  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [StarterCanvas, StarterFabric, Chalk] } visits=25 position_visits=25 reward=1.100000000000e1
+  link EndTurn visits=17 position_visits=17 reward=6.000000000000e0
+  link SpendDucat { purchase: MixColors } visits=25 position_visits=25 reward=1.100000000000e1
+  link SpendDucat { purchase: Sell } visits=23 position_visits=23 reward=1.000000000000e1
+  link SpendDucat { purchase: Workshop } visits=17 position_visits=17 reward=6.000000000000e0
   reuse_subtree -> true
 reuse players=4 seed=11 turn=2 round=1 actor=2 iters=800
-  chose DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicBlue, StarterFabric] } used=757 reused=43 stop=Budget
-  root visits=800 nodes=828 edges=990 depth=9
-  link DestroyAndMix { card: Woad, mixes: [] } visits=39 position_visits=41 reward=1.300000000000e1
-  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue, StarterCanvas, Chalk] } visits=29 position_visits=29 reward=8.000000000000e0
-  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue, StarterCanvas, StarterFabric] } visits=47 position_visits=48 reward=1.700000000000e1
-  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicBlue, StarterFabric, Chalk] } visits=43 position_visits=44 reward=1.500000000000e1
-  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicBlue, Chalk] } visits=22 position_visits=23 reward=5.000000000000e0
-  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicBlue, StarterCanvas] } visits=55 position_visits=56 reward=2.100000000000e1
-  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, BasicBlue, StarterFabric] } visits=102 position_visits=103 reward=4.600000000000e1
-  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, StarterCanvas, Chalk] } visits=43 position_visits=44 reward=1.500000000000e1
-  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, StarterCanvas, StarterFabric] } visits=36 position_visits=38 reward=1.200000000000e1
-  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, StarterFabric, Chalk] } visits=22 position_visits=23 reward=5.000000000000e0
-  link DestroyAndWorkshop { card: Azurite, workshop_cards: [StarterCanvas, StarterFabric, Chalk] } visits=34 position_visits=34 reward=1.000000000000e1
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterCanvas, Chalk] } visits=31 position_visits=32 reward=9.000000000000e0
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterCanvas, StarterFabric] } visits=49 position_visits=50 reward=1.800000000000e1
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicBlue, StarterFabric, Chalk] } visits=15 position_visits=16 reward=2.000000000000e0
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicRed, BasicBlue, Chalk] } visits=12 position_visits=13 reward=1.000000000000e0
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicRed, BasicBlue, StarterCanvas] } visits=25 position_visits=25 reward=6.000000000000e0
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicRed, BasicBlue, StarterFabric] } visits=24 position_visits=25 reward=6.000000000000e0
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicRed, StarterCanvas, Chalk] } visits=27 position_visits=28 reward=8.000000000000e0
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicRed, StarterCanvas, StarterFabric] } visits=39 position_visits=40 reward=1.300000000000e1
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [BasicRed, StarterFabric, Chalk] } visits=44 position_visits=44 reward=1.500000000000e1
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [StarterCanvas, StarterFabric, Chalk] } visits=20 position_visits=21 reward=4.000000000000e0
-  link EndTurn visits=18 position_visits=18 reward=3.000000000000e0
-  link SpendDucat { purchase: Workshop } visits=23 position_visits=23 reward=5.000000000000e0
+  chose DestroyAndMix { card: Woad, mixes: [(Red, Blue), (Red, Purple)] } used=739 reused=61 stop=Budget
+  root visits=800 nodes=831 edges=1048 depth=8
+  link DestroyAndMix { card: Realgar, mixes: [(Red, Blue), (Blue, Purple)] } visits=16 position_visits=16 reward=5.000000000000e0
+  link DestroyAndMix { card: Realgar, mixes: [(Red, Blue), (Red, Blue)] } visits=12 position_visits=12 reward=3.000000000000e0
+  link DestroyAndMix { card: Realgar, mixes: [(Red, Blue), (Red, Purple)] } visits=24 position_visits=24 reward=1.000000000000e1
+  link DestroyAndMix { card: Realgar, mixes: [(Red, Blue), (Yellow, Blue)] } visits=24 position_visits=24 reward=1.000000000000e1
+  link DestroyAndMix { card: Realgar, mixes: [(Red, Blue)] } visits=10 position_visits=11 reward=2.000000000000e0
+  link DestroyAndMix { card: Realgar, mixes: [(Red, Yellow), (Red, Blue)] } visits=30 position_visits=30 reward=1.400000000000e1
+  link DestroyAndMix { card: Realgar, mixes: [(Red, Yellow), (Red, Orange)] } visits=27 position_visits=27 reward=1.200000000000e1
+  link DestroyAndMix { card: Realgar, mixes: [(Red, Yellow), (Yellow, Blue)] } visits=14 position_visits=14 reward=4.000000000000e0
+  link DestroyAndMix { card: Realgar, mixes: [(Red, Yellow), (Yellow, Orange)] } visits=10 position_visits=10 reward=2.000000000000e0
+  link DestroyAndMix { card: Realgar, mixes: [(Red, Yellow)] } visits=25 position_visits=26 reward=1.100000000000e1
+  link DestroyAndMix { card: Realgar, mixes: [(Yellow, Blue), (Blue, Green)] } visits=12 position_visits=12 reward=3.000000000000e0
+  link DestroyAndMix { card: Realgar, mixes: [(Yellow, Blue), (Yellow, Blue)] } visits=14 position_visits=14 reward=4.000000000000e0
+  link DestroyAndMix { card: Realgar, mixes: [(Yellow, Blue), (Yellow, Green)] } visits=44 position_visits=44 reward=2.300000000000e1
+  link DestroyAndMix { card: Realgar, mixes: [(Yellow, Blue)] } visits=13 position_visits=14 reward=4.000000000000e0
+  link DestroyAndMix { card: Realgar, mixes: [] } visits=30 position_visits=31 reward=1.400000000000e1
+  link DestroyAndMix { card: Woad, mixes: [(Red, Blue), (Blue, Purple)] } visits=6 position_visits=6 reward=0.000000000000e0
+  link DestroyAndMix { card: Woad, mixes: [(Red, Blue), (Red, Blue)] } visits=24 position_visits=24 reward=1.000000000000e1
+  link DestroyAndMix { card: Woad, mixes: [(Red, Blue), (Red, Purple)] } visits=66 position_visits=66 reward=3.800000000000e1
+  link DestroyAndMix { card: Woad, mixes: [(Red, Blue), (Yellow, Blue)] } visits=30 position_visits=30 reward=1.400000000000e1
+  link DestroyAndMix { card: Woad, mixes: [(Red, Blue)] } visits=27 position_visits=27 reward=1.200000000000e1
+  link DestroyAndMix { card: Woad, mixes: [(Red, Yellow), (Red, Blue)] } visits=22 position_visits=22 reward=9.000000000000e0
+  link DestroyAndMix { card: Woad, mixes: [(Red, Yellow), (Red, Orange)] } visits=19 position_visits=19 reward=7.000000000000e0
+  link DestroyAndMix { card: Woad, mixes: [(Red, Yellow), (Yellow, Blue)] } visits=8 position_visits=8 reward=1.000000000000e0
+  link DestroyAndMix { card: Woad, mixes: [(Red, Yellow), (Yellow, Orange)] } visits=10 position_visits=10 reward=2.000000000000e0
+  link DestroyAndMix { card: Woad, mixes: [(Red, Yellow)] } visits=31 position_visits=32 reward=1.500000000000e1
+  link DestroyAndMix { card: Woad, mixes: [(Yellow, Blue), (Blue, Green)] } visits=12 position_visits=12 reward=3.000000000000e0
+  link DestroyAndMix { card: Woad, mixes: [(Yellow, Blue), (Yellow, Blue)] } visits=38 position_visits=38 reward=1.900000000000e1
+  link DestroyAndMix { card: Woad, mixes: [(Yellow, Blue), (Yellow, Green)] } visits=12 position_visits=12 reward=3.000000000000e0
+  link DestroyAndMix { card: Woad, mixes: [(Yellow, Blue)] } visits=26 position_visits=27 reward=1.200000000000e1
+  link DestroyAndMix { card: Woad, mixes: [] } visits=34 position_visits=35 reward=1.700000000000e1
+  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, StarterCanvas] } visits=36 position_visits=52 reward=2.600000000000e1
+  link EndTurn visits=48 position_visits=48 reward=2.600000000000e1
+  link SpendDucat { purchase: MixColors } visits=8 position_visits=8 reward=1.000000000000e0
+  link SpendDucat { purchase: Sell } visits=27 position_visits=27 reward=1.200000000000e1
+  link SpendDucat { purchase: Workshop } visits=10 position_visits=10 reward=2.000000000000e0
   reuse_subtree -> true
 reuse players=4 seed=11 turn=3 round=1 actor=2 iters=800
-  chose EndTurn used=697 reused=103 stop=Budget
-  root visits=800 nodes=1010 edges=1086 depth=8
-  link DestroyAndMix { card: Woad, mixes: [(Red, Blue), (Blue, Purple)] } visits=38 position_visits=38 reward=8.000000000000e0
-  link DestroyAndMix { card: Woad, mixes: [(Red, Blue)] } visits=141 position_visits=141 reward=5.100000000000e1
-  link DestroyAndMix { card: Woad, mixes: [(Red, Orange)] } visits=54 position_visits=54 reward=1.400000000000e1
-  link DestroyAndMix { card: Woad, mixes: [] } visits=48 position_visits=50 reward=1.200000000000e1
-  link DestroyAndWorkshop { card: CopperResinate, workshop_cards: [StarterCanvas, Chalk] } visits=200 position_visits=306 reward=1.190000000000e2
-  link EndTurn visits=216 position_visits=216 reward=8.500000000000e1
-  link SpendDucat { purchase: MixColors } visits=49 position_visits=49 reward=1.200000000000e1
-  link SpendDucat { purchase: Workshop } visits=53 position_visits=53 reward=1.500000000000e1
+  chose EndTurn used=734 reused=66 stop=Budget
+  root visits=800 nodes=831 edges=859 depth=8
+  link DestroyAndMix { card: Realgar, mixes: [(Yellow, Blue)] } visits=70 position_visits=83 reward=3.700000000000e1
+  link DestroyAndMix { card: Realgar, mixes: [] } visits=51 position_visits=60 reward=2.400000000000e1
+  link DestroyAndWorkshop { card: Azurite, workshop_cards: [BasicRed, StarterCanvas] } visits=118 position_visits=118 reward=5.900000000000e1
+  link EndTurn visits=451 position_visits=451 reward=2.660000000000e2
+  link SpendDucat { purchase: MixColors } visits=44 position_visits=44 reward=1.700000000000e1
+  link SpendDucat { purchase: Workshop } visits=65 position_visits=65 reward=2.800000000000e1
   clear_tree: player 2 is not next

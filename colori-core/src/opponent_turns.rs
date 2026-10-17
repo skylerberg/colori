@@ -52,7 +52,6 @@ struct TurnTree {
 /// search's rollouts.
 pub(crate) struct TurnPolicy<'a> {
     pub heuristic: bool,
-    pub heuristic_draft: bool,
     pub params: &'a HeuristicParams,
 }
 
@@ -175,14 +174,7 @@ impl OpponentTurns {
             }
 
             if expanding {
-                play_out_action_turn(
-                    state,
-                    player,
-                    policy.heuristic,
-                    policy.heuristic_draft,
-                    policy.params,
-                    rng,
-                );
+                play_out_action_turn(state, player, policy.heuristic, policy.params, rng);
                 return;
             }
             node = child;
@@ -268,7 +260,7 @@ mod tests {
     #[test]
     fn plays_every_opponent_turn_and_leaves_the_searcher_to_act() {
         let params = params();
-        let policy = TurnPolicy { heuristic: true, heuristic_draft: false, params: &params };
+        let policy = TurnPolicy { heuristic: true, params: &params };
         let mut model = OpponentTurns::for_root(&action_phase(17));
         let mut rng = WyRand::seed_from_u64(5);
 
@@ -290,7 +282,7 @@ mod tests {
     #[test]
     fn opponent_turns_do_not_see_the_searchers_moves() {
         let params = params();
-        let policy = TurnPolicy { heuristic: true, heuristic_draft: false, params: &params };
+        let policy = TurnPolicy { heuristic: true, params: &params };
         let base = action_phase(29);
 
         // The searcher has already made a move in one of the two states.
