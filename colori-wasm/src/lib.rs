@@ -11,11 +11,36 @@ use colori_core::unordered_cards::{
     get_card_registry, get_sell_card_registry, set_card_registry, set_sell_card_registry,
 };
 use rand::SeedableRng;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use wyrand::WyRand;
 use wasm_bindgen::prelude::*;
 
-const TRAINED_PARAMS_JSON: &str = include_str!("../../genetic-algorithm/batch-lki08w-gen-32.json");
+/// The advanced AI settings picked on the setup screen; `{}` is the default AI.
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+struct AiSettings {
+    /// Which trained parameters to play with. Any name not in the menu gets
+    /// the default, so a saved game resumes even after its choice is retired.
+    params: String,
+    /// Overrides the trained `heuristic_lookahead`.
+    rollout_lookahead: Option<u32>,
+}
+
+impl AiSettings {
+    fn mcts_config(&self, iterations: u32) -> MctsConfig {
+        let params_json = match self.params.as_str() {
+            "9iii4n-gen-19" => include_str!("../../genetic-algorithm/batch-9iii4n-gen-19.json"),
+            _ => include_str!("../../genetic-algorithm/batch-lki08w-gen-32.json"),
+        };
+        let heuristic_params: HeuristicParams =
+            serde_json::from_str(params_json).expect("Failed to parse trained heuristic params");
+        let mut config = MctsConfig { iterations, ..MctsConfig::new(heuristic_params) };
+        if let Some(rounds) = self.rollout_lookahead {
+            config.heuristic_params.heuristic_lookahead = rounds;
+        }
+        config
+    }
+}
 
 #[wasm_bindgen]
 extern "C" {
@@ -57,8 +82,10 @@ pub fn wasm_run_ismcts(
     game_state_json: &str,
     player_index: u32,
     iterations: u32,
-    _ai_style: &str,
+    ai_settings_json: &str,
 ) -> Result<String, JsError> {
+    let ai_settings: AiSettings = serde_json::from_str(ai_settings_json)
+        .map_err(|e| JsError::new(&format!("invalid AI settings: {e}")))?;
     let game_state = deserialize_state(game_state_json);
     let player_index = player_index as usize;
     if let Some(refusal) = search_refusal(&game_state, player_index) {
@@ -69,9 +96,7 @@ pub fn wasm_run_ismcts(
 
     let mut rng = WyRand::from_rng(&mut rand::rng());
 
-    let heuristic_params: HeuristicParams = serde_json::from_str(TRAINED_PARAMS_JSON)
-        .expect("Failed to parse trained heuristic params");
-    let config = MctsConfig { iterations, ..MctsConfig::new(heuristic_params) };
+    let config = ai_settings.mcts_config(iterations);
     let mut searcher = ColoriSearcher::new(&game_state);
     let result = searcher.search(
         &game_state,
@@ -161,4 +186,33 @@ pub fn wasm_calculate_scores(players_json: &str) -> String {
         .map(|p| score_in_half_points(p) as f64 / 2.0)
         .collect();
     serde_json::to_string(&scores).expect("Failed to serialize scores")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn config(settings_json: &str) -> MctsConfig {
+        serde_json::from_str::<AiSettings>(settings_json)
+            .unwrap()
+            .mcts_config(100)
+    }
+
+    #[test]
+    fn the_default_plays_with_its_trained_lookahead() {
+        for json in ["{}", r#"{"params":"default","rolloutLookahead":null}"#] {
+            assert_eq!(config(json).heuristic_params.heuristic_lookahead, 3);
+        }
+    }
+
+    #[test]
+    fn each_params_choice_loads_its_own_file() {
+        assert_eq!(config(r#"{"params":"9iii4n-gen-19"}"#).heuristic_params.heuristic_lookahead, 1);
+    }
+
+    #[test]
+    fn a_rollout_lookahead_overrides_the_trained_one() {
+        let config = config(r#"{"params":"9iii4n-gen-19","rolloutLookahead":5}"#);
+        assert_eq!(config.heuristic_params.heuristic_lookahead, 5);
+    }
 }

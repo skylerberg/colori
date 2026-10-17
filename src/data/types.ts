@@ -213,6 +213,15 @@ export interface PlayerVariant {
   iterations: number;
   explorationConstant?: number;
   maxRolloutSteps?: number;
+  aiSettings?: AiSettings;
+}
+
+/** The advanced AI settings from the setup screen; `{}` is the default AI. Mirrors `AiSettings` in colori-wasm. */
+export interface AiSettings {
+  /** Which trained parameters to play with. */
+  params?: string;
+  /** Rounds a rollout plays before the heuristic scores it; one that reaches the end of the game gets its real score. Unset keeps the trained lookahead. */
+  rolloutLookahead?: number | null;
 }
 
 export interface StructuredGameLog {
