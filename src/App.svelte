@@ -9,6 +9,8 @@
   import OnlineGameScreen from './components/OnlineGameScreen.svelte';
   import ZoneEditor from './components/ZoneEditor.svelte';
   import CardPreview from './components/CardPreview.svelte';
+  import ErrorReport from './components/ErrorReport.svelte';
+  import { reportError, reportUncaughtErrors, shownError } from './stores/errorReport.svelte';
   import { saveGame, loadGame, clearSavedGame } from './persistence';
   import { NetworkManager } from './network/networkManager';
   import { HostController } from './network/hostController';
@@ -19,7 +21,11 @@
   import { resetTutorial } from './tutorial/tutorial';
 
   let engineReady = $state(false);
-  initEngine().then(() => { engineReady = true; });
+  initEngine()
+    .then(() => { engineReady = true; })
+    .catch((e) => reportError('The game engine failed to load', e));
+
+  $effect(() => reportUncaughtErrors());
 
   type AppScreen =
     | { type: 'mainMenu' }
@@ -448,6 +454,16 @@
 
 <CardPreview />
 
+{#if shownError.report}
+  <div class="error-overlay">
+    <ErrorReport report={shownError.report}>
+      {#snippet actions()}
+        <button class="dismiss-btn" onclick={() => shownError.dismiss()}>Dismiss</button>
+      {/snippet}
+    </ErrorReport>
+  </div>
+{/if}
+
 <style>
   main {
     text-align: center;
@@ -470,5 +486,27 @@
     color: var(--text-secondary);
     margin-bottom: 0.5rem;
     letter-spacing: 1px;
+  }
+  .error-overlay {
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    max-width: 640px;
+    max-height: 70vh;
+    margin: 0 auto;
+    overflow-y: auto;
+    text-align: left;
+    z-index: 10002;
+  }
+  .dismiss-btn {
+    padding: 8px 16px;
+    font-size: 0.8rem;
+    background: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    min-height: 44px;
   }
 </style>

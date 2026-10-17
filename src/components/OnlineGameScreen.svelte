@@ -7,6 +7,7 @@
   import { AIController } from '../ai/aiController';
   import { AIActionTurns } from '../ai/actionTurns';
   import { actingPlayers, isTakingActionTurn } from '../gameUtils';
+  import { reportError } from '../stores/errorReport.svelte';
   import { untrack } from 'svelte';
   import GameLayout from './GameLayout.svelte';
   import BuyersPhaseView from './BuyersPhaseView.svelte';
@@ -300,7 +301,7 @@
           aiThinking = false;
         }
       }).catch((e) => {
-        console.error('AI draft error:', e);
+        reportError('An AI draft pick failed', e, gameState);
         aiThinking = false;
       });
       return;
@@ -328,7 +329,7 @@
       if (curState.phase.buyersState.currentPlayerIndex !== playerIdx) return;
       hostController.applyAction(choice, playerIdx);
     }).catch((e) => {
-      console.error('AI buyers error:', e);
+      reportError('An AI buyer claim failed', e, gameState);
       aiThinking = false;
     });
   });
@@ -349,7 +350,7 @@
         return hostController!.applyAction(choice, seat);
       },
       () => { thinkingInActionPhase = aiActionTurns.thinking; },
-      e => console.error('AI action error:', e),
+      e => reportError('An AI turn failed', e, gameState),
     );
   }
 

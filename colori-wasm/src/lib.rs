@@ -45,23 +45,8 @@ impl AiSettings {
     }
 }
 
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = console)]
-    fn error(msg: &str);
-}
-
-/// Report panics to the browser console when the module is initialized.
-///
-/// Without a hook a panic is only the wasm `unreachable` trap, which reaches
-/// JS as `RuntimeError: unreachable` with no message or location — undebuggable
-/// from the browser side.
-#[wasm_bindgen(start)]
-pub fn install_panic_hook() {
-    std::panic::set_hook(Box::new(|info| {
-        error(&format!("colori wasm panicked: {info}"));
-    }));
-}
+#[cfg(target_arch = "wasm32")]
+mod failure;
 
 fn deserialize_state(json: &str) -> GameState {
     let mut state: GameState =
