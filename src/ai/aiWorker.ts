@@ -1,11 +1,11 @@
 import init, { wasm_run_ismcts } from '../wasm-pkg/colori_wasm.js';
-import type { GameState } from '../data/types';
+import type { AiSettings, GameState } from '../data/types';
 
 export interface AIWorkerRequest {
   gameState: GameState;
   playerIndex: number;
   iterations: number;
-  aiStyle?: string;
+  aiSettings: AiSettings;
 }
 
 export interface AIWorkerSuccess {
@@ -32,10 +32,10 @@ function ensureInit(): Promise<unknown> {
 self.onmessage = async (event: MessageEvent<AIWorkerRequest>) => {
   try {
     await ensureInit();
-    const { gameState, playerIndex, iterations, aiStyle } = event.data;
+    const { gameState, playerIndex, iterations, aiSettings } = event.data;
     const gameStateJson = JSON.stringify(gameState);
 
-    const resultJson = wasm_run_ismcts(gameStateJson, playerIndex, iterations, aiStyle ?? 'ga');
+    const resultJson = wasm_run_ismcts(gameStateJson, playerIndex, iterations, JSON.stringify(aiSettings));
 
     const choice = JSON.parse(resultJson);
     self.postMessage({ type: 'success', choice } satisfies AIWorkerSuccess);

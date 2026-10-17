@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { GameState, StructuredGameLog } from './data/types';
+  import type { AiSettings, GameState, StructuredGameLog } from './data/types';
   import type { LobbyPlayer, SanitizedGameState } from './network/types';
   import SetupScreen from './components/SetupScreen.svelte';
   import GameScreen from './components/GameScreen.svelte';
@@ -36,7 +36,7 @@
   let gameStartTime: number | null = $state(saved?.gameStartTime ?? null);
   let savedGameLog: string[] = $state(saved?.gameLog ?? []);
   let aiIterations: number[] | null = $state(saved?.aiIterations ?? null);
-  let aiStyle: string | null = $state(saved?.aiStyle ?? null);
+  let aiSettings: AiSettings | null = $state(saved?.aiSettings ?? null);
   let hasSavedGame = $state(saved !== null && saved.gameState.phase.type !== 'gameOver');
 
   // Structured logging state
@@ -139,15 +139,15 @@
 
   // -- Local game handlers --
 
-  function handleGameStarted(state: GameState, iterations: number[], style: string) {
+  function handleGameStarted(state: GameState, iterations: number[], settings: AiSettings) {
     gameState = state;
     aiIterations = iterations;
-    aiStyle = style;
+    aiSettings = settings;
     gameStartTime = Date.now();
     savedGameLog = [];
-    gameLogAccumulator = new GameLogAccumulator(state, iterations, style);
+    gameLogAccumulator = new GameLogAccumulator(state, iterations, settings);
     finalGameLog = null;
-    saveGame(state, gameStartTime!, [], iterations, gameLogAccumulator!.getLog(), style);
+    saveGame(state, gameStartTime!, [], iterations, gameLogAccumulator!.getLog(), settings);
     replaceScreen({ type: 'localGame' });
   }
 
@@ -162,7 +162,7 @@
       }
       replaceScreen({ type: 'score' });
     } else {
-      saveGame(state, gameStartTime!, log, aiIterations ?? undefined, gameLogAccumulator?.getLog(), aiStyle ?? undefined);
+      saveGame(state, gameStartTime!, log, aiIterations ?? undefined, gameLogAccumulator?.getLog(), aiSettings ?? undefined);
     }
   }
 
@@ -171,7 +171,7 @@
     gameStartTime = null;
     savedGameLog = [];
     aiIterations = null;
-    aiStyle = null;
+    aiSettings = null;
     gameLogAccumulator = null;
     finalGameLog = null;
     clearSavedGame();
@@ -185,7 +185,7 @@
     gameStartTime = null;
     savedGameLog = [];
     aiIterations = null;
-    aiStyle = null;
+    aiSettings = null;
     gameLogAccumulator = null;
     finalGameLog = null;
     hasSavedGame = false;
@@ -428,7 +428,7 @@
       onBack={goToMainMenu}
     />
   {:else if screen.type === 'localGame' && gameState !== null}
-    <GameScreen {gameState} {gameStartTime} onGameUpdated={handleGameUpdated} initialGameLog={savedGameLog} onLeaveGame={handleLeaveGame} {gameLogAccumulator} aiIterations={aiIterations ?? gameState.aiPlayers.map(() => 100000)} aiStyle={aiStyle ?? 'ga'} />
+    <GameScreen {gameState} {gameStartTime} onGameUpdated={handleGameUpdated} initialGameLog={savedGameLog} onLeaveGame={handleLeaveGame} {gameLogAccumulator} aiIterations={aiIterations ?? gameState.aiPlayers.map(() => 100000)} aiSettings={aiSettings ?? {}} />
   {:else if screen.type === 'onlineGame' && gameState !== null}
     <OnlineGameScreen
       role={screen.role}

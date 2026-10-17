@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { GameState } from '../data/types';
+  import type { AiSettings, GameState } from '../data/types';
   import { createInitialGameState } from '../engine/wasmEngine';
 
   const DIFFICULTY_LEVELS: { label: string; iterations: number }[] = [
@@ -10,13 +10,16 @@
   ];
 
   let { onGameStarted }: {
-    onGameStarted: (state: GameState, aiIterations: number[], aiStyle: string) => void;
+    onGameStarted: (state: GameState, aiIterations: number[], aiSettings: AiSettings) => void;
   } = $props();
 
   let playerCount = $state(2);
   let playerNames: string[] = $state(['Player 1', 'AI Player 2', 'AI Player 3', 'AI Player 4', 'AI Player 5']);
   let isAI: boolean[] = $state([false, true, true, true, true]);
   let aiIterations: number[] = $state([100000, 100000, 100000, 100000, 100000]);
+  let aiParams = $state('default');
+  let rolloutLookahead: AiSettings['rolloutLookahead'] = $state(null);
+  let advancedOpen = $state(false);
 
   function updatePlayerCount(count: number) {
     playerCount = count;
@@ -48,7 +51,7 @@
     const names = playerNames.slice(0, playerCount).map((n, i) => n.trim() || `Player ${i + 1}`);
     const aiPlayers = isAI.slice(0, playerCount);
     const state = createInitialGameState(names, aiPlayers);
-    onGameStarted(state, aiIterations.slice(0, playerCount), 'ga');
+    onGameStarted(state, aiIterations.slice(0, playerCount), { params: aiParams, rolloutLookahead });
   }
 </script>
 
@@ -102,6 +105,33 @@
         {/if}
       </div>
     {/each}
+  </div>
+
+  <div class="advanced-section">
+    <button class="advanced-header" aria-expanded={advancedOpen} onclick={() => advancedOpen = !advancedOpen}>
+      <span>Advanced</span>
+      <span class="chevron" class:open={advancedOpen}></span>
+    </button>
+
+    {#if advancedOpen}
+      <div class="advanced-content">
+        <label for="ai-params">AI Parameters:</label>
+        <select id="ai-params" bind:value={aiParams}>
+          <option value="default">lki08w gen 32 (default)</option>
+          <option value="9iii4n-gen-19">9iii4n gen 19</option>
+        </select>
+
+        <label for="rollout-lookahead">Rollout Lookahead:</label>
+        <select id="rollout-lookahead" bind:value={rolloutLookahead}>
+          <option value={null}>As trained</option>
+          {#each [0, 1, 2, 3, 4, 5] as rounds}
+            <option value={rounds}>{rounds} {rounds === 1 ? 'round' : 'rounds'}</option>
+          {/each}
+          <!-- Six rounds past round 1 is the end of the game. -->
+          <option value={6}>End of game</option>
+        </select>
+      </div>
+    {/if}
   </div>
 
   <button class="start-btn" onclick={startGame}>Start Game</button>
@@ -219,6 +249,71 @@
     cursor: pointer;
     min-height: 44px;
     width: auto;
+  }
+
+  .advanced-section {
+    border: 2px solid var(--border-gold, rgba(201, 168, 76, 0.3));
+    border-radius: 8px;
+    background: var(--bg-panel, #ebe3d3);
+    overflow: hidden;
+  }
+
+  .advanced-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 12px 16px;
+    background: none;
+    border: none;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    min-height: 44px;
+    color: inherit;
+  }
+
+  .advanced-header:hover {
+    background: rgba(201, 168, 76, 0.1);
+  }
+
+  .chevron {
+    display: inline-block;
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid currentColor;
+    transition: transform 0.2s;
+  }
+
+  .chevron.open {
+    transform: rotate(180deg);
+  }
+
+  .advanced-content {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 10px;
+    padding: 0 16px 12px;
+  }
+
+  .advanced-content label {
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-align: left;
+  }
+
+  .advanced-content select {
+    min-width: 0;
+    padding: 8px 8px;
+    font-size: 0.8rem;
+    border: 2px solid var(--border-gold, rgba(201, 168, 76, 0.3));
+    border-radius: 6px;
+    background: #fff;
+    cursor: pointer;
+    min-height: 44px;
   }
 
   .start-btn {

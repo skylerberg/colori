@@ -1,4 +1,4 @@
-import type { Ability, GameState, PlayerTurn, StructuredGameLog } from './data/types';
+import type { Ability, AiSettings, GameState, PlayerTurn, StructuredGameLog } from './data/types';
 
 const STORAGE_KEY = 'colori-saved-game';
 
@@ -8,12 +8,12 @@ export interface SavedGame {
   gameLog: string[];
   aiIterations?: number[];
   structuredLog?: StructuredGameLog;
-  aiStyle?: string;
+  aiSettings?: AiSettings;
 }
 
-export function saveGame(gameState: GameState, gameStartTime: number, gameLog: string[], aiIterations?: number[], structuredLog?: StructuredGameLog, aiStyle?: string): void {
+export function saveGame(gameState: GameState, gameStartTime: number, gameLog: string[], aiIterations?: number[], structuredLog?: StructuredGameLog, aiSettings?: AiSettings): void {
   try {
-    const data: SavedGame = { gameState, gameStartTime, gameLog, aiIterations, structuredLog, aiStyle };
+    const data: SavedGame = { gameState, gameStartTime, gameLog, aiIterations, structuredLog, aiSettings };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch {
     // localStorage full or unavailable — silently ignore

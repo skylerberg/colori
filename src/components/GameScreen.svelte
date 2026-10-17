@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { GameState, Choice, Card, Ability, DrawEvent, StructuredLogEntry } from '../data/types';
+  import type { AiSettings, GameState, Choice, Card, Ability, DrawEvent, StructuredLogEntry } from '../data/types';
   import { executeDrawPhase, applyChoice, simultaneousPick, advanceDraft, getChoiceLogMessage, cloneGameState } from '../engine/wasmEngine';
   import { getCardData } from '../data/cards';
   import { AIController, type DraftPicker } from '../ai/aiController';
@@ -13,7 +13,7 @@
   import { startTutorial, cancelTutorial } from '../tutorial/tutorial';
   import { untrack } from 'svelte';
 
-  let { gameState, gameStartTime, onGameUpdated, initialGameLog, onLeaveGame, gameLogAccumulator, aiIterations, aiStyle }: {
+  let { gameState, gameStartTime, onGameUpdated, initialGameLog, onLeaveGame, gameLogAccumulator, aiIterations, aiSettings }: {
     gameState: GameState;
     gameStartTime: number | null;
     onGameUpdated: (state: GameState, log: string[]) => void;
@@ -21,7 +21,7 @@
     onLeaveGame: () => void;
     gameLogAccumulator: GameLogAccumulator | null;
     aiIterations: number[];
-    aiStyle: string;
+    aiSettings: AiSettings;
   } = $props();
 
   let elapsedSeconds = $state(0);
@@ -66,7 +66,7 @@
 
   const aiController = new AIController();
   // svelte-ignore state_referenced_locally
-  aiController.aiStyle = aiStyle;
+  aiController.aiSettings = aiSettings;
   const aiActionTurns = new AIActionTurns(aiController);
   let thinkingInActionPhase: number[] = $state([]);
 

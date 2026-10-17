@@ -1,11 +1,11 @@
-import type { GameState, Choice, DrawEvent, StructuredGameLog, StructuredLogEntry } from './data/types';
+import type { AiSettings, GameState, Choice, DrawEvent, StructuredGameLog, StructuredLogEntry } from './data/types';
 import { calculateScores } from './engine/wasmEngine';
 
 export class GameLogAccumulator {
   private log: StructuredGameLog;
   private seq = 0;
 
-  constructor(initialState: GameState, aiIterations?: number[], aiStyle?: string) {
+  constructor(initialState: GameState, aiIterations?: number[], aiSettings?: AiSettings) {
     this.log = {
       version: 1,
       gameStartedAt: new Date().toISOString(),
@@ -18,7 +18,7 @@ export class GameLogAccumulator {
       entries: [],
     };
     if (aiIterations) {
-      this.log.playerVariants = aiIterations.map(iterations => ({ iterations, aiStyle }));
+      this.log.playerVariants = aiIterations.map(iterations => ({ iterations, aiSettings }));
     }
   }
 
