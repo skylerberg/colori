@@ -312,7 +312,6 @@ impl Game for GameState {
         if matches!(self.phase, GamePhase::Action { .. }) {
             let policy = TurnPolicy {
                 heuristic: ctx.heuristic_rollout,
-                heuristic_draft: ctx.heuristic_draft,
                 params: &ctx.heuristic_params,
             };
             side.turns.play(

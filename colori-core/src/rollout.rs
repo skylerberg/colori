@@ -245,7 +245,7 @@ fn legal_ducat_purchases(player: &PlayerState) -> ([DucatPurchase; 3], usize) {
 }
 
 #[inline(always)]
-fn handle_action_no_pending(state: &mut GameState, player_index: usize, heuristic_draft: bool, params: &HeuristicParams, rng: &mut impl Rng) {
+fn handle_action_no_pending(state: &mut GameState, player_index: usize, rng: &mut impl Rng) {
     // Spending a ducat is one of the things a turn can do, so a rollout that
     // never did it would leave the search blind to what ducats are worth.
     let (purchases, purchase_count) = legal_ducat_purchases(&state.players[player_index]);
@@ -265,7 +265,7 @@ fn handle_action_no_pending(state: &mut GameState, player_index: usize, heuristi
         // was the last player still acting
         end_player_turn(state, player_index);
         if matches!(state.phase, GamePhase::Draw) {
-            rollout_draw_and_draft(state, heuristic_draft.then_some(params), rng);
+            rollout_draw_and_draft(state, None, rng);
         }
         return;
     }
@@ -349,23 +349,17 @@ pub fn apply_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, 
             let player_index = action_state
                 .first_unended()
                 .expect("The round ends as the last turn does");
-            random_action_step(state, player_index, heuristic_draft, params, rng);
+            random_action_step(state, player_index, rng);
         }
         _ => panic!("Cannot apply rollout step for current state"),
     }
 }
 
 /// One step of `player_index`'s action turn, chosen at random.
-fn random_action_step<R: Rng>(
-    state: &mut GameState,
-    player_index: usize,
-    heuristic_draft: bool,
-    params: &HeuristicParams,
-    rng: &mut R,
-) {
+fn random_action_step<R: Rng>(state: &mut GameState, player_index: usize, rng: &mut R) {
     match ability_stack(state, player_index).last() {
         None => {
-            handle_action_no_pending(state, player_index, heuristic_draft, params, rng);
+            handle_action_no_pending(state, player_index, rng);
         }
         Some(Ability::Workshop { count }) => {
             let count = *count;
@@ -417,15 +411,14 @@ pub(crate) fn play_out_action_turn<R: Rng>(
     state: &mut GameState,
     player_index: usize,
     heuristic: bool,
-    heuristic_draft: bool,
     params: &HeuristicParams,
     rng: &mut R,
 ) {
     while matches!(&state.phase, GamePhase::Action { action_state } if !action_state.turns[player_index].ended) {
         if heuristic {
-            heuristic_action_step(state, player_index, heuristic_draft, params, rng);
+            heuristic_action_step(state, player_index, params, rng);
         } else {
-            random_action_step(state, player_index, heuristic_draft, params, rng);
+            random_action_step(state, player_index, rng);
         }
     }
 }
@@ -964,19 +957,19 @@ fn two_step_heuristic_mix_seq<R: Rng>(
 }
 
 #[inline(always)]
-fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize, heuristic_draft: bool, cache: &SellCardCache, params: &HeuristicParams, rng: &mut impl Rng) {
+fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize, cache: &SellCardCache, params: &HeuristicParams, rng: &mut impl Rng) {
     let drafted = state.players[player_index].drafted_cards;
     if drafted.is_empty() {
         end_player_turn(state, player_index);
         if matches!(state.phase, GamePhase::Draw) {
-            rollout_draw_and_draft(state, heuristic_draft.then_some(params), rng);
+            rollout_draw_and_draft(state, Some(params), rng);
         }
         return;
     }
 
     // Epsilon: random fallback
     if rng.random_bool(params.rollout_epsilon) {
-        handle_action_no_pending(state, player_index, heuristic_draft, params, rng);
+        handle_action_no_pending(state, player_index, rng);
         return;
     }
 
@@ -1015,7 +1008,7 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     if best_priority <= params.rollout_end_turn_threshold && rng.random_bool(end_turn_prob) {
         end_player_turn(state, player_index);
         if matches!(state.phase, GamePhase::Draw) {
-            rollout_draw_and_draft(state, None, rng);
+            rollout_draw_and_draft(state, Some(params), rng);
         }
         return;
     }
@@ -1080,24 +1073,18 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
             let player_index = action_state
                 .first_unended()
                 .expect("The round ends as the last turn does");
-            heuristic_action_step(state, player_index, heuristic_draft, params, rng);
+            heuristic_action_step(state, player_index, params, rng);
         }
         _ => panic!("Cannot apply heuristic rollout step for current state"),
     }
 }
 
 /// One step of `player_index`'s action turn, chosen by the heuristic policy.
-fn heuristic_action_step<R: Rng>(
-    state: &mut GameState,
-    player_index: usize,
-    heuristic_draft: bool,
-    params: &HeuristicParams,
-    rng: &mut R,
-) {
+fn heuristic_action_step<R: Rng>(state: &mut GameState, player_index: usize, params: &HeuristicParams, rng: &mut R) {
     let cache = SellCardCache::new(&state.players[player_index]);
     match ability_stack(state, player_index).last() {
         None => {
-            handle_action_no_pending_heuristic(state, player_index, heuristic_draft, &cache, params, rng);
+            handle_action_no_pending_heuristic(state, player_index, &cache, params, rng);
         }
         Some(Ability::Workshop { count }) => {
             let count = *count;
@@ -1212,5 +1199,94 @@ fn heuristic_action_step<R: Rng>(
             resolve_gain_color(state, player_index, color);
         }
         Some(_) => panic!("Unexpected ability on stack top during rollout"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::colori_game::apply_choice_to_state;
+    use crate::draw_phase::execute_draw_phase;
+    use crate::fixed_vec::FixedVec;
+    use crate::setup::create_initial_game_state;
+    use rand::SeedableRng;
+    use wyrand::WyRand;
+
+    fn greedy_params() -> HeuristicParams {
+        const PARAMS_JSON: &str = include_str!("../../genetic-algorithm/batch-lki08w-gen-32.json");
+        let mut params: HeuristicParams = serde_json::from_str(PARAMS_JSON).expect("frozen heuristic params should parse");
+        params.rollout_epsilon = 0.0;
+        params
+    }
+
+    /// Round 1 of a two-player game, reached by random play, with seat 1's
+    /// turn over so that the round ends with seat 0's.
+    fn seat_zero_ends_round_one(seed: u64) -> GameState {
+        let mut rng = WyRand::seed_from_u64(seed);
+        let mut state = create_initial_game_state(2, &[true, true], &mut rng);
+        execute_draw_phase(&mut state, &mut rng);
+        while !matches!(state.phase, GamePhase::Action { .. }) {
+            let player = match &state.phase {
+                GamePhase::Buyers { buyers_state } => buyers_state.current_player_index,
+                GamePhase::Draft { draft_state } => draft_state.current_player_index,
+                _ => unreachable!("round 1 reaches its action phase"),
+            };
+            let choices = crate::choices::enumerate_choices(&state, player);
+            let choice = choices[rng.random_range(0..choices.len())].clone();
+            apply_choice_to_state(&mut state, player, &choice, &mut rng);
+        }
+        end_player_turn(&mut state, 1);
+        state
+    }
+
+    /// Ends the round with one heuristic step and checks the first claim of
+    /// round 2. Seat 1 makes it, from the display as round 1 left it, and a
+    /// greedy heuristic claim is the best-aligned face-up card.
+    fn assert_round_two_opens_with_heuristic_claim(mut state: GameState, params: &HeuristicParams) {
+        let seat_one = &state.players[1];
+        let mut expected = None;
+        let mut best = f64::NEG_INFINITY;
+        for instance in state.sell_card_display.iter() {
+            let score = buyer_alignment(seat_one, instance.sell_card, params);
+            if score > best {
+                best = score;
+                expected = Some(instance.instance_id);
+            }
+        }
+        let expected = expected.expect("round 1 leaves the display stocked");
+
+        apply_heuristic_rollout_step(&mut state, false, params, &mut WyRand::seed_from_u64(0));
+
+        assert_eq!(state.round, 2, "seat 0's step should have ended the round");
+        assert!(
+            state.players[1].buyers.iter().any(|b| b.instance_id == expected),
+            "seat 1 should have claimed the best-aligned face-up card"
+        );
+    }
+
+    #[test]
+    fn heuristic_rollouts_claim_by_alignment_after_a_turn_runs_out_of_cards() {
+        let params = greedy_params();
+        for seed in 0..20 {
+            let mut state = seat_zero_ends_round_one(seed);
+            state.players[0].drafted_cards = UnorderedCards::new();
+            assert_round_two_opens_with_heuristic_claim(state, &params);
+        }
+    }
+
+    #[test]
+    fn heuristic_rollouts_claim_by_alignment_after_a_turn_ends_early() {
+        let mut params = greedy_params();
+        // Every drafted card falls under the threshold, and a round-1 turn
+        // under it always ends.
+        params.rollout_end_turn_threshold = u32::MAX;
+        params.rollout_end_turn_probability_early = 1.0;
+        for seed in 0..20 {
+            let mut state = seat_zero_ends_round_one(seed);
+            // With no buyers there is no sale to buy, which is tried first.
+            state.players[0].buyers = FixedVec::new();
+            assert!(!state.players[0].drafted_cards.is_empty());
+            assert_round_two_opens_with_heuristic_claim(state, &params);
+        }
     }
 }
