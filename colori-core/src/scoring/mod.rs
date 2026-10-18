@@ -39,23 +39,23 @@ impl CardHeuristicTable {
     }
 }
 
-/// Ducats from completed sell cards and gold: the whole-point part of a score,
-/// and what `PlayerState::cached_ducat_score` caches.
-pub fn calculate_ducat_score(player: &PlayerState) -> u32 {
-    let sell_card_ducats: u32 = player.completed_sell_cards.iter().map(|bi| bi.sell_card.ducats()).sum();
-    sell_card_ducats + player.ducats
+/// Points from completed sell cards plus ducats: the whole-point part of a score,
+/// and what `PlayerState::cached_whole_points` caches.
+pub fn calculate_whole_points(player: &PlayerState) -> u32 {
+    let sell_card_points: u32 = player.completed_sell_cards.iter().map(|bi| bi.sell_card.points()).sum();
+    sell_card_points + player.ducats
 }
 
 /// A player's score, counted in half points so it stays whole: every ducat is
 /// two, and each unspent wild primary or boat is one.
 pub fn score_in_half_points(player: &PlayerState) -> u32 {
-    2 * calculate_ducat_score(player) + player.wild_primaries + player.boats
+    2 * calculate_whole_points(player) + player.wild_primaries + player.boats
 }
 
 /// `score_in_half_points` off the cache, for the search's hot paths.
 #[inline]
 fn cached_half_points(player: &PlayerState) -> u32 {
-    2 * player.cached_ducat_score + player.wild_primaries + player.boats
+    2 * player.cached_whole_points + player.wild_primaries + player.boats
 }
 
 /// "12" or "12.5".
@@ -84,7 +84,7 @@ fn solo_reward(player: &PlayerState) -> f64 {
     win_bonus + score / 100.0
 }
 
-/// Compute terminal rewards using tiebreakers. Uses cached_ducat_score for consistency with ISMCTS.
+/// Compute terminal rewards using tiebreakers. Uses cached_whole_points for consistency with ISMCTS.
 /// Each true-tied winner gets 1.0 / num_winners, losers get 0.0.
 pub fn compute_terminal_rewards(players: &FixedVec<PlayerState, MAX_PLAYERS>) -> [f64; MAX_PLAYERS] {
     if players.len() == 1 {
@@ -150,18 +150,18 @@ fn card_quality(card: Card, params: &HeuristicParams) -> f64 {
 /// Shared by the evaluation function and by the rollout's buyers-phase policy,
 /// so the cards a rollout claims are the ones the evaluation would reward.
 pub fn buyer_alignment(player: &PlayerState, sell_card: SellCard, params: &HeuristicParams) -> f64 {
-    let ducats = sell_card.ducats() as f64;
+    let points = sell_card.points() as f64;
     let mut alignment = 0.0;
 
     if boats_to_sell(player, sell_card) <= player.boats {
-        alignment += params.sell_card_material_alignment * ducats;
+        alignment += params.sell_card_material_alignment * points;
     }
 
     let cost = sell_card.color_cost();
     let cost_len = cost.len() as f64;
     for &color in cost {
         if player.color_wheel.get(color) > 0 || (is_primary(color) && player.wild_primaries > 0) {
-            alignment += (params.sell_card_color_alignment / cost_len) * ducats;
+            alignment += (params.sell_card_color_alignment / cost_len) * points;
         }
     }
 
@@ -292,9 +292,9 @@ mod tests {
             ducats,
             wild_primaries: 0,
             boats: 0,
-            cached_ducat_score: 0,
+            cached_whole_points: 0,
         };
-        p.cached_ducat_score = calculate_ducat_score(&p);
+        p.cached_whole_points = calculate_whole_points(&p);
         p
     }
 
@@ -312,12 +312,12 @@ mod tests {
 
     #[test]
     fn test_tie_broken_by_sell_cards() {
-        // p1: 2 3-ducat sell cards = 6 ducats, 2 sell cards
-        // p2: 1 3-ducat sell card + 3 ducats = 6 ducats, 1 sell card
+        // p1: 2 3-point sell cards = 6 points, 2 sell cards
+        // p2: 1 3-point sell card + 3 ducats = 6 points, 1 sell card
         let p1 = make_player(0, &[SellCard::PotterVermilion, SellCard::PotterAmber], [0; 12]);
         let p2 = make_player(3, &[SellCard::PotterVermilion], [0; 12]);
-        assert_eq!(p1.cached_ducat_score, 6);
-        assert_eq!(p2.cached_ducat_score, 6);
+        assert_eq!(p1.cached_whole_points, 6);
+        assert_eq!(p2.cached_whole_points, 6);
         let mut players = FixedVec::new();
         players.push(p1);
         players.push(p2);

@@ -7,7 +7,7 @@ import type { Color, DucatPurchase } from '../data/types';
 export interface TableInteraction {
   // Whose player board the board handlers act on, or -1.
   seat: number;
-  destroyDrafted: ((instanceId: number) => void) | null;
+  trashDrafted: ((instanceId: number) => void) | null;
   workshop: {
     selectable: number[];
     selected: number[];
@@ -23,8 +23,8 @@ export interface TableInteraction {
     wildPrimaries: number;
     pickable: Color[];
     selected: Color[];
-    // What picking each pickable color would make, when that is a mix.
-    mixesInto: Partial<Record<Color, Color>>;
+    // The colors picking each pickable color uses up, when that is a mix.
+    spends: Partial<Record<Color, Color[]>>;
     onClick: (color: Color) => void;
   } | null;
   ducats: {
@@ -40,7 +40,7 @@ export interface TableInteraction {
 const KEY = Symbol('tableInteraction');
 
 export function emptyTableInteraction(): TableInteraction {
-  return { seat: -1, destroyDrafted: null, workshop: null, buyers: null, wheel: null, ducats: null, market: null };
+  return { seat: -1, trashDrafted: null, workshop: null, buyers: null, wheel: null, ducats: null, market: null };
 }
 
 export function provideTableInteraction(interaction: TableInteraction): void {

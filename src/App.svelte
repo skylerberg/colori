@@ -16,6 +16,7 @@
   import { GuestController } from './network/guestController';
   import { sanitizedToGameState } from './network/stateAdapter';
   import { GameLogAccumulator } from './gameLog';
+  import type { LogEntry } from './logEntries';
   import { initEngine } from './engine/wasmEngine';
   import { resetTutorial } from './tutorial/tutorial';
 
@@ -38,7 +39,7 @@
   let screen: AppScreen = $state({ type: 'mainMenu' });
   let gameState: GameState | null = $state(saved?.gameState ?? null);
   let gameStartTime: number | null = $state(saved?.gameStartTime ?? null);
-  let savedGameLog: string[] = $state(saved?.gameLog ?? []);
+  let savedGameLog: LogEntry[] = $state(saved?.gameLog ?? []);
   let aiIterations: number[] | null = $state(saved?.aiIterations ?? null);
   let aiSettings: AiSettings | null = $state(saved?.aiSettings ?? null);
   let hasSavedGame = $state(saved !== null && saved.gameState.phase.type !== 'gameOver');
@@ -155,7 +156,7 @@
     replaceScreen({ type: 'localGame' });
   }
 
-  function handleGameUpdated(state: GameState, log: string[]) {
+  function handleGameUpdated(state: GameState, log: LogEntry[]) {
     gameState = state;
     if (state.phase.type === 'gameOver') {
       clearSavedGame();

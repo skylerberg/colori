@@ -4,7 +4,11 @@
   import { CARD_BACK_URL, getCardArtUrl, getSellCardArtUrl } from '../data/cardArt';
   import { cardPreviewState } from '../stores/cardPreviewState.svelte';
 
-  const HOVER_DELAY_MS = 250;
+  // The full card appears only once the pointer has rested on it a while.
+  // Sell cards are small, so theirs comes sooner.
+  const SELL_CARD_HOVER_MS = 700;
+  const CARD_HOVER_MS = 1000;
+  const LONG_PRESS_MS = 450;
 
   let { card, instanceId, selected = false, faceDown = false, hint, onclick }: {
     card: string;
@@ -38,14 +42,15 @@
   let hoverTimer: ReturnType<typeof setTimeout> | null = null;
 
   function onPointerDown(e: PointerEvent) {
-    if (e.pointerType === 'mouse' || faceDown) return;
+    if (faceDown || (e.pointerType === 'mouse' && e.button !== 0)) return;
     didLongPress = false;
     pressTimer = setTimeout(() => {
       didLongPress = true;
+      endHover();
       if (artUrl && cardLabel) {
         cardPreviewState.open(card, artUrl, cardLabel);
       }
-    }, 400);
+    }, LONG_PRESS_MS);
   }
 
   function clearPress() {
@@ -59,7 +64,7 @@
     if (e.pointerType !== 'mouse' || faceDown) return;
     hoverTimer = setTimeout(() => {
       if (element) cardPreviewState.showHover(artUrl, cardLabel, element.getBoundingClientRect());
-    }, HOVER_DELAY_MS);
+    }, data?.kind === 'sellCard' ? SELL_CARD_HOVER_MS : CARD_HOVER_MS);
   }
 
   function endHover() {

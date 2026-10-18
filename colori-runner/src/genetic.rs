@@ -57,8 +57,8 @@ enum Gene {
     RolloutWorkshopBase = 35,
     RolloutWorkshopCountWeight = 36,
     RolloutWorkshopEmpty = 37,
-    RolloutDestroyWithTargets = 38,
-    RolloutDestroyNoTargets = 39,
+    RolloutTrashWithTargets = 38,
+    RolloutTrashNoTargets = 39,
     RolloutEndTurnThreshold = 40,
     RolloutEndTurnProbabilityEarly = 41,
     RolloutEndTurnProbabilityLate = 42,
@@ -120,8 +120,8 @@ impl GeneTarget for HeuristicParams {
         v[RolloutWorkshopBase as usize] = self.rollout_workshop_base as f64;
         v[RolloutWorkshopCountWeight as usize] = self.rollout_workshop_count_weight as f64;
         v[RolloutWorkshopEmpty as usize] = self.rollout_workshop_empty as f64;
-        v[RolloutDestroyWithTargets as usize] = self.rollout_destroy_with_targets as f64;
-        v[RolloutDestroyNoTargets as usize] = self.rollout_destroy_no_targets as f64;
+        v[RolloutTrashWithTargets as usize] = self.rollout_trash_with_targets as f64;
+        v[RolloutTrashNoTargets as usize] = self.rollout_trash_no_targets as f64;
         v[RolloutEndTurnThreshold as usize] = self.rollout_end_turn_threshold as f64;
         v[RolloutEndTurnProbabilityEarly as usize] = self.rollout_end_turn_probability_early;
         v[RolloutEndTurnProbabilityLate as usize] = self.rollout_end_turn_probability_late;
@@ -175,8 +175,8 @@ impl GeneTarget for HeuristicParams {
             rollout_workshop_base: v[RolloutWorkshopBase as usize].round().max(0.0) as u32,
             rollout_workshop_count_weight: v[RolloutWorkshopCountWeight as usize].round().max(0.0) as u32,
             rollout_workshop_empty: v[RolloutWorkshopEmpty as usize].round().max(0.0) as u32,
-            rollout_destroy_with_targets: v[RolloutDestroyWithTargets as usize].round().max(0.0) as u32,
-            rollout_destroy_no_targets: v[RolloutDestroyNoTargets as usize].round().max(0.0) as u32,
+            rollout_trash_with_targets: v[RolloutTrashWithTargets as usize].round().max(0.0) as u32,
+            rollout_trash_no_targets: v[RolloutTrashNoTargets as usize].round().max(0.0) as u32,
             rollout_end_turn_threshold: v[RolloutEndTurnThreshold as usize].round().max(0.0) as u32,
             rollout_end_turn_probability_early: v[RolloutEndTurnProbabilityEarly as usize].clamp(0.0, 1.0),
             rollout_end_turn_probability_late: v[RolloutEndTurnProbabilityLate as usize].clamp(0.0, 1.0),
@@ -200,8 +200,8 @@ impl GeneTarget for HeuristicParams {
             Gene::RolloutWorkshopBase as usize,
             Gene::RolloutWorkshopCountWeight as usize,
             Gene::RolloutWorkshopEmpty as usize,
-            Gene::RolloutDestroyWithTargets as usize,
-            Gene::RolloutDestroyNoTargets as usize,
+            Gene::RolloutTrashWithTargets as usize,
+            Gene::RolloutTrashNoTargets as usize,
             Gene::RolloutEndTurnThreshold as usize,
             Gene::RolloutEndTurnMaxRound as usize,
             Gene::RolloutWsMaterialBaseMultiplier as usize,

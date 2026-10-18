@@ -53,16 +53,16 @@ export interface DyeCardData {
   kind: 'dye';
   name: string;
   colors: Color[];
-  // Resolved in order when the card is destroyed.
-  destroyAbilities: Ability[];
+  // Resolved in order when the card is trashed.
+  trashAbilities: Ability[];
 }
 
 export interface BasicDyeCardData {
   kind: 'basicDye';
   name: string;
   color: Color;
-  // Resolved in order when the card is destroyed.
-  destroyAbilities: Ability[];
+  // Resolved in order when the card is trashed.
+  trashAbilities: Ability[];
 }
 
 export interface MaterialCardData {
@@ -71,15 +71,15 @@ export interface MaterialCardData {
   materialTypes: MaterialType[];
   color?: Color;
   colorCount?: number;
-  // Resolved in order when the card is destroyed.
-  destroyAbilities: Ability[];
+  // Resolved in order when the card is trashed.
+  trashAbilities: Ability[];
 }
 
 export interface ActionCardData {
   kind: 'action';
   name: string;
-  // Resolved in order when the card is destroyed.
-  destroyAbilities: Ability[];
+  // Resolved in order when the card is trashed.
+  trashAbilities: Ability[];
   workshopAbilities: Ability[];
 }
 
@@ -87,7 +87,8 @@ export interface SellCardData {
   kind: 'sellCard';
   // The buyer's trade, e.g. "Potter". Several sell cards share one.
   name: string;
-  ducats: number;
+  // Printed on the seal; scored once the sale is made.
+  points: number;
   // One entry per unit, so a Tilemaker lists Ceramics twice.
   requiredMaterials: MaterialType[];
   // Boats the sale takes outright, before any standing in for a material.
@@ -161,7 +162,7 @@ export interface GameState {
   playerNames: string[];
   players: PlayerState[];
   draftDeck: CardInstance[];
-  destroyedPile: CardInstance[];
+  trash: CardInstance[];
   sellCardDeck: SellCardInstance[];
   sellCardDisplay: SellCardInstance[];
   phase: GamePhase;
@@ -172,7 +173,7 @@ export interface GameState {
 
 export type Choice =
   | { type: 'draftPick'; card: Card }
-  | { type: 'destroyDraftedCard'; card: Card }
+  | { type: 'trashDraftedCard'; card: Card }
   | { type: 'endTurn' }
   | { type: 'workshop'; cardTypes: Card[] }
   | { type: 'skipWorkshop' }
@@ -180,10 +181,10 @@ export type Choice =
   | { type: 'selectSellCard'; sellCard: SellCard }
   | { type: 'gainSecondary'; color: Color }
   | { type: 'mixAll'; mixes: [Color, Color][] }
-  | { type: 'destroyAndMix'; card: Card; mixes: [Color, Color][] }
-  | { type: 'destroyAndSell'; card: Card; sellCard: SellCard }
-  | { type: 'destroyAndWorkshop'; card: Card; workshopCards: Card[] }
-  | { type: 'destroyAndMoveToDraftPool'; card: Card; target: Card | null }
+  | { type: 'trashAndMix'; card: Card; mixes: [Color, Color][] }
+  | { type: 'trashAndSell'; card: Card; sellCard: SellCard }
+  | { type: 'trashAndWorkshop'; card: Card; workshopCards: Card[] }
+  | { type: 'trashAndMoveToDraftPool'; card: Card; target: Card | null }
   | { type: 'spendDucat'; purchase: DucatPurchase }
   | { type: 'takeBuyer'; sellCard: SellCard }
   | { type: 'drawBuyer' };

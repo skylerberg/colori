@@ -1,17 +1,18 @@
 import type { Ability, AiSettings, GameState, PlayerTurn, StructuredGameLog } from './data/types';
+import { type LogEntry, migrateLog } from './logEntries';
 
 const STORAGE_KEY = 'colori-saved-game';
 
 export interface SavedGame {
   gameState: GameState;
   gameStartTime: number;
-  gameLog: string[];
+  gameLog: LogEntry[];
   aiIterations?: number[];
   structuredLog?: StructuredGameLog;
   aiSettings?: AiSettings;
 }
 
-export function saveGame(gameState: GameState, gameStartTime: number, gameLog: string[], aiIterations?: number[], structuredLog?: StructuredGameLog, aiSettings?: AiSettings): void {
+export function saveGame(gameState: GameState, gameStartTime: number, gameLog: LogEntry[], aiIterations?: number[], structuredLog?: StructuredGameLog, aiSettings?: AiSettings): void {
   try {
     const data: SavedGame = { gameState, gameStartTime, gameLog, aiIterations, structuredLog, aiSettings };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -36,6 +37,8 @@ export function loadGame(): SavedGame | null {
       return null;
     }
     migrateActionPhase(data.gameState);
+    migrateTrash(data.gameState);
+    data.gameLog = migrateLog(data.gameLog);
     return data as SavedGame;
   } catch {
     clearSavedGame();
@@ -69,4 +72,13 @@ function migrateActionPhase(state: GameState) {
       ended: seatOrder(i) < seatOrder(currentPlayerIndex),
     })),
   };
+}
+
+// A game saved before the destroyed pile was called the trash.
+function migrateTrash(state: GameState) {
+  const old = state as GameState & { destroyedPile?: GameState['trash'] };
+  if (old.trash === undefined && old.destroyedPile !== undefined) {
+    old.trash = old.destroyedPile;
+    delete old.destroyedPile;
+  }
 }

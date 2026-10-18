@@ -7,7 +7,7 @@ use rand::Rng;
 
 /// Cards dealt into each draft hand. Hands pass until each is down to its last
 /// card, which goes to whoever it was passed to, so a player drafts exactly
-/// this many and nothing is left over to destroy.
+/// this many and nothing is left over to trash.
 pub const DRAFT_HAND_SIZE: u32 = 4;
 
 pub fn initialize_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
@@ -27,7 +27,7 @@ pub fn initialize_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
 
     if hands[..num_hands].iter().any(|hand| hand.is_empty()) {
         for hand in &hands[..num_hands] {
-            state.destroyed_pile = state.destroyed_pile.union(*hand);
+            state.trash = state.trash.union(*hand);
         }
         initialize_action_phase(state);
         return;
@@ -44,13 +44,13 @@ pub fn initialize_draft<R: Rng>(state: &mut GameState, rng: &mut R) {
 }
 
 /// Deal one draft hand. When the draft deck runs short, the hand takes what is
-/// left and the destroyed pile becomes the new draft deck.
+/// left and the trash becomes the new draft deck.
 pub(crate) fn deal_draft_hand<R: Rng>(state: &mut GameState, rng: &mut R) -> UnorderedCards {
     if state.draft_deck.len() >= DRAFT_HAND_SIZE {
         return state.draft_deck.draw_multiple(DRAFT_HAND_SIZE, rng);
     }
     let hand = std::mem::take(&mut state.draft_deck);
-    state.draft_deck = std::mem::take(&mut state.destroyed_pile);
+    state.draft_deck = std::mem::take(&mut state.trash);
     hand.union(state.draft_deck.draw_multiple(DRAFT_HAND_SIZE - hand.len(), rng))
 }
 
@@ -89,10 +89,10 @@ fn replay_draft_deals(state: &mut GameState, hands: &mut [UnorderedCards; MAX_PL
             for card in &cards {
                 let id = card.instance_id as u8;
                 // A card the deck no longer holds was dealt after the deck ran
-                // short and the destroyed pile was shuffled back in.
+                // short and the trash was shuffled back in.
                 if !state.draft_deck.contains(id) {
-                    state.draft_deck = state.draft_deck.union(state.destroyed_pile);
-                    state.destroyed_pile = UnorderedCards::new();
+                    state.draft_deck = state.draft_deck.union(state.trash);
+                    state.trash = UnorderedCards::new();
                 }
                 state.draft_deck.remove(id);
                 hands[player_index].insert(id);
@@ -151,7 +151,7 @@ pub fn player_pick<R: Rng>(state: &mut GameState, card_instance_id: u32, rng: &m
             if let GamePhase::Draft { ref mut draft_state } = state.phase {
                 draft_state.hands[hand_idx].remove(removed_id);
             }
-            state.destroyed_pile.insert(removed_id);
+            state.trash.insert(removed_id);
         }
     }
 
@@ -223,7 +223,7 @@ pub fn advance_draft(state: &mut GameState) {
 
 /// Once no hand holds more than one card there is nothing left to choose, so
 /// each player takes the card passed to them and the draft is over. A solo
-/// game's phantom hand has nobody to take its card, so that card is destroyed.
+/// game's phantom hand has nobody to take its card, so that card is trashed.
 fn end_draft_if_no_choice_left(state: &mut GameState) {
     let (hands, num_hands) = match &state.phase {
         GamePhase::Draft { draft_state } => (draft_state.hands, draft_state.num_hands),
@@ -237,7 +237,7 @@ fn end_draft_if_no_choice_left(state: &mut GameState) {
             let player = &mut state.players[i];
             player.drafted_cards = player.drafted_cards.union(*hand);
         } else {
-            state.destroyed_pile = state.destroyed_pile.union(*hand);
+            state.trash = state.trash.union(*hand);
         }
     }
     initialize_action_phase(state);
@@ -273,7 +273,7 @@ mod tests {
     use crate::apply_choice::apply_choice;
     use crate::colori_game::{enumerate_choices, get_game_status, GameStatus};
     use crate::draw_phase::execute_draw_phase;
-    use crate::scoring::calculate_ducat_score;
+    use crate::scoring::calculate_whole_points;
     use crate::setup::create_initial_game_state;
     use crate::types::*;
     use crate::unordered_cards::{
@@ -293,7 +293,7 @@ mod tests {
         state.card_lookup = get_card_registry();
         state.sell_card_lookup = get_sell_card_registry();
         for p in state.players.iter_mut() {
-            p.cached_ducat_score = calculate_ducat_score(p);
+            p.cached_whole_points = calculate_whole_points(p);
         }
         state
     }

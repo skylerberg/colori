@@ -2,7 +2,7 @@
 
 ## Overview
 
-Colori is a deck-building game for 2–5 players about dyeing materials and selling to sell cards. Players draft dye, material, and action cards, destroy them to store colors on a color wheel, mix colors, and sell to sell cards worth ducats. The game lasts 7 rounds. The player with the most points wins.
+Colori is a deck-building game for 2–5 players about dyeing materials and selling to sell cards. Players draft dye, material, and action cards, trash them to store colors on a color wheel, mix colors, and sell to sell cards worth points. The game lasts 7 rounds. The player with the most points wins.
 
 ## Components
 
@@ -21,26 +21,26 @@ Each player has their own color wheel that tracks how many of each color they ha
 ### Cards
 
 **Starter Dye Cards** (starting decks only, 1 of each per player):
-- Red — 1 Red color | Destroy: Workshop ×2
-- Yellow — 1 Yellow color | Destroy: Workshop ×2
-- Blue — 1 Blue color | Destroy: Workshop ×2
+- Red — 1 Red color | Trash: Workshop ×2
+- Yellow — 1 Yellow color | Trash: Workshop ×2
+- Blue — 1 Blue color | Trash: Workshop ×2
 
 **Dye Cards** (draft deck, 3 copies each):
-- Primary dyes — 2 colors of one primary + 1 color of a different primary | Destroy: Mix Colors ×2
-- Secondary dyes — 1 secondary color + 1 adjacent primary | Destroy: Sell
-- Tertiary dyes — 1 color of a tertiary color | Destroy: Workshop ×3
+- Primary dyes — 2 colors of one primary + 1 color of a different primary | Trash: Mix Colors ×2
+- Secondary dyes — 1 secondary color + 1 adjacent primary | Trash: Sell
+- Tertiary dyes — 1 color of a tertiary color | Trash: Workshop ×3
 
 **Material Cards** (starting decks, 1 of each per player; plus the Imports cards in the draft deck):
 Starting deck materials gain 1 material when workshopped. Imports cards gain a material and a color, or two different materials.
-- Ceramics | Destroy: Sell
-- Canvas (gains Paintings) | Destroy: Sell
-- Fabric (gains Textiles) | Destroy: Sell
+- Ceramics | Trash: Sell
+- Canvas (gains Paintings) | Trash: Sell
+- Fabric (gains Textiles) | Trash: Sell
 
 **Action Cards** (draft deck, 5 copies each; plus Chalk as a starter card):
-Each action card has a destroy ability plus workshop abilities that trigger when the card is chosen during Workshop resolution. See the card reference below.
+Each action card has a trash ability plus workshop abilities that trigger when the card is chosen during Workshop resolution. See the card reference below.
 
 **Sell Cards** (single deck):
-Each sell card is a buyer: a tradesperson who wants a set of colors and, for most trades, one or two stored materials. All sell cards are shuffled into a single deck. Each sell card is worth 2–5 ducats.
+Each sell card is a buyer: a tradesperson who wants a set of colors and, for most trades, one or two stored materials. All sell cards are shuffled into a single deck. Each sell card is worth 2–5 points.
 
 Sell cards are not completed straight out of the display. Each round, before drafting, players claim cards into their own **buyers** section, and for the rest of that round a player can only sell to the cards sitting there.
 
@@ -55,7 +55,7 @@ What is asked for is always spent first; wild primaries and boats only cover wha
 
 ### Decks
 
-- **Draft Deck**: 100 cards — 54 dye cards, 21 Imports cards and 25 action cards. When the draft deck runs out, shuffle all destroyed cards back in.
+- **Draft Deck**: 100 cards — 54 dye cards, 21 Imports cards and 25 action cards. Trashed cards go to the **trash**; when the draft deck runs out, shuffle the trash back in.
 - **Sell Card Deck**: Contains all sell cards. 7 sell cards are displayed face-up at all times, replaced from the deck as soon as one is claimed.
 - **Personal Deck**: Each player has their own deck that they draw from and build over the course of the game. There is no discard pile: cards return to the deck by being placed on the **bottom** at the end of a round, so a card you put down will not come back up until everything above it has been drawn.
 
@@ -78,7 +78,7 @@ Each player has:
 - **Stored Materials** (tracks Textiles, Ceramics, and Paintings counts)
 - **Ducats** (count toward final score)
 - **Wild Primaries** and **Boats** (wilds; half a point each at the end)
-- **Completed Sell Cards** (scored sell cards, kept in a separate area)
+- **Completed Sell Cards** (scored sell cards, kept face down in a separate area)
 
 ## Round Structure
 
@@ -108,8 +108,8 @@ Buyer slots per player:
 | Round | Slots |
 |-------|-------|
 | 1 | 1 |
-| 2–3 | 2 |
-| 4–7 | 3 |
+| 2 | 2 |
+| 3–7 | 3 |
 
 Starting with the starting player and going round-robin in turn order, each player with an empty slot claims **one** card, and this repeats until nobody has an empty slot left. A slot only needs filling if it is empty — a buyer that was not sold last round stays where it is.
 
@@ -133,9 +133,9 @@ If both the display and the deck are empty there is nothing to claim, and the sl
 
 Everyone takes their turn at the same time. Nothing you do on your turn touches anyone else's cards, colors, materials or buyers, so there is no turn order: you can watch the others play, but nothing they do changes what you can do. The round ends once everyone has ended their turn.
 
-On your turn, you may destroy any number of your **drafted** cards, one at a time. Each destroyed card triggers its destroy ability (see Abilities below); a card with two resolves them in the order printed. You must fully resolve a card's abilities before destroying another card. When you are done destroying cards (or choose to stop), your turn ends.
+On your turn, you may trash any number of your **drafted** cards, one at a time. Each trashed card triggers its trash ability (see Abilities below); a card with two resolves them in the order printed. You must fully resolve a card's abilities before trashing another card. When you are done trashing cards (or choose to stop), your turn ends.
 
-**Spending ducats.** Between destroys — whenever no ability is waiting on you — you may spend **1 ducat** for any of:
+**Spending ducats.** Between trashes — whenever no ability is waiting on you — you may spend **1 ducat** for any of:
 
 | Cost | Buys |
 |------|------|
@@ -151,13 +151,13 @@ You cannot buy something that would do nothing: Sell needs an affordable buyer, 
 
 At the end of your turn:
 - Every card in your workshop — including the rotated ones already used this round — is shuffled together and placed on the **bottom** of your personal deck.
-- Any un-destroyed drafted cards move into your workshop, where they are available from the start of the next round.
+- Any un-trashed drafted cards move into your workshop, where they are available from the start of the next round.
 
 All player information (workshop, drafted cards, color wheel, stored materials, ducats) is public during the action phase.
 
 ## Abilities
 
-When a card is destroyed, its destroy ability triggers. Abilities are resolved using a **stack (LIFO)** — if an ability triggers further abilities, they are pushed onto the stack and the most recently pushed ability resolves next.
+When a card is trashed, its trash ability triggers. Abilities are resolved using a **stack (LIFO)** — if an ability triggers further abilities, they are pushed onto the stack and the most recently pushed ability resolves next.
 
 ### Workshop ×N
 
@@ -192,7 +192,7 @@ Complete mixing pairs (two inputs → one output):
 
 Choose one card from your **workshop** that has not been workshopped this turn and move it to your **draft pool**. Rotated cards, whose colors and materials have already been stored, cannot be moved. If every card in your workshop is rotated, or it is empty, the ability fizzles.
 
-The moved card is now an ordinary drafted card. You may destroy it later in your turn to trigger its ability, exactly as with a card you drafted; triggered abilities are pushed onto the ability stack, so chain reactions are possible. Or you may leave it in the draft pool, in which case end of turn moves it into your workshop instead of onto the bottom of your deck.
+The moved card is now an ordinary drafted card. You may trash it later in your turn to trigger its ability, exactly as with a card you drafted; triggered abilities are pushed onto the ability stack, so chain reactions are possible. Or you may leave it in the draft pool, in which case end of turn moves it into your workshop instead of onto the bottom of your deck.
 
 ### Sell
 
@@ -225,7 +225,7 @@ Gain 1 boat. See Wild Primaries and Boats above.
 
 The game ends when **round 7** is completed.
 
-Each player's score = total ducats (from sell cards and gold) + ½ point for each wild primary and each boat they still hold. The player with the highest score wins. If tied, the player with the most completed sell cards wins. If still tied, the player with the most colors (total count) on their color wheel wins. If still tied, those players share the victory.
+Each player's score = the points on their completed sell cards + 1 point for each ducat + ½ point for each wild primary and each boat they still hold. The player with the highest score wins. If tied, the player with the most completed sell cards wins. If still tied, the player with the most colors (total count) on their color wheel wins. If still tied, those players share the victory.
 
 ---
 
@@ -235,7 +235,7 @@ Each player's score = total ducats (from sell cards and gold) + ½ point for eac
 
 One of each per player.
 
-| Name | Workshop | Destroy Ability |
+| Name | Workshop | Trash Ability |
 |------|----------|-----------------|
 | Red | 1 Red | Workshop ×2 |
 | Yellow | 1 Yellow | Workshop ×2 |
@@ -251,7 +251,7 @@ One of each per player.
 
 **Primary Dyes** (2 colors of one primary + 1 color of a different primary):
 
-| Name | Colors | Destroy Ability |
+| Name | Colors | Trash Ability |
 |------|--------|-----------------|
 | Realgar | 2 Red, 1 Yellow | Mix Colors ×2 |
 | Kermes | 2 Red, 1 Blue | Mix Colors ×2 |
@@ -262,7 +262,7 @@ One of each per player.
 
 **Secondary Dyes** (1 secondary + 1 adjacent primary):
 
-| Name | Colors | Destroy Ability |
+| Name | Colors | Trash Ability |
 |------|--------|-----------------|
 | Dragon's Blood | 1 Orange, 1 Red | Sell |
 | Orpiment | 1 Orange, 1 Yellow | Sell |
@@ -273,7 +273,7 @@ One of each per player.
 
 **Tertiary Dyes** (1 color of a tertiary color):
 
-| Name | Colors | Destroy Ability |
+| Name | Colors | Trash Ability |
 |------|--------|-----------------|
 | Cinnabar | 1 Vermilion | Workshop ×3 |
 | Saffron | 1 Amber | Workshop ×3 |
@@ -286,7 +286,7 @@ One of each per player.
 
 Every one of these is titled "Imports"; they are told apart by what they gain.
 
-| Name | Material Gain | Color | Destroy Ability | Copies |
+| Name | Material Gain | Color | Trash Ability | Copies |
 |------|--------------|-------|-----------------|--------|
 | Ceramics & Red | 1 Ceramics | Red | Workshop ×2, then Mix Colors ×1 | 2 |
 | Ceramics & Yellow | 1 Ceramics | Yellow | Workshop ×2, then Mix Colors ×1 | 2 |
@@ -305,7 +305,7 @@ Every one of these is titled "Imports"; they are told apart by what they gain.
 
 5 copies of each in the draft deck. Their workshop abilities (triggered when chosen during Workshop resolution) are:
 
-| Name | Destroy Ability | Workshop Abilities |
+| Name | Trash Ability | Workshop Abilities |
 |------|----------------|-------------------|
 | Alum | Move to Draft Pool | Gain Ducats ×1 |
 | Gum Arabic | Move to Draft Pool | Any Secondary |
@@ -317,7 +317,7 @@ Every one of these is titled "Imports"; they are told apart by what they gain.
 
 A sell card is named for the buyer's trade. The trade sets what the sale is worth and which materials it takes; the colors tell two cards of one trade apart.
 
-| Buyer | Ducats | Materials | Colors | Cards | Copies of each |
+| Buyer | Points | Materials | Colors | Cards | Copies of each |
 |-------|--------|-----------|--------|-------|----------------|
 | Dyer | 2 | 1 Textiles | Two primaries (any pair, alike or not) | 6 | 2 |
 | Dyer | 2 | 1 Textiles | One secondary | 3 | 2 |

@@ -88,8 +88,8 @@ const PARAM_GROUPS: &[(&str, &[&str])] = &[
         "rollout_ws_material_colors_met_multiplier",
         "rollout_ws_action_gain_ducats_value", "rollout_ws_action_color_demand_multiplier",
     ]),
-    ("Rollout Destroy", &[
-        "rollout_destroy_with_targets", "rollout_destroy_no_targets",
+    ("Rollout Trash", &[
+        "rollout_trash_with_targets", "rollout_trash_no_targets",
     ]),
 ];
 
@@ -134,8 +134,8 @@ fn get_param_value(params: &HeuristicParams, name: &str) -> Option<f64> {
         "rollout_workshop_base" => Some(params.rollout_workshop_base as f64),
         "rollout_workshop_count_weight" => Some(params.rollout_workshop_count_weight as f64),
         "rollout_workshop_empty" => Some(params.rollout_workshop_empty as f64),
-        "rollout_destroy_with_targets" => Some(params.rollout_destroy_with_targets as f64),
-        "rollout_destroy_no_targets" => Some(params.rollout_destroy_no_targets as f64),
+        "rollout_trash_with_targets" => Some(params.rollout_trash_with_targets as f64),
+        "rollout_trash_no_targets" => Some(params.rollout_trash_no_targets as f64),
         "rollout_end_turn_threshold" => Some(params.rollout_end_turn_threshold as f64),
         "rollout_end_turn_probability_early" => Some(params.rollout_end_turn_probability_early),
         "rollout_end_turn_probability_late" => Some(params.rollout_end_turn_probability_late),

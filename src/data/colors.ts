@@ -38,6 +38,16 @@ export function isPrimary(color: Color): boolean {
   return PRIMARY_INDICES.has(colorIndex(color));
 }
 
+// The two colors that mix into `color`, the ones either side of it on the
+// wheel; null for a primary, which nothing makes.
+export function mixInputs(color: Color): [Color, Color] | null {
+  const i = colorIndex(color);
+  if (PRIMARY_INDICES.has(i)) return null;
+  const n = WHEEL_ORDER.length;
+  const reach = SECONDARY_INDICES.has(i) ? 2 : 1;
+  return [WHEEL_ORDER[(i - reach + n) % n], WHEEL_ORDER[(i + reach) % n]];
+}
+
 // A wild primary covers a Red, Yellow or Blue the wheel lacks, and stored
 // colors are always spent first. These mirror `colori_core::colors`.
 

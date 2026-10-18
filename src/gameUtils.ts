@@ -20,25 +20,53 @@ export function isTakingActionTurn(gs: GameState, playerIndex: number): boolean 
   return gs.phase.type === 'action' && !gs.phase.actionState.turns[playerIndex].ended;
 }
 
-// Mirrors `colori_core::scoring::score_in_half_points`: sell cards and ducats
-// at face value, plus half a point for each unspent wild primary and boat.
+// Mirrors `colori_core::scoring::score_in_half_points`: the points on sold
+// cards and a point a ducat, plus half a point for each unspent wild primary
+// and boat.
 export function playerScore(player: Pick<PlayerState, 'completedSellCards' | 'ducats' | 'wildPrimaries' | 'boats'>): number {
-  const sold = player.completedSellCards.reduce((sum, sellCard) => sum + getSellCardData(sellCard.card).ducats, 0);
+  const sold = player.completedSellCards.reduce((sum, sellCard) => sum + getSellCardData(sellCard.card).points, 0);
   return sold + player.ducats + (player.wildPrimaries + player.boats) / 2;
 }
 
 // Mirrors `colori_core::buyers_phase::buyer_capacity`.
 export function buyerCapacity(round: number): number {
   if (round <= 1) return 1;
-  if (round <= 3) return 2;
+  if (round === 2) return 2;
   return 3;
 }
 
-// The first round in which buyer slot `slot` (0-based) is open.
-export function buyerSlotOpensInRound(slot: number): number {
-  let round = 1;
-  while (buyerCapacity(round) <= slot) round++;
-  return round;
+// Mirrors `colori_core::draw_phase::round_income`: what everyone collects at
+// the start of `round`, as the round track shows.
+export function roundIncome(round: number): { ducats: number; boats: number; wildPrimaries: number } {
+  switch (round) {
+    case 4:
+    case 6:
+      return { ducats: 1, boats: 0, wildPrimaries: 0 };
+    case 5:
+      return { ducats: 0, boats: 1, wildPrimaries: 0 };
+    case 7:
+      return { ducats: 1, boats: 1, wildPrimaries: 1 };
+    default:
+      return { ducats: 0, boats: 0, wildPrimaries: 0 };
+  }
+}
+
+// What the start of `round` brings everyone, in words.
+export function roundNews(round: number): string[] {
+  const news: string[] = [];
+  const income = roundIncome(round);
+  const gains = [
+    income.ducats > 0 && 'a ducat',
+    income.boats > 0 && 'a boat',
+    income.wildPrimaries > 0 && 'a wild primary',
+  ].filter((gain): gain is string => !!gain);
+  if (gains.length > 0) {
+    news.push(`Everyone gains ${gains.length > 1 ? `${gains.slice(0, -1).join(', ')} and ${gains.at(-1)}` : gains[0]}`);
+  }
+  if (round > 1 && buyerCapacity(round) > buyerCapacity(round - 1)) {
+    news.push(`Buyer slot ${buyerCapacity(round)} opens`);
+  }
+  return news;
 }
 
 // Scores run in half points: 7.5 reads as 7½.

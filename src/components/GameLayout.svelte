@@ -6,6 +6,8 @@
   import PlayerBoard from './PlayerBoard.svelte';
   import PlayerTabs from './PlayerTabs.svelte';
   import ErrorReport from './ErrorReport.svelte';
+  import GameLogPanel from './GameLogPanel.svelte';
+  import type { LogEntry } from '../logEntries';
   import type { ErrorReport as Report } from '../errorReport';
   import { emptyTableInteraction, provideTableInteraction } from '../stores/tableInteraction';
 
@@ -18,7 +20,7 @@
     // The seat whose controls this screen shows, or -1.
     viewerIndex: number;
     elapsedSeconds: number;
-    gameLog: string[];
+    gameLog: LogEntry[];
     onLeaveGame: () => void;
     selectedPlayerIndex?: number;
     onSelectPlayer?: (index: number) => void;
@@ -83,9 +85,7 @@
         {viewerIndex}
       />
       <div class="top-bar-actions">
-        {#if gameLog.length > 0}
-          <button class="top-btn" onclick={() => showLog = !showLog}>Log ({gameLog.length})</button>
-        {/if}
+        <button class="top-btn" onclick={() => showLog = !showLog}>Log</button>
         <button class="top-btn" onclick={handleLeaveGame}>Leave</button>
       </div>
     </header>
@@ -134,20 +134,7 @@
   </div>
 
   {#if showLog}
-    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-    <div class="log-overlay" onclick={() => showLog = false} role="presentation">
-      <div class="log-modal" onclick={(e) => e.stopPropagation()} role="dialog" tabindex="-1">
-        <div class="log-modal-header">
-          <span class="log-modal-title">Game Log</span>
-          <button class="log-close-btn" onclick={() => showLog = false}>&times;</button>
-        </div>
-        <div class="log-entries">
-          {#each [...gameLog].reverse() as entry}
-            <div class="log-entry">{entry}</div>
-          {/each}
-        </div>
-      </div>
-    </div>
+    <GameLogPanel log={gameLog} playerNames={gameState.playerNames} onClose={() => showLog = false} />
   {/if}
 </div>
 
@@ -329,8 +316,8 @@
 
     .market {
       grid-area: market;
-      /* Leave the controls at least half the column. */
-      width: min(100%, calc(48dvh * 1.5));
+      /* Leave the controls room beneath it. */
+      width: min(100%, calc(52dvh * 1552 / 1333));
       justify-self: center;
     }
 
@@ -361,70 +348,6 @@
     }
   }
 
-  /* ── Log ── */
-  .log-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 100;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .log-modal {
-    background: rgba(20, 15, 10, 0.95);
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .log-modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid rgba(201, 168, 76, 0.3);
-  }
-
-  .log-modal-title {
-    font-family: 'Cinzel', serif;
-    font-size: 1rem;
-    font-weight: 600;
-    color: #c9a84c;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-  }
-
-  .log-close-btn {
-    background: none;
-    border: none;
-    color: rgba(245, 237, 224, 0.6);
-    font-size: 1.6rem;
-    padding: 4px 8px;
-    line-height: 1;
-    min-width: 44px;
-  }
-
-  .log-close-btn:hover {
-    color: #f5ede0;
-  }
-
-  .log-entries {
-    overflow-y: auto;
-    padding: 0.5rem 0;
-    overscroll-behavior: none;
-  }
-
-  .log-entry {
-    padding: 5px 1rem;
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 0.9rem;
-    color: rgba(245, 237, 224, 0.8);
-    border-bottom: 1px solid rgba(201, 168, 76, 0.1);
-  }
-
   .retry-btn {
     padding: 8px 20px;
     font-size: 0.8rem;
@@ -433,16 +356,5 @@
     border: none;
     border-radius: 4px;
     min-height: 44px;
-  }
-
-  @media (min-width: 768px) {
-    .log-modal {
-      border: 1px solid rgba(201, 168, 76, 0.5);
-      border-radius: 10px;
-      width: 600px;
-      max-width: 90vw;
-      max-height: 70vh;
-      height: auto;
-    }
   }
 </style>

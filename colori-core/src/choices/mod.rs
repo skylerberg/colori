@@ -1,4 +1,4 @@
-mod destroy;
+mod trash;
 mod mix_sequences;
 mod multiset;
 
@@ -10,7 +10,7 @@ use crate::colors::{can_mix, can_supply_mix, perform_mix_unchecked, SECONDARIES}
 use crate::types::*;
 use smallvec::SmallVec;
 
-use destroy::enumerate_destroy_choices;
+use trash::enumerate_trash_choices;
 use mix_sequences::enumerate_mix_sequences;
 use multiset::{count_card_types, enumerate_multiset_subsets, enumerate_multiset_subsets_exact};
 
@@ -25,7 +25,7 @@ pub(crate) fn should_force_max_workshop(state: &GameState, player: &PlayerState)
     state.force_max_workshop
         && !player.drafted_cards.iter().any(|id| {
             state.card_lookup[id as usize]
-                .destroy_abilities()
+                .trash_abilities()
                 .contains(&Ability::MoveToDraftPool)
         })
 }
@@ -61,7 +61,7 @@ pub fn enumerate_choices_into(state: &GameState, player_index: usize, choices: &
             match turn.ability_stack.last() {
                 None => {
                     for_each_unique_card_type(&player.drafted_cards, &state.card_lookup, |card| {
-                        enumerate_destroy_choices(state, player, card, choices);
+                        enumerate_trash_choices(state, player, card, choices);
                     });
                     for purchase in ALL_DUCAT_PURCHASES {
                         if can_buy_with_ducat(player, purchase) {
@@ -204,9 +204,9 @@ fn move_target_is_valid(state: &GameState, player: &PlayerState, target: &Option
     }
 }
 
-/// Check common preconditions for all destroy-drafted-card variants: the
+/// Check common preconditions for all trash-drafted-card variants: the
 /// player is between abilities and holds the card in their draft pool.
-fn check_destroy_preconditions(state: &GameState, player_index: usize, card: &Card) -> bool {
+fn check_trash_preconditions(state: &GameState, player_index: usize, card: &Card) -> bool {
     open_turn_stack(state, player_index).is_some_and(|stack| stack.is_empty())
         && state.players[player_index]
             .drafted_cards
@@ -227,11 +227,11 @@ pub fn check_choice_available(state: &GameState, player_index: usize, choice: &C
                 false
             }
         }
-        Choice::DestroyDraftedCard { card } => {
-            if !check_destroy_preconditions(state, player_index, card) {
+        Choice::TrashDraftedCard { card } => {
+            if !check_trash_preconditions(state, player_index, card) {
                 return false;
             }
-            match card.destroy_abilities()[0] {
+            match card.trash_abilities()[0] {
                 Ability::Sell => !can_sell_to_any_buyer(player),
                 Ability::MixColors { .. } => false,
                 Ability::Workshop { .. } => false,
@@ -266,26 +266,26 @@ pub fn check_choice_available(state: &GameState, player_index: usize, choice: &C
             Some(Ability::MixColors { count }) => mix_sequence_is_valid(player, mixes, count),
             _ => false,
         },
-        Choice::DestroyAndMix { card, mixes } => {
-            if !check_destroy_preconditions(state, player_index, card) {
+        Choice::TrashAndMix { card, mixes } => {
+            if !check_trash_preconditions(state, player_index, card) {
                 return false;
             }
-            let Ability::MixColors { count } = card.destroy_abilities()[0] else {
+            let Ability::MixColors { count } = card.trash_abilities()[0] else {
                 return false;
             };
             mix_sequence_is_valid(player, mixes, count)
         }
-        Choice::DestroyAndSell { card, sell_card } => {
-            check_destroy_preconditions(state, player_index, card)
+        Choice::TrashAndSell { card, sell_card } => {
+            check_trash_preconditions(state, player_index, card)
                 && player.buyers.iter().any(|b| b.sell_card == *sell_card && can_afford_sell_card(player, &b.sell_card))
         }
-        Choice::DestroyAndWorkshop { card, workshop_cards } => {
-            check_destroy_preconditions(state, player_index, card)
+        Choice::TrashAndWorkshop { card, workshop_cards } => {
+            check_trash_preconditions(state, player_index, card)
                 && (workshop_cards.is_empty()
                     || resolve_card_types_to_ids(workshop_cards, &player.workshop_cards, &state.card_lookup).is_some())
         }
-        Choice::DestroyAndMoveToDraftPool { card, target } => {
-            if !check_destroy_preconditions(state, player_index, card) {
+        Choice::TrashAndMoveToDraftPool { card, target } => {
+            if !check_trash_preconditions(state, player_index, card) {
                 return false;
             }
             move_target_is_valid(state, player, target)

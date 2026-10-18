@@ -15,5 +15,5 @@ export function formatSingleAbility(a: Ability): string {
 
 export function formatAbility(c: AnyCardData): string {
   if (c.kind === 'sellCard') return '';
-  return c.destroyAbilities.map(formatSingleAbility).join(', then ');
+  return c.trashAbilities.map(formatSingleAbility).join(', then ');
 }

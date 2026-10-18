@@ -1,10 +1,11 @@
 import type { GameState } from '../data/types';
 import type { SanitizedGameState, SanitizedPlayerState, SanitizedGamePhase } from './types';
+import type { LogEntry } from '../logEntries';
 
 export function sanitizeGameState(
   fullState: GameState,
   forPlayerIndex: number,
-  newLogEntries: string[] = [],
+  newLogEntries: LogEntry[] = [],
 ): SanitizedGameState {
   const players: SanitizedPlayerState[] = fullState.players.map((p, i) => {
     const isOwner = i === forPlayerIndex;
@@ -63,7 +64,7 @@ export function sanitizeGameState(
     playerNames: fullState.playerNames,
     players,
     draftDeckCount: fullState.draftDeck.length,
-    destroyedPile: [...fullState.destroyedPile],
+    trash: [...fullState.trash],
     sellCardDeckCount: fullState.sellCardDeck.length,
     sellCardDisplay: [...fullState.sellCardDisplay],
     phase,

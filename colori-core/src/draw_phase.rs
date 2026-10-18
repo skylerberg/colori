@@ -48,7 +48,7 @@ pub fn collect_round_income(state: &mut GameState) {
     let income = round_income(state.round);
     for player in state.players.iter_mut() {
         player.ducats += income.ducats;
-        player.cached_ducat_score += income.ducats;
+        player.cached_whole_points += income.ducats;
         player.boats += income.boats;
         player.wild_primaries += income.wild_primaries;
     }
@@ -124,3 +124,4 @@ fn replay_player_deck_draw(state: &mut GameState, player_index: usize) {
         }
     }
 }
+

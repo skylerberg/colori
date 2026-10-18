@@ -49,14 +49,14 @@ function createTour(): Tour {
   newTour.addStep({
     id: 'welcome',
     title: 'Welcome to Colori!',
-    text: 'You are a vendecolori, a Renaissance Venetian color seller, competing to earn the most ducats by gathering pigments and materials and selling them to buyers.',
+    text: 'You are a vendecolori, a Renaissance Venetian color seller, competing to earn the most points by gathering pigments and materials and selling them to buyers.',
     buttons: [skipButton, nextButton],
   });
 
   newTour.addStep({
     id: 'buyers-board',
     title: "The Buyer's Board",
-    text: "Shared by everyone. The seven sell cards are buyers: each wants a set of colors and usually a material, and the seal shows its ducats. You can't sell to them here; at the start of each round you claim them onto your own board. The circles along the top track the rounds and what each one brings, and the piles show what is left in each deck.",
+    text: "Shared by everyone. The seven sell cards are buyers: each wants a set of colors and usually a material, and the seal shows its points. You can't sell to them here; at the start of each round you claim them onto your own board. The circles along the top track the rounds and what each one brings; point at one to see.",
     attachTo: { element: '.market', on: 'right' },
     buttons: [backButton, nextButton],
   });
@@ -88,7 +88,7 @@ function createTour(): Tour {
   newTour.addStep({
     id: 'buyers',
     title: 'Your Buyers',
-    text: 'The buyers you have claimed: one slot now, a second from round 2 and a third from round 4. You can only sell to these, and a "Ready to sell" tag appears when you hold everything one asks for. Sold cards go to Completed Orders.',
+    text: 'The buyers you have claimed: one slot now, a second from round 2 and a third from round 3. You can only sell to these, and a green check appears on one when you hold everything it asks for. Sold buyers go face down onto Completed Orders.',
     attachTo: { element: '.board-area [data-tour="buyers"]', on: 'left' },
     buttons: [backButton, nextButton],
   });
@@ -96,7 +96,7 @@ function createTour(): Tour {
   newTour.addStep({
     id: 'ducats',
     title: 'Ducats',
-    text: 'Ducats are points. You start with one and collect more in rounds 4, 6 and 7. On your turn you can also spend one, through the strip beside the purse, for a single Workshop pick, a Mix or a Sale. The strip lights up when you can.',
+    text: 'Each ducat is worth a point. You start with one and collect more in rounds 4, 6 and 7. On your turn you can also spend one, through the strip beside the purse, for a single Workshop pick, a Mix or a Sale. The strip lights up when you can.',
     attachTo: { element: '.board-area [data-tour="ducats"]', on: 'top' },
     buttons: [backButton, nextButton],
   });
@@ -128,7 +128,7 @@ function createTour(): Tour {
   newTour.addStep({
     id: 'draft-phase',
     title: 'Draft Phase',
-    text: "You're dealt 4 cards. Keep one and the rest pass on; after 3 picks the last card passed to you is yours too. Drafted cards tuck under the top of your board, showing the banner that says what destroying them does.",
+    text: "You're dealt 4 cards. Keep one and the rest pass on; after 3 picks the last card passed to you is yours too. Drafted cards tuck under the top of your board, showing the banner that says what trashing them does.",
     attachTo: { element: '.board-area [data-tour="drafted"]', on: 'bottom' },
     buttons: [backButton, nextButton],
   });
@@ -144,7 +144,7 @@ function createTour(): Tour {
   newTour.addStep({
     id: 'action-phase',
     title: 'Action Phase',
-    text: 'Everyone plays at once. Click a drafted card to destroy it and use its ability: Workshop, Mix, Sell, or move a workshop card up to your draft pool. This panel says what each ability needs, and the board lights up what you can click. Cards you keep move into your workshop, and your used workshop goes to the bottom of your deck.',
+    text: 'Everyone plays at once. Click a drafted card to trash it and use its ability: Workshop, Mix, Sell, or move a workshop card up to your draft pool. This panel says what each ability needs, and the board lights up what you can click. Cards you keep move into your workshop, and your used workshop goes to the bottom of your deck.',
     attachTo: { element: '.controls', on: 'right' },
     buttons: [backButton, nextButton],
   });
@@ -152,7 +152,7 @@ function createTour(): Tour {
   newTour.addStep({
     id: 'end-game',
     title: 'Good Luck!',
-    text: 'The game ends after 7 rounds. Most points wins: your ducats, plus half a point for each wild primary and boat. Hover over any card to see all of it. Good luck, vendecolori!',
+    text: 'The game ends after 7 rounds. Most points wins: the points on the buyers you sold to, a point for each ducat, and half a point for each wild primary and boat. Rest the pointer on a card, or press and hold it, to see all of it. Good luck, vendecolori!',
     buttons: [
       backButton,
       {

@@ -44,7 +44,7 @@ export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
     playerNames: sanitized.playerNames,
     players,
     draftDeck: new Array(sanitized.draftDeckCount) as CardInstance[],
-    destroyedPile: sanitized.destroyedPile,
+    trash: sanitized.trash,
     sellCardDeck: new Array(sanitized.sellCardDeckCount) as SellCardInstance[],
     sellCardDisplay: sanitized.sellCardDisplay,
     phase,

@@ -1,6 +1,6 @@
 //! Which search states are the same position, for `mcts::GraphSearcher`.
 //!
-//! A turn is a run of destroys, workshops, mixes and sales whose order mostly
+//! A turn is a run of trashes, workshops, mixes and sales whose order mostly
 //! does not matter, so a tree holds each position of a turn once per order it
 //! was reached in. The graph search merges states with equal keys into one
 //! node, which is only sound where a node's key is the same on every iteration
@@ -10,7 +10,7 @@
 //! `advance` has already played every opponent's turn, differently on every
 //! iteration (`crate::opponent_turns`), and none of it depends on the route the
 //! searcher takes. No turn touches another player's state. The one shared pile
-//! a turn adds to, the destroyed cards, gains exactly what left the player's
+//! a turn adds to, the trashed cards, gains exactly what left the player's
 //! own cards. So the key covers the searcher's own side of the phase and
 //! nothing else, and two routes to the same own state face the same opponents.
 //!

@@ -69,10 +69,10 @@ fn write_dye_card(out: &mut String, card: &Card) {
     let colors_str: Vec<String> = colors.iter().map(|c| format!("'{}'", format_color(c))).collect();
     write!(
         out,
-        "  {{\n    kind: 'dye',\n    name: '{}',\n    colors: [{}],\n    destroyAbilities: {},\n  }},\n",
+        "  {{\n    kind: 'dye',\n    name: '{}',\n    colors: [{}],\n    trashAbilities: {},\n  }},\n",
         name.replace('\'', "\\'"),
         colors_str.join(", "),
-        format_abilities(card.destroy_abilities()),
+        format_abilities(card.trash_abilities()),
     )
     .unwrap();
 }
@@ -82,10 +82,10 @@ fn write_basic_dye_card(out: &mut String, card: &Card) {
     let color = card.colors()[0];
     write!(
         out,
-        "  {{\n    kind: 'basicDye',\n    name: '{}',\n    color: '{}',\n    destroyAbilities: {},\n  }},\n",
+        "  {{\n    kind: 'basicDye',\n    name: '{}',\n    color: '{}',\n    trashAbilities: {},\n  }},\n",
         name,
         format_color(&color),
-        format_abilities(card.destroy_abilities()),
+        format_abilities(card.trash_abilities()),
     )
     .unwrap();
 }
@@ -107,7 +107,7 @@ fn write_material_card(out: &mut String, card: &Card) {
             write!(out, "    colorCount: {},\n", colors.len()).unwrap();
         }
     }
-    write!(out, "    destroyAbilities: {},\n  }},\n", format_abilities(card.destroy_abilities())).unwrap();
+    write!(out, "    trashAbilities: {},\n  }},\n", format_abilities(card.trash_abilities())).unwrap();
 }
 
 fn write_action_card(out: &mut String, card: &Card) {
@@ -115,9 +115,9 @@ fn write_action_card(out: &mut String, card: &Card) {
 
     write!(
         out,
-        "  {{\n    kind: 'action',\n    name: '{}',\n    destroyAbilities: {},\n    workshopAbilities: {},\n  }},\n",
+        "  {{\n    kind: 'action',\n    name: '{}',\n    trashAbilities: {},\n    workshopAbilities: {},\n  }},\n",
         name,
-        format_abilities(card.destroy_abilities()),
+        format_abilities(card.trash_abilities()),
         format_abilities(card.workshop_abilities()),
     )
     .unwrap();
@@ -181,9 +181,9 @@ fn main() {
     out.push_str("export const CHALK_CARD: ActionCardData = {\n");
     write!(
         out,
-        "  kind: 'action',\n  name: '{}',\n  destroyAbilities: {},\n  workshopAbilities: {},\n",
+        "  kind: 'action',\n  name: '{}',\n  trashAbilities: {},\n  workshopAbilities: {},\n",
         chalk.name(),
-        format_abilities(chalk.destroy_abilities()),
+        format_abilities(chalk.trash_abilities()),
         format_abilities(chalk.workshop_abilities()),
     )
     .unwrap();
@@ -204,9 +204,9 @@ fn main() {
             .collect();
         write!(
             out,
-            "  {{ kind: 'sellCard', name: '{}', ducats: {}, requiredMaterials: [{}], requiredBoats: {}, colorCost: [{}] }},\n",
+            "  {{ kind: 'sellCard', name: '{}', points: {}, requiredMaterials: [{}], requiredBoats: {}, colorCost: [{}] }},\n",
             sell_card.buyer().name(),
-            sell_card.ducats(),
+            sell_card.points(),
             materials.join(", "),
             sell_card.required_boats(),
             colors.join(", "),
@@ -223,11 +223,11 @@ fn main() {
         let variant = card_variant_name(&card);
         write!(
             out,
-            "CARD_LOOKUP['{}'] = {{ kind: 'basicDye', name: '{}', color: '{}', destroyAbilities: {} }};\n",
+            "CARD_LOOKUP['{}'] = {{ kind: 'basicDye', name: '{}', color: '{}', trashAbilities: {} }};\n",
             variant,
             card.name(),
             format_color(&card.colors()[0]),
-            format_abilities(card.destroy_abilities()),
+            format_abilities(card.trash_abilities()),
         )
         .unwrap();
     }

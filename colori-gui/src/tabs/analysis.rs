@@ -19,8 +19,8 @@ pub struct CachedAnalysis {
     pub draft_freq_normalized: HashMap<String, f64>,
     pub cards_added: HashMap<String, usize>,
     pub cards_added_normalized: HashMap<String, f64>,
-    pub destroyed_draft: HashMap<String, usize>,
-    pub destroyed_workshop: HashMap<String, usize>,
+    pub trashed_draft: HashMap<String, usize>,
+    pub trashed_workshop: HashMap<String, usize>,
     pub sell_card_acq: SellCardAcquisitions,
     pub deck_stats: DeckSizeStats,
     /// Keyed by half points.
@@ -41,9 +41,9 @@ pub struct CachedAnalysis {
     pub cards_added_categories: Vec<CategoryStat>,
     pub card_win_rate_categories: Vec<WinRateCategoryStat>,
     pub draft_win_rate_categories: Vec<WinRateCategoryStat>,
-    pub destroy_rate: HashMap<String, f64>,
-    pub destroy_rate_categories: Vec<CategoryStat>,
-    pub destroy_rate_cat_normalized: Vec<CategoryStat>,
+    pub trash_rate: HashMap<String, f64>,
+    pub trash_rate_categories: Vec<CategoryStat>,
+    pub trash_rate_cat_normalized: Vec<CategoryStat>,
     pub winner_sell_card_breakdown: WinnerSellCardBreakdown,
     pub num_games: usize,
     pub num_players: usize,
@@ -63,8 +63,8 @@ impl CachedAnalysis {
         let draft_freq_normalized = normalize_by_draft_copies(&draft_freq);
         let cards_added = compute_cards_added_to_deck(logs, filter_ref);
         let cards_added_normalized = normalize_by_draft_copies(&cards_added);
-        let destroyed_draft = compute_destroyed_from_draft(logs, filter_ref);
-        let destroyed_workshop = compute_destroyed_from_workshop(logs, filter_ref);
+        let trashed_draft = compute_trashed_from_draft(logs, filter_ref);
+        let trashed_workshop = compute_trashed_from_workshop(logs, filter_ref);
         let sell_card_acq = compute_sell_card_acquisitions(logs, filter_ref);
         let deck_stats = compute_deck_size_stats(logs, filter_ref);
         let score_dist = compute_score_distribution(logs, filter_ref);
@@ -98,12 +98,12 @@ impl CachedAnalysis {
         let draft_win_rate_categories =
             compute_win_rate_category_stats(&draft_win_rate, &all_categories);
 
-        let destroy_rate = compute_destroy_rate(&destroyed_draft, &draft_freq);
-        let destroy_rate_categories =
-            compute_category_stats(&destroyed_draft, &draft_categories);
+        let trash_rate = compute_trash_rate(&trashed_draft, &draft_freq);
+        let trash_rate_categories =
+            compute_category_stats(&trashed_draft, &draft_categories);
 
-        // Compute normalized destroy rate by category (destroyed / drafted per category)
-        let destroy_rate_cat_normalized: Vec<CategoryStat> = destroy_rate_categories
+        // Compute normalized trash rate by category (trashed / drafted per category)
+        let trash_rate_cat_normalized: Vec<CategoryStat> = trash_rate_categories
             .iter()
             .zip(draft_freq_categories.iter())
             .map(|(dc, dfc)| {
@@ -135,8 +135,8 @@ impl CachedAnalysis {
             draft_freq_normalized,
             cards_added,
             cards_added_normalized,
-            destroyed_draft,
-            destroyed_workshop,
+            trashed_draft,
+            trashed_workshop,
             sell_card_acq,
             deck_stats,
             score_dist,
@@ -155,9 +155,9 @@ impl CachedAnalysis {
             cards_added_categories,
             card_win_rate_categories,
             draft_win_rate_categories,
-            destroy_rate,
-            destroy_rate_categories,
-            destroy_rate_cat_normalized,
+            trash_rate,
+            trash_rate_categories,
+            trash_rate_cat_normalized,
             winner_sell_card_breakdown,
             num_games,
             num_players,
@@ -574,31 +574,31 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
             false,
         );
 
-        // Destroyed from Draft
-        let id = ui.make_persistent_id("destroyed_draft");
+        // Trashed from Draft
+        let id = ui.make_persistent_id("trashed_draft");
         egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
             .show_header(ui, |ui| {
-                ui.strong("Destroyed from Draft");
+                ui.strong("Trashed from Draft");
             })
             .body(|ui| {
                 ui.strong("By Category");
                 render_category_bar_rows_pct(
                     ui,
-                    &analysis.destroy_rate_cat_normalized,
-                    "Destroy Rate",
+                    &analysis.trash_rate_cat_normalized,
+                    "Trash Rate",
                 );
                 ui.add_space(8.0);
                 ui.strong("By Card");
-                render_f64_hashmap_bar_rows_pct(ui, &analysis.destroy_rate, "Destroy Rate");
+                render_f64_hashmap_bar_rows_pct(ui, &analysis.trash_rate, "Trash Rate");
             });
 
-        // 13. Destroyed from Workshop
+        // 13. Trashed from Workshop
         render_hashmap_bar_section(
             ui,
-            "Destroyed from Workshop",
+            "Trashed from Workshop",
             "Card",
             "Count",
-            &analysis.destroyed_workshop,
+            &analysis.trashed_workshop,
             false,
         );
 
@@ -612,11 +612,11 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
                 ui.strong("By Sell Card");
                 render_usize_hashmap_bar_rows(ui, &analysis.sell_card_acq.by_sell_card, "Count");
                 ui.add_space(8.0);
-                ui.strong("By Ducats");
+                ui.strong("By Points");
                 render_u32_hashmap_bar_rows(
                     ui,
-                    &analysis.sell_card_acq.by_ducats,
-                    "Ducats",
+                    &analysis.sell_card_acq.by_points,
+                    "Points",
                     "Count",
                 );
                 ui.add_space(8.0);

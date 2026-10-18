@@ -1,10 +1,10 @@
 <script lang="ts">
   import type { GameState } from '../data/types';
   import type { TableInteraction } from '../stores/tableInteraction';
-  import { BOARD_ART_WIDTH, BUYERS_BOARD, BUYERS_BOARD_HEIGHT, assignSlots, type Rect } from '../data/boardLayout';
+  import { BUYERS_BOARD, BUYERS_BOARD_HEIGHT, BUYERS_BOARD_WIDTH, assignSlots, type Rect } from '../data/boardLayout';
   import { BUYERS_BOARD_ART_URL } from '../data/cardArt';
+  import { roundNews } from '../gameUtils';
   import CardDisplay from './CardDisplay.svelte';
-  import CardModal from './CardModal.svelte';
   import { fly } from 'svelte/transition';
 
   let { gameState, market = null }: {
@@ -24,11 +24,15 @@
   });
   let displayById = $derived(new Map(gameState.sellCardDisplay.map(c => [c.instanceId, c])));
 
-  let showTrash = $state(false);
+  function roundTitle(round: number): string {
+    const name = round === gameState.round ? `Round ${round} of ${gameState.maxRounds} (now)` : `Round ${round}`;
+    return [name, ...roundNews(round)].join('\n');
+  }
+
   const r = BUYERS_BOARD.roundRadius;
 </script>
 
-<div class="buyers-board" style:aspect-ratio="{BOARD_ART_WIDTH} / {BUYERS_BOARD_HEIGHT}">
+<div class="buyers-board" style:aspect-ratio="{BUYERS_BOARD_WIDTH} / {BUYERS_BOARD_HEIGHT}" style:--art-width={BUYERS_BOARD_WIDTH}>
   <img class="board-art" src={BUYERS_BOARD_ART_URL} alt="Buyer's board" draggable="false" />
 
   {#each BUYERS_BOARD.rounds as center, i}
@@ -38,25 +42,13 @@
       class:past={round < gameState.round}
       class:current={round === gameState.round}
       style={place({ x: center.x - r, y: center.y - r, width: 2 * r, height: 2 * r })}
-      title={round === gameState.round ? `Round ${round} of ${gameState.maxRounds}` : `Round ${round}`}
+      title={roundTitle(round)}
     >
       {#if round === gameState.round}<span class="now">Now</span>{/if}
     </div>
   {/each}
 
-  <div class="pile" style={place(BUYERS_BOARD.draftDeck)} title="Draft deck: {gameState.draftDeck.length} cards">
-    <span class="pile-count">{gameState.draftDeck.length}</span>
-    <span class="pile-label">draft deck</span>
-  </div>
-
-  <button class="pile trash" style={place(BUYERS_BOARD.trash)} onclick={() => showTrash = true}
-    disabled={gameState.destroyedPile.length === 0}
-    title="Destroyed cards: {gameState.destroyedPile.length}">
-    <span class="pile-count">{gameState.destroyedPile.length}</span>
-    <span class="pile-label">destroyed</span>
-  </button>
-
-  <button class="pile sell-deck" class:claimable={!!market?.onDrawUnseen} style={place(BUYERS_BOARD.sellDeck)}
+  <button class="sell-deck" class:claimable={!!market?.onDrawUnseen} style={place(BUYERS_BOARD.sellDeck)}
     disabled={!market?.onDrawUnseen}
     onclick={() => market?.onDrawUnseen?.()}
     title={market?.onDrawUnseen ? 'Claim the top card of the sell deck, unseen' : `Sell deck: ${gameState.sellCardDeck.length} cards`}>
@@ -79,13 +71,9 @@
   {/each}
 </div>
 
-{#if showTrash}
-  <CardModal title="Destroyed cards ({gameState.destroyedPile.length})" cards={gameState.destroyedPile} onClose={() => showTrash = false} />
-{/if}
-
 <style>
   .buyers-board {
-    --u: 0.05cqw;
+    --u: calc(100cqw / var(--art-width));
     position: relative;
     width: 100%;
     container-type: inline-size;
@@ -106,7 +94,6 @@
   .round {
     position: absolute;
     border-radius: 50%;
-    pointer-events: auto;
   }
 
   .round.past {
@@ -134,7 +121,7 @@
     white-space: nowrap;
   }
 
-  .pile {
+  .sell-deck {
     position: absolute;
     display: flex;
     flex-direction: column;
@@ -150,18 +137,18 @@
     font-family: 'Cinzel', serif;
   }
 
-  button.pile:disabled {
+  .sell-deck:disabled {
     opacity: 1;
     cursor: default;
   }
 
-  .trash:not(:disabled):hover {
-    background: rgba(255, 255, 255, 0.1);
+  .sell-deck.claimable {
+    cursor: pointer;
+    box-shadow: 0 0 0 calc(8 * var(--u)) #e8c766, 0 0 calc(40 * var(--u)) rgba(232, 199, 102, 0.8);
   }
 
-  .trash {
-    justify-content: flex-end;
-    padding-bottom: calc(40 * var(--u));
+  .sell-deck.claimable:hover {
+    background: rgba(255, 255, 255, 0.15);
   }
 
   .pile-count {
@@ -176,22 +163,6 @@
     text-transform: uppercase;
     letter-spacing: 0.1em;
     text-shadow: 0 0 calc(10 * var(--u)) #000, 0 0 calc(4 * var(--u)) #000;
-  }
-
-  .trash .pile-count,
-  .trash .pile-label {
-    padding: 0 calc(16 * var(--u));
-    border-radius: calc(10 * var(--u));
-    background: rgba(20, 15, 10, 0.8);
-  }
-
-  .sell-deck.claimable {
-    cursor: pointer;
-    box-shadow: 0 0 0 calc(8 * var(--u)) #e8c766, 0 0 calc(40 * var(--u)) rgba(232, 199, 102, 0.8);
-  }
-
-  .sell-deck.claimable:hover {
-    background: rgba(255, 255, 255, 0.15);
   }
 
   .display-slot {

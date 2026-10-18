@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { GameState, Choice, Ability, Color, DucatPurchase } from '../data/types';
   import { canSell } from '../engine/wasmEngine';
-  import { canMixAny, colorToHex, isPrimary, mixResult, mixWithWildPrimaries, textColorForBackground, WHEEL_ORDER } from '../data/colors';
+  import { canMixAny, colorToHex, mixInputs, mixResult, mixWithWildPrimaries, textColorForBackground, WHEEL_ORDER } from '../data/colors';
   import { SECONDARIES } from '../data/cards';
   import { formatSingleAbility } from '../data/abilities';
   import { tableInteraction } from '../stores/tableInteraction';
@@ -26,7 +26,6 @@
   // so these reset only when this player's own position changes.
   let selectedWorkshopIds: number[] = $state([]);
   let plannedMixes: [Color, Color][] = $state([]);
-  let firstMixColor: Color | null = $state(null);
   let decisionKey = $derived(JSON.stringify([
     turn?.abilityStack, player.colorWheel, player.wildPrimaries, player.workshopCards.map(c => c.instanceId),
   ]));
@@ -34,7 +33,6 @@
     decisionKey;
     selectedWorkshopIds = [];
     plannedMixes = [];
-    firstMixColor = null;
   });
 
   // ── Workshop ──
@@ -71,37 +69,30 @@
     return stock;
   });
 
-  function mixesWith(a: Color, b: Color): boolean {
-    return mixWithWildPrimaries(mixedStock.wheel, mixedStock.wildPrimaries, a, b) !== null;
-  }
+  // A mix is chosen by the color it makes, from the two either side of it.
+  let mixable = $derived(new Map(WHEEL_ORDER.flatMap(color => {
+    const inputs = mixInputs(color);
+    return inputs && mixWithWildPrimaries(mixedStock.wheel, mixedStock.wildPrimaries, ...inputs) ? [[color, inputs]] : [];
+  })));
 
   let mixesLeft = $derived(topAbility?.type === 'mixColors' ? topAbility.count - plannedMixes.length : 0);
-  let partners = $derived(firstMixColor ? WHEEL_ORDER.filter(c => mixesWith(firstMixColor!, c)) : []);
-  let canStartMix = $derived(WHEEL_ORDER.filter(a => WHEEL_ORDER.some(b => mixesWith(a, b))));
 
   function submitMixes(mixes: [Color, Color][]) {
     onAction({ type: 'mixAll', mixes });
   }
 
-  function pickMixColor(color: Color) {
-    if (firstMixColor === null) {
-      firstMixColor = color;
-    } else if (firstMixColor === color) {
-      firstMixColor = null;
-    } else if (mixesWith(firstMixColor, color)) {
-      const mixes: [Color, Color][] = [...plannedMixes, [firstMixColor, color]];
-      firstMixColor = null;
-      if (topAbility?.type === 'mixColors' && mixes.length === topAbility.count) submitMixes(mixes);
-      else plannedMixes = mixes;
-    }
+  function mixInto(color: Color) {
+    const inputs = mixable.get(color);
+    if (!inputs || topAbility?.type !== 'mixColors') return;
+    const mixes: [Color, Color][] = [...plannedMixes, inputs];
+    if (mixes.length === topAbility.count) submitMixes(mixes);
+    else plannedMixes = mixes;
   }
 
   let wildPrimaryHint = $derived.by(() => {
     if (mixedStock.wildPrimaries === 0) return '';
-    if (firstMixColor && isPrimary(firstMixColor) && mixedStock.wheel[firstMixColor] === 0) {
-      return 'This mix spends a wild primary for the primary you lack.';
-    }
-    return `Your ${mixedStock.wildPrimaries} wild ${mixedStock.wildPrimaries === 1 ? 'primary stands' : 'primaries stand'} in for a Red, Yellow or Blue you lack.`;
+    const n = mixedStock.wildPrimaries;
+    return `Your ${n} wild ${n === 1 ? 'primary stands' : 'primaries stand'} in for a Red, Yellow or Blue you lack.`;
   });
 
   // ── Selling ──
@@ -113,15 +104,15 @@
     if (buyer) onAction({ type: 'selectSellCard', sellCard: buyer.card });
   }
 
-  // ── Between destroys ──
+  // ── Between trashes ──
 
-  function destroyDrafted(instanceId: number) {
+  function trashDrafted(instanceId: number) {
     const ci = player.draftedCards.find(c => c.instanceId === instanceId);
-    if (ci) onAction({ type: 'destroyDraftedCard', card: ci.card });
+    if (ci) onAction({ type: 'trashDraftedCard', card: ci.card });
   }
 
   // Mirrors the engine: a purchase is offered only when it can act, and only
-  // between destroys. See `action_phase::can_buy_with_ducat`.
+  // between trashes. See `action_phase::can_buy_with_ducat`.
   let purchasable = $derived.by((): DucatPurchase[] => {
     if (topAbility || player.ducats < 1) return [];
     const options: DucatPurchase[] = [];
@@ -141,7 +132,7 @@
 
   $effect(() => {
     interaction.seat = playerIndex;
-    interaction.destroyDrafted = turn && !topAbility ? destroyDrafted : null;
+    interaction.trashDrafted = turn && !topAbility ? trashDrafted : null;
     const movable = player.workshopCards.map(c => c.instanceId);
     interaction.workshop =
       topAbility?.type === 'workshop' ? { selectable: movable, selected: selectedWorkshopIds, onClick: toggleWorkshopCard }
@@ -152,10 +143,10 @@
       interaction.wheel = {
         wheel: mixedStock.wheel,
         wildPrimaries: mixedStock.wildPrimaries,
-        pickable: firstMixColor ? partners : canStartMix,
-        selected: firstMixColor ? [firstMixColor] : [],
-        mixesInto: firstMixColor ? Object.fromEntries(partners.map(c => [c, mixResult(firstMixColor!, c)])) : {},
-        onClick: pickMixColor,
+        pickable: [...mixable.keys()],
+        selected: [],
+        spends: Object.fromEntries(mixable),
+        onClick: mixInto,
       };
     } else if (topAbility?.type === 'gainSecondary') {
       interaction.wheel = {
@@ -163,7 +154,7 @@
         wildPrimaries: player.wildPrimaries,
         pickable: SECONDARIES,
         selected: [],
-        mixesInto: {},
+        spends: {},
         onClick: color => onAction({ type: 'gainSecondary', color }),
       };
     } else {
@@ -174,7 +165,7 @@
 
   $effect(() => () => {
     interaction.seat = -1;
-    interaction.destroyDrafted = null;
+    interaction.trashDrafted = null;
     interaction.workshop = null;
     interaction.buyers = null;
     interaction.wheel = null;
@@ -189,10 +180,10 @@
     {#if topAbility === null}
       <p class="panel-text">
         {#if player.draftedCards.length > 0}
-          <strong>Destroy a drafted card</strong> — click one sticking out of the top of your board — to use the
+          <strong>Trash a drafted card</strong> — click one sticking out of the top of your board — to use the
           ability on its banner. Cards you keep move into your workshop for next round.
         {:else}
-          You have no drafted cards left to destroy.
+          You have no drafted cards left to trash.
         {/if}
       </p>
     {:else}
@@ -214,7 +205,7 @@
           {#if player.workshopCards.length > 0}
             <p class="panel-text">
               Click a card in your workshop (bottom of your board) to move it up to your draft pool, where you can
-              destroy it for its ability.
+              trash it for its ability.
             </p>
           {:else}
             <p class="panel-text">Every card in your workshop has been used, so there is nothing to move.</p>
@@ -224,12 +215,9 @@
           {/if}
         {:else if topAbility.type === 'mixColors'}
           <p class="panel-text">
-            {#if firstMixColor}
-              Now click a color that mixes with <strong>{firstMixColor}</strong> — the dashed outline shows what it makes.
-              Click {firstMixColor} again to choose another.
-            {:else if canStartMix.length > 0}
-              Click two colors two steps apart on your wheel; they make the color between them.
-              {mixesLeft} {mixesLeft === 1 ? 'mix' : 'mixes'} left.
+            {#if mixable.size > 0}
+              Click the color you want to make. It uses one each of the two colors either side of it, outlined
+              when you point at it. {mixesLeft} {mixesLeft === 1 ? 'mix' : 'mixes'} left.
             {:else}
               Nothing on your wheel can be mixed.
             {/if}
@@ -239,9 +227,9 @@
             <ul class="planned-mixes">
               {#each plannedMixes as [a, b]}
                 <li>
-                  <span class="swatch" style:background={colorToHex(a)}></span>{a} +
-                  <span class="swatch" style:background={colorToHex(b)}></span>{b} →
                   <span class="swatch" style:background={colorToHex(mixResult(a, b))}></span><strong>{mixResult(a, b)}</strong>
+                  from <span class="swatch" style:background={colorToHex(a)}></span>{a} +
+                  <span class="swatch" style:background={colorToHex(b)}></span>{b}
                 </li>
               {/each}
             </ul>
@@ -251,7 +239,7 @@
               {plannedMixes.length > 0 ? 'Done mixing' : 'Skip mixing'}
             </button>
             {#if plannedMixes.length > 0}
-              <button class="panel-btn" onclick={() => { plannedMixes = plannedMixes.slice(0, -1); firstMixColor = null; }}>Undo last mix</button>
+              <button class="panel-btn" onclick={() => plannedMixes = plannedMixes.slice(0, -1)}>Undo last mix</button>
             {/if}
           </div>
         {:else if topAbility.type === 'sell'}
