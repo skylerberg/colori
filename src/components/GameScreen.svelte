@@ -10,6 +10,7 @@
   import BuyersPhaseView from './BuyersPhaseView.svelte';
   import DraftPhaseView from './DraftPhaseView.svelte';
   import ActionPhaseView from './ActionPhaseView.svelte';
+  import WaitingNotice from './WaitingNotice.svelte';
   import { startTutorial, cancelTutorial } from '../tutorial/tutorial';
   import { createErrorReport, type ErrorReport } from '../errorReport';
   import { untrack } from 'svelte';
@@ -48,7 +49,7 @@
   // Start tutorial on first mount (checks localStorage internally)
   let tutorialStarted = false;
   $effect(() => {
-    if (!tutorialStarted && gameState.phase.type === 'draft') {
+    if (!tutorialStarted && gameState.phase.type !== 'draw') {
       tutorialStarted = true;
       startTutorial();
     }
@@ -97,29 +98,44 @@
   let selectedPlayerIndex = $state(0);
 
   function isActingHuman(playerIndex: number): boolean {
-    return !gameState.aiPlayers[playerIndex] && isTakingActionTurn(gameState, playerIndex);
+    return playerIndex >= 0 && !gameState.aiPlayers[playerIndex] && isTakingActionTurn(gameState, playerIndex);
   }
 
-  // The human whose action view is mounted. It stays mounted while another
-  // player's board is looked at, so a half-planned move survives the visit.
+  // The human whose action controls are showing: the one whose board is
+  // being looked at if they still have a turn to take, and otherwise the
+  // first who does. It stays put while an AI's board is looked at, so a
+  // half-planned move survives the visit.
   let actionViewSeat = $state(-1);
   $effect(() => {
-    if (isActingHuman(selectedPlayerIndex)) actionViewSeat = selectedPlayerIndex;
-  });
-
-  let isViewingActiveHuman = $derived.by(() => {
-    switch (gameState.phase.type) {
-      case 'draft':
-        return selectedPlayerIndex === humanPlayerIndex && !humanPicked;
-      case 'buyers':
-        return selectedPlayerIndex === gameState.phase.buyersState.currentPlayerIndex
-          && !gameState.aiPlayers[selectedPlayerIndex];
-      case 'action':
-        return selectedPlayerIndex === actionViewSeat && isActingHuman(selectedPlayerIndex);
-      default:
-        return false;
+    if (gameState.phase.type !== 'action') return;
+    if (isActingHuman(selectedPlayerIndex)) {
+      actionViewSeat = selectedPlayerIndex;
+    } else if (!isActingHuman(actionViewSeat)) {
+      actionViewSeat = gameState.aiPlayers.findIndex((ai, i) => !ai && isTakingActionTurn(gameState, i));
     }
   });
+
+  let buyersClaimant = $derived(gameState.phase.type === 'buyers' ? gameState.phase.buyersState.currentPlayerIndex : -1);
+
+  // Each decision opens on the board of the human making it.
+  let boardShownFor = '';
+  $effect(() => {
+    const seat = gameState.phase.type === 'action'
+      ? gameState.aiPlayers.findIndex((ai, i) => !ai && isTakingActionTurn(gameState, i))
+      : gameState.phase.type === 'buyers' && !gameState.aiPlayers[buyersClaimant] ? buyersClaimant
+      : gameState.phase.type === 'draft' ? humanPlayerIndex
+      : -1;
+    const key = `${gameState.round}:${gameState.phase.type}:${seat}`;
+    if (seat < 0 || key === boardShownFor) return;
+    boardShownFor = key;
+    untrack(() => { selectedPlayerIndex = seat; });
+  });
+
+  let viewerIndex = $derived(
+    gameState.phase.type === 'action' && actionViewSeat >= 0 ? actionViewSeat
+      : buyersClaimant >= 0 && !gameState.aiPlayers[buyersClaimant] ? buyersClaimant
+      : humanPlayerIndex
+  );
 
   let shownActingPlayers = $derived(
     gameState.phase.type === 'draft'
@@ -140,14 +156,9 @@
     }
   });
 
-  let waitingText = $derived.by(() => {
-    if (gameState.phase.type === 'draft') return aiThinking ? 'Thinking...' : 'Waiting...';
-    if (thinkingPlayers.includes(selectedPlayerIndex)) return 'Thinking...';
-    if (gameState.phase.type === 'action' && !isTakingActionTurn(gameState, selectedPlayerIndex)) {
-      return 'Turn over — waiting for the others...';
-    }
-    return 'Waiting...';
-  });
+  let stillPlaying = $derived(
+    actingPlayers(gameState).filter(i => i !== viewerIndex).map(i => gameState.playerNames[i]).join(', ')
+  );
 
   function selectPlayer(index: number) {
     selectedPlayerIndex = index;
@@ -460,94 +471,38 @@
   });
 </script>
 
-<GameLayout {gameState} actingPlayers={shownActingPlayers} {thinkingPlayers} controlledPlayerIndex={isViewingActiveHuman ? selectedPlayerIndex : -1} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} {selectedPlayerIndex} onSelectPlayer={selectPlayer} {aiError} onRetryAI={() => { aiError = null; }} hidePlayerCards={isViewingActiveHuman && gameState.phase.type === 'action'} {draftCardOrder}>
+<GameLayout {gameState} actingPlayers={shownActingPlayers} {thinkingPlayers} {viewerIndex} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} {selectedPlayerIndex} onSelectPlayer={selectPlayer} {aiError} onRetryAI={() => { aiError = null; }} {draftCardOrder}>
   {#if gameState.phase.type === 'buyers'}
-    {#if isViewingActiveHuman}
-      <BuyersPhaseView {gameState} onAction={(choice) => handleAction(selectedPlayerIndex, choice)} />
+    {#if !gameState.aiPlayers[buyersClaimant]}
+      <BuyersPhaseView {gameState} playerIndex={buyersClaimant} onAction={(choice) => handleAction(buyersClaimant, choice)} />
     {:else}
-      <div class="waiting-indicator">
-        <span class="waiting-spinner"></span>
-        <span class="waiting-text">{waitingText}</span>
-      </div>
+      <WaitingNotice text="{gameState.playerNames[buyersClaimant]} is claiming a buyer" detail="Players take one buyer each in turn until every open slot is full." />
     {/if}
   {:else if gameState.phase.type === 'draft'}
-    {#if isViewingActiveHuman}
+    {#if humanPlayerIndex >= 0}
       <DraftPhaseView {gameState} onAction={(choice) => handleAction(humanPlayerIndex, choice)} playerIndex={humanPlayerIndex} selectable={!humanPicked} />
+      {#if humanPicked}
+        <WaitingNotice text="Waiting for the others to pick" />
+      {/if}
     {:else}
-      <div class="waiting-indicator">
-        <span class="waiting-spinner"></span>
-        <span class="waiting-text">{waitingText}</span>
-      </div>
+      <WaitingNotice text="The AI players are drafting" />
     {/if}
   {:else if gameState.phase.type === 'action'}
     {#if actionViewSeat >= 0 && isActingHuman(actionViewSeat)}
       {#key actionViewSeat}
-        <div style:display={isViewingActiveHuman ? 'contents' : 'none'}>
-          <ActionPhaseView
-            {gameState}
-            playerIndex={actionViewSeat}
-            onAction={(choice) => handleAction(actionViewSeat, choice)}
-            onUndo={() => undoActionChoice(actionViewSeat)}
-            undoAvailable={canUndo(actionViewSeat)}
-            {draftCardOrder}
-          />
-        </div>
+        <ActionPhaseView
+          {gameState}
+          playerIndex={actionViewSeat}
+          onAction={(choice) => handleAction(actionViewSeat, choice)}
+          onUndo={() => undoActionChoice(actionViewSeat)}
+          undoAvailable={canUndo(actionViewSeat)}
+        />
       {/key}
-    {/if}
-    {#if !isViewingActiveHuman}
-      <div class="waiting-indicator">
-        <span class="waiting-spinner"></span>
-        <span class="waiting-text">{waitingText}</span>
-      </div>
+    {:else}
+      <WaitingNotice
+        text={humanPlayerIndex >= 0 ? 'Your turn is over' : 'The AI players are taking their turns'}
+        detail={stillPlaying ? `Waiting for ${stillPlaying}…` : undefined}
+      />
     {/if}
   {/if}
 </GameLayout>
-
-<style>
-  .waiting-indicator {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 1rem 0;
-  }
-
-  .waiting-text {
-    font-family: 'Cinzel', serif;
-    font-size: 0.85rem;
-    color: rgba(245, 237, 224, 0.6);
-    letter-spacing: 0.1em;
-  }
-
-  .waiting-spinner {
-    display: inline-block;
-    width: 14px;
-    height: 14px;
-    border: 2px solid rgba(201, 168, 76, 0.3);
-    border-top-color: #c9a84c;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-
-  /* ===== RESPONSIVE OVERRIDES (mobile-first) ===== */
-
-  @media (min-width: 768px) {
-    .waiting-indicator {
-      padding: 2rem 0;
-      gap: 10px;
-    }
-
-    .waiting-text {
-      font-size: 1rem;
-    }
-
-    .waiting-spinner {
-      width: 16px;
-      height: 16px;
-    }
-  }
-</style>

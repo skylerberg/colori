@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { LobbyPlayer } from '../network/types';
+  import CharacterPortrait from './CharacterPortrait.svelte';
 
   let { role, roomCode, lobbyPlayers, playerCount, hostName = '', onSetHostName, onSetPlayerCount, onStartGame, onJoin, onBack }: {
     role: 'host' | 'guest';
@@ -13,6 +14,11 @@
     onJoin?: (name: string, code: string) => void;
     onBack: () => void;
   } = $props();
+
+  // The host seats AI players wherever no one has joined.
+  let aiSeats = $derived(
+    Array.from({ length: playerCount }, (_, i) => i).filter(i => !lobbyPlayers.some(p => p.playerIndex === i))
+  );
 
   let guestName = $state('');
   let joinCode = $state('');
@@ -97,6 +103,7 @@
       <div class="player-list">
         {#each lobbyPlayers as player}
           <div class="player-row" class:disconnected={!player.isConnected}>
+            <CharacterPortrait seat={player.playerIndex} size={30} />
             <span class="player-name">
               {player.name}
               {#if player.isHost}<span class="host-badge">Host</span>{/if}
@@ -106,8 +113,9 @@
             </span>
           </div>
         {/each}
-        {#each { length: Math.max(0, playerCount - humanPlayerCount) } as _}
+        {#each aiSeats as seat}
           <div class="player-row ai-slot">
+            <CharacterPortrait {seat} size={30} />
             <span class="player-name">AI Player</span>
             <span class="ai-badge">AI</span>
           </div>
@@ -156,6 +164,7 @@
           <div class="player-list">
             {#each lobbyPlayers as player}
               <div class="player-row">
+                <CharacterPortrait seat={player.playerIndex} size={30} />
                 <span class="player-name">
                   {player.name}
                   {#if player.isHost}<span class="host-badge">Host</span>{/if}
@@ -292,9 +301,9 @@
 
   .player-row {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 10px 12px;
+    gap: 10px;
+    padding: 8px 12px;
     border: 1px solid var(--border-gold, rgba(201, 168, 76, 0.3));
     border-radius: 6px;
     background: rgba(255, 255, 255, 0.4);
@@ -312,6 +321,8 @@
   }
 
   .player-name {
+    flex: 1;
+    text-align: left;
     font-weight: 600;
     font-size: 0.9rem;
     overflow: hidden;

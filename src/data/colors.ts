@@ -69,23 +69,6 @@ export function canMixAny(wheel: Record<Color, number>, wildPrimaries: number): 
     WHEEL_ORDER.slice(i + 1).some(b => mixWithWildPrimaries(wheel, wildPrimaries, a, b) !== null));
 }
 
-// Wild primaries needed to pay `cost`, or null when a secondary or tertiary is missing.
-export function wildPrimariesToCoverCost(wheel: Record<Color, number>, cost: Color[]): number | null {
-  const used: Partial<Record<Color, number>> = {};
-  let wildPrimaries = 0;
-  for (const c of cost) {
-    const taken = used[c] ?? 0;
-    if (wheel[c] > taken) {
-      used[c] = taken + 1;
-    } else if (isPrimary(c)) {
-      wildPrimaries++;
-    } else {
-      return null;
-    }
-  }
-  return wildPrimaries;
-}
-
 // Returns the color produced by mixing a and b.
 // Throws if they can't be mixed.
 export function mixResult(a: Color, b: Color): Color {

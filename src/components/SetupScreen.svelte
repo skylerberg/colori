@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { AiSettings, GameState } from '../data/types';
   import { createInitialGameState } from '../engine/wasmEngine';
+  import CharacterPortrait from './CharacterPortrait.svelte';
 
   const DIFFICULTY_LEVELS: { label: string; iterations: number }[] = [
     { label: 'Easy', iterations: 1000 },
@@ -77,6 +78,7 @@
   <div class="names-section">
     {#each { length: playerCount } as _, i}
       <div class="name-input-row">
+        <CharacterPortrait seat={i} size={36} />
         <label for="player-{i}">Player {i + 1}:</label>
         <input
           id="player-{i}"

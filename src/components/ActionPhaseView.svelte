@@ -1,499 +1,385 @@
 <script lang="ts">
-  import type { GameState, Choice, Ability } from '../data/types';
+  import type { GameState, Choice, Ability, Color, DucatPurchase } from '../data/types';
   import { canSell } from '../engine/wasmEngine';
-  import { canMixAny } from '../data/colors';
-  import { orderByDraftOrder } from '../gameUtils';
-  import CardList from './CardList.svelte';
-  import AbilityPrompt from './AbilityPrompt.svelte';
+  import { canMixAny, colorToHex, isPrimary, mixResult, mixWithWildPrimaries, textColorForBackground, WHEEL_ORDER } from '../data/colors';
+  import { SECONDARIES } from '../data/cards';
+  import { formatSingleAbility } from '../data/abilities';
+  import { tableInteraction } from '../stores/tableInteraction';
 
-  let {
-    gameState,
-    playerIndex,
-    onAction,
-    onUndo,
-    undoAvailable,
-    draftCardOrder,
-  }: {
+  let { gameState, playerIndex, onAction, onUndo, undoAvailable }: {
     gameState: GameState;
     playerIndex: number;
     onAction: (choice: Choice) => void;
-    onUndo: () => void;
-    undoAvailable: boolean;
-    draftCardOrder?: number[][];
+    // Absent where moves cannot be taken back.
+    onUndo?: () => void;
+    undoAvailable?: boolean;
   } = $props();
 
-  let turn = $derived(
-    gameState.phase.type === 'action' ? gameState.phase.actionState.turns[playerIndex] : null
-  );
+  const interaction = tableInteraction();
 
-  let currentPlayer = $derived(turn ? gameState.players[playerIndex] : null);
+  let turn = $derived(gameState.phase.type === 'action' ? gameState.phase.actionState.turns[playerIndex] : null);
+  let player = $derived(gameState.players[playerIndex]);
+  let topAbility: Ability | null = $derived(turn?.abilityStack.at(-1) ?? null);
+  let queued = $derived(turn ? turn.abilityStack.slice(0, -1).reverse() : []);
 
-  let topAbility: Ability | null = $derived(
-    turn && turn.abilityStack.length > 0
-      ? turn.abilityStack[turn.abilityStack.length - 1]
-      : null
-  );
-  let hasPendingChoice = $derived(topAbility !== null);
-
-  let workshopDisplayCards = $derived(
-    currentPlayer ? [...currentPlayer.workshopCards, ...currentPlayer.workshoppedCards] : []
-  );
-  let workshoppedIds = $derived(
-    currentPlayer ? currentPlayer.workshoppedCards.map(c => c.instanceId) : []
-  );
-  let hasAbilitiesQueued = $derived((turn?.abilityStack.length ?? 0) > 0);
-
-  // Cards moved in from the workshop are not in the draft order, so
-  // `orderByDraftOrder` appends them after the ones that were drafted.
-  let draftedDisplayCards = $derived.by(() => {
-    if (!currentPlayer) return [];
-    return draftCardOrder
-      ? orderByDraftOrder(currentPlayer.draftedCards, draftCardOrder[playerIndex])
-      : currentPlayer.draftedCards;
-  });
-
-  let workshopPendingChoice = $derived(
-    topAbility?.type === 'workshop' || topAbility?.type === 'moveToDraftPool'
-      ? topAbility : null
-  );
-
+  // Choices half made on the board. Other players move all through this phase,
+  // so these reset only when this player's own position changes.
   let selectedWorkshopIds: number[] = $state([]);
-
+  let plannedMixes: [Color, Color][] = $state([]);
+  let firstMixColor: Color | null = $state(null);
+  let decisionKey = $derived(JSON.stringify([
+    turn?.abilityStack, player.colorWheel, player.wildPrimaries, player.workshopCards.map(c => c.instanceId),
+  ]));
   $effect(() => {
-    topAbility;
+    decisionKey;
     selectedWorkshopIds = [];
+    plannedMixes = [];
+    firstMixColor = null;
   });
+
+  // ── Workshop ──
 
   function toggleWorkshopCard(instanceId: number) {
-    if (!topAbility || topAbility.type !== 'workshop') return;
-    const idx = selectedWorkshopIds.indexOf(instanceId);
-    if (idx >= 0) {
+    if (topAbility?.type !== 'workshop') return;
+    if (selectedWorkshopIds.includes(instanceId)) {
       selectedWorkshopIds = selectedWorkshopIds.filter(id => id !== instanceId);
     } else if (selectedWorkshopIds.length < topAbility.count) {
       selectedWorkshopIds = [...selectedWorkshopIds, instanceId];
+    } else if (topAbility.count === 1) {
+      selectedWorkshopIds = [instanceId];
     }
   }
 
   function confirmWorkshop() {
-    if (!currentPlayer) return;
-    const cardTypes = selectedWorkshopIds.map(id => {
-      const ci = currentPlayer!.workshopCards.find(c => c.instanceId === id);
-      return ci!.card;
-    });
-    onAction({ type: 'workshop', cardTypes });
+    const cardTypes = selectedWorkshopIds.map(id => player.workshopCards.find(c => c.instanceId === id)!.card);
+    onAction(cardTypes.length > 0 ? { type: 'workshop', cardTypes } : { type: 'skipWorkshop' });
   }
 
-  function handleSkipWorkshop() {
-    onAction({ type: 'skipWorkshop' });
+  function moveToDraftPool(instanceId: number) {
+    const ci = player.workshopCards.find(c => c.instanceId === instanceId);
+    if (ci) onAction({ type: 'moveToDraftPool', card: ci.card });
   }
 
-  function handleMoveToDraftPool(instanceId: number) {
-    if (!topAbility || topAbility.type !== 'moveToDraftPool' || !currentPlayer) return;
-    const ci = currentPlayer.workshopCards.find(c => c.instanceId === instanceId);
-    if (!ci) return;
-    onAction({ type: 'moveToDraftPool', card: ci.card });
+  // ── Mixing ──
+
+  // The wheel as the planned mixes would leave it.
+  let mixedStock = $derived.by(() => {
+    let stock = { wheel: { ...player.colorWheel }, wildPrimaries: player.wildPrimaries };
+    for (const [a, b] of plannedMixes) {
+      stock = mixWithWildPrimaries(stock.wheel, stock.wildPrimaries, a, b) ?? stock;
+    }
+    return stock;
+  });
+
+  function mixesWith(a: Color, b: Color): boolean {
+    return mixWithWildPrimaries(mixedStock.wheel, mixedStock.wildPrimaries, a, b) !== null;
   }
 
-  // The move is mandatory when there is anything to move, so this only ever
-  // resolves an ability that has nothing to act on.
-  function handleNothingToMove() {
-    onAction({ type: 'moveToDraftPool', card: null });
+  let mixesLeft = $derived(topAbility?.type === 'mixColors' ? topAbility.count - plannedMixes.length : 0);
+  let partners = $derived(firstMixColor ? WHEEL_ORDER.filter(c => mixesWith(firstMixColor!, c)) : []);
+  let canStartMix = $derived(WHEEL_ORDER.filter(a => WHEEL_ORDER.some(b => mixesWith(a, b))));
+
+  function submitMixes(mixes: [Color, Color][]) {
+    onAction({ type: 'mixAll', mixes });
   }
 
-  function handleDestroyDrafted(cardInstanceId: number) {
-    if (!currentPlayer) return;
-    if (hasPendingChoice) return;
-    const ci = currentPlayer.draftedCards.find(c => c.instanceId === cardInstanceId);
-    if (!ci) return;
-    onAction({ type: 'destroyDraftedCard', card: ci.card });
+  function pickMixColor(color: Color) {
+    if (firstMixColor === null) {
+      firstMixColor = color;
+    } else if (firstMixColor === color) {
+      firstMixColor = null;
+    } else if (mixesWith(firstMixColor, color)) {
+      const mixes: [Color, Color][] = [...plannedMixes, [firstMixColor, color]];
+      firstMixColor = null;
+      if (topAbility?.type === 'mixColors' && mixes.length === topAbility.count) submitMixes(mixes);
+      else plannedMixes = mixes;
+    }
   }
 
-  function handleEndTurn() {
-    onAction({ type: 'endTurn' });
+  let wildPrimaryHint = $derived.by(() => {
+    if (mixedStock.wildPrimaries === 0) return '';
+    if (firstMixColor && isPrimary(firstMixColor) && mixedStock.wheel[firstMixColor] === 0) {
+      return 'This mix spends a wild primary for the primary you lack.';
+    }
+    return `Your ${mixedStock.wildPrimaries} wild ${mixedStock.wildPrimaries === 1 ? 'primary stands' : 'primaries stand'} in for a Red, Yellow or Blue you lack.`;
+  });
+
+  // ── Selling ──
+
+  let sellableBuyerIds = $derived(player.buyers.filter(b => canSell(player, b.instanceId)).map(b => b.instanceId));
+
+  function sellTo(instanceId: number) {
+    const buyer = player.buyers.find(b => b.instanceId === instanceId);
+    if (buyer) onAction({ type: 'selectSellCard', sellCard: buyer.card });
+  }
+
+  // ── Between destroys ──
+
+  function destroyDrafted(instanceId: number) {
+    const ci = player.draftedCards.find(c => c.instanceId === instanceId);
+    if (ci) onAction({ type: 'destroyDraftedCard', card: ci.card });
   }
 
   // Mirrors the engine: a purchase is offered only when it can act, and only
   // between destroys. See `action_phase::can_buy_with_ducat`.
-  let canBuy = $derived.by(() => {
-    const none = { workshop: false, mixColors: false, sell: false };
-    if (!currentPlayer || hasPendingChoice || currentPlayer.ducats < 1) return none;
-    return {
-      workshop: currentPlayer.workshopCards.length > 0,
-      mixColors: canMixAny(currentPlayer.colorWheel, currentPlayer.wildPrimaries),
-      sell: currentPlayer.buyers.some(b => canSell(currentPlayer!, b.instanceId)),
-    };
+  let purchasable = $derived.by((): DucatPurchase[] => {
+    if (topAbility || player.ducats < 1) return [];
+    const options: DucatPurchase[] = [];
+    if (player.workshopCards.length > 0) options.push('workshop');
+    if (canMixAny(player.colorWheel, player.wildPrimaries)) options.push('mixColors');
+    if (sellableBuyerIds.length > 0) options.push('sell');
+    return options;
   });
 
-  let anyPurchase = $derived(canBuy.workshop || canBuy.mixColors || canBuy.sell);
+  const PURCHASE_LABELS: Record<DucatPurchase, string> = { workshop: 'Workshop ×1', mixColors: 'Mix ×1', sell: 'Sell' };
 
+  function spendDucat(purchase: DucatPurchase) {
+    onAction({ type: 'spendDucat', purchase });
+  }
+
+  // ── What the boards offer ──
+
+  $effect(() => {
+    interaction.seat = playerIndex;
+    interaction.destroyDrafted = turn && !topAbility ? destroyDrafted : null;
+    const movable = player.workshopCards.map(c => c.instanceId);
+    interaction.workshop =
+      topAbility?.type === 'workshop' ? { selectable: movable, selected: selectedWorkshopIds, onClick: toggleWorkshopCard }
+      : topAbility?.type === 'moveToDraftPool' ? { selectable: movable, selected: [], onClick: moveToDraftPool }
+      : null;
+    interaction.buyers = topAbility?.type === 'sell' ? { selectable: sellableBuyerIds, onClick: sellTo } : null;
+    if (topAbility?.type === 'mixColors') {
+      interaction.wheel = {
+        wheel: mixedStock.wheel,
+        wildPrimaries: mixedStock.wildPrimaries,
+        pickable: firstMixColor ? partners : canStartMix,
+        selected: firstMixColor ? [firstMixColor] : [],
+        mixesInto: firstMixColor ? Object.fromEntries(partners.map(c => [c, mixResult(firstMixColor!, c)])) : {},
+        onClick: pickMixColor,
+      };
+    } else if (topAbility?.type === 'gainSecondary') {
+      interaction.wheel = {
+        wheel: player.colorWheel,
+        wildPrimaries: player.wildPrimaries,
+        pickable: SECONDARIES,
+        selected: [],
+        mixesInto: {},
+        onClick: color => onAction({ type: 'gainSecondary', color }),
+      };
+    } else {
+      interaction.wheel = null;
+    }
+    interaction.ducats = purchasable.length > 0 ? { available: purchasable, onSpend: spendDucat } : null;
+  });
+
+  $effect(() => () => {
+    interaction.seat = -1;
+    interaction.destroyDrafted = null;
+    interaction.workshop = null;
+    interaction.buyers = null;
+    interaction.wheel = null;
+    interaction.ducats = null;
+  });
 </script>
 
-{#if turn && currentPlayer}
+{#if turn}
   <div class="action-phase">
-    <h2 class="phase-title">Action Phase - {gameState.playerNames[playerIndex]}'s Turn</h2>
-    <div class="queue-status">
-      {#if hasAbilitiesQueued}
-        <span class="queue-info">Abilities queued: {turn.abilityStack.length}</span>
-      {/if}
-      {#if hasPendingChoice}
-        <span class="pending-info">Awaiting your choice...</span>
-      {/if}
-    </div>
+    <div class="panel-heading">Your turn</div>
 
-    {#if hasPendingChoice && !workshopPendingChoice}
-      <AbilityPrompt {gameState} {playerIndex} {onAction} />
-    {/if}
+    {#if topAbility === null}
+      <p class="panel-text">
+        {#if player.draftedCards.length > 0}
+          <strong>Destroy a drafted card</strong> — click one sticking out of the top of your board — to use the
+          ability on its banner. Cards you keep move into your workshop for next round.
+        {:else}
+          You have no drafted cards left to destroy.
+        {/if}
+      </p>
+    {:else}
+      <div class="prompt">
+        <div class="prompt-title">{formatSingleAbility(topAbility)}</div>
 
-    <div class="sections">
-      <div class="section">
-        <h3>Drafted Cards <span class="hint">(click to destroy and activate ability)</span></h3>
-        <CardList
-          cards={draftedDisplayCards}
-          selectable={!hasPendingChoice}
-          onCardClick={handleDestroyDrafted}
-        />
-      </div>
-
-      <div class="section" class:active-choice={workshopPendingChoice}>
-        {#if topAbility?.type === 'workshop'}
-          <h3>Workshop — Select cards ({topAbility.count} available)</h3>
-          <CardList
-            cards={workshopDisplayCards}
-            selectable={true}
-            selectedIds={selectedWorkshopIds}
-            rotatedIds={workshoppedIds}
-            onCardClick={toggleWorkshopCard}
-          />
-          <div class="workshop-actions">
-            <button class="confirm-btn" onclick={confirmWorkshop}>
-              Confirm Workshop ({selectedWorkshopIds.length} selected)
+        {#if topAbility.type === 'workshop'}
+          <p class="panel-text">
+            Choose up to {topAbility.count} {topAbility.count === 1 ? 'card' : 'cards'} along the bottom of your board.
+            Each gives you what its lower half shows.
+          </p>
+          <div class="panel-actions">
+            <button class="panel-btn primary" onclick={confirmWorkshop} disabled={selectedWorkshopIds.length === 0}>
+              Workshop {selectedWorkshopIds.length || ''} {selectedWorkshopIds.length === 1 ? 'card' : 'cards'}
             </button>
-            {#if selectedWorkshopIds.length === 0}
-              <button class="confirm-btn skip-btn" onclick={handleSkipWorkshop}>
-                Skip Workshop
-              </button>
+            <button class="panel-btn" onclick={() => onAction({ type: 'skipWorkshop' })}>Skip</button>
+          </div>
+        {:else if topAbility.type === 'moveToDraftPool'}
+          {#if player.workshopCards.length > 0}
+            <p class="panel-text">
+              Click a card in your workshop (bottom of your board) to move it up to your draft pool, where you can
+              destroy it for its ability.
+            </p>
+          {:else}
+            <p class="panel-text">Every card in your workshop has been used, so there is nothing to move.</p>
+            <div class="panel-actions">
+              <button class="panel-btn primary" onclick={() => onAction({ type: 'moveToDraftPool', card: null })}>Continue</button>
+            </div>
+          {/if}
+        {:else if topAbility.type === 'mixColors'}
+          <p class="panel-text">
+            {#if firstMixColor}
+              Now click a color that mixes with <strong>{firstMixColor}</strong> — the dashed outline shows what it makes.
+              Click {firstMixColor} again to choose another.
+            {:else if canStartMix.length > 0}
+              Click two colors two steps apart on your wheel; they make the color between them.
+              {mixesLeft} {mixesLeft === 1 ? 'mix' : 'mixes'} left.
+            {:else}
+              Nothing on your wheel can be mixed.
+            {/if}
+          </p>
+          {#if wildPrimaryHint}<p class="panel-hint">{wildPrimaryHint}</p>{/if}
+          {#if plannedMixes.length > 0}
+            <ul class="planned-mixes">
+              {#each plannedMixes as [a, b]}
+                <li>
+                  <span class="swatch" style:background={colorToHex(a)}></span>{a} +
+                  <span class="swatch" style:background={colorToHex(b)}></span>{b} →
+                  <span class="swatch" style:background={colorToHex(mixResult(a, b))}></span><strong>{mixResult(a, b)}</strong>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+          <div class="panel-actions">
+            <button class="panel-btn primary" onclick={() => submitMixes(plannedMixes)}>
+              {plannedMixes.length > 0 ? 'Done mixing' : 'Skip mixing'}
+            </button>
+            {#if plannedMixes.length > 0}
+              <button class="panel-btn" onclick={() => { plannedMixes = plannedMixes.slice(0, -1); firstMixColor = null; }}>Undo last mix</button>
             {/if}
           </div>
-        {:else if topAbility?.type === 'moveToDraftPool'}
-          <h3>Workshop — Click a card to move to draft pool</h3>
-          <CardList
-            cards={workshopDisplayCards}
-            selectable={true}
-            rotatedIds={workshoppedIds}
-            onCardClick={handleMoveToDraftPool}
-          />
-          {#if currentPlayer.workshopCards.length === 0}
-            <button class="confirm-btn skip-btn" onclick={handleNothingToMove}>
-              Nothing to move
-            </button>
+        {:else if topAbility.type === 'sell'}
+          <p class="panel-text">Click a glowing buyer on your board to sell to them.</p>
+          {#if player.boats > 0 || player.wildPrimaries > 0}
+            <p class="panel-hint">A boat covers a material you lack and a wild primary a primary you lack; what a buyer asks for is spent first.</p>
           {/if}
-        {:else}
-          <h3>Workshop</h3>
-          <CardList cards={workshopDisplayCards} rotatedIds={workshoppedIds} />
+        {:else if topAbility.type === 'gainSecondary'}
+          <p class="panel-text">Choose a secondary color to gain — here, or on a petal of your wheel.</p>
+          <div class="panel-actions">
+            {#each SECONDARIES as color}
+              <button
+                class="panel-btn color-btn"
+                style:background={colorToHex(color)}
+                style:color={textColorForBackground(colorToHex(color))}
+                onclick={() => onAction({ type: 'gainSecondary', color })}
+              >{color}</button>
+            {/each}
+          </div>
         {/if}
       </div>
 
-    </div>
+      {#if queued.length > 0}
+        <div class="queue">
+          Then: {#each queued as ability, i}{#if i > 0}<span class="arrow">→</span>{/if}<span class="chip">{formatSingleAbility(ability)}</span>{/each}
+        </div>
+      {/if}
+    {/if}
 
-    {#if anyPurchase}
-      <div class="ducat-shop">
-        <span class="ducat-label">Spend a ducat ({currentPlayer.ducats}):</span>
-        {#if canBuy.workshop}
-          <button class="ducat-btn" onclick={() => onAction({ type: 'spendDucat', purchase: 'workshop' })}>
-            Workshop &times;1
-          </button>
-        {/if}
-        {#if canBuy.mixColors}
-          <button class="ducat-btn" onclick={() => onAction({ type: 'spendDucat', purchase: 'mixColors' })}>
-            Mix &times;1
-          </button>
-        {/if}
-        {#if canBuy.sell}
-          <button class="ducat-btn" onclick={() => onAction({ type: 'spendDucat', purchase: 'sell' })}>
-            Sell
-          </button>
-        {/if}
+    {#if purchasable.length > 0}
+      <div class="ducats">
+        <span class="panel-hint">Spend 1 of your {player.ducats} {player.ducats === 1 ? 'ducat' : 'ducats'} (a point each) for:</span>
+        <div class="panel-actions">
+          {#each purchasable as purchase}
+            <button class="panel-btn" onclick={() => spendDucat(purchase)}>{PURCHASE_LABELS[purchase]}</button>
+          {/each}
+        </div>
       </div>
     {/if}
 
-    <div class="action-footer">
-      <button class="undo-btn" onclick={onUndo} disabled={!undoAvailable}>
-        Undo
-      </button>
-      <button
-        class="end-turn-btn"
-        onclick={handleEndTurn}
-        disabled={hasPendingChoice}
-      >
-        End Turn
-      </button>
+    <div class="panel-actions footer">
+      {#if onUndo}
+        <button class="panel-btn" onclick={onUndo} disabled={!undoAvailable}>Undo</button>
+      {/if}
+      <button class="panel-btn danger" onclick={() => onAction({ type: 'endTurn' })} disabled={topAbility !== null}
+        title={topAbility ? 'Finish the ability first' : 'End your turn'}>End turn</button>
     </div>
   </div>
 {/if}
 
 <style>
-  .ducat-shop {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    justify-content: center;
-    font-size: 0.8rem;
-  }
-
-  .ducat-label {
-    color: #c9a84c;
-    font-weight: 600;
-  }
-
-  .ducat-btn {
-    padding: 0.2rem 0.55rem;
-    background: rgba(201, 168, 76, 0.18);
-    border: 1px solid rgba(201, 168, 76, 0.6);
-    border-radius: 4px;
-    color: #e8d9a8;
-    cursor: pointer;
-    font-size: 0.78rem;
-  }
-
-  .ducat-btn:hover {
-    background: rgba(201, 168, 76, 0.32);
-  }
-
   .action-phase {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    padding: 0 0.25rem;
+    gap: 10px;
   }
 
-  .phase-title {
-    font-family: 'Cinzel', serif;
-    color: #c9a84c;
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    text-align: center;
-    margin: 0;
-  }
-
-  .queue-status {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    justify-content: center;
-    font-size: 0.8rem;
-  }
-
-  .queue-info {
-    color: #c9a84c;
-    font-weight: 600;
-  }
-
-  .pending-info {
-    color: #8b2020;
-    font-weight: 600;
-  }
-
-  .sections {
+  .prompt {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .section {
-    border: 1px solid rgba(201, 168, 76, 0.4);
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid #c9a84c;
     border-radius: 8px;
-    padding: 8px;
-    background: rgba(20, 15, 10, 0.6);
-    text-align: left;
-  }
-
-  .section h3 {
-    font-family: 'Cinzel', serif;
-    font-size: 0.75rem;
-    color: #c9a84c;
-    margin-bottom: 6px;
-  }
-
-  .hint {
-    font-size: 0.65rem;
-    color: rgba(245, 237, 224, 0.4);
-    font-weight: 400;
-  }
-
-  .active-choice {
-    border-color: #c9a84c;
-    border-width: 2px;
     background: rgba(201, 168, 76, 0.1);
   }
 
-  .confirm-btn {
-    padding: 10px 16px;
+  .prompt-title {
     font-family: 'Cinzel', serif;
-    font-weight: 600;
-    font-size: 0.85rem;
-    background: rgba(42, 107, 207, 0.8);
-    color: #f5ede0;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    margin-top: 6px;
-    margin-right: 0;
-    min-height: 44px;
-    width: 100%;
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: #f3dc8a;
   }
 
-  .confirm-btn:hover:not(:disabled) {
-    background: rgba(30, 86, 168, 0.9);
-  }
-
-  .confirm-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  .skip-btn {
-    background: rgba(100, 100, 100, 0.6);
-  }
-
-  .skip-btn:hover {
-    background: rgba(80, 80, 80, 0.8);
-  }
-
-  .action-footer {
+  .planned-mixes {
+    list-style: none;
     display: flex;
-    gap: 8px;
-    padding-top: 4px;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.95rem;
   }
 
-  .undo-btn {
-    padding: 10px 16px;
+  .swatch {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin: 0 4px 0 2px;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 0, 0, 0.5);
+    vertical-align: -1px;
+  }
+
+  .queue {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9rem;
+    color: rgba(245, 237, 224, 0.7);
+  }
+
+  .chip {
+    padding: 1px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(201, 168, 76, 0.5);
     font-family: 'Cinzel', serif;
-    font-size: 0.85rem;
-    font-weight: 600;
-    letter-spacing: 1px;
-    background: rgba(20, 15, 10, 0.6);
-    color: #c9a84c;
-    border: 1px solid rgba(201, 168, 76, 0.4);
-    border-radius: 8px;
-    cursor: pointer;
-    min-height: 44px;
-    flex: 1;
+    font-size: 0.75rem;
+    color: #e8c766;
   }
 
-  .undo-btn:hover:not(:disabled) {
-    background: rgba(40, 30, 20, 0.8);
+  .arrow {
+    color: rgba(201, 168, 76, 0.6);
   }
 
-  .undo-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  .end-turn-btn {
-    padding: 10px 16px;
-    font-family: 'Cinzel', serif;
-    font-size: 0.85rem;
-    font-weight: 600;
-    letter-spacing: 1px;
-    background: #8b2020;
-    color: #f5ede0;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    min-height: 44px;
-    flex: 1;
-  }
-
-  .end-turn-btn:hover:not(:disabled) {
-    background: #6b1818;
-  }
-
-  .end-turn-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  .workshop-actions {
+  .ducats {
     display: flex;
     flex-direction: column;
     gap: 6px;
   }
 
-  /* ── Responsive: sm (640px) ── */
-  @media (min-width: 640px) {
-    .action-phase {
-      padding: 0;
-    }
-
-    .phase-title {
-      font-size: 0.9rem;
-      letter-spacing: 0.08em;
-    }
-
-    .section {
-      padding: 10px 12px;
-    }
-
-    .section h3 {
-      font-size: 0.8rem;
-    }
-
-    .hint {
-      font-size: 0.7rem;
-    }
-
-    .confirm-btn {
-      width: auto;
-      padding: 8px 20px;
-      margin-right: 6px;
-      min-height: unset;
-      font-size: inherit;
-    }
-
-    .action-footer {
-      justify-content: center;
-      gap: 12px;
-    }
-
-    .undo-btn,
-    .end-turn-btn {
-      flex: 0 1 auto;
-      min-height: unset;
-    }
-
-    .undo-btn {
-      padding: 8px 20px;
-      font-size: 0.95rem;
-    }
-
-    .end-turn-btn {
-      padding: 8px 28px;
-      font-size: 0.95rem;
-    }
-
-    .workshop-actions {
-      flex-direction: row;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-
+  .color-btn {
+    border-color: rgba(0, 0, 0, 0.3);
+    font-weight: 700;
   }
 
-  /* ── Responsive: md (768px) ── */
-  @media (min-width: 768px) {
-    .phase-title {
-      font-size: 1rem;
-      letter-spacing: 0.1em;
-    }
-
-    .sections {
-      gap: 0.75rem;
-    }
-
-    .section h3 {
-      font-size: 0.85rem;
-    }
+  .footer {
+    justify-content: flex-end;
+    padding-top: 4px;
+    border-top: 1px solid rgba(201, 168, 76, 0.2);
   }
 </style>

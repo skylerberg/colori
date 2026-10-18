@@ -13,6 +13,7 @@
   import BuyersPhaseView from './BuyersPhaseView.svelte';
   import DraftPhaseView from './DraftPhaseView.svelte';
   import ActionPhaseView from './ActionPhaseView.svelte';
+  import WaitingNotice from './WaitingNotice.svelte';
 
   let { role, hostController, guestController, initialGuestState, onGameOver, gameStartTime, onLeaveGame }: {
     role: 'host' | 'guest';
@@ -357,7 +358,7 @@
 </script>
 
 {#if gameState}
-  <GameLayout {gameState} actingPlayers={acting} {thinkingPlayers} controlledPlayerIndex={isMyTurn && selectedPlayerIndex === myPlayerIndex ? myPlayerIndex : -1} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} {selectedPlayerIndex} onSelectPlayer={selectPlayer} {draftCardOrder}>
+  <GameLayout {gameState} actingPlayers={acting} {thinkingPlayers} viewerIndex={myPlayerIndex} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} {selectedPlayerIndex} onSelectPlayer={selectPlayer} {draftCardOrder}>
     {#if connectionBanner}
       <div class="connection-banner" class:warn={connectionBanner.kind === 'warn'}>{connectionBanner.text}</div>
     {/if}
@@ -366,91 +367,41 @@
       <div class="connection-banner warn">Connection to host appears stalled{latencyMs > 0 ? ` (last ping ${latencyMs}ms)` : ''}…</div>
     {/if}
 
-    {#if !isMyTurn && waitingFor && (gameState.phase.type === 'action' || gameState.phase.type === 'buyers')}
-      <div class="waiting-banner">
-        <div class="spinner"></div>
-        <p>Waiting for {waitingFor}...</p>
-      </div>
-    {/if}
-
-    {#if gameState.phase.type === 'buyers' && isMyTurn}
-      <BuyersPhaseView {gameState} onAction={handleAction} />
+    {#if gameState.phase.type === 'buyers'}
+      {#if isMyTurn}
+        <BuyersPhaseView {gameState} playerIndex={myPlayerIndex} onAction={handleAction} />
+      {:else}
+        <WaitingNotice text="{waitingFor} is claiming a buyer" detail="Players take one buyer each in turn until every open slot is full." />
+      {/if}
     {:else if gameState.phase.type === 'draft'}
       <DraftPhaseView {gameState} onAction={handleAction} playerIndex={myPlayerIndex} selectable={!hasPicked} />
       {#if hasPicked}
-        <div class="waiting-banner">
-          <p>Waiting for other players to pick...</p>
-        </div>
+        <WaitingNotice text="Waiting for the others to pick" />
       {/if}
-    {:else if gameState.phase.type === 'action' && isMyTurn}
-      <ActionPhaseView {gameState} playerIndex={myPlayerIndex} onAction={handleAction} onUndo={() => {}} undoAvailable={false} {draftCardOrder} />
+    {:else if gameState.phase.type === 'action'}
+      {#if isMyTurn}
+        <ActionPhaseView {gameState} playerIndex={myPlayerIndex} onAction={handleAction} />
+      {:else}
+        <WaitingNotice text="Your turn is over" detail={waitingFor ? `Waiting for ${waitingFor}…` : undefined} />
+      {/if}
     {/if}
   </GameLayout>
 {/if}
 
 <style>
-  .waiting-banner {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    justify-content: center;
-    padding: 8px;
-    color: #c9a84c;
-    font-weight: 600;
-    flex-wrap: wrap;
-  }
-
-  .waiting-banner p {
-    font-size: 0.85rem;
-    margin: 0;
-    text-align: center;
-  }
-
   .connection-banner {
     padding: 8px 12px;
+    margin-bottom: 8px;
     border-radius: 6px;
     background: rgba(201, 168, 76, 0.15);
-    color: #2c1e12;
-    font-size: 0.85rem;
+    color: #f5ede0;
+    font-size: 0.9rem;
     text-align: center;
-    margin: 4px;
   }
 
   .connection-banner.warn {
-    background: rgba(139, 32, 32, 0.12);
-    color: #8b2020;
+    background: rgba(139, 32, 32, 0.35);
+    color: #f3c4c4;
     font-weight: 600;
-  }
-
-  .spinner {
-    width: 28px;
-    height: 28px;
-    border: 3px solid rgba(201, 168, 76, 0.3);
-    border-top-color: #c9a84c;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-
-  @media (min-width: 768px) {
-    .waiting-banner {
-      padding: 12px;
-      gap: 12px;
-      flex-wrap: nowrap;
-    }
-
-    .waiting-banner p {
-      font-size: 1rem;
-      text-align: left;
-    }
-
-    .spinner {
-      width: 40px;
-      height: 40px;
-      border-width: 4px;
-    }
   }
 </style>

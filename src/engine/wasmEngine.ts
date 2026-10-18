@@ -1,5 +1,5 @@
-import type { GameState, Choice, PlayerState, Card, DrawEvent, MaterialType } from '../data/types';
-import { mixResult, wildPrimariesToCoverCost } from '../data/colors';
+import type { GameState, Choice, PlayerState, Card, Color, DrawEvent, MaterialType, SellCard } from '../data/types';
+import { isPrimary, mixResult } from '../data/colors';
 import { getSellCardData, getAnyCardData } from '../data/cards';
 import init, {
   wasm_create_initial_game_state,
@@ -200,22 +200,37 @@ export function canSell(player: PlayerState, sellCardInstanceId: number): boolea
   // Only the player's own buyers are sellable; the shared display is claimed
   // from during the buyers phase and never sold to directly.
   const sellCardInstance = player.buyers.find(g => g.instanceId === sellCardInstanceId);
-  if (!sellCardInstance) return false;
-  const sellCard = getSellCardData(sellCardInstance.card);
-  // Mirrors `action_phase::boats_to_sell`: a boat stands in for each material
-  // the player lacks, on top of any the card asks for outright.
-  let boatsNeeded = sellCard.requiredBoats;
-  const used: Partial<Record<MaterialType, number>> = {};
-  for (const material of sellCard.requiredMaterials) {
-    const taken = used[material] ?? 0;
-    if (player.materials[material] > taken) {
-      used[material] = taken + 1;
-    } else {
-      boatsNeeded++;
-    }
+  return sellCardInstance !== undefined && saleShortfall(player, sellCardInstance.card).length === 0;
+}
+
+// What a sale to `sellCard` still lacks once boats and wild primaries have
+// stood in where they can, one entry per missing item; empty when it can be
+// made. Mirrors `action_phase::can_afford_sell_card`: a boat stands in for
+// each material the player lacks, on top of any the card asks for outright.
+export function saleShortfall(player: PlayerState, sellCard: SellCard): string[] {
+  const data = getSellCardData(sellCard);
+  const missing: string[] = [];
+
+  let boats = player.boats;
+  for (let i = 0; i < data.requiredBoats; i++) {
+    if (boats > 0) boats--;
+    else missing.push('Boat');
   }
-  if (boatsNeeded > player.boats) return false;
-  // Wild primaries cover the primaries the wheel lacks.
-  const wildPrimariesNeeded = wildPrimariesToCoverCost(player.colorWheel, sellCard.colorCost);
-  return wildPrimariesNeeded !== null && wildPrimariesNeeded <= player.wildPrimaries;
+  const used: Partial<Record<MaterialType, number>> = {};
+  for (const material of data.requiredMaterials) {
+    const taken = used[material] ?? 0;
+    if (player.materials[material] > taken) used[material] = taken + 1;
+    else if (boats > 0) boats--;
+    else missing.push(material);
+  }
+
+  const spent: Partial<Record<Color, number>> = {};
+  let wildPrimaries = player.wildPrimaries;
+  for (const color of data.colorCost) {
+    const taken = spent[color] ?? 0;
+    if (player.colorWheel[color] > taken) spent[color] = taken + 1;
+    else if (isPrimary(color) && wildPrimaries > 0) wildPrimaries--;
+    else missing.push(color);
+  }
+  return missing;
 }

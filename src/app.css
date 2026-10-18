@@ -25,19 +25,13 @@
   --border-gold-medium: rgba(201, 168, 76, 0.5);
   --border-gold-strong: rgba(201, 168, 76, 0.8);
 
-  /* Card dimensions (5:7 ratio) — mobile-first */
-  --card-width: 90px;
+  /* Card height — mobile-first; cards take their width from it */
   --card-height: 126px;
-
-  /* Small card dimensions for compact contexts (modals, opponent panels) */
-  --card-width-sm: 70px;
-  --card-height-sm: 98px;
 
   /* Shadows */
   --shadow-card: 0 2px 8px rgba(44, 30, 18, 0.2);
   --shadow-card-hover: 0 8px 20px rgba(44, 30, 18, 0.3);
   --shadow-card-selected: 0 0 12px rgba(201, 168, 76, 0.6), 0 0 24px rgba(201, 168, 76, 0.3);
-  --shadow-panel: 0 2px 12px rgba(44, 30, 18, 0.1);
 
   font-family: var(--font-body);
   line-height: 1.5;
@@ -145,18 +139,82 @@ input:focus, select:focus {
 /* Responsive card dimensions */
 @media (min-width: 768px) {
   :root {
-    --card-width: 110px;
     --card-height: 154px;
-    --card-width-sm: 80px;
-    --card-height-sm: 112px;
   }
 }
 
 @media (min-width: 1024px) {
   :root {
-    --card-width: 125px;
     --card-height: 175px;
-    --card-width-sm: 90px;
-    --card-height-sm: 126px;
   }
+}
+
+/* The controls panel beside the boards: what the phase asks of the player. */
+.panel-heading {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #e8c766;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.panel-text {
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  line-height: 1.35;
+  color: rgba(245, 237, 224, 0.88);
+}
+
+.panel-text strong {
+  color: #f3dc8a;
+}
+
+.panel-hint {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-style: italic;
+  color: rgba(245, 237, 224, 0.6);
+}
+
+.panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.panel-btn {
+  min-height: 38px;
+  padding: 6px 16px;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #f5ede0;
+  background: rgba(20, 15, 10, 0.6);
+  border: 1px solid rgba(201, 168, 76, 0.6);
+  border-radius: 6px;
+}
+
+.panel-btn:hover:not(:disabled) {
+  background: rgba(201, 168, 76, 0.25);
+}
+
+.panel-btn.primary {
+  background: #c9a84c;
+  border-color: #e8c766;
+  color: #2c1e12;
+}
+
+.panel-btn.primary:hover:not(:disabled) {
+  background: #e8c766;
+}
+
+.panel-btn.danger {
+  background: #8b2020;
+  border-color: #b23a3a;
+}
+
+.panel-btn.danger:hover:not(:disabled) {
+  background: #a52828;
 }
