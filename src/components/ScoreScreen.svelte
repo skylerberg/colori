@@ -2,9 +2,10 @@
   import type { GameState, StructuredGameLog } from '../data/types';
   import { calculateScores, determineWinners } from '../engine/wasmEngine';
   import { downloadGameLog } from '../gameLog';
-  import { formatTime } from '../gameUtils';
-  import ColorWheelDisplay from './ColorWheelDisplay.svelte';
+  import { formatScore, formatTime } from '../gameUtils';
   import CardList from './CardList.svelte';
+  import CharacterPortrait from './CharacterPortrait.svelte';
+  import PlayerBoard from './PlayerBoard.svelte';
 
   let { gameState, gameStartTime, onPlayAgain, structuredLog }: {
     gameState: GameState;
@@ -47,9 +48,8 @@
     expandedPlayers = new Set(expandedPlayers);
   }
 
-  function getPlayer(name: string) {
-    const idx = gameState.playerNames.indexOf(name);
-    return gameState.players[idx];
+  function seatOf(name: string) {
+    return gameState.playerNames.indexOf(name);
   }
 </script>
 
@@ -65,51 +65,32 @@
   </div>
 
   <div class="game-time">
-    {#if finalTime}Game time: {finalTime} | {/if}Rounds: {rounds}
+    {[finalTime && `Game time: ${finalTime}`, `Rounds: ${rounds}`].filter(Boolean).join(' · ')}
   </div>
 
   <div class="scores-list">
     {#each sortedScores() as entry, i}
-      {@const player = getPlayer(entry.name)}
+      {@const seat = seatOf(entry.name)}
+      {@const player = gameState.players[seat]}
       {@const expanded = expandedPlayers.has(entry.name)}
       <div class="score-entry" class:winner={winnerSet.has(entry.name)}>
-        <button class="score-row" onclick={() => togglePlayer(entry.name)}>
+        <button class="score-row" onclick={() => togglePlayer(entry.name)} aria-expanded={expanded}>
           <span class="rank">#{i + 1}</span>
+          <CharacterPortrait {seat} size={36} />
           <span class="name">{entry.name}</span>
-          <span class="score">{'*'.repeat(entry.score)} ({entry.score})</span>
+          <span class="score">{formatScore(entry.score)} points</span>
           <span class="chevron" class:open={expanded}></span>
         </button>
 
         {#if expanded}
           <div class="player-details">
-            <div class="compact-row">
-              <div class="detail-section">
-                <h4>Color Wheel</h4>
-                <ColorWheelDisplay wheel={player.colorWheel} size={150} />
-              </div>
-
-              <div class="detail-section">
-                <h4>Materials</h4>
-                <div class="material-counts">
-                  {#each Object.entries(player.materials) as [material, count]}
-                    <span class="material-count">{material}: {count}</span>
-                  {/each}
-                </div>
-                {#if player.ducats > 0}
-                  <div class="ducats-count">Ducats: {player.ducats}</div>
-                {/if}
-                {#if player.wildPrimaries > 0}
-                  <div class="ducats-count">Wild primaries: {player.wildPrimaries} (½ point each)</div>
-                {/if}
-                {#if player.boats > 0}
-                  <div class="ducats-count">Boats: {player.boats} (½ point each)</div>
-                {/if}
-              </div>
+            <div class="final-board">
+              <PlayerBoard {player} {seat} round={gameState.maxRounds} withTuckedCards={false} />
             </div>
 
             <div class="card-section">
               <h4>Full Deck</h4>
-              <CardList cards={[...player.deck.flat(), ...player.workshopCards, ...player.workshoppedCards]} />
+              <CardList cards={[...player.deck.flat(), ...player.workshopCards, ...player.workshoppedCards, ...player.draftedCards]} />
             </div>
 
             {#if player.completedSellCards.length > 0}
@@ -262,18 +243,7 @@
     border-top: 1px solid var(--border-gold, rgba(201, 168, 76, 0.3));
   }
 
-  .compact-row {
-    display: flex;
-    gap: 1rem;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
 
-  .detail-section {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
 
   h4 {
     font-family: var(--font-display, 'Cinzel', serif);
@@ -284,23 +254,11 @@
     margin: 0 0 4px;
   }
 
-  .material-counts {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    font-size: 0.75rem;
-    color: var(--accent-gold, #c9a84c);
-  }
 
-  .material-count {
-    font-weight: 600;
-  }
 
-  .ducats-count {
-    font-size: 0.75rem;
-    color: var(--accent-gold, #c9a84c);
-    font-weight: 600;
-    margin-top: 4px;
+
+  .final-board {
+    padding: 4px 0 8px;
   }
 
   .card-section {

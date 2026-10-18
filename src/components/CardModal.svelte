@@ -1,11 +1,10 @@
 <script lang="ts">
-  import type { CardInstance } from '../data/types';
   import { getAnyCardData } from '../data/cards';
   import CardDisplay from './CardDisplay.svelte';
 
   let { title, cards, onClose }: {
     title: string;
-    cards: CardInstance[];
+    cards: { instanceId: number; card: string }[];
     onClose: () => void;
   } = $props();
 
@@ -66,7 +65,6 @@
     max-height: 100%;
     display: flex;
     flex-direction: column;
-    --card-width: 90px;
     --card-height: 126px;
   }
 
@@ -138,7 +136,6 @@
       height: auto;
       max-width: 90vw;
       max-height: 85vh;
-      --card-width: 130px;
       --card-height: 182px;
     }
 
@@ -157,7 +154,6 @@
 
   @media (min-width: 1024px) {
     .modal-box {
-      --card-width: 175px;
       --card-height: 245px;
     }
   }

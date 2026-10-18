@@ -7,7 +7,6 @@
   import MainMenu from './components/MainMenu.svelte';
   import LobbyScreen from './components/LobbyScreen.svelte';
   import OnlineGameScreen from './components/OnlineGameScreen.svelte';
-  import ZoneEditor from './components/ZoneEditor.svelte';
   import CardPreview from './components/CardPreview.svelte';
   import ErrorReport from './components/ErrorReport.svelte';
   import { reportError, reportUncaughtErrors, shownError } from './stores/errorReport.svelte';
@@ -33,8 +32,7 @@
     | { type: 'lobby'; role: 'host' | 'guest' }
     | { type: 'onlineGame'; role: 'host' | 'guest' }
     | { type: 'localGame' }
-    | { type: 'score' }
-    | { type: 'zoneEditor' };
+    | { type: 'score' };
 
   const saved = loadGame();
   let screen: AppScreen = $state({ type: 'mainMenu' });
@@ -218,10 +216,6 @@
   function goToMainMenu() {
     cleanupNetwork();
     backToMainMenu();
-  }
-
-  function goToZoneEditor() {
-    pushScreen({ type: 'zoneEditor' });
   }
 
   function handleHowToPlay() {
@@ -447,8 +441,6 @@
     />
   {:else if screen.type === 'score' && gameState !== null}
     <ScoreScreen {gameState} {gameStartTime} onPlayAgain={handlePlayAgain} structuredLog={finalGameLog} />
-  {:else if screen.type === 'zoneEditor'}
-    <ZoneEditor onClose={goToMainMenu} />
   {/if}
 </main>
 

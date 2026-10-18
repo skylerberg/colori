@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canSell } from './wasmEngine';
+import { canSell, saleShortfall } from './wasmEngine';
 import { ALL_COLORS } from '../data/colors';
 import type { Color, MaterialType, PlayerState, SellCard } from '../data/types';
 
@@ -52,5 +52,24 @@ describe('canSell', () => {
     expect(canSell(playerWith('TilemakerTeal', { colors: ['Teal'], materials: ['Ceramics'] }), 7)).toBe(false);
     expect(canSell(playerWith('TilemakerTeal', { colors: ['Teal'], materials: ['Ceramics', 'Ceramics'] }), 7)).toBe(true);
     expect(canSell(playerWith('TilemakerTeal', { colors: ['Teal'], materials: ['Ceramics'], boats: 1 }), 7)).toBe(true);
+  });
+});
+
+describe('saleShortfall', () => {
+  it('names each missing material and colour once per unit', () => {
+    const player = playerWith('TilemakerTeal', {});
+    expect(saleShortfall(player, 'TilemakerTeal')).toEqual(['Ceramics', 'Ceramics', 'Teal']);
+  });
+
+  it('spends boats and wild primaries before calling anything missing', () => {
+    const player = playerWith('GlassmakerAmberBlue', { colors: ['Amber'], wildPrimaries: 1 });
+    expect(saleShortfall(player, 'GlassmakerAmberBlue')).toEqual(['Blue']);
+    expect(saleShortfall(playerWith('PotterAmber', { colors: ['Amber'], boats: 1 }), 'PotterAmber')).toEqual([]);
+  });
+
+  it('asks a shipwright for its own boat before covering textiles', () => {
+    const colors: Color[] = ['Purple', 'Green'];
+    expect(saleShortfall(playerWith('ShipwrightPurpleGreen', { colors, boats: 1 }), 'ShipwrightPurpleGreen')).toEqual(['Textiles']);
+    expect(saleShortfall(playerWith('ShipwrightPurpleGreen', { colors }), 'ShipwrightPurpleGreen')).toEqual(['Boat', 'Textiles']);
   });
 });

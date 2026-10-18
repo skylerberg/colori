@@ -27,6 +27,26 @@ export function playerScore(player: Pick<PlayerState, 'completedSellCards' | 'du
   return sold + player.ducats + (player.wildPrimaries + player.boats) / 2;
 }
 
+// Mirrors `colori_core::buyers_phase::buyer_capacity`.
+export function buyerCapacity(round: number): number {
+  if (round <= 1) return 1;
+  if (round <= 3) return 2;
+  return 3;
+}
+
+// The first round in which buyer slot `slot` (0-based) is open.
+export function buyerSlotOpensInRound(slot: number): number {
+  let round = 1;
+  while (buyerCapacity(round) <= slot) round++;
+  return round;
+}
+
+// Scores run in half points: 7.5 reads as 7½.
+export function formatScore(score: number): string {
+  const whole = Math.floor(score);
+  return score === whole ? String(whole) : `${whole > 0 ? whole : ''}½`;
+}
+
 export function orderByDraftOrder(cards: CardInstance[], draftOrder: number[]): CardInstance[] {
   if (draftOrder.length === 0) return cards;
   const byId = new Map(cards.map(c => [c.instanceId, c]));

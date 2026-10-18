@@ -6,6 +6,8 @@ Colori is a strategic deck-building card game for 2-5 players about dyeing mater
 
 The physical game lives in the Three Peaks Hub project **Colori** (`threepeaks --project "Colori"`). The starter decks and the draft deck in `colori-core` mirror its **Main Deck**, and the sell cards its **Sell Cards** deck: copy counts come from `threepeaks deck show`, and what a card does is read off its image. `public/cards/` holds those same card faces; the six character starter decks are under `public/cards/characters/<1-6>/`, numbered in deck order, and the sell cards under `public/cards/sell/`.
 
+The game screen is built on the printed boards (Three Peaks components in the **Boards** section). `public/boards/<1-6>.webp` are the player boards for characters 1-6 (components OG, Fun, Lady, Suave, Merchant, In Charge; "Sauve" is an outdated draft) and `public/boards/buyers.webp` is the Buyer's Board, each exported 2000px wide. `src/data/boardLayout.ts` records where every slot, counter and color-wheel region sits on that art, so re-measure it when the art's layout changes.
+
 ## Tech Stack
 
 - Rust (game engine), Svelte 5 + TypeScript (frontend), Vite (build tool)

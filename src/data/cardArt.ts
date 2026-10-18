@@ -21,12 +21,17 @@ function pascalToKebab(s: string): string {
   return s.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
 }
 
+// Each seat plays one character: its starter deck and its player board.
+export function seatCharacter(seat: number): number {
+  return (seat % CHARACTER_COUNT) + 1;
+}
+
 // Setup hands out starter cards first, a deck per seat in seat order, so a
 // starter card's instance id says whose deck it was printed for. The card
 // keeps that portrait wherever it ends up, as the physical card does.
 function starterCharacter(instanceId: number | undefined): number {
   if (instanceId === undefined) return 1;
-  return (Math.floor(instanceId / STARTER_DECK_SIZE) % CHARACTER_COUNT) + 1;
+  return seatCharacter(Math.floor(instanceId / STARTER_DECK_SIZE));
 }
 
 export function getCardArtFilename(card: Card, instanceId?: number): string {
@@ -46,3 +51,11 @@ export function getCardArtUrl(card: Card, instanceId?: number): string {
 export function getSellCardArtUrl(sellCard: SellCard): string {
   return CARD_ART_BASE_PATH + getSellCardArtFilename(sellCard);
 }
+
+export const CARD_BACK_URL = CARD_ART_BASE_PATH + 'back.webp';
+
+export function playerBoardArtUrl(seat: number): string {
+  return `/boards/${seatCharacter(seat)}.webp`;
+}
+
+export const BUYERS_BOARD_ART_URL = '/boards/buyers.webp';

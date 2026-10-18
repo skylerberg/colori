@@ -1,34 +1,44 @@
 <script lang="ts">
   import type { Card, SellCard } from '../data/types';
   import { getAnyCardData } from '../data/cards';
-  import { getCardArtUrl, getSellCardArtUrl } from '../data/cardArt';
+  import { CARD_BACK_URL, getCardArtUrl, getSellCardArtUrl } from '../data/cardArt';
   import { cardPreviewState } from '../stores/cardPreviewState.svelte';
 
-  let { card, instanceId, selected = false, rotated = false, onclick }: {
+  const HOVER_DELAY_MS = 250;
+
+  let { card, instanceId, selected = false, faceDown = false, hint, onclick }: {
     card: string;
     // Picks the character portrait on a starter card.
     instanceId?: number;
     selected?: boolean;
-    rotated?: boolean;
+    faceDown?: boolean;
+    // Tooltip saying what clicking does; the card's name otherwise.
+    hint?: string;
     onclick?: () => void;
   } = $props();
 
   let data = $derived(getAnyCardData(card));
-  let cardLabel = $derived(data && 'name' in data ? data.name : card);
+  let cardLabel = $derived(faceDown ? 'Face-down card' : data && 'name' in data ? data.name : card);
 
   let artUrl = $derived(
-    data
-      ? data.kind === 'sellCard'
-        ? getSellCardArtUrl(card as SellCard)
-        : getCardArtUrl(card as Card, instanceId)
-      : ''
+    faceDown
+      ? CARD_BACK_URL
+      : data
+        ? data.kind === 'sellCard'
+          ? getSellCardArtUrl(card as SellCard)
+          : getCardArtUrl(card as Card, instanceId)
+        : ''
   );
+
+  let element: HTMLButtonElement | undefined = $state();
 
   // Long-press to preview
   let pressTimer: ReturnType<typeof setTimeout> | null = null;
   let didLongPress = false;
+  let hoverTimer: ReturnType<typeof setTimeout> | null = null;
 
-  function onPointerDown() {
+  function onPointerDown(e: PointerEvent) {
+    if (e.pointerType === 'mouse' || faceDown) return;
     didLongPress = false;
     pressTimer = setTimeout(() => {
       didLongPress = true;
@@ -38,43 +48,57 @@
     }, 400);
   }
 
-  function onPointerUp() {
+  function clearPress() {
     if (pressTimer) {
       clearTimeout(pressTimer);
       pressTimer = null;
     }
   }
 
-  function onPointerCancel() {
-    if (pressTimer) {
-      clearTimeout(pressTimer);
-      pressTimer = null;
-    }
+  function onPointerEnter(e: PointerEvent) {
+    if (e.pointerType !== 'mouse' || faceDown) return;
+    hoverTimer = setTimeout(() => {
+      if (element) cardPreviewState.showHover(artUrl, cardLabel, element.getBoundingClientRect());
+    }, HOVER_DELAY_MS);
   }
+
+  function endHover() {
+    if (hoverTimer) {
+      clearTimeout(hoverTimer);
+      hoverTimer = null;
+    }
+    cardPreviewState.hideHover();
+  }
+
+  $effect(() => endHover);
 
   function handleClick() {
     if (didLongPress) {
       didLongPress = false;
       return;
     }
-    if (!rotated && onclick) onclick();
+    if (onclick) {
+      endHover();
+      onclick();
+    }
   }
 </script>
 
-{#if data}
+{#if data || faceDown}
 <button
+  bind:this={element}
   class="card"
   class:selected
-  class:clickable={!!onclick && !rotated}
-  class:rotated
-  class:inactive={rotated || !onclick}
+  class:clickable={!!onclick}
+  class:inactive={!onclick}
   style="background-image: url('{artUrl}')"
-  title={cardLabel}
+  title={hint ?? cardLabel}
   onclick={handleClick}
   onpointerdown={onPointerDown}
-  onpointerup={onPointerUp}
-  onpointercancel={onPointerCancel}
-  onpointerleave={onPointerCancel}
+  onpointerup={clearPress}
+  onpointercancel={clearPress}
+  onpointerenter={onPointerEnter}
+  onpointerleave={() => { clearPress(); endHover(); }}
   oncontextmenu={(e) => e.preventDefault()}
 >
 </button>
@@ -128,12 +152,6 @@
   .card.inactive {
     opacity: 1;
     cursor: default;
-  }
-
-  .card.rotated {
-    transform: rotate(90deg);
-    margin: calc((var(--width) - var(--height)) / 2) calc((var(--height) - var(--width)) / 2);
-    opacity: 0.7;
   }
 
   @media (min-width: 768px) {

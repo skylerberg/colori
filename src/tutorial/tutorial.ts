@@ -7,9 +7,9 @@ const TUTORIAL_SEEN_KEY = 'colori-tutorial-seen';
 let tour: Tour | null = null;
 
 /** Scroll the game-content container to bring an element into view */
-function scrollGameContent(el: HTMLElement) {
+function scrollGameContent(el: HTMLElement | undefined) {
   const container = document.querySelector('.game-content');
-  if (container) {
+  if (container && el) {
     const containerRect = container.getBoundingClientRect();
     const elRect = el.getBoundingClientRect();
     const scrollTop = container.scrollTop + (elRect.top - containerRect.top) - 60;
@@ -21,7 +21,7 @@ function createTour(): Tour {
   const newTour = new Shepherd.Tour({
     useModalOverlay: true,
     defaultStepOptions: {
-      scrollTo: false,
+      scrollTo: true,
       scrollToHandler: (el: HTMLElement) => scrollGameContent(el),
       cancelIcon: { enabled: true },
       classes: 'colori-shepherd-step',
@@ -49,116 +49,110 @@ function createTour(): Tour {
   newTour.addStep({
     id: 'welcome',
     title: 'Welcome to Colori!',
-    text: 'You are a vendicolori, a Renaissance Venetian color seller, competing to earn the most ducats (gold coins) by getting pigments and materials then selling them.',
+    text: 'You are a vendecolori, a Renaissance Venetian color seller, competing to earn the most ducats by gathering pigments and materials and selling them to buyers.',
     buttons: [skipButton, nextButton],
   });
 
   newTour.addStep({
-    id: 'sell-card-display',
-    title: 'Sell Cards',
-    text: 'These 5 face-up cards are the main way to gain ducats. Each is a buyer who wants a set of colors and usually a material (Textiles, Ceramics, or Paintings); the seal shows what the sale is worth. You cannot sell to them here — you claim them into your own Buyers section first, at the start of each round.',
-    attachTo: { element: '.sell-card-display', on: 'bottom' },
+    id: 'buyers-board',
+    title: "The Buyer's Board",
+    text: "Shared by everyone. The seven sell cards are buyers: each wants a set of colors and usually a material, and the seal shows its ducats. You can't sell to them here; at the start of each round you claim them onto your own board. The circles along the top track the rounds and what each one brings, and the piles show what is left in each deck.",
+    attachTo: { element: '.market', on: 'right' },
+    buttons: [backButton, nextButton],
+  });
+
+  newTour.addStep({
+    id: 'player-board',
+    title: 'Your Board',
+    text: "Everything you own sits on your board, and the numbers on it are your stock. The tabs along the top switch to the other players' boards.",
+    attachTo: { element: '.board-area', on: 'left' },
     buttons: [backButton, nextButton],
   });
 
   newTour.addStep({
     id: 'color-wheel',
     title: 'Color Wheel',
-    text: 'This is your color wheel. It tracks your pigments. You start with 1 Red, 1 Yellow, and 1 Blue. Gain more colors by workshopping pigment cards, or mix two adjacent colors to create the color between them.',
-    attachTo: { element: '.color-wheel-panel', on: 'top' },
+    text: 'The number by each color is how many you have. You start with one Red, Yellow and Blue. Mixing two colors two steps apart makes the color between them. The middle holds your wild primaries: each stands in for a Red, Yellow or Blue you lack, and is worth half a point at the end.',
+    attachTo: { element: '.board-area [data-tour="wheel"]', on: 'right' },
     buttons: [backButton, nextButton],
   });
 
   newTour.addStep({
     id: 'materials',
-    title: 'Materials',
-    text: 'These are your stored materials. To complete a sell card, you need both the right material AND the right colors. Gain materials by workshopping material cards.',
-    attachTo: { element: '.materials-panel', on: 'top' },
+    title: 'Materials and Boats',
+    text: 'Your stored Paintings, Ceramics and Textiles. Most buyers want one. The gondola in the middle counts your boats: a boat stands in for a material you lack, and is worth half a point at the end.',
+    attachTo: { element: '.board-area [data-tour="materials"]', on: 'right' },
     buttons: [backButton, nextButton],
   });
 
   newTour.addStep({
-    id: 'player-stats',
-    title: 'Player Stats',
-    text: 'Track your ducats and your personal deck here. Tap on Deck to see its contents, listed in the order they will come up.',
-    attachTo: { element: '.player-stats', on: 'bottom' },
+    id: 'buyers',
+    title: 'Your Buyers',
+    text: 'The buyers you have claimed: one slot now, a second from round 2 and a third from round 4. You can only sell to these, and a "Ready to sell" tag appears when you hold everything one asks for. Sold cards go to Completed Orders.',
+    attachTo: { element: '.board-area [data-tour="buyers"]', on: 'left' },
+    buttons: [backButton, nextButton],
+  });
+
+  newTour.addStep({
+    id: 'ducats',
+    title: 'Ducats',
+    text: 'Ducats are points. You start with one and collect more in rounds 4, 6 and 7. On your turn you can also spend one, through the strip beside the purse, for a single Workshop pick, a Mix or a Sale. The strip lights up when you can.',
+    attachTo: { element: '.board-area [data-tour="ducats"]', on: 'top' },
+    buttons: [backButton, nextButton],
+  });
+
+  newTour.addStep({
+    id: 'deck',
+    title: 'Your Deck',
+    text: 'Each round your workshop is topped up to five cards from here. When your turn ends, the workshop goes to the bottom, so a card you use will not come back until the rest have been drawn. Click it to see what is in it.',
+    attachTo: { element: '.board-area [data-tour="deck"]', on: 'right' },
     buttons: [backButton, nextButton],
   });
 
   newTour.addStep({
     id: 'round-structure',
-    title: 'Round Structure',
-    text: 'Each round has three phases: the Buyers Phase, the Draft Phase and the Action Phase. At the start of the round, you draw from your deck until your workshop holds 5 cards.',
-    attachTo: { element: '.top-info-bar', on: 'bottom' },
+    title: 'Each Round',
+    text: 'Each round has three phases: Buyers, Draft and Action. The game lasts 7 rounds.',
+    attachTo: { element: '.round-indicator', on: 'bottom' },
     buttons: [backButton, nextButton],
   });
 
   newTour.addStep({
     id: 'buyers-phase',
     title: 'Buyers Phase',
-    text: 'Before drafting, players take turns claiming sell cards into their own Buyers section — one at a time, going round the table until everyone is full. You can only sell to cards in your own Buyers, so this is where you decide what to aim for. Take one of the 7 face-up cards, or gamble on the top of the deck unseen. You get 1 slot to start, a 2nd in round 2 and a 3rd in round 4.',
+    text: "Players take turns claiming one sell card at a time until every open slot is full: click one on the Buyer's Board, or the sell deck to take its top card unseen.",
+    attachTo: { element: '.market', on: 'right' },
     buttons: [backButton, nextButton],
   });
 
   newTour.addStep({
     id: 'draft-phase',
     title: 'Draft Phase',
-    text: "During the Draft Phase, you're dealt 4 cards from a shared draft deck. Pick 1 card, then pass your remaining cards to the next player. After 3 picks, the last card passed to you is yours too, so you always draft 4.",
-    attachTo: { element: '.draft-section', on: 'bottom' },
-    buttons: [backButton, nextButton],
-  });
-
-
-  newTour.addStep({
-    id: 'drafted-cards',
-    title: 'Drafted Cards',
-    text: "Cards you've drafted appear here. During the Action Phase, you can trash these cards one at a time to trigger the abilities on the top of the card. Any cards you don't trash stay with you: at the end of the round they move into your workshop, ready to use next round.",
-    attachTo: { element: '.drafted-section', on: 'bottom' },
+    text: "You're dealt 4 cards. Keep one and the rest pass on; after 3 picks the last card passed to you is yours too. Drafted cards tuck under the top of your board, showing the banner that says what destroying them does.",
+    attachTo: { element: '.board-area [data-tour="drafted"]', on: 'bottom' },
     buttons: [backButton, nextButton],
   });
 
   newTour.addStep({
     id: 'workshop',
     title: 'Workshop',
-    text: 'These are your workshop cards — drawn from your personal deck at the start of each round, alongside anything you kept in your draft pool. Trashing drafted cards with the Workshop ability lets you activate these cards to gain colors, materials or other benefits.',
-    attachTo: { element: '.workshop-section', on: 'top' },
+    text: 'Your workshop cards tuck under the bottom edge, so the half that shows is what each gives when workshopped: colors, materials or an action. A Workshop ability lets you pick some of them.',
+    attachTo: { element: '.board-area [data-tour="workshop"]', on: 'top' },
     buttons: [backButton, nextButton],
   });
 
-
   newTour.addStep({
-    id: 'action-phase-concept',
+    id: 'action-phase',
     title: 'Action Phase',
-    text: 'After drafting, everyone takes their turn at the same time. On your turn, trash drafted cards one at a time to trigger abilities like Workshop (store colors/materials), Mix Colors (combine two adjacent colors into one), Sell (complete a sell card), or Move a card from your Workshop to your Draft Pool. Some cards do two of these, one after the other. Between trashes you can also spend a ducat for a single Workshop pick, a single Mix, or a Sell. When your turn ends, your workshop is shuffled onto the bottom of your deck and whatever is left in your draft pool becomes your new workshop.',
-    buttons: [backButton, nextButton],
-  });
-
-  newTour.addStep({
-    id: 'ducats-explained',
-    title: 'Ducats',
-    text: 'Ducats are your score. You start with one and collect another at the start of rounds 4, 6 and 7. They are also spendable: on your turn, one ducat buys a single Workshop pick, a single Mix, or a Sell. A bought Sell still costs you the material and colors, so what the ducat really buys is a sale in a round where nothing you drafted would let you make one.',
-    buttons: [backButton, nextButton],
-  });
-
-  newTour.addStep({
-    id: 'wild-primaries-and-boats-explained',
-    title: 'Wild Primaries and Boats',
-    text: 'You start with a boat. Some workshop cards pay out a wild primary or a boat, and so do the late rounds: a boat at the start of round 5, and a boat and a wild primary at the start of round 7. A wild primary stands in for a Red, Yellow or Blue you lack, in a mix or a sale. A boat is a wild material for a sale. Whatever you still hold at the end is worth half a point each.',
-    buttons: [backButton, nextButton],
-  });
-
-  newTour.addStep({
-    id: 'selling-explained',
-    title: 'Selling',
-    text: 'When you destroy a drafted card with the sell ability, choose one of your own Buyers, spend the materials it asks for, and pay the color cost from your wheel. The card goes to your completed sell cards, earning you ducats, and the buyer slot stays empty until next round.',
-    attachTo: { element: '.sell-card-display', on: 'bottom' },
+    text: 'Everyone plays at once. Click a drafted card to destroy it and use its ability: Workshop, Mix, Sell, or move a workshop card up to your draft pool. This panel says what each ability needs, and the board lights up what you can click. Cards you keep move into your workshop, and your used workshop goes to the bottom of your deck.',
+    attachTo: { element: '.controls', on: 'right' },
     buttons: [backButton, nextButton],
   });
 
   newTour.addStep({
     id: 'end-game',
     title: 'Good Luck!',
-    text: 'The game ends after 7 rounds. Most points wins: your ducats, plus half a point for each wild primary and boat. Good luck, vendecolori!',
+    text: 'The game ends after 7 rounds. Most points wins: your ducats, plus half a point for each wild primary and boat. Hover over any card to see all of it. Good luck, vendecolori!',
     buttons: [
       backButton,
       {
@@ -205,8 +199,8 @@ export async function startTutorial(force = false): Promise<void> {
     tour = null;
   }
 
-  // Wait for key game elements to be in the DOM
-  await waitForElement('.sell-card-display');
+  // Wait for the boards to be in the DOM
+  await waitForElement('.board-area [data-tour="wheel"]');
 
   tour = createTour();
   tour.start();
