@@ -546,13 +546,13 @@ pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str) {
     if solo {
         let total_wins = solo_wins.load(Ordering::Relaxed);
         let total_half_points = solo_total_half_points.load(Ordering::Relaxed);
-        let avg_ducats = total_half_points as f64 / 2.0 / total_games as f64;
+        let avg_score = total_half_points as f64 / 2.0 / total_games as f64;
         let win_rate = total_wins as f64 / total_games as f64 * 100.0;
         eprintln!();
         eprintln!("=== Solo Results ({} rounds) ===", args.max_rounds);
         eprintln!("Games:      {}", total_games);
         eprintln!("Wins:       {} ({:.1}%)", total_wins, win_rate);
-        eprintln!("Avg ducats: {:.1}", avg_ducats);
+        eprintln!("Avg score:  {:.1}", avg_score);
     } else if has_any_difference(player_variants) {
         let differing = compute_differing_fields(player_variants);
         for (i, v) in player_variants.iter().enumerate() {

@@ -1,5 +1,6 @@
 import type { CardInstance, SellCardInstance, Color, MaterialType, PlayerTurn } from '../data/types';
 import type { Choice } from '../data/types';
+import type { LogEntry } from '../logEntries';
 
 export interface SanitizedPlayerState {
   deckCount: number;
@@ -45,7 +46,7 @@ export interface SanitizedGameState {
   playerNames: string[];
   players: SanitizedPlayerState[];
   draftDeckCount: number;
-  destroyedPile: CardInstance[];
+  trash: CardInstance[];
   sellCardDeckCount: number;
   sellCardDisplay: SellCardInstance[];
   phase: SanitizedGamePhase;
@@ -53,7 +54,7 @@ export interface SanitizedGameState {
   maxRounds: number;
   aiPlayers: boolean[];
   myPlayerIndex: number;
-  logEntries: string[];
+  logEntries: LogEntry[];
   // Host's Date.now() at game start, so all clients share a consistent timer.
   gameStartTime?: number;
   // If true, the guest should replace its local log rather than append logEntries.

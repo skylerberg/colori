@@ -210,8 +210,8 @@ pub const NUM_CARDS: usize = 42;
 struct CardProperties {
     name: &'static str,
     kind: CardKind,
-    /// Resolved in order when the card is destroyed.
-    destroy_abilities: &'static [Ability],
+    /// Resolved in order when the card is trashed.
+    trash_abilities: &'static [Ability],
     colors: &'static [Color],
     material_types: &'static [MaterialType],
     workshop_abilities: &'static [Ability],
@@ -224,25 +224,25 @@ const MIX_2: &[Ability] = &[Ability::MixColors { count: 2 }];
 const WORKSHOP_2_MIX_1: &[Ability] = &[Ability::Workshop { count: 2 }, Ability::MixColors { count: 1 }];
 const MOVE_TO_DRAFT_POOL: &[Ability] = &[Ability::MoveToDraftPool];
 
-const fn dye(name: &'static str, destroy_abilities: &'static [Ability], colors: &'static [Color]) -> CardProperties {
-    CardProperties { name, kind: CardKind::Dye, destroy_abilities, colors, material_types: &[], workshop_abilities: &[] }
+const fn dye(name: &'static str, trash_abilities: &'static [Ability], colors: &'static [Color]) -> CardProperties {
+    CardProperties { name, kind: CardKind::Dye, trash_abilities, colors, material_types: &[], workshop_abilities: &[] }
 }
 
 const fn basic_dye(name: &'static str, colors: &'static [Color]) -> CardProperties {
-    CardProperties { name, kind: CardKind::BasicDye, destroy_abilities: WORKSHOP_2, colors, material_types: &[], workshop_abilities: &[] }
+    CardProperties { name, kind: CardKind::BasicDye, trash_abilities: WORKSHOP_2, colors, material_types: &[], workshop_abilities: &[] }
 }
 
 const fn material(
     name: &'static str,
-    destroy_abilities: &'static [Ability],
+    trash_abilities: &'static [Ability],
     material_types: &'static [MaterialType],
     colors: &'static [Color],
 ) -> CardProperties {
-    CardProperties { name, kind: CardKind::Material, destroy_abilities, colors, material_types, workshop_abilities: &[] }
+    CardProperties { name, kind: CardKind::Material, trash_abilities, colors, material_types, workshop_abilities: &[] }
 }
 
-const fn action(name: &'static str, destroy_abilities: &'static [Ability], workshop_abilities: &'static [Ability]) -> CardProperties {
-    CardProperties { name, kind: CardKind::Action, destroy_abilities, colors: &[], material_types: &[], workshop_abilities }
+const fn action(name: &'static str, trash_abilities: &'static [Ability], workshop_abilities: &'static [Ability]) -> CardProperties {
+    CardProperties { name, kind: CardKind::Action, trash_abilities, colors: &[], material_types: &[], workshop_abilities }
 }
 
 const CARD_DATA: [CardProperties; NUM_CARDS] = [
@@ -307,8 +307,8 @@ impl Card {
     }
 
     #[inline]
-    pub fn destroy_abilities(&self) -> &'static [Ability] {
-        self.props().destroy_abilities
+    pub fn trash_abilities(&self) -> &'static [Ability] {
+        self.props().trash_abilities
     }
 
     #[inline]
@@ -374,7 +374,7 @@ impl Buyer {
     }
 
     #[inline]
-    pub fn ducats(self) -> u32 {
+    pub fn points(self) -> u32 {
         match self {
             Buyer::Dyer | Buyer::Illuminator => 2,
             Buyer::Glassmaker | Buyer::Potter => 3,
@@ -572,8 +572,8 @@ impl SellCard {
     }
 
     #[inline]
-    pub fn ducats(&self) -> u32 {
-        self.buyer().ducats()
+    pub fn points(&self) -> u32 {
+        self.buyer().points()
     }
 
     #[inline]
@@ -752,10 +752,10 @@ pub struct PlayerState {
     /// worth half a point.
     #[serde(default)]
     pub boats: u32,
-    /// Ducats from sell cards and gold. The half points for wild primaries and boats
+    /// Points from sell cards plus ducats. The half points for wild primaries and boats
     /// are not in here; `scoring::score_in_half_points` adds them.
     #[serde(skip)]
-    pub cached_ducat_score: u32,
+    pub cached_whole_points: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -861,7 +861,8 @@ pub enum GamePhase {
 pub struct GameState {
     pub players: FixedVec<PlayerState, MAX_PLAYERS>,
     pub draft_deck: UnorderedCards,
-    pub destroyed_pile: UnorderedCards,
+    #[serde(alias = "destroyedPile")]
+    pub trash: UnorderedCards,
     pub sell_card_deck: UnorderedSellCards,
     pub sell_card_display: FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
     pub phase: GamePhase,
@@ -898,8 +899,8 @@ fn default_sell_card_lookup() -> [SellCard; 256] {
 pub enum Choice {
     #[serde(rename = "draftPick")]
     DraftPick { card: Card },
-    #[serde(rename = "destroyDraftedCard")]
-    DestroyDraftedCard { card: Card },
+    #[serde(rename = "trashDraftedCard", alias = "destroyDraftedCard")]
+    TrashDraftedCard { card: Card },
     #[serde(rename = "endTurn")]
     EndTurn,
     #[serde(rename = "workshop")]
@@ -920,22 +921,22 @@ pub enum Choice {
     GainSecondary { color: Color },
     #[serde(rename = "mixAll")]
     MixAll { mixes: MixSequence },
-    #[serde(rename = "destroyAndMix", alias = "destroyAndMixAll")]
-    DestroyAndMix { card: Card, mixes: MixSequence },
-    #[serde(rename = "destroyAndSell")]
-    DestroyAndSell {
+    #[serde(rename = "trashAndMix", alias = "destroyAndMix", alias = "destroyAndMixAll")]
+    TrashAndMix { card: Card, mixes: MixSequence },
+    #[serde(rename = "trashAndSell", alias = "destroyAndSell")]
+    TrashAndSell {
         card: Card,
         #[serde(rename = "sellCard", alias = "sell_card")]
         sell_card: SellCard,
     },
-    #[serde(rename = "destroyAndWorkshop")]
-    DestroyAndWorkshop {
+    #[serde(rename = "trashAndWorkshop", alias = "destroyAndWorkshop")]
+    TrashAndWorkshop {
         card: Card,
         #[serde(rename = "workshopCards")]
         workshop_cards: SmallVec<[Card; 4]>,
     },
-    #[serde(rename = "destroyAndMoveToDraftPool")]
-    DestroyAndMoveToDraftPool {
+    #[serde(rename = "trashAndMoveToDraftPool", alias = "destroyAndMoveToDraftPool")]
+    TrashAndMoveToDraftPool {
         card: Card,
         target: Option<Card>,
     },

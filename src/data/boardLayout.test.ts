@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { assignSlots } from './boardLayout';
-import { buyerSlotOpensInRound, formatScore } from '../gameUtils';
+import { buyerCapacity, formatScore, roundNews } from '../gameUtils';
 
 describe('assignSlots', () => {
   it('fills slots left to right in the order given', () => {
@@ -16,9 +16,16 @@ describe('assignSlots', () => {
   });
 });
 
-describe('buyerSlotOpensInRound', () => {
-  it('opens one slot to start, a second in round 2 and a third in round 4', () => {
-    expect([0, 1, 2].map(buyerSlotOpensInRound)).toEqual([1, 2, 4]);
+describe('the round track', () => {
+  it('opens a buyer slot in rounds 2 and 3', () => {
+    expect([1, 2, 3, 4, 7].map(buyerCapacity)).toEqual([1, 2, 3, 3, 3]);
+  });
+
+  it('says what each round brings', () => {
+    expect(roundNews(1)).toEqual([]);
+    expect(roundNews(3)).toEqual(['Buyer slot 3 opens']);
+    expect(roundNews(5)).toEqual(['Everyone gains a boat']);
+    expect(roundNews(7)).toEqual(['Everyone gains a ducat, a boat and a wild primary']);
   });
 });
 

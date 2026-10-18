@@ -42,7 +42,7 @@ pub fn format_ability(ability: &Ability) -> String {
     }
 }
 
-/// A card's destroy abilities in the order they resolve.
+/// A card's trash abilities in the order they resolve.
 pub fn format_abilities(abilities: &[Ability]) -> String {
     abilities.iter().map(format_ability).collect::<Vec<_>>().join(", then ")
 }

@@ -29,7 +29,7 @@ pub fn initialize_action_phase(state: &mut GameState) {
     };
 }
 
-pub fn destroy_drafted_card(state: &mut GameState, player_index: usize, card_instance_id: u32) {
+pub fn trash_drafted_card(state: &mut GameState, player_index: usize, card_instance_id: u32) {
     let id = card_instance_id as u8;
     let player = &mut state.players[player_index];
 
@@ -40,11 +40,11 @@ pub fn destroy_drafted_card(state: &mut GameState, player_index: usize, card_ins
     player.drafted_cards.remove(id);
 
     let card = state.card_lookup[id as usize];
-    state.destroyed_pile.insert(id);
+    state.trash.insert(id);
 
     // The stack is LIFO, so the first ability listed goes on last.
     let stack = ability_stack_mut(state, player_index);
-    for &ability in card.destroy_abilities().iter().rev() {
+    for &ability in card.trash_abilities().iter().rev() {
         stack.push(ability);
     }
     process_ability_stack(state, player_index);
@@ -68,7 +68,7 @@ pub fn process_ability_stack(state: &mut GameState, player_index: usize) {
             Ability::GainDucats { count } => {
                 ability_stack_mut(state, player_index).pop();
                 state.players[player_index].ducats += count;
-                state.players[player_index].cached_ducat_score += count;
+                state.players[player_index].cached_whole_points += count;
                 continue;
             }
             Ability::GainWildPrimaries { count } => {
@@ -141,7 +141,7 @@ pub(crate) fn sell_to_buyer(player: &mut PlayerState, index: usize) {
     let paid = pay_cost(&mut player.color_wheel, &mut player.wild_primaries, sold.sell_card.color_cost());
     assert!(paid, "Cannot pay sell card color cost");
 
-    player.cached_ducat_score += sold.sell_card.ducats();
+    player.cached_whole_points += sold.sell_card.points();
     player.completed_sell_cards.push(sold);
 }
 
@@ -190,7 +190,7 @@ pub fn resolve_spend_ducat(state: &mut GameState, player_index: usize, purchase:
     let player = &mut state.players[player_index];
     assert!(player.ducats >= 1, "Cannot spend a ducat without one");
     player.ducats -= 1;
-    player.cached_ducat_score -= 1;
+    player.cached_whole_points -= 1;
 
     ability_stack_mut(state, player_index).push(purchase.ability());
     process_ability_stack(state, player_index);
@@ -272,11 +272,11 @@ pub fn skip_mix(state: &mut GameState, player_index: usize) {
 /// Move an unworkshopped card into the player's draft pool, or fizzle when
 /// there is none.
 ///
-/// Nothing is destroyed here. A card in the draft pool can be destroyed later
+/// Nothing is trashed here. A card in the draft pool can be trashed later
 /// in the turn through the ordinary drafted-card path, which triggers its
 /// ability on the stack exactly as before — and when this ability resolves the
 /// stack beneath it is always empty, since no card's *workshop* abilities
-/// include this one, so destroying now and destroying later reach the same
+/// include this one, so trashing now and trashing later reach the same
 /// state. What is new is the option to leave the card in the pool, from where
 /// end of turn returns it to the workshop instead of the bottom of the deck.
 pub fn resolve_move_to_draft_pool(state: &mut GameState, player_index: usize, target: Option<u8>) {

@@ -444,7 +444,7 @@ fn play_game(seed: u64, config: &MctsConfig, stats: &mut GameStats) {
     }
 
     for player in state.players.iter() {
-        stats.total_score += player.cached_ducat_score as u64;
+        stats.total_score += player.cached_whole_points as u64;
     }
 }
 

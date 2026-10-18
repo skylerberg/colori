@@ -1,7 +1,5 @@
 <script lang="ts">
   import type { GameState, Choice } from '../data/types';
-  import { getAnyCardData } from '../data/cards';
-  import { formatAbility } from '../data/abilities';
   import CardList from './CardList.svelte';
 
   let { gameState, onAction, playerIndex, selectable = true }: {
@@ -32,21 +30,13 @@
         {#if lastCard}
           The last card passed to you is yours.
         {:else}
-          Keep one card; the rest pass on to the next player. Its banner is what destroying it does.
+          Keep one card; the rest pass on to the next player.
         {/if}
       </p>
     {/if}
     <div class="hand" class:waiting={!selectable}>
       <CardList cards={hand} selectable={selectable} onCardClick={handlePick} />
     </div>
-    {#if selectable && hand.length > 0}
-      <ul class="hand-abilities">
-        {#each hand as ci (ci.instanceId)}
-          {@const data = getAnyCardData(ci.card)}
-          <li><strong>{data.name}</strong> — destroy: {formatAbility(data)}</li>
-        {/each}
-      </ul>
-    {/if}
   </div>
 {/if}
 
@@ -72,17 +62,5 @@
 
   .hand.waiting {
     opacity: 0.5;
-  }
-
-  .hand-abilities {
-    list-style: none;
-    font-family: var(--font-body);
-    font-size: 0.95rem;
-    color: rgba(245, 237, 224, 0.7);
-  }
-
-  .hand-abilities strong {
-    color: #f3dc8a;
-    font-weight: 600;
   }
 </style>

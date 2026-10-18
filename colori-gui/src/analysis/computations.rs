@@ -52,7 +52,7 @@ pub struct DurationStats {
 
 pub struct SellCardAcquisitions {
     pub by_sell_card: HashMap<String, usize>,
-    pub by_ducats: HashMap<u32, usize>,
+    pub by_points: HashMap<u32, usize>,
     pub by_material: HashMap<String, usize>,
 }
 
@@ -87,7 +87,7 @@ pub fn build_card_instance_map(log: &StructuredGameLog) -> HashMap<u32, CardInst
         add_cards(&mut map, &p.drafted_cards);
     }
     add_cards(&mut map, &state.draft_deck);
-    add_cards(&mut map, &state.destroyed_pile);
+    add_cards(&mut map, &state.trash);
 
     map
 }
@@ -268,8 +268,8 @@ pub fn format_choice(choice: &Choice) -> String {
         Choice::DraftPick { card } => {
             format!("Drafted {}", card_name(card))
         }
-        Choice::DestroyDraftedCard { card } => {
-            format!("Destroyed {} from draft", card_name(card))
+        Choice::TrashDraftedCard { card } => {
+            format!("Trashed {} from draft", card_name(card))
         }
         Choice::EndTurn => "Ended turn".to_string(),
         Choice::Workshop { card_types } => {
@@ -281,8 +281,8 @@ pub fn format_choice(choice: &Choice) -> String {
         }
         Choice::SkipWorkshop => "Skipped workshop".to_string(),
         Choice::MoveToDraftPool { card } => match card {
-            Some(c) => format!("Destroyed {} from workshop", card_name(c)),
-            None => "Destroyed nothing from workshop".to_string(),
+            Some(c) => format!("Trashed {} from workshop", card_name(c)),
+            None => "Trashed nothing from workshop".to_string(),
         }
         Choice::SelectSellCard { sell_card } => {
             format!("Sold to {}", sell_card_name(sell_card))
@@ -299,61 +299,61 @@ pub fn format_choice(choice: &Choice) -> String {
                 format!("Mixed {}", mix_strs.join(", "))
             }
         }
-        Choice::DestroyAndMix {
+        Choice::TrashAndMix {
             card,
             mixes,
         } => {
             if mixes.is_empty() {
                 format!(
-                    "Destroyed {} and skipped mixing",
+                    "Trashed {} and skipped mixing",
                     card_name(card)
                 )
             } else {
                 let mix_strs: Vec<String> =
                     mixes.iter().map(|(a, b)| format!("{:?}+{:?}", a, b)).collect();
                 format!(
-                    "Destroyed {} and mixed {}",
+                    "Trashed {} and mixed {}",
                     card_name(card),
                     mix_strs.join(", ")
                 )
             }
         }
-        Choice::DestroyAndSell {
+        Choice::TrashAndSell {
             card,
             sell_card,
         } => {
             format!(
-                "Destroyed {} and sold to {}",
+                "Trashed {} and sold to {}",
                 card_name(card),
                 sell_card_name(sell_card)
             )
         }
-        Choice::DestroyAndWorkshop {
+        Choice::TrashAndWorkshop {
             card,
             workshop_cards,
         } => {
             if workshop_cards.is_empty() {
-                format!("Destroyed {} and skipped workshop", card_name(card))
+                format!("Trashed {} and skipped workshop", card_name(card))
             } else {
                 format!(
-                    "Destroyed {} and workshopped {}",
+                    "Trashed {} and workshopped {}",
                     card_name(card),
                     card_names(workshop_cards)
                 )
             }
         }
-        Choice::DestroyAndMoveToDraftPool {
+        Choice::TrashAndMoveToDraftPool {
             card,
             target,
         } => {
             match target {
                 Some(t) => format!(
-                    "Destroyed {} and destroyed {} from workshop",
+                    "Trashed {} and trashed {} from workshop",
                     card_name(card),
                     card_name(t)
                 ),
                 None => format!(
-                    "Destroyed {} and destroyed nothing from workshop",
+                    "Trashed {} and trashed nothing from workshop",
                     card_name(card)
                 ),
             }
@@ -390,7 +390,7 @@ fn choice_type_name(choice: &Choice) -> String {
         Choice::TakeBuyer { .. } => "takeBuyer".to_string(),
         Choice::DrawBuyer => "drawBuyer".to_string(),
         Choice::DraftPick { .. } => "draftPick".to_string(),
-        Choice::DestroyDraftedCard { .. } => "destroyDraftedCard".to_string(),
+        Choice::TrashDraftedCard { .. } => "trashDraftedCard".to_string(),
         Choice::EndTurn => "endTurn".to_string(),
         Choice::Workshop { .. } => "workshop".to_string(),
         Choice::SkipWorkshop => "skipWorkshop".to_string(),
@@ -398,10 +398,10 @@ fn choice_type_name(choice: &Choice) -> String {
         Choice::SelectSellCard { .. } => "selectSellCard".to_string(),
         Choice::GainSecondary { .. } => "gainSecondary".to_string(),
         Choice::MixAll { .. } => "mixAll".to_string(),
-        Choice::DestroyAndMix { .. } => "destroyAndMix".to_string(),
-        Choice::DestroyAndSell { .. } => "destroyAndSell".to_string(),
-        Choice::DestroyAndWorkshop { .. } => "destroyAndWorkshop".to_string(),
-        Choice::DestroyAndMoveToDraftPool { .. } => "destroyAndMoveToDraftPool".to_string(),
+        Choice::TrashAndMix { .. } => "trashAndMix".to_string(),
+        Choice::TrashAndSell { .. } => "trashAndSell".to_string(),
+        Choice::TrashAndWorkshop { .. } => "trashAndWorkshop".to_string(),
+        Choice::TrashAndMoveToDraftPool { .. } => "trashAndMoveToDraftPool".to_string(),
     }
 }
 
@@ -430,7 +430,7 @@ pub fn compute_draft_frequency(
     counts
 }
 
-/// Count cards that were drafted and not subsequently destroyed (added to final deck).
+/// Count cards that were drafted and not subsequently trashed (added to final deck).
 pub fn compute_cards_added_to_deck(
     logs: &[StructuredGameLog],
     filter: Option<&PlayerFilter>,
@@ -438,9 +438,9 @@ pub fn compute_cards_added_to_deck(
     let mut counts = HashMap::new();
     for (log_idx, log) in logs.iter().enumerate() {
         let allowed = filter.and_then(|f| f.get(&log_idx));
-        // Track per-player drafted and destroyed card names with counts
+        // Track per-player drafted and trashed card names with counts
         let mut player_drafted: HashMap<usize, HashMap<String, usize>> = HashMap::new();
-        let mut player_destroyed: HashMap<usize, HashMap<String, usize>> = HashMap::new();
+        let mut player_trashed: HashMap<usize, HashMap<String, usize>> = HashMap::new();
 
         for entry in &log.entries {
             if let Some(allowed) = allowed {
@@ -454,26 +454,26 @@ pub fn compute_cards_added_to_deck(
                     let name = card_name_from_instance(*card);
                     *player_drafted.entry(pi).or_default().entry(name).or_insert(0) += 1;
                 }
-                Choice::DestroyDraftedCard { card }
-                | Choice::DestroyAndMix { card, .. }
-                | Choice::DestroyAndSell { card, .. }
-                | Choice::DestroyAndWorkshop { card, .. }
-                | Choice::DestroyAndMoveToDraftPool { card, .. } => {
+                Choice::TrashDraftedCard { card }
+                | Choice::TrashAndMix { card, .. }
+                | Choice::TrashAndSell { card, .. }
+                | Choice::TrashAndWorkshop { card, .. }
+                | Choice::TrashAndMoveToDraftPool { card, .. } => {
                     let name = card_name_from_instance(*card);
-                    *player_destroyed.entry(pi).or_default().entry(name).or_insert(0) += 1;
+                    *player_trashed.entry(pi).or_default().entry(name).or_insert(0) += 1;
                 }
                 _ => {}
             }
         }
 
         for (_pi, drafted) in &player_drafted {
-            let destroyed = player_destroyed.get(_pi);
+            let trashed = player_trashed.get(_pi);
             for (name, &drafted_count) in drafted {
-                let destroyed_count = destroyed
+                let trashed_count = trashed
                     .and_then(|d| d.get(name))
                     .copied()
                     .unwrap_or(0);
-                let kept = drafted_count.saturating_sub(destroyed_count);
+                let kept = drafted_count.saturating_sub(trashed_count);
                 if kept > 0 {
                     *counts.entry(name.clone()).or_insert(0) += kept;
                 }
@@ -520,10 +520,10 @@ pub fn compute_category_stats(
         .collect()
 }
 
-// ── Destroy analysis ──
+// ── Trash analysis ──
 
-/// Count cards destroyed from the draft phase (destroyDraftedCard, destroyAndMixAll, destroyAndSell).
-pub fn compute_destroyed_from_draft(
+/// Count cards trashed from the draft phase (trashDraftedCard, trashAndMix, trashAndSell).
+pub fn compute_trashed_from_draft(
     logs: &[StructuredGameLog],
     filter: Option<&PlayerFilter>,
 ) -> HashMap<String, usize> {
@@ -537,11 +537,11 @@ pub fn compute_destroyed_from_draft(
                 }
             }
             let card = match &entry.choice {
-                Choice::DestroyDraftedCard { card }
-                | Choice::DestroyAndMix { card, .. }
-                | Choice::DestroyAndSell { card, .. }
-                | Choice::DestroyAndWorkshop { card, .. }
-                | Choice::DestroyAndMoveToDraftPool { card, .. } => Some(card),
+                Choice::TrashDraftedCard { card }
+                | Choice::TrashAndMix { card, .. }
+                | Choice::TrashAndSell { card, .. }
+                | Choice::TrashAndWorkshop { card, .. }
+                | Choice::TrashAndMoveToDraftPool { card, .. } => Some(card),
                 _ => None,
             };
             if let Some(card) = card {
@@ -553,8 +553,8 @@ pub fn compute_destroyed_from_draft(
     counts
 }
 
-/// Count cards destroyed from workshop (moveToDraftPool).
-pub fn compute_destroyed_from_workshop(
+/// Count cards trashed from workshop (moveToDraftPool).
+pub fn compute_trashed_from_workshop(
     logs: &[StructuredGameLog],
     filter: Option<&PlayerFilter>,
 ) -> HashMap<String, usize> {
@@ -576,16 +576,16 @@ pub fn compute_destroyed_from_workshop(
     counts
 }
 
-/// Compute destroy rate: destroyed / drafted for each card name.
-pub fn compute_destroy_rate(
-    destroyed: &HashMap<String, usize>,
+/// Compute trash rate: trashed / drafted for each card name.
+pub fn compute_trash_rate(
+    trashed: &HashMap<String, usize>,
     drafted: &HashMap<String, usize>,
 ) -> HashMap<String, f64> {
     let mut rates = HashMap::new();
-    for (name, &destroyed_count) in destroyed {
+    for (name, &trashed_count) in trashed {
         let drafted_count = *drafted.get(name).unwrap_or(&0);
         let rate = if drafted_count > 0 {
-            destroyed_count as f64 / drafted_count as f64
+            trashed_count as f64 / drafted_count as f64
         } else {
             0.0
         };
@@ -610,9 +610,9 @@ pub fn compute_win_rate_by_card(
         };
         let allowed = filter.and_then(|f| f.get(&log_idx));
 
-        // Track per-player drafted and destroyed card names with counts
+        // Track per-player drafted and trashed card names with counts
         let mut player_drafted: HashMap<usize, HashMap<String, usize>> = HashMap::new();
-        let mut player_destroyed: HashMap<usize, HashMap<String, usize>> = HashMap::new();
+        let mut player_trashed: HashMap<usize, HashMap<String, usize>> = HashMap::new();
 
         for entry in &log.entries {
             if let Some(allowed) = allowed {
@@ -626,13 +626,13 @@ pub fn compute_win_rate_by_card(
                     let name = card_name_from_instance(*card);
                     *player_drafted.entry(pi).or_default().entry(name).or_insert(0) += 1;
                 }
-                Choice::DestroyDraftedCard { card }
-                | Choice::DestroyAndMix { card, .. }
-                | Choice::DestroyAndSell { card, .. }
-                | Choice::DestroyAndWorkshop { card, .. }
-                | Choice::DestroyAndMoveToDraftPool { card, .. } => {
+                Choice::TrashDraftedCard { card }
+                | Choice::TrashAndMix { card, .. }
+                | Choice::TrashAndSell { card, .. }
+                | Choice::TrashAndWorkshop { card, .. }
+                | Choice::TrashAndMoveToDraftPool { card, .. } => {
                     let name = card_name_from_instance(*card);
-                    *player_destroyed.entry(pi).or_default().entry(name).or_insert(0) += 1;
+                    *player_trashed.entry(pi).or_default().entry(name).or_insert(0) += 1;
                 }
                 _ => {}
             }
@@ -649,18 +649,18 @@ pub fn compute_win_rate_by_card(
                 }
             }
             let drafted = player_drafted.get(&i);
-            let destroyed = player_destroyed.get(&i);
+            let trashed = player_trashed.get(&i);
             let player_name = &log.player_names[i];
             let is_winner = is_winner_fn(player_name);
 
             let mut deck_card_names: HashSet<String> = HashSet::new();
             if let Some(drafted) = drafted {
                 for (name, &drafted_count) in drafted {
-                    let destroyed_count = destroyed
+                    let trashed_count = trashed
                         .and_then(|d| d.get(name))
                         .copied()
                         .unwrap_or(0);
-                    if drafted_count > destroyed_count {
+                    if drafted_count > trashed_count {
                         deck_card_names.insert(name.clone());
                     }
                 }
@@ -681,7 +681,7 @@ pub fn compute_win_rate_by_card(
     stats
 }
 
-/// Compute win rate by card name for cards that were drafted (regardless of whether they were destroyed).
+/// Compute win rate by card name for cards that were drafted (regardless of whether they were trashed).
 pub fn compute_win_rate_if_drafted(
     logs: &[StructuredGameLog],
     filter: Option<&PlayerFilter>,
@@ -1354,11 +1354,11 @@ pub fn compute_penultimate_round_deck_sizes(
                 Choice::DraftPick { .. } => {
                     player_deck_sizes[pi] += 1;
                 }
-                Choice::DestroyDraftedCard { .. }
-                | Choice::DestroyAndMix { .. }
-                | Choice::DestroyAndSell { .. }
-                | Choice::DestroyAndWorkshop { .. }
-                | Choice::DestroyAndMoveToDraftPool { .. } => {
+                Choice::TrashDraftedCard { .. }
+                | Choice::TrashAndMix { .. }
+                | Choice::TrashAndSell { .. }
+                | Choice::TrashAndWorkshop { .. }
+                | Choice::TrashAndMoveToDraftPool { .. } => {
                     player_deck_sizes[pi] -= 1;
                 }
                 Choice::MoveToDraftPool { card } => {
@@ -1392,7 +1392,7 @@ pub fn compute_sell_card_acquisitions(
     filter: Option<&PlayerFilter>,
 ) -> SellCardAcquisitions {
     let mut by_sell_card = HashMap::new();
-    let mut by_ducats = HashMap::new();
+    let mut by_points = HashMap::new();
     let mut by_material = HashMap::new();
 
     for (log_idx, log) in logs.iter().enumerate() {
@@ -1406,13 +1406,13 @@ pub fn compute_sell_card_acquisitions(
             }
             let sell_card = match &entry.choice {
                 Choice::SelectSellCard { sell_card } => Some(sell_card),
-                Choice::DestroyAndSell { sell_card, .. } => Some(sell_card),
+                Choice::TrashAndSell { sell_card, .. } => Some(sell_card),
                 _ => None,
             };
             if let Some(sell_card) = sell_card {
                 let name = sell_card_name_from_instance(*sell_card);
                 *by_sell_card.entry(name).or_insert(0) += 1;
-                *by_ducats.entry(sell_card.ducats()).or_insert(0) += 1;
+                *by_points.entry(sell_card.points()).or_insert(0) += 1;
                 let material_name = sell_card
                     .required_materials()
                     .first()
@@ -1424,7 +1424,7 @@ pub fn compute_sell_card_acquisitions(
 
     SellCardAcquisitions {
         by_sell_card,
-        by_ducats,
+        by_points,
         by_material,
     }
 }
@@ -1461,7 +1461,7 @@ pub fn compute_winner_sell_card_breakdown(
         for entry in &log.entries {
             let sell_card = match &entry.choice {
                 Choice::SelectSellCard { sell_card } => Some(sell_card),
-                Choice::DestroyAndSell { sell_card, .. } => Some(sell_card),
+                Choice::TrashAndSell { sell_card, .. } => Some(sell_card),
                 _ => None,
             };
             if let Some(sell_card) = sell_card {

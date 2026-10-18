@@ -4,7 +4,7 @@ use colori_core::draw_phase::execute_draw_phase;
 use colori_core::game_log::{DrawEvent, DrawLog};
 use colori_core::ismcts::{MctsConfig};
 use colori_core::mcts_impl::{search_refusal, ColoriSearcher};
-use colori_core::scoring::{calculate_ducat_score, score_in_half_points, HeuristicParams};
+use colori_core::scoring::{calculate_whole_points, score_in_half_points, HeuristicParams};
 use colori_core::setup::create_initial_game_state;
 use colori_core::types::{Card, Choice, GameState, PlayerState};
 use colori_core::unordered_cards::{
@@ -54,7 +54,7 @@ fn deserialize_state(json: &str) -> GameState {
     state.card_lookup = get_card_registry();
     state.sell_card_lookup = get_sell_card_registry();
     for p in state.players.iter_mut() {
-        p.cached_ducat_score = calculate_ducat_score(p);
+        p.cached_whole_points = calculate_whole_points(p);
     }
     state
 }

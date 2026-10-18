@@ -9,7 +9,7 @@ use colori_core::draft_phase::DRAFT_HAND_SIZE;
 use colori_core::game_log::{DrawEvent, DrawLog};
 use colori_core::draw_phase::{execute_draw_phase, round_income, RoundIncome};
 use colori_core::cards::{draft_copies, draft_deck_cards, sell_card_copies, sell_deck_cards, starter_deck};
-use colori_core::scoring::{calculate_ducat_score, score_in_half_points};
+use colori_core::scoring::{calculate_whole_points, score_in_half_points};
 use colori_core::setup::create_initial_game_state;
 use colori_core::types::{Ability, AbilityStack, ActionState, Buyer, SellCard, Card, Choice, Color, ColorWheel, DucatPurchase, GamePhase, GameState, MaterialType, PlayerState, PlayerTurn, ALL_SELL_CARDS, MAX_SELL_CARD_DISPLAY};
 use colori_core::unordered_cards::{UnorderedCards, UnorderedSellCards};
@@ -56,7 +56,7 @@ fn count_all_cards(state: &GameState) -> u32 {
     }
 
     total += state.draft_deck.len();
-    total += state.destroyed_pile.len();
+    total += state.trash.len();
 
     if let GamePhase::Draft { ref draft_state } = state.phase {
         for i in 0..draft_state.num_hands {
@@ -131,8 +131,8 @@ fn run_full_game_with_invariants(seed: u64, num_players: usize) -> GameState {
         );
         for (pi, player) in state.players.iter().enumerate() {
             assert_eq!(
-                player.cached_ducat_score,
-                calculate_ducat_score(player),
+                player.cached_whole_points,
+                calculate_whole_points(player),
                 "Cached score mismatch for player {} at step {} (seed={}, players={})",
                 pi,
                 step,
@@ -214,8 +214,8 @@ fn run_random_game_with_invariants(seed: u64, num_players: usize) -> GameState {
         );
         for (pi, player) in state.players.iter().enumerate() {
             assert_eq!(
-                player.cached_ducat_score,
-                calculate_ducat_score(player),
+                player.cached_whole_points,
+                calculate_whole_points(player),
                 "Cached score mismatch for player {} at step {} (seed={}, players={})",
                 pi,
                 step,
@@ -403,7 +403,7 @@ fn deserialize_state(json: &str) -> GameState {
     state.card_lookup = get_card_registry();
     state.sell_card_lookup = get_sell_card_registry();
     for p in state.players.iter_mut() {
-        p.cached_ducat_score = calculate_ducat_score(p);
+        p.cached_whole_points = calculate_whole_points(p);
     }
     state
 }
@@ -460,8 +460,8 @@ fn assert_states_match(a: &GameState, b: &GameState, context: &str) {
             pi, context
         );
         assert_eq!(
-            pa.cached_ducat_score, pb.cached_ducat_score,
-            "player {} cached_ducat_score mismatch: {}",
+            pa.cached_whole_points, pb.cached_whole_points,
+            "player {} cached_whole_points mismatch: {}",
             pi, context
         );
         assert_eq!(
@@ -514,8 +514,8 @@ fn assert_states_match(a: &GameState, b: &GameState, context: &str) {
         context
     );
     assert_eq!(
-        a.destroyed_pile, b.destroyed_pile,
-        "destroyed_pile mismatch: {}",
+        a.trash, b.trash,
+        "trash mismatch: {}",
         context
     );
     assert_eq!(
@@ -645,7 +645,7 @@ fn test_sell_card_conservation() {
 }
 
 #[test]
-fn test_cached_ducat_score_consistency() {
+fn test_cached_whole_points_consistency() {
     for seed in 10..20 {
         for num_players in 2..=4 {
             run_full_game_with_invariants(seed, num_players);
@@ -739,7 +739,7 @@ fn test_stress_two_player_long_games() {
 #[test]
 fn test_draft_deck_recycling() {
     // 4-player games deal 112 draft cards over 7 rounds from a 100-card deck,
-    // so the destroyed pile must be recycled.
+    // so the trash must be recycled.
     for seed in 700..800 {
         let state = run_random_game_with_invariants(seed, 4);
         assert_eq!(
@@ -1014,7 +1014,7 @@ fn test_starting_color_wheel() {
     }
 }
 
-// ── Workshopped cards as destroy/move targets ──
+// ── Workshopped cards as trash/move targets ──
 
 /// Find a card id whose lookup matches `target` in any of the sources
 /// (player decks, draft_deck) and return it along with a state ready for
@@ -1066,7 +1066,7 @@ fn setup_action_state_with(
     let player = &mut state.players[0];
     player.ducats = 0;
     player.boats = 0;
-    player.cached_ducat_score = 0;
+    player.cached_whole_points = 0;
 
     let alum_id = find_card_id(&state, Card::Alum);
     remove_card_anywhere(&mut state, alum_id);
@@ -1132,8 +1132,8 @@ fn test_move_to_draft_pool_fizzles_when_only_workshopped_cards_remain() {
 }
 
 #[test]
-fn test_destroying_alum_targets_only_unworkshopped_cards() {
-    // No ability on the stack — enumerating destroy-drafted choices for Alum.
+fn test_trashing_alum_targets_only_unworkshopped_cards() {
+    // No ability on the stack — enumerating trash-drafted choices for Alum.
     let (state, _, _, _) = setup_action_state_with(
         true,
         Some(Card::StarterCeramics),
@@ -1144,9 +1144,9 @@ fn test_destroying_alum_targets_only_unworkshopped_cards() {
     let choices = enumerate_choices(&state, 0);
     let moves: Vec<&Choice> = choices
         .iter()
-        .filter(|c| matches!(c, Choice::DestroyAndMoveToDraftPool { .. }))
+        .filter(|c| matches!(c, Choice::TrashAndMoveToDraftPool { .. }))
         .collect();
-    let canvas = Choice::DestroyAndMoveToDraftPool {
+    let canvas = Choice::TrashAndMoveToDraftPool {
         card: Card::Alum,
         target: Some(Card::StarterCanvas),
     };
@@ -1155,20 +1155,20 @@ fn test_destroying_alum_targets_only_unworkshopped_cards() {
     assert!(!check_choice_available(
         &state,
         0,
-        &Choice::DestroyAndMoveToDraftPool { card: Card::Alum, target: Some(Card::StarterCeramics) }
+        &Choice::TrashAndMoveToDraftPool { card: Card::Alum, target: Some(Card::StarterCeramics) }
     ));
     assert!(!check_choice_available(
         &state,
         0,
-        &Choice::DestroyAndMoveToDraftPool { card: Card::Alum, target: None }
+        &Choice::TrashAndMoveToDraftPool { card: Card::Alum, target: None }
     ));
 }
 
-/// The move does not destroy the card: it lands in the draft pool, where the
-/// ordinary destroy path can pick it up later — or leave it there for end of
+/// The move does not trash the card: it lands in the draft pool, where the
+/// ordinary trash path can pick it up later — or leave it there for end of
 /// turn to return to the workshop.
 #[test]
-fn test_apply_move_to_draft_pool_moves_the_card_without_destroying_it() {
+fn test_apply_move_to_draft_pool_moves_the_card_without_trashing_it() {
     let (mut state, _, _, wsc_id) = setup_action_state_with(
         false,
         None,
@@ -1189,8 +1189,8 @@ fn test_apply_move_to_draft_pool_moves_the_card_without_destroying_it() {
         "moved card should have left the workshop");
     assert!(state.players[0].drafted_cards.contains(wsc_id),
         "moved card should be in the draft pool");
-    assert!(!state.destroyed_pile.contains(wsc_id),
-        "the move must not destroy the card");
+    assert!(!state.trash.contains(wsc_id),
+        "the move must not trash the card");
     if let GamePhase::Action { ref action_state } = state.phase {
         assert!(action_state.turns[0].ability_stack.is_empty(),
             "the move resolves the ability and triggers nothing");
@@ -1200,25 +1200,25 @@ fn test_apply_move_to_draft_pool_moves_the_card_without_destroying_it() {
 }
 
 #[test]
-fn test_score_is_ducats_plus_half_points_for_wild_primaries_and_boats() {
+fn test_score_is_points_plus_half_points_for_wild_primaries_and_boats() {
     for seed in 50..60 {
         for num_players in 2..=4 {
             let state = run_full_game_with_invariants(seed, num_players);
             for (i, player) in state.players.iter().enumerate() {
-                let sell_card_ducats: u32 = player
+                let sell_card_points: u32 = player
                     .completed_sell_cards
                     .iter()
-                    .map(|bi| bi.sell_card.ducats())
+                    .map(|bi| bi.sell_card.points())
                     .sum();
                 assert_eq!(
-                    calculate_ducat_score(player),
-                    sell_card_ducats + player.ducats,
-                    "Ducat score mismatch for player {} (seed={}, players={})",
+                    calculate_whole_points(player),
+                    sell_card_points + player.ducats,
+                    "Whole points mismatch for player {} (seed={}, players={})",
                     i, seed, num_players,
                 );
                 assert_eq!(
                     score_in_half_points(player),
-                    2 * (sell_card_ducats + player.ducats) + player.wild_primaries + player.boats,
+                    2 * (sell_card_points + player.ducats) + player.wild_primaries + player.boats,
                     "Score mismatch for player {} (seed={}, players={})",
                     i, seed, num_players,
                 );
@@ -1372,19 +1372,19 @@ fn state_with_drafted(card: Card) -> GameState {
 }
 
 #[test]
-fn test_destroying_an_imports_card_workshops_then_mixes() {
+fn test_trashing_an_imports_card_workshops_then_mixes() {
     let mut state = state_with_drafted(Card::CanvasCeramics);
     let fabric = find_card_id(&state, Card::StarterFabric);
     remove_card_anywhere(&mut state, fabric);
     state.players[0].workshop_cards.insert(fabric);
 
     let mut rng = WyRand::seed_from_u64(3);
-    let destroy = Choice::DestroyAndWorkshop {
+    let trash = Choice::TrashAndWorkshop {
         card: Card::CanvasCeramics,
         workshop_cards: SmallVec::from_slice(&[Card::StarterFabric]),
     };
-    assert!(enumerate_choices(&state, 0).contains(&destroy));
-    apply_choice_to_state(&mut state, 0, &destroy, &mut rng);
+    assert!(enumerate_choices(&state, 0).contains(&trash));
+    apply_choice_to_state(&mut state, 0, &trash, &mut rng);
 
     assert_eq!(state.players[0].materials.get(MaterialType::Textiles), 1);
     assert_eq!(
@@ -1408,13 +1408,13 @@ fn test_an_imports_card_still_mixes_when_the_workshop_is_empty() {
     let mut state = state_with_drafted(Card::CeramicsRed);
     assert!(state.players[0].workshop_cards.is_empty());
 
-    let destroy = Choice::DestroyAndWorkshop {
+    let trash = Choice::TrashAndWorkshop {
         card: Card::CeramicsRed,
         workshop_cards: SmallVec::new(),
     };
-    assert!(enumerate_choices(&state, 0).contains(&destroy));
+    assert!(enumerate_choices(&state, 0).contains(&trash));
     let mut rng = WyRand::seed_from_u64(3);
-    apply_choice_to_state(&mut state, 0, &destroy, &mut rng);
+    apply_choice_to_state(&mut state, 0, &trash, &mut rng);
 
     assert_eq!(
         pending_ability(&state),
@@ -1430,7 +1430,7 @@ fn test_a_wild_primary_stands_in_for_a_missing_primary_in_a_mix() {
     player.color_wheel = ColorWheel::new();
     player.color_wheel.set(Color::Orange, 1);
 
-    let mix = Choice::DestroyAndMix {
+    let mix = Choice::TrashAndMix {
         card: Card::Realgar,
         mixes: SmallVec::from_slice(&[(Color::Red, Color::Orange)]),
     };
@@ -1489,8 +1489,8 @@ fn test_a_boat_and_a_wild_primary_stand_in_for_what_a_sale_is_missing() {
     assert_eq!((player.boats, player.wild_primaries), (0, 0));
     assert_eq!(player.color_wheel.get(Color::Yellow), 0);
     assert_eq!(player.completed_sell_cards.len(), 1);
-    assert_eq!(player.cached_ducat_score, calculate_ducat_score(player));
-    assert_eq!(score_in_half_points(player), 2 * sell_card.ducats());
+    assert_eq!(player.cached_whole_points, calculate_whole_points(player));
+    assert_eq!(score_in_half_points(player), 2 * sell_card.points());
 }
 
 #[test]
@@ -1528,7 +1528,7 @@ fn test_a_shipwright_takes_a_boat_as_well_as_its_textiles() {
     let player = &state.players[0];
     assert_eq!(player.boats, 0);
     assert_eq!(player.materials.get(MaterialType::Textiles), 0);
-    assert_eq!(player.cached_ducat_score, 4);
+    assert_eq!(player.cached_whole_points, 4);
 }
 
 #[test]
@@ -1565,7 +1565,7 @@ fn test_a_tilemaker_takes_two_ceramics() {
     let player = &state.players[0];
     assert_eq!(player.materials.get(MaterialType::Ceramics), 0);
     assert_eq!(player.boats, 0);
-    assert_eq!(player.cached_ducat_score, 4);
+    assert_eq!(player.cached_whole_points, 4);
 }
 
 #[test]
@@ -1580,7 +1580,7 @@ fn test_glassmakers_and_illuminators_take_no_material() {
         let player = &state.players[0];
         assert_eq!(player.completed_sell_cards.len(), 1, "{:?}", sell_card);
         assert_eq!(player.color_wheel.counts.iter().sum::<u32>(), 0);
-        assert_eq!(player.cached_ducat_score, sell_card.ducats());
+        assert_eq!(player.cached_whole_points, sell_card.points());
     }
 }
 
@@ -1612,9 +1612,9 @@ fn test_sell_deck_composition() {
         (Buyer::Painter, 18, 1, 4),
         (Buyer::MasterPainter, 6, 1, 5),
     ];
-    for (buyer, cards, copies, ducats) in expected {
+    for (buyer, cards, copies, points) in expected {
         assert_eq!(cards_of(buyer), cards, "{:?} cards", buyer);
-        assert_eq!(buyer.ducats(), ducats, "{:?} ducats", buyer);
+        assert_eq!(buyer.points(), points, "{:?} points", buyer);
         for sell_card in ALL_SELL_CARDS.iter().filter(|c| c.buyer() == buyer) {
             assert_eq!(sell_card_copies(*sell_card), copies, "{:?} copies", sell_card);
         }
@@ -1633,7 +1633,7 @@ fn test_starter_deck_composition() {
         expected.sort_by_key(|&c| c as usize);
         assert_eq!(cards, expected);
         assert_eq!((player.wild_primaries, player.boats, player.ducats), (0, 1, 1));
-        assert_eq!(player.cached_ducat_score, calculate_ducat_score(player));
+        assert_eq!(player.cached_whole_points, calculate_whole_points(player));
     }
 }
 
@@ -1833,13 +1833,13 @@ fn state_at_first_draft(seed: u64, num_players: usize) -> (GameState, WyRand) {
 
 /// Every hand passes until it is down to one card, which goes to whoever it was
 /// passed to: one pick fewer than the hand size, a full hand drafted each, and
-/// nothing left over to destroy.
+/// nothing left over to trash.
 #[test]
-fn test_each_player_drafts_a_full_hand_and_nothing_is_destroyed() {
+fn test_each_player_drafts_a_full_hand_and_nothing_is_trashed() {
     for num_players in 2..=4 {
         for seed in 0..5 {
             let (mut state, mut rng) = state_at_first_draft(seed, num_players);
-            let destroyed_before = state.destroyed_pile;
+            let trashed_before = state.trash;
 
             let mut picks = 0;
             while matches!(state.phase, GamePhase::Draft { .. }) {
@@ -1855,17 +1855,17 @@ fn test_each_player_drafts_a_full_hand_and_nothing_is_destroyed() {
             for player in state.players.iter() {
                 assert_eq!(player.drafted_cards.len(), DRAFT_HAND_SIZE, "{context}");
             }
-            assert_eq!(state.destroyed_pile, destroyed_before, "{context}");
+            assert_eq!(state.trash, trashed_before, "{context}");
         }
     }
 }
 
 /// Solo: the phantom hand sheds a card per pick and its last card has nobody
-/// to go to, so the whole phantom hand is destroyed.
+/// to go to, so the whole phantom hand is trashed.
 #[test]
-fn test_solo_draft_destroys_the_phantom_hand() {
+fn test_solo_draft_trashes_the_phantom_hand() {
     let (mut state, mut rng) = state_at_first_draft(3, 1);
-    let destroyed_before = state.destroyed_pile.len();
+    let trashed_before = state.trash.len();
 
     while matches!(state.phase, GamePhase::Draft { .. }) {
         let player = actor(&state);
@@ -1874,7 +1874,7 @@ fn test_solo_draft_destroys_the_phantom_hand() {
     }
 
     assert_eq!(state.players[0].drafted_cards.len(), DRAFT_HAND_SIZE);
-    assert_eq!(state.destroyed_pile.len(), destroyed_before + DRAFT_HAND_SIZE);
+    assert_eq!(state.trash.len(), trashed_before + DRAFT_HAND_SIZE);
 }
 
 // ── Buyers phase ──
@@ -1920,7 +1920,7 @@ fn test_the_round_opens_with_the_buyers_phase() {
 
 #[test]
 fn test_players_claim_up_to_capacity_for_the_round() {
-    for (round, capacity) in [(1u32, 1usize), (2, 2), (4, 3)] {
+    for (round, capacity) in [(1u32, 1usize), (2, 2), (3, 3)] {
         let (mut state, mut rng) = state_at_buyers_phase(21, 3, round);
         while matches!(state.phase, GamePhase::Buyers { .. }) {
             let player = actor(&state);
@@ -1966,7 +1966,7 @@ fn test_claiming_goes_round_robin() {
 /// display.
 #[test]
 fn test_the_display_refills_after_every_claim() {
-    let (mut state, mut rng) = state_at_buyers_phase(5, 4, 4);
+    let (mut state, mut rng) = state_at_buyers_phase(5, 4, 3);
     while matches!(state.phase, GamePhase::Buyers { .. }) {
         assert_eq!(
             state.sell_card_display.len(),
@@ -2063,7 +2063,7 @@ fn test_an_emptied_slot_is_refilled_next_round() {
         apply_choice_to_state(&mut state, player, &choices[0], &mut rng);
     }
 
-    assert_eq!(state.players[0].buyers.len(), 2, "round 3 capacity is two");
+    assert_eq!(state.players[0].buyers.len(), 3, "round 3 capacity is three");
     assert!(
         buyers_of(&state, 0).contains(&kept),
         "the buyer that was not sold should still be there"
@@ -2121,7 +2121,7 @@ fn take_recording(state: &mut GameState) -> Vec<DrawEvent> {
 #[test]
 fn test_a_recorded_game_replays_to_the_same_state() {
     // Four players outdraw the draft deck, so the replay has to follow the
-    // destroyed pile being shuffled back in.
+    // trash being shuffled back in.
     for num_players in 1..=4 {
         for seed in 0..4 {
             let mut rng = WyRand::seed_from_u64(seed * 31 + num_players as u64);
@@ -2201,8 +2201,8 @@ fn test_income_arrives_in_rounds_four_to_seven() {
                 "player {i} ducats, boats and wild primaries after the round {round} draw phase"
             );
             assert_eq!(
-                player.cached_ducat_score,
-                calculate_ducat_score(player),
+                player.cached_whole_points,
+                calculate_whole_points(player),
                 "income must move the cached score with it (round {round})"
             );
         }
@@ -2215,7 +2215,7 @@ fn test_spending_a_ducat_costs_a_point_and_stacks_the_purchase() {
     let (mut state, _, _, _) =
         setup_action_state_with(false, None, Some(Card::StarterCeramics), None);
     state.players[0].ducats = 2;
-    state.players[0].cached_ducat_score = calculate_ducat_score(&state.players[0]);
+    state.players[0].cached_whole_points = calculate_whole_points(&state.players[0]);
 
     let choice = Choice::SpendDucat { purchase: DucatPurchase::Workshop };
     assert!(enumerate_choices(&state, 0).contains(&choice));
@@ -2225,7 +2225,7 @@ fn test_spending_a_ducat_costs_a_point_and_stacks_the_purchase() {
     apply_choice_to_state(&mut state, 0, &choice, &mut rng);
 
     assert_eq!(state.players[0].ducats, 1);
-    assert_eq!(state.players[0].cached_ducat_score, calculate_ducat_score(&state.players[0]));
+    assert_eq!(state.players[0].cached_whole_points, calculate_whole_points(&state.players[0]));
     match &state.phase {
         GamePhase::Action { action_state } => assert_eq!(
             action_state.turns[0].ability_stack.last(),
@@ -2249,7 +2249,7 @@ fn test_a_purchase_is_only_offered_when_it_would_do_something() {
         setup_action_state_with(false, None, Some(Card::StarterCeramics), None);
     state.players[0].ducats = 1;
     state.players[0].color_wheel = ColorWheel::new();
-    state.players[0].cached_ducat_score = calculate_ducat_score(&state.players[0]);
+    state.players[0].cached_whole_points = calculate_whole_points(&state.players[0]);
 
     let choices = enumerate_choices(&state, 0);
     assert!(choices.contains(&spend(DucatPurchase::Workshop)));
@@ -2277,7 +2277,7 @@ fn test_a_ducat_cannot_be_spent_while_an_ability_is_pending() {
         Some(Ability::Workshop { count: 2 }),
     );
     state.players[0].ducats = 3;
-    state.players[0].cached_ducat_score = calculate_ducat_score(&state.players[0]);
+    state.players[0].cached_whole_points = calculate_whole_points(&state.players[0]);
 
     let choices = enumerate_choices(&state, 0);
     assert!(!choices.iter().any(|c| matches!(c, Choice::SpendDucat { .. })));
@@ -2286,8 +2286,8 @@ fn test_a_ducat_cannot_be_spent_while_an_ability_is_pending() {
     }
 }
 
-/// The whole point of the Sell purchase: one ducat in, a two-to-four-ducat
-/// sell card out.
+/// The whole point of the Sell purchase: one ducat in, a sell card worth two
+/// to five points out.
 #[test]
 fn test_a_ducat_buys_a_sale_that_pays_for_itself() {
     let mut rng = WyRand::seed_from_u64(4);
@@ -2298,8 +2298,8 @@ fn test_a_ducat_buys_a_sale_that_pays_for_itself() {
     state.players[0].buyers.push(instance);
     stock_for(&mut state.players[0], sell_card);
     state.players[0].ducats = 1;
-    state.players[0].cached_ducat_score = calculate_ducat_score(&state.players[0]);
-    let score_before = state.players[0].cached_ducat_score;
+    state.players[0].cached_whole_points = calculate_whole_points(&state.players[0]);
+    let score_before = state.players[0].cached_whole_points;
 
     state.phase = open_action_phase(&state, AbilityStack::new());
 
@@ -2311,11 +2311,11 @@ fn test_a_ducat_buys_a_sale_that_pays_for_itself() {
     assert_eq!(state.players[0].ducats, 0, "the ducat was spent");
     assert_eq!(state.players[0].completed_sell_cards.len(), 1);
     assert_eq!(
-        state.players[0].cached_ducat_score,
-        score_before - 1 + sell_card.ducats(),
+        state.players[0].cached_whole_points,
+        score_before - 1 + sell_card.points(),
         "net gain is the sell card's value less the ducat"
     );
-    assert_eq!(state.players[0].cached_ducat_score, calculate_ducat_score(&state.players[0]));
+    assert_eq!(state.players[0].cached_whole_points, calculate_whole_points(&state.players[0]));
 }
 
 // ── Simultaneous action phase ──
@@ -2418,7 +2418,7 @@ fn test_a_player_whose_turn_is_over_has_nothing_left_to_choose() {
     apply_choice_to_state(&mut state, 0, &Choice::EndTurn, &mut rng);
     // Enough to buy a workshop pick, were the turn still open.
     state.players[0].ducats = 3;
-    state.players[0].cached_ducat_score = calculate_ducat_score(&state.players[0]);
+    state.players[0].cached_whole_points = calculate_whole_points(&state.players[0]);
     assert!(!state.players[0].workshop_cards.is_empty());
 
     assert!(enumerate_choices(&state, 0).is_empty());
@@ -2465,4 +2465,30 @@ fn test_a_view_shows_only_its_own_players_moves() {
             }
         }
     }
+}
+
+/// Game logs and saved games from before "destroy" became "trash" still load.
+#[test]
+fn test_logs_written_with_destroy_names_still_load() {
+    let choices = [
+        (r#"{"type":"destroyDraftedCard","card":"Alum"}"#, "trashDraftedCard"),
+        (r#"{"type":"destroyAndMix","card":"Woad","mixes":[]}"#, "trashAndMix"),
+        (r#"{"type":"destroyAndMixAll","card":"Woad","mixes":[]}"#, "trashAndMix"),
+        (r#"{"type":"destroyAndSell","card":"Indigo","sellCard":"DyerGreen"}"#, "trashAndSell"),
+        (r#"{"type":"destroyAndWorkshop","card":"Cinnabar","workshopCards":[]}"#, "trashAndWorkshop"),
+        (r#"{"type":"destroyAndMoveToDraftPool","card":"Alum","target":null}"#, "trashAndMoveToDraftPool"),
+    ];
+    for (old, new_type) in choices {
+        let choice: Choice = serde_json::from_str(old).unwrap_or_else(|e| panic!("{old}: {e}"));
+        let written = serde_json::to_value(&choice).unwrap();
+        assert_eq!(written["type"], new_type, "{old}");
+    }
+
+    let mut rng = WyRand::seed_from_u64(1);
+    let state = create_initial_game_state(2, &[false, false], &mut rng);
+    let mut json = serde_json::to_value(&state).unwrap();
+    let trash = json.as_object_mut().unwrap().remove("trash").expect("the trash is written as `trash`");
+    json["destroyedPile"] = trash;
+    let reloaded: GameState = serde_json::from_value(json).unwrap();
+    assert_eq!(reloaded.trash.len(), state.trash.len());
 }

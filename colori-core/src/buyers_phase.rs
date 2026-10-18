@@ -18,11 +18,12 @@ use crate::types::{BuyersState, GamePhase, GameState, SellCardInstance};
 
 /// How many buyer slots a player has in `round`.
 ///
-/// One to start with, a second from round 2 and a third from round 4.
+/// One to start with, a second from round 2 and a third from round 3, as the
+/// round track on the Buyer's Board shows.
 pub fn buyer_capacity(round: u32) -> usize {
     match round {
         0..=1 => 1,
-        2..=3 => 2,
+        2 => 2,
         _ => 3,
     }
 }
@@ -168,10 +169,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn capacity_grows_at_rounds_two_and_four() {
+    fn capacity_grows_at_rounds_two_and_three() {
         assert_eq!(buyer_capacity(1), 1);
         assert_eq!(buyer_capacity(2), 2);
-        assert_eq!(buyer_capacity(3), 2);
+        assert_eq!(buyer_capacity(3), 3);
         assert_eq!(buyer_capacity(4), 3);
         assert_eq!(buyer_capacity(5), 3);
         assert_eq!(buyer_capacity(6), 3);

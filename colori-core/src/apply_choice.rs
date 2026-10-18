@@ -142,9 +142,9 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, player_index: usize, choice: 
             let card_instance_id = find_card_instance(state, card, &hand);
             player_pick(state, card_instance_id, rng);
         }
-        Choice::DestroyDraftedCard { card } => {
+        Choice::TrashDraftedCard { card } => {
             let card_instance_id = get_drafted_card_instance(state, player_index, card);
-            destroy_drafted_card(state, player_index, card_instance_id);
+            trash_drafted_card(state, player_index, card_instance_id);
         }
         Choice::EndTurn => {
             end_player_turn(state, player_index);
@@ -169,20 +169,20 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, player_index: usize, choice: 
         Choice::MixAll { mixes } => {
             resolve_mix_sequence(state, player_index, mixes);
         }
-        Choice::DestroyAndMix { card, mixes } => {
+        Choice::TrashAndMix { card, mixes } => {
             let card_instance_id = get_drafted_card_instance(state, player_index, card);
-            destroy_drafted_card(state, player_index, card_instance_id);
+            trash_drafted_card(state, player_index, card_instance_id);
             resolve_mix_sequence(state, player_index, mixes);
         }
-        Choice::DestroyAndSell { card, sell_card } => {
+        Choice::TrashAndSell { card, sell_card } => {
             let card_instance_id = get_drafted_card_instance(state, player_index, card);
             let sell_card_instance_id = find_sell_card_instance(state, player_index, sell_card);
-            destroy_drafted_card(state, player_index, card_instance_id);
+            trash_drafted_card(state, player_index, card_instance_id);
             resolve_select_sell_card(state, player_index, sell_card_instance_id);
         }
-        Choice::DestroyAndWorkshop { card, workshop_cards } => {
+        Choice::TrashAndWorkshop { card, workshop_cards } => {
             let card_instance_id = get_drafted_card_instance(state, player_index, card);
-            destroy_drafted_card(state, player_index, card_instance_id);
+            trash_drafted_card(state, player_index, card_instance_id);
             // With nothing in the workshop the ability has already fizzled, and
             // whatever is on top now is not this choice's to skip.
             let pending = matches!(
@@ -197,9 +197,9 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, player_index: usize, choice: 
                 resolve_workshop_card_types(state, player_index, workshop_cards);
             }
         }
-        Choice::DestroyAndMoveToDraftPool { card, target } => {
+        Choice::TrashAndMoveToDraftPool { card, target } => {
             let card_instance_id = get_drafted_card_instance(state, player_index, card);
-            destroy_drafted_card(state, player_index, card_instance_id);
+            trash_drafted_card(state, player_index, card_instance_id);
             let target = move_target(state, player_index, target);
             resolve_move_to_draft_pool(state, player_index, target);
         }

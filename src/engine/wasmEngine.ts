@@ -1,6 +1,6 @@
 import type { GameState, Choice, PlayerState, Card, Color, DrawEvent, MaterialType, SellCard } from '../data/types';
-import { isPrimary, mixResult } from '../data/colors';
-import { getSellCardData, getAnyCardData } from '../data/cards';
+import { isPrimary } from '../data/colors';
+import { getSellCardData } from '../data/cards';
 import init, {
   wasm_create_initial_game_state,
   wasm_execute_draw_phase,
@@ -93,93 +93,6 @@ export function calculateScores(players: PlayerState[], playerNames: string[]): 
 
 export function cloneGameState(state: GameState): GameState {
   return JSON.parse(JSON.stringify(state));
-}
-
-function assertNever(x: never): never {
-  throw new Error(`Unhandled choice type: ${(x as { type: string }).type}`);
-}
-
-export function getChoiceLogMessage(
-  state: GameState,
-  choice: Choice,
-  playerIndex: number,
-): string | null {
-  const name = state.playerNames[playerIndex];
-
-  switch (choice.type) {
-    case 'draftPick':
-      return null;
-    case 'destroyDraftedCard': {
-      const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
-      return `${name} destroyed ${cardName} from drafted cards`;
-    }
-    case 'endTurn':
-      return `${name} ended their turn`;
-    case 'workshop': {
-      const cardNames = choice.cardTypes.map(c => (getAnyCardData(c) as { name?: string })?.name ?? 'a card');
-      return `${name} workshopped ${cardNames.join(', ')}`;
-    }
-    case 'skipWorkshop':
-      return `${name} skipped workshop`;
-    case 'moveToDraftPool': {
-      if (choice.card === null) return `${name} had no card to move to draft pool`;
-      const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
-      return `${name} moved ${cardName} from workshop to draft pool`;
-    }
-    case 'selectSellCard': {
-      return `${name} sold to a ${getSellCardData(choice.sellCard).name} for ${getSellCardData(choice.sellCard).ducats} ducats`;
-    }
-    case 'spendDucat': {
-      const bought = { workshop: 'a workshop pick', mixColors: 'a mix', sell: 'a sale' }[choice.purchase];
-      return `${name} spent a ducat for ${bought}`;
-    }
-    case 'takeBuyer': {
-      return `${name} claimed a ${getSellCardData(choice.sellCard).name} (${getSellCardData(choice.sellCard).ducats} ducats)`;
-    }
-    case 'drawBuyer':
-      return `${name} claimed a buyer off the top of the deck`;
-    case 'gainSecondary':
-      return `${name} gained ${choice.color}`;
-    case 'mixAll': {
-      if (choice.mixes.length === 0) return `${name} skipped remaining mixes`;
-      const parts = choice.mixes.map(([a, b]) => `mixed ${a} + ${b} to make ${mixResult(a, b)}`);
-      return `${name} ${parts.join(', ')}`;
-    }
-    case 'destroyAndMix': {
-      const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
-      let msg = `${name} destroyed ${cardName} from drafted cards`;
-      if (choice.mixes.length > 0) {
-        const parts = choice.mixes.map(([a, b]) => `mixed ${a} + ${b} to make ${mixResult(a, b)}`);
-        msg += `, ${parts.join(', ')}`;
-      }
-      return msg;
-    }
-    case 'destroyAndSell': {
-      const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
-      return `${name} destroyed ${cardName} from drafted cards, sold to a ${getSellCardData(choice.sellCard).name} for ${getSellCardData(choice.sellCard).ducats} ducats`;
-    }
-    case 'destroyAndWorkshop': {
-      const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
-      if (choice.workshopCards.length === 0) {
-        return `${name} destroyed ${cardName} from drafted cards, skipped workshop`;
-      }
-      const workshopNames = choice.workshopCards.map(c => (getAnyCardData(c) as { name?: string })?.name ?? 'a card');
-      return `${name} destroyed ${cardName} from drafted cards, workshopped ${workshopNames.join(', ')}`;
-    }
-    case 'destroyAndMoveToDraftPool': {
-      const cardName = (getAnyCardData(choice.card) as { name?: string })?.name ?? 'a card';
-      // Two log lines joined by a newline — addLog splits on '\n' so the human
-      // log shows the destroy and the move as separate entries, even though
-      // the engine fuses them into one choice.
-      if (choice.target === null) {
-        return `${name} destroyed ${cardName} from drafted cards\n${name} had no card to move to draft pool`;
-      }
-      const targetName = (getAnyCardData(choice.target) as { name?: string })?.name ?? 'a card';
-      return `${name} destroyed ${cardName} from drafted cards\n${name} moved ${targetName} from workshop to draft pool`;
-    }
-    default:
-      return assertNever(choice);
-  }
 }
 
 export function determineWinners(players: PlayerState[], playerNames: string[]): string[] {

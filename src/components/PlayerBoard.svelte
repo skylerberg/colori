@@ -3,15 +3,15 @@
   import type { TableInteraction } from '../stores/tableInteraction';
   import {
     BOARD_ART_WIDTH, PLAYER_BOARD_HEIGHT, PLAYER_CARD, PLAYER_SELL_CARD, TUCK,
-    DRAFT_SLOT_X, WORKSHOP_SLOT_X, BUYER_SLOTS, BUYER_SLOT_LABEL_Y, BUYER_SLOT_LABEL_HEIGHT,
+    DRAFT_SLOT_X, WORKSHOP_SLOT_X, BUYER_SLOTS,
     COMPLETED_SLOT, DECK, DUCAT_BAG, BOATS, WILD_PRIMARIES, MATERIALS, DUCAT_PURCHASE_ICONS,
     DUCAT_STRIP, WHEEL, WHEEL_REGIONS, assignSlots,
   } from '../data/boardLayout';
-  import { playerBoardArtUrl } from '../data/cardArt';
+  import { playerBoardArtUrl, SELL_CARD_BACK_URL } from '../data/cardArt';
   import { saleShortfall } from '../engine/wasmEngine';
   import { getAnyCardData, getSellCardData } from '../data/cards';
   import { formatAbility } from '../data/abilities';
-  import { buyerCapacity, buyerSlotOpensInRound, orderByDraftOrder } from '../gameUtils';
+  import { buyerCapacity, orderByDraftOrder } from '../gameUtils';
   import CardDisplay from './CardDisplay.svelte';
   import CardModal from './CardModal.svelte';
   import { fly } from 'svelte/transition';
@@ -80,11 +80,9 @@
   let wheel = $derived(interaction?.wheel?.wheel ?? player.colorWheel);
   let wildPrimaries = $derived(interaction?.wheel?.wildPrimaries ?? player.wildPrimaries);
   let hoveredColor: Color | null = $state(null);
-  let previewedMix = $derived(hoveredColor ? interaction?.wheel?.mixesInto[hoveredColor] ?? null : null);
+  // The colors a mix into the hovered color would use up.
+  let previewedInputs: Color[] = $derived(hoveredColor ? interaction?.wheel?.spends[hoveredColor] ?? [] : []);
 
-  // The newest sale on top, with the two before it peeking out behind.
-  let topOfCompleted = $derived(player.completedSellCards.slice(-3));
-  let soldDucats = $derived(player.completedSellCards.reduce((sum, s) => sum + getSellCardData(s.card).ducats, 0));
   // `concat` keeps the holes of an opponent's deck that online play leaves
   // unrevealed, where `flat` would drop them and the count with them.
   let deckCards = $derived(([] as CardInstance[]).concat(...player.deck));
@@ -92,18 +90,18 @@
   let showDeck = $state(false);
   let showCompleted = $state(false);
 
-  function destroyHint(card: string): string {
+  function trashHint(card: string): string {
     const data = getAnyCardData(card);
-    return `Destroy ${data.name}: ${formatAbility(data)}`;
+    return `Trash ${data.name}: ${formatAbility(data)}`;
   }
 
   function buyerHint(card: SellCard, shortfall: string[]): string {
-    const { name, ducats } = getSellCardData(card);
-    if (shortfall.length === 0) return `${name}, ${ducats} ducats: ready to sell`;
+    const { name, points } = getSellCardData(card);
+    if (shortfall.length === 0) return `${name}, ${points} points: ready to sell`;
     const counts = new Map<string, number>();
     for (const item of shortfall) counts.set(item, (counts.get(item) ?? 0) + 1);
     const needs = [...counts].map(([item, n]) => (n > 1 ? `${n} ${item}` : item)).join(', ');
-    return `${name}, ${ducats} ducats: needs ${needs}`;
+    return `${name}, ${points} points: needs ${needs}`;
   }
 
   function colorState(color: Color): string {
@@ -134,7 +132,7 @@
   {#each DRAFT_SLOT_X as x, i}
     {@const id = draftedSlots[i]}
     {@const ci = id !== null ? cardsById.get(id) : undefined}
-    <div class="tucked drafted" class:filled={!!ci} class:destroyable={!!ci && !!interaction?.destroyDrafted}
+    <div class="tucked drafted" class:filled={!!ci} class:trashable={!!ci && !!interaction?.trashDrafted}
       style="{place(x, 0, PLAYER_CARD.width, PLAYER_CARD.height)}--card-height:calc({PLAYER_CARD.height} * var(--u));">
       {#if ci}
         {#key ci.instanceId}
@@ -143,8 +141,8 @@
               card={ci.card}
               instanceId={ci.instanceId}
               faceDown={faceDownDrafted}
-              hint={interaction?.destroyDrafted ? destroyHint(ci.card) : undefined}
-              onclick={interaction?.destroyDrafted ? () => interaction!.destroyDrafted!(ci.instanceId) : undefined}
+              hint={interaction?.trashDrafted ? trashHint(ci.card) : undefined}
+              onclick={interaction?.trashDrafted ? () => interaction!.trashDrafted!(ci.instanceId) : undefined}
             />
           </div>
         {/key}
@@ -190,7 +188,7 @@
         <path
           d={region.path}
           class="region {regionState}"
-          class:mix-result={previewedMix === region.color}
+          class:mix-input={previewedInputs.includes(region.color)}
           role="button"
           tabindex="0"
           aria-label="{region.color}: {wheel[region.color]}"
@@ -200,7 +198,7 @@
           onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickColor(region.color); } }}
         ><title>{region.color}: {wheel[region.color]}</title></path>
       {:else}
-        <path d={region.path} class="region {regionState}" class:mix-result={previewedMix === region.color}>
+        <path d={region.path} class="region {regionState}" class:mix-input={previewedInputs.includes(region.color)}>
           <title>{region.color}: {wheel[region.color]}</title>
         </path>
       {/if}
@@ -245,33 +243,21 @@
           </div>
         {/key}
         {#if shortfall.length === 0}
-          <span class="ready" title="Everything this buyer asks for is on the board">Ready to sell</span>
+          <span class="ready" title="Ready to sell: everything this buyer asks for is on the board">✓</span>
         {/if}
-      {:else if i === nextBuyerSlot}
-        <div class="slot-plate awaiting-plate" style="top:calc({BUYER_SLOT_LABEL_Y} * var(--u));height:calc({BUYER_SLOT_LABEL_HEIGHT} * var(--u));">
-          Next buyer goes here
-        </div>
-      {:else if i >= openBuyerSlots}
-        <div class="slot-plate" style="top:calc({BUYER_SLOT_LABEL_Y} * var(--u));height:calc({BUYER_SLOT_LABEL_HEIGHT} * var(--u));">
-          Opens in round {buyerSlotOpensInRound(i)}
-        </div>
       {/if}
     </div>
   {/each}
 
   <button class="completed" style={place(COMPLETED_SLOT.x, onArt(COMPLETED_SLOT.y), PLAYER_SELL_CARD.width, PLAYER_SELL_CARD.height)}
-    style:--card-height="calc({PLAYER_SELL_CARD.height} * var(--u))"
     disabled={player.completedSellCards.length === 0}
     onclick={() => showCompleted = true}
-    title="Completed orders: {player.completedSellCards.length}, worth {soldDucats} ducats">
-    {#each topOfCompleted as sold, i (sold.instanceId)}
-      {@const offset = (i - topOfCompleted.length + 1) * 12}
-      <div class="completed-card" style="transform: translate(calc({offset} * var(--u)), calc({offset} * var(--u)))">
-        <CardDisplay card={sold.card} />
-      </div>
-    {/each}
+    title="Completed buyers: {player.completedSellCards.length}">
     {#if player.completedSellCards.length > 0}
-      <span class="completed-summary">{player.completedSellCards.length} sold · {soldDucats} ducats</span>
+      {#key player.completedSellCards.length}
+        <img class="completed-back" src={SELL_CARD_BACK_URL} alt="" in:fly={{ y: -30, duration: 300 }} />
+      {/key}
+      <span class="completed-count">{player.completedSellCards.length}</span>
     {/if}
   </button>
 
@@ -307,7 +293,7 @@
   <CardModal title="Deck ({deckCards.length})" cards={deckCards} onClose={() => showDeck = false} />
 {/if}
 {#if showCompleted}
-  <CardModal title="Completed orders · {soldDucats} ducats" cards={player.completedSellCards} onClose={() => showCompleted = false} />
+  <CardModal title="Completed buyers ({player.completedSellCards.length})" cards={player.completedSellCards} onClose={() => showCompleted = false} />
 {/if}
 
 <style>
@@ -325,7 +311,6 @@
     display: block;
     border-radius: calc(14 * var(--u));
     box-shadow: 0 calc(10 * var(--u)) calc(40 * var(--u)) rgba(0, 0, 0, 0.6);
-    pointer-events: none;
   }
 
   .tucked {
@@ -376,15 +361,15 @@
     border-top: none;
   }
 
-  .drafted.destroyable:hover {
+  .drafted.trashable:hover {
     transform: translateY(calc(-36 * var(--u)));
   }
 
-  .drafted.destroyable :global(.card) {
+  .drafted.trashable :global(.card) {
     box-shadow: 0 0 0 calc(5 * var(--u)) rgba(201, 168, 76, 0.75), 0 calc(4 * var(--u)) calc(16 * var(--u)) rgba(0, 0, 0, 0.55);
   }
 
-  .drafted.destroyable:hover :global(.card) {
+  .drafted.trashable:hover :global(.card) {
     box-shadow: 0 0 0 calc(7 * var(--u)) #e8c766, 0 0 calc(40 * var(--u)) rgba(232, 199, 102, 0.8);
   }
 
@@ -477,7 +462,7 @@
     stroke-width: 12;
   }
 
-  .region.mix-result {
+  .region.mix-input {
     stroke: #fff;
     stroke-width: 8;
     stroke-dasharray: 18 12;
@@ -590,11 +575,6 @@
     animation: awaiting-pulse 1.4s ease-in-out infinite;
   }
 
-  .awaiting-plate {
-    background: rgba(232, 199, 102, 0.95);
-    color: #2c1e12;
-    font-weight: 700;
-  }
 
   .buyer-slot.sellable :global(.card) {
     box-shadow: 0 0 0 calc(7 * var(--u)) #e8c766, 0 0 calc(40 * var(--u)) rgba(232, 199, 102, 0.8);
@@ -606,18 +586,20 @@
 
   .ready {
     position: absolute;
-    left: 50%;
+    left: 0;
     top: 0;
-    transform: translate(-50%, -50%);
-    white-space: nowrap;
-    padding: calc(4 * var(--u)) calc(16 * var(--u));
-    border-radius: 999px;
+    transform: translate(-30%, -30%);
+    width: max(calc(64 * var(--u)), 18px);
+    height: max(calc(64 * var(--u)), 18px);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: #2f7d32;
-    border: max(calc(3 * var(--u)), 1px) solid #a5d6a7;
+    border: max(calc(4 * var(--u)), 1.5px) solid #c8e6c9;
     color: #fff;
-    font-family: 'Cinzel', serif;
+    font-size: max(calc(38 * var(--u)), 11px);
     font-weight: 700;
-    font-size: max(calc(28 * var(--u)), 9px);
     box-shadow: 0 calc(3 * var(--u)) calc(10 * var(--u)) rgba(0, 0, 0, 0.5);
     pointer-events: none;
   }
@@ -630,21 +612,6 @@
     50% { box-shadow: 0 0 0 max(calc(12 * var(--u)), 3px) rgba(232, 199, 102, 0.45), 0 0 calc(20 * var(--u)) rgba(232, 199, 102, 0.3); }
   }
 
-  .slot-plate {
-    position: absolute;
-    left: 0;
-    right: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 0 calc(16 * var(--u));
-    background: rgba(12, 22, 48, 0.94);
-    color: #f5ede0;
-    font-family: 'Cinzel', serif;
-    font-size: max(calc(34 * var(--u)), 9px);
-    line-height: 1.2;
-  }
 
   .completed {
     position: absolute;
@@ -662,25 +629,38 @@
     opacity: 1;
   }
 
-  .completed-card {
+  .completed-back {
     position: absolute;
     inset: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: calc(16 * var(--u));
+    box-shadow: 0 calc(4 * var(--u)) calc(16 * var(--u)) rgba(0, 0, 0, 0.55);
   }
 
-  .completed-summary {
+  .completed:not(:disabled):hover .completed-back {
+    box-shadow: 0 0 0 calc(5 * var(--u)) rgba(201, 168, 76, 0.7), 0 calc(4 * var(--u)) calc(16 * var(--u)) rgba(0, 0, 0, 0.55);
+  }
+
+  .completed-count {
     position: absolute;
     left: 50%;
-    bottom: calc(-20 * var(--u));
-    transform: translateX(-50%);
-    white-space: nowrap;
-    padding: calc(6 * var(--u)) calc(18 * var(--u));
+    top: 50%;
+    transform: translate(-50%, -50%);
+    min-width: max(calc(110 * var(--u)), 28px);
+    height: max(calc(110 * var(--u)), 28px);
+    padding: 0 calc(14 * var(--u));
     border-radius: 999px;
-    background: rgba(20, 15, 10, 0.92);
-    border: max(calc(3 * var(--u)), 1px) solid #c9a84c;
-    color: #f5ede0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(20, 15, 10, 0.88);
+    border: max(calc(5 * var(--u)), 2px) solid #c9a84c;
+    color: #fff;
     font-family: 'Cinzel', serif;
-    font-size: max(calc(30 * var(--u)), 10px);
-    font-weight: 600;
+    font-weight: 700;
+    font-size: max(calc(64 * var(--u)), 16px);
+    box-shadow: 0 calc(4 * var(--u)) calc(14 * var(--u)) rgba(0, 0, 0, 0.6);
   }
 
   .tour-anchor {

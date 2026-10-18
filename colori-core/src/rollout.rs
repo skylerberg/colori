@@ -1,6 +1,6 @@
 use crate::action_phase::{
     ability_stack, ability_stack_mut, boats_to_sell, can_afford_sell_card, can_buy_with_ducat,
-    destroy_drafted_card, end_player_turn, initialize_action_phase, process_ability_stack,
+    trash_drafted_card, end_player_turn, initialize_action_phase, process_ability_stack,
     resolve_gain_color, resolve_move_to_draft_pool, resolve_select_sell_card,
     resolve_spend_ducat, resolve_workshop_choice, sell_to_buyer, skip_workshop,
 };
@@ -150,7 +150,7 @@ fn rollout_draw_and_draft<R: Rng>(state: &mut GameState, buyer_params: Option<&H
     // As in `initialize_draft`, a player dealt nothing means no draft at all.
     if dealt[..num_players].iter().any(|hand| hand.is_empty()) {
         for hand in &dealt[..num_players] {
-            state.destroyed_pile = state.destroyed_pile.union(*hand);
+            state.trash = state.trash.union(*hand);
         }
     } else {
         for i in 0..num_players {
@@ -158,7 +158,7 @@ fn rollout_draw_and_draft<R: Rng>(state: &mut GameState, buyer_params: Option<&H
         }
     }
 
-    state.destroyed_pile = state.destroyed_pile.union(state.draft_deck);
+    state.trash = state.trash.union(state.draft_deck);
     state.draft_deck = UnorderedCards::new();
 
     initialize_action_phase(state);
@@ -270,19 +270,19 @@ fn handle_action_no_pending(state: &mut GameState, player_index: usize, rng: &mu
         return;
     }
 
-    // Destroy the chosen card, activating its abilities. A lone Mix or Sell is
+    // Trash the chosen card, activating its abilities. A lone Mix or Sell is
     // fused inline as an optimization; everything else goes through
-    // destroy_drafted_card, which pushes onto the stack for resolution on the
+    // trash_drafted_card, which pushes onto the stack for resolution on the
     // next step.
     let card_id = sel.lowest_bit().unwrap();
     let card = state.card_lookup[card_id as usize];
-    match card.destroy_abilities() {
+    match card.trash_abilities() {
         &[Ability::MixColors { count }] => {
             let player = &mut state.players[player_index];
             let mixes = random_mix_seq(&player.color_wheel, player.wild_primaries, count, rng);
             player.drafted_cards.remove(card_id);
             apply_mixes(player, &mixes);
-            state.destroyed_pile.insert(card_id);
+            state.trash.insert(card_id);
         }
         [Ability::Sell] => {
             if let Some(sell_card_id) =
@@ -290,11 +290,11 @@ fn handle_action_no_pending(state: &mut GameState, player_index: usize, rng: &mu
             {
                 fused_buy(state, player_index, card_id, sell_card_id);
             } else {
-                destroy_drafted_card(state, player_index, card_id as u32);
+                trash_drafted_card(state, player_index, card_id as u32);
             }
         }
         _ => {
-            destroy_drafted_card(state, player_index, card_id as u32);
+            trash_drafted_card(state, player_index, card_id as u32);
         }
     }
 }
@@ -303,7 +303,7 @@ fn handle_action_no_pending(state: &mut GameState, player_index: usize, rng: &mu
 #[inline(always)]
 fn fused_buy(state: &mut GameState, player_index: usize, card_id: u8, sell_card_id: u32) {
     state.players[player_index].drafted_cards.remove(card_id);
-    state.destroyed_pile.insert(card_id);
+    state.trash.insert(card_id);
     let player = &mut state.players[player_index];
     let sell_card_index = player
         .buyers
@@ -460,7 +460,7 @@ fn pick_card_to_pass<R: Rng>(
     let mut count = 0usize;
     for id in hand.iter() {
         let card = card_lookup[id as usize];
-        let (cat, wc) = ability_category(card.destroy_abilities()[0]);
+        let (cat, wc) = ability_category(card.trash_abilities()[0]);
         cards[count] = (id, cat, wc);
         count += 1;
     }
@@ -537,7 +537,7 @@ fn heuristic_draft_loop<R: Rng>(state: &mut GameState, params: &HeuristicParams,
 
 #[derive(Clone, Copy)]
 struct SellCardCacheEntry {
-    ducats: u32,
+    points: u32,
     materials: &'static [MaterialType],
     colors_met: bool,
     have_colors: u32,
@@ -547,7 +547,7 @@ struct SellCardCacheEntry {
 struct SellCardCache {
     flat_demand: [u32; 12],
     proximity_demand: [u32; 12],
-    best_affordable_ducats: u32,
+    best_affordable_points: u32,
     best_affordable_id: Option<u32>,
     entries: [SellCardCacheEntry; MAX_BUYERS],
     len: usize,
@@ -560,14 +560,14 @@ impl SellCardCache {
         let wheel = &player.color_wheel;
         let mut flat_demand = [0u32; 12];
         let mut proximity_demand = [0u32; 12];
-        let mut best_affordable_ducats = 0u32;
+        let mut best_affordable_points = 0u32;
         let mut best_affordable_id: Option<u32> = None;
         let len = buyers.len();
-        const EMPTY_ENTRY: SellCardCacheEntry = SellCardCacheEntry { ducats: 0, materials: &[], colors_met: false, have_colors: 0, total_colors: 0 };
+        const EMPTY_ENTRY: SellCardCacheEntry = SellCardCacheEntry { points: 0, materials: &[], colors_met: false, have_colors: 0, total_colors: 0 };
         let mut entries: [SellCardCacheEntry; MAX_BUYERS] = [EMPTY_ENTRY; MAX_BUYERS];
 
         for (i, sc) in buyers.iter().enumerate() {
-            let ducats = sc.sell_card.ducats();
+            let points = sc.sell_card.points();
             let cost = sc.sell_card.color_cost();
             let total_colors = cost.len() as u32;
             // Boats and wild primaries count as the material and primaries they can
@@ -595,21 +595,21 @@ impl SellCardCache {
 
             // Build flat and proximity demand — iterate cost directly (max 4 entries)
             let total_missing = missing + if has_material { 0 } else { 2 };
-            let prox_weight = ducats * 10 / (total_missing + 1);
+            let prox_weight = points * 10 / (total_missing + 1);
             for &c in cost {
                 let idx = c.index();
-                flat_demand[idx] += ducats;
+                flat_demand[idx] += points;
                 proximity_demand[idx] += prox_weight;
             }
 
             // Track best affordable
-            if can_afford && ducats > best_affordable_ducats {
-                best_affordable_ducats = ducats;
+            if can_afford && points > best_affordable_points {
+                best_affordable_points = points;
                 best_affordable_id = Some(sc.instance_id);
             }
 
             entries[i] = SellCardCacheEntry {
-                ducats,
+                points,
                 materials: sc.sell_card.required_materials(),
                 colors_met,
                 have_colors: have,
@@ -620,7 +620,7 @@ impl SellCardCache {
         SellCardCache {
             flat_demand,
             proximity_demand,
-            best_affordable_ducats,
+            best_affordable_points,
             best_affordable_id,
             entries,
             len,
@@ -640,7 +640,7 @@ impl SellCardCache {
         for i in 0..self.len {
             let entry = &self.entries[i];
             if entry.materials.contains(&material) {
-                let base = entry.ducats * params.rollout_ws_material_base_multiplier;
+                let base = entry.points * params.rollout_ws_material_base_multiplier;
                 if entry.colors_met {
                     score += base * params.rollout_ws_material_colors_met_multiplier;
                 } else {
@@ -653,7 +653,7 @@ impl SellCardCache {
 
 }
 
-/// Score how valuable it is to destroy a card, i.e. how useful its abilities
+/// Score how valuable it is to trash a card, i.e. how useful its abilities
 /// are to activate right now.
 #[inline(always)]
 fn destruction_priority(
@@ -662,7 +662,7 @@ fn destruction_priority(
     cache: &SellCardCache,
     params: &HeuristicParams,
 ) -> u32 {
-    card.destroy_abilities()
+    card.trash_abilities()
         .iter()
         .map(|&ability| ability_priority(ability, player, cache, params))
         .sum()
@@ -677,8 +677,8 @@ fn ability_priority(
 ) -> u32 {
     match ability {
         Ability::Sell => {
-            if cache.best_affordable_ducats > 0 {
-                cache.best_affordable_ducats * params.rollout_sell_affordable_multiplier
+            if cache.best_affordable_points > 0 {
+                cache.best_affordable_points * params.rollout_sell_affordable_multiplier
             } else {
                 params.rollout_sell_base
             }
@@ -701,12 +701,12 @@ fn ability_priority(
         }
         Ability::MoveToDraftPool => {
             if player.workshop_cards.is_empty() {
-                params.rollout_destroy_no_targets
+                params.rollout_trash_no_targets
             } else {
-                params.rollout_destroy_with_targets
+                params.rollout_trash_with_targets
             }
         }
-        // Every destroy ability in the game is a Workshop, Mix, Sell or Move
+        // Every trash ability in the game is a Workshop, Mix, Sell or Move
         // to Draft Pool, all handled above. A future one that is not gets no
         // priority rather than a panic mid-rollout.
         _ => 0,
@@ -979,13 +979,13 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     if can_buy_with_ducat(&state.players[player_index], DucatPurchase::Sell)
         && !drafted
             .iter()
-            .any(|id| state.card_lookup[id as usize].destroy_abilities().contains(&Ability::Sell))
+            .any(|id| state.card_lookup[id as usize].trash_abilities().contains(&Ability::Sell))
     {
         resolve_spend_ducat(state, player_index, DucatPurchase::Sell);
         return;
     }
 
-    // Score each drafted card and pick the best to destroy
+    // Score each drafted card and pick the best to trash
     let mut best_id: Option<u8> = None;
     let mut best_priority = 0u32;
     let mut seen: u64 = 0;
@@ -1016,23 +1016,23 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     // As in the random policy, a lone Mix or Sell is fused inline.
     let card_id = best_id.unwrap();
     let card = state.card_lookup[card_id as usize];
-    match card.destroy_abilities() {
+    match card.trash_abilities() {
         &[Ability::MixColors { count }] => {
             let player = &mut state.players[player_index];
             let mixes = two_step_heuristic_mix_seq(&player.color_wheel, player.wild_primaries, count, &cache, params, rng);
             player.drafted_cards.remove(card_id);
             apply_mixes(player, &mixes);
-            state.destroyed_pile.insert(card_id);
+            state.trash.insert(card_id);
         }
         [Ability::Sell] => {
             if let Some(sell_card_id) = cache.best_affordable_id {
                 fused_buy(state, player_index, card_id, sell_card_id);
             } else {
-                destroy_drafted_card(state, player_index, card_id as u32);
+                trash_drafted_card(state, player_index, card_id as u32);
             }
         }
         _ => {
-            destroy_drafted_card(state, player_index, card_id as u32);
+            trash_drafted_card(state, player_index, card_id as u32);
         }
     }
 }
@@ -1148,7 +1148,7 @@ fn heuristic_action_step<R: Rng>(state: &mut GameState, player_index: usize, par
             }
 
             // Move the card whose ability is most worth triggering. The
-            // move no longer triggers it — the rollout has to destroy
+            // move no longer triggers it — the rollout has to trash
             // the card from the pool afterwards — but it is still the
             // card most worth having there.
             let mut best_id: Option<u8> = None;

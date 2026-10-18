@@ -9,6 +9,7 @@
   import { actingPlayers, isTakingActionTurn } from '../gameUtils';
   import { reportError } from '../stores/errorReport.svelte';
   import { untrack } from 'svelte';
+  import type { LogEntry } from '../logEntries';
   import GameLayout from './GameLayout.svelte';
   import BuyersPhaseView from './BuyersPhaseView.svelte';
   import DraftPhaseView from './DraftPhaseView.svelte';
@@ -27,14 +28,14 @@
 
   // Host state
   let hostGameState: GameState | null = $state(null);
-  let hostGameLog: string[] = $state([]);
+  let hostGameLog: LogEntry[] = $state([]);
 
   // Guest state — seed from the initial SanitizedGameState so the screen renders immediately
   // after gameStarted (before the first stateUpdate arrives).
   // svelte-ignore state_referenced_locally
   let guestSanitizedState: SanitizedGameState | null = $state(initialGuestState ?? null);
   // svelte-ignore state_referenced_locally
-  let guestGameLog: string[] = $state(initialGuestState?.logEntries ? [...initialGuestState.logEntries] : []);
+  let guestGameLog: LogEntry[] = $state(initialGuestState?.logEntries ? [...initialGuestState.logEntries] : []);
 
   // Shared state
   // A buyers claim or draft picks being searched for.

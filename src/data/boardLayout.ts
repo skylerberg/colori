@@ -1,10 +1,10 @@
 import type { Color, MaterialType } from './types';
 
-// Where things sit on the printed boards, in pixels of their 2000px-wide art
-// (public/boards). The player boards are 342.9 x 190.5 mm and the Buyer's
-// Board 304.8 x 203.2 mm, so card sizes follow from the printed card stock:
-// bridge cards (57 x 87 mm) for the draft deck, mini cards (44 x 67 mm) for
-// sell cards.
+// Where things sit on the printed boards, in pixels of their art
+// (public/boards), exported 2000px wide. The player boards are 342.9 x 190.5
+// mm and the Buyer's Board 304.8 x 203.2 mm, so card sizes follow from the
+// printed card stock: bridge cards (57 x 87 mm) for the draft deck, mini cards
+// (44 x 67 mm) for sell cards.
 
 export interface Rect { x: number; y: number; width: number; height: number }
 export interface Point { x: number; y: number }
@@ -30,9 +30,6 @@ export const BUYER_SLOTS: Point[] = [
   { x: 1404, y: 528 },
 ];
 export const COMPLETED_SLOT: Point = { x: 1698, y: 528 };
-// The band across a closed slot that names the round it opens.
-export const BUYER_SLOT_LABEL_Y = 230;
-export const BUYER_SLOT_LABEL_HEIGHT = 100;
 
 export const DECK: Rect = { x: 52, y: 528, width: PLAYER_CARD.width, height: PLAYER_CARD.height };
 export const DUCAT_BAG: Point = { x: 1275, y: 965 };
@@ -137,20 +134,21 @@ export const WHEEL_REGIONS: WheelRegion[] = (Object.keys(WHEEL_COUNTERS) as Colo
 }));
 
 // ── The Buyer's Board ──
+// Cropped to the right of the draft deck and trash, which only the physical
+// game needs, so the sell cards get the room.
 
+export const BUYERS_BOARD_WIDTH = 1552;
 export const BUYERS_BOARD_HEIGHT = 1333;
 const BUYERS_SELL_CARD = { width: 44 * BUYERS_PX_PER_MM, height: 67 * BUYERS_PX_PER_MM };
 
 export const BUYERS_BOARD = {
-  draftDeck: { x: 37, y: 78, width: 370, height: 575 } as Rect,
-  trash: { x: 33, y: 729, width: 374, height: 577 } as Rect,
-  sellDeck: { x: 636, y: 296, ...BUYERS_SELL_CARD } as Rect,
+  sellDeck: { x: 188, y: 296, ...BUYERS_SELL_CARD } as Rect,
   display: [
-    { x: 982, y: 296 }, { x: 1329, y: 296 }, { x: 1676, y: 296 },
-    { x: 633, y: 858 }, { x: 980, y: 858 }, { x: 1327, y: 858 }, { x: 1675, y: 858 },
+    { x: 534, y: 296 }, { x: 881, y: 296 }, { x: 1228, y: 296 },
+    { x: 185, y: 858 }, { x: 532, y: 858 }, { x: 879, y: 858 }, { x: 1227, y: 858 },
   ].map(p => ({ ...p, ...BUYERS_SELL_CARD })) as Rect[],
   // One circle per round along the top: the round track.
-  rounds: [560, 780, 997, 1215, 1435, 1650, 1870].map(x => ({ x, y: 115 })) as Point[],
+  rounds: [112, 332, 549, 767, 987, 1202, 1422].map(x => ({ x, y: 115 })) as Point[],
   roundRadius: 92,
 };
 

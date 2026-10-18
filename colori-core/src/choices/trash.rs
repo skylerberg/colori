@@ -6,7 +6,7 @@ use super::mix_sequences::enumerate_mix_sequences;
 use super::multiset::{count_card_types, enumerate_multiset_subsets, enumerate_multiset_subsets_exact};
 use super::should_force_max_workshop;
 
-pub(super) fn enumerate_destroy_choices(
+pub(super) fn enumerate_trash_choices(
     state: &GameState,
     player: &PlayerState,
     card: Card,
@@ -14,14 +14,14 @@ pub(super) fn enumerate_destroy_choices(
 ) {
     // What follows the first ability is left on the stack and chosen for on
     // its own once this choice has resolved.
-    match card.destroy_abilities()[0] {
+    match card.trash_abilities()[0] {
         Ability::MixColors { count } => {
             enumerate_mix_sequences(
                 &player.color_wheel,
                 player.wild_primaries,
                 count,
                 choices,
-                |mixes| Choice::DestroyAndMix { card, mixes },
+                |mixes| Choice::TrashAndMix { card, mixes },
             );
         }
         Ability::Sell => {
@@ -29,7 +29,7 @@ pub(super) fn enumerate_destroy_choices(
             for sell_card in player.buyers.iter() {
                 if can_afford_sell_card(player, &sell_card.sell_card) {
                     has_sell_card = true;
-                    choices.push(Choice::DestroyAndSell {
+                    choices.push(Choice::TrashAndSell {
                         card,
                         sell_card: sell_card.sell_card,
                     });
@@ -37,7 +37,7 @@ pub(super) fn enumerate_destroy_choices(
             }
 
             if !has_sell_card {
-                choices.push(Choice::DestroyDraftedCard { card });
+                choices.push(Choice::TrashDraftedCard { card });
             }
         }
         Ability::Workshop { count } => {
@@ -47,7 +47,7 @@ pub(super) fn enumerate_destroy_choices(
             let total_available: usize = type_counts[..len].iter().map(|&c| c as usize).sum();
             if force_max {
                 if total_available == 0 {
-                    choices.push(Choice::DestroyAndWorkshop {
+                    choices.push(Choice::TrashAndWorkshop {
                         card,
                         workshop_cards: SmallVec::new(),
                     });
@@ -58,7 +58,7 @@ pub(super) fn enumerate_destroy_choices(
                             all_cards.push(card_types[i]);
                         }
                     }
-                    choices.push(Choice::DestroyAndWorkshop {
+                    choices.push(Choice::TrashAndWorkshop {
                         card,
                         workshop_cards: all_cards,
                     });
@@ -69,14 +69,14 @@ pub(super) fn enumerate_destroy_choices(
                         count as usize,
                         &mut SmallVec::new(),
                         choices,
-                        &|workshop_cards| Choice::DestroyAndWorkshop {
+                        &|workshop_cards| Choice::TrashAndWorkshop {
                             card,
                             workshop_cards,
                         },
                     );
                 }
             } else {
-                choices.push(Choice::DestroyAndWorkshop {
+                choices.push(Choice::TrashAndWorkshop {
                     card,
                     workshop_cards: SmallVec::new(),
                 });
@@ -87,7 +87,7 @@ pub(super) fn enumerate_destroy_choices(
                         count as usize,
                         &mut SmallVec::new(),
                         choices,
-                        &|workshop_cards| Choice::DestroyAndWorkshop {
+                        &|workshop_cards| Choice::TrashAndWorkshop {
                             card,
                             workshop_cards,
                         },
@@ -97,13 +97,13 @@ pub(super) fn enumerate_destroy_choices(
         }
         Ability::MoveToDraftPool => {
             if player.workshop_cards.is_empty() {
-                choices.push(Choice::DestroyAndMoveToDraftPool {
+                choices.push(Choice::TrashAndMoveToDraftPool {
                     card,
                     target: None,
                 });
             } else {
                 for_each_unique_card_type(&player.workshop_cards, &state.card_lookup, |target_card| {
-                    choices.push(Choice::DestroyAndMoveToDraftPool {
+                    choices.push(Choice::TrashAndMoveToDraftPool {
                         card,
                         target: Some(target_card),
                     });
@@ -111,7 +111,7 @@ pub(super) fn enumerate_destroy_choices(
             }
         }
         _ => {
-            choices.push(Choice::DestroyDraftedCard { card });
+            choices.push(Choice::TrashDraftedCard { card });
         }
     }
 }

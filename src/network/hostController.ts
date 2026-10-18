@@ -2,11 +2,12 @@ import type { GameState } from '../data/types';
 import type { Choice } from '../data/types';
 import type { NetworkManager } from './networkManager';
 import type { LobbyPlayer, GuestMessage } from './types';
-import { createInitialGameState, executeDrawPhase, simultaneousPick, advanceDraft, applyChoice, getChoiceLogMessage } from '../engine/wasmEngine';
+import { createInitialGameState, executeDrawPhase, simultaneousPick, advanceDraft, applyChoice } from '../engine/wasmEngine';
 import { sanitizeGameState } from './sanitize';
 import type { StructuredGameLog } from '../data/types';
 import { GameLogAccumulator } from '../gameLog';
 import { isTakingActionTurn } from '../gameUtils';
+import { type LogEntry, draftedEntries, noteEntry, playEntry, roundEntry, snapshot } from '../logEntries';
 import { reportError } from '../stores/errorReport.svelte';
 
 const DISCONNECT_GRACE_MS = 60_000;
@@ -31,7 +32,9 @@ export class HostController {
   private peerToPlayerIndex: Map<string, number> = new Map();
   private playerIndexToPeer: Map<number, string> = new Map();
   private playerCount: number = 2;
-  private gameLog: string[] = [];
+  private gameLog: LogEntry[] = [];
+  // How much of the log each guest, by seat, has been sent.
+  private logSent: Map<number, number> = new Map();
   private disconnectTimers: Map<number, ReturnType<typeof setTimeout>> = new Map();
   private submittedDraftPicks: Set<number> = new Set();
   private structuredLog: GameLogAccumulator | null = null;
@@ -40,7 +43,7 @@ export class HostController {
 
   onLobbyUpdated: ((players: LobbyPlayer[]) => void) | null = null;
   onGameStateChanged: ((state: GameState) => void) | null = null;
-  onLogUpdated: ((log: string[]) => void) | null = null;
+  onLogUpdated: ((log: LogEntry[]) => void) | null = null;
   onGameOver: ((state: GameState) => void) | null = null;
   onPlayerDisconnected: ((playerIndex: number, playerName: string) => void) | null = null;
   onPlayerReconnected: ((playerIndex: number, playerName: string) => void) | null = null;
@@ -90,7 +93,7 @@ export class HostController {
     return this.gameState;
   }
 
-  getGameLog(): string[] {
+  getGameLog(): LogEntry[] {
     return this.gameLog;
   }
 
@@ -225,6 +228,7 @@ export class HostController {
     sanitized.resync = true;
     sanitized.gameStartTime = this.gameStartTime;
     this.network.sendToGuest({ type: 'stateUpdate', state: sanitized }, peerId);
+    this.logSent.set(player.playerIndex, this.gameLog.length);
 
     this.network.sendToAllGuests({
       type: 'playerReconnected',
@@ -232,7 +236,7 @@ export class HostController {
       playerName: player.name,
     });
 
-    this.addLog(`${player.name} reconnected`);
+    this.addLog(`${player.name} reconnected`, player.playerIndex);
     this.broadcastLobbyUpdate();
     this.onPlayerReconnected?.(player.playerIndex, player.name);
     this.onGameStateChanged?.(this.gameState);
@@ -261,7 +265,7 @@ export class HostController {
       playerName: player.name,
     });
 
-    this.addLog(`${player.name} disconnected`);
+    this.addLog(`${player.name} disconnected`, player.playerIndex);
     this.broadcastLobbyUpdate();
     this.onPlayerDisconnected?.(player.playerIndex, player.name);
 
@@ -276,7 +280,7 @@ export class HostController {
     this.gameState.aiPlayers[playerIndex] = true;
     this.disconnectTimers.delete(playerIndex);
     const name = this.gameState.playerNames[playerIndex];
-    this.addLog(`${name} replaced by AI`);
+    this.addLog(`${name} was replaced by an AI`, playerIndex);
     this.network.sendToAllGuests({
       type: 'playerReplacedByAI',
       playerIndex,
@@ -314,7 +318,6 @@ export class HostController {
     this.structuredLog = new GameLogAccumulator(this.gameState);
     this.gameLog = [];
     this.gameStartTime = Date.now();
-    this.addLog('Game started');
 
     for (const lp of this.lobbyPlayers) {
       this.rejoinTokens.set(lp.playerIndex, lp.isHost ? HOST_REJOIN_TOKEN : randomToken());
@@ -329,6 +332,7 @@ export class HostController {
         sanitized.resync = true;
         const token = this.rejoinTokens.get(lp.playerIndex) ?? '';
         this.network.sendToGuest({ type: 'gameStarted', state: sanitized, rejoinToken: token }, lp.peerId);
+        this.logSent.set(lp.playerIndex, this.gameLog.length);
       }
     }
 
@@ -381,7 +385,7 @@ export class HostController {
         return false;
       }
       this.submittedDraftPicks.add(playerIndex);
-      this.broadcastGameState([]);
+      this.broadcastGameState();
       this.onGameStateChanged?.(this.gameState);
 
       // The pick-round is complete when every player has either submitted this round
@@ -403,8 +407,9 @@ export class HostController {
           return true;
         }
         this.submittedDraftPicks.clear();
+        if (this.gameState.phase.type !== 'draft') this.gameLog.push(...draftedEntries(this.gameState));
         this.executeDrawIfNeeded();
-        this.broadcastGameState([]);
+        this.broadcastGameState();
         this.onGameStateChanged?.(this.gameState);
         this.onLogUpdated?.(this.gameLog);
       }
@@ -423,13 +428,13 @@ export class HostController {
       return false;
     }
 
-    let newLogEntries: string[] = [];
+    let logged: LogEntry | null;
     try {
       this.structuredLog?.recordChoice(this.gameState, choice, playerIndex);
-      const logMsg = getChoiceLogMessage(this.gameState, choice, playerIndex);
-      newLogEntries = logMsg ? logMsg.split('\n') : [];
-
+      const before = snapshot(this.gameState.players[playerIndex]);
+      const round = this.gameState.round;
       const draws = applyChoice(this.gameState, playerIndex, choice);
+      logged = playEntry(round, playerIndex, choice, before, this.gameState.players[playerIndex]);
       this.structuredLog?.attachDrawsToLastEntry(draws);
     } catch (e) {
       if (peerId) {
@@ -441,9 +446,9 @@ export class HostController {
       return false;
     }
 
-    this.gameLog.push(...newLogEntries);
+    if (logged) this.gameLog.push(logged);
     this.executeDrawIfNeeded();
-    this.broadcastGameState(newLogEntries);
+    this.broadcastGameState();
     this.onGameStateChanged?.(this.gameState);
     this.onLogUpdated?.(this.gameLog);
     return true;
@@ -452,7 +457,7 @@ export class HostController {
   private executeDrawIfNeeded() {
     if (!this.gameState) return;
     if (this.gameState.phase.type === 'draw') {
-      this.gameLog.push(`Round ${this.gameState.round} began`);
+      this.gameLog.push(roundEntry(this.gameState.round));
       try {
         const draws = executeDrawPhase(this.gameState);
         this.structuredLog?.recordDrawPhaseDraws(draws);
@@ -462,18 +467,20 @@ export class HostController {
     }
   }
 
-  private addLog(entry: string) {
-    this.gameLog.push(entry);
+  private addLog(text: string, player: number) {
+    this.gameLog.push(noteEntry(this.gameState?.round ?? 0, text, player));
     this.onLogUpdated?.(this.gameLog);
   }
 
-  private broadcastGameState(newLogEntries: string[]) {
+  private broadcastGameState() {
     if (!this.gameState) return;
 
     const isGameOver = this.gameState.phase.type === 'gameOver';
 
     for (const lp of this.lobbyPlayers) {
       if (!lp.isHost && lp.isConnected) {
+        const newLogEntries = this.gameLog.slice(this.logSent.get(lp.playerIndex) ?? 0);
+        this.logSent.set(lp.playerIndex, this.gameLog.length);
         const sanitized = sanitizeGameState(this.gameState, lp.playerIndex, newLogEntries);
         if (isGameOver) {
           this.network.sendToGuest({ type: 'gameOver', state: sanitized }, lp.peerId);

@@ -24,7 +24,7 @@ pub fn render_card_reference_tab(ui: &mut egui::Ui) {
         ui.add_space(8.0);
         render_starter_cards(ui);
         ui.add_space(8.0);
-        render_sell_cards_by_ducats(ui);
+        render_sell_cards_by_points(ui);
     });
 }
 
@@ -82,7 +82,7 @@ fn render_ability_distribution(ui: &mut egui::Ui) {
             let mut ability_counts: BTreeMap<String, u32> = BTreeMap::new();
 
             for (card, copies) in draft_deck_cards() {
-                let ability_str = format_abilities(card.destroy_abilities());
+                let ability_str = format_abilities(card.trash_abilities());
                 *ability_counts.entry(ability_str).or_insert(0) += copies as u32;
             }
 
@@ -130,7 +130,7 @@ fn render_sell_card_summary(ui: &mut egui::Ui) {
                 .striped(true)
                 .show(ui, |ui| {
                     ui.strong("Buyer");
-                    ui.strong("Ducats");
+                    ui.strong("Points");
                     ui.strong("Materials");
                     ui.strong("Cards");
                     ui.strong("Copies");
@@ -145,7 +145,7 @@ fn render_sell_card_summary(ui: &mut egui::Ui) {
                             .sum();
                         total += copies;
                         ui.label(buyer.name());
-                        ui.label(buyer.ducats().to_string());
+                        ui.label(buyer.points().to_string());
                         ui.label(format_sale_materials(buyer));
                         ui.label(cards.to_string());
                         ui.label(copies.to_string());
@@ -249,7 +249,7 @@ fn render_category_details(ui: &mut egui::Ui) {
                                     if let Some(card) = find_card_by_name(name) {
                                         ui.label(card.name());
                                         ui.label(format_colors(card.colors()));
-                                        ui.label(format_abilities(card.destroy_abilities()));
+                                        ui.label(format_abilities(card.trash_abilities()));
                                         ui.label(draft_copies(card).to_string());
                                         ui.end_row();
                                     }
@@ -273,7 +273,7 @@ fn render_category_details(ui: &mut egui::Ui) {
                                             format_colors(card.colors())
                                         };
                                         ui.label(pip_str);
-                                        ui.label(format_abilities(card.destroy_abilities()));
+                                        ui.label(format_abilities(card.trash_abilities()));
                                         ui.label(draft_copies(card).to_string());
                                         ui.end_row();
                                     }
@@ -289,7 +289,7 @@ fn render_category_details(ui: &mut egui::Ui) {
                                 for name in &cat.card_names {
                                     if let Some(card) = find_card_by_name(name) {
                                         ui.label(card.name());
-                                        ui.label(format_abilities(card.destroy_abilities()));
+                                        ui.label(format_abilities(card.trash_abilities()));
                                         let workshop_str = card
                                             .workshop_abilities()
                                             .iter()
@@ -337,7 +337,7 @@ fn render_starter_cards(ui: &mut egui::Ui) {
                         ui.label(card.name());
                         ui.label("Basic Dye");
                         ui.label(format_colors(card.colors()));
-                        ui.label(format_abilities(card.destroy_abilities()));
+                        ui.label(format_abilities(card.trash_abilities()));
                         ui.end_row();
                     }
 
@@ -346,7 +346,7 @@ fn render_starter_cards(ui: &mut egui::Ui) {
                         ui.label(card.name());
                         ui.label("Material");
                         ui.label(format_material_types(card.material_types()));
-                        ui.label(format_abilities(card.destroy_abilities()));
+                        ui.label(format_abilities(card.trash_abilities()));
                         ui.end_row();
                     }
 
@@ -361,21 +361,21 @@ fn render_starter_cards(ui: &mut egui::Ui) {
                             .collect::<Vec<_>>()
                             .join(", "),
                     );
-                    ui.label(format_abilities(chalk.destroy_abilities()));
+                    ui.label(format_abilities(chalk.trash_abilities()));
                     ui.end_row();
 
                 });
         });
 }
 
-fn render_sell_cards_by_ducats(ui: &mut egui::Ui) {
-    let id = ui.make_persistent_id("sell_cards_by_ducats");
+fn render_sell_cards_by_points(ui: &mut egui::Ui) {
+    let id = ui.make_persistent_id("sell_cards_by_points");
     egui::CollapsingHeader::new("Sell Cards by Buyer")
         .id_salt(id)
         .default_open(false)
         .show(ui, |ui| {
             for buyer in ALL_BUYERS {
-                ui.heading(format!("{} ({} ducats)", buyer.name(), buyer.ducats()));
+                ui.heading(format!("{} ({} points)", buyer.name(), buyer.points()));
                 ui.add_space(4.0);
 
                 egui::Grid::new(format!("sell_cards_{:?}_grid", buyer))

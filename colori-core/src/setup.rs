@@ -67,7 +67,7 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
                 ducats: 1,
                 wild_primaries: 0,
                 boats: 1,
-                cached_ducat_score: 1,
+                cached_whole_points: 1,
             }
         })
         .collect();
@@ -106,7 +106,7 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
     GameState {
         players,
         draft_deck,
-        destroyed_pile: UnorderedCards::new(),
+        trash: UnorderedCards::new(),
         sell_card_deck,
         sell_card_display,
         phase: GamePhase::Draw,

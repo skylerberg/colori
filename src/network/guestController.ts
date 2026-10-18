@@ -1,13 +1,14 @@
 import type { NetworkManager } from './networkManager';
 import type { SanitizedGameState, LobbyPlayer, HostMessage } from './types';
 import type { Choice } from '../data/types';
+import type { LogEntry } from '../logEntries';
 
 const PING_INTERVAL_MS = 3_000;
 const PING_STALE_MS = 8_000;
 
 export class GuestController {
   private network: NetworkManager;
-  private gameLog: string[] = [];
+  private gameLog: LogEntry[] = [];
   private pendingJoinName: string | null = null;
   private pendingRejoin: { name: string; token: string } | null = null;
   private rejoinToken: string | null = null;
@@ -77,7 +78,7 @@ export class GuestController {
     this.network.sendToHost({ type: 'action', choice });
   }
 
-  getGameLog(): string[] {
+  getGameLog(): LogEntry[] {
     return this.gameLog;
   }
 

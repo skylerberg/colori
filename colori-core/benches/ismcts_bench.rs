@@ -166,14 +166,14 @@ criterion_main!(benches);
 /// before rewriting 150 call sites for it.
 fn bench_determinize(c: &mut Criterion) {
     use colori_core::colori_game::determinize_in_place;
-    use colori_core::scoring::calculate_ducat_score;
+    use colori_core::scoring::calculate_whole_points;
     use colori_core::types::MAX_PLAYERS;
 
     let (state, _) = position(SEED, 50);
     let player = active_player(&state);
     let mut cached = [0u32; MAX_PLAYERS];
     for (i, p) in state.players.iter().enumerate() {
-        cached[i] = calculate_ducat_score(p);
+        cached[i] = calculate_whole_points(p);
     }
 
     let mut group = c.benchmark_group("determinize");
