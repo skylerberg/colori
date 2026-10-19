@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { GameState, Choice, StructuredGameLog } from '../data/types';
   import type { SanitizedGameState } from '../network/types';
+  import { DEFAULT_AI_ITERATIONS } from '../data/aiDifficulty';
   import type { HostController } from '../network/hostController';
   import type { GuestController } from '../network/guestController';
   import { sanitizedToGameState } from '../network/stateAdapter';
@@ -270,7 +271,7 @@
       const snapshotAI = [...gameState.aiPlayers];
       Promise.all(
         aiPlayerIndices.map(playerIdx =>
-          aiController!.draftPick(gameState!, { playerIndex: playerIdx, iterations: 100000 }).then(choice => ({
+          aiController!.draftPick(gameState!, { playerIndex: playerIdx, iterations: DEFAULT_AI_ITERATIONS }).then(choice => ({
             playerIdx,
             choice,
           }))
@@ -320,7 +321,7 @@
     aiThinking = true;
     const mySeq = ++aiGenerationSeq;
 
-    aiController!.getAIChoice(gameState, playerIdx, 100000).then((choice) => {
+    aiController!.getAIChoice(gameState, playerIdx, DEFAULT_AI_ITERATIONS).then((choice) => {
       aiThinking = false;
       if (mySeq !== aiGenerationSeq) return;
       if (!hostController) return;
@@ -344,7 +345,7 @@
     aiActionTurns.start(
       gameState,
       aiSeats,
-      () => 100000,
+      () => DEFAULT_AI_ITERATIONS,
       (seat, choice) => {
         const curState = hostController!.getGameState();
         // A player who reconnected takes their turn back.
