@@ -957,7 +957,7 @@ fn two_step_heuristic_mix_seq<R: Rng>(
 }
 
 #[inline(always)]
-fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize, cache: &SellCardCache, params: &HeuristicParams, rng: &mut impl Rng) {
+fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize, params: &HeuristicParams, rng: &mut impl Rng) {
     let drafted = state.players[player_index].drafted_cards;
     if drafted.is_empty() {
         end_player_turn(state, player_index);
@@ -986,6 +986,7 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     }
 
     // Score each drafted card and pick the best to trash
+    let cache = SellCardCache::new(&state.players[player_index]);
     let mut best_id: Option<u8> = None;
     let mut best_priority = 0u32;
     let mut seen: u64 = 0;
@@ -1081,10 +1082,11 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
 
 /// One step of `player_index`'s action turn, chosen by the heuristic policy.
 fn heuristic_action_step<R: Rng>(state: &mut GameState, player_index: usize, params: &HeuristicParams, rng: &mut R) {
-    let cache = SellCardCache::new(&state.players[player_index]);
+    // Each branch builds the sell card cache only once it is past the returns
+    // that never read it.
     match ability_stack(state, player_index).last() {
         None => {
-            handle_action_no_pending_heuristic(state, player_index, &cache, params, rng);
+            handle_action_no_pending_heuristic(state, player_index, params, rng);
         }
         Some(Ability::Workshop { count }) => {
             let count = *count;
@@ -1102,6 +1104,7 @@ fn heuristic_action_step<R: Rng>(state: &mut GameState, player_index: usize, par
             }
 
             // Score each workshop card and pick the top N
+            let cache = SellCardCache::new(&state.players[player_index]);
             let workshop = state.players[player_index].workshop_cards;
             let mut scored: [(u8, u32); 16] = [(0, 0); 16];
             let mut scored_count = 0usize;
@@ -1151,6 +1154,7 @@ fn heuristic_action_step<R: Rng>(state: &mut GameState, player_index: usize, par
             // move no longer triggers it — the rollout has to trash
             // the card from the pool afterwards — but it is still the
             // card most worth having there.
+            let cache = SellCardCache::new(&state.players[player_index]);
             let mut best_id: Option<u8> = None;
             let mut best_score = 0u32;
             for id in workshop.iter() {
@@ -1166,6 +1170,7 @@ fn heuristic_action_step<R: Rng>(state: &mut GameState, player_index: usize, par
         }
         Some(Ability::MixColors { count }) => {
             let remaining_mixes = *count;
+            let cache = SellCardCache::new(&state.players[player_index]);
             let player = &mut state.players[player_index];
             let mixes = two_step_heuristic_mix_seq(&player.color_wheel, player.wild_primaries, remaining_mixes, &cache, params, rng);
             apply_mixes(player, &mixes);
@@ -1187,7 +1192,7 @@ fn heuristic_action_step<R: Rng>(state: &mut GameState, player_index: usize, par
             }
 
             // Heuristic: pick best sell card
-            if let Some(sell_card_id) = cache.best_affordable_id {
+            if let Some(sell_card_id) = SellCardCache::new(&state.players[player_index]).best_affordable_id {
                 resolve_select_sell_card(state, player_index, sell_card_id);
             } else {
                 ability_stack_mut(state, player_index).pop();
@@ -1195,7 +1200,7 @@ fn heuristic_action_step<R: Rng>(state: &mut GameState, player_index: usize, par
             }
         }
         Some(Ability::GainSecondary) => {
-            let color = pick_best_color(&SECONDARIES, &cache, params, rng);
+            let color = pick_best_color(&SECONDARIES, &SellCardCache::new(&state.players[player_index]), params, rng);
             resolve_gain_color(state, player_index, color);
         }
         Some(_) => panic!("Unexpected ability on stack top during rollout"),

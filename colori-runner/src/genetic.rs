@@ -1,11 +1,7 @@
-use crate::cli::{TrainArgs, load_heuristic_params};
-use colori_core::colori_game::{apply_choice_to_state, ActionPhaseViews};
-use colori_core::draw_phase::execute_draw_phase;
+use crate::cli::{NamedVariant, TrainArgs, load_heuristic_params};
+use crate::simulation::run_game;
 use colori_core::ismcts::MctsConfig;
-use colori_core::mcts_impl::ColoriSearcher;
-use colori_core::scoring::{score_in_half_points, HeuristicParams};
-use colori_core::setup::create_initial_game_state;
-use colori_core::types::{GamePhase, GameState};
+use colori_core::scoring::HeuristicParams;
 use rand::RngExt;
 use rand::SeedableRng;
 use std::sync::atomic::Ordering;
@@ -249,81 +245,37 @@ fn tournament_select(
     fitness[best_idx].0
 }
 
-fn is_taking_turn(state: &GameState, player_index: usize) -> bool {
-    matches!(&state.phase, GamePhase::Action { action_state } if !action_state.turns[player_index].ended)
-}
-
+/// The candidate's share of one game against the baseline: 1 for more points,
+/// 0.5 for a tie. Played by `simulate`'s own game loop, so it searches with the
+/// same tree reuse and seat shuffling the real runs use.
 fn run_ga_game(
-    params_a: &HeuristicParams,
-    params_b: &HeuristicParams,
+    params: &HeuristicParams,
+    baseline: &HeuristicParams,
     eval_iterations: u32,
     rng: &mut WyRand,
-) -> (f64, f64) {
-    let num_players = 2;
-    let ai_players = vec![true; num_players];
-    let mut state = create_initial_game_state(num_players, &ai_players, rng);
-
-    let configs = [
-        MctsConfig {
+) -> f64 {
+    let variant = |params: &HeuristicParams| NamedVariant {
+        name: None,
+        ai: MctsConfig {
             iterations: eval_iterations,
             use_heuristic_eval: true,
-            ..MctsConfig::new(params_a.clone())
+            ..MctsConfig::new(params.clone())
         },
-        MctsConfig {
-            iterations: eval_iterations,
-            use_heuristic_eval: true,
-            ..MctsConfig::new(params_b.clone())
-        },
-    ];
-
-    execute_draw_phase(&mut state, rng);
-
-    let decide = |state: &GameState, player_index: usize, rng: &mut WyRand| {
-        let mut searcher = ColoriSearcher::new(state);
-        searcher.search(state, player_index, &configs[player_index], None, rng).choice
     };
+    let log = run_game(0, &[variant(params), variant(baseline)], None, None, rng);
 
-    let mut decisions = 0;
-    while decisions < 5000 {
-        match &state.phase {
-            GamePhase::GameOver => break,
-            GamePhase::Draw => execute_draw_phase(&mut state, rng),
-            GamePhase::Buyers { buyers_state } => {
-                let player_index = buyers_state.current_player_index;
-                let choice = decide(&state, player_index, rng);
-                apply_choice_to_state(&mut state, player_index, &choice, rng);
-                decisions += 1;
-            }
-            GamePhase::Draft { draft_state } => {
-                let player_index = draft_state.current_player_index;
-                let choice = decide(&state, player_index, rng);
-                apply_choice_to_state(&mut state, player_index, &choice, rng);
-                decisions += 1;
-            }
-            GamePhase::Action { .. } => {
-                // Each player decides their turn blind to the other's, as
-                // they would acting at the same time.
-                let mut views = ActionPhaseViews::new(&state);
-                for player_index in 0..num_players {
-                    while is_taking_turn(views.view(player_index), player_index) {
-                        let choice = decide(views.view(player_index), player_index, rng);
-                        apply_choice_to_state(&mut state, player_index, &choice, rng);
-                        views.apply(player_index, &choice);
-                        decisions += 1;
-                    }
-                }
-            }
-        }
-    }
-
-    let score_a = score_in_half_points(&state.players[0]);
-    let score_b = score_in_half_points(&state.players[1]);
-    if score_a > score_b {
-        (1.0, 0.0)
-    } else if score_b > score_a {
-        (0.0, 1.0)
+    let scores = log.final_scores.expect("run_game scores every game");
+    let points = |variant: usize| {
+        let seat = log.variant_order.iter().position(|&v| v == variant).expect("every variant has a seat");
+        scores[seat].half_points()
+    };
+    let (ours, theirs) = (points(0), points(1));
+    if ours > theirs {
+        1.0
+    } else if ours < theirs {
+        0.0
     } else {
-        (0.5, 0.5)
+        0.5
     }
 }
 
@@ -417,7 +369,7 @@ pub fn run_genetic_algorithm(args: &TrainArgs, threads: usize, output: &str) {
                         let mut thread_wins = 0.0f64;
 
                         for _ in 0..count {
-                            let (w, _) = run_ga_game(params, baseline_ref, eval_iterations, &mut rng);
+                            let w = run_ga_game(params, baseline_ref, eval_iterations, &mut rng);
                             thread_wins += w;
                         }
 
