@@ -1,4 +1,4 @@
-use crate::colors::{can_pay_cost, can_supply_mix, pay_cost, perform_mix, VALID_MIX_PAIRS};
+use crate::colors::{can_supply_mix, pay_cost, perform_mix, wild_primaries_to_cover_sale, VALID_MIX_PAIRS};
 use crate::types::{
     Ability, AbilityStack, ActionState, Card, Color, DucatPurchase, GamePhase, GameState,
     PlayerState, PlayerTurn, SellCard,
@@ -106,13 +106,10 @@ pub fn process_ability_stack(state: &mut GameState, player_index: usize) {
 /// plus one for each material it asks for that the player has not stored.
 #[inline]
 pub(crate) fn boats_to_sell(player: &PlayerState, sell_card: SellCard) -> u32 {
-    let materials = sell_card.required_materials();
-    let mut boats = sell_card.required_boats();
-    for (i, &material) in materials.iter().enumerate() {
-        let needed = 1 + materials[..i].iter().filter(|&&earlier| earlier == material).count() as u32;
-        if player.materials.get(material) < needed {
-            boats += 1;
-        }
+    let stats = sell_card.stats();
+    let mut boats = stats.boats;
+    for (stored, &needed) in player.materials.counts.iter().zip(&stats.materials) {
+        boats += (needed as u32).saturating_sub(*stored);
     }
     boats
 }
@@ -120,7 +117,8 @@ pub(crate) fn boats_to_sell(player: &PlayerState, sell_card: SellCard) -> u32 {
 #[inline]
 pub(crate) fn can_afford_sell_card(player: &PlayerState, sell_card: &SellCard) -> bool {
     boats_to_sell(player, *sell_card) <= player.boats
-        && can_pay_cost(&player.color_wheel, player.wild_primaries, sell_card.color_cost())
+        && wild_primaries_to_cover_sale(&player.color_wheel, sell_card.stats())
+            .is_some_and(|needed| needed <= player.wild_primaries)
 }
 
 /// Sell to the buyer at `index`, paying with the materials and colours it asks

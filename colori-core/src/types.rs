@@ -374,7 +374,7 @@ impl Buyer {
     }
 
     #[inline]
-    pub fn points(self) -> u32 {
+    pub const fn points(self) -> u32 {
         match self {
             Buyer::Dyer | Buyer::Illuminator => 2,
             Buyer::Glassmaker | Buyer::Potter => 3,
@@ -385,7 +385,7 @@ impl Buyer {
 
     /// Stored materials a sale takes, one entry per unit.
     #[inline]
-    pub fn materials(self) -> &'static [MaterialType] {
+    pub const fn materials(self) -> &'static [MaterialType] {
         match self {
             Buyer::Glassmaker | Buyer::Illuminator => &[],
             Buyer::Shipwright | Buyer::Dyer => &[MaterialType::Textiles],
@@ -397,7 +397,7 @@ impl Buyer {
 
     /// Boats a sale takes outright, before any standing in for a material.
     #[inline]
-    pub fn boats(self) -> u32 {
+    pub const fn boats(self) -> u32 {
         match self {
             Buyer::Shipwright => 1,
             _ => 0,
@@ -590,7 +590,77 @@ impl SellCard {
     pub fn color_cost(&self) -> &'static [Color] {
         self.props().color_cost
     }
+
+    #[inline]
+    pub fn stats(self) -> &'static SellCardStats {
+        &SELL_CARD_STATS[self as usize]
+    }
 }
+
+/// What a sale takes and pays, worked out once per sell card, so the checks a
+/// rollout makes on every step read one record instead of the buyer's tables.
+#[derive(Clone, Copy)]
+pub struct SellCardStats {
+    pub points: u32,
+    /// Boats the sale takes outright, before any standing in for a material.
+    pub boats: u32,
+    /// Units of each material, indexed by `MaterialType`.
+    pub materials: [u8; 3],
+    pub total_colors: u8,
+    colors: [(Color, u8); 4],
+    distinct_colors: u8,
+}
+
+impl SellCardStats {
+    /// Each color the sale takes, once, with how many of it.
+    #[inline]
+    pub fn colors(&self) -> &[(Color, u8)] {
+        &self.colors[..self.distinct_colors as usize]
+    }
+}
+
+const SELL_CARD_STATS: [SellCardStats; NUM_SELL_CARDS] = {
+    let empty = SellCardStats {
+        points: 0,
+        boats: 0,
+        materials: [0; 3],
+        total_colors: 0,
+        colors: [(Color::Red, 0); 4],
+        distinct_colors: 0,
+    };
+    let mut table = [empty; NUM_SELL_CARDS];
+    let mut i = 0;
+    while i < NUM_SELL_CARDS {
+        let props = &SELL_CARD_DATA[i];
+        let mut stats = empty;
+        stats.points = props.buyer.points();
+        stats.boats = props.buyer.boats();
+        let materials = props.buyer.materials();
+        let mut m = 0;
+        while m < materials.len() {
+            stats.materials[materials[m] as usize] += 1;
+            m += 1;
+        }
+        let cost = props.color_cost;
+        let mut c = 0;
+        while c < cost.len() {
+            let mut d = 0;
+            while d < stats.distinct_colors as usize && stats.colors[d].0 as usize != cost[c] as usize {
+                d += 1;
+            }
+            if d == stats.distinct_colors as usize {
+                stats.colors[d] = (cost[c], 0);
+                stats.distinct_colors += 1;
+            }
+            stats.colors[d].1 += 1;
+            c += 1;
+        }
+        stats.total_colors = cost.len() as u8;
+        table[i] = stats;
+        i += 1;
+    }
+    table
+};
 
 // ── CardInstance / SellCardInstance ──
 
@@ -953,4 +1023,30 @@ pub enum Choice {
     /// face-up cards on display.
     #[serde(rename = "drawBuyer")]
     DrawBuyer,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sell_card_stats_agree_with_the_buyer_tables() {
+        for sell_card in ALL_SELL_CARDS {
+            let stats = sell_card.stats();
+            assert_eq!(stats.points, sell_card.points());
+            assert_eq!(stats.boats, sell_card.required_boats());
+            for material in ALL_MATERIAL_TYPES {
+                let units = sell_card.required_materials().iter().filter(|&&m| m == material).count();
+                assert_eq!(stats.materials[material as usize] as usize, units, "{sell_card:?}");
+            }
+            let cost = sell_card.color_cost();
+            assert_eq!(stats.total_colors as usize, cost.len());
+            for &color in cost {
+                let units = cost.iter().filter(|&&c| c == color).count();
+                let listed: Vec<_> = stats.colors().iter().filter(|&&(c, _)| c == color).collect();
+                assert_eq!(listed.len(), 1, "{sell_card:?} lists {color:?} once");
+                assert_eq!(listed[0].1 as usize, units, "{sell_card:?}");
+            }
+        }
+    }
 }

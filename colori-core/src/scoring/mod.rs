@@ -150,18 +150,22 @@ fn card_quality(card: Card, params: &HeuristicParams) -> f64 {
 /// Shared by the evaluation function and by the rollout's buyers-phase policy,
 /// so the cards a rollout claims are the ones the evaluation would reward.
 pub fn buyer_alignment(player: &PlayerState, sell_card: SellCard, params: &HeuristicParams) -> f64 {
-    let points = sell_card.points() as f64;
+    let stats = sell_card.stats();
+    let points = stats.points as f64;
     let mut alignment = 0.0;
 
     if boats_to_sell(player, sell_card) <= player.boats {
         alignment += params.sell_card_material_alignment * points;
     }
 
-    let cost = sell_card.color_cost();
-    let cost_len = cost.len() as f64;
-    for &color in cost {
+    let cost_len = stats.total_colors as f64;
+    for &(color, needed) in stats.colors() {
         if player.color_wheel.get(color) > 0 || (is_primary(color) && player.wild_primaries > 0) {
-            alignment += (params.sell_card_color_alignment / cost_len) * points;
+            // One addition per unit, as a sum over the cost's entries would
+            // make: a product rounds differently.
+            for _ in 0..needed {
+                alignment += (params.sell_card_color_alignment / cost_len) * points;
+            }
         }
     }
 
