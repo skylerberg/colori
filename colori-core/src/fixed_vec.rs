@@ -200,3 +200,129 @@ impl<T: fmt::Debug, const N: usize> fmt::Debug for FixedVec<T, N> {
         self.deref().fmt(f)
     }
 }
+
+/// A [`FixedVec`] of `Copy` items that is itself `Copy`, so a value holding
+/// one — a [`crate::types::Choice`] — has no drop glue and clones by memcpy.
+#[derive(Clone, Copy)]
+pub struct CopyVec<T: Copy, const N: usize> {
+    data: [MaybeUninit<T>; N],
+    len: u8,
+}
+
+impl<T: Copy, const N: usize> CopyVec<T, N> {
+    pub fn new() -> Self {
+        CopyVec {
+            data: [MaybeUninit::uninit(); N],
+            len: 0,
+        }
+    }
+
+    pub fn push(&mut self, value: T) {
+        assert!((self.len as usize) < N, "CopyVec overflow: capacity is {N}");
+        self.data[self.len as usize] = MaybeUninit::new(value);
+        self.len += 1;
+    }
+
+    pub fn pop(&mut self) -> Option<T> {
+        if self.len == 0 {
+            return None;
+        }
+        self.len -= 1;
+        // SAFETY: the element at the old last index was initialized.
+        Some(unsafe { self.data[self.len as usize].assume_init() })
+    }
+
+    pub fn truncate(&mut self, len: usize) {
+        self.len = self.len.min(len as u8);
+    }
+
+    pub fn from_slice(slice: &[T]) -> Self {
+        slice.iter().copied().collect()
+    }
+}
+
+impl<T: Copy, const N: usize> Deref for CopyVec<T, N> {
+    type Target = [T];
+
+    fn deref(&self) -> &[T] {
+        // SAFETY: Elements 0..self.len are initialized.
+        unsafe { std::slice::from_raw_parts(self.data.as_ptr() as *const T, self.len as usize) }
+    }
+}
+
+impl<T: Copy, const N: usize> DerefMut for CopyVec<T, N> {
+    fn deref_mut(&mut self) -> &mut [T] {
+        // SAFETY: Elements 0..self.len are initialized.
+        unsafe { std::slice::from_raw_parts_mut(self.data.as_mut_ptr() as *mut T, self.len as usize) }
+    }
+}
+
+impl<'a, T: Copy, const N: usize> IntoIterator for &'a CopyVec<T, N> {
+    type Item = &'a T;
+    type IntoIter = std::slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.deref().iter()
+    }
+}
+
+impl<T: Copy, const N: usize> Default for CopyVec<T, N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T: Copy, const N: usize> FromIterator<T> for CopyVec<T, N> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let mut v = Self::new();
+        v.extend(iter);
+        v
+    }
+}
+
+impl<T: Copy, const N: usize> Extend<T> for CopyVec<T, N> {
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
+        for item in iter {
+            self.push(item);
+        }
+    }
+}
+
+impl<T: Copy + Serialize, const N: usize> Serialize for CopyVec<T, N> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.deref().serialize(serializer)
+    }
+}
+
+impl<'de, T: Copy + Deserialize<'de>, const N: usize> Deserialize<'de> for CopyVec<T, N> {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let v = Vec::<T>::deserialize(deserializer)?;
+        if v.len() > N {
+            return Err(serde::de::Error::custom(format!(
+                "array length {} exceeds CopyVec capacity {N}",
+                v.len()
+            )));
+        }
+        Ok(v.into_iter().collect())
+    }
+}
+
+impl<T: Copy + PartialEq, const N: usize> PartialEq for CopyVec<T, N> {
+    fn eq(&self, other: &Self) -> bool {
+        self.deref() == other.deref()
+    }
+}
+
+impl<T: Copy + Eq, const N: usize> Eq for CopyVec<T, N> {}
+
+impl<T: Copy + std::hash::Hash, const N: usize> std::hash::Hash for CopyVec<T, N> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.deref().hash(state)
+    }
+}
+
+impl<T: Copy + fmt::Debug, const N: usize> fmt::Debug for CopyVec<T, N> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.deref().fmt(f)
+    }
+}

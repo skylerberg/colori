@@ -1,6 +1,5 @@
 use crate::action_phase::{can_afford_sell_card, for_each_unique_card_type};
 use crate::types::*;
-use smallvec::SmallVec;
 
 use super::mix_sequences::enumerate_mix_sequences;
 use super::multiset::{count_card_types, enumerate_multiset_subsets, enumerate_multiset_subsets_exact};
@@ -49,10 +48,10 @@ pub(super) fn enumerate_trash_choices(
                 if total_available == 0 {
                     choices.push(Choice::TrashAndWorkshop {
                         card,
-                        workshop_cards: SmallVec::new(),
+                        workshop_cards: WorkshopCards::new(),
                     });
                 } else if total_available <= count as usize {
-                    let mut all_cards = SmallVec::new();
+                    let mut all_cards = WorkshopCards::new();
                     for i in 0..len {
                         for _ in 0..type_counts[i] {
                             all_cards.push(card_types[i]);
@@ -67,7 +66,7 @@ pub(super) fn enumerate_trash_choices(
                         &card_types[..len],
                         &type_counts[..len],
                         count as usize,
-                        &mut SmallVec::new(),
+                        &mut WorkshopCards::new(),
                         choices,
                         &|workshop_cards| Choice::TrashAndWorkshop {
                             card,
@@ -78,14 +77,14 @@ pub(super) fn enumerate_trash_choices(
             } else {
                 choices.push(Choice::TrashAndWorkshop {
                     card,
-                    workshop_cards: SmallVec::new(),
+                    workshop_cards: WorkshopCards::new(),
                 });
                 if len > 0 {
                     enumerate_multiset_subsets(
                         &card_types[..len],
                         &type_counts[..len],
                         count as usize,
-                        &mut SmallVec::new(),
+                        &mut WorkshopCards::new(),
                         choices,
                         &|workshop_cards| Choice::TrashAndWorkshop {
                             card,
