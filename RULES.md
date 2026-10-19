@@ -122,10 +122,10 @@ If both the display and the deck are empty there is nothing to claim, and the sl
 ### 3. Draft Phase
 
 1. Deal 4 cards from the draft deck to each player as a draft hand (these are private — other players cannot see them).
-2. Each player simultaneously picks 1 card from their hand and places it face-down.
-3. Players pass their remaining cards to the left.
-4. Repeat steps 2–3 until each hand is down to its last card, after 3 picks. Each player takes the last card passed to them, so everyone drafts 4 cards and nothing is left over.
-5. All drafted cards are placed face-up in each player's drafted cards area.
+2. Each player simultaneously picks 1 card from their hand and places it face-down in their drafted cards area.
+3. Once everyone has picked, the picks are turned face-up and stay that way: from then on everyone can see what each player has drafted in every finished pick round, while the card being picked now stays hidden.
+4. Players pass their remaining cards to the left.
+5. Repeat steps 2–4 until each hand is down to its last card, after 3 picks. Each player takes the last card passed to them, so everyone drafts 4 cards and nothing is left over.
 
 **Local multiplayer note**: Since all players share one device, a "Pass device to [player name]" screen is shown between picks to keep draft hands private.
 

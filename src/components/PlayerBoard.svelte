@@ -16,7 +16,7 @@
   import CardModal from './CardModal.svelte';
   import { fly } from 'svelte/transition';
 
-  let { player, seat, round, withTuckedCards = true, draftOrder = [], faceDownDrafted = false, claiming = false, interaction = null }: {
+  let { player, seat, round, withTuckedCards = true, draftOrder = [], revealedDrafted = Infinity, claiming = false, interaction = null }: {
     player: PlayerState;
     seat: number;
     round: number;
@@ -24,8 +24,9 @@
     withTuckedCards?: boolean;
     // The order this seat drafted its cards in, so they fill the slots left to right.
     draftOrder?: number[];
-    // Drafted cards stay face down until the draft is over.
-    faceDownDrafted?: boolean;
+    // How many of its drafted cards, in that order, are face up; the rest are
+    // still face down, waiting for this pick round to finish.
+    revealedDrafted?: number;
     // This seat is claiming a buyer, so its next free slot is waiting for one.
     claiming?: boolean;
     interaction?: TableInteraction | null;
@@ -140,7 +141,7 @@
             <CardDisplay
               card={ci.card}
               instanceId={ci.instanceId}
-              faceDown={faceDownDrafted}
+              faceDown={i >= revealedDrafted}
               hint={interaction?.trashDrafted ? trashHint(ci.card) : undefined}
               onclick={interaction?.trashDrafted ? () => interaction!.trashDrafted!(ci.instanceId) : undefined}
             />

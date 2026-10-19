@@ -1,4 +1,4 @@
-import type { GameState, CardInstance, PlayerState } from './data/types';
+import type { GameState, CardInstance, GamePhase, PlayerState } from './data/types';
 import { getSellCardData } from './data/cards';
 
 // Players with a decision to make: one at a time in the buyers phase and the
@@ -73,6 +73,17 @@ export function roundNews(round: number): string[] {
 export function formatScore(score: number): string {
   const whole = Math.floor(score);
   return score === whole ? String(whole) : `${whole > 0 ? whole : ''}½`;
+}
+
+// Picks stay face down until every seat has picked for that round, so another
+// seat's board shows only the picks from rounds already done; the one it is
+// picking right now stays hidden. Your own seat shows each pick as you make it,
+// which is what the count of `Infinity` means.
+export function revealedDraftedCount(phase: GamePhase, seat: number, viewerIndex: number): number {
+  if (phase.type !== 'draft' || seat === viewerIndex) return Infinity;
+  // One pick per seat per round, and `pickNumber` counts the rounds that have
+  // finished, so it is also how many of that seat's picks are face up.
+  return phase.draftState.pickNumber;
 }
 
 export function orderByDraftOrder(cards: CardInstance[], draftOrder: number[]): CardInstance[] {
