@@ -2,7 +2,7 @@ use crate::colors::{can_supply_mix, perform_mix_unchecked, VALID_MIX_PAIRS};
 use crate::types::*;
 use smallvec::SmallVec;
 
-type Outcome = ([u32; NUM_COLORS], u32);
+type Outcome = ([u8; NUM_COLORS], u32);
 
 /// Offer every distinct result of making up to `remaining_mixes` mixes,
 /// starting with making none.

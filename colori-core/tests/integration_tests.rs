@@ -85,8 +85,8 @@ fn check_no_negative_resources(state: &GameState, step: u32, seed: u64, num_play
     for (pi, player) in state.players.iter().enumerate() {
         for &count in player.color_wheel.counts.iter() {
             assert!(
-                count < 1000,
-                "Player {} has color wheel count {} (likely u32 underflow) at step {} (seed={}, players={})",
+                count < 200,
+                "Player {} has color wheel count {} (likely u8 underflow) at step {} (seed={}, players={})",
                 pi, count, step, seed, num_players
             );
         }
@@ -1306,7 +1306,7 @@ fn test_linseed_oil_grants_three_mixes_in_one_choice() {
     let wheel = &state.players[0].color_wheel;
     assert_eq!(wheel.get(Color::Vermilion), 1);
     assert_eq!(wheel.get(Color::Green), 1);
-    assert_eq!(wheel.counts.iter().sum::<u32>(), 2);
+    assert_eq!(wheel.counts.iter().map(|&c| c as u32).sum::<u32>(), 2);
     assert_eq!(pending_ability(&state), None);
 }
 
@@ -1579,7 +1579,7 @@ fn test_glassmakers_and_illuminators_take_no_material() {
         apply_choice_to_state(&mut state, 0, &Choice::SelectSellCard { sell_card }, &mut rng);
         let player = &state.players[0];
         assert_eq!(player.completed_sell_cards.len(), 1, "{:?}", sell_card);
-        assert_eq!(player.color_wheel.counts.iter().sum::<u32>(), 0);
+        assert_eq!(player.color_wheel.counts.iter().map(|&c| c as u32).sum::<u32>(), 0);
         assert_eq!(player.cached_whole_points, sell_card.points());
     }
 }

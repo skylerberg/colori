@@ -355,7 +355,7 @@ pub fn run_game(
                 name: names[i].clone(),
                 score: score_in_half_points(p) as f64 / 2.0,
                 completed_sell_cards: p.completed_sell_cards.len() as u32,
-                color_wheel_total: p.color_wheel.counts.iter().sum(),
+                color_wheel_total: p.color_wheel.counts.iter().map(|&c| c as u32).sum(),
             })
             .collect(),
     );

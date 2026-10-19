@@ -538,7 +538,8 @@ fn heuristic_draft_loop<R: Rng>(state: &mut GameState, params: &HeuristicParams,
 #[derive(Clone, Copy)]
 struct SellCardCacheEntry {
     points: u32,
-    materials: &'static [MaterialType],
+    /// Units of each material, indexed by `MaterialType`.
+    materials: [u8; 3],
     colors_met: bool,
     have_colors: u32,
     total_colors: u32,
@@ -563,32 +564,29 @@ impl SellCardCache {
         let mut best_affordable_points = 0u32;
         let mut best_affordable_id: Option<u32> = None;
         let len = buyers.len();
-        const EMPTY_ENTRY: SellCardCacheEntry = SellCardCacheEntry { points: 0, materials: &[], colors_met: false, have_colors: 0, total_colors: 0 };
+        const EMPTY_ENTRY: SellCardCacheEntry = SellCardCacheEntry { points: 0, materials: [0; 3], colors_met: false, have_colors: 0, total_colors: 0 };
         let mut entries: [SellCardCacheEntry; MAX_BUYERS] = [EMPTY_ENTRY; MAX_BUYERS];
 
         for (i, sc) in buyers.iter().enumerate() {
-            let points = sc.sell_card.points();
-            let cost = sc.sell_card.color_cost();
-            let total_colors = cost.len() as u32;
+            let stats = sc.sell_card.stats();
+            let points = stats.points;
+            let total_colors = stats.total_colors as u32;
             // Boats and wild primaries count as the material and primaries they can
             // stand in for, so what the cache calls affordable is exactly
             // what `can_afford_sell_card` does.
             let has_material = boats_to_sell(player, sc.sell_card) <= player.boats;
 
             let mut have = 0u32;
-            let mut missing = 0u32;
-            let mut wild_primaries_left = player.wild_primaries;
-            for (i, &c) in cost.iter().enumerate() {
-                let needed = 1 + cost[..i].iter().filter(|&&earlier| earlier == c).count() as u32;
-                if wheel.get(c) >= needed {
-                    have += 1;
-                } else if is_primary(c) && wild_primaries_left > 0 {
-                    wild_primaries_left -= 1;
-                    have += 1;
-                } else {
-                    missing += 1;
+            let mut primaries_short = 0u32;
+            for &(c, needed) in stats.colors() {
+                let stored = wheel.get(c).min(needed as u32);
+                have += stored;
+                if is_primary(c) {
+                    primaries_short += needed as u32 - stored;
                 }
             }
+            have += primaries_short.min(player.wild_primaries);
+            let missing = total_colors - have;
 
             let colors_met = missing == 0;
             let can_afford = has_material && colors_met;
@@ -596,10 +594,10 @@ impl SellCardCache {
             // Build flat and proximity demand — iterate cost directly (max 4 entries)
             let total_missing = missing + if has_material { 0 } else { 2 };
             let prox_weight = points * 10 / (total_missing + 1);
-            for &c in cost {
+            for &(c, needed) in stats.colors() {
                 let idx = c.index();
-                flat_demand[idx] += points;
-                proximity_demand[idx] += prox_weight;
+                flat_demand[idx] += points * needed as u32;
+                proximity_demand[idx] += prox_weight * needed as u32;
             }
 
             // Track best affordable
@@ -610,7 +608,7 @@ impl SellCardCache {
 
             entries[i] = SellCardCacheEntry {
                 points,
-                materials: sc.sell_card.required_materials(),
+                materials: stats.materials,
                 colors_met,
                 have_colors: have,
                 total_colors,
@@ -639,7 +637,7 @@ impl SellCardCache {
         let mut score = 0u32;
         for i in 0..self.len {
             let entry = &self.entries[i];
-            if entry.materials.contains(&material) {
+            if entry.materials[material as usize] > 0 {
                 let base = entry.points * params.rollout_ws_material_base_multiplier;
                 if entry.colors_met {
                     score += base * params.rollout_ws_material_colors_met_multiplier;

@@ -1,4 +1,4 @@
-use crate::types::{Color, ColorWheel, NUM_COLORS};
+use crate::types::{Color, ColorWheel, NUM_COLORS, SellCardStats};
 
 /// Indices of primary colors on the 12-color wheel: Red(0), Yellow(4), Blue(8).
 const PRIMARY_INDICES: [usize; 3] = [0, 4, 8];
@@ -159,12 +159,28 @@ pub fn wild_primaries_to_cover_cost(wheel: &ColorWheel, cost: &[Color]) -> Optio
     let mut wild_primaries = 0;
     for &c in cost {
         let idx = c.index();
-        if wheel.counts[idx] > used[idx] {
+        if wheel.get(c) > used[idx] {
             used[idx] += 1;
         } else if is_primary(c) {
             wild_primaries += 1;
         } else {
             return None;
+        }
+    }
+    Some(wild_primaries)
+}
+
+/// [`wild_primaries_to_cover_cost`] for a sell card, from its per-color counts.
+#[inline]
+pub fn wild_primaries_to_cover_sale(wheel: &ColorWheel, stats: &SellCardStats) -> Option<u32> {
+    let mut wild_primaries = 0;
+    for &(color, needed) in stats.colors() {
+        let short = (needed as u32).saturating_sub(wheel.get(color));
+        if short > 0 {
+            if !is_primary(color) {
+                return None;
+            }
+            wild_primaries += short;
         }
     }
     Some(wild_primaries)
