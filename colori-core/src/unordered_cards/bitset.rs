@@ -123,6 +123,36 @@ impl<T> BitSet<T> {
         }
     }
 
+    /// Position of the `k`-th set bit, ascending, for `k < self.len()`.
+    ///
+    /// Whole words are skipped by popcount, then bits cleared within one. A
+    /// popcount binary search inside the word retires fewer instructions but
+    /// costs more cycles on Apple silicon, where each popcount round-trips
+    /// through the vector unit.
+    #[inline]
+    fn nth(&self, mut k: u32) -> u8 {
+        let words = [
+            self.0[0] as u64,
+            (self.0[0] >> 64) as u64,
+            self.0[1] as u64,
+            (self.0[1] >> 64) as u64,
+        ];
+        let mut i = 0;
+        loop {
+            let count = words[i].count_ones();
+            if k < count {
+                break;
+            }
+            k -= count;
+            i += 1;
+        }
+        let mut word = words[i];
+        for _ in 0..k {
+            word &= word - 1;
+        }
+        (i * 64) as u8 + word.trailing_zeros() as u8
+    }
+
     #[inline]
     pub fn pick_random<R: Rng>(&self, rng: &mut R) -> Option<u8> {
         let count = self.len();
@@ -130,21 +160,7 @@ impl<T> BitSet<T> {
             return None;
         }
         let k = rng.random_range(0..count);
-        // Find the k-th set bit across both limbs
-        let lo_count = self.0[0].count_ones();
-        if k < lo_count {
-            let mut val = self.0[0];
-            for _ in 0..k {
-                val &= val - 1;
-            }
-            Some(val.trailing_zeros() as u8)
-        } else {
-            let mut val = self.0[1];
-            for _ in 0..(k - lo_count) {
-                val &= val - 1;
-            }
-            Some(128 + val.trailing_zeros() as u8)
-        }
+        Some(self.nth(k))
     }
 
     #[inline]
@@ -154,20 +170,7 @@ impl<T> BitSet<T> {
             return None;
         }
         let k = rng.random_range(0..count);
-        let lo_count = self.0[0].count_ones();
-        let pos = if k < lo_count {
-            let mut val = self.0[0];
-            for _ in 0..k {
-                val &= val - 1;
-            }
-            val.trailing_zeros() as u8
-        } else {
-            let mut val = self.0[1];
-            for _ in 0..(k - lo_count) {
-                val &= val - 1;
-            }
-            128 + val.trailing_zeros() as u8
-        };
+        let pos = self.nth(k);
         self.remove(pos);
         Some(pos)
     }
@@ -203,28 +206,11 @@ impl<T> BitSet<T> {
             if r == 0 {
                 return Self::new();
             }
-            // Find the (r-1)-th set bit
-            let k = (r - 1) as u32;
-            let lo_count = self.0[0].count_ones();
-            let pos;
-            let mut result = [0u128; 2];
-            if k < lo_count {
-                let mut val = self.0[0];
-                for _ in 0..k {
-                    val &= val - 1;
-                }
-                pos = val.trailing_zeros() as u8;
-                result[0] = 1u128 << pos;
-            } else {
-                let mut val = self.0[1];
-                for _ in 0..(k - lo_count) {
-                    val &= val - 1;
-                }
-                pos = 128 + val.trailing_zeros() as u8;
-                result[1] = 1u128 << (pos - 128);
-            }
+            let pos = self.nth((r - 1) as u32);
+            let mut result = Self::new();
+            result.insert(pos);
             self.remove(pos);
-            return BitSet(result, PhantomData);
+            return result;
         }
         let n = self.len() as usize;
         let c = (max_count as usize).min(n);
