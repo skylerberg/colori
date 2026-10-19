@@ -1,26 +1,37 @@
 <script lang="ts">
   import type { AiSettings, GameState } from '../data/types';
+  import { AI_DIFFICULTY_LEVELS, DEFAULT_AI_ITERATIONS, aiPlayerName, humanPlayerName } from '../data/aiDifficulty';
   import { createInitialGameState } from '../engine/wasmEngine';
   import CharacterPortrait from './CharacterPortrait.svelte';
 
-  const DIFFICULTY_LEVELS: { label: string; iterations: number }[] = [
-    { label: 'Easy', iterations: 1000 },
-    { label: 'Medium', iterations: 4000 },
-    { label: 'Hard', iterations: 25000 },
-    { label: 'Very Hard', iterations: 100000 },
-  ];
+  const MAX_PLAYERS = 5;
+  // Seat 1 starts as the human; the rest are AI opponents until told otherwise.
+  const DEFAULT_IS_AI = [false, true, true, true, true];
 
   let { onGameStarted }: {
     onGameStarted: (state: GameState, aiIterations: number[], aiSettings: AiSettings) => void;
   } = $props();
 
   let playerCount = $state(2);
-  let playerNames: string[] = $state(['Player 1', 'AI Player 2', 'AI Player 3', 'AI Player 4', 'AI Player 5']);
-  let isAI: boolean[] = $state([false, true, true, true, true]);
-  let aiIterations: number[] = $state([100000, 100000, 100000, 100000, 100000]);
+  let isAI: boolean[] = $state([...DEFAULT_IS_AI]);
+  let aiIterations: number[] = $state(Array<number>(MAX_PLAYERS).fill(DEFAULT_AI_ITERATIONS));
+  let playerNames: string[] = $state(defaultNames());
+  // A name the player typed is theirs to keep: only auto-generated names follow the AI toggle
+  // and the difficulty select.
+  let autoNamed: boolean[] = $state(Array<boolean>(MAX_PLAYERS).fill(true));
   let aiParams = $state('default');
   let rolloutLookahead: AiSettings['rolloutLookahead'] = $state(null);
   let advancedOpen = $state(false);
+
+  function defaultNames(): string[] {
+    return Array.from({ length: MAX_PLAYERS }, (_, i) =>
+      DEFAULT_IS_AI[i] ? aiPlayerName(i, DEFAULT_AI_ITERATIONS) : humanPlayerName(i)
+    );
+  }
+
+  function defaultName(index: number): string {
+    return isAI[index] ? aiPlayerName(index, aiIterations[index]) : humanPlayerName(index);
+  }
 
   function updatePlayerCount(count: number) {
     playerCount = count;
@@ -29,27 +40,22 @@
   function handleNameInput(index: number, event: Event) {
     const target = event.target as HTMLInputElement;
     playerNames[index] = target.value;
+    autoNamed[index] = false;
   }
 
   function toggleAI(index: number) {
     isAI[index] = !isAI[index];
-    if (isAI[index]) {
-      aiIterations[index] = 100000;
-      if (playerNames[index] === `Player ${index + 1}`) {
-        playerNames[index] = `AI Player ${index + 1}`;
-      }
-    } else if (playerNames[index] === `AI Player ${index + 1}`) {
-      playerNames[index] = `Player ${index + 1}`;
-    }
+    if (autoNamed[index]) playerNames[index] = defaultName(index);
   }
 
   function handleDifficultyChange(index: number, event: Event) {
     const target = event.target as HTMLSelectElement;
     aiIterations[index] = Number(target.value);
+    if (autoNamed[index]) playerNames[index] = defaultName(index);
   }
 
   function startGame() {
-    const names = playerNames.slice(0, playerCount).map((n, i) => n.trim() || `Player ${i + 1}`);
+    const names = playerNames.slice(0, playerCount).map((n, i) => n.trim() || defaultName(i));
     const aiPlayers = isAI.slice(0, playerCount);
     const state = createInitialGameState(names, aiPlayers);
     onGameStarted(state, aiIterations.slice(0, playerCount), { params: aiParams, rolloutLookahead });
@@ -85,7 +91,7 @@
           type="text"
           value={playerNames[i]}
           oninput={(e: Event) => handleNameInput(i, e)}
-          placeholder="Player {i + 1}"
+          placeholder={defaultName(i)}
         />
         <button
           class="ai-toggle"
@@ -100,7 +106,7 @@
             value={aiIterations[i]}
             onchange={(e: Event) => handleDifficultyChange(i, e)}
           >
-            {#each DIFFICULTY_LEVELS as level}
+            {#each AI_DIFFICULTY_LEVELS as level}
               <option value={level.iterations}>{level.label}</option>
             {/each}
           </select>

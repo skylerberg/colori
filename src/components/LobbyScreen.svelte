@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { LobbyPlayer } from '../network/types';
+  import { aiPlayerName } from '../data/aiDifficulty';
   import CharacterPortrait from './CharacterPortrait.svelte';
 
   let { role, roomCode, lobbyPlayers, playerCount, hostName = '', onSetHostName, onSetPlayerCount, onStartGame, onJoin, onBack }: {
@@ -116,7 +117,7 @@
         {#each aiSeats as seat}
           <div class="player-row ai-slot">
             <CharacterPortrait {seat} size={30} />
-            <span class="player-name">AI Player</span>
+            <span class="player-name">{aiPlayerName(seat)}</span>
             <span class="ai-badge">AI</span>
           </div>
         {/each}

@@ -1,5 +1,6 @@
 import type { GameState } from '../data/types';
 import type { Choice } from '../data/types';
+import { aiPlayerName } from '../data/aiDifficulty';
 import type { NetworkManager } from './networkManager';
 import type { LobbyPlayer, GuestMessage } from './types';
 import { createInitialGameState, executeDrawPhase, simultaneousPick, advanceDraft, applyChoice } from '../engine/wasmEngine';
@@ -305,7 +306,7 @@ export class HostController {
 
     for (let i = 0; i < this.playerCount; i++) {
       if (!playerNames[i]) {
-        playerNames[i] = `AI Player ${i + 1}`;
+        playerNames[i] = aiPlayerName(i);
       }
     }
 

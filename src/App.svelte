@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { AiSettings, GameState, StructuredGameLog } from './data/types';
+  import { DEFAULT_AI_ITERATIONS } from './data/aiDifficulty';
   import type { LobbyPlayer, SanitizedGameState } from './network/types';
   import SetupScreen from './components/SetupScreen.svelte';
   import GameScreen from './components/GameScreen.svelte';
@@ -429,7 +430,7 @@
       onBack={goToMainMenu}
     />
   {:else if screen.type === 'localGame' && gameState !== null}
-    <GameScreen {gameState} {gameStartTime} onGameUpdated={handleGameUpdated} initialGameLog={savedGameLog} onLeaveGame={handleLeaveGame} {gameLogAccumulator} aiIterations={aiIterations ?? gameState.aiPlayers.map(() => 100000)} aiSettings={aiSettings ?? {}} />
+    <GameScreen {gameState} {gameStartTime} onGameUpdated={handleGameUpdated} initialGameLog={savedGameLog} onLeaveGame={handleLeaveGame} {gameLogAccumulator} aiIterations={aiIterations ?? gameState.aiPlayers.map(() => DEFAULT_AI_ITERATIONS)} aiSettings={aiSettings ?? {}} />
   {:else if screen.type === 'onlineGame' && gameState !== null}
     <OnlineGameScreen
       role={screen.role}
