@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
 use crate::deck::Deck;
-use crate::fixed_vec::FixedVec;
+use crate::fixed_vec::{CopyVec, FixedVec};
 use crate::game_log::DrawLog;
 use crate::unordered_cards::{UnorderedSellCards, UnorderedCards};
 
@@ -11,7 +11,9 @@ pub type AbilityStack = SmallVec<[Ability; 4]>;
 /// The most mixes one ability grants, and so the longest sequence a single
 /// choice can carry.
 pub const MAX_MIX_SEQUENCE: usize = 3;
-pub type MixSequence = SmallVec<[(Color, Color); MAX_MIX_SEQUENCE]>;
+pub type MixSequence = CopyVec<(Color, Color), MAX_MIX_SEQUENCE>;
+/// The cards a workshop choice takes, by type. A workshop takes at most three.
+pub type WorkshopCards = CopyVec<Card, 4>;
 
 pub const MAX_PLAYERS: usize = 4;
 
@@ -894,7 +896,7 @@ fn default_sell_card_lookup() -> [SellCard; 256] {
 
 // ── Choice ──
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum Choice {
     #[serde(rename = "draftPick")]
@@ -906,7 +908,7 @@ pub enum Choice {
     #[serde(rename = "workshop")]
     Workshop {
         #[serde(rename = "cardTypes")]
-        card_types: SmallVec<[Card; 4]>,
+        card_types: WorkshopCards,
     },
     #[serde(rename = "skipWorkshop")]
     SkipWorkshop,
@@ -933,7 +935,7 @@ pub enum Choice {
     TrashAndWorkshop {
         card: Card,
         #[serde(rename = "workshopCards")]
-        workshop_cards: SmallVec<[Card; 4]>,
+        workshop_cards: WorkshopCards,
     },
     #[serde(rename = "trashAndMoveToDraftPool", alias = "destroyAndMoveToDraftPool")]
     TrashAndMoveToDraftPool {

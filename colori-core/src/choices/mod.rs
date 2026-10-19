@@ -8,7 +8,6 @@ use crate::action_phase::{
 use crate::apply_choice::resolve_card_types_to_ids;
 use crate::colors::{can_mix, can_supply_mix, perform_mix_unchecked, SECONDARIES};
 use crate::types::*;
-use smallvec::SmallVec;
 
 use trash::enumerate_trash_choices;
 use mix_sequences::enumerate_mix_sequences;
@@ -77,7 +76,7 @@ pub fn enumerate_choices_into(state: &GameState, player_index: usize, choices: &
                     if force_max {
                         if total_available <= *count as usize {
                             // Only one option: workshop everything
-                            let mut all_cards = SmallVec::new();
+                            let mut all_cards = WorkshopCards::new();
                             for i in 0..len {
                                 for _ in 0..type_counts[i] {
                                     all_cards.push(card_types[i]);
@@ -89,7 +88,7 @@ pub fn enumerate_choices_into(state: &GameState, player_index: usize, choices: &
                                 &card_types[..len],
                                 &type_counts[..len],
                                 *count as usize,
-                                &mut SmallVec::new(),
+                                &mut WorkshopCards::new(),
                                 choices,
                                 &|card_types| Choice::Workshop { card_types },
                             );
@@ -100,7 +99,7 @@ pub fn enumerate_choices_into(state: &GameState, player_index: usize, choices: &
                             &card_types[..len],
                             &type_counts[..len],
                             *count as usize,
-                            &mut SmallVec::new(),
+                            &mut WorkshopCards::new(),
                             choices,
                             &|card_types| Choice::Workshop { card_types },
                         );

@@ -18,7 +18,7 @@ use colori_core::unordered_cards::{
 };
 use rand::RngExt;
 use rand::SeedableRng;
-use smallvec::SmallVec;
+use colori_core::fixed_vec::CopyVec;
 use wyrand::WyRand;
 
 // ── Helpers ──
@@ -283,7 +283,7 @@ fn generate_invalid_choices(state: &GameState, player: usize) -> Vec<Choice> {
                 color: Color::Orange,
             });
             invalid.push(Choice::MixAll {
-                mixes: SmallVec::new(),
+                mixes: CopyVec::new(),
             });
             invalid.push(Choice::MoveToDraftPool { card: None });
             // DraftPick with card types not in the current hand
@@ -323,7 +323,7 @@ fn generate_invalid_choices(state: &GameState, player: usize) -> Vec<Choice> {
                     color: Color::Orange,
                 });
                 invalid.push(Choice::MixAll {
-                    mixes: SmallVec::new(),
+                    mixes: CopyVec::new(),
                 });
                 invalid.push(Choice::MoveToDraftPool { card: None });
             } else {
@@ -339,7 +339,7 @@ fn generate_invalid_choices(state: &GameState, player: usize) -> Vec<Choice> {
                         });
                         // Empty workshop is invalid
                         invalid.push(Choice::Workshop {
-                            card_types: SmallVec::new(),
+                            card_types: CopyVec::new(),
                         });
                     }
                     Ability::GainSecondary => {
@@ -362,7 +362,7 @@ fn generate_invalid_choices(state: &GameState, player: usize) -> Vec<Choice> {
                     Ability::MixColors { .. } => {
                         // Non-adjacent colors are invalid
                         invalid.push(Choice::MixAll {
-                            mixes: SmallVec::from_slice(&[(Color::Orange, Color::Green)]),
+                            mixes: CopyVec::from_slice(&[(Color::Orange, Color::Green)]),
                         });
                         invalid.push(Choice::EndTurn);
                     }
@@ -1239,7 +1239,7 @@ fn state_after_workshopping(card: Card) -> GameState {
     apply_choice_to_state(
         &mut state,
         0,
-        &Choice::Workshop { card_types: SmallVec::from_slice(&[card]) },
+        &Choice::Workshop { card_types: CopyVec::from_slice(&[card]) },
         &mut rng,
     );
     state
@@ -1287,7 +1287,7 @@ fn test_linseed_oil_grants_three_mixes_in_one_choice() {
     wheel.set(Color::Blue, 1);
 
     // Red+Yellow -> Orange, Red+Orange -> Vermilion, Yellow+Blue -> Green.
-    let mixes = SmallVec::from_slice(&[
+    let mixes = CopyVec::from_slice(&[
         (Color::Red, Color::Yellow),
         (Color::Red, Color::Orange),
         (Color::Yellow, Color::Blue),
@@ -1351,7 +1351,7 @@ fn test_using_every_mix_leaves_a_mix_beneath_it_alone() {
     apply_choice_to_state(
         &mut state,
         0,
-        &Choice::MixAll { mixes: SmallVec::from_slice(&[(Color::Red, Color::Yellow)]) },
+        &Choice::MixAll { mixes: CopyVec::from_slice(&[(Color::Red, Color::Yellow)]) },
         &mut rng,
     );
     assert_eq!(
@@ -1381,7 +1381,7 @@ fn test_trashing_an_imports_card_workshops_then_mixes() {
     let mut rng = WyRand::seed_from_u64(3);
     let trash = Choice::TrashAndWorkshop {
         card: Card::CanvasCeramics,
-        workshop_cards: SmallVec::from_slice(&[Card::StarterFabric]),
+        workshop_cards: CopyVec::from_slice(&[Card::StarterFabric]),
     };
     assert!(enumerate_choices(&state, 0).contains(&trash));
     apply_choice_to_state(&mut state, 0, &trash, &mut rng);
@@ -1396,7 +1396,7 @@ fn test_trashing_an_imports_card_workshops_then_mixes() {
     apply_choice_to_state(
         &mut state,
         0,
-        &Choice::MixAll { mixes: SmallVec::from_slice(&[(Color::Red, Color::Blue)]) },
+        &Choice::MixAll { mixes: CopyVec::from_slice(&[(Color::Red, Color::Blue)]) },
         &mut rng,
     );
     assert_eq!(state.players[0].color_wheel.get(Color::Purple), 1);
@@ -1410,7 +1410,7 @@ fn test_an_imports_card_still_mixes_when_the_workshop_is_empty() {
 
     let trash = Choice::TrashAndWorkshop {
         card: Card::CeramicsRed,
-        workshop_cards: SmallVec::new(),
+        workshop_cards: CopyVec::new(),
     };
     assert!(enumerate_choices(&state, 0).contains(&trash));
     let mut rng = WyRand::seed_from_u64(3);
@@ -1432,7 +1432,7 @@ fn test_a_wild_primary_stands_in_for_a_missing_primary_in_a_mix() {
 
     let mix = Choice::TrashAndMix {
         card: Card::Realgar,
-        mixes: SmallVec::from_slice(&[(Color::Red, Color::Orange)]),
+        mixes: CopyVec::from_slice(&[(Color::Red, Color::Orange)]),
     };
     assert!(!enumerate_choices(&state, 0).contains(&mix), "no Red and no wild primary");
     assert!(!check_choice_available(&state, 0, &mix));

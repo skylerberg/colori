@@ -1,6 +1,5 @@
 use crate::types::*;
 use crate::unordered_cards::UnorderedCards;
-use smallvec::SmallVec;
 
 /// Count occurrences of each card type in an UnorderedCards bitset,
 /// returning a sorted array of (Card, count) pairs and the number of distinct types.
@@ -42,14 +41,14 @@ pub(super) fn count_card_types(
 }
 
 /// Enumerate all non-empty subsets of a card-type multiset up to max_size.
-/// Produces unique sorted SmallVec<[Card; 4]> entries without needing deduplication.
+/// Produces unique sorted WorkshopCards entries without needing deduplication.
 pub(super) fn enumerate_multiset_subsets(
     types: &[Card],
     counts: &[u8],
     max_remaining: usize,
-    current_subset: &mut SmallVec<[Card; 4]>,
+    current_subset: &mut WorkshopCards,
     choices: &mut Vec<Choice>,
-    make_choice: &impl Fn(SmallVec<[Card; 4]>) -> Choice,
+    make_choice: &impl Fn(WorkshopCards) -> Choice,
 ) {
     if types.is_empty() || max_remaining == 0 {
         if !current_subset.is_empty() {
@@ -81,9 +80,9 @@ pub(super) fn enumerate_multiset_subsets_exact(
     types: &[Card],
     counts: &[u8],
     max_remaining: usize,
-    current_subset: &mut SmallVec<[Card; 4]>,
+    current_subset: &mut WorkshopCards,
     choices: &mut Vec<Choice>,
-    make_choice: &impl Fn(SmallVec<[Card; 4]>) -> Choice,
+    make_choice: &impl Fn(WorkshopCards) -> Choice,
 ) {
     if max_remaining == 0 {
         if !current_subset.is_empty() {
