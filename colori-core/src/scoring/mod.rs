@@ -73,7 +73,7 @@ pub fn player_ranking(player: &PlayerState) -> (u32, usize, u32) {
     (
         score_in_half_points(player),
         player.completed_sell_cards.len(),
-        player.color_wheel.counts.iter().sum(),
+        player.color_wheel.counts.iter().map(|&c| c as u32).sum(),
     )
 }
 
@@ -97,7 +97,7 @@ pub fn compute_terminal_rewards(players: &FixedVec<PlayerState, MAX_PLAYERS>) ->
         rankings[i] = (
             cached_half_points(p),
             p.completed_sell_cards.len(),
-            p.color_wheel.counts.iter().sum(),
+            p.color_wheel.counts.iter().map(|&c| c as u32).sum(),
         );
     }
     let best = rankings[..players.len()].iter().copied().max().unwrap_or((0, 0, 0));
@@ -290,7 +290,7 @@ mod tests {
             workshopped_cards: UnorderedCards::new(),
             workshop_cards: UnorderedCards::new(),
             drafted_cards: UnorderedCards::new(),
-            color_wheel: ColorWheel { counts: color_counts },
+            color_wheel: ColorWheel { counts: color_counts.map(|c| c as u8) },
             materials: Materials::new(),
             completed_sell_cards,
             ducats,

@@ -159,7 +159,7 @@ pub fn wild_primaries_to_cover_cost(wheel: &ColorWheel, cost: &[Color]) -> Optio
     let mut wild_primaries = 0;
     for &c in cost {
         let idx = c.index();
-        if wheel.counts[idx] > used[idx] {
+        if wheel.get(c) > used[idx] {
             used[idx] += 1;
         } else if is_primary(c) {
             wild_primaries += 1;

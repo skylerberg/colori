@@ -683,7 +683,9 @@ pub struct SellCardInstance {
 /// Serialized as a Record<Color, number> in JSON.
 #[derive(Debug, Clone)]
 pub struct ColorWheel {
-    pub counts: [u32; NUM_COLORS],
+    /// A byte a color: half the width of a mix outcome's key, and of the
+    /// copies the mix search makes.
+    pub counts: [u8; NUM_COLORS],
 }
 
 impl ColorWheel {
@@ -695,12 +697,12 @@ impl ColorWheel {
 
     #[inline]
     pub fn get(&self, color: Color) -> u32 {
-        self.counts[color.index()]
+        self.counts[color.index()] as u32
     }
 
     #[inline]
     pub fn set(&mut self, color: Color, value: u32) {
-        self.counts[color.index()] = value;
+        self.counts[color.index()] = u8::try_from(value).expect("a color count fits in a byte");
     }
 
     #[inline]
@@ -724,7 +726,7 @@ impl Serialize for ColorWheel {
         use serde::ser::SerializeMap;
         let mut map = serializer.serialize_map(Some(NUM_COLORS))?;
         for &color in &ALL_COLORS {
-            map.serialize_entry(&color, &self.counts[color.index()])?;
+            map.serialize_entry(&color, &(self.counts[color.index()] as u32))?;
         }
         map.end()
     }
