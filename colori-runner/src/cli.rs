@@ -32,6 +32,8 @@ pub enum Commands {
     PolicyPlay(PolicyPlayArgs),
     /// Tune a rules policy's weights with a cross-entropy method
     PolicyEvolve(PolicyEvolveArgs),
+    /// Measure what each gene is worth, so the genome can be cut down
+    PolicyPrune(PolicyPruneArgs),
 }
 
 // ── Subcommand args ──
@@ -274,6 +276,49 @@ pub struct PolicyPlayArgs {
     /// How many of the best-scoring choices to follow when looking ahead
     #[arg(long, default_value_t = 4)]
     pub lookahead_width: usize,
+}
+
+#[derive(Parser)]
+pub struct PolicyPruneArgs {
+    /// Genome to measure: `starter` or a path to a JSON file
+    #[arg(long, default_value = "starter")]
+    pub genome: String,
+
+    /// Heuristic params file the card-quality rules read
+    #[arg(long)]
+    pub heuristic_params_file: Option<String>,
+
+    /// Games per gene measured, all on the same seeds
+    #[arg(long, default_value_t = 300)]
+    pub games: usize,
+
+    #[arg(long, default_value_t = 0)]
+    pub seed_base: u64,
+
+    #[arg(long, default_value_t = 4)]
+    pub players: usize,
+
+    /// A gene whose removal costs less than this many points is free to cut
+    #[arg(long, default_value_t = 0.05)]
+    pub threshold: f64,
+
+    /// Decisions deep to look ahead while measuring
+    #[arg(long, default_value_t = 0)]
+    pub lookahead: usize,
+
+    /// How many of the best-scoring choices to follow when looking ahead
+    #[arg(long, default_value_t = 4)]
+    pub lookahead_width: usize,
+
+    /// Write the genome with every free gene removed
+    #[arg(long)]
+    pub write: Option<String>,
+}
+
+impl PolicyPruneArgs {
+    pub fn plan(&self) -> colori_core::policy::Plan {
+        colori_core::policy::Plan::new(self.lookahead_width, self.lookahead)
+    }
 }
 
 /// Which numbers a tuning run may move.

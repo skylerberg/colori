@@ -260,6 +260,29 @@ the ten decisions the rules **came closest to getting wrong**, with each side's
 top contributing terms. That is the signal worth reasoning from — a decision
 diff, not a score. If a rule is wrong, a narrow-margin decision will show it.
 
+## Condensing a genome
+
+`policy-prune` measures what a genome is holding up. Its honest use is the
+*cumulative* curve rather than the per-gene table: cut the N smallest weights,
+measure, and repeat. On a 171-gene genome at 26.71 self-play:
+
+| cut | 20 | 40 | 60 | 80 | 90 | 100 | 120 |
+|---|---|---|---|---|---|---|---|
+| score | 26.65 | 26.53 | 26.51 | 26.40 | 25.33 | 24.25 | 18.45 |
+
+Forty-seven per cent of the genome costs 0.31 points, the knee is at eighty, and
+the cliff is between eighty and ninety. A random sixty is the control: it costs
+2.39, so the ranking is doing real work. Retuning after the cut recovers most of
+the rest — a 93-gene genome refitted lands at 26.58, within 0.12 of the parent.
+
+The per-gene numbers are not to be trusted on their own, and knowing why matters
+for anyone reading them: every single gene came out *negative*, meaning removing
+it improved the table's score. The likeliest reading is that the tuned genome is
+over-specialised for mirror play — four identical bots contend for the same
+buyers and colours, so deviating from the optimum pays a little — while removing
+many genes at once breaks the policy outright. Both effects are in every
+measurement; the tier curve is where the second one shows.
+
 ## What is not here
 
 - **Feature interactions** beyond `shape`: no `a · b` products. A rule that only
