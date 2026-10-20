@@ -235,6 +235,15 @@ impl Game for GameState {
         enumerate_choices_into(self, self.search_actor(ctx), out);
     }
 
+    // In the action phase of the round a search began in, every iteration
+    // starts the searcher's turn the same way and nothing in a turn is random,
+    // so a position's choices follow from the moves above it. Elsewhere a
+    // hidden draft pick or a draw can change them. `transposition_key` merges
+    // over the same stretch for the same reason.
+    fn choices_fixed(&self, ctx: &SearchContext, _at_root: bool) -> bool {
+        matches!(self.phase, GamePhase::Action { .. }) && ctx.merge_round == Some(self.round)
+    }
+
     fn apply_choice<R: Rng + ?Sized>(
         &mut self,
         ctx: &SearchContext,
@@ -816,7 +825,9 @@ mod tests {
     }
 
     /// The root's choice set is *not* stable across determinizations, which is
-    /// why `CHOICES_ON_REVISIT` claims nothing.
+    /// why `CHOICES_ON_REVISIT` claims nothing. `choices_fixed` claims only the
+    /// action-phase turn a search begins in, where every iteration starts the
+    /// same way.
     ///
     /// An earlier version of this test claimed the opposite and passed, because
     /// it determinized and then enumerated without running `advance` in
