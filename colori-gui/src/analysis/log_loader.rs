@@ -80,46 +80,56 @@ impl LogLoader {
     }
 }
 
-fn load_logs_from_dir(dir: &Path) -> Result<Vec<TaggedGameLog>, String> {
-    let batch_re =
-        Regex::new(r"game-\d+-([a-z0-9]{6})(?:-[a-z0-9]{4})?\.json").map_err(|e| format!("Regex error: {}", e))?;
+/// Every `game-*.json` under `dir`, subdirectories included, oldest first: the
+/// names start with a timestamp.
+pub fn find_game_log_files(dir: &Path) -> Result<Vec<PathBuf>, String> {
+    let mut files = Vec::new();
+    collect_game_log_files(dir, &mut files)?;
+    files.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+    Ok(files)
+}
 
-    let mut entries: Vec<(PathBuf, String)> = Vec::new();
-
-    let read_dir =
-        std::fs::read_dir(dir).map_err(|e| format!("Failed to read directory: {}", e))?;
+fn collect_game_log_files(dir: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
+    let read_dir = std::fs::read_dir(dir).map_err(|e| format!("Failed to read directory {:?}: {}", dir, e))?;
 
     for entry in read_dir {
         let entry = entry.map_err(|e| format!("Failed to read dir entry: {}", e))?;
         let path = entry.path();
 
-        if !path.is_file() {
+        // A symlinked directory is not followed, so a link back up the tree cannot loop.
+        if entry.file_type().is_ok_and(|t| t.is_dir()) {
+            collect_game_log_files(&path, files)?;
             continue;
         }
 
-        let file_name = match path.file_name().and_then(|n| n.to_str()) {
-            Some(name) => name.to_string(),
-            None => continue,
-        };
-
-        if !file_name.starts_with("game-") || !file_name.ends_with(".json") {
-            continue;
+        let is_game_log = path.is_file()
+            && path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|name| name.starts_with("game-") && name.ends_with(".json"));
+        if is_game_log {
+            files.push(path);
         }
+    }
+    Ok(())
+}
 
-        let batch_id = batch_re
-            .captures(&file_name)
+fn load_logs_from_dir(dir: &Path) -> Result<Vec<TaggedGameLog>, String> {
+    let batch_re =
+        Regex::new(r"game-\d+-([a-z0-9]{6})(?:-[a-z0-9]{4})?\.json").map_err(|e| format!("Regex error: {}", e))?;
+
+    let files = find_game_log_files(dir)?;
+    let mut logs = Vec::with_capacity(files.len());
+
+    for path in files {
+        let batch_id = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .and_then(|name| batch_re.captures(name))
             .and_then(|caps| caps.get(1))
             .map(|m| m.as_str().to_string())
             .unwrap_or_default();
 
-        entries.push((path, batch_id));
-    }
-
-    entries.sort_by(|a, b| a.0.file_name().cmp(&b.0.file_name()));
-
-    let mut logs = Vec::with_capacity(entries.len());
-
-    for (path, batch_id) in entries {
         let contents = std::fs::read_to_string(&path)
             .map_err(|e| format!("Failed to read {:?}: {}", path, e))?;
         let log: StructuredGameLog = serde_json::from_str(&contents)
@@ -128,4 +138,35 @@ fn load_logs_from_dir(dir: &Path) -> Result<Vec<TaggedGameLog>, String> {
     }
 
     Ok(logs)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::find_game_log_files;
+    use std::path::PathBuf;
+
+    #[test]
+    fn game_logs_are_found_in_subdirectories_oldest_first() {
+        let root = std::env::temp_dir().join(format!("colori-log-loader-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("a/b")).unwrap();
+        for file in [
+            "game-300-aaaaaa-1111.json",
+            "a/game-100-bbbbbb-2222.json",
+            "a/b/game-200-cccccc-3333.json",
+            "a/notes.json",
+            "a/game-400-dddddd-4444.txt",
+        ] {
+            std::fs::write(root.join(file), "{}").unwrap();
+        }
+
+        let found: Vec<PathBuf> = find_game_log_files(&root).unwrap();
+        std::fs::remove_dir_all(&root).unwrap();
+
+        let names: Vec<_> = found.iter().map(|p| p.file_name().unwrap().to_str().unwrap()).collect();
+        assert_eq!(
+            names,
+            ["game-100-bbbbbb-2222.json", "game-200-cccccc-3333.json", "game-300-aaaaaa-1111.json"]
+        );
+    }
 }
