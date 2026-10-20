@@ -1255,6 +1255,33 @@ pub fn compute_win_rate_by_buyer_claims(
     rates
 }
 
+/// The share of buyer claims that were the unseen top of the deck rather than a
+/// card off the display, or `None` when no buyer was claimed.
+pub fn compute_unseen_buyer_share(
+    logs: &[StructuredGameLog],
+    filter: Option<&PlayerFilter>,
+) -> Option<f64> {
+    let mut claims: usize = 0;
+    let mut unseen: usize = 0;
+    for (log_idx, log) in logs.iter().enumerate() {
+        let allowed = filter.and_then(|f| f.get(&log_idx));
+        for entry in &log.entries {
+            if allowed.is_some_and(|allowed| !allowed.contains(&entry.player_index)) {
+                continue;
+            }
+            match entry.choice {
+                Choice::TakeBuyer { .. } => claims += 1,
+                Choice::DrawBuyer => {
+                    claims += 1;
+                    unseen += 1;
+                }
+                _ => {}
+            }
+        }
+    }
+    (claims > 0).then(|| unseen as f64 / claims as f64)
+}
+
 /// Compute the average number of choices per game.
 pub fn compute_average_plies(logs: &[StructuredGameLog], filter: Option<&PlayerFilter>) -> f64 {
     let mut total_choices: usize = 0;
