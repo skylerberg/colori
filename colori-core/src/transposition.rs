@@ -29,21 +29,26 @@ use crate::types::{Card, GamePhase, GameState, SellCard, NUM_CARDS, NUM_SELL_CAR
 use crate::unordered_cards::UnorderedCards;
 
 impl Transposition for GameState {
-    /// Two independent 64-bit hashes, so that a collision merging two different
-    /// positions is negligible.
     type Key = u128;
 
     fn transposition_key(&self, ctx: &SearchContext) -> Option<u128> {
         if !matches!(self.phase, GamePhase::Action { .. }) || ctx.merge_round != Some(self.round) {
             return None;
         }
-        let low = self.own_hash(ctx.perspective, 0x243F_6A88_85A3_08D3);
-        let high = self.own_hash(ctx.perspective, 0x1319_8A2E_0370_7344);
-        Some((high as u128) << 64 | low as u128)
+        Some(self.own_key(ctx.perspective))
     }
 }
 
 impl GameState {
+    /// `player`'s own side of the game, from which two states play the same for
+    /// them. Two independent 64-bit hashes, so that a collision merging two
+    /// different positions is negligible.
+    pub(crate) fn own_key(&self, player: usize) -> u128 {
+        let low = self.own_hash(player, 0x243F_6A88_85A3_08D3);
+        let high = self.own_hash(player, 0x1319_8A2E_0370_7344);
+        (high as u128) << 64 | low as u128
+    }
+
     /// Everything of `player`'s that decides how the rest of their turn and the
     /// game can go, from the abilities waiting to resolve on. Cards are counted
     /// by type, since two copies of a card are interchangeable, and so are the

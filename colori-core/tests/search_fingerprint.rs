@@ -32,6 +32,7 @@ use colori_core::ismcts::MctsConfig;
 use colori_core::mcts_impl::{ColoriSearcher, SearchGraph, SearchNode, StopReason};
 use colori_core::scoring::HeuristicParams;
 use colori_core::types::{GamePhase, GameState};
+use mcts::StopReason as SearchStop;
 use rand::{RngExt, SeedableRng};
 use wyrand::WyRand;
 
@@ -137,8 +138,17 @@ fn describe_graph(out: &mut String, graph: &SearchGraph) {
     }
 }
 
+/// The search's own reason for stopping. No position here is far enough on to
+/// be the game's last turn, which is solved rather than searched.
+fn searched(stop_reason: StopReason) -> SearchStop {
+    match stop_reason {
+        StopReason::Search(reason) => reason,
+        StopReason::Solved => panic!("a fingerprint position is the game's last turn"),
+    }
+}
+
 /// Write the tree of a tree search, or the graph of a transposition search.
-fn describe(out: &mut String, searcher: &ColoriSearcher, stop_reason: StopReason) {
+fn describe(out: &mut String, searcher: &ColoriSearcher, stop_reason: SearchStop) {
     match (searcher.tree(), searcher.graph()) {
         (Some(tree), _) => describe_tree(out, tree),
         (None, Some(graph)) => describe_graph(out, graph),
@@ -148,7 +158,7 @@ fn describe(out: &mut String, searcher: &ColoriSearcher, stop_reason: StopReason
         (None, None) => {
             assert_eq!(
                 stop_reason,
-                StopReason::SingleChoice,
+                SearchStop::SingleChoice,
                 "a search that ran leaves a tree or a graph"
             );
             let _ = writeln!(out, "  no search: one legal choice");
@@ -207,9 +217,12 @@ fn fingerprint_reuse(
         let _ = writeln!(
             out,
             "  chose {:?} used={} reused={} stop={:?}",
-            outcome.choice, outcome.iterations_used, outcome.reused_iterations, outcome.stop_reason
+            outcome.choice,
+            outcome.iterations_used,
+            outcome.reused_iterations,
+            searched(outcome.stop_reason)
         );
-        describe(out, &searcher, outcome.stop_reason);
+        describe(out, &searcher, searched(outcome.stop_reason));
 
         let choice = outcome.choice.clone();
         apply_choice_to_state(&mut state, player, &choice, &mut rng);
@@ -278,9 +291,9 @@ fn generate(transpositions: bool) -> String {
                             outcome.choice,
                             outcome.iterations_used,
                             outcome.reused_iterations,
-                            outcome.stop_reason
+                            searched(outcome.stop_reason)
                         );
-                        describe(&mut out, &searcher, outcome.stop_reason);
+                        describe(&mut out, &searcher, searched(outcome.stop_reason));
                     }
                 }
             }
