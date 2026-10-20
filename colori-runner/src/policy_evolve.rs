@@ -165,7 +165,7 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
         "policy-evolve needs at least one frozen opponent to measure against"
     );
     let ladder: Vec<&CompiledPolicy> = ladder_policies.iter().collect();
-    let mut rules = rules_of(&current);
+    let mut rules = rules_of(&current, args.tune);
 
     assert!(
         !rules.tunables.is_empty(),
@@ -302,7 +302,7 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
             for attempt in 0..args.mutations {
                 let mut mutant = seed_genome.clone();
                 let change = mutate_compositions(&mut mutant.interactions, &mut sampler, &pool);
-                let mutant_rules = rules_of(&mutant);
+                let mutant_rules = rules_of(&mutant, args.tune);
                 let mutant_weights = mutant_rules.started_at.clone();
                 let policy = build(&mutant, &mutant_rules, &mutant_weights, &params);
                 let outcome = evaluate(
@@ -332,7 +332,7 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
             compositions = mutant.interactions.iter().map(|gene| gene.label()).collect();
             mean = mutant_weights.clone();
             current = mutant.clone();
-            rules = rules_of(&current);
+            rules = rules_of(&current, args.tune);
             sigma = rules
                 .started_at
                 .iter()
@@ -417,14 +417,18 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
     eprintln!("Best genome written to {path}");
 }
 
-fn rules_of(template: &PolicyGenome) -> Rules {
+fn rules_of(template: &PolicyGenome, scope: crate::cli::TuneScope) -> Rules {
     let mut names: Vec<Tunable> = Vec::new();
     let mut shapes = Vec::new();
     let mut started_at = Vec::new();
+    let values_only = scope == crate::cli::TuneScope::Values;
     // Walk the feature tables rather than the genome's map so that the search's
     // vector order is the same in every run of the same template. Choice rules
     // first, then the value rules a planned decision scores its leaves with.
     for def in features() {
+        if values_only {
+            break;
+        }
         let Some(gene) = template.features.get(def.name) else {
             continue;
         };
@@ -448,6 +452,9 @@ fn rules_of(template: &PolicyGenome) -> Rules {
     }
     // Then each regime's own weights, in gate order then table order.
     for gate in Gate::ALL {
+        if values_only {
+            break;
+        }
         let Some(rules) = template.regimes.get(gate.name()) else {
             continue;
         };
@@ -461,6 +468,9 @@ fn rules_of(template: &PolicyGenome) -> Rules {
         }
     }
     for (index, gene) in template.interactions.iter().enumerate() {
+        if values_only {
+            break;
+        }
         names.push(Tunable::composed(index, gene.label()));
         shapes.push(gene.shape);
         started_at.push(gene.weight);

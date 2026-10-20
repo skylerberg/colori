@@ -459,6 +459,14 @@ const STARTER_WEIGHTS: &[(&str, f64)] = &[
     ("value_boats", 0.05),
     ("value_engine", 0.05),
     ("value_hand", 0.0),
+    ("value_pending_ability", 0.20),
+    ("value_actions_left", 0.05),
+    ("value_shortfall", 0.05),
+    ("value_options", 0.05),
+    ("value_standing", 0.10),
+    ("value_engine_cycle", 0.05),
+    ("value_slots_full", 0.05),
+    ("value_kept_storage", 0.10),
     ("value_drafted", 0.0),
 ];
 

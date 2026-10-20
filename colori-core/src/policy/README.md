@@ -105,6 +105,14 @@ choose the buyer" become visible. It is bounded, deterministic and cheap, and it
 composes with the tuned one-ply score rather than replacing it, so bad value
 weights cost nothing.
 
+What a planned decision is worth depends almost entirely on the leaf. With a
+hand-set value function, planning added +0.05 — indistinguishable from nothing,
+because the leaf could not see an ability about to resolve and read a sale about
+to happen as a card already spent. `value_pending_ability` fixed that, and a
+search that tunes the value function *on its own* (`--tune values`, twenty
+numbers instead of a hundred and sixty) took planning to **+0.30**. Depth pays
+once the leaf is honest: depth 1 +0.15, depth 2 +0.26, depth 3 +0.30.
+
 | Loop | Question | Method | Cost |
 | --- | --- | --- | --- |
 | Inner | how much should this rule matter? | cross-entropy method over weights | millions of games |

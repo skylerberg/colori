@@ -85,6 +85,14 @@ pub struct Ctx<'a> {
     /// Total colour and material units held, wanted or not.
     pub total_colors: u32,
     pub total_materials: u32,
+    /// The ability waiting to resolve, if the turn is mid-resolution. A position
+    /// is not the same as the position after its stack empties, and a leaf that
+    /// cannot see this reads a sale about to happen as a card already spent.
+    pub pending_ability: Option<Ability>,
+    /// Half-points above or below the best other seat.
+    pub standing: i32,
+    /// Cards in the personal deck, which sets how long a cycle takes.
+    pub deck_size: u32,
     /// Distinct colours the player is holding.
     pub distinct_colors: u32,
     /// Cards in the draft pool, i.e. the ones this turn could still trash.
@@ -219,6 +227,27 @@ impl<'a> Ctx<'a> {
             })
             .fold(0.0f64, f64::max);
 
+        let pending_ability = match &state.phase {
+            GamePhase::Action { action_state } => {
+                let turn = &action_state.turns[player_index];
+                if turn.ended {
+                    None
+                } else {
+                    turn.ability_stack.last().copied()
+                }
+            }
+            _ => None,
+        };
+        let my_points = crate::scoring::score_in_half_points(player) as i32;
+        let best_other = state
+            .players
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| *index != player_index)
+            .map(|(_, other)| crate::scoring::score_in_half_points(other) as i32)
+            .max()
+            .unwrap_or(0);
+
         let slots = (state.round.max(1) as usize).min(MAX_BUYERS) as u32;
         let purchasable = ALL_DUCAT_PURCHASES
             .iter()
@@ -258,6 +287,9 @@ impl<'a> Ctx<'a> {
             workshop_storage,
             total_colors: player.color_wheel.counts.iter().map(|&c| c as u32).sum(),
             total_materials: player.materials.counts.iter().sum(),
+            pending_ability,
+            standing: my_points - best_other,
+            deck_size: player.deck.len(),
             distinct_colors,
             drafted,
             owned_cards: deck_cards

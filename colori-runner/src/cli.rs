@@ -276,6 +276,16 @@ pub struct PolicyPlayArgs {
     pub lookahead_width: usize,
 }
 
+/// Which numbers a tuning run may move.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum TuneScope {
+    /// The choice rules, their regime weights, and the composed readings.
+    All,
+    /// Only the value function. Useful with `--lookahead`, where the leaves are
+    /// what the search is actually judging.
+    Values,
+}
+
 #[derive(Parser)]
 pub struct PolicyEvolveArgs {
     /// Genome whose rules are tuned: `starter` or a path to a JSON file
@@ -343,6 +353,11 @@ pub struct PolicyEvolveArgs {
     /// Composed readings to mutate per generation. 0 tunes weights only.
     #[arg(long, default_value_t = 4)]
     pub mutations: usize,
+
+    /// What to search: everything, or only the value function a planned
+    /// decision scores its leaves with.
+    #[arg(long, value_enum, default_value_t = TuneScope::All)]
+    pub tune: TuneScope,
 
     /// Decisions deep to look ahead inside a turn
     #[arg(long, default_value_t = 0)]
