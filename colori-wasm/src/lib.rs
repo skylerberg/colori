@@ -3,7 +3,7 @@ use colori_core::draft_phase::{advance_draft, simultaneous_pick};
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::game_log::{DrawEvent, DrawLog};
 use colori_core::ismcts::{MctsConfig};
-use colori_core::mcts_impl::{search_refusal, ColoriSearcher};
+use colori_core::mcts_impl::{search_refusal, TurnSearcher};
 use colori_core::scoring::{calculate_whole_points, score_in_half_points, HeuristicParams};
 use colori_core::setup::create_initial_game_state;
 use colori_core::types::{Card, Choice, GameState, PlayerState};
@@ -66,36 +66,61 @@ fn serialize_state(state: &GameState) -> String {
     serde_json::to_string(state).expect("Failed to serialize game state")
 }
 
+/// One seat's AI, kept for its worker's lifetime so that each decision of a
+/// turn inherits the search tree of the one before.
 #[wasm_bindgen]
-pub fn wasm_run_ismcts(
-    game_state_json: &str,
-    player_index: u32,
-    iterations: u32,
-    ai_settings_json: &str,
-) -> Result<String, JsError> {
-    let ai_settings: AiSettings = serde_json::from_str(ai_settings_json)
-        .map_err(|e| JsError::new(&format!("invalid AI settings: {e}")))?;
-    let game_state = deserialize_state(game_state_json);
-    let player_index = player_index as usize;
-    if let Some(refusal) = search_refusal(&game_state, player_index) {
-        return Err(JsError::new(&format!("cannot run the AI here: {refusal}")));
+pub struct AiSearcher {
+    searcher: Option<TurnSearcher>,
+    reused_iterations: u32,
+}
+
+#[wasm_bindgen]
+impl AiSearcher {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> AiSearcher {
+        AiSearcher {
+            searcher: None,
+            reused_iterations: 0,
+        }
     }
 
-    let max_rollout_round = std::cmp::max(8, game_state.round + 2);
+    pub fn search(
+        &mut self,
+        game_state_json: &str,
+        player_index: u32,
+        iterations: u32,
+        ai_settings_json: &str,
+    ) -> Result<String, JsError> {
+        let ai_settings: AiSettings = serde_json::from_str(ai_settings_json)
+            .map_err(|e| JsError::new(&format!("invalid AI settings: {e}")))?;
+        let game_state = deserialize_state(game_state_json);
+        let player_index = player_index as usize;
+        if let Some(refusal) = search_refusal(&game_state, player_index) {
+            return Err(JsError::new(&format!("cannot run the AI here: {refusal}")));
+        }
 
-    let mut rng = WyRand::from_rng(&mut rand::rng());
+        let max_rollout_round = std::cmp::max(8, game_state.round + 2);
+        let mut rng = WyRand::from_rng(&mut rand::rng());
+        let config = ai_settings.mcts_config(iterations);
+        let searcher = self
+            .searcher
+            .get_or_insert_with(|| TurnSearcher::new(&game_state));
+        let result = searcher.search(
+            &game_state,
+            player_index,
+            &config,
+            Some(max_rollout_round),
+            &mut rng,
+        );
+        self.reused_iterations = result.reused_iterations;
 
-    let config = ai_settings.mcts_config(iterations);
-    let mut searcher = ColoriSearcher::new(&game_state);
-    let result = searcher.search(
-        &game_state,
-        player_index,
-        &config,
-        Some(max_rollout_round),
-        &mut rng,
-    );
+        Ok(serde_json::to_string(&result.choice).expect("Failed to serialize choice"))
+    }
 
-    Ok(serde_json::to_string(&result.choice).expect("Failed to serialize choice"))
+    /// Iterations the last search inherited from the one before it.
+    pub fn reused_iterations(&self) -> u32 {
+        self.reused_iterations
+    }
 }
 
 #[wasm_bindgen]

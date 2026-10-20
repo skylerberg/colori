@@ -683,7 +683,7 @@ pub struct SellCardInstance {
 
 /// Color wheel represented as counts for each of 12 colors.
 /// Serialized as a Record<Color, number> in JSON.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ColorWheel {
     /// A byte a color: half the width of a mix outcome's key, and of the
     /// copies the mix search makes.
@@ -748,7 +748,7 @@ impl<'de> Deserialize<'de> for ColorWheel {
 
 /// Materials stored as counts for each of 3 material types.
 /// Serialized as Record<MaterialType, number> in JSON.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Materials {
     pub counts: [u32; 3],
 }
@@ -802,7 +802,7 @@ impl<'de> Deserialize<'de> for Materials {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerState {
     pub deck: Deck,
@@ -832,7 +832,7 @@ pub struct PlayerState {
     pub cached_whole_points: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DraftState {
     pub pick_number: u32,
@@ -877,13 +877,13 @@ fn deserialize_hands<'de, D: serde::Deserializer<'de>>(
     Ok(hands)
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BuyersState {
     pub current_player_index: usize,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerTurn {
     pub ability_stack: AbilityStack,
@@ -892,7 +892,7 @@ pub struct PlayerTurn {
 
 /// Everyone takes their action turn at the same time, so each seat has its own
 /// abilities waiting to resolve and ends its own turn.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActionState {
     pub turns: FixedVec<PlayerTurn, MAX_PLAYERS>,
@@ -906,7 +906,7 @@ impl ActionState {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum GamePhase {
     #[serde(rename = "draw")]
@@ -952,6 +952,39 @@ pub struct GameState {
     pub draw_log: Option<DrawLog>,
     #[serde(skip)]
     pub force_max_workshop: bool,
+}
+
+/// Equal when they are the same position. The draw log and the search's
+/// pruning flag travel with a state without being part of it.
+impl PartialEq for GameState {
+    fn eq(&self, other: &Self) -> bool {
+        let GameState {
+            players,
+            draft_deck,
+            trash,
+            sell_card_deck,
+            sell_card_display,
+            phase,
+            round,
+            max_rounds,
+            ai_players,
+            card_lookup,
+            sell_card_lookup,
+            draw_log: _,
+            force_max_workshop: _,
+        } = self;
+        *players == other.players
+            && *draft_deck == other.draft_deck
+            && *trash == other.trash
+            && *sell_card_deck == other.sell_card_deck
+            && *sell_card_display == other.sell_card_display
+            && *phase == other.phase
+            && *round == other.round
+            && *max_rounds == other.max_rounds
+            && *ai_players == other.ai_players
+            && *card_lookup == other.card_lookup
+            && *sell_card_lookup == other.sell_card_lookup
+    }
 }
 
 fn default_max_rounds() -> u32 {
