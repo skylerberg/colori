@@ -231,11 +231,19 @@ fn play(
 
 /// Play `seeds.len()` games, spreading them over `threads`.
 ///
-/// With `challenger` the candidate takes one seat, rotating over the games, and
-/// the challenger takes the rest; without one, every seat is the candidate.
+/// The candidate takes one seat, rotating over the games so a favourable seat
+/// position averages out. Every other seat is filled from the frozen ladder:
+/// with one rung that is a straight match, with several the candidate faces a
+/// varied table while the ladder itself never moves. Without a ladder every
+/// seat is the candidate.
+///
+/// Which rung sits where is decided by the game's index, not sampled, so every
+/// candidate measured on the same seed range faces exactly the same tables. A
+/// random draw would put a candidate's fitness at the mercy of whose turn it was
+/// to face the strong rung.
 pub fn play_batch(
     candidate: &CompiledPolicy,
-    challenger: Option<&CompiledPolicy>,
+    ladder: Option<&[&CompiledPolicy]>,
     players: usize,
     seeds: &[u64],
     threads: usize,
@@ -259,13 +267,8 @@ pub fn play_batch(
                     .iter()
                     .enumerate()
                     .map(|(offset, &seed)| {
-                        let candidate_seat = (start + offset) % players;
-                        let seats: Vec<&CompiledPolicy> = (0..players)
-                            .map(|seat| match challenger {
-                                Some(challenger) if seat != candidate_seat => challenger,
-                                _ => candidate,
-                            })
-                            .collect();
+                        let game_index = start + offset;
+                        let seats = seat_table(candidate, ladder, players, game_index);
                         play_game(&seats, seed, record)
                     })
                     .collect::<Vec<_>>()
@@ -280,23 +283,78 @@ pub fn play_batch(
     collected
 }
 
-/// The score the candidate took in each game of a batch.
-///
-/// In a match the candidate is one seat, so its score is that seat's; in a
-/// mirror match it is every seat, averaged.
-pub fn candidate_scores(outcomes: &[GameOutcome], players: usize, mirrored: bool) -> Vec<f64> {
-    outcomes
-        .iter()
-        .enumerate()
-        .map(|(game, outcome)| {
-            if mirrored {
-                let total: f64 = outcome.seats.iter().map(|seat| seat.score).sum();
-                total / players as f64
-            } else {
-                outcome.seats[game % players].score
+/// Who sits where in game `game_index`.
+pub fn seat_table<'a>(
+    candidate: &'a CompiledPolicy,
+    ladder: Option<&[&'a CompiledPolicy]>,
+    players: usize,
+    game_index: usize,
+) -> Vec<&'a CompiledPolicy> {
+    let candidate_seat = game_index % players;
+    let mut rung = 0usize;
+    (0..players)
+        .map(|seat| {
+            if seat == candidate_seat {
+                return candidate;
+            }
+            match ladder {
+                Some(ladder) if !ladder.is_empty() => {
+                    let pick = ladder[(game_index + rung) % ladder.len()];
+                    rung += 1;
+                    pick
+                }
+                _ => candidate,
             }
         })
         .collect()
+}
+
+/// What a batch says about the candidate: its own score, and how it compared
+/// with the table it was dealt.
+///
+/// [`Batch::deltas`] is the statistic worth trusting in a search. Two games with
+/// the same seed still diverge, so a game's absolute total carries a lot of the
+/// table's luck; the candidate's score minus the other seats' mean strips that
+/// luck out, because it is measured within the same game. The absolute score
+/// stays the yardstick — it is what "thirty points" means.
+pub struct Batch {
+    pub scores: Vec<f64>,
+    pub deltas: Vec<f64>,
+    pub opponent_means: Vec<f64>,
+}
+
+impl Batch {
+    pub fn of(outcomes: &[GameOutcome], players: usize, mirrored: bool) -> Self {
+        let mut batch = Batch {
+            scores: Vec::with_capacity(outcomes.len()),
+            deltas: Vec::with_capacity(outcomes.len()),
+            opponent_means: Vec::with_capacity(outcomes.len()),
+        };
+        for (game, outcome) in outcomes.iter().enumerate() {
+            let seat = game % players;
+            if mirrored || players < 2 {
+                let total: f64 = outcome.seats.iter().map(|other| other.score).sum();
+                let mean = total / outcome.seats.len().max(1) as f64;
+                batch.scores.push(mean);
+                batch.opponent_means.push(mean);
+                batch.deltas.push(0.0);
+                continue;
+            }
+            let score = outcome.seats[seat].score;
+            let others: f64 = outcome
+                .seats
+                .iter()
+                .enumerate()
+                .filter(|(index, _)| *index != seat)
+                .map(|(_, other)| other.score)
+                .sum::<f64>()
+                / (outcome.seats.len() - 1) as f64;
+            batch.scores.push(score);
+            batch.opponent_means.push(others);
+            batch.deltas.push(score - others);
+        }
+        batch
+    }
 }
 
 // ── Summarising ──
@@ -311,6 +369,13 @@ pub struct ScoreSummary {
     /// Standard error of the mean: how much of the mean is noise. A difference
     /// between two genomes that is smaller than this is not a difference.
     pub std_error: f64,
+    /// The candidate's score minus the rest of the table's, averaged over
+    /// games. Measured within each game, so much of the table's luck cancels;
+    /// this is the number a search should compare.
+    pub mean_delta: f64,
+    pub std_error_delta: f64,
+    /// What the other seats scored, so a table's strength is visible.
+    pub mean_opponents: f64,
     pub min: f64,
     pub p10: f64,
     pub p25: f64,
@@ -330,6 +395,14 @@ pub struct ScoreSummary {
     pub mean_decisions: f64,
 }
 
+fn mean_of(values: &[f64]) -> f64 {
+    if values.is_empty() {
+        0.0
+    } else {
+        values.iter().sum::<f64>() / values.len() as f64
+    }
+}
+
 fn quantile(sorted: &[f64], fraction: f64) -> f64 {
     if sorted.is_empty() {
         return 0.0;
@@ -339,7 +412,13 @@ fn quantile(sorted: &[f64], fraction: f64) -> f64 {
 }
 
 impl ScoreSummary {
-    pub fn summarize(scores: &[f64], outcomes: &[GameOutcome], seat_of: impl Fn(usize) -> usize) -> Self {
+    pub fn summarize(
+        batch: &Batch,
+        outcomes: &[GameOutcome],
+        players: usize,
+        mirrored: bool,
+    ) -> Self {
+        let scores = &batch.scores;
         let mut sorted = scores.to_vec();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         let games = sorted.len().max(1);
@@ -350,11 +429,29 @@ impl ScoreSummary {
             0.0
         };
         let std_dev = variance.sqrt();
+        let delta_mean = mean_of(&batch.deltas);
+        let delta_variance = if games > 1 {
+            batch
+                .deltas
+                .iter()
+                .map(|delta| (delta - delta_mean).powi(2))
+                .sum::<f64>()
+                / (games - 1) as f64
+        } else {
+            0.0
+        };
 
         let seats: Vec<&SeatOutcome> = outcomes
             .iter()
             .enumerate()
-            .map(|(game, outcome)| &outcome.seats[seat_of(game)])
+            .map(|(game, outcome)| {
+                let seat = if mirrored || players < 2 {
+                    0
+                } else {
+                    game % players
+                };
+                &outcome.seats[seat]
+            })
             .collect();
         let seat_mean = |f: fn(&SeatOutcome) -> f64| -> f64 {
             if seats.is_empty() {
@@ -370,6 +467,9 @@ impl ScoreSummary {
         ScoreSummary {
             games,
             mean,
+            mean_delta: delta_mean,
+            std_error_delta: delta_variance.sqrt() / (games as f64).sqrt(),
+            mean_opponents: mean_of(&batch.opponent_means),
             median: quantile(&sorted, 0.5),
             std_dev,
             std_error: std_dev / (games as f64).sqrt(),
@@ -398,10 +498,13 @@ impl std::fmt::Display for ScoreSummary {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "mean {:.2} ± {:.2} (se)  median {:.1}  p10 {:.1}  p90 {:.1}  range {:.1}–{:.1}  \
-             ≥30 {:.0}%  ≥35 {:.0}%  ≥40 {:.0}%",
+            "mean {:.2} ± {:.2} (se)  vs table {:+.2} ± {:.2}  (table {:.2})  median {:.1}  \
+             p10 {:.1}  p90 {:.1}  range {:.1}–{:.1}  ≥30 {:.0}%  ≥35 {:.0}%  ≥40 {:.0}%",
             self.mean,
             self.std_error,
+            self.mean_delta,
+            self.std_error_delta,
+            self.mean_opponents,
             self.median,
             self.p10,
             self.p90,
@@ -482,6 +585,17 @@ pub fn load_params(path: Option<&str>) -> HeuristicParams {
     }
 }
 
+/// Compile a frozen ladder from genome specs, in order.
+///
+/// `none`, or an empty list, is no ladder: the candidate plays every seat.
+pub fn compile_ladder(specs: &[String], params: &HeuristicParams) -> Vec<CompiledPolicy> {
+    specs
+        .iter()
+        .filter(|spec| spec.as_str() != "none")
+        .map(|spec| compile(&load_genome(spec), params, &format!("ladder genome {spec}")))
+        .collect()
+}
+
 pub fn compile(genome: &PolicyGenome, params: &HeuristicParams, what: &str) -> CompiledPolicy {
     CompiledPolicy::from_genome(genome, params)
         .unwrap_or_else(|error| panic!("{what} will not compile: {error}"))
@@ -493,7 +607,7 @@ pub fn compile(genome: &PolicyGenome, params: &HeuristicParams, what: &str) -> C
 #[serde(rename_all = "camelCase")]
 struct PlayReport {
     candidate: String,
-    challenger: Option<String>,
+    anchors: Vec<String>,
     players: usize,
     seed_base: u64,
     summary: ScoreSummary,
@@ -505,10 +619,9 @@ pub fn run_policy_play(args: &PolicyPlayArgs, threads: usize, output: &str) {
     let params = load_params(args.heuristic_params_file.as_deref());
     let candidate_genome = load_genome(&args.genome);
     let candidate = compile(&candidate_genome, &params, "the candidate genome");
-    let challenger = args
-        .challenger
-        .as_deref()
-        .map(|spec| compile(&load_genome(spec), &params, "the challenger genome"));
+    let ladder_policies = compile_ladder(&args.anchors, &params);
+    let ladder: Vec<&CompiledPolicy> = ladder_policies.iter().collect();
+    let mirrored = ladder.is_empty();
 
     let seeds: Vec<u64> = (0..args.games).map(|i| args.seed_base + i as u64).collect();
     eprintln!(
@@ -517,16 +630,17 @@ pub fn run_policy_play(args: &PolicyPlayArgs, threads: usize, output: &str) {
         args.players,
         candidate.terms().len(),
         threads,
-        match &challenger {
-            Some(_) => "candidate on one seat against the challenger",
-            None => "mirror match",
+        if mirrored {
+            "mirror match".to_string()
+        } else {
+            format!("candidate on one seat against {}", args.anchors.join(", "))
         }
     );
 
     let started = std::time::Instant::now();
     let outcomes = play_batch(
         &candidate,
-        challenger.as_ref(),
+        if mirrored { None } else { Some(&ladder) },
         args.players,
         &seeds,
         threads,
@@ -534,16 +648,8 @@ pub fn run_policy_play(args: &PolicyPlayArgs, threads: usize, output: &str) {
     );
     let elapsed = started.elapsed();
 
-    let mirrored = challenger.is_none();
-    let scores = candidate_scores(&outcomes, args.players, mirrored);
-    let seat_of = |game: usize| {
-        if mirrored {
-            0
-        } else {
-            game % args.players
-        }
-    };
-    let summary = ScoreSummary::summarize(&scores, &outcomes, seat_of);
+    let batch = Batch::of(&outcomes, args.players, mirrored);
+    let summary = ScoreSummary::summarize(&batch, &outcomes, args.players, mirrored);
 
     let mut seat_means = vec![0.0; args.players];
     for outcome in &outcomes {
@@ -603,13 +709,19 @@ pub fn run_policy_play(args: &PolicyPlayArgs, threads: usize, output: &str) {
     }
 
     if let Some(seed) = args.trace_seed {
-        write_trace(&candidate, challenger.as_ref(), args, threads, seed, output);
+        write_trace(
+            &candidate,
+            if mirrored { None } else { Some(&ladder) },
+            args,
+            seed,
+            output,
+        );
     }
 
     std::fs::create_dir_all(output).expect("failed to create the output directory");
     let report = PlayReport {
         candidate: args.genome.clone(),
-        challenger: args.challenger.clone(),
+        anchors: args.anchors.clone(),
         players: args.players,
         seed_base: args.seed_base,
         summary,
@@ -685,19 +797,13 @@ pub fn activity_of(
 
 fn write_trace(
     candidate: &CompiledPolicy,
-    challenger: Option<&CompiledPolicy>,
+    ladder: Option<&[&CompiledPolicy]>,
     args: &PolicyPlayArgs,
-    _threads: usize,
     seed: u64,
     output: &str,
 ) {
-    let candidate_seat = seed.saturating_sub(args.seed_base) as usize % args.players;
-    let seats: Vec<&CompiledPolicy> = (0..args.players)
-        .map(|seat| match challenger {
-            Some(challenger) if seat != candidate_seat => challenger,
-            _ => candidate,
-        })
-        .collect();
+    let game_index = seed.saturating_sub(args.seed_base) as usize;
+    let seats = seat_table(candidate, ladder, args.players, game_index);
     let outcome = play_game(&seats, seed, true);
 
     std::fs::create_dir_all(output).expect("failed to create the output directory");
@@ -849,16 +955,19 @@ mod tests {
     #[test]
     fn a_batch_plays_every_seed_once_and_returns_them_in_order() {
         let candidate = starter();
-        // The challenger is the same rules, so only the bookkeeping is under
+        // The only rung is the same rules, so only the bookkeeping is under
         // test here.
         let seeds: Vec<u64> = (0..8).collect();
-        let outcomes = play_batch(&candidate, Some(&candidate), 4, &seeds, 3, false);
+        let ladder: [&CompiledPolicy; 1] = [&candidate];
+        let outcomes = play_batch(&candidate, Some(&ladder), 4, &seeds, 3, false);
         assert_eq!(outcomes.len(), seeds.len());
         assert_eq!(
             outcomes.iter().map(|outcome| outcome.seed).collect::<Vec<_>>(),
             seeds,
             "seeds must come back in the order they were asked for"
         );
-        assert_eq!(candidate_scores(&outcomes, 4, false).len(), seeds.len());
+        let batch = Batch::of(&outcomes, 4, false);
+        assert_eq!(batch.scores.len(), seeds.len());
+        assert_eq!(batch.deltas.len(), seeds.len());
     }
 }

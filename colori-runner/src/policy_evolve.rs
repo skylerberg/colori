@@ -22,7 +22,8 @@
 //! - The generation's mean genome is evaluated alongside its samples, so two
 //!   generations' numbers are comparable instead of being measured against
 //!   moving targets.
-//! - The anchor is measured once against itself. Nothing below that is progress.
+//! - The ladder's own first rung is measured exactly like a candidate. Nothing
+//!   below that is progress.
 //! - Every gene's contribution is measured, so a rule that never fires shows up
 //!   rather than quietly absorbing a weight.
 //! - A holdout seed range, never tuned against, is re-measured each generation.
@@ -86,8 +87,8 @@ struct GenerationReport {
     mean_genome: GeneRow,
     best_in_generation: GeneRow,
     best_ever: GeneRow,
-    /// The anchor's own score, one seat against three of itself. Nothing below
-    /// it is progress.
+    /// The ladder's first rung, measured on the candidate's seat against the
+    /// rest of the ladder. Nothing below it is progress.
     baseline: ScoreSummary,
     /// The best-ever genome on seeds it was never tuned against.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -108,8 +109,12 @@ struct Rules {
 pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &str) {
     let params = policy_play::load_params(args.heuristic_params_file.as_deref());
     let template = policy_play::load_genome(&args.template);
-    let anchor_genome = policy_play::load_genome(&args.anchor);
-    let anchor = policy_play::compile(&anchor_genome, &params, "the anchor genome");
+    let ladder_policies = policy_play::compile_ladder(&args.anchors, &params);
+    assert!(
+        !ladder_policies.is_empty(),
+        "policy-evolve needs at least one frozen opponent to measure against"
+    );
+    let ladder: Vec<&CompiledPolicy> = ladder_policies.iter().collect();
     let rules = rules_of(&template);
 
     assert!(
@@ -139,11 +144,16 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
         args.players,
         threads
     );
-    eprintln!("Anchor: {}", args.anchor);
+    eprintln!("Frozen opponents: {}", args.anchors.join(", "));
     eprintln!("Rules under the search: {}", rules.names.join(", "));
 
-    let baseline = evaluate(&anchor, &anchor, args, &train_seeds, threads, "anchor");
-    eprintln!("Baseline (anchor against itself, one seat): {}", baseline.summary);
+    // The ladder's own first rung, measured exactly like a candidate: one seat
+    // against the rest of the ladder. Nothing below it is progress, and because
+    // it goes through the same seating and the same seeds, the comparison is
+    // like for like.
+    let baseline_rung = &ladder_policies[0];
+    let baseline = evaluate(&baseline_rung, &ladder, args, &train_seeds, threads, "baseline");
+    eprintln!("Baseline (the ladder's first rung, measured like a candidate): {}", baseline.summary);
 
     std::fs::create_dir_all(output).expect("failed to create the output directory");
 
@@ -156,7 +166,7 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
 
         // Candidate zero is the mean itself.
         let mean_policy = build(&template, &rules, &mean, &params);
-        let mut mean_candidate = evaluate(&mean_policy, &anchor, args, &train_seeds, threads, "mean");
+        let mut mean_candidate = evaluate(&mean_policy, &ladder, args, &train_seeds, threads, "mean");
         mean_candidate.weights = mean.clone();
         candidates.push(mean_candidate);
 
@@ -171,7 +181,7 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
             let policy = build(&template, &rules, &weights, &params);
             let mut candidate = evaluate(
                 &policy,
-                &anchor,
+                &ladder,
                 args,
                 &train_seeds,
                 threads,
@@ -215,7 +225,7 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
             None
         } else {
             Some(
-                evaluate(&best_policy, &anchor, args, &holdout_seeds, threads, "holdout").summary,
+                evaluate(&best_policy, &ladder, args, &holdout_seeds, threads, "holdout").summary,
             )
         };
 
@@ -350,18 +360,18 @@ fn build(
     })
 }
 
-/// Play one seat against the anchor and summarise the scores.
+/// Play one seat against the frozen ladder and summarise the scores.
 fn evaluate(
     policy: &CompiledPolicy,
-    anchor: &CompiledPolicy,
+    ladder: &[&CompiledPolicy],
     args: &PolicyEvolveArgs,
     seeds: &[u64],
     threads: usize,
     label: &str,
 ) -> Candidate {
-    let outcomes = policy_play::play_batch(policy, Some(anchor), args.players, seeds, threads, false);
-    let scores = policy_play::candidate_scores(&outcomes, args.players, false);
-    let summary = ScoreSummary::summarize(&scores, &outcomes, |game| game % args.players);
+    let outcomes = policy_play::play_batch(policy, Some(ladder), args.players, seeds, threads, false);
+    let batch = policy_play::Batch::of(&outcomes, args.players, false);
+    let summary = ScoreSummary::summarize(&batch, &outcomes, args.players, false);
     Candidate {
         label: label.to_string(),
         weights: Vec::new(),

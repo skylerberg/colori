@@ -78,14 +78,39 @@ where the LLM earns its place — under one constraint, below.
 This is the part that decides whether any of it works.
 
 **The yardstick.** A candidate is measured on one seat of a four-player table
-whose other three seats are a **frozen anchor** genome. That gives a number that
-means the same thing in every generation and every A/B test. Measuring a
-candidate against copies of itself, or against a pool the search can also
-overfit, produces a bot that is champion of its own harness and mediocre
+whose other three seats are filled from a **frozen ladder** of genomes. That
+gives a number that means the same thing in every generation and every A/B test.
+Measuring a candidate against copies of itself, or against a pool the search can
+also overfit, produces a bot that is champion of its own harness and mediocre
 elsewhere.
+
+Which rung sits where is decided by the game's index rather than sampled, so
+every candidate measured on the same seed range faces exactly the same tables.
+A random draw would leave a candidate's fitness at the mercy of whose turn it was
+to face the strong rung.
 
 The candidate's seat rotates over the games, so a favourable seat position
 averages out instead of accumulating.
+
+**Two numbers, one batch.** The report gives the candidate's **absolute score**
+(what "thirty points" means) and its **delta against the rest of the table in
+the same game**. The delta strips out the table's luck, because it is measured
+within a game rather than across games, so it is the number a search should
+compare. The absolute score stays the yardstick.
+
+**Why not a round-robin instead.** Playing candidates against each other measures
+more genomes per game — but a game costs about a millisecond, so throughput is
+not the constraint; comparability is. Worse, these bots are deterministic, so a
+population of them has no equilibrium to converge to: any exploit found against a
+deterministic opponent is real, which is exactly what makes a fitness defined
+relative to the current cohort cycle rather than climb. The ladder is what stops
+that: it never moves, so the target does not.
+
+The ladder is also where coevolution happens, deliberately: freeze the champion
+into it when it beats every existing rung, and the class of opponents grows over
+time while the expected fitness stays put. A `policy-arena` round-robin over the
+champion and its predecessors is the right instrument for *checking* that
+ranking, and for spotting cycles — not for fitness.
 
 **The score, not the win rate.** Thirty is a good score, thirty-five a great
 one, forty is above a human. The report gives the mean with its standard error,
@@ -134,8 +159,8 @@ how a confident, wrong rule gets adopted.
 
    ```sh
    cargo run --release -p colori-runner -- policy-play \
-     --genome policy-runs/best-genome.json \
-     --challenger candidate-genome.json \
+     --genome candidate-genome.json \
+     --anchors policy-runs/best-genome.json \
      --games 2000 --seed-base 500000
    ```
 

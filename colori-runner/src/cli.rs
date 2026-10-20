@@ -233,9 +233,14 @@ pub struct PolicyPlayArgs {
     #[arg(long, default_value = "starter")]
     pub genome: String,
 
-    /// Play this genome on one seat against `--genome` instead of a mirror match
-    #[arg(long)]
-    pub challenger: Option<String>,
+    /// Frozen opponents for the other seats, comma separated: a path to a
+    /// genome file, or `none` for a mirror match every seat the candidate.
+    ///
+    /// With one rung the candidate plays a straight match. With several the
+    /// table varies while the ladder itself never moves, so a candidate's
+    /// score still means the same thing across runs.
+    #[arg(long, value_delimiter = ',', default_value = "starter")]
+    pub anchors: Vec<String>,
 
     /// Heuristic params file the card-quality rules read. Defaults to the
     /// baked-in batch-alobyo-gen-41.
@@ -267,9 +272,11 @@ pub struct PolicyEvolveArgs {
     #[arg(long, default_value = "starter")]
     pub template: String,
 
-    /// Genome every candidate is measured against, on all but one seat
-    #[arg(long, default_value = "starter")]
-    pub anchor: String,
+    /// Frozen opponents for the seats the candidate does not take, comma
+    /// separated. One rung is a straight match; several make the table vary
+    /// while keeping the target stationary.
+    #[arg(long, value_delimiter = ',', default_value = "starter")]
+    pub anchors: Vec<String>,
 
     /// Heuristic params file the card-quality rules read. Defaults to the
     /// baked-in batch-alobyo-gen-41.
