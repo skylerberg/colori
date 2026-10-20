@@ -21,44 +21,47 @@ export const PLAYER_SELL_CARD = { width: 44 * PLAYER_PX_PER_MM, height: 67 * PLA
 export const TUCK = PLAYER_CARD.height / 2;
 
 export const DRAFT_SLOT_X = [273, 650, 1027, 1405];
-export const WORKSHOP_SLOT_X = [135, 479, 823, 1166, 1510];
+export const WORKSHOP_SLOT_X = [211, 555, 899, 1243, 1587];
 
-// Slot 1 is always open; the others open as the rounds go on.
+// Slot 1 is always open; the others open as the rounds go on. Cards sit
+// centred in the printed frames, which are a little larger than a card.
 export const BUYER_SLOTS: Point[] = [
-  { x: 1404, y: 102 },
-  { x: 1698, y: 102 },
-  { x: 1404, y: 528 },
+  { x: 1387, y: 102 },
+  { x: 1695, y: 104 },
+  { x: 1387, y: 542 },
 ];
-export const COMPLETED_SLOT: Point = { x: 1698, y: 528 };
+export const COMPLETED_SLOT: Point = { x: 1698, y: 542 };
 
-export const DECK: Rect = { x: 52, y: 528, width: PLAYER_CARD.width, height: PLAYER_CARD.height };
-export const DUCAT_BAG: Point = { x: 1275, y: 965 };
+export const DECK: Rect = { x: 51, y: 503, width: PLAYER_CARD.width, height: PLAYER_CARD.height };
+export const DUCAT_BAG: Point = { x: 1279, y: 973 };
+export const MATERIALS_CIRCLE: Rect = { x: 30, y: 90, width: 395, height: 380 };
 // Counters beside the printed gondola, wild primary bowl and material icons.
-export const BOATS: Point = { x: 292, y: 296 };
-export const WILD_PRIMARIES: Point = { x: 958, y: 537 };
+export const BOATS: Point = { x: 286, y: 281 };
+export const WILD_PRIMARIES: Point = { x: 949, y: 537 };
 export const MATERIALS: Record<MaterialType, Point> = {
-  Paintings: { x: 132, y: 292 },
-  Ceramics: { x: 416, y: 289 },
-  Textiles: { x: 269, y: 454 },
+  Paintings: { x: 148, y: 280 },
+  Ceramics: { x: 395, y: 276 },
+  Textiles: { x: 269, y: 415 },
 };
 // The reminder strip: a ducat buys a workshop pick, a mix or a sale.
 export const DUCAT_PURCHASE_ICONS = {
-  workshop: { x: 1560, y: 996 },
-  mixColors: { x: 1640, y: 996 },
-  sell: { x: 1718, y: 996 },
+  workshop: { x: 1488, y: 996 },
+  mixColors: { x: 1567, y: 996 },
+  sell: { x: 1637, y: 996 },
 } as const;
-export const DUCAT_STRIP: Rect = { x: 1405, y: 958, width: 362, height: 76 };
+export const DUCAT_PURCHASE_ICON_RADIUS = 34;
+export const DUCAT_STRIP: Rect = { x: 1350, y: 960, width: 348, height: 73 };
 
 // Where each character's face is, for cropping a portrait out of the board.
 export const PORTRAIT_FACES: Point[] = [
-  { x: 481, y: 800 },
-  { x: 427, y: 850 },
-  { x: 478, y: 785 },
-  { x: 491, y: 830 },
-  { x: 469, y: 795 },
-  { x: 476, y: 800 },
+  { x: 485, y: 790 },
+  { x: 433, y: 815 },
+  { x: 480, y: 810 },
+  { x: 474, y: 805 },
+  { x: 480, y: 815 },
+  { x: 481, y: 805 },
 ];
-export const PORTRAIT_SIZE = 210;
+export const PORTRAIT_SIZE = 160;
 
 // ── The color wheel ──
 // Twelve regions: tertiaries around the outside, and inside the rim three
@@ -66,7 +69,7 @@ export const PORTRAIT_SIZE = 210;
 // petal is a circle clipped by the rim; spokes run from the hub to each
 // petal's tip. Angles are degrees clockwise from straight up.
 
-export const WHEEL = { cx: 910.5, cy: 538, outer: 414, rim: 275, petalCenter: 262, petalRadius: 143 };
+export const WHEEL = { cx: 901.5, cy: 538, outer: 414, rim: 275, petalCenter: 262, petalRadius: 143 };
 const PETAL_TIP = WHEEL.petalCenter - WHEEL.petalRadius;
 // Half the angle a petal's mouth spans along the rim.
 const PETAL_HALF_ANGLE = Math.acos(
@@ -113,18 +116,18 @@ export interface WheelRegion {
 }
 
 const WHEEL_COUNTERS: Record<Color, Point> = {
-  Red: { x: 952, y: 404 },
-  Orange: { x: 1118, y: 469 },
-  Yellow: { x: 1092, y: 649 },
-  Green: { x: 948, y: 774 },
-  Blue: { x: 800, y: 649 },
-  Purple: { x: 768, y: 469 },
-  Vermilion: { x: 948, y: 222 },
-  Amber: { x: 1212, y: 500 },
-  Chartreuse: { x: 948, y: 905 },
-  Teal: { x: 640, y: 740 },
-  Ultramarine: { x: 548, y: 708 },
-  Fuchsia: { x: 632, y: 335 },
+  Red: { x: 943, y: 404 },
+  Orange: { x: 1109, y: 469 },
+  Yellow: { x: 1083, y: 649 },
+  Green: { x: 939, y: 774 },
+  Blue: { x: 791, y: 649 },
+  Purple: { x: 759, y: 469 },
+  Vermilion: { x: 939, y: 222 },
+  Amber: { x: 1203, y: 500 },
+  Chartreuse: { x: 939, y: 905 },
+  Teal: { x: 631, y: 740 },
+  Ultramarine: { x: 539, y: 708 },
+  Fuchsia: { x: 623, y: 335 },
 };
 
 export const WHEEL_REGIONS: WheelRegion[] = (Object.keys(WHEEL_COUNTERS) as Color[]).map(color => ({
@@ -142,10 +145,10 @@ export const BUYERS_BOARD_HEIGHT = 1333;
 const BUYERS_SELL_CARD = { width: 44 * BUYERS_PX_PER_MM, height: 67 * BUYERS_PX_PER_MM };
 
 export const BUYERS_BOARD = {
-  sellDeck: { x: 188, y: 296, ...BUYERS_SELL_CARD } as Rect,
+  sellDeck: { x: 46, y: 270, ...BUYERS_SELL_CARD } as Rect,
   display: [
-    { x: 534, y: 296 }, { x: 881, y: 296 }, { x: 1228, y: 296 },
-    { x: 185, y: 858 }, { x: 532, y: 858 }, { x: 879, y: 858 }, { x: 1227, y: 858 },
+    { x: 439, y: 270 }, { x: 833, y: 270 }, { x: 1228, y: 270 },
+    { x: 43, y: 857 }, { x: 437, y: 857 }, { x: 832, y: 856 }, { x: 1228, y: 857 },
   ].map(p => ({ ...p, ...BUYERS_SELL_CARD })) as Rect[],
   // One circle per round along the top: the round track.
   rounds: [112, 332, 549, 767, 987, 1202, 1422].map(x => ({ x, y: 115 })) as Point[],
