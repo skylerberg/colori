@@ -9,7 +9,8 @@ use colori_core::colori_game::{enumerate_choices, ActionPhaseViews};
 use colori_core::game_log::{DrawEvent, StructuredGameLog, StructuredLogEntry};
 use colori_core::ismcts::MctsConfig;
 use colori_core::mcts_impl::{
-    tree_stats, ColoriSearcher, Retained, SearchGraph, SearchNode as MctsNode, TreeStats,
+    tree_stats, ColoriSearcher, Retained, SearchGraph, SearchNode as MctsNode, SearchOutcome,
+    StopReason, TreeStats,
 };
 use colori_core::replay::{GameReplay, replay_to, replay_view_to};
 use colori_core::scoring::{format_half_points, score_in_half_points};
@@ -47,13 +48,27 @@ fn phase_name(phase: &str) -> &str {
 // ── MCTS analysis types ──
 
 pub struct MctsAnalysisResult {
-    pub iterations_used: u32,
-    pub tree_stats: TreeStats,
-    pub retained: Retained,
+    pub choice: Choice,
+    pub stop_reason: StopReason,
+    /// The tree the search left and its shape, or `None` when nothing was
+    /// searched: the choice was the only one, or the game's last turn was solved.
+    pub search: Option<(Retained, TreeStats)>,
+}
+
+impl MctsAnalysisResult {
+    fn new(outcome: SearchOutcome, searcher: &mut ColoriSearcher) -> Self {
+        Self {
+            choice: outcome.choice,
+            stop_reason: outcome.stop_reason,
+            search: searcher.take_retained().map(|retained| {
+                let stats = retained.stats();
+                (retained, stats)
+            }),
+        }
+    }
 }
 
 struct BatchMctsEntry {
-    mcts_best_choice: Choice,
     agrees: bool,
     analysis: MctsAnalysisResult,
 }
@@ -270,20 +285,14 @@ impl GameViewerState {
         std::thread::spawn(move || {
             let mut rng = WyRand::from_rng(&mut rand::rng());
             let mut searcher = ColoriSearcher::new(&state);
-            let _ = searcher.search(
+            let outcome = searcher.search(
                 &state,
                 player_index,
                 &config,
                 Some(max_rollout_round),
                 &mut rng,
             );
-            if let Some(retained) = searcher.take_retained() {
-                let _ = tx.send(MctsAnalysisResult {
-                    iterations_used: retained.visits(),
-                    tree_stats: retained.stats(),
-                    retained,
-                });
-            }
+            let _ = tx.send(MctsAnalysisResult::new(outcome, &mut searcher));
         });
     }
 
@@ -358,20 +367,12 @@ impl GameViewerState {
                             .any(|e| choices_equivalent(mcts_choice, &e.choice));
                     }
 
-                    if let Some(retained) = searcher.take_retained() {
-                        let analysis = MctsAnalysisResult {
-                            iterations_used: retained.visits(),
-                            tree_stats: retained.stats(),
-                            retained,
-                        };
-                        let batch_entry = BatchMctsEntry {
-                            mcts_best_choice: result.choice,
-                            agrees,
-                            analysis,
-                        };
-                        if tx.send((entry_index, batch_entry)).is_err() {
-                            return; // Receiver dropped, stop
-                        }
+                    let batch_entry = BatchMctsEntry {
+                        agrees,
+                        analysis: MctsAnalysisResult::new(result, &mut searcher),
+                    };
+                    if tx.send((entry_index, batch_entry)).is_err() {
+                        return; // Receiver dropped, stop
                     }
                 }
 
@@ -798,10 +799,14 @@ fn render_timeline(
                                     *clicked_entry = Some(global_idx);
                                 }
                                 if mcts_disagrees {
-                                    let mcts_choice = &batch_mcts_results[&global_idx].mcts_best_choice;
+                                    let analysis = &batch_mcts_results[&global_idx].analysis;
+                                    let prefers = match analysis.stop_reason {
+                                        StopReason::Solved => "Best play",
+                                        StopReason::Search(_) => "MCTS prefers",
+                                    };
                                     response.on_hover_text(format!(
-                                        "MCTS prefers: {}",
-                                        format_choice(mcts_choice)
+                                        "{prefers}: {}",
+                                        format_choice(&analysis.choice)
                                     ));
                                 }
                             });
@@ -1056,16 +1061,24 @@ fn render_mcts_section(
     // Results
     if let Some(result) = result {
         ui.add_space(8.0);
+        let Some((retained, stats)) = &result.search else {
+            let why = match result.stop_reason {
+                StopReason::Solved => "The game's last turn, solved exactly",
+                StopReason::Search(_) => "The only legal choice",
+            };
+            ui.label(format!("{why}: {}", format_choice(&result.choice)));
+            return;
+        };
         ui.label(format!(
             "{} iterations | {} nodes | max depth {} | avg branching {:.1}",
-            result.iterations_used,
-            result.tree_stats.total_nodes,
-            result.tree_stats.max_depth,
-            result.tree_stats.avg_branching_factor,
+            retained.visits(),
+            stats.total_nodes,
+            stats.max_depth,
+            stats.avg_branching_factor,
         ));
 
         ui.add_space(4.0);
-        match &result.retained {
+        match retained {
             Retained::Tree(root) => render_mcts_children(ui, root, 0),
             Retained::Graph(graph) => render_graph_children(ui, graph, graph.root().id(), 0),
         }
