@@ -4,6 +4,7 @@ import { resolve } from 'path';
 import { initSync, wasm_run_ismcts } from '../wasm-pkg/colori_wasm';
 import { setupDraftGame, setupActionGame } from './benchHelper';
 import type { AiSettings } from '../data/types';
+import { AI_PARAMS_CHOICES } from '../data/gameSetup';
 
 // Initialise WASM synchronously, as the bench does, for the Node environment.
 const wasmPath = resolve(__dirname, '../wasm-pkg/colori_wasm_bg.wasm');
@@ -40,9 +41,7 @@ describe('wasm_run_ismcts', () => {
   it('searches with each kind of advanced AI setting', () => {
     const state = setupDraftGame(2);
     const settings: AiSettings[] = [
-      { params: 'lki08w-gen-32' },
-      { params: '9iii4n-gen-19' },
-      { params: '9iii4n-gen-19-avoid-alum-warehouse-gondola' },
+      ...AI_PARAMS_CHOICES.map(choice => ({ params: choice.value })),
       { rolloutLookahead: 0 },
       { rolloutLookahead: 6 },
     ];
