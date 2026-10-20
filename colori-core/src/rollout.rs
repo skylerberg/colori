@@ -548,8 +548,6 @@ struct SellCardCacheEntry {
 struct SellCardCache {
     flat_demand: [u32; 12],
     proximity_demand: [u32; 12],
-    best_affordable_points: u32,
-    best_affordable_id: Option<u32>,
     entries: [SellCardCacheEntry; MAX_BUYERS],
     len: usize,
 }
@@ -561,8 +559,6 @@ impl SellCardCache {
         let wheel = &player.color_wheel;
         let mut flat_demand = [0u32; 12];
         let mut proximity_demand = [0u32; 12];
-        let mut best_affordable_points = 0u32;
-        let mut best_affordable_id: Option<u32> = None;
         let len = buyers.len();
         const EMPTY_ENTRY: SellCardCacheEntry = SellCardCacheEntry { points: 0, materials: [0; 3], colors_met: false, have_colors: 0, total_colors: 0 };
         let mut entries: [SellCardCacheEntry; MAX_BUYERS] = [EMPTY_ENTRY; MAX_BUYERS];
@@ -571,9 +567,6 @@ impl SellCardCache {
             let stats = sc.sell_card.stats();
             let points = stats.points;
             let total_colors = stats.total_colors as u32;
-            // Boats and wild primaries count as the material and primaries they can
-            // stand in for, so what the cache calls affordable is exactly
-            // what `can_afford_sell_card` does.
             let has_material = boats_to_sell(player, sc.sell_card) <= player.boats;
 
             let mut have = 0u32;
@@ -589,7 +582,6 @@ impl SellCardCache {
             let missing = total_colors - have;
 
             let colors_met = missing == 0;
-            let can_afford = has_material && colors_met;
 
             // Build flat and proximity demand — iterate cost directly (max 4 entries)
             let total_missing = missing + if has_material { 0 } else { 2 };
@@ -598,12 +590,6 @@ impl SellCardCache {
                 let idx = c.index();
                 flat_demand[idx] += points * needed as u32;
                 proximity_demand[idx] += prox_weight * needed as u32;
-            }
-
-            // Track best affordable
-            if can_afford && points > best_affordable_points {
-                best_affordable_points = points;
-                best_affordable_id = Some(sc.instance_id);
             }
 
             entries[i] = SellCardCacheEntry {
@@ -618,8 +604,6 @@ impl SellCardCache {
         SellCardCache {
             flat_demand,
             proximity_demand,
-            best_affordable_points,
-            best_affordable_id,
             entries,
             len,
         }
@@ -651,18 +635,42 @@ impl SellCardCache {
 
 }
 
+/// The buyer the player can sell to now for the most points, the first in slot
+/// order on a tie. The Sell and trash-priority decisions read only this, so
+/// they skip the demand tables [`SellCardCache`] builds.
+#[derive(Clone, Copy)]
+struct BestSale {
+    points: u32,
+    id: Option<u32>,
+}
+
+impl BestSale {
+    #[inline(always)]
+    fn of(player: &PlayerState) -> Self {
+        let mut best = BestSale { points: 0, id: None };
+        for sc in player.buyers.iter() {
+            let points = sc.sell_card.stats().points;
+            if points > best.points && can_afford_sell_card(player, &sc.sell_card) {
+                best = BestSale { points, id: Some(sc.instance_id) };
+            }
+        }
+        best
+    }
+}
+
 /// Score how valuable it is to trash a card, i.e. how useful its abilities
-/// are to activate right now.
+/// are to activate right now. `sale` is worked out the first time a Sell
+/// ability asks for it.
 #[inline(always)]
 fn destruction_priority(
     card: Card,
     player: &PlayerState,
-    cache: &SellCardCache,
+    sale: &mut Option<BestSale>,
     params: &HeuristicParams,
 ) -> u32 {
     card.trash_abilities()
         .iter()
-        .map(|&ability| ability_priority(ability, player, cache, params))
+        .map(|&ability| ability_priority(ability, player, sale, params))
         .sum()
 }
 
@@ -670,13 +678,14 @@ fn destruction_priority(
 fn ability_priority(
     ability: Ability,
     player: &PlayerState,
-    cache: &SellCardCache,
+    sale: &mut Option<BestSale>,
     params: &HeuristicParams,
 ) -> u32 {
     match ability {
         Ability::Sell => {
-            if cache.best_affordable_points > 0 {
-                cache.best_affordable_points * params.rollout_sell_affordable_multiplier
+            let points = sale.get_or_insert_with(|| BestSale::of(player)).points;
+            if points > 0 {
+                points * params.rollout_sell_affordable_multiplier
             } else {
                 params.rollout_sell_base
             }
@@ -984,7 +993,7 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     }
 
     // Score each drafted card and pick the best to trash
-    let cache = SellCardCache::new(&state.players[player_index]);
+    let mut sale = None;
     let mut best_id: Option<u8> = None;
     let mut best_priority = 0u32;
     let mut seen: u64 = 0;
@@ -993,7 +1002,7 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
         let bit = 1u64 << (card as u64);
         if seen & bit != 0 { continue; }
         seen |= bit;
-        let priority = destruction_priority(card, &state.players[player_index], &cache, params);
+        let priority = destruction_priority(card, &state.players[player_index], &mut sale, params);
         if priority > best_priority {
             best_priority = priority;
             best_id = Some(id);
@@ -1017,6 +1026,7 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     let card = state.card_lookup[card_id as usize];
     match card.trash_abilities() {
         &[Ability::MixColors { count }] => {
+            let cache = SellCardCache::new(&state.players[player_index]);
             let player = &mut state.players[player_index];
             let mixes = two_step_heuristic_mix_seq(&player.color_wheel, player.wild_primaries, count, &cache, params, rng);
             player.drafted_cards.remove(card_id);
@@ -1024,7 +1034,8 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
             state.trash.insert(card_id);
         }
         [Ability::Sell] => {
-            if let Some(sell_card_id) = cache.best_affordable_id {
+            let sale = sale.unwrap_or_else(|| BestSale::of(&state.players[player_index]));
+            if let Some(sell_card_id) = sale.id {
                 fused_buy(state, player_index, card_id, sell_card_id);
             } else {
                 trash_drafted_card(state, player_index, card_id as u32);
@@ -1080,8 +1091,8 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
 
 /// One step of `player_index`'s action turn, chosen by the heuristic policy.
 fn heuristic_action_step<R: Rng>(state: &mut GameState, player_index: usize, params: &HeuristicParams, rng: &mut R) {
-    // Each branch builds the sell card cache only once it is past the returns
-    // that never read it.
+    // Each branch works out only what it reads, the best sale or the demand
+    // tables, and only once it is past the returns that read neither.
     match ability_stack(state, player_index).last() {
         None => {
             handle_action_no_pending_heuristic(state, player_index, params, rng);
@@ -1152,12 +1163,12 @@ fn heuristic_action_step<R: Rng>(state: &mut GameState, player_index: usize, par
             // move no longer triggers it — the rollout has to trash
             // the card from the pool afterwards — but it is still the
             // card most worth having there.
-            let cache = SellCardCache::new(&state.players[player_index]);
+            let mut sale = None;
             let mut best_id: Option<u8> = None;
             let mut best_score = 0u32;
             for id in workshop.iter() {
                 let card = state.card_lookup[id as usize];
-                let score = destruction_priority(card, &state.players[player_index], &cache, params);
+                let score = destruction_priority(card, &state.players[player_index], &mut sale, params);
                 if score > best_score || best_id.is_none() {
                     best_score = score;
                     best_id = Some(id);
@@ -1190,7 +1201,7 @@ fn heuristic_action_step<R: Rng>(state: &mut GameState, player_index: usize, par
             }
 
             // Heuristic: pick best sell card
-            if let Some(sell_card_id) = SellCardCache::new(&state.players[player_index]).best_affordable_id {
+            if let Some(sell_card_id) = BestSale::of(&state.players[player_index]).id {
                 resolve_select_sell_card(state, player_index, sell_card_id);
             } else {
                 ability_stack_mut(state, player_index).pop();
