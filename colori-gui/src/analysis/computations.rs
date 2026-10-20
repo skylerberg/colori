@@ -599,27 +599,51 @@ pub fn compute_trashed_from_draft(
     counts
 }
 
-/// Count cards trashed from workshop (moveToDraftPool).
-pub fn compute_trashed_from_workshop(
+/// Which cards the Move to Draft Pool abilities raise, by the card that was
+/// trashed to trigger the ability.
+#[derive(Default)]
+pub struct DraftPoolMoves {
+    /// Trashed card -> raised card -> times. A move with no trashed card behind
+    /// it is filed under `OTHER_SOURCE`.
+    pub raised_by: BTreeMap<String, BTreeMap<String, usize>>,
+    /// Trashed card -> times its ability found nothing to raise.
+    pub fizzled: BTreeMap<String, usize>,
+}
+
+pub const OTHER_SOURCE: &str = "Other";
+
+/// Count the cards moved from the workshop to the draft pool, and by which
+/// trashed card.
+pub fn compute_draft_pool_moves(
     logs: &[StructuredGameLog],
     filter: Option<&PlayerFilter>,
-) -> HashMap<String, usize> {
-    let mut counts = HashMap::new();
+) -> DraftPoolMoves {
+    let mut moves = DraftPoolMoves::default();
     for (log_idx, log) in logs.iter().enumerate() {
         let allowed = filter.and_then(|f| f.get(&log_idx));
         for entry in &log.entries {
-            if let Some(allowed) = allowed {
-                if !allowed.contains(&entry.player_index) {
-                    continue;
-                }
+            if allowed.is_some_and(|allowed| !allowed.contains(&entry.player_index)) {
+                continue;
             }
-            if let Choice::MoveToDraftPool { card: Some(card) } = &entry.choice {
-                let name = card_name_from_instance(*card);
-                *counts.entry(name).or_insert(0) += 1;
+            let (source, target) = match entry.choice {
+                Choice::TrashAndMoveToDraftPool { card, target } => (card_name_from_instance(card), target),
+                Choice::MoveToDraftPool { card } => (OTHER_SOURCE.to_string(), card),
+                _ => continue,
+            };
+            match target {
+                Some(target) => {
+                    *moves
+                        .raised_by
+                        .entry(source)
+                        .or_default()
+                        .entry(card_name_from_instance(target))
+                        .or_insert(0) += 1;
+                }
+                None => *moves.fizzled.entry(source).or_insert(0) += 1,
             }
         }
     }
-    counts
+    moves
 }
 
 /// Compute trash rate: trashed / drafted for each card name.

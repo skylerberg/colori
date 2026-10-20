@@ -20,7 +20,7 @@ pub struct CachedAnalysis {
     pub cards_added: HashMap<String, usize>,
     pub cards_added_normalized: HashMap<String, f64>,
     pub trashed_draft: HashMap<String, usize>,
-    pub trashed_workshop: HashMap<String, usize>,
+    pub draft_pool_moves: DraftPoolMoves,
     pub sell_card_acq: SellCardAcquisitions,
     pub deck_stats: DeckSizeStats,
     /// Keyed by half points.
@@ -62,7 +62,7 @@ impl CachedAnalysis {
         let cards_added = compute_cards_added_to_deck(logs, filter_ref);
         let cards_added_normalized = normalize_by_draft_copies(&cards_added);
         let trashed_draft = compute_trashed_from_draft(logs, filter_ref);
-        let trashed_workshop = compute_trashed_from_workshop(logs, filter_ref);
+        let draft_pool_moves = compute_draft_pool_moves(logs, filter_ref);
         let sell_card_acq = compute_sell_card_acquisitions(logs, filter_ref);
         let deck_stats = compute_deck_size_stats(logs, filter_ref);
         let score_dist = compute_score_distribution(logs, filter_ref);
@@ -132,7 +132,7 @@ impl CachedAnalysis {
             cards_added,
             cards_added_normalized,
             trashed_draft,
-            trashed_workshop,
+            draft_pool_moves,
             sell_card_acq,
             deck_stats,
             score_dist,
@@ -471,15 +471,8 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
                 render_f64_hashmap_bar_rows_pct(ui, &analysis.trash_rate, "Trash Rate");
             });
 
-        // 13. Trashed from Workshop
-        render_hashmap_bar_section(
-            ui,
-            "Trashed from Workshop",
-            "Card",
-            "Count",
-            &analysis.trashed_workshop,
-            false,
-        );
+        // 13. Cards raised to the draft pool
+        render_draft_pool_moves(ui, &analysis.draft_pool_moves);
 
         // 14. Sell Card Acquisitions
         let id = ui.make_persistent_id("sell_card_acquisitions");
@@ -667,6 +660,74 @@ fn render_btree_bar_section(
                 .map(|(&k, &v)| (key_label(k), format!("{}", v), v as f32 / max_val))
                 .collect();
             bar_table(ui, &[key_header, val_header], &rows);
+        });
+}
+
+/// Which cards the Move to Draft Pool abilities raise, and which trashed card
+/// raised them.
+fn render_draft_pool_moves(ui: &mut egui::Ui, moves: &DraftPoolMoves) {
+    let id = ui.make_persistent_id("draft_pool_moves");
+    egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
+        .show_header(ui, |ui| {
+            ui.strong("Cards Raised to the Draft Pool");
+        })
+        .body(|ui| {
+            if moves.raised_by.is_empty() && moves.fizzled.is_empty() {
+                ui.label("No data available.");
+                return;
+            }
+            ui.label("A card in the workshop moved to the draft pool by the ability of a card that was trashed.");
+
+            let source_total = |source: &String| -> usize {
+                moves.raised_by.get(source).map_or(0, |t| t.values().sum())
+            };
+            let mut sources: Vec<&String> = moves.raised_by.keys().chain(moves.fizzled.keys()).collect();
+            sources.sort();
+            sources.dedup();
+            sources.sort_by_key(|s| std::cmp::Reverse(source_total(s)));
+
+            ui.strong("By trashed card");
+            egui::Grid::new(ui.next_auto_id()).striped(true).min_col_width(70.0).show(ui, |ui| {
+                for header in ["Trashed card", "Cards raised", "Nothing to raise"] {
+                    ui.strong(header);
+                }
+                ui.end_row();
+                for source in &sources {
+                    ui.label(source.as_str());
+                    ui.label(format!("{}", source_total(source)));
+                    ui.label(format!("{}", moves.fizzled.get(*source).copied().unwrap_or(0)));
+                    ui.end_row();
+                }
+            });
+
+            let mut raised: HashMap<&String, usize> = HashMap::new();
+            for targets in moves.raised_by.values() {
+                for (card, count) in targets {
+                    *raised.entry(card).or_insert(0) += count;
+                }
+            }
+            let mut cards: Vec<_> = raised.into_iter().collect();
+            cards.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
+
+            ui.add_space(8.0);
+            ui.strong("By raised card");
+            egui::Grid::new(ui.next_auto_id()).striped(true).min_col_width(70.0).show(ui, |ui| {
+                ui.strong("Raised card");
+                ui.strong("Total");
+                for source in &sources {
+                    ui.strong(source.as_str());
+                }
+                ui.end_row();
+                for (card, total) in &cards {
+                    ui.label(card.as_str());
+                    ui.label(format!("{}", total));
+                    for source in &sources {
+                        let count = moves.raised_by.get(*source).and_then(|t| t.get(*card)).copied().unwrap_or(0);
+                        ui.label(if count == 0 { "\u{2013}".to_string() } else { format!("{}", count) });
+                    }
+                    ui.end_row();
+                }
+            });
         });
 }
 
