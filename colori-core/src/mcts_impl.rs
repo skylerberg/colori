@@ -209,10 +209,10 @@ impl Game for GameState {
     type Context = SearchContext;
     type Side = OpponentModel;
 
-    // Branching runs from a handful to about forty, and `Choice` keeps its
-    // payloads inline, so most nodes stay on the linear scan. See the crossover
-    // measured in the mcts crate's benchmarks/BASELINE.md.
-    const CHILD_INDEX_THRESHOLD: usize = 16;
+    // Branching runs from a handful to about forty. Comparing two choices
+    // walks their payloads, so the hash index pays from nine children up:
+    // measured against 16 on GA-shaped games, 1.1% fewer cycles.
+    const CHILD_INDEX_THRESHOLD: usize = 8;
 
     // What the searching player may do at the root depends on opponents' draft
     // picks, which vary by iteration. See
