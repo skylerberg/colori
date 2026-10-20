@@ -267,8 +267,6 @@ const STARTER_WEIGHTS: &[(&str, f64)] = &[
     ("materials_surplus_gained", -0.2),
     ("materials_diversity_gained", 0.2),
     ("materials_boat_relief", 0.6),
-    ("wilds_relief", 0.5),
-    ("boats_relief", 0.6),
     ("ducats_options", 0.1),
     ("buyer_short_one_filled", 2.0),
     ("buyer_affordable_delta", 1.0),
@@ -299,6 +297,29 @@ const STARTER_WEIGHTS: &[(&str, f64)] = &[
     ("colours_demanded_late", 0.5),
     ("materials_demanded_late", 0.5),
     ("keep_value_early", 0.5),
+    // ── Reading something specific rather than something total ──
+    ("textiles_gained", 0.6),
+    ("ceramics_gained", 0.6),
+    ("paintings_gained", 0.6),
+    ("textiles_spent", 0.6),
+    ("ceramics_spent", 0.6),
+    ("paintings_spent", 0.6),
+    ("textiles_completing", 0.8),
+    ("ceramics_completing", 0.8),
+    ("paintings_completing", 0.8),
+    ("primary_demanded", 0.4),
+    ("secondary_demanded", 0.4),
+    ("tertiary_demanded", 0.6),
+    ("sell_dear_buyer", 0.5),
+    ("sell_filler_buyer", 0.2),
+    ("dear_buyers_shortfall", 0.4),
+    ("dear_buyer_points_unlocked", 0.5),
+    ("offer_dear_buyer", 0.4),
+    ("mix_completes_a_buyer", 0.6),
+    ("mix_reaches_tertiary", 0.4),
+    ("offer_cheap_to_finish", 0.4),
+    ("offer_boat_demand", 0.3),
+    ("end_turn_lost_storage", 0.5),
     // The value function a planned decision scores its leaves with. A position
     // is worth the points it has banked, plus a fraction of the plan it is on
     // and the resources it is holding to get there.
@@ -954,11 +975,32 @@ pub(crate) mod test_support {
     pub fn reachable_states() -> Vec<GameState> {
         let mut states = Vec::new();
         for seed in 0..3u64 {
+            states.extend(walk(seed));
+        }
+        states
+    }
+
+    /// A wider walk, for the checks that need to see rarer positions.
+    pub fn reachable_states_from(first_seed: u64, steps: usize) -> Vec<GameState> {
+        let mut states = Vec::new();
+        for seed in first_seed..first_seed + 6 {
+            states.extend(walk_from(seed, steps));
+        }
+        states
+    }
+
+    fn walk(seed: u64) -> Vec<GameState> {
+        walk_from(seed, 200)
+    }
+
+    fn walk_from(seed: u64, steps: usize) -> Vec<GameState> {
+        let mut states = Vec::new();
+        {
             let mut rng = WyRand::seed_from_u64(seed * 2_000 + 1);
             let mut state = create_initial_game_state(3, &[true, true, true], &mut rng);
             execute_draw_phase(&mut state, &mut rng);
             states.push(state.clone());
-            for _ in 0..200 {
+            for _ in 0..steps {
                 if matches!(state.phase, GamePhase::GameOver) {
                     break;
                 }

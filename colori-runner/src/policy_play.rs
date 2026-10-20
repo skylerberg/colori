@@ -42,6 +42,9 @@ use crate::cli::PolicyPlayArgs;
 /// beats hanging an overnight run.
 const MAX_DECISIONS: u32 = 20_000;
 
+/// How many terms a written trace keeps per choice, largest first.
+const TRACE_TERMS: usize = 8;
+
 /// How to play and how much to keep.
 #[derive(Debug, Clone, Copy)]
 pub struct Gameplay {
@@ -938,7 +941,22 @@ fn write_trace(
 ) {
     let game_index = seed.saturating_sub(args.seed_base) as usize;
     let seats = seat_table(candidate, ladder, args.players, game_index);
-    let outcome = play_game(&seats, seed, Gameplay { record: Record::Decision, plan: args.plan() });
+    // Every choice on offer, so the trace can answer "did it decline a sale it
+    // could make" as well as "what did it do". Each alternative keeps only its
+    // largest terms, or the file is unreadable.
+    let mut outcome = play_game(
+        &seats,
+        seed,
+        Gameplay {
+            record: Record::Everything,
+            plan: args.plan(),
+        },
+    );
+    for record in &mut outcome.trace {
+        for alternative in &mut record.considered {
+            alternative.trim(TRACE_TERMS);
+        }
+    }
 
     std::fs::create_dir_all(output).expect("failed to create the output directory");
     let path = format!("{output}/trace-{seed}.json");

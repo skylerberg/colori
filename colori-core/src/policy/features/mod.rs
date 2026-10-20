@@ -177,6 +177,7 @@ pub struct FeatureDef {
     pub eval: FeatureFn,
 }
 
+pub mod detail;
 pub mod more;
 
 /// The rules that came first, in evaluation order.
@@ -555,7 +556,7 @@ pub const CORE_RULES: &[FeatureDef] = &[
 /// A list of tables rather than a single table, so that a new batch of rules can
 /// live in its own file. Order within and between tables is fixed, which is what
 /// keeps the sum reproducible.
-pub const RULE_TABLES: &[&[FeatureDef]] = &[CORE_RULES, more::MORE_RULES];
+pub const RULE_TABLES: &[&[FeatureDef]] = &[CORE_RULES, more::MORE_RULES, detail::DETAIL_RULES];
 
 /// Every rule a genome may weigh.
 pub fn features() -> impl Iterator<Item = &'static FeatureDef> {
@@ -1188,6 +1189,68 @@ mod tests {
         for name in ABILITY_FEATURES {
             assert!(lookup(name).is_some(), "{name} is not a feature");
         }
+    }
+
+    /// No rule may be dead.
+    ///
+    /// A rule that never returns anything but zero is a dimension the search
+    /// spends effort on and a line in every report that says nothing. This
+    /// catches that. It does *not* catch rarity — a rule can be non-zero only in
+    /// a position a random walk seldom reaches, and that is fine; a rare rule is
+    /// not a dead one, which is why the check is "fires somewhere" rather than
+    /// "varies in every decision".
+    /// Rules that are live but only in positions a random walk seldom reaches.
+    ///
+    /// Naming them here is a liability on purpose: a rule that quietly dies gets
+    /// no such exemption, and adding one to this list is a decision someone has
+    /// to make out loud.
+    const RARE: &[&str] = &[
+        // Only Gondola pays a boat, one card in a hundred.
+        "ability_boats_priced",
+        // Random play rarely stores a textile or a painting, so it rarely
+        // spends one either.
+        "textiles_spent",
+        "paintings_spent",
+    ];
+
+    #[test]
+    fn every_rule_fires_somewhere() {
+        let table = CardHeuristicTable::new(&HeuristicParams::default());
+        let mut states = test_support::reachable_states();
+        states.extend(test_support::reachable_states_from(7, 400));
+        let mut varies: Vec<bool> = features().map(|_| false).collect();
+
+        for state in &states {
+            for seat in 0..state.players.len() {
+                let choices = crate::choices::enumerate_choices(state, seat);
+                if choices.len() < 2 {
+                    continue;
+                }
+                let ctx = Ctx::new(state, seat, &table);
+                for (index, def) in features().enumerate() {
+                    if varies[index] {
+                        continue;
+                    }
+                    if choices.iter().any(|choice| {
+                        let d = delta(ctx.player, choice, &table);
+                        (def.eval)(&ctx, choice, &d).abs() > 1e-9
+                    }) {
+                        varies[index] = true;
+                    }
+                }
+            }
+        }
+
+        let dead: Vec<&str> = features()
+            .zip(&varies)
+            .filter(|(_, moved)| !**moved)
+            .map(|(def, _)| def.name)
+            .filter(|name| !RARE.contains(name))
+            .collect();
+        assert!(
+            dead.is_empty(),
+            "these rules never return anything but zero: {dead:?}"
+        );
     }
 
     #[test]

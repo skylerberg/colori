@@ -261,28 +261,6 @@ fn materials_boat_relief(ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
 
 // ── Options: wilds, boats, ducats ──
 
-fn wilds_relief(ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
-    // A wild primary is only worth its store price when something is actually
-    // short of a primary.
-    let primaries_short: u32 = PRIMARIES
-        .iter()
-        .map(|color| ctx.color_demand[color.index()])
-        .sum();
-    if primaries_short == 0 {
-        0.0
-    } else {
-        d.wilds_gained as f64
-    }
-}
-
-fn boats_relief(ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
-    if ctx.demanded_material_units() == 0 {
-        0.0
-    } else {
-        d.boats_gained as f64
-    }
-}
-
 /// What a ducat still in hand is worth: its point, and the purchases it could
 /// still make.
 fn ducats_options(ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
@@ -810,18 +788,6 @@ pub const MORE_RULES: &[FeatureDef] = &[
         eval: materials_boat_relief,
     },
     FeatureDef {
-        name: "wilds_relief",
-        group: Group::Universal,
-        doc: "Wild primaries gained while a sitting buyer is short of a primary.",
-        eval: wilds_relief,
-    },
-    FeatureDef {
-        name: "boats_relief",
-        group: Group::Universal,
-        doc: "Boats gained while a sitting buyer is short of a material.",
-        eval: boats_relief,
-    },
-    FeatureDef {
         name: "ducats_options",
         group: Group::Universal,
         doc: "Ducats held afterwards, weighed by how many purchases they could still buy.",
@@ -1027,33 +993,4 @@ mod tests {
         }
     }
 
-    #[test]
-    fn every_rule_in_this_table_varies_with_the_choice() {
-        // A rule that reads the same for every choice in a decision cancels out
-        // of the comparison. Every rule here must move on a real delta.
-        use crate::policy::test_support;
-        use crate::scoring::{CardHeuristicTable, HeuristicParams};
-        let table = CardHeuristicTable::new(&HeuristicParams::default());
-        let mut moved = 0;
-        for state in test_support::reachable_states() {
-            for seat in 0..state.players.len() {
-                let choices = crate::choices::enumerate_choices(&state, seat);
-                if choices.len() < 2 {
-                    continue;
-                }
-                let ctx = Ctx::new(&state, seat, &table);
-                for def in MORE_RULES {
-                    let first = (def.eval)(&ctx, &choices[0], &Delta::new());
-                    let moved_here = choices[1..].iter().any(|choice| {
-                        let value = (def.eval)(&ctx, choice, &Delta::new());
-                        (value - first).abs() > 1e-9
-                    });
-                    if moved_here {
-                        moved += 1;
-                    }
-                }
-            }
-        }
-        assert!(moved > 0, "no rule in this table varied with the choice");
-    }
 }

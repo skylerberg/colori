@@ -25,9 +25,11 @@ soon as they interact — which is exactly where hand-written rules rot.
 score(choice) = Σ  weight_f · shape_f( feature_f(state, choice) )
 ```
 
-- `colori-core/src/policy/features/` — the rule vocabulary, one table per file
-  (`mod.rs` for the first, `more.rs` for the second and larger one), each rule
-  with its group and a one-line statement of which way a positive weight points.
+- `colori-core/src/policy/features/` — the rule vocabulary, one table per file:
+  `mod.rs` (the first table), `more.rs` (plans, completions, options, the clock)
+  and `detail.rs` (one material, one tier of colour, one band of buyer value).
+  Each rule carries its group and a one-line statement of which way a positive
+  weight points.
 - `colori-core/src/policy/value.rs` — rules that read a *position* rather than a
   choice, which is what a planned decision scores its leaves with.
 - `colori-core/src/policy/effects.rs` — what a choice *moves* (colours,
@@ -59,6 +61,10 @@ Two disciplines hold across the vocabulary:
 - **Everything is in points.** A count of wanted colours and a colour's point
   value are different units, and mixing them is what made the first draft of the
   draft rules useless.
+- **No rule may be dead.** A test walks reachable positions and fails on any rule
+  that never returns anything but zero. A short, explicit `RARE` list names the
+  rules that only fire in positions a random walk seldom reaches, so adding one
+  is a decision somebody makes out loud.
 
 Terms are evaluated in `FEATURES` order, never in a genome file's key order:
 floating-point addition is not associative, so a genome that scored differently
