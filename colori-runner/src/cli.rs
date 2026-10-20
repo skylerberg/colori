@@ -72,6 +72,10 @@ pub struct TournamentArgs {
     /// Path to variants JSON file
     #[arg(long, default_value = "variants.json")]
     pub variants_file: String,
+
+    /// Players per game; each game seats that many distinct variants chosen at random
+    #[arg(long, default_value_t = 2, value_parser = clap::value_parser!(u8).range(2..=4))]
+    pub players: u8,
 }
 
 #[derive(Parser)]
