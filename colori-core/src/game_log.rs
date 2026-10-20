@@ -73,6 +73,7 @@ pub struct StructuredGameLog {
 pub struct LogGameState {
     pub players: Vec<LogPlayerState>,
     pub draft_deck: Vec<CardInstance>,
+    #[serde(alias = "destroyedPile")]
     pub trash: Vec<CardInstance>,
     pub sell_card_deck: Vec<SellCardInstance>,
     pub sell_card_display: Vec<SellCardInstance>,

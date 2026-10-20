@@ -18,6 +18,7 @@ use colori_core::types::{
     Card, CardInstance, Choice, Color, GamePhase, GameState, SellCardInstance, ALL_COLORS, ALL_MATERIAL_TYPES,
 };
 
+use crate::analysis::log_loader::find_game_log_files;
 use crate::analysis::computations::{
     build_card_instance_map, build_sell_card_instance_map, final_score_ranking, format_choice,
     sell_card_name_from_instance,
@@ -168,20 +169,9 @@ impl GameViewerState {
 
     pub fn load_latest_from_dir(&mut self, dir: &std::path::Path) {
         self.game_logs_dir = Some(dir.to_path_buf());
-        let latest = std::fs::read_dir(dir)
-            .ok()
-            .and_then(|entries| {
-                entries
-                    .filter_map(|e| e.ok())
-                    .filter(|e| {
-                        e.path()
-                            .extension()
-                            .is_some_and(|ext| ext == "json")
-                    })
-                    .max_by_key(|e| e.file_name())
-            });
-        if let Some(entry) = latest {
-            self.load_file(&entry.path());
+        let latest = find_game_log_files(dir).ok().and_then(|files| files.into_iter().last());
+        if let Some(path) = latest {
+            self.load_file(&path);
         }
     }
 
