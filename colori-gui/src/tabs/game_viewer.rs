@@ -582,10 +582,6 @@ fn render_summary(ui: &mut egui::Ui, game: &StructuredGameLog) {
             }
         }
 
-        let max_round = game.entries.iter().map(|e| e.round).max().unwrap_or(0);
-        ui.label(format!("Rounds: {}", max_round));
-        ui.separator();
-
         if let Some(ref final_scores) = game.final_scores {
             if final_scores.len() == 1 {
                 let score = final_scores[0].score;

@@ -37,12 +37,6 @@ pub struct DeckSizeStats {
 }
 
 #[allow(dead_code)]
-pub struct GameLengthStats {
-    pub avg_rounds: f64,
-    pub avg_choices: f64,
-}
-
-#[allow(dead_code)]
 pub struct DurationStats {
     pub avg_ms: f64,
     pub median_ms: f64,
@@ -842,64 +836,6 @@ pub fn compute_win_rate_by_variant(
     }
 }
 
-/// Compute win rate by variant, grouped by game length (round count).
-/// Returns a map from round count to (variant label -> win rate entry).
-pub fn compute_variant_win_rate_by_game_length(
-    logs: &[StructuredGameLog],
-) -> Option<BTreeMap<u32, HashMap<String, WinRateEntry>>> {
-    let has_variants = logs.iter().any(|log| log.player_variants.is_some());
-    if !has_variants {
-        return None;
-    }
-
-    let mut stats: BTreeMap<u32, HashMap<String, WinRateEntry>> = BTreeMap::new();
-
-    for log in logs {
-        let variants = match &log.player_variants {
-            Some(v) => v,
-            None => continue,
-        };
-        let final_scores = match &log.final_scores {
-            Some(fs) => fs,
-            None => continue,
-        };
-
-        let mut max_round: u32 = 0;
-        for entry in &log.entries {
-            if entry.round > max_round {
-                max_round = entry.round;
-            }
-        }
-        if max_round == 0 {
-            continue;
-        }
-
-        let (is_winner_fn, num_winners) = compute_winners(final_scores);
-        let round_stats = stats.entry(max_round).or_default();
-
-        for (i, variant) in variants.iter().enumerate() {
-            let label = format_variant_label(variant, Some(variants));
-            let entry = round_stats
-                .entry(label)
-                .or_insert(WinRateEntry { wins: 0.0, games: 0.0 });
-            entry.games += 1.0;
-
-            if i < log.player_names.len() {
-                let player_name = &log.player_names[i];
-                if is_winner_fn(player_name) {
-                    entry.wins += 1.0 / num_winners as f64;
-                }
-            }
-        }
-    }
-
-    if stats.is_empty() {
-        None
-    } else {
-        Some(stats)
-    }
-}
-
 /// Skill vs chance statistics derived from calibrated Elo ratings.
 /// Based on Duersch, Lambrecht, and Oechssler (2018).
 pub struct SkillChanceStats {
@@ -1160,31 +1096,6 @@ pub fn compute_score_distribution(
     counts
 }
 
-/// Compute the distribution of game round counts.
-pub fn compute_round_count_distribution(
-    logs: &[StructuredGameLog],
-    filter: Option<&PlayerFilter>,
-) -> BTreeMap<u32, usize> {
-    let mut counts = BTreeMap::new();
-    for (log_idx, log) in logs.iter().enumerate() {
-        if let Some(f) = filter {
-            if !f.contains_key(&log_idx) {
-                continue;
-            }
-        }
-        let mut max_round: u32 = 0;
-        for entry in &log.entries {
-            if entry.round > max_round {
-                max_round = entry.round;
-            }
-        }
-        if max_round > 0 {
-            *counts.entry(max_round).or_insert(0) += 1;
-        }
-    }
-    counts
-}
-
 /// Compute deck size statistics across all players at end of game.
 pub fn compute_deck_size_stats(
     logs: &[StructuredGameLog],
@@ -1235,12 +1146,8 @@ pub fn compute_deck_size_stats(
     }
 }
 
-/// Compute average game length in rounds and choices.
-pub fn compute_average_game_length(
-    logs: &[StructuredGameLog],
-    filter: Option<&PlayerFilter>,
-) -> GameLengthStats {
-    let mut total_rounds: u32 = 0;
+/// Compute the average number of choices per game.
+pub fn compute_average_plies(logs: &[StructuredGameLog], filter: Option<&PlayerFilter>) -> f64 {
     let mut total_choices: usize = 0;
     let mut game_count: usize = 0;
 
@@ -1250,28 +1157,14 @@ pub fn compute_average_game_length(
                 continue;
             }
         }
-        let mut max_round: u32 = 0;
-        for entry in &log.entries {
-            if entry.round > max_round {
-                max_round = entry.round;
-            }
-        }
-        total_rounds += max_round;
         total_choices += log.entries.len();
         game_count += 1;
     }
 
     if game_count == 0 {
-        return GameLengthStats {
-            avg_rounds: 0.0,
-            avg_choices: 0.0,
-        };
+        return 0.0;
     }
-
-    GameLengthStats {
-        avg_rounds: total_rounds as f64 / game_count as f64,
-        avg_choices: total_choices as f64 / game_count as f64,
-    }
+    total_choices as f64 / game_count as f64
 }
 
 /// Compute duration statistics. Returns None if no logs have duration_ms.

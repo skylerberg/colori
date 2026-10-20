@@ -26,14 +26,12 @@ pub struct CachedAnalysis {
     /// Keyed by half points.
     pub score_dist: std::collections::BTreeMap<u32, usize>,
     pub win_rate_position: HashMap<usize, WinRateEntry>,
-    pub game_length: GameLengthStats,
+    pub avg_plies: f64,
     pub color_stats: HashMap<String, f64>,
     pub duration_stats: Option<DurationStats>,
     pub variant_win_rate: Option<HashMap<String, WinRateEntry>>,
-    pub variant_win_rate_by_length: Option<std::collections::BTreeMap<u32, HashMap<String, WinRateEntry>>>,
     pub skill_stats: Option<SkillChanceStats>,
     pub penultimate_deck_sizes: std::collections::BTreeMap<u32, usize>,
-    pub round_count_dist: std::collections::BTreeMap<u32, usize>,
     pub card_win_rate: HashMap<String, WinRateEntry>,
     pub draft_win_rate: HashMap<String, WinRateEntry>,
     // Derived
@@ -69,14 +67,12 @@ impl CachedAnalysis {
         let deck_stats = compute_deck_size_stats(logs, filter_ref);
         let score_dist = compute_score_distribution(logs, filter_ref);
         let win_rate_position = compute_win_rate_by_position(logs, filter_ref);
-        let game_length = compute_average_game_length(logs, filter_ref);
+        let avg_plies = compute_average_plies(logs, filter_ref);
         let color_stats = compute_color_wheel_stats(logs, filter_ref);
         let duration_stats = compute_duration_stats(logs, filter_ref);
         let variant_win_rate = compute_win_rate_by_variant(logs);
-        let variant_win_rate_by_length = compute_variant_win_rate_by_game_length(logs);
         let skill_stats = compute_skill_chance_stats(logs);
         let penultimate_deck_sizes = compute_penultimate_round_deck_sizes(logs, filter_ref);
-        let round_count_dist = compute_round_count_distribution(logs, filter_ref);
         let card_win_rate = compute_win_rate_by_card(logs, filter_ref);
         let draft_win_rate = compute_win_rate_if_drafted(logs, filter_ref);
         let winner_sell_card_breakdown = compute_winner_sell_card_breakdown(logs, filter_ref);
@@ -141,14 +137,12 @@ impl CachedAnalysis {
             deck_stats,
             score_dist,
             win_rate_position,
-            game_length,
+            avg_plies,
             color_stats,
             duration_stats,
             variant_win_rate,
-            variant_win_rate_by_length,
             skill_stats,
             penultimate_deck_sizes,
-            round_count_dist,
             card_win_rate,
             draft_win_rate,
             draft_freq_categories,
@@ -181,11 +175,7 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
                         label: "Games".into(),
                     },
                     StatCard {
-                        value: format!("{:.1}", analysis.game_length.avg_rounds),
-                        label: "Avg Rounds".into(),
-                    },
-                    StatCard {
-                        value: format!("{:.0}", analysis.game_length.avg_choices),
+                        value: format!("{:.0}", analysis.avg_plies),
                         label: "Avg Plies".into(),
                     },
                     StatCard {
@@ -217,8 +207,8 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
                 stat_grid(ui, &cards);
             });
 
-        // 2-4. Score, Game Length, and Deck Size distributions side by side
-        ui.columns(3, |columns| {
+        // 2-3. Score and Deck Size distributions side by side
+        ui.columns(2, |columns| {
             render_btree_bar_section(
                 &mut columns[0],
                 "Score Distribution",
@@ -230,15 +220,6 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
             );
             render_btree_bar_section(
                 &mut columns[1],
-                "Game Length (Rounds) Distribution",
-                "Rounds",
-                "Count",
-                &analysis.round_count_dist,
-                |rounds| rounds.to_string(),
-                true,
-            );
-            render_btree_bar_section(
-                &mut columns[2],
                 "Deck Size Distribution (Penultimate Round)",
                 "Deck Size",
                 "Count",
@@ -398,103 +379,6 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
                         ];
                         stat_grid(ui, &cards);
                     }
-                });
-        }
-
-        // 7. Win Rate by Variant by Game Length (conditional)
-        if let Some(ref by_length) = analysis.variant_win_rate_by_length {
-            let id = ui.make_persistent_id("win_rate_variant_by_length");
-            egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
-                .show_header(ui, |ui| {
-                    ui.strong("Win Rate by Variant by Game Length");
-                })
-                .body(|ui| {
-                    // Collect all variant labels across all rounds
-                    let mut all_variants: Vec<String> = Vec::new();
-                    for variant_map in by_length.values() {
-                        for label in variant_map.keys() {
-                            if !all_variants.contains(label) {
-                                all_variants.push(label.clone());
-                            }
-                        }
-                    }
-
-                    // Sort variants by overall Elo descending (consistent with main variant table)
-                    let elo_map = analysis.skill_stats.as_ref().map(|s| &s.elos);
-                    all_variants.sort_by(|a, b| {
-                        let elo_a = elo_map.and_then(|m| m.get(a.as_str())).copied().unwrap_or(1500.0);
-                        let elo_b = elo_map.and_then(|m| m.get(b.as_str())).copied().unwrap_or(1500.0);
-                        elo_b.partial_cmp(&elo_a).unwrap()
-                    });
-
-                    egui::Grid::new(ui.next_auto_id())
-                        .striped(true)
-                        .min_col_width(60.0)
-                        .show(ui, |ui| {
-                            // Header row
-                            ui.strong("Rounds");
-                            ui.strong("Games");
-                            for variant in &all_variants {
-                                ui.strong(variant.as_str());
-                            }
-                            ui.end_row();
-
-                            // One row per round count
-                            for (&round_count, variant_map) in by_length {
-                                ui.label(format!("{}", round_count));
-
-                                // Total games for this round count (games per variant are equal per game, so sum any one divided by player count... actually just sum all games / num_variants)
-                                let total_games: f64 = variant_map.values().map(|e| e.games).sum();
-                                let games_per_variant = if !all_variants.is_empty() {
-                                    total_games / all_variants.len() as f64
-                                } else {
-                                    0.0
-                                };
-                                ui.label(format!("{}", games_per_variant as i64));
-
-                                for variant in &all_variants {
-                                    if let Some(entry) = variant_map.get(variant) {
-                                        let pct = if entry.games > 0.0 {
-                                            entry.wins / entry.games * 100.0
-                                        } else {
-                                            0.0
-                                        };
-                                        let bar_width = 60.0;
-                                        let bar_height = 16.0;
-                                        let response = ui.horizontal(|ui| {
-                                            let (rect, response) = ui.allocate_exact_size(
-                                                egui::vec2(bar_width, bar_height),
-                                                egui::Sense::hover(),
-                                            );
-                                            if ui.is_rect_visible(rect) {
-                                                let fraction = (pct / 100.0).clamp(0.0, 1.0) as f32;
-                                                let bar_rect = egui::Rect::from_min_size(
-                                                    rect.min,
-                                                    egui::vec2(rect.width() * fraction, rect.height()),
-                                                );
-                                                let color = win_rate_color(fraction);
-                                                ui.painter().rect_filled(bar_rect, 2.0, color);
-                                                ui.painter().text(
-                                                    rect.center(),
-                                                    egui::Align2::CENTER_CENTER,
-                                                    format!("{:.1}%", pct),
-                                                    egui::FontId::default(),
-                                                    ui.visuals().text_color(),
-                                                );
-                                            }
-                                            response
-                                        });
-                                        response.inner.on_hover_text(format!(
-                                            "{:.1} wins / {} games",
-                                            entry.wins, entry.games as i64
-                                        ));
-                                    } else {
-                                        ui.label("\u{2013}");
-                                    }
-                                }
-                                ui.end_row();
-                            }
-                        });
                 });
         }
 
