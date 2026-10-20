@@ -888,11 +888,13 @@ fn render_replayed_state(
             ));
 
             // Card counts
+            let workshop_area = player.workshop_cards.len() + player.workshopped_cards.len();
             ui.label(format!(
-                "Deck: {} ({} piles) | Workshop: {} | Drafted: {}",
+                "Deck: {} (draw pile {} in {} piles + workshop area {}) | Drafted: {}",
+                player.deck.len() + workshop_area,
                 player.deck.len(),
                 player.deck.segment_count(),
-                player.workshop_cards.len(),
+                workshop_area,
                 player.drafted_cards.len()
             ));
 
