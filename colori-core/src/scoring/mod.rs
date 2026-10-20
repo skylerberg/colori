@@ -29,6 +29,12 @@ pub struct CardHeuristicTable {
 }
 
 impl CardHeuristicTable {
+    /// What one card of this type is worth, as the heuristic parameters see it.
+    #[inline]
+    pub fn quality(&self, card: Card) -> f64 {
+        self.quality[card as usize]
+    }
+
     pub fn new(params: &HeuristicParams) -> Self {
         let mut quality = [0.0f64; NUM_CARDS];
         for &card in &ALL_CARDS {

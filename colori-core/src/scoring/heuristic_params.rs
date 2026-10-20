@@ -1,5 +1,12 @@
 use serde::{Deserialize, Serialize};
 
+/// A set of heuristic weights.
+///
+/// [`Default`] is the neutral table rather than zeros: every card quality is
+/// one, so a card is worth a unit of its kind and no card outranks another.
+/// Nothing about stored colours or materials is priced, and the rollout policy
+/// stays inert. A trained file is what real play wants; the neutral table
+/// exists so that card quality is not silently zero when no file is given.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", from = "HeuristicParamsRaw")]
 pub struct HeuristicParams {
@@ -198,6 +205,69 @@ impl From<HeuristicParamsRaw> for HeuristicParams {
             rollout_ws_material_colors_met_multiplier: raw.rollout_ws_material_colors_met_multiplier,
             rollout_ws_action_gain_ducats_value: raw.rollout_ws_action_gain_ducats_value.unwrap_or(bonus),
             rollout_ws_action_color_demand_multiplier: raw.rollout_ws_action_color_demand_multiplier.unwrap_or(bonus),
+        }
+    }
+}
+
+impl Default for HeuristicParams {
+    fn default() -> Self {
+        HeuristicParams {
+            // Nothing about the position is priced: these are turned on by
+            // training, not by default.
+            primary_color_value: 0.0,
+            secondary_color_value: 0.0,
+            tertiary_color_value: 0.0,
+            stored_ceramics_weight: 0.0,
+            stored_paintings_weight: 0.0,
+            stored_textiles_weight: 0.0,
+            deck_thinning_value: 0.0,
+            // Every card weighs the same.
+            chalk_quality: 1.0,
+            basic_dye_quality: 1.0,
+            starter_material_quality: 1.0,
+            ceramics_material_quality: 1.0,
+            paintings_material_quality: 1.0,
+            textiles_material_quality: 1.0,
+            dual_material_quality: 1.0,
+            alum_quality: 1.0,
+            gum_arabic_quality: 1.0,
+            warehouse_quality: 1.0,
+            gondola_quality: 1.0,
+            linseed_oil_quality: 1.0,
+            primary_dye_quality: 1.0,
+            secondary_dye_quality: 1.0,
+            tertiary_dye_quality: 1.0,
+            sell_card_material_alignment: 0.0,
+            sell_card_color_alignment: 0.0,
+            // These three scale a term rather than adding one, so one is the
+            // value that leaves it alone.
+            wild_primary_multiplier: 1.0,
+            boat_multiplier: 1.0,
+            unspent_ducat_multiplier: 1.0,
+            heuristic_round_threshold: 0,
+            heuristic_lookahead: 1,
+            // The rollout policy is inert until a file supplies these.
+            rollout_epsilon: 0.0,
+            rollout_sell_affordable_multiplier: 0,
+            rollout_sell_base: 0,
+            rollout_mix_base: 0,
+            rollout_mix_pair_weight: 0,
+            rollout_mix_count_weight: 0,
+            rollout_mix_no_pairs: 0,
+            rollout_workshop_base: 0,
+            rollout_workshop_count_weight: 0,
+            rollout_workshop_empty: 0,
+            rollout_trash_with_targets: 0,
+            rollout_trash_no_targets: 0,
+            rollout_end_turn_threshold: 0,
+            rollout_end_turn_probability_early: 0.0,
+            rollout_end_turn_probability_late: 0.0,
+            // Must be at least two; the rollout checks it.
+            rollout_end_turn_max_round: 2,
+            rollout_ws_material_base_multiplier: 0,
+            rollout_ws_material_colors_met_multiplier: 0,
+            rollout_ws_action_gain_ducats_value: 0,
+            rollout_ws_action_color_demand_multiplier: 0,
         }
     }
 }

@@ -28,6 +28,14 @@ pub enum Commands {
     Tournament(TournamentArgs),
     /// Train heuristic params using genetic algorithm
     Train(TrainArgs),
+    /// Play games with a deterministic rules policy
+    PolicyPlay(PolicyPlayArgs),
+    /// Tune a rules policy's weights with a cross-entropy method
+    PolicyEvolve(PolicyEvolveArgs),
+    /// Measure what each gene is worth, so the genome can be cut down
+    PolicyPrune(PolicyPruneArgs),
+    /// Dump decisions and position quantities, to see whether a tree could carry it
+    PolicyDistill(PolicyDistillArgs),
 }
 
 // ── Subcommand args ──
@@ -219,4 +227,240 @@ pub fn load_heuristic_params(path: &str) -> HeuristicParams {
         .unwrap_or_else(|_| panic!("Failed to read heuristic params file: {}", path));
     serde_json::from_str::<HeuristicParams>(&contents)
         .unwrap_or_else(|_| panic!("Failed to parse heuristic params file: {}", path))
+}
+
+// ── Deterministic policy ──
+
+#[derive(Parser)]
+pub struct PolicyPlayArgs {
+    /// Genome to play: `starter` for the built-in rules, or a path to a JSON file
+    #[arg(long, default_value = "starter")]
+    pub genome: String,
+
+    /// Frozen opponents for the other seats, comma separated: a path to a
+    /// genome file, or `none` for a mirror match every seat the candidate.
+    ///
+    /// With one rung the candidate plays a straight match. With several the
+    /// table varies while the ladder itself never moves, so a candidate's
+    /// score still means the same thing across runs.
+    #[arg(long, value_delimiter = ',', default_value = "starter")]
+    pub anchors: Vec<String>,
+
+    /// Heuristic params file the card-quality rules read. Defaults to the
+    /// baked-in batch-alobyo-gen-41.
+    #[arg(long)]
+    pub heuristic_params_file: Option<String>,
+
+    /// Number of games
+    #[arg(long, default_value_t = 200)]
+    pub games: usize,
+
+    /// First seed. Game i uses seed_base + i, so two genomes measured on the
+    /// same range see the same opening hands.
+    #[arg(long, default_value_t = 0)]
+    pub seed_base: u64,
+
+    /// Players at the table
+    #[arg(long, default_value_t = 4)]
+    pub players: usize,
+
+    /// Write one game's full decision trace and print the decisions the rules
+    /// came closest to getting wrong
+    #[arg(long)]
+    pub trace_seed: Option<u64>,
+
+    /// Decisions deep to look ahead inside a turn. 0 is the plain one-ply
+    /// policy; 2 follows a choice, then the best reply, and scores the position
+    /// that leaves.
+    #[arg(long, default_value_t = 0)]
+    pub lookahead: usize,
+
+    /// How many of the best-scoring choices to follow when looking ahead
+    #[arg(long, default_value_t = 4)]
+    pub lookahead_width: usize,
+}
+
+#[derive(Parser)]
+pub struct PolicyPruneArgs {
+    /// Genome to measure: `starter` or a path to a JSON file
+    #[arg(long, default_value = "starter")]
+    pub genome: String,
+
+    /// Heuristic params file the card-quality rules read
+    #[arg(long)]
+    pub heuristic_params_file: Option<String>,
+
+    /// Games per gene measured, all on the same seeds
+    #[arg(long, default_value_t = 300)]
+    pub games: usize,
+
+    #[arg(long, default_value_t = 0)]
+    pub seed_base: u64,
+
+    #[arg(long, default_value_t = 4)]
+    pub players: usize,
+
+    /// A gene whose removal costs less than this many points is free to cut
+    #[arg(long, default_value_t = 0.05)]
+    pub threshold: f64,
+
+    /// Decisions deep to look ahead while measuring
+    #[arg(long, default_value_t = 0)]
+    pub lookahead: usize,
+
+    /// How many of the best-scoring choices to follow when looking ahead
+    #[arg(long, default_value_t = 4)]
+    pub lookahead_width: usize,
+
+    /// Write the genome with every free gene removed
+    #[arg(long)]
+    pub write: Option<String>,
+}
+
+impl PolicyPruneArgs {
+    pub fn plan(&self) -> colori_core::policy::Plan {
+        colori_core::policy::Plan::new(self.lookahead_width, self.lookahead)
+    }
+}
+
+#[derive(Parser)]
+pub struct PolicyDistillArgs {
+    /// Genome whose decisions are dumped
+    #[arg(long, default_value = "starter")]
+    pub genome: String,
+
+    #[arg(long)]
+    pub heuristic_params_file: Option<String>,
+
+    #[arg(long, default_value_t = 120)]
+    pub games: usize,
+
+    #[arg(long, default_value_t = 0)]
+    pub seed_base: u64,
+
+    #[arg(long, default_value_t = 4)]
+    pub players: usize,
+
+    /// Where to write the CSV
+    #[arg(long, default_value = "policy-runs/decisions.csv")]
+    pub write: String,
+
+    #[arg(long, default_value_t = 0)]
+    pub lookahead: usize,
+
+    #[arg(long, default_value_t = 4)]
+    pub lookahead_width: usize,
+}
+
+/// Which numbers a tuning run may move.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum TuneScope {
+    /// The choice rules, their regime weights, and the composed readings.
+    All,
+    /// Only the value function. Useful with `--lookahead`, where the leaves are
+    /// what the search is actually judging.
+    Values,
+}
+
+#[derive(Parser)]
+pub struct PolicyEvolveArgs {
+    /// Genome whose rules are tuned: `starter` or a path to a JSON file
+    #[arg(long, default_value = "starter")]
+    pub template: String,
+
+    /// Frozen opponents for the seats the candidate does not take, comma
+    /// separated. One rung is a straight match; several make the table vary
+    /// while keeping the target stationary.
+    #[arg(long, value_delimiter = ',', default_value = "starter")]
+    pub anchors: Vec<String>,
+
+    /// Heuristic params file the card-quality rules read. Defaults to the
+    /// baked-in batch-alobyo-gen-41.
+    #[arg(long)]
+    pub heuristic_params_file: Option<String>,
+
+    /// Genomes evaluated per generation
+    #[arg(long, default_value_t = 24)]
+    pub population: usize,
+
+    #[arg(long, default_value_t = 40)]
+    pub generations: usize,
+
+    /// Games per candidate per generation
+    #[arg(long, default_value_t = 64)]
+    pub games: usize,
+
+    /// First training seed; every candidate is measured on the same range
+    #[arg(long, default_value_t = 0)]
+    pub seed_base: u64,
+
+    /// Games on the held-out seed range, measured every generation and never
+    /// tuned against. Zero leaves the holdout out.
+    #[arg(long, default_value_t = 0)]
+    pub holdout_games: usize,
+
+    #[arg(long, default_value_t = 1_000_000)]
+    pub holdout_seed_base: u64,
+
+    /// Initial spread, relative to each weight's magnitude
+    #[arg(long, default_value_t = 0.25)]
+    pub sigma: f64,
+
+    /// Smallest spread the search keeps, so it never stops probing
+    #[arg(long, default_value_t = 0.01)]
+    pub sigma_floor: f64,
+
+    /// Fraction of the population the sampling distribution is refitted to
+    #[arg(long, default_value_t = 0.2)]
+    pub elite_fraction: f64,
+
+    /// Hard clamp on any weight
+    #[arg(long, default_value_t = 20.0)]
+    pub max_weight: f64,
+
+    /// Seed for the sampler, so the sampling can be repeated exactly
+    #[arg(long, default_value_t = 7)]
+    pub sampler_seed: u64,
+
+    /// Players at the table
+    #[arg(long, default_value_t = 4)]
+    pub players: usize,
+
+    /// Composed readings to mutate per generation. 0 tunes weights only.
+    #[arg(long, default_value_t = 4)]
+    pub mutations: usize,
+
+    /// Games used to fit a new composition's weight before judging it
+    #[arg(long, default_value_t = 64)]
+    pub screen_games: usize,
+
+    /// Standard errors a new composition must clear. Below two on purpose: a
+    /// worthless composition costs compute, a rejected good one is lost.
+    #[arg(long, default_value_t = 1.0)]
+    pub mutant_bars: f64,
+
+    /// What to search: everything, or only the value function a planned
+    /// decision scores its leaves with.
+    #[arg(long, value_enum, default_value_t = TuneScope::All)]
+    pub tune: TuneScope,
+
+    /// Decisions deep to look ahead inside a turn
+    #[arg(long, default_value_t = 0)]
+    pub lookahead: usize,
+
+    /// How many of the best-scoring choices to follow when looking ahead
+    #[arg(long, default_value_t = 4)]
+    pub lookahead_width: usize,
+}
+
+impl PolicyPlayArgs {
+    pub fn plan(&self) -> colori_core::policy::Plan {
+        colori_core::policy::Plan::new(self.lookahead_width, self.lookahead)
+    }
+}
+
+impl PolicyEvolveArgs {
+    pub fn plan(&self) -> colori_core::policy::Plan {
+        colori_core::policy::Plan::new(self.lookahead_width, self.lookahead)
+    }
 }
