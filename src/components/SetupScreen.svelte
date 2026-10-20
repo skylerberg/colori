@@ -1,36 +1,36 @@
 <script lang="ts">
   import type { AiSettings, GameState } from '../data/types';
-  import { AI_DIFFICULTY_LEVELS, DEFAULT_AI_ITERATIONS, aiPlayerName, humanPlayerName } from '../data/aiDifficulty';
+  import { AI_DIFFICULTY_LEVELS, aiPlayerName, humanPlayerName } from '../data/aiDifficulty';
+  import { AI_PARAMS_CHOICES, END_OF_GAME_LOOKAHEAD, PLAYER_COUNTS } from '../data/gameSetup';
   import { createInitialGameState } from '../engine/wasmEngine';
+  import { loadSetup, saveSetup } from '../persistence';
   import CharacterPortrait from './CharacterPortrait.svelte';
-
-  const MAX_PLAYERS = 5;
-  // Seat 1 starts as the human; the rest are AI opponents until told otherwise.
-  const DEFAULT_IS_AI = [false, true, true, true, true];
 
   let { onGameStarted }: {
     onGameStarted: (state: GameState, aiIterations: number[], aiSettings: AiSettings) => void;
   } = $props();
 
-  let playerCount = $state(2);
-  let isAI: boolean[] = $state([...DEFAULT_IS_AI]);
-  let aiIterations: number[] = $state(Array<number>(MAX_PLAYERS).fill(DEFAULT_AI_ITERATIONS));
-  let playerNames: string[] = $state(defaultNames());
+  const lastSetup = loadSetup();
+  let playerCount = $state(lastSetup.playerCount);
+  let isAI: boolean[] = $state(lastSetup.isAI);
+  let aiIterations: number[] = $state(lastSetup.aiIterations);
+  let playerNames: string[] = $state(
+    lastSetup.names.map((name, i) => name ?? generatedName(i, lastSetup.isAI[i], lastSetup.aiIterations[i]))
+  );
   // A name the player typed is theirs to keep: only auto-generated names follow the AI toggle
   // and the difficulty select.
-  let autoNamed: boolean[] = $state(Array<boolean>(MAX_PLAYERS).fill(true));
-  let aiParams = $state('default');
-  let rolloutLookahead: AiSettings['rolloutLookahead'] = $state(null);
-  let advancedOpen = $state(false);
+  let autoNamed: boolean[] = $state(lastSetup.names.map(name => name === null));
+  let aiParams = $state(lastSetup.params);
+  let rolloutLookahead = $state(lastSetup.rolloutLookahead);
+  // Open when the remembered AI settings are not the defaults, so they don't carry over unseen.
+  let advancedOpen = $state(lastSetup.params !== 'default' || lastSetup.rolloutLookahead !== null);
 
-  function defaultNames(): string[] {
-    return Array.from({ length: MAX_PLAYERS }, (_, i) =>
-      DEFAULT_IS_AI[i] ? aiPlayerName(i, DEFAULT_AI_ITERATIONS) : humanPlayerName(i)
-    );
+  function generatedName(seat: number, ai: boolean, iterations: number): string {
+    return ai ? aiPlayerName(seat, iterations) : humanPlayerName(seat);
   }
 
   function defaultName(index: number): string {
-    return isAI[index] ? aiPlayerName(index, aiIterations[index]) : humanPlayerName(index);
+    return generatedName(index, isAI[index], aiIterations[index]);
   }
 
   function updatePlayerCount(count: number) {
@@ -55,6 +55,14 @@
   }
 
   function startGame() {
+    saveSetup({
+      playerCount,
+      isAI,
+      aiIterations,
+      names: playerNames.map((name, i) => (autoNamed[i] ? null : name)),
+      params: aiParams,
+      rolloutLookahead,
+    });
     const names = playerNames.slice(0, playerCount).map((n, i) => n.trim() || defaultName(i));
     const aiPlayers = isAI.slice(0, playerCount);
     const state = createInitialGameState(names, aiPlayers);
@@ -69,7 +77,7 @@
     <!-- svelte-ignore a11y_label_has_associated_control -->
     <label>Number of Players:</label>
     <div class="count-buttons">
-      {#each [2, 3, 4] as count}
+      {#each PLAYER_COUNTS as count}
         <button
           class="count-btn"
           class:active={playerCount === count}
@@ -125,20 +133,18 @@
       <div class="advanced-content">
         <label for="ai-params">AI Parameters:</label>
         <select id="ai-params" bind:value={aiParams}>
-          <option value="default">alobyo gen 45 (default)</option>
-          <option value="lki08w-gen-32">lki08w gen 32</option>
-          <option value="9iii4n-gen-19">9iii4n gen 19</option>
-          <option value="9iii4n-gen-19-avoid-alum-warehouse-gondola">9iii4n gen 19, avoiding Alum, Warehouse, Gondola</option>
+          {#each AI_PARAMS_CHOICES as choice}
+            <option value={choice.value}>{choice.label}</option>
+          {/each}
         </select>
 
         <label for="rollout-lookahead">Rollout Lookahead:</label>
         <select id="rollout-lookahead" bind:value={rolloutLookahead}>
           <option value={null}>As trained</option>
-          {#each [0, 1, 2, 3, 4, 5] as rounds}
+          {#each { length: END_OF_GAME_LOOKAHEAD } as _, rounds}
             <option value={rounds}>{rounds} {rounds === 1 ? 'round' : 'rounds'}</option>
           {/each}
-          <!-- Six rounds past round 1 is the end of the game. -->
-          <option value={6}>End of game</option>
+          <option value={END_OF_GAME_LOOKAHEAD}>End of game</option>
         </select>
       </div>
     {/if}

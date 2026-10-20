@@ -1,7 +1,9 @@
 import type { Ability, AiSettings, GameState, PlayerTurn, StructuredGameLog } from './data/types';
+import { type GameSetup, restoreSetup } from './data/gameSetup';
 import { type LogEntry, migrateLog } from './logEntries';
 
 const STORAGE_KEY = 'colori-saved-game';
+const SETUP_KEY = 'colori-last-setup';
 
 export interface SavedGame {
   gameState: GameState;
@@ -51,6 +53,24 @@ export function clearSavedGame(): void {
     localStorage.removeItem(STORAGE_KEY);
   } catch {
     // ignore
+  }
+}
+
+export function saveSetup(setup: GameSetup): void {
+  try {
+    localStorage.setItem(SETUP_KEY, JSON.stringify(setup));
+  } catch {
+    // localStorage full or unavailable — the next game starts from the defaults
+  }
+}
+
+/** The setup the last local game started from, or the defaults before there was one. */
+export function loadSetup(): GameSetup {
+  try {
+    const raw = localStorage.getItem(SETUP_KEY);
+    return restoreSetup(raw === null ? null : JSON.parse(raw));
+  } catch {
+    return restoreSetup(null);
   }
 }
 
