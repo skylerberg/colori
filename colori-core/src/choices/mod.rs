@@ -9,7 +9,7 @@ use crate::apply_choice::resolve_card_types_to_ids;
 use crate::colors::{can_mix, can_supply_mix, perform_mix_unchecked, SECONDARIES};
 use crate::types::*;
 
-use trash::enumerate_trash_choices;
+use trash::{enumerate_trash_choices, WorkshopTally};
 use mix_sequences::enumerate_mix_sequences;
 use multiset::{count_card_types, enumerate_multiset_subsets, enumerate_multiset_subsets_exact};
 
@@ -59,8 +59,9 @@ pub fn enumerate_choices_into(state: &GameState, player_index: usize, choices: &
 
             match turn.ability_stack.last() {
                 None => {
+                    let mut tally = WorkshopTally::default();
                     for_each_unique_card_type(&player.drafted_cards, &state.card_lookup, |card| {
-                        enumerate_trash_choices(state, player, card, choices);
+                        enumerate_trash_choices(state, player, card, &mut tally, choices);
                     });
                     for purchase in ALL_DUCAT_PURCHASES {
                         if can_buy_with_ducat(player, purchase) {

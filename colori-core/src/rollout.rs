@@ -642,35 +642,94 @@ impl SellCardCache {
 struct BestSale {
     points: u32,
     id: Option<u32>,
+    /// Whether any buyer on the board is affordable at all, which is a
+    /// different question from which one pays best: a ducat buys the first,
+    /// the Sell priority reads the second.
+    affordable: bool,
 }
 
 impl BestSale {
     #[inline(always)]
     fn of(player: &PlayerState) -> Self {
-        let mut best = BestSale { points: 0, id: None };
+        let mut best = BestSale {
+            points: 0,
+            id: None,
+            affordable: false,
+        };
         for sc in player.buyers.iter() {
             let points = sc.sell_card.stats().points;
-            if points > best.points && can_afford_sell_card(player, &sc.sell_card) {
-                best = BestSale { points, id: Some(sc.instance_id) };
+            if points > best.points {
+                if can_afford_sell_card(player, &sc.sell_card) {
+                    best = BestSale {
+                        points,
+                        id: Some(sc.instance_id),
+                        affordable: true,
+                    };
+                }
+            } else if !best.affordable && can_afford_sell_card(player, &sc.sell_card) {
+                best.affordable = true;
             }
         }
         best
     }
 }
 
+/// What scoring every card in one hand would otherwise work out again for
+/// each of them.
+///
+/// The player does not change while a hand is scored, so the best sale, the
+/// mix pairs the stock can supply, and whether the workshop is empty are the
+/// same for every card. The first two are worked out on first use, so a hand
+/// with no Sell card never looks at the buyers and one with no Mix card never
+/// scans the mix pairs.
+struct PriorityMemo {
+    sale: Option<BestSale>,
+    mix_pairs: Option<u32>,
+    workshop_empty: bool,
+}
+
+impl PriorityMemo {
+    #[inline(always)]
+    fn new(player: &PlayerState) -> Self {
+        PriorityMemo {
+            sale: None,
+            mix_pairs: None,
+            workshop_empty: player.workshop_cards.is_empty(),
+        }
+    }
+
+    #[inline(always)]
+    fn sale_points(&mut self, player: &PlayerState) -> u32 {
+        self.sale.get_or_insert_with(|| BestSale::of(player)).points
+    }
+
+    #[inline(always)]
+    fn any_affordable_sale(&mut self, player: &PlayerState) -> bool {
+        self.sale
+            .get_or_insert_with(|| BestSale::of(player))
+            .affordable
+    }
+
+    #[inline(always)]
+    fn mix_pairs(&mut self, player: &PlayerState) -> u32 {
+        *self.mix_pairs.get_or_insert_with(|| {
+            suppliable_mix_pairs(&player.color_wheel, player.wild_primaries).1 as u32
+        })
+    }
+}
+
 /// Score how valuable it is to trash a card, i.e. how useful its abilities
-/// are to activate right now. `sale` is worked out the first time a Sell
-/// ability asks for it.
+/// are to activate right now.
 #[inline(always)]
 fn destruction_priority(
     card: Card,
     player: &PlayerState,
-    sale: &mut Option<BestSale>,
+    memo: &mut PriorityMemo,
     params: &HeuristicParams,
 ) -> u32 {
     card.trash_abilities()
         .iter()
-        .map(|&ability| ability_priority(ability, player, sale, params))
+        .map(|&ability| ability_priority(ability, player, memo, params))
         .sum()
 }
 
@@ -678,12 +737,12 @@ fn destruction_priority(
 fn ability_priority(
     ability: Ability,
     player: &PlayerState,
-    sale: &mut Option<BestSale>,
+    memo: &mut PriorityMemo,
     params: &HeuristicParams,
 ) -> u32 {
     match ability {
         Ability::Sell => {
-            let points = sale.get_or_insert_with(|| BestSale::of(player)).points;
+            let points = memo.sale_points(player);
             if points > 0 {
                 points * params.rollout_sell_affordable_multiplier
             } else {
@@ -691,8 +750,7 @@ fn ability_priority(
             }
         }
         Ability::MixColors { count } => {
-            let (_, valid_pairs) = suppliable_mix_pairs(&player.color_wheel, player.wild_primaries);
-            let valid_pairs = valid_pairs as u32;
+            let valid_pairs = memo.mix_pairs(player);
             if valid_pairs == 0 {
                 params.rollout_mix_no_pairs
             } else {
@@ -700,14 +758,14 @@ fn ability_priority(
             }
         }
         Ability::Workshop { count } => {
-            if player.workshop_cards.is_empty() {
+            if memo.workshop_empty {
                 params.rollout_workshop_empty
             } else {
                 params.rollout_workshop_base + count.min(3) * params.rollout_workshop_count_weight
             }
         }
         Ability::MoveToDraftPool => {
-            if player.workshop_cards.is_empty() {
+            if memo.workshop_empty {
                 params.rollout_trash_no_targets
             } else {
                 params.rollout_trash_with_targets
@@ -983,17 +1041,23 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     // Buy a sale only when the player cannot already trigger one for free. A
     // bought sale spends the same material and colours a drafted Sell card
     // would have, so paying for it while holding one just burns a ducat.
-    if can_buy_with_ducat(&state.players[player_index], DucatPurchase::Sell)
-        && !drafted
-            .iter()
-            .any(|id| state.card_lookup[id as usize].trash_abilities().contains(&Ability::Sell))
+    //
+    // "Can a ducat buy a sale here?" is the same walk of the buyers the Sell
+    // priority below needs, so it is made once and both read it.
+    let mut memo = PriorityMemo::new(&state.players[player_index]);
+    if state.players[player_index].ducats > 0
+        && memo.any_affordable_sale(&state.players[player_index])
+        && !drafted.iter().any(|id| {
+            state.card_lookup[id as usize]
+                .trash_abilities()
+                .contains(&Ability::Sell)
+        })
     {
         resolve_spend_ducat(state, player_index, DucatPurchase::Sell);
         return;
     }
 
     // Score each drafted card and pick the best to trash
-    let mut sale = None;
     let mut best_id: Option<u8> = None;
     let mut best_priority = 0u32;
     let mut seen: u64 = 0;
@@ -1002,7 +1066,7 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
         let bit = 1u64 << (card as u64);
         if seen & bit != 0 { continue; }
         seen |= bit;
-        let priority = destruction_priority(card, &state.players[player_index], &mut sale, params);
+        let priority = destruction_priority(card, &state.players[player_index], &mut memo, params);
         if priority > best_priority {
             best_priority = priority;
             best_id = Some(id);
@@ -1034,7 +1098,9 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
             state.trash.insert(card_id);
         }
         [Ability::Sell] => {
-            let sale = sale.unwrap_or_else(|| BestSale::of(&state.players[player_index]));
+            let sale = memo
+                .sale
+                .unwrap_or_else(|| BestSale::of(&state.players[player_index]));
             if let Some(sell_card_id) = sale.id {
                 fused_buy(state, player_index, card_id, sell_card_id);
             } else {
@@ -1163,12 +1229,12 @@ fn heuristic_action_step<R: Rng>(state: &mut GameState, player_index: usize, par
             // move no longer triggers it — the rollout has to trash
             // the card from the pool afterwards — but it is still the
             // card most worth having there.
-            let mut sale = None;
+            let mut memo = PriorityMemo::new(&state.players[player_index]);
             let mut best_id: Option<u8> = None;
             let mut best_score = 0u32;
             for id in workshop.iter() {
                 let card = state.card_lookup[id as usize];
-                let score = destruction_priority(card, &state.players[player_index], &mut sale, params);
+                let score = destruction_priority(card, &state.players[player_index], &mut memo, params);
                 if score > best_score || best_id.is_none() {
                     best_score = score;
                     best_id = Some(id);

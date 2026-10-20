@@ -186,11 +186,14 @@ impl<T> BitSet<T> {
             self.0 = [0; 2];
             return BitSet(all, PhantomData);
         }
+        // The draws are one at a time, each from a set one smaller than the
+        // last, so the length is known without recounting it: `count` bits are
+        // wanted and the first draw picks from all `n` that are here.
         let mut selected = Self::new();
-        for _ in 0..count {
-            if let Some(id) = self.draw(rng) {
-                selected.insert(id);
-            }
+        for taken in 0..count {
+            let pos = self.nth(rng.random_range(0..n - taken));
+            self.remove(pos);
+            selected.insert(pos);
         }
         return selected;
     }
