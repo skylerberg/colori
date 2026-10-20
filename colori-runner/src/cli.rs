@@ -237,8 +237,8 @@ pub struct PolicyPlayArgs {
     #[arg(long)]
     pub challenger: Option<String>,
 
-    /// Heuristic params file the card table is built from. Without one every
-    /// card weighs the same, so card-quality rules do nothing.
+    /// Heuristic params file the card-quality rules read. Defaults to the
+    /// baked-in batch-alobyo-gen-41.
     #[arg(long)]
     pub heuristic_params_file: Option<String>,
 
@@ -271,7 +271,8 @@ pub struct PolicyEvolveArgs {
     #[arg(long, default_value = "starter")]
     pub anchor: String,
 
-    /// Heuristic params file the card table is built from
+    /// Heuristic params file the card-quality rules read. Defaults to the
+    /// baked-in batch-alobyo-gen-41.
     #[arg(long)]
     pub heuristic_params_file: Option<String>,
 

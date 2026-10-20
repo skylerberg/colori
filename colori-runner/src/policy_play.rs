@@ -460,10 +460,25 @@ pub fn load_genome(spec: &str) -> PolicyGenome {
     serde_json::from_str(&text).unwrap_or_else(|error| panic!("failed to parse genome {spec}: {error}"))
 }
 
+/// The trained parameters the policy's card-quality rules read when no file is
+/// named.
+///
+/// Baked in rather than read from disk: this runs from whichever worktree
+/// happens to be current, and a card-quality table that silently failed to load
+/// would quietly switch several rules off. `--heuristic-params-file` overrides
+/// it.
+pub const DEFAULT_PARAMS_JSON: &str =
+    include_str!("../../genetic-algorithm/batch-alobyo-gen-41.json");
+
+pub fn default_params() -> HeuristicParams {
+    serde_json::from_str(DEFAULT_PARAMS_JSON)
+        .expect("the baked-in heuristic params are current-schema")
+}
+
 pub fn load_params(path: Option<&str>) -> HeuristicParams {
     match path {
         Some(path) => crate::cli::load_heuristic_params(path),
-        None => HeuristicParams::default(),
+        None => default_params(),
     }
 }
 
@@ -752,6 +767,25 @@ mod tests {
 
     fn scores(outcome: &GameOutcome) -> Vec<u32> {
         outcome.seats.iter().map(|seat| seat.half_points).collect()
+    }
+
+    #[test]
+    fn the_baked_in_params_are_current_and_price_cards() {
+        // A stale or partial file would silently strip the card-quality rules
+        // of any meaning, so the default is checked rather than assumed.
+        let params = default_params();
+        let table = colori_core::scoring::CardHeuristicTable::new(&params);
+        use colori_core::types::Card;
+        assert!(table.quality(Card::Chalk) > 0.0, "chalk is worth nothing");
+        assert!(
+            table.quality(Card::StarterCeramics) > 0.0,
+            "a starter material is worth nothing"
+        );
+        assert_ne!(
+            table.quality(Card::Chalk),
+            table.quality(Card::StarterCeramics),
+            "two different cards weigh the same, so the table is the neutral default"
+        );
     }
 
     #[test]

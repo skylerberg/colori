@@ -154,10 +154,10 @@ diff, not a score. If a rule is wrong, a narrow-margin decision will show it.
 - **Draft denial**: a draft hand is the player's own; what an opponent is
   collecting is unmodelled. The `draft_redundancy` rule covers the related
   "don't draft a third of the same ability" question only.
-- **Card quality** reads `HeuristicParams`. Without
-  `--heuristic-params-file` the neutral table gives every card the same quality,
-  so those rules are inert — visible in the activity report, but worth knowing
-  before reading anything into them.
+- **Card quality** reads `HeuristicParams`, which default to
+  `genetic-algorithm/batch-alobyo-gen-41.json` — the newest trained table, and
+  the one baked into the binary so that a missing file cannot silently strip
+  those rules of meaning. `--heuristic-params-file` overrides it.
 - **Search of any kind.** The next gains here are probably not better rules but
   a cheap exact solve where branching is tiny (mix sequences, workshop subsets,
   sell selection given a hand). That stays deterministic and fast.

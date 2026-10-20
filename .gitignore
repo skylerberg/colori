@@ -18,6 +18,8 @@ genetic-algorithm/*
 !genetic-algorithm/9iii4n-gen-19-avoid-alum-warehouse-gondola.json
 !genetic-algorithm/batch-nocdm1-gen-7.json
 !genetic-algorithm/batch-sih8cq-gen-19.json
+# The default parameter file for `policy-play` and `policy-evolve`.
+!genetic-algorithm/batch-alobyo-gen-41.json
 !genetic-algorithm/batch-c6zk1e-gen-13.json
 !genetic-algorithm/batch-lki08w-gen-0.json
 !genetic-algorithm/batch-lki08w-gen-2.json
