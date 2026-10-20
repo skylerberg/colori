@@ -33,7 +33,9 @@
 
 use std::collections::BTreeMap;
 
-use colori_core::policy::{features, rule_count, CompiledPolicy, PolicyGenome, Shape, VALUE_FEATURES};
+use colori_core::policy::{
+    features, rule_count, CompiledPolicy, Gate, PolicyGenome, Shape, VALUE_FEATURES,
+};
 use colori_core::scoring::HeuristicParams;
 use rand::{RngExt, SeedableRng};
 use serde::Serialize;
@@ -60,7 +62,7 @@ impl Candidate {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct WeightRow {
-    feature: &'static str,
+    feature: String,
     mean: f64,
     sigma: f64,
     /// What the search started from, so a drift is visible at a glance.
@@ -99,9 +101,46 @@ struct GenerationReport {
     wall_clock_secs: f64,
 }
 
-/// The rules a tuning run may touch: the template's switched-on features.
+/// One tunable number: a rule, optionally in one stretch of the game, or a
+/// composed reading.
+#[derive(Debug, Clone)]
+struct Tunable {
+    gate: Option<Gate>,
+    name: &'static str,
+    /// Set for a composed reading, which is addressed by its position in the
+    /// genome's list along with the label it writes out.
+    composed: Option<(usize, String)>,
+}
+
+impl Tunable {
+    fn rule(name: &'static str) -> Self {
+        Tunable { gate: None, name, composed: None }
+    }
+
+    fn regime(gate: Gate, name: &'static str) -> Self {
+        Tunable { gate: Some(gate), name, composed: None }
+    }
+
+    fn composed(index: usize, label: String) -> Self {
+        Tunable { gate: None, name: "", composed: Some((index, label)) }
+    }
+
+    /// How the number is labelled in a report.
+    fn label(&self) -> String {
+        if let Some((_, label)) = &self.composed {
+            return label.clone();
+        }
+        match self.gate {
+            Some(gate) => format!("{}/{}", gate.name(), self.name),
+            None => self.name.to_string(),
+        }
+    }
+}
+
+/// The rules a tuning run may touch: the template's switched-on features, and
+/// the regime weights it wrote for them.
 struct Rules {
-    names: Vec<&'static str>,
+    tunables: Vec<Tunable>,
     shapes: Vec<Shape>,
     started_at: Weights,
 }
@@ -118,7 +157,7 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
     let rules = rules_of(&template);
 
     assert!(
-        !rules.names.is_empty(),
+        !rules.tunables.is_empty(),
         "the template genome switches nothing on, so there is nothing to tune"
     );
 
@@ -138,7 +177,7 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
     eprintln!(
         "Tuning {} of {} rules for {} generations, {} games each, {} players, {} threads,
          planning {} ahead over {} choices",
-        rules.names.len(),
+        rules.tunables.len(),
         rule_count() + VALUE_FEATURES.len(),
         args.generations,
         args.games,
@@ -148,7 +187,15 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
         args.plan().width
     );
     eprintln!("Frozen opponents: {}", args.anchors.join(", "));
-    eprintln!("Rules under the search: {}", rules.names.join(", "));
+    eprintln!(
+        "Rules under the search: {}",
+        rules
+            .tunables
+            .iter()
+            .map(|tunable| tunable.label())
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
 
     // The ladder's own first rung, measured exactly like a candidate: one seat
     // against the rest of the ladder. Nothing below it is progress, and because
@@ -247,12 +294,12 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
                 .map(|candidate| gene_row(&candidate.label, candidate, &rules))
                 .collect(),
             weights: rules
-                .names
+                .tunables
                 .iter()
                 .zip(&rules.started_at)
                 .enumerate()
-                .map(|(index, (name, start))| WeightRow {
-                    feature: *name,
+                .map(|(index, (tunable, start))| WeightRow {
+                    feature: tunable.label(),
                     mean: new_mean[index],
                     sigma: new_sigma[index],
                     started_at: *start,
@@ -303,7 +350,7 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
 }
 
 fn rules_of(template: &PolicyGenome) -> Rules {
-    let mut names = Vec::new();
+    let mut names: Vec<Tunable> = Vec::new();
     let mut shapes = Vec::new();
     let mut started_at = Vec::new();
     // Walk the feature tables rather than the genome's map so that the search's
@@ -316,7 +363,7 @@ fn rules_of(template: &PolicyGenome) -> Rules {
         if gene.weight == 0.0 {
             continue;
         }
-        names.push(def.name);
+        names.push(Tunable::rule(def.name));
         shapes.push(gene.shape);
         started_at.push(gene.weight);
     }
@@ -327,7 +374,26 @@ fn rules_of(template: &PolicyGenome) -> Rules {
         if gene.weight == 0.0 {
             continue;
         }
-        names.push(def.name);
+        names.push(Tunable::rule(def.name));
+        shapes.push(gene.shape);
+        started_at.push(gene.weight);
+    }
+    // Then each regime's own weights, in gate order then table order.
+    for gate in Gate::ALL {
+        let Some(rules) = template.regimes.get(gate.name()) else {
+            continue;
+        };
+        for def in features() {
+            let Some(gene) = rules.get(def.name) else {
+                continue;
+            };
+            names.push(Tunable::regime(gate, def.name));
+            shapes.push(gene.shape);
+            started_at.push(gene.weight);
+        }
+    }
+    for (index, gene) in template.interactions.iter().enumerate() {
+        names.push(Tunable::composed(index, gene.label()));
         shapes.push(gene.shape);
         started_at.push(gene.weight);
     }
@@ -338,8 +404,21 @@ fn rules_of(template: &PolicyGenome) -> Rules {
             "the template names {name:?}, which is not a feature"
         );
     }
+    for (gate, rules) in &template.regimes {
+        assert!(
+            Gate::from_name(gate).is_some(),
+            "the template names {gate:?}, which is not a regime"
+        );
+        for name in rules.keys() {
+            assert!(
+                features().any(|def| def.name == name)
+                    || VALUE_FEATURES.iter().any(|def| def.name == name),
+                "a regime names {name:?}, which is not a feature"
+            );
+        }
+    }
     Rules {
-        names,
+        tunables: names,
         shapes,
         started_at,
     }
@@ -350,8 +429,16 @@ fn genome_with(template: &PolicyGenome, rules: &Rules, weights: &[f64]) -> Polic
     if !genome.description.ends_with("(tuned)") {
         genome.description = format!("{} (tuned)", template.description);
     }
-    for ((name, shape), weight) in rules.names.iter().zip(&rules.shapes).zip(weights) {
-        genome.set_shaped(name, *weight, *shape);
+    for ((tunable, shape), weight) in rules.tunables.iter().zip(&rules.shapes).zip(weights) {
+        if let Some((index, _)) = &tunable.composed {
+            genome.interactions[*index].weight = *weight;
+            genome.interactions[*index].shape = *shape;
+            continue;
+        }
+        match tunable.gate {
+            Some(gate) => genome.set_regime_shaped(gate, tunable.name, *weight, *shape),
+            None => genome.set_shaped(tunable.name, *weight, *shape),
+        };
     }
     genome
 }
@@ -368,8 +455,8 @@ fn build(
             "a sampled genome will not compile: {error}. Weights were {}",
             weights
                 .iter()
-                .zip(&rules.names)
-                .map(|(weight, name)| format!("{name}={weight:.4}"))
+                .zip(&rules.tunables)
+                .map(|(weight, tunable)| format!("{}={weight:.4}", tunable.label()))
                 .collect::<Vec<_>>()
                 .join(" ")
         )
@@ -408,13 +495,13 @@ fn evaluate(
 /// Refit the sampling distribution to the elite: mean and spread per gene.
 fn refit(elite: &[Candidate], rules: &Rules, args: &PolicyEvolveArgs) -> (Weights, Weights) {
     let count = elite.len().max(1) as f64;
-    let mut mean = vec![0.0; rules.names.len()];
+    let mut mean = vec![0.0; rules.tunables.len()];
     for candidate in elite {
         for (slot, weight) in mean.iter_mut().zip(&candidate.weights) {
             *slot += weight / count;
         }
     }
-    let mut sigma = vec![0.0; rules.names.len()];
+    let mut sigma = vec![0.0; rules.tunables.len()];
     for candidate in elite {
         for (slot, (weight, centre)) in sigma.iter_mut().zip(candidate.weights.iter().zip(&mean)) {
             *slot += (weight - centre).powi(2) / count;
@@ -433,10 +520,10 @@ fn refit(elite: &[Candidate], rules: &Rules, args: &PolicyEvolveArgs) -> (Weight
 
 fn gene_row(label: &str, candidate: &Candidate, rules: &Rules) -> GeneRow {
     let weights = rules
-        .names
+        .tunables
         .iter()
         .zip(&candidate.weights)
-        .map(|(name, weight)| (name.to_string(), *weight))
+        .map(|(tunable, weight)| (tunable.label(), *weight))
         .collect();
     GeneRow {
         label: label.to_string(),

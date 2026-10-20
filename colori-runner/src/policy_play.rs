@@ -679,7 +679,7 @@ pub fn activity_of(
 
             // What it shaped.
             for contribution in &record.decision.contributions {
-                let slot = entry(&mut totals, contribution.feature);
+                let slot = entry(&mut totals, &contribution.feature);
                 slot.0 += contribution.weighted.abs();
             }
 
@@ -687,8 +687,8 @@ pub fn activity_of(
             let mut spoke: Vec<&str> = Vec::new();
             for trace in &record.considered {
                 for contribution in &trace.contributions {
-                    if contribution.weighted != 0.0 && !spoke.contains(&contribution.feature) {
-                        spoke.push(contribution.feature);
+                    if contribution.weighted != 0.0 && !spoke.contains(&contribution.feature.as_str()) {
+                        spoke.push(contribution.feature.as_str());
                     }
                 }
             }

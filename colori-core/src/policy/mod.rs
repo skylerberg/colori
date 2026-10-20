@@ -43,6 +43,7 @@
 pub mod context;
 pub mod effects;
 pub mod features;
+pub mod interactions;
 pub mod value;
 
 use std::collections::BTreeMap;
@@ -55,7 +56,71 @@ use crate::types::{Choice, GamePhase, GameState};
 pub use context::{Ctx, PhaseKind};
 pub use effects::Delta;
 pub use features::{features, rule_count, ChoiceVariant, FeatureDef, FeatureFn, Group, ALL_CHOICE_VARIANTS};
+pub use interactions::{CompiledInteraction, InteractionGene, Op, SCALARS};
 pub use value::{ValueDef, ValueFn, VALUE_FEATURES};
+
+// ── Regimes ──
+
+/// A stretch of the game a weight can be written for.
+///
+/// One weight per rule forces one setting of a rule for the whole game, and the
+/// central dial of the game — spend an action now, or keep the card and build —
+/// is not set once: a card kept in round one comes round five more times and a
+/// card kept in round six once. A rule may therefore carry its own weight per
+/// regime, and a rule that says nothing about a regime keeps the weight it
+/// always had.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Gate {
+    /// The opening rounds, while a deck is being built.
+    Early,
+    /// The closing rounds, when cashing beats building.
+    Late,
+}
+
+pub const GATE_COUNT: usize = 2;
+
+impl Gate {
+    pub const ALL: [Gate; GATE_COUNT] = [Gate::Early, Gate::Late];
+
+    pub fn index(self) -> usize {
+        match self {
+            Gate::Early => 0,
+            Gate::Late => 1,
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Gate::Early => "early",
+            Gate::Late => "late",
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Gate> {
+        Gate::ALL.into_iter().find(|gate| gate.name() == name)
+    }
+
+    /// Whether this stretch of the game is the one being played.
+    pub fn is_open(self, ctx: &Ctx) -> bool {
+        match self {
+            Gate::Early => ctx.round <= EARLY_ROUNDS,
+            Gate::Late => ctx.rounds_left <= LATE_ROUNDS,
+        }
+    }
+}
+
+/// Rounds at the start that count as early, and at the end that count as late.
+const EARLY_ROUNDS: u32 = 2;
+const LATE_ROUNDS: u32 = 2;
+
+fn open_gates(ctx: &Ctx) -> [bool; GATE_COUNT] {
+    let mut open = [false; GATE_COUNT];
+    for gate in Gate::ALL {
+        open[gate.index()] = gate.is_open(ctx);
+    }
+    open
+}
 
 // ── Shapes ──
 
@@ -117,7 +182,15 @@ pub struct PolicyGenome {
     pub version: u32,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub description: String,
+    /// The weight every rule has, unless a regime says otherwise.
     pub features: BTreeMap<String, FeatureGene>,
+    /// Per-regime weights, keyed by gate name then by rule name. A rule that
+    /// appears in no regime behaves as `features` says for the whole game.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub regimes: BTreeMap<String, BTreeMap<String, FeatureGene>>,
+    /// Readings composed from two others: how the vocabulary goes non-linear.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub interactions: Vec<InteractionGene>,
 }
 
 impl PolicyGenome {
@@ -128,7 +201,48 @@ impl PolicyGenome {
             version: Self::VERSION,
             description: description.into(),
             features: BTreeMap::new(),
+            regimes: BTreeMap::new(),
+            interactions: Vec::new(),
         }
+    }
+
+    /// Add a composed reading.
+    pub fn compose(&mut self, op: Op, a: &str, b: &str, weight: f64) -> &mut Self {
+        self.interactions
+            .push(InteractionGene::new(op, a, b, weight));
+        self
+    }
+
+    /// Give a rule its own weight in a stretch of the game.
+    pub fn set_regime(&mut self, gate: Gate, name: &str, weight: f64) -> &mut Self {
+        self.set_regime_shaped(gate, name, weight, Shape::Linear)
+    }
+
+    pub fn set_regime_shaped(
+        &mut self,
+        gate: Gate,
+        name: &str,
+        weight: f64,
+        shape: Shape,
+    ) -> &mut Self {
+        self.regimes
+            .entry(gate.name().to_string())
+            .or_default()
+            .insert(name.to_string(), FeatureGene { weight, shape });
+        self
+    }
+
+    /// The weight a rule has outside any regime.
+    pub fn weight(&self, name: &str) -> f64 {
+        self.features.get(name).map_or(0.0, |gene| gene.weight)
+    }
+
+    /// The weight a rule has in a regime, if it says anything about it.
+    pub fn regime_weight(&self, gate: Gate, name: &str) -> Option<f64> {
+        self.regimes
+            .get(gate.name())
+            .and_then(|rules| rules.get(name))
+            .map(|gene| gene.weight)
     }
 
     pub fn set(&mut self, name: &str, weight: f64) -> &mut Self {
@@ -138,10 +252,6 @@ impl PolicyGenome {
     pub fn set_shaped(&mut self, name: &str, weight: f64, shape: Shape) -> &mut Self {
         self.features.insert(name.to_string(), FeatureGene { weight, shape });
         self
-    }
-
-    pub fn weight(&self, name: &str) -> f64 {
-        self.features.get(name).map_or(0.0, |gene| gene.weight)
     }
 
     /// The genome a tuning run starts from: one coherent set of rules, hand-set
@@ -155,6 +265,15 @@ impl PolicyGenome {
         let mut genome = PolicyGenome::new("starter: hand-set rules, untuned");
         for (name, weight) in STARTER_WEIGHTS {
             genome.set(name, *weight);
+        }
+        // The rules for which time matters, given a weight of their own for the
+        // opening and the close — seeded at the weight they already have, so the
+        // policy starts unchanged and the search is free to pull the two apart.
+        for name in REGIME_RULES {
+            let weight = genome.weight(name);
+            for gate in Gate::ALL {
+                genome.set_regime(gate, name, weight);
+            }
         }
         genome
     }
@@ -340,6 +459,37 @@ const STARTER_WEIGHTS: &[(&str, f64)] = &[
     ("value_drafted", 0.0),
 ];
 
+/// Rules that get a weight of their own for the opening and the close.
+///
+/// These are the readings where a different answer early and late is a different
+/// *strategy* rather than a different number: what keeping a card is worth, what
+/// an activation is worth, what a draft pick is for, and how hard to chase a
+/// buyer. Everything else is left with one weight, because a genome with two
+/// hundred free numbers and a few thousand games to fit them is a genome with no
+/// numbers at all.
+const REGIME_RULES: &[&str] = &[
+    "card_workshop_value",
+    "card_workshop_value_long",
+    "keep_value_early",
+    "points_immediate",
+    "ability_workshop",
+    "ability_sell",
+    "ability_sell_priced",
+    "ability_ducats",
+    "workshop_set_size",
+    "buyer_completion_points",
+    "buyer_short_one_filled",
+    "sell_dear_buyer",
+    "draft_completes_an_order",
+    "draft_fills_gap",
+    "colours_completing",
+    "materials_completing",
+    "mix_count",
+    "forgone_ducats",
+    "offer_points",
+    "offer_affordable",
+];
+
 // ── Errors ──
 
 #[derive(Debug)]
@@ -352,6 +502,10 @@ pub enum GenomeError {
     /// A genome that switches nothing on would score every choice zero and take
     /// the first one offered. Refusing is friendlier than playing like that.
     NothingEnabled,
+    /// A regime this build does not have.
+    UnknownGate(String),
+    /// A composed reading that does not compile.
+    BadInteraction(String, String),
 }
 
 impl std::fmt::Display for GenomeError {
@@ -364,6 +518,18 @@ impl std::fmt::Display for GenomeError {
                 write!(f, "weight for {feature:?} is {weight}, which is not a number")
             }
             GenomeError::NothingEnabled => write!(f, "the genome enables no features"),
+            GenomeError::BadInteraction(label, why) => {
+                write!(f, "the composed rule {label} will not compile: {why}")
+            }
+            GenomeError::UnknownGate(name) => write!(
+                f,
+                "no regime named {name:?} (known: {})",
+                Gate::ALL
+                    .iter()
+                    .map(|gate| gate.name())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
         }
     }
 }
@@ -385,20 +551,47 @@ fn known_feature_names() -> String {
 pub struct Term {
     pub name: &'static str,
     pub group: Group,
-    pub weight: f64,
     pub shape: Shape,
     /// The choice variants this term answers for, one bit each. Every rule is
     /// asked about every choice otherwise, and most of a decision's cost is
     /// rules that could only ever answer zero.
     pub mask: u32,
+    /// The weight outside any regime.
+    weight: f64,
+    /// A weight for a stretch of the game, where the genome gives one.
+    regimes: [Option<f64>; GATE_COUNT],
     eval: FeatureFn,
 }
 
 impl Term {
+    pub fn weight_in_any_regime(&self) -> f64 {
+        self.weight
+    }
+
+    pub fn regime_weight(&self, gate: Gate) -> Option<f64> {
+        self.regimes[gate.index()]
+    }
+
+    /// The weight that applies with `gates` open.
+    ///
+    /// The first open regime that says anything wins, so a rule can be written
+    /// for the opening and again for the close without the two fighting.
+    #[inline]
+    pub fn weight_with(&self, gates: &[bool; GATE_COUNT]) -> f64 {
+        for gate in Gate::ALL {
+            if gates[gate.index()] {
+                if let Some(weight) = self.regimes[gate.index()] {
+                    return weight;
+                }
+            }
+        }
+        self.weight
+    }
+
     /// What this term contributes to the score of `choice`.
     #[inline]
-    pub fn contribution(&self, ctx: &Ctx, choice: &Choice, delta: &Delta) -> f64 {
-        self.shape.apply((self.eval)(ctx, choice, delta)) * self.weight
+    pub fn contribution(&self, ctx: &Ctx, choice: &Choice, delta: &Delta, gates: &[bool; GATE_COUNT]) -> f64 {
+        self.shape.apply((self.eval)(ctx, choice, delta)) * self.weight_with(gates)
     }
 }
 
@@ -448,6 +641,7 @@ impl Plan {
 /// across threads or seats and is safe to reuse for a whole run.
 pub struct CompiledPolicy {
     terms: Vec<Term>,
+    interactions: Vec<CompiledInteraction>,
     values: Vec<ValueTerm>,
     card_table: CardHeuristicTable,
 }
@@ -469,6 +663,23 @@ impl CompiledPolicy {
             }
         }
 
+        for (gate_name, rules) in &genome.regimes {
+            if Gate::from_name(gate_name).is_none() {
+                return Err(GenomeError::UnknownGate(gate_name.clone()));
+            }
+            for (name, gene) in rules {
+                if features::lookup(name).is_none() && value::lookup_value(name).is_none() {
+                    return Err(GenomeError::UnknownFeature(name.clone()));
+                }
+                if !gene.weight.is_finite() {
+                    return Err(GenomeError::NonFiniteWeight {
+                        feature: name.clone(),
+                        weight: gene.weight,
+                    });
+                }
+            }
+        }
+
         let mut terms = Vec::with_capacity(genome.features.len());
         for def in features() {
             let Some(gene) = genome.features.get(def.name) else {
@@ -477,12 +688,17 @@ impl CompiledPolicy {
             if gene.weight == 0.0 {
                 continue;
             }
+            let mut regimes = [None; GATE_COUNT];
+            for gate in Gate::ALL {
+                regimes[gate.index()] = genome.regime_weight(gate, def.name);
+            }
             terms.push(Term {
                 name: def.name,
                 group: def.group,
                 weight: gene.weight,
                 shape: gene.shape,
                 mask: def.group.mask(),
+                regimes,
                 eval: def.eval,
             });
         }
@@ -509,8 +725,25 @@ impl CompiledPolicy {
             return Err(GenomeError::NothingEnabled);
         }
 
+        let mut interactions = Vec::with_capacity(genome.interactions.len());
+        for gene in &genome.interactions {
+            if gene.weight == 0.0 {
+                continue;
+            }
+            if !gene.weight.is_finite() {
+                return Err(GenomeError::NonFiniteWeight {
+                    feature: gene.label(),
+                    weight: gene.weight,
+                });
+            }
+            let compiled = CompiledInteraction::compile(gene)
+                .map_err(|error| GenomeError::BadInteraction(gene.label(), error.to_string()))?;
+            interactions.push(compiled);
+        }
+
         Ok(CompiledPolicy {
             terms,
+            interactions,
             values,
             card_table: CardHeuristicTable::new(params),
         })
@@ -526,6 +759,11 @@ impl CompiledPolicy {
     /// The choice rules this policy weighs, in evaluation order.
     pub fn terms(&self) -> &[Term] {
         &self.terms
+    }
+
+    /// The composed readings this policy weighs.
+    pub fn interactions(&self) -> &[CompiledInteraction] {
+        &self.interactions
     }
 
     /// The value rules this policy weighs. Empty when it does not plan.
@@ -547,11 +785,12 @@ impl CompiledPolicy {
     /// Every choice's score, in enumeration order. Allocation-free.
     fn score_all(&self, state: &GameState, player_index: usize, choices: &[Choice], out: &mut [f64]) {
         let ctx = Ctx::new(state, player_index, &self.card_table);
+        let gates = open_gates(&ctx);
         for (index, choice) in choices.iter().enumerate() {
             let delta = effects::delta(ctx.player, choice, &self.card_table);
-            let mut score = 0.0;
+            let mut score = self.composed_score(&ctx, choice, &delta);
             for term in self.applicable(choice) {
-                score += term.contribution(&ctx, choice, &delta);
+                score += term.contribution(&ctx, choice, &delta, &gates);
             }
             out[index] = score;
         }
@@ -562,6 +801,22 @@ impl CompiledPolicy {
     fn applicable<'t>(&'t self, choice: &Choice) -> impl Iterator<Item = &'t Term> {
         let bit = ChoiceVariant::of(choice).bit();
         self.terms.iter().filter(move |term| term.mask & bit != 0)
+    }
+
+    #[inline]
+    fn composed<'t>(&'t self, choice: &Choice) -> impl Iterator<Item = &'t CompiledInteraction> {
+        let bit = ChoiceVariant::of(choice).bit();
+        self.interactions
+            .iter()
+            .filter(move |rule| rule.mask & bit != 0)
+    }
+
+    /// The composed readings' total for one choice.
+    #[inline]
+    fn composed_score(&self, ctx: &Ctx, choice: &Choice, delta: &Delta) -> f64 {
+        self.composed(choice)
+            .map(|rule| rule.contribution(ctx, choice, delta))
+            .sum()
     }
 
     /// The card table the policy reads card quality through.
@@ -576,15 +831,25 @@ impl CompiledPolicy {
     /// allocates beyond the choice list it is handed.
     pub fn explain(&self, state: &GameState, player_index: usize, choice: &Choice) -> Trace {
         let ctx = Ctx::new(state, player_index, &self.card_table);
+        let gates = open_gates(&ctx);
         let delta = effects::delta(ctx.player, choice, &self.card_table);
-        let mut contributions = Vec::with_capacity(self.terms.len());
+        let mut contributions = Vec::with_capacity(self.terms.len() + self.interactions.len());
         let mut score = 0.0;
-        for term in self.applicable(choice) {
-            let raw = (term.eval)(&ctx, choice, &delta);
-            let weighted = term.shape.apply(raw) * term.weight;
+        for rule in self.composed(choice) {
+            let weighted = rule.contribution(&ctx, choice, &delta);
             score += weighted;
             contributions.push(Contribution {
-                feature: term.name,
+                feature: rule.label.clone(),
+                raw: weighted,
+                weighted,
+            });
+        }
+        for term in self.applicable(choice) {
+            let raw = (term.eval)(&ctx, choice, &delta);
+            let weighted = term.shape.apply(raw) * term.weight_with(&gates);
+            score += weighted;
+            contributions.push(Contribution {
+                feature: term.name.to_string(),
                 raw,
                 weighted,
             });
@@ -760,17 +1025,27 @@ impl CompiledPolicy {
     /// for callers as for [`CompiledPolicy::decide`].
     pub fn rank(&self, state: &GameState, player_index: usize, choices: &[Choice]) -> Vec<Trace> {
         let ctx = Ctx::new(state, player_index, &self.card_table);
+        let gates = open_gates(&ctx);
         let mut traces = Vec::with_capacity(choices.len());
         for choice in choices {
             let delta = effects::delta(ctx.player, choice, &self.card_table);
+            let mut contributions = Vec::with_capacity(self.terms.len() + self.interactions.len());
             let mut score = 0.0;
-            let mut contributions = Vec::with_capacity(self.terms.len());
-            for term in self.applicable(choice) {
-                let raw = (term.eval)(&ctx, choice, &delta);
-                let weighted = term.shape.apply(raw) * term.weight;
+            for rule in self.composed(choice) {
+                let weighted = rule.contribution(&ctx, choice, &delta);
                 score += weighted;
                 contributions.push(Contribution {
-                    feature: term.name,
+                    feature: rule.label.clone(),
+                    raw: weighted,
+                    weighted,
+                });
+            }
+            for term in self.applicable(choice) {
+                let raw = (term.eval)(&ctx, choice, &delta);
+                let weighted = term.shape.apply(raw) * term.weight_with(&gates);
+                score += weighted;
+                contributions.push(Contribution {
+                    feature: term.name.to_string(),
                     raw,
                     weighted,
                 });
@@ -796,13 +1071,14 @@ impl CompiledPolicy {
             return None;
         }
         let ctx = Ctx::new(state, player_index, &self.card_table);
+        let gates = open_gates(&ctx);
         let mut best_index = 0;
         let mut best_score = f64::NEG_INFINITY;
         for (index, choice) in choices.iter().enumerate() {
             let delta = effects::delta(ctx.player, choice, &self.card_table);
-            let mut score = 0.0;
+            let mut score = self.composed_score(&ctx, choice, &delta);
             for term in self.applicable(choice) {
-                score += term.contribution(&ctx, choice, &delta);
+                score += term.contribution(&ctx, choice, &delta, &gates);
             }
             // Strictly greater, so an earlier choice keeps a tie.
             if score > best_score {
@@ -843,10 +1119,11 @@ fn turn_is_open(state: &GameState, player_index: usize) -> bool {
 }
 
 /// What one feature contributed to a choice's score.
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Contribution {
-    pub feature: &'static str,
+    /// The rule's name, or a composed reading written out.
+    pub feature: String,
     /// The feature's value before shaping.
     pub raw: f64,
     /// The shaped value times the weight: what it added to the score.
