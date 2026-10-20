@@ -46,7 +46,7 @@ pub struct SimulateArgs {
     #[arg(long)]
     pub variants: Option<String>,
 
-    /// Path to heuristic params JSON file (required when using --variants)
+    /// Path to heuristic params JSON file [default: the params the AI plays with]
     #[arg(long)]
     pub heuristic_params_file: Option<String>,
 
@@ -219,4 +219,8 @@ pub fn load_heuristic_params(path: &str) -> HeuristicParams {
         .unwrap_or_else(|_| panic!("Failed to read heuristic params file: {}", path));
     serde_json::from_str::<HeuristicParams>(&contents)
         .unwrap_or_else(|_| panic!("Failed to parse heuristic params file: {}", path))
+}
+
+pub fn default_heuristic_params() -> HeuristicParams {
+    serde_json::from_str(HeuristicParams::DEFAULT_JSON).expect("Failed to parse the default heuristic params")
 }

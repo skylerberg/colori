@@ -17,7 +17,10 @@ use serde::Serialize;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::cli::{NamedVariant, SimulateArgs, load_variants_from_file, parse_inline_variants};
+use crate::cli::{
+    NamedVariant, SimulateArgs, default_heuristic_params, load_heuristic_params, load_variants_from_file,
+    parse_inline_variants,
+};
 use crate::generate_batch_id;
 
 // ── Serialization types ──
@@ -419,9 +422,10 @@ pub fn run_game(
 
 pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str) {
     let player_variants = if let Some(ref v) = args.variants {
-        let heuristic_params = crate::cli::load_heuristic_params(
-            args.heuristic_params_file.as_ref().expect("--heuristic-params-file is required when using --variants")
-        );
+        let heuristic_params = args
+            .heuristic_params_file
+            .as_deref()
+            .map_or_else(default_heuristic_params, load_heuristic_params);
         parse_inline_variants(v, heuristic_params)
     } else {
         load_variants_from_file(&args.variants_file)
