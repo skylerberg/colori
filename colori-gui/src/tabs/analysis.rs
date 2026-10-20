@@ -33,6 +33,7 @@ pub struct CachedAnalysis {
     pub skill_stats: Option<SkillChanceStats>,
     pub penultimate_deck_sizes: std::collections::BTreeMap<u32, usize>,
     pub card_win_rate: HashMap<String, WinRateEntry>,
+    pub buyer_type_win_rates: Vec<BuyerTypeWinRates>,
     pub draft_win_rate: HashMap<String, WinRateEntry>,
     // Derived
     pub cards_added_categories: Vec<CategoryStat>,
@@ -73,6 +74,7 @@ impl CachedAnalysis {
         let skill_stats = compute_skill_chance_stats(logs);
         let penultimate_deck_sizes = compute_penultimate_round_deck_sizes(logs, filter_ref);
         let card_win_rate = compute_win_rate_by_card(logs, filter_ref);
+        let buyer_type_win_rates = compute_win_rate_by_buyer_claims(logs, filter_ref);
         let draft_win_rate = compute_win_rate_if_drafted(logs, filter_ref);
         let winner_sell_card_breakdown = compute_winner_sell_card_breakdown(logs, filter_ref);
 
@@ -142,6 +144,7 @@ impl CachedAnalysis {
             skill_stats,
             penultimate_deck_sizes,
             card_win_rate,
+            buyer_type_win_rates,
             draft_win_rate,
             cards_added_categories,
             card_win_rate_categories,
@@ -436,6 +439,8 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
             &analysis.draft_win_rate_categories,
         );
 
+        render_buyer_type_win_rates(ui, &analysis.buyer_type_win_rates);
+
         // --- Actions & Sell Cards ---
         section_group_heading(ui, "Actions & Sell Cards");
 
@@ -553,6 +558,76 @@ fn average_score(score_dist: &std::collections::BTreeMap<u32, usize>) -> f64 {
     }
     let half_points: usize = score_dist.iter().map(|(&score, &count)| score as usize * count).sum();
     half_points as f64 / games as f64 / 2.0
+}
+
+/// How much claiming a buyer type moves a player's win rate: the rate of
+/// players who claimed at least one against those who claimed none, then the
+/// rate by how many they claimed.
+fn render_buyer_type_win_rates(ui: &mut egui::Ui, rates: &[BuyerTypeWinRates]) {
+    let id = ui.make_persistent_id("buyer_type_win_rates");
+    egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
+        .show_header(ui, |ui| {
+            ui.strong("Win Rate by Buyer Type Claimed");
+        })
+        .body(|ui| {
+            ui.label("Claims are the cards a player took in the buyers phases, off the display or unseen off the deck. The difference is claimed minus never claimed, \u{b1} its 95% margin.");
+            let pct = |entry: &WinRateEntry| entry.wins / entry.games * 100.0;
+            egui::Grid::new(ui.next_auto_id())
+                .striped(true)
+                .min_col_width(70.0)
+                .show(ui, |ui| {
+                    for header in ["Buyer", "Claimed: Games", "Win %", "Never: Games", "Win %", "Difference"] {
+                        ui.strong(header);
+                    }
+                    ui.end_row();
+                    for rate in rates {
+                        let never = &rate.by_claims[0];
+                        let claimed = WinRateEntry {
+                            wins: rate.by_claims[1..].iter().map(|e| e.wins).sum(),
+                            games: rate.by_claims[1..].iter().map(|e| e.games).sum(),
+                        };
+                        ui.label(rate.buyer.name());
+                        ui.label(format!("{}", claimed.games as i64));
+                        ui.label(if claimed.games > 0.0 { format!("{:.1}%", pct(&claimed)) } else { "\u{2013}".into() });
+                        ui.label(format!("{}", never.games as i64));
+                        ui.label(if never.games > 0.0 { format!("{:.1}%", pct(never)) } else { "\u{2013}".into() });
+                        if claimed.games > 0.0 && never.games > 0.0 {
+                            let (p1, p2) = (claimed.wins / claimed.games, never.wins / never.games);
+                            let margin = 1.96
+                                * (p1 * (1.0 - p1) / claimed.games + p2 * (1.0 - p2) / never.games).sqrt();
+                            ui.label(format!("{:+.1} \u{b1} {:.1} pts", (p1 - p2) * 100.0, margin * 100.0));
+                        } else {
+                            ui.label("\u{2013}");
+                        }
+                        ui.end_row();
+                    }
+                });
+
+            ui.add_space(8.0);
+            ui.strong("Win % by number claimed");
+            egui::Grid::new(ui.next_auto_id())
+                .striped(true)
+                .min_col_width(70.0)
+                .show(ui, |ui| {
+                    ui.strong("Buyer");
+                    for claims in 0..CLAIM_COUNT_BUCKETS {
+                        let plus = if claims == CLAIM_COUNT_BUCKETS - 1 { "+" } else { "" };
+                        ui.strong(format!("{}{}", claims, plus));
+                    }
+                    ui.end_row();
+                    for rate in rates {
+                        ui.label(rate.buyer.name());
+                        for entry in &rate.by_claims {
+                            ui.label(if entry.games > 0.0 {
+                                format!("{:.1}% ({})", pct(entry), entry.games as i64)
+                            } else {
+                                "\u{2013}".into()
+                            });
+                        }
+                        ui.end_row();
+                    }
+                });
+        });
 }
 
 fn section_group_heading(ui: &mut egui::Ui, title: &str) {
