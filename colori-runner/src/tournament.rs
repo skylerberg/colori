@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use colori_core::unordered_cards::{set_card_registry, set_sell_card_registry};
+use rand::seq::SliceRandom;
 use rand::RngExt;
 use rand::SeedableRng;
 use wyrand::WyRand;
@@ -10,10 +11,15 @@ use crate::cli::{NamedVariant, TournamentArgs, load_variants_from_file};
 use crate::generate_batch_id;
 use crate::simulation::{now_epoch_millis, run_game};
 
+/// A tie for the top share is credited in twelfths so that a split among 2, 3
+/// or 4 players is exact.
+const WIN_CREDIT: u64 = 12;
+
 struct TournamentStats {
     labels: Vec<String>,
     wins: Vec<AtomicU64>,
     draws: Vec<AtomicU64>,
+    credit: Vec<AtomicU64>,
     games: Vec<AtomicU64>,
     time_ms: Vec<AtomicU64>,
     iterations: Vec<AtomicU64>,
@@ -26,6 +32,7 @@ impl TournamentStats {
             labels,
             wins: (0..n).map(|_| AtomicU64::new(0)).collect(),
             draws: (0..n).map(|_| AtomicU64::new(0)).collect(),
+            credit: (0..n).map(|_| AtomicU64::new(0)).collect(),
             games: (0..n).map(|_| AtomicU64::new(0)).collect(),
             time_ms: (0..n).map(|_| AtomicU64::new(0)).collect(),
             iterations: (0..n).map(|_| AtomicU64::new(0)).collect(),
@@ -36,8 +43,9 @@ impl TournamentStats {
 pub fn run_tournament(args: &TournamentArgs, threads: usize, output: &str) {
     let loaded_variants = load_variants_from_file(&args.variants_file);
     let num_variants = loaded_variants.len();
-    if num_variants < 2 {
-        eprintln!("Tournament mode requires at least 2 variants");
+    let players = args.players as usize;
+    if num_variants < players {
+        eprintln!("A {}-player tournament requires at least {} variants", players, players);
         std::process::exit(1);
     }
 
@@ -84,8 +92,8 @@ pub fn run_tournament(args: &TournamentArgs, threads: usize, output: &str) {
         .collect();
 
     eprintln!(
-        "Tournament: {} games, {} variants, {} threads",
-        args.games, num_variants, threads
+        "Tournament: {} games of {} players, {} variants, {} threads",
+        args.games, players, num_variants, threads
     );
     for (i, label) in labels.iter().enumerate() {
         eprintln!("  [{}] {}", i, label);
@@ -118,47 +126,35 @@ pub fn run_tournament(args: &TournamentArgs, threads: usize, output: &str) {
                 let mut rng = WyRand::from_rng(&mut rand::rng());
 
                 for _ in 0..count {
-                    // Pick 2 distinct random variant indices
-                    let i = rng.random_range(0..num_variants);
-                    let mut j = rng.random_range(0..num_variants - 1);
-                    if j >= i {
-                        j += 1;
-                    }
+                    let mut chosen: Vec<usize> = (0..num_variants).collect();
+                    chosen.shuffle(&mut rng);
+                    chosen.truncate(players);
 
-                    let pair = vec![variants[i].clone(), variants[j].clone()];
-                    let log = run_game(0, &pair, note.clone(), None, &mut rng);
+                    let seated: Vec<_> = chosen.iter().map(|&i| variants[i].clone()).collect();
+                    let log = run_game(0, &seated, note.clone(), None, &mut rng);
 
                     set_card_registry(&log.initial_state.card_lookup);
                     set_sell_card_registry(&log.initial_state.sell_card_lookup);
 
-                    // Determine winner from final_scores
                     let scores = log.final_scores.as_ref().unwrap();
-                    let ranking_0 = (
-                        scores[0].half_points(),
-                        scores[0].completed_sell_cards,
-                        scores[0].color_wheel_total,
-                    );
-                    let ranking_1 = (
-                        scores[1].half_points(),
-                        scores[1].completed_sell_cards,
-                        scores[1].color_wheel_total,
-                    );
+                    let rankings: Vec<_> = scores
+                        .iter()
+                        .map(|s| (s.half_points(), s.completed_sell_cards, s.color_wheel_total))
+                        .collect();
+                    let best = *rankings.iter().max().unwrap();
+                    let top = rankings.iter().filter(|&&r| r == best).count() as u64;
 
                     // Map player positions back to original variant indices
                     let pv = log.player_variants.as_ref().unwrap();
-                    let idx_0 = name_to_index[pv[0].name.as_ref().unwrap()];
-                    let idx_1 = name_to_index[pv[1].name.as_ref().unwrap()];
-
-                    if ranking_0 > ranking_1 {
-                        stats.wins[idx_0].fetch_add(1, Ordering::Relaxed);
-                    } else if ranking_1 > ranking_0 {
-                        stats.wins[idx_1].fetch_add(1, Ordering::Relaxed);
-                    } else {
-                        stats.draws[idx_0].fetch_add(1, Ordering::Relaxed);
-                        stats.draws[idx_1].fetch_add(1, Ordering::Relaxed);
+                    for (ranking, player_variant) in rankings.iter().zip(pv.iter()) {
+                        let vi = name_to_index[player_variant.name.as_ref().unwrap()];
+                        stats.games[vi].fetch_add(1, Ordering::Relaxed);
+                        if *ranking == best {
+                            let counter = if top == 1 { &stats.wins } else { &stats.draws };
+                            counter[vi].fetch_add(1, Ordering::Relaxed);
+                            stats.credit[vi].fetch_add(WIN_CREDIT / top, Ordering::Relaxed);
+                        }
                     }
-                    stats.games[idx_0].fetch_add(1, Ordering::Relaxed);
-                    stats.games[idx_1].fetch_add(1, Ordering::Relaxed);
 
                     // Accumulate per-variant MCTS time and iterations
                     for (player_pos, player_variant) in pv.iter().enumerate() {
@@ -194,10 +190,10 @@ pub fn run_tournament(args: &TournamentArgs, threads: usize, output: &str) {
     });
 
     eprintln!("All {} games written to {}/", total_games, output);
-    print_summary(stats);
+    print_summary(stats, players);
 }
 
-fn print_summary(stats: &TournamentStats) {
+fn print_summary(stats: &TournamentStats, players: usize) {
     let n = stats.labels.len();
 
     struct VariantResult {
@@ -216,11 +212,12 @@ fn print_summary(stats: &TournamentStats) {
             let games = stats.games[i].load(Ordering::Relaxed);
             let wins = stats.wins[i].load(Ordering::Relaxed);
             let draws = stats.draws[i].load(Ordering::Relaxed);
+            let credit = stats.credit[i].load(Ordering::Relaxed);
             let time_ms = stats.time_ms[i].load(Ordering::Relaxed);
             let iters = stats.iterations[i].load(Ordering::Relaxed);
             let losses = games.saturating_sub(wins + draws);
             let win_rate = if games > 0 {
-                (wins as f64 + 0.5 * draws as f64) / games as f64
+                credit as f64 / WIN_CREDIT as f64 / games as f64
             } else {
                 0.0
             };
@@ -258,6 +255,7 @@ fn print_summary(stats: &TournamentStats) {
 
     eprintln!();
     eprintln!("=== Tournament Results ===");
+    eprintln!("Evenly matched variants win {:.1}% of their games.", 100.0 / players as f64);
     eprintln!();
     eprintln!(
         "{:<width$}  {:>5}  {:>5}  {:>5}  {:>6}  {:>8}  {:>8}  {:>10}",
