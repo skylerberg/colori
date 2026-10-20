@@ -47,6 +47,17 @@ pub struct Ctx<'a> {
     pub pending_points: u32,
     /// Points among those the player could complete right now.
     pub affordable_points: u32,
+    /// The points of the single best buyer that can be sold to right now. This
+    /// is what a Sell ability is worth: an ability to bank points that are
+    /// already on the table, not a fixed amount.
+    pub best_affordable_points: u32,
+    /// The highest-point buyer that is not affordable yet, if there is one.
+    ///
+    /// Worked out here rather than in the rules that need it: it depends on the
+    /// position and not on the choice, and asking for it per choice meant
+    /// walking the buyers and testing affordability dozens of times per
+    /// decision.
+    pub best_unaffordable: Option<SellCard>,
     /// Distinct colours the player is holding.
     pub distinct_colors: u32,
     /// Cards in the draft pool, i.e. the ones this turn could still trash.
@@ -73,29 +84,44 @@ impl<'a> Ctx<'a> {
         let mut boat_demand = 0u32;
         let mut pending_points = 0u32;
         let mut affordable_points = 0u32;
+        let mut best_affordable_points = 0u32;
+        let mut best_unaffordable: Option<SellCard> = None;
+        let mut best_unaffordable_points = 0u32;
 
         // A buyer's points are spread evenly over the units it takes. That
         // understates the last unit, which is what actually completes the
         // sale, so completion has features of its own.
+        //
+        // Demand is counted as *unmet* demand. Counting what a buyer asks for
+        // rather than what it still lacks prices a stored unit as though it
+        // completed the sale, which makes hoarding look better than selling —
+        // and it hides the fact that the fifth ceramic a two-ceramic buyer wants
+        // is worth nothing at all.
         for buyer in player.buyers.iter() {
             let stats = buyer.sell_card.stats();
-            let point_share = stats.points as f64;
             let materials: u32 = stats.materials.iter().map(|&m| m as u32).sum();
             let units = stats.total_colors as u32 + materials + stats.boats;
-            let per_unit = point_share / (units.max(1) as f64);
+            let per_unit = stats.points as f64 / (units.max(1) as f64);
 
             pending_points += stats.points;
             if can_afford_sell_card(player, &buyer.sell_card) {
                 affordable_points += stats.points;
+                best_affordable_points = best_affordable_points.max(stats.points);
+            } else if stats.points > best_unaffordable_points {
+                best_unaffordable_points = stats.points;
+                best_unaffordable = Some(buyer.sell_card);
             }
 
             for &(color, needed) in stats.colors() {
-                color_demand[color.index()] += needed as u32;
-                color_value[color.index()] += per_unit * needed as f64;
+                let short = (needed as u32).saturating_sub(player.color_wheel.get(color));
+                color_demand[color.index()] += short;
+                color_value[color.index()] += per_unit * short as f64;
             }
             for (i, &needed) in stats.materials.iter().enumerate() {
-                material_demand[i] += needed as u32;
-                material_value[i] += per_unit * needed as f64;
+                let short = (needed as u32)
+                    .saturating_sub(player.materials.get(ALL_MATERIAL_TYPES[i]));
+                material_demand[i] += short;
+                material_value[i] += per_unit * short as f64;
             }
             boat_demand += stats.boats;
             boat_value += per_unit * stats.boats as f64;
@@ -135,6 +161,8 @@ impl<'a> Ctx<'a> {
             wild_value,
             pending_points,
             affordable_points,
+            best_affordable_points,
+            best_unaffordable,
             distinct_colors,
             drafted,
             owned_cards: deck_cards

@@ -42,6 +42,19 @@ use crate::cli::PolicyPlayArgs;
 /// beats hanging an overnight run.
 const MAX_DECISIONS: u32 = 20_000;
 
+/// How much of a game to keep.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Record {
+    /// Keep the score and nothing else.
+    Nothing,
+    /// Keep the decision taken and what it nearly was.
+    Decision,
+    /// Keep every choice's score too, which is what a rule-activity report
+    /// needs: a rule that stops a bad action from being taken never appears in
+    /// the trace of the action that was, and would otherwise look dead.
+    Everything,
+}
+
 // ── Outcomes ──
 
 #[derive(Debug, Clone, Serialize)]
@@ -51,6 +64,9 @@ pub struct SeatOutcome {
     pub score: f64,
     pub half_points: u32,
     pub sell_cards: u32,
+    /// Points from completed sell cards alone, so "many small sales" and "few
+    /// big ones" are distinguishable.
+    pub sell_points: u32,
     pub ducats: u32,
     pub wilds: u32,
     pub boats: u32,
@@ -68,6 +84,8 @@ pub struct DecisionRecord {
     pub phase: &'static str,
     pub seat: usize,
     pub decision: Decision,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub considered: Vec<colori_core::policy::Trace>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -93,7 +111,7 @@ fn decide(
     policy: &CompiledPolicy,
     state: &GameState,
     seat: usize,
-    record: bool,
+    record: Record,
 ) -> Decision {
     let choices = enumerate_choices(state, seat);
     assert!(
@@ -101,10 +119,10 @@ fn decide(
         "seat {seat} has nothing to choose from in {:?}",
         state.phase
     );
-    let decision = if record {
-        policy.decide_with_trace(state, seat, &choices)
-    } else {
+    let decision = if record == Record::Nothing {
         policy.decide_scored(state, seat, &choices)
+    } else {
+        policy.decide_with_trace(state, seat, &choices)
     };
     decision.expect("choices were offered and scored")
 }
@@ -114,7 +132,7 @@ fn decide(
 /// Every seat decides on its own view of an action phase, as the game's own AI
 /// drivers do: turns are simultaneous, and a policy that read the live state
 /// would be seeing moves nobody has seen yet.
-pub fn play_game(policies: &[&CompiledPolicy], seed: u64, record: bool) -> GameOutcome {
+pub fn play_game(policies: &[&CompiledPolicy], seed: u64, record: Record) -> GameOutcome {
     let num_players = policies.len();
     assert!(
         (1..=MAX_PLAYERS).contains(&num_players),
@@ -124,6 +142,11 @@ pub fn play_game(policies: &[&CompiledPolicy], seed: u64, record: bool) -> GameO
     let mut rng = WyRand::seed_from_u64(seed);
     let ai_players = vec![true; num_players];
     let mut state = create_initial_game_state(num_players, &ai_players, &mut rng);
+    // Nothing enters the workshop mid-turn, so workshopping fewer cards than the
+    // ability allows is strictly worse unless a drafted card could still move one
+    // of them into the draft pool. The engine already knows how to prune those,
+    // and dropping them cuts the branching of every workshop choice.
+    state.force_max_workshop = true;
     execute_draw_phase(&mut state, &mut rng);
 
     let mut decisions_per_seat = vec![0u32; num_players];
@@ -142,13 +165,35 @@ pub fn play_game(policies: &[&CompiledPolicy], seed: u64, record: bool) -> GameO
             GamePhase::Buyers { buyers_state } => {
                 let seat = buyers_state.current_player_index;
                 let decision = decide(policies[seat], &state, seat, record);
-                play(&mut state, &mut rng, seat, &decision, "buyers", &mut seq, &mut trace, record);
+                let considered = considered_choices(policies[seat], &state, seat, record);
+                play(
+                    &mut state,
+                    &mut rng,
+                    seat,
+                    &decision,
+                    "buyers",
+                    &mut seq,
+                    &mut trace,
+                    record,
+                    considered,
+                );
                 decisions_per_seat[seat] += 1;
             }
             GamePhase::Draft { draft_state } => {
                 let seat = draft_state.current_player_index;
                 let decision = decide(policies[seat], &state, seat, record);
-                play(&mut state, &mut rng, seat, &decision, "draft", &mut seq, &mut trace, record);
+                let considered = considered_choices(policies[seat], &state, seat, record);
+                play(
+                    &mut state,
+                    &mut rng,
+                    seat,
+                    &decision,
+                    "draft",
+                    &mut seq,
+                    &mut trace,
+                    record,
+                    considered,
+                );
                 decisions_per_seat[seat] += 1;
             }
             GamePhase::Action { .. } => {
@@ -157,11 +202,24 @@ pub fn play_game(policies: &[&CompiledPolicy], seed: u64, record: bool) -> GameO
                 let mut views = ActionPhaseViews::new(&state);
                 for seat in 0..num_players {
                     while is_taking_turn(views.view(seat), seat) {
-                        let decision = {
+                        let (decision, considered) = {
                             let view = views.view(seat);
-                            decide(policies[seat], view, seat, record)
+                            (
+                                decide(policies[seat], view, seat, record),
+                                considered_choices(policies[seat], view, seat, record),
+                            )
                         };
-                        play(&mut state, &mut rng, seat, &decision, "action", &mut seq, &mut trace, record);
+                        play(
+                            &mut state,
+                            &mut rng,
+                            seat,
+                            &decision,
+                            "action",
+                            &mut seq,
+                            &mut trace,
+                            record,
+                            considered,
+                        );
                         views.apply(seat, &decision.choice);
                         decisions_per_seat[seat] += 1;
                     }
@@ -182,6 +240,7 @@ pub fn play_game(policies: &[&CompiledPolicy], seed: u64, record: bool) -> GameO
                 score: half_points as f64 / 2.0,
                 half_points,
                 sell_cards: player.completed_sell_cards.len() as u32,
+                sell_points: player.completed_sell_cards.iter().map(|sold| sold.sell_card.points()).sum(),
                 ducats: player.ducats,
                 wilds: player.wild_primaries,
                 boats: player.boats,
@@ -205,6 +264,21 @@ pub fn play_game(policies: &[&CompiledPolicy], seed: u64, record: bool) -> GameO
 }
 
 #[allow(clippy::too_many_arguments)]
+/// Every choice's score, for a rule-activity report. Empty unless every choice
+/// is being kept.
+fn considered_choices(
+    policy: &CompiledPolicy,
+    view: &GameState,
+    seat: usize,
+    record: Record,
+) -> Vec<colori_core::policy::Trace> {
+    if record != Record::Everything {
+        return Vec::new();
+    }
+    let choices = enumerate_choices(view, seat);
+    policy.rank(view, seat, &choices)
+}
+
 fn play(
     state: &mut GameState,
     rng: &mut WyRand,
@@ -213,18 +287,20 @@ fn play(
     phase: &'static str,
     seq: &mut u32,
     trace: &mut Vec<DecisionRecord>,
-    record: bool,
+    record: Record,
+    considered: Vec<colori_core::policy::Trace>,
 ) {
     *seq += 1;
     let round = state.round;
     apply_choice_to_state(state, seat, &decision.choice, rng);
-    if record {
+    if record != Record::Nothing {
         trace.push(DecisionRecord {
             seq: *seq,
             round,
             phase,
             seat,
             decision: decision.clone(),
+            considered,
         });
     }
 }
@@ -247,7 +323,7 @@ pub fn play_batch(
     players: usize,
     seeds: &[u64],
     threads: usize,
-    record: bool,
+    record: Record,
 ) -> Vec<GameOutcome> {
     let threads = threads.max(1).min(seeds.len().max(1));
     let chunk = (seeds.len() + threads - 1) / threads.max(1);
@@ -386,6 +462,7 @@ pub struct ScoreSummary {
     pub share_at_least_35: f64,
     pub share_at_least_40: f64,
     pub mean_sell_cards: f64,
+    pub mean_sell_points: f64,
     pub mean_ducats: f64,
     pub mean_unspent_wilds: f64,
     pub mean_unspent_boats: f64,
@@ -483,6 +560,7 @@ impl ScoreSummary {
             share_at_least_35: share(35.0),
             share_at_least_40: share(40.0),
             mean_sell_cards: seat_mean(|seat| seat.sell_cards as f64),
+            mean_sell_points: seat_mean(|seat| seat.sell_points as f64),
             mean_ducats: seat_mean(|seat| seat.ducats as f64),
             mean_unspent_wilds: seat_mean(|seat| seat.wilds as f64),
             mean_unspent_boats: seat_mean(|seat| seat.boats as f64),
@@ -528,18 +606,81 @@ impl std::fmt::Display for ScoreSummary {
 #[serde(rename_all = "camelCase")]
 pub struct FeatureActivity {
     pub feature: String,
+    /// Mean |contribution| to the choice that was taken.
     pub mean_absolute_weight: f64,
+    /// Decisions where the rule had a non-zero opinion about some choice.
     pub fired: u32,
     pub of_decisions: u32,
 }
 
-pub fn feature_activity(activity: &[(String, f64, u32)], decisions: u32) -> Vec<FeatureActivity> {
-    let mut rows: Vec<FeatureActivity> = activity
-        .iter()
-        .map(|(feature, weight, fired)| FeatureActivity {
-            feature: feature.clone(),
-            mean_absolute_weight: weight / decisions.max(1) as f64,
-            fired: *fired,
+/// How much each rule had to say, across a handful of games.
+///
+/// Two different questions, and conflating them is how a working rule gets
+/// deleted:
+///
+/// - `mean_absolute_weight` is measured on the choice that was **taken**: how
+///   much this rule shaped the decisions that happened.
+/// - `fired` counts decisions where the rule had a non-zero opinion about **any**
+///   choice on offer. A rule that keeps a bad action off the table never
+///   appears in the trace of the action that was taken, so measuring only
+///   winners would report it as dead — and dead rules get deleted.
+///
+/// Tracing every choice of a long run is expensive, so this is measured on a few
+/// games rather than all of them.
+pub fn activity_of(
+    policy: &CompiledPolicy,
+    players: usize,
+    games: usize,
+    seed_base: u64,
+    threads: usize,
+) -> Vec<FeatureActivity> {
+    let games = games.max(1);
+    let seeds: Vec<u64> = (0..games).map(|i| seed_base + i as u64).collect();
+    let outcomes = play_batch(
+        policy,
+        None,
+        players,
+        &seeds,
+        threads.min(games),
+        Record::Everything,
+    );
+
+    let mut totals: Vec<(String, (f64, u32))> = Vec::new();
+    let mut decisions = 0u32;
+    for outcome in &outcomes {
+        for record in &outcome.trace {
+            decisions += 1;
+
+            // What it shaped.
+            for contribution in &record.decision.contributions {
+                let slot = entry(&mut totals, contribution.feature);
+                slot.0 += contribution.weighted.abs();
+            }
+
+            // Whether it had an opinion at all, on any choice on offer.
+            let mut spoke: Vec<&str> = Vec::new();
+            for trace in &record.considered {
+                for contribution in &trace.contributions {
+                    if contribution.weighted != 0.0 && !spoke.contains(&contribution.feature) {
+                        spoke.push(contribution.feature);
+                    }
+                }
+            }
+            for name in spoke {
+                entry(&mut totals, name).1 += 1;
+            }
+        }
+    }
+    if decisions == 0 {
+        return Vec::new();
+    }
+
+    let mut rows: Vec<FeatureActivity> = totals
+        .into_iter()
+        .map(|(feature, (weight, fired))| FeatureActivity {
+            feature,
+            mean_absolute_weight: weight / decisions as f64,
+            fired,
             of_decisions: decisions,
         })
         .collect();
@@ -548,7 +689,30 @@ pub fn feature_activity(activity: &[(String, f64, u32)], decisions: u32) -> Vec<
             .partial_cmp(&a.mean_absolute_weight)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
+    // A rule the genome switched off never appears at all; say so explicitly
+    // rather than letting it look merely quiet.
+    for term in policy.terms() {
+        if !rows.iter().any(|row| row.feature == term.name) {
+            rows.push(FeatureActivity {
+                feature: term.name.to_string(),
+                mean_absolute_weight: 0.0,
+                fired: 0,
+                of_decisions: decisions,
+            });
+        }
+    }
     rows
+}
+
+fn entry<'a>(totals: &'a mut Vec<(String, (f64, u32))>, feature: &str) -> &'a mut (f64, u32) {
+    let index = match totals.iter().position(|(name, _)| name == feature) {
+        Some(index) => index,
+        None => {
+            totals.push((feature.to_string(), (0.0, 0)));
+            totals.len() - 1
+        }
+    };
+    &mut totals[index].1
 }
 
 // ── Loading ──
@@ -644,7 +808,7 @@ pub fn run_policy_play(args: &PolicyPlayArgs, threads: usize, output: &str) {
         args.players,
         &seeds,
         threads,
-        false,
+        Record::Nothing,
     );
     let elapsed = started.elapsed();
 
@@ -739,62 +903,6 @@ pub fn run_policy_play(args: &PolicyPlayArgs, threads: usize, output: &str) {
 /// Tracing every decision of a long run is expensive, so this is measured on a
 /// few games rather than all of them — enough to tell an inert rule from a
 /// load-bearing one, which is all the report needs it for.
-pub fn activity_of(
-    policy: &CompiledPolicy,
-    players: usize,
-    games: usize,
-    seed_base: u64,
-    threads: usize,
-) -> Vec<FeatureActivity> {
-    let games = games.max(1);
-    let seeds: Vec<u64> = (0..games).map(|i| seed_base + i as u64).collect();
-    let outcomes = play_batch(policy, None, players, &seeds, threads.min(games), true);
-
-    let mut totals: Vec<(String, f64, u32)> = Vec::new();
-    let mut decisions = 0u32;
-    for outcome in &outcomes {
-        for record in &outcome.trace {
-            decisions += 1;
-            for contribution in &record.decision.contributions {
-                match totals
-                    .iter_mut()
-                    .find(|(name, _, _)| name == contribution.feature)
-                {
-                    Some((_, weight, fired)) => {
-                        *weight += contribution.weighted.abs();
-                        if contribution.weighted != 0.0 {
-                            *fired += 1;
-                        }
-                    }
-                    None => totals.push((
-                        contribution.feature.to_string(),
-                        contribution.weighted.abs(),
-                        u32::from(contribution.weighted != 0.0),
-                    )),
-                }
-            }
-        }
-    }
-    if decisions == 0 {
-        return Vec::new();
-    }
-
-    let mut rows = feature_activity(&totals, decisions);
-    // A rule the genome switched off never appears in a trace; say so
-    // explicitly rather than letting it look merely quiet.
-    for term in policy.terms() {
-        if !rows.iter().any(|row| row.feature == term.name) {
-            rows.push(FeatureActivity {
-                feature: term.name.to_string(),
-                mean_absolute_weight: 0.0,
-                fired: 0,
-                of_decisions: decisions,
-            });
-        }
-    }
-    rows
-}
-
 fn write_trace(
     candidate: &CompiledPolicy,
     ladder: Option<&[&CompiledPolicy]>,
@@ -804,7 +912,7 @@ fn write_trace(
 ) {
     let game_index = seed.saturating_sub(args.seed_base) as usize;
     let seats = seat_table(candidate, ladder, args.players, game_index);
-    let outcome = play_game(&seats, seed, true);
+    let outcome = play_game(&seats, seed, Record::Decision);
 
     std::fs::create_dir_all(output).expect("failed to create the output directory");
     let path = format!("{output}/trace-{seed}.json");
@@ -899,8 +1007,8 @@ mod tests {
         let policy = starter();
         let seats: [&CompiledPolicy; 4] = [&policy; 4];
         for seed in 0..6 {
-            let first = play_game(&seats, seed, false);
-            let second = play_game(&seats, seed, false);
+            let first = play_game(&seats, seed, Record::Nothing);
+            let second = play_game(&seats, seed, Record::Nothing);
             assert_eq!(scores(&first), scores(&second), "seed {seed} scored differently");
             assert_eq!(first.rounds, second.rounds);
             for (a, b) in first.seats.iter().zip(&second.seats) {
@@ -914,7 +1022,7 @@ mod tests {
     fn a_game_runs_to_a_score() {
         let policy = starter();
         let seats: [&CompiledPolicy; 4] = [&policy; 4];
-        let outcome = play_game(&seats, 3, false);
+        let outcome = play_game(&seats, 3, Record::Nothing);
         assert_eq!(outcome.seats.len(), 4);
         assert!(outcome.rounds > 1, "the game ended after {} rounds", outcome.rounds);
         assert!(
@@ -932,7 +1040,7 @@ mod tests {
         let policy = starter();
         let seats: [&CompiledPolicy; 4] = [&policy; 4];
         let played: Vec<Vec<u32>> = (0..5)
-            .map(|seed| scores(&play_game(&seats, seed, false)))
+            .map(|seed| scores(&play_game(&seats, seed, Record::Nothing)))
             .collect();
         assert!(
             played.windows(2).any(|pair| pair[0] != pair[1]),
@@ -944,7 +1052,7 @@ mod tests {
     fn a_traced_game_records_its_decisions() {
         let policy = starter();
         let seats: [&CompiledPolicy; 4] = [&policy; 4];
-        let outcome = play_game(&seats, 11, true);
+        let outcome = play_game(&seats, 11, Record::Decision);
         assert!(!outcome.trace.is_empty(), "a traced game recorded nothing");
         for record in &outcome.trace {
             assert!(!record.decision.contributions.is_empty());
@@ -959,7 +1067,7 @@ mod tests {
         // test here.
         let seeds: Vec<u64> = (0..8).collect();
         let ladder: [&CompiledPolicy; 1] = [&candidate];
-        let outcomes = play_batch(&candidate, Some(&ladder), 4, &seeds, 3, false);
+        let outcomes = play_batch(&candidate, Some(&ladder), 4, &seeds, 3, Record::Nothing);
         assert_eq!(outcomes.len(), seeds.len());
         assert_eq!(
             outcomes.iter().map(|outcome| outcome.seed).collect::<Vec<_>>(),

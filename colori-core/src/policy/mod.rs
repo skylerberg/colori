@@ -53,7 +53,7 @@ use crate::types::{Choice, GameState};
 
 pub use context::{Ctx, PhaseKind};
 pub use effects::Delta;
-pub use features::{FeatureDef, FeatureFn, Group, FEATURES};
+pub use features::{ChoiceVariant, FeatureDef, FeatureFn, Group, ALL_CHOICE_VARIANTS, FEATURES};
 
 // ── Shapes ──
 
@@ -166,7 +166,6 @@ const STARTER_WEIGHTS: &[(&str, f64)] = &[
     // Value in points.
     ("points_immediate", 1.0),
     ("pending_points_share", 1.0),
-    ("ducats_gained", 1.0),
     ("ducats_spent", 1.0),
     // Colour and material, priced by what the sitting buyers want.
     ("colors_demanded", 1.0),
@@ -177,19 +176,24 @@ const STARTER_WEIGHTS: &[(&str, f64)] = &[
     ("materials_undemanded", 0.15),
     ("materials_spent", 1.0),
     ("materials_spent_raw", 0.2),
-    ("boats_gained", 1.0),
     ("boats_spent", 1.0),
-    ("wilds_gained", 1.0),
     ("wilds_spent", 1.0),
     // Cards.
     ("card_quality_gained", 0.5),
-    ("trash_thinning", 0.3),
-    ("trash_quality", 0.4),
+    // A card's quality is another bot's hand-strength estimate, not points, so
+    // it is a weak stand-in for what trashing really gives up.
+    ("trash_quality", 0.15),
     // Abilities.
     ("ability_workshop", 0.5),
-    ("ability_mix", 0.7),
-    ("ability_sell", 1.2),
+    // A mix ability on its own can be one the wheel cannot feed, so it is
+    // worth less than a mix actually made.
+    ("ability_mix", 0.4),
+    ("ability_sell", 0.9),
+    // An ability is worth what it can bank, so a Sell is priced by the buyer it
+    // would sell to rather than by a constant.
+    ("ability_sell_priced", 1.0),
     ("ability_ducats", 1.0),
+    // Taking a card is what a Gain Secondary turns into once trashed.
     ("ability_secondary", 0.8),
     ("ability_wilds", 1.0),
     ("ability_boats", 1.0),
@@ -199,9 +203,15 @@ const STARTER_WEIGHTS: &[(&str, f64)] = &[
     ("buyer_progress_points", 0.6),
     ("buyer_completion_points", 1.5),
     // Draft: take what the buyers want, without piling up the same ability.
-    ("draft_color_demand", 0.8),
+    // The two halves of a card: what it stores if kept, what it does if
+    // trashed. The action half is priced by the ability rules.
+    ("card_workshop_value", 1.0),
+    ("card_workshop_value_long", 1.0),
+    ("draft_color_demand", 0.5),
     ("draft_material_demand", 0.8),
-    ("draft_ability_count", 0.5),
+    // Abilities are priced by kind through the ability rules; a flat count on
+    // top of them would argue with them.
+    ("draft_ability_count", 0.0),
     ("draft_redundancy", -0.3),
     // Selling.
     ("sell_points", 1.0),
@@ -213,10 +223,14 @@ const STARTER_WEIGHTS: &[(&str, f64)] = &[
     ("offer_affordable", 0.8),
     ("offer_distance", 0.5),
     ("offer_deck_gamble", -0.2),
-    // Mixing.
+    // Mixing. A mix's inputs are already priced by `colors_spent_demanded`, so
+    // the extras here are small: burning a primary costs a little flexibility,
+    // and using a granted mix at all is worth more than the grant was.
     ("mix_output_demanded", 0.9),
     ("mix_higher_tier", 0.3),
-    ("mix_burns_primaries", 0.5),
+    ("mix_burns_primaries", 0.1),
+    ("mix_count", 0.6),
+    ("mix_grant_unused", 0.8),
     // Workshop.
     ("workshop_set_size", 0.1),
     // Ending the turn. These two are negative on purpose: ending the turn
@@ -224,6 +238,7 @@ const STARTER_WEIGHTS: &[(&str, f64)] = &[
     // weight prices leaving work undone rather than rewarding it.
     ("end_turn_unspent_cards", -0.6),
     ("end_turn_open_actions", -0.5),
+    ("end_turn_kept_value", 1.0),
     ("end_turn_late_game", 1.5),
 ];
 
@@ -274,6 +289,10 @@ pub struct Term {
     pub group: Group,
     pub weight: f64,
     pub shape: Shape,
+    /// The choice variants this term answers for, one bit each. Every rule is
+    /// asked about every choice otherwise, and most of a decision's cost is
+    /// rules that could only ever answer zero.
+    pub mask: u32,
     eval: FeatureFn,
 }
 
@@ -324,6 +343,7 @@ impl CompiledPolicy {
                 group: def.group,
                 weight: gene.weight,
                 shape: gene.shape,
+                mask: def.group.mask(),
                 eval: def.eval,
             });
         }
@@ -350,6 +370,13 @@ impl CompiledPolicy {
         &self.terms
     }
 
+    /// The terms that answer for this choice.
+    #[inline]
+    fn applicable<'t>(&'t self, choice: &Choice) -> impl Iterator<Item = &'t Term> {
+        let bit = ChoiceVariant::of(choice).bit();
+        self.terms.iter().filter(move |term| term.mask & bit != 0)
+    }
+
     /// The card table the policy reads card quality through.
     pub fn card_table(&self) -> &CardHeuristicTable {
         &self.card_table
@@ -365,7 +392,7 @@ impl CompiledPolicy {
         let delta = effects::delta(ctx.player, choice, &self.card_table);
         let mut contributions = Vec::with_capacity(self.terms.len());
         let mut score = 0.0;
-        for term in &self.terms {
+        for term in self.applicable(choice) {
             let raw = (term.eval)(&ctx, choice, &delta);
             let weighted = term.shape.apply(raw) * term.weight;
             score += weighted;
@@ -431,7 +458,7 @@ impl CompiledPolicy {
         if choices.is_empty() {
             return None;
         }
-        let mut ranked = self.rank(state, player_index, choices);
+        let ranked = self.rank(state, player_index, choices);
 
         // Best, then best of the rest. Strictly greater keeps the earliest
         // choice on a tie, matching `decide`.
@@ -476,7 +503,7 @@ impl CompiledPolicy {
             let delta = effects::delta(ctx.player, choice, &self.card_table);
             let mut score = 0.0;
             let mut contributions = Vec::with_capacity(self.terms.len());
-            for term in &self.terms {
+            for term in self.applicable(choice) {
                 let raw = (term.eval)(&ctx, choice, &delta);
                 let weighted = term.shape.apply(raw) * term.weight;
                 score += weighted;
@@ -512,7 +539,7 @@ impl CompiledPolicy {
         for (index, choice) in choices.iter().enumerate() {
             let delta = effects::delta(ctx.player, choice, &self.card_table);
             let mut score = 0.0;
-            for term in &self.terms {
+            for term in self.applicable(choice) {
                 score += term.contribution(&ctx, choice, &delta);
             }
             // Strictly greater, so an earlier choice keeps a tie.
@@ -861,11 +888,24 @@ mod tests {
                         "a runner-up and its score must agree"
                     );
                     assert!(!decision.contributions.is_empty(), "a traced decision says nothing");
-                    assert_eq!(
-                        decision.contributions.len(),
-                        policy.terms().len(),
-                        "a traced decision must report every term"
+                    assert!(
+                        decision.contributions.len() <= policy.terms().len(),
+                        "a traced decision cannot report more terms than the policy has"
                     );
+                    // Every term reported answers for the choice that took it.
+                    let choice = decision.choice;
+                    for contribution in &decision.contributions {
+                        let term = policy
+                            .terms()
+                            .iter()
+                            .find(|term| term.name == contribution.feature)
+                            .expect("a reported term is one of the policy's");
+                        assert!(
+                            term.mask & ChoiceVariant::of(&choice).bit() != 0,
+                            "{} reported for a choice outside its group",
+                            contribution.feature
+                        );
+                    }
                 }
                 compared += 1;
             }

@@ -369,7 +369,14 @@ fn evaluate(
     threads: usize,
     label: &str,
 ) -> Candidate {
-    let outcomes = policy_play::play_batch(policy, Some(ladder), args.players, seeds, threads, false);
+    let outcomes = policy_play::play_batch(
+        policy,
+        Some(ladder),
+        args.players,
+        seeds,
+        threads,
+        policy_play::Record::Nothing,
+    );
     let batch = policy_play::Batch::of(&outcomes, args.players, false);
     let summary = ScoreSummary::summarize(&batch, &outcomes, args.players, false);
     Candidate {
@@ -394,7 +401,7 @@ fn refit(elite: &[Candidate], rules: &Rules, args: &PolicyEvolveArgs) -> (Weight
             *slot += (weight - centre).powi(2) / count;
         }
     }
-    for (slot, centre) in sigma.iter_mut().zip(&mean) {
+    for slot in sigma.iter_mut() {
         // A spread that collapses to nothing stops the search; the floor keeps
         // it probing.
         *slot = slot.sqrt().max(args.sigma_floor);

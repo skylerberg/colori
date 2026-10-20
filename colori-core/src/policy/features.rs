@@ -30,15 +30,96 @@ use super::effects::{
 /// A rule's body.
 pub type FeatureFn = fn(&Ctx, &Choice, &Delta) -> f64;
 
-/// Which choices a feature speaks about. Used to document a feature and to
-/// hold it to its own ground in the tests: a feature that fires outside its
-/// group is a bug, not a discovery.
+/// One variant of [`Choice`], as an index.
+///
+/// "Does this rule speak about this choice" is asked once per rule per choice,
+/// so it has to be cheap: an index and a bit test rather than a match. The
+/// index also pins the set of variants — a new `Choice` failing to appear here
+/// is a compile error, not a rule that silently never fires.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum ChoiceVariant {
+    DraftPick = 0,
+    TrashDraftedCard,
+    EndTurn,
+    Workshop,
+    SkipWorkshop,
+    MoveToDraftPool,
+    SelectSellCard,
+    GainSecondary,
+    MixAll,
+    TrashAndMix,
+    TrashAndSell,
+    TrashAndWorkshop,
+    TrashAndMoveToDraftPool,
+    SpendDucat,
+    TakeBuyer,
+    DrawBuyer,
+}
+
+pub const ALL_CHOICE_VARIANTS: [ChoiceVariant; 16] = [
+    ChoiceVariant::DraftPick,
+    ChoiceVariant::TrashDraftedCard,
+    ChoiceVariant::EndTurn,
+    ChoiceVariant::Workshop,
+    ChoiceVariant::SkipWorkshop,
+    ChoiceVariant::MoveToDraftPool,
+    ChoiceVariant::SelectSellCard,
+    ChoiceVariant::GainSecondary,
+    ChoiceVariant::MixAll,
+    ChoiceVariant::TrashAndMix,
+    ChoiceVariant::TrashAndSell,
+    ChoiceVariant::TrashAndWorkshop,
+    ChoiceVariant::TrashAndMoveToDraftPool,
+    ChoiceVariant::SpendDucat,
+    ChoiceVariant::TakeBuyer,
+    ChoiceVariant::DrawBuyer,
+];
+
+impl ChoiceVariant {
+    #[inline]
+    pub fn of(choice: &Choice) -> Self {
+        match choice {
+            Choice::DraftPick { .. } => ChoiceVariant::DraftPick,
+            Choice::TrashDraftedCard { .. } => ChoiceVariant::TrashDraftedCard,
+            Choice::EndTurn => ChoiceVariant::EndTurn,
+            Choice::Workshop { .. } => ChoiceVariant::Workshop,
+            Choice::SkipWorkshop => ChoiceVariant::SkipWorkshop,
+            Choice::MoveToDraftPool { .. } => ChoiceVariant::MoveToDraftPool,
+            Choice::SelectSellCard { .. } => ChoiceVariant::SelectSellCard,
+            Choice::GainSecondary { .. } => ChoiceVariant::GainSecondary,
+            Choice::MixAll { .. } => ChoiceVariant::MixAll,
+            Choice::TrashAndMix { .. } => ChoiceVariant::TrashAndMix,
+            Choice::TrashAndSell { .. } => ChoiceVariant::TrashAndSell,
+            Choice::TrashAndWorkshop { .. } => ChoiceVariant::TrashAndWorkshop,
+            Choice::TrashAndMoveToDraftPool { .. } => ChoiceVariant::TrashAndMoveToDraftPool,
+            Choice::SpendDucat { .. } => ChoiceVariant::SpendDucat,
+            Choice::TakeBuyer { .. } => ChoiceVariant::TakeBuyer,
+            Choice::DrawBuyer => ChoiceVariant::DrawBuyer,
+        }
+    }
+
+    #[inline]
+    pub fn bit(self) -> u32 {
+        1u32 << (self as u8)
+    }
+}
+
+/// Which choices a feature speaks about.
+///
+/// This is a contract the features are held to by the tests: a feature that
+/// fires outside its group is a bug, not a discovery. It is also what lets the
+/// policy skip most rules for most choices, which is where a decision's time
+/// goes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Group {
     Universal,
     Draft,
     Sell,
     Buyers,
+    /// Anything a player can choose during their own turn, drafting aside. A
+    /// rule about what an activation is worth belongs here rather than in
+    /// `Universal`, because a drafted card is a card for a later turn.
     Action,
     Mix,
     Workshop,
@@ -47,31 +128,37 @@ pub enum Group {
 }
 
 impl Group {
-    pub fn applies_to(self, choice: &Choice) -> bool {
+    #[inline]
+    pub fn matches(self, variant: ChoiceVariant) -> bool {
+        use ChoiceVariant::*;
         match self {
             Group::Universal => true,
-            Group::Draft => matches!(choice, Choice::DraftPick { .. }),
-            Group::Sell => matches!(
-                choice,
-                Choice::SelectSellCard { .. } | Choice::TrashAndSell { .. }
-            ),
-            Group::Buyers => matches!(choice, Choice::TakeBuyer { .. } | Choice::DrawBuyer),
-            Group::Action => matches!(choice, Choice::SpendDucat { .. } | Choice::EndTurn),
-            Group::Mix => matches!(choice, Choice::MixAll { .. } | Choice::TrashAndMix { .. }),
-            Group::Workshop => matches!(
-                choice,
-                Choice::Workshop { .. } | Choice::TrashAndWorkshop { .. }
-            ),
+            Group::Draft => matches!(variant, ChoiceVariant::DraftPick),
+            Group::Sell => matches!(variant, SelectSellCard | TrashAndSell),
+            Group::Buyers => matches!(variant, TakeBuyer | DrawBuyer),
+            Group::Action => !matches!(variant, DraftPick | TakeBuyer | DrawBuyer),
+            Group::Mix => matches!(variant, MixAll | TrashAndMix),
+            Group::Workshop => matches!(variant, ChoiceVariant::Workshop | TrashAndWorkshop),
             Group::Trash => matches!(
-                choice,
-                Choice::TrashDraftedCard { .. }
-                    | Choice::TrashAndMix { .. }
-                    | Choice::TrashAndSell { .. }
-                    | Choice::TrashAndWorkshop { .. }
-                    | Choice::TrashAndMoveToDraftPool { .. }
+                variant,
+                TrashDraftedCard | TrashAndMix | TrashAndSell | TrashAndWorkshop
+                    | TrashAndMoveToDraftPool
             ),
-            Group::EndTurn => matches!(choice, Choice::EndTurn),
+            Group::EndTurn => matches!(variant, ChoiceVariant::EndTurn),
         }
+    }
+
+    #[inline]
+    pub fn applies_to(self, choice: &Choice) -> bool {
+        self.matches(ChoiceVariant::of(choice))
+    }
+
+    /// Which choice variants this group speaks about, as a bit per variant.
+    pub fn mask(self) -> u32 {
+        ALL_CHOICE_VARIANTS
+            .iter()
+            .filter(|variant| self.matches(**variant))
+            .fold(0, |mask, variant| mask | variant.bit())
     }
 }
 
@@ -96,12 +183,6 @@ pub const FEATURES: &[FeatureDef] = &[
         group: Group::Universal,
         doc: "Points the choice banks at once, as a sale's card is worth.",
         eval: points_immediate,
-    },
-    FeatureDef {
-        name: "ducats_gained",
-        group: Group::Universal,
-        doc: "Ducats gained. A ducat is a point, and also a buy.",
-        eval: ducats_gained,
     },
     FeatureDef {
         name: "ducats_spent",
@@ -170,22 +251,10 @@ pub const FEATURES: &[FeatureDef] = &[
         eval: materials_spent_raw,
     },
     FeatureDef {
-        name: "boats_gained",
-        group: Group::Universal,
-        doc: "Boats gained. Unspent, a boat is worth half a point.",
-        eval: boats_gained,
-    },
-    FeatureDef {
         name: "boats_spent",
         group: Group::Universal,
         doc: "Boats a sale takes, each giving up its half point and its cover.",
         eval: boats_spent,
-    },
-    FeatureDef {
-        name: "wilds_gained",
-        group: Group::Universal,
-        doc: "Wild primaries gained. Unspent, each is worth half a point.",
-        eval: wilds_gained,
     },
     FeatureDef {
         name: "wilds_spent",
@@ -198,12 +267,6 @@ pub const FEATURES: &[FeatureDef] = &[
         group: Group::Universal,
         doc: "Heuristic quality of the cards the choice takes or keeps.",
         eval: card_quality_gained,
-    },
-    FeatureDef {
-        name: "trash_thinning",
-        group: Group::Universal,
-        doc: "Cards trashed: every one is a card the deck no longer draws.",
-        eval: trash_thinning,
     },
     FeatureDef {
         name: "trash_quality",
@@ -227,8 +290,15 @@ pub const FEATURES: &[FeatureDef] = &[
     FeatureDef {
         name: "ability_sell",
         group: Group::Universal,
-        doc: "Sell actions the choice grants.",
+        doc: "Sell actions the choice grants, at a flat value. What a drafted card is worth.",
         eval: ability_sell,
+    },
+    FeatureDef {
+        name: "ability_sell_priced",
+        group: Group::Action,
+        doc: "Sell actions the choice grants, each priced at the points of the best buyer \
+              it could bank right now. Zero when nothing can be sold to.",
+        eval: ability_sell_priced,
     },
     FeatureDef {
         name: "ability_ducats",
@@ -291,6 +361,24 @@ pub const FEATURES: &[FeatureDef] = &[
         group: Group::Draft,
         doc: "How many of the picked card's colours a sitting buyer still wants.",
         eval: draft_color_demand,
+    },
+    FeatureDef {
+        name: "card_workshop_value_long",
+        group: Group::Universal,
+        doc: "The same storage value, multiplied by the rounds still to play. A card kept \
+              is not stored once: it settles into the personal deck and comes back round \
+              every round, so what keeping it buys depends on how much game is left.",
+        eval: card_workshop_value_long,
+    },
+    FeatureDef {
+        name: "card_workshop_value",
+        group: Group::Universal,
+        doc: "What the card this choice takes or gives up would store in a workshop, in points: \
+              its materials and its colours. Positive when a draft takes the card, negative \
+              when a trash gives it up. This is the other half of every card — a dye trashed \
+              for a Workshop action is gone, while the same dye kept puts its colour on the \
+              wheel every round it comes back round.",
+        eval: card_workshop_value,
     },
     FeatureDef {
         name: "draft_material_demand",
@@ -376,8 +464,15 @@ pub const FEATURES: &[FeatureDef] = &[
     FeatureDef {
         name: "mix_count",
         group: Group::Mix,
-        doc: "Mixes in the sequence.",
+        doc: "Mixes in the sequence. A mix granted and not used is worth nothing.",
         eval: mix_count,
+    },
+    FeatureDef {
+        name: "mix_grant_unused",
+        group: Group::Mix,
+        doc: "Mix abilities the choice grants and then declines to use, negated. \
+              A positive weight prices burning a card on a mix that cannot happen.",
+        eval: mix_grant_unused,
     },
     // ── Workshop ──
     FeatureDef {
@@ -398,6 +493,14 @@ pub const FEATURES: &[FeatureDef] = &[
         group: Group::EndTurn,
         doc: "Actions still available when the turn ends.",
         eval: end_turn_open_actions,
+    },
+    FeatureDef {
+        name: "end_turn_kept_value",
+        group: Group::EndTurn,
+        doc: "Storage value of the cards still in the draft pool when the turn ends. Ending \
+              the turn is what turns them into next round's workshop, so this is what keeping \
+              a card buys; `end_turn_unspent_cards` is what it costs in fresh draws.",
+        eval: end_turn_kept_value,
     },
     FeatureDef {
         name: "end_turn_late_game",
@@ -533,20 +636,9 @@ fn ctx_stored_materials(ctx: &Ctx, d: &Delta, material_index: usize) -> i32 {
 }
 
 /// The highest-point buyer the player cannot afford yet, if there is one.
+#[inline]
 fn best_unaffordable_buyer(ctx: &Ctx) -> Option<SellCard> {
-    let mut best: Option<SellCard> = None;
-    let mut best_points = 0;
-    for buyer in ctx.player.buyers.iter() {
-        let sell_card = buyer.sell_card;
-        if can_afford_sell_card(ctx.player, &sell_card) {
-            continue;
-        }
-        if sell_card.points() > best_points {
-            best_points = sell_card.points();
-            best = Some(sell_card);
-        }
-    }
-    best
+    ctx.best_unaffordable
 }
 
 // ── Values ──
@@ -555,9 +647,6 @@ fn points_immediate(_ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
     d.points
 }
 
-fn ducats_gained(_ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
-    d.ducats.max(0) as f64
-}
 
 fn ducats_spent(_ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
     (-d.ducats).max(0) as f64
@@ -617,17 +706,11 @@ fn materials_spent_raw(_ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
     -(d.spent_material_units() as f64)
 }
 
-fn boats_gained(_ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
-    0.5 * d.boats_gained as f64
-}
 
 fn boats_spent(_ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
     -(d.boats_spent as f64)
 }
 
-fn wilds_gained(_ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
-    0.5 * d.wilds_gained as f64
-}
 
 fn wilds_spent(_ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
     -(d.wilds_spent as f64)
@@ -637,9 +720,6 @@ fn card_quality_gained(_ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
     d.gained_card_quality
 }
 
-fn trash_thinning(_ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
-    d.cards_trashed as f64
-}
 
 fn trash_quality(_ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
     -d.trash_quality
@@ -659,6 +739,15 @@ fn ability_mix(_ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
 
 fn ability_sell(_ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
     ability_slot(d, ABILITY_SELL)
+}
+
+fn ability_sell_priced(ctx: &Ctx, choice: &Choice, d: &Delta) -> f64 {
+    // Only an activation now is worth banking what is on the table now. A
+    // drafted card is for a later turn, and `ability_sell` prices that.
+    if !Group::Action.applies_to(choice) {
+        return 0.0;
+    }
+    d.abilities[ABILITY_SELL] as f64 * ctx.best_affordable_points as f64
 }
 
 fn ability_ducats(_ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
@@ -709,12 +798,17 @@ fn buyer_progress_points(ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
         stats.points as f64 / sale_units(sell_card)
     };
 
+    // Only what the buyer is still short of counts: a unit beyond the last one
+    // it wants makes no progress at all.
     let mut supplied = 0.0;
     for &(color, needed) in stats.colors() {
-        supplied += (d.gained_colors[color.index()] as u32).min(needed as u32) as f64;
+        let short = (needed as u32).saturating_sub(ctx.player.color_wheel.get(color));
+        supplied += (d.gained_colors[color.index()] as u32).min(short) as f64;
     }
     for (i, &needed) in stats.materials.iter().enumerate() {
-        supplied += (d.gained_materials[i]).min(needed as u32) as f64;
+        let short = (needed as u32)
+            .saturating_sub(ctx.player.materials.get(ALL_MATERIAL_TYPES[i]));
+        supplied += (d.gained_materials[i]).min(short) as f64;
     }
     // A boat or a wild stands in for whatever is missing.
     supplied += d.boats_gained as f64 + d.wilds_gained as f64;
@@ -743,14 +837,54 @@ fn pending_points_share(ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
 
 // ── Draft ──
 
+/// The colours a drafted card brings, priced in points like every other rule.
+///
+/// Counting the colours a buyer wants instead was the same currency mistake as
+/// everywhere else: a card bringing two wanted colours scored 2, while gaining
+/// those colours in a workshop scored their point value. The tuner's answer was
+/// to switch the rule off, which is the report telling you the rule was wrong.
+/// The storage one card offers in a workshop, in points.
+fn storage_value(ctx: &Ctx, card: Card) -> f64 {
+    card.material_types()
+        .iter()
+        .map(|&material| ctx.material_value[material as usize])
+        .sum::<f64>()
+        + card
+            .colors()
+            .iter()
+            .map(|&color| ctx.value_of(color))
+            .sum::<f64>()
+}
+
+fn card_workshop_value(ctx: &Ctx, choice: &Choice, _d: &Delta) -> f64 {
+    if let Choice::DraftPick { card } = choice {
+        // Taking a card acquires its workshop use.
+        return storage_value(ctx, *card);
+    }
+    // Trashing one gives that use up.
+    let trashed = match choice {
+        Choice::TrashDraftedCard { card }
+        | Choice::TrashAndMix { card, .. }
+        | Choice::TrashAndSell { card, .. }
+        | Choice::TrashAndWorkshop { card, .. }
+        | Choice::TrashAndMoveToDraftPool { card, .. } => Some(*card),
+        _ => None,
+    };
+    trashed.map_or(0.0, |card| -storage_value(ctx, card))
+}
+
+fn card_workshop_value_long(ctx: &Ctx, choice: &Choice, d: &Delta) -> f64 {
+    card_workshop_value(ctx, choice, d) * ctx.rounds_left as f64
+}
+
 fn draft_color_demand(ctx: &Ctx, choice: &Choice, _d: &Delta) -> f64 {
     let Some(card) = drafted_card_of(choice) else {
         return 0.0;
     };
     card.colors()
         .iter()
-        .filter(|&&color| ctx.color_demand[color.index()] > 0)
-        .count() as f64
+        .map(|&color| ctx.value_of(color))
+        .sum::<f64>()
 }
 
 fn draft_material_demand(ctx: &Ctx, choice: &Choice, _d: &Delta) -> f64 {
@@ -759,8 +893,8 @@ fn draft_material_demand(ctx: &Ctx, choice: &Choice, _d: &Delta) -> f64 {
     };
     card.material_types()
         .iter()
-        .filter(|&&material| ctx.material_demand[material as usize] > 0)
-        .count() as f64
+        .map(|&material| ctx.material_value[material as usize])
+        .sum::<f64>()
 }
 
 fn draft_ability_count(_ctx: &Ctx, choice: &Choice, _d: &Delta) -> f64 {
@@ -882,6 +1016,16 @@ fn mix_count(_ctx: &Ctx, choice: &Choice, _d: &Delta) -> f64 {
     mix_sequence_of(choice).map_or(0.0, |mixes| mixes.len() as f64)
 }
 
+fn mix_grant_unused(_ctx: &Ctx, choice: &Choice, d: &Delta) -> f64 {
+    match mix_sequence_of(choice) {
+        // The choice had its chance to mix and took none of it. Only a choice
+        // that carries the sequence can be wasteful here: a ducat bought for a
+        // mix is spent one decision before the mixing is decided.
+        Some(mixes) if mixes.is_empty() => -(d.abilities[ABILITY_MIX] as f64),
+        _ => 0.0,
+    }
+}
+
 // ── Workshop ──
 
 fn workshop_set_size(_ctx: &Ctx, choice: &Choice, _d: &Delta) -> f64 {
@@ -909,6 +1053,17 @@ fn end_turn_open_actions(ctx: &Ctx, choice: &Choice, _d: &Delta) -> f64 {
     } else {
         0.0
     }
+}
+
+fn end_turn_kept_value(ctx: &Ctx, choice: &Choice, _d: &Delta) -> f64 {
+    if !matches!(choice, Choice::EndTurn) {
+        return 0.0;
+    }
+    ctx.player
+        .drafted_cards
+        .iter()
+        .map(|id| storage_value(ctx, ctx.card(id)))
+        .sum()
 }
 
 fn end_turn_late_game(ctx: &Ctx, choice: &Choice, _d: &Delta) -> f64 {

@@ -149,6 +149,13 @@ pub fn delta(player: &PlayerState, choice: &Choice, card_table: &CardHeuristicTa
     match choice {
         Choice::DraftPick { card } => {
             d.gained_card_quality += card_table.quality(*card);
+            // A card kept is worth what it can still do. Drafting a card that
+            // grants a Sell is how a plan to sell gets started, and without
+            // this the draft is blind to abilities entirely: nothing else in a
+            // pick's effect mentions them.
+            for &ability in card.trash_abilities().iter().chain(card.workshop_abilities()) {
+                d.abilities[ability_kind(ability)] += ability_amount(ability);
+            }
         }
         Choice::TrashDraftedCard { card } => trash(*card, card_table, &mut d),
         Choice::EndTurn | Choice::SkipWorkshop | Choice::DrawBuyer => {}
@@ -208,7 +215,11 @@ fn trash(card: Card, card_table: &CardHeuristicTable, d: &mut Delta) {
 
 fn workshop(cards: &[Card], card_table: &CardHeuristicTable, d: &mut Delta) {
     for &card in cards {
-        d.gained_card_quality += card_table.quality(card);
+        // The card was already the player's, so workshopping it gains them
+        // nothing of the card itself — only what it stores and what it can do.
+        // Counting its quality would make storing the best cards look better
+        // than selling them.
+        let _ = card_table;
         for &material in card.material_types() {
             d.gained_materials[material as usize] += 1;
         }
@@ -355,7 +366,9 @@ mod tests {
         cards.push(card);
         let d = delta(&player, &Choice::Workshop { card_types: cards }, &table);
         assert!(d.gained_material_units() >= 1);
-        assert!(d.gained_card_quality > 0.0);
+        // The card was already the player's, so workshopping it gains nothing
+        // of the card itself.
+        assert_eq!(d.gained_card_quality, 0.0);
         let expected: u32 = card.workshop_abilities().iter().map(|&a| ability_amount(a)).sum();
         assert_eq!(d.abilities.iter().sum::<u32>(), expected);
     }
