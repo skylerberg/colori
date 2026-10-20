@@ -1,0 +1,22 @@
+[
+  {
+    "name": "Easy",
+    "iterations": 1000,
+    "heuristicParamsFile": "genetic-algorithm/batch-alobyo-gen-45.json"
+  },
+  {
+    "name": "Medium",
+    "iterations": 4000,
+    "heuristicParamsFile": "genetic-algorithm/batch-alobyo-gen-45.json"
+  },
+  {
+    "name": "Hard",
+    "iterations": 25000,
+    "heuristicParamsFile": "genetic-algorithm/batch-alobyo-gen-45.json"
+  },
+  {
+    "name": "Very Hard",
+    "iterations": 100000,
+    "heuristicParamsFile": "genetic-algorithm/batch-alobyo-gen-45.json"
+  }
+]
