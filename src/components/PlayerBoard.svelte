@@ -4,8 +4,8 @@
   import {
     BOARD_ART_WIDTH, PLAYER_BOARD_HEIGHT, PLAYER_CARD, PLAYER_SELL_CARD, TUCK,
     DRAFT_SLOT_X, WORKSHOP_SLOT_X, BUYER_SLOTS,
-    COMPLETED_SLOT, DECK, DUCAT_BAG, BOATS, WILD_PRIMARIES, MATERIALS, DUCAT_PURCHASE_ICONS,
-    DUCAT_STRIP, WHEEL, WHEEL_REGIONS, assignSlots,
+    COMPLETED_SLOT, DECK, DUCAT_BAG, MATERIALS_CIRCLE, BOATS, WILD_PRIMARIES, MATERIALS,
+    DUCAT_PURCHASE_ICONS, DUCAT_PURCHASE_ICON_RADIUS, DUCAT_STRIP, WHEEL, WHEEL_REGIONS, assignSlots,
   } from '../data/boardLayout';
   import { playerBoardArtUrl, SELL_CARD_BACK_URL } from '../data/cardArt';
   import { saleShortfall } from '../engine/wasmEngine';
@@ -268,8 +268,8 @@
     {@render tourAnchor('workshop', WORKSHOP_SLOT_X[0], PLAYER_BOARD_HEIGHT + TUCK - 60, WORKSHOP_SLOT_X[4] + PLAYER_CARD.width - WORKSHOP_SLOT_X[0], TUCK + 60)}
   {/if}
   {@render tourAnchor('wheel', WHEEL.cx - WHEEL.outer, onArt(WHEEL.cy - WHEEL.outer), 2 * WHEEL.outer, 2 * WHEEL.outer)}
-  {@render tourAnchor('materials', 30, onArt(90), 400, 400)}
-  {@render tourAnchor('ducats', DUCAT_BAG.x - 90, onArt(DUCAT_STRIP.y - 120), DUCAT_STRIP.x + DUCAT_STRIP.width - DUCAT_BAG.x + 90, 200)}
+  {@render tourAnchor('materials', MATERIALS_CIRCLE.x, onArt(MATERIALS_CIRCLE.y), MATERIALS_CIRCLE.width, MATERIALS_CIRCLE.height)}
+  {@render tourAnchor('ducats', DUCAT_BAG.x - 100, onArt(DUCAT_STRIP.y - 130), DUCAT_STRIP.x + DUCAT_STRIP.width - DUCAT_BAG.x + 100, 210)}
   {@render tourAnchor('buyers', BUYER_SLOTS[0].x, onArt(BUYER_SLOTS[0].y), COMPLETED_SLOT.x + PLAYER_SELL_CARD.width - BUYER_SLOTS[0].x, COMPLETED_SLOT.y + PLAYER_SELL_CARD.height - BUYER_SLOTS[0].y)}
   {@render tourAnchor('deck', DECK.x, onArt(DECK.y), DECK.width, DECK.height)}
 
@@ -277,7 +277,8 @@
     {#each PURCHASES as purchase}
       {@const icon = DUCAT_PURCHASE_ICONS[purchase.type]}
       {@const available = interaction.ducats.available.includes(purchase.type)}
-      <button class="purchase" class:available style={place(icon.x - 38, onArt(icon.y - 38), 76, 76)}
+      {@const r = DUCAT_PURCHASE_ICON_RADIUS}
+      <button class="purchase" class:available style={place(icon.x - r, onArt(icon.y - r), 2 * r, 2 * r)}
         disabled={!available}
         onclick={() => interaction!.ducats!.onSpend(purchase.type)}
         title={available ? `Spend a ducat: ${purchase.label}` : `Can't buy ${purchase.label} now`}
