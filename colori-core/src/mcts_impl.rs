@@ -21,6 +21,7 @@ use mcts::{ChoicesOnRevisit, Game, Status};
 
 use crate::choices::{enumerate_choices, enumerate_choices_into};
 use crate::colori_game::{apply_choice_to_state, determinize_in_place};
+use crate::final_turn;
 use crate::ismcts::MctsConfig;
 use crate::ismcts::{advance_past_opponent_draft_picks, OpponentDraftStats};
 use crate::opponent_turns::{OpponentTurns, TurnPolicy};
@@ -37,9 +38,15 @@ pub type Rewards = [f64; MAX_PLAYERS];
 /// without depending on `mcts` directly.
 pub type SearchNode = mcts::Node<Choice>;
 
-/// Why a search stopped, re-exported so consumers can name the outcome without
-/// depending on `mcts` directly.
-pub use mcts::StopReason;
+/// Why a decision was made when it was.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StopReason {
+    /// The search stopped, for this reason.
+    Search(mcts::StopReason),
+    /// The game's last turn, solved exactly by `crate::final_turn` rather than
+    /// searched.
+    Solved,
+}
 
 /// The graph a transposition search leaves behind, keyed as
 /// `crate::transposition` keys positions.
@@ -445,7 +452,7 @@ pub struct SearchOutcome {
     /// Iterations run by this call, excluding any inherited from a reused tree.
     pub iterations_used: u32,
     pub reused_iterations: u32,
-    pub stop_reason: mcts::StopReason,
+    pub stop_reason: StopReason,
 }
 
 /// Holds the reusable buffers and the retained tree across a player's moves.
@@ -453,7 +460,8 @@ pub struct SearchOutcome {
 /// Keep one per player for the length of a game and call [`Self::search`] each
 /// turn; [`Self::reuse_subtree`] carries the relevant subtree forward. Searches
 /// as a tree, or as a transposition graph when [`MctsConfig::transpositions`] is
-/// on; switching between the two drops whatever was retained.
+/// on; switching between the two drops whatever was retained. The game's last
+/// turn is not searched but solved, and retains nothing.
 pub struct ColoriSearcher {
     inner: Inner,
 }
@@ -478,6 +486,16 @@ impl ColoriSearcher {
         max_rollout_round: Option<u32>,
         rng: &mut R,
     ) -> SearchOutcome {
+        if let Some(choice) = final_turn::solve(state, player_index) {
+            self.clear_tree();
+            return SearchOutcome {
+                choice,
+                iterations_used: 0,
+                reused_iterations: 0,
+                stop_reason: StopReason::Solved,
+            };
+        }
+
         let context = SearchContext::new(
             state,
             player_index,
@@ -525,7 +543,7 @@ impl ColoriSearcher {
             choice: result.choice,
             iterations_used: result.iterations_used,
             reused_iterations: result.reused_iterations,
-            stop_reason: result.stop_reason,
+            stop_reason: StopReason::Search(result.stop_reason),
         }
     }
 
@@ -759,6 +777,31 @@ mod tests {
         assert!(matches!(state.phase, GamePhase::Action { .. }));
         let refusal = search_refusal(&state, 0).expect("an ended turn has no choices");
         assert!(refusal.contains("no legal choices"), "{refusal}");
+    }
+
+    /// The game's last turn is solved rather than searched, and leaves no tree
+    /// behind for anything to re-root.
+    #[test]
+    fn the_last_turn_is_solved_not_searched() {
+        let mut rng = WyRand::seed_from_u64(5);
+        let mut state = create_initial_game_state(2, &[true; 2], &mut rng);
+        state.max_rounds = 1;
+        execute_draw_phase(&mut state, &mut rng);
+        while !matches!(state.phase, GamePhase::Action { .. }) {
+            let GameStatus::AwaitingAction { player_index } = get_game_status(&state, None) else {
+                unreachable!("round 1 reaches its action phase");
+            };
+            let choices = enumerate_choices(&state, player_index);
+            let pick = rng.next_u64() % choices.len() as u64;
+            apply_choice_to_state(&mut state, player_index, &choices[pick as usize], &mut rng);
+        }
+
+        let mut searcher = ColoriSearcher::new(&state);
+        let outcome = searcher.search(&state, 0, &config(50), None, &mut rng);
+        assert_eq!(outcome.stop_reason, StopReason::Solved);
+        assert_eq!(outcome.iterations_used, 0);
+        assert!(searcher.stats().is_none());
+        assert_eq!(Some(outcome.choice), final_turn::solve(&state, 0));
     }
 
     /// Whole games through the transposition graph. Debug builds recompute every
