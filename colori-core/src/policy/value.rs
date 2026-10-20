@@ -15,8 +15,6 @@
 //! rounds until this card comes back" beyond what the board shows.
 
 use crate::scoring::score_in_half_points;
-use crate::colors::SECONDARIES;
-use crate::types::Ability;
 
 use super::context::Ctx;
 use super::features::storage_value;
@@ -98,19 +96,6 @@ pub const VALUE_FEATURES: &[ValueDef] = &[
         eval: value_hand,
     },
     ValueDef {
-        name: "value_pending_ability",
-        doc: "What the ability waiting to resolve is about to be worth. A position \
-              mid-resolution is not the position after the stack empties, and a leaf \
-              that cannot see this reads a sale about to happen as a card already spent.",
-        eval: value_pending_ability,
-    },
-    ValueDef {
-        name: "value_actions_left",
-        doc: "Cards still in the draft pool: the actions left in this turn, which are \
-              the scarce resource every sale and every storage play is bought with.",
-        eval: value_actions_left,
-    },
-    ValueDef {
         name: "value_shortfall",
         doc: "Units the buyers still want, negated. How far the plan is from paying.",
         eval: value_shortfall,
@@ -137,18 +122,6 @@ pub const VALUE_FEATURES: &[ValueDef] = &[
         name: "value_slots_full",
         doc: "Buyer slots filled. Until a slot is filled it is a plan not yet started.",
         eval: value_slots_full,
-    },
-    ValueDef {
-        name: "value_kept_storage",
-        doc: "Storage sitting in the draft pool, which the end of the turn settles into \
-              the deck: what the engine is about to gain.",
-        eval: value_kept_storage,
-    },
-    ValueDef {
-        name: "value_drafted",
-        doc: "Cards in the draft pool, each one an ability not yet used and a card not yet \\
-              settled into the deck.",
-        eval: value_drafted,
     },
 ];
 
@@ -224,29 +197,6 @@ fn value_hand(ctx: &Ctx) -> f64 {
     ctx.player.workshop_cards.len() as f64
 }
 
-fn value_pending_ability(ctx: &Ctx) -> f64 {
-    match ctx.pending_ability {
-        // A sale is about to bank the best buyer it can reach.
-        Some(Ability::Sell) => ctx.best_affordable_points as f64,
-        Some(Ability::Workshop { count }) => ctx.workshop_storage * count as f64,
-        Some(Ability::MixColors { count }) => ctx.best_mix_value * count as f64,
-        Some(Ability::MoveToDraftPool) => ctx.workshop_storage,
-        Some(Ability::GainSecondary) => SECONDARIES
-            .iter()
-            .map(|color| ctx.value_of(*color))
-            .fold(0.0f64, f64::max),
-        // Gains resolve on their own and never wait for a choice.
-        Some(Ability::GainDucats { .. })
-        | Some(Ability::GainWildPrimaries { .. })
-        | Some(Ability::GainBoats { .. })
-        | None => 0.0,
-    }
-}
-
-fn value_actions_left(ctx: &Ctx) -> f64 {
-    ctx.drafted as f64
-}
-
 fn value_shortfall(ctx: &Ctx) -> f64 {
     -((ctx.demanded_color_units() + ctx.demanded_material_units()) as f64)
 }
@@ -267,18 +217,6 @@ fn value_engine_cycle(ctx: &Ctx) -> f64 {
 
 fn value_slots_full(ctx: &Ctx) -> f64 {
     ctx.player.buyers.len() as f64
-}
-
-fn value_kept_storage(ctx: &Ctx) -> f64 {
-    ctx.player
-        .drafted_cards
-        .iter()
-        .map(|id| storage_value(ctx, ctx.card(id)))
-        .sum()
-}
-
-fn value_drafted(ctx: &Ctx) -> f64 {
-    ctx.player.drafted_cards.len() as f64
 }
 
 #[cfg(test)]

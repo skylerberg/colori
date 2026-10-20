@@ -105,13 +105,26 @@ choose the buyer" become visible. It is bounded, deterministic and cheap, and it
 composes with the tuned one-ply score rather than replacing it, so bad value
 weights cost nothing.
 
-What a planned decision is worth depends almost entirely on the leaf. With a
-hand-set value function, planning added +0.05 — indistinguishable from nothing,
-because the leaf could not see an ability about to resolve and read a sale about
-to happen as a card already spent. `value_pending_ability` fixed that, and a
-search that tunes the value function *on its own* (`--tune values`, twenty
-numbers instead of a hundred and sixty) took planning to **+0.30**. Depth pays
-once the leaf is honest: depth 1 +0.15, depth 2 +0.26, depth 3 +0.30.
+What a planned decision is worth depends almost entirely on the leaf, and the
+first leaf had two faults.
+
+It could not see an ability about to resolve, so a sale about to happen read as a
+card already spent. Pricing that (a `value_pending_ability` term) took planning
+from +0.05 to +0.30.
+
+But pricing is not the same as fixing. A leaf that stops wherever the search ran
+out of depth is not a position: it is a position *plus* however many actions
+happen to be left, and two lines that stopped at different points are not
+comparable. The tell was that deeper search kept paying — depth 1 < depth 2 <
+depth 3, monotonically, which is what a biased leaf looks like. So the leaf now
+**finishes the turn**: the rest of the turn is played out with the one-ply policy
+and the position that is scored is where the turn ended, storage settled and
+stack empty. The depth ladder flattened immediately (depth 1 = depth 2 = depth 3,
+26.51 / 26.52 / 26.52), planning went to **+0.61**, and four value rules became
+provably constant and were deleted.
+
+The lesson generalises: when a term you added to fix a bias keeps growing in
+importance as you add depth, the term is a proxy for the bias, not a fix.
 
 | Loop | Question | Method | Cost |
 | --- | --- | --- | --- |

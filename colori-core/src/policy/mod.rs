@@ -459,15 +459,11 @@ const STARTER_WEIGHTS: &[(&str, f64)] = &[
     ("value_boats", 0.05),
     ("value_engine", 0.05),
     ("value_hand", 0.0),
-    ("value_pending_ability", 0.20),
-    ("value_actions_left", 0.05),
     ("value_shortfall", 0.05),
     ("value_options", 0.05),
     ("value_standing", 0.10),
     ("value_engine_cycle", 0.05),
     ("value_slots_full", 0.05),
-    ("value_kept_storage", 0.10),
-    ("value_drafted", 0.0),
 ];
 
 /// Rules that get a weight of their own for the opening and the close.
@@ -935,6 +931,44 @@ impl CompiledPolicy {
         })
     }
 
+    /// How many decisions the residual rollout plays before giving up.
+    ///
+    /// A turn is a handful of actions; more than this means something is wrong
+    /// and the position is scored where it stands rather than looping.
+    const FINISH_STEPS: usize = 8;
+
+    /// Play the rest of the turn out with the one-ply policy and score where it
+    /// ends.
+    ///
+    /// A leaf that stops wherever the search ran out of depth is not a position:
+    /// it is a position *plus* however many actions happen to be left, and two
+    /// lines that stopped at different points are not comparable. Pricing what is
+    /// left — a pending ability, the count of actions — was a proxy for this and
+    /// behaved like one. Finishing the turn makes every leaf the same kind of
+    /// thing: where this player's turn ended, storage settled, stack empty.
+    ///
+    /// The residual is played by the one-ply policy, not searched, so this costs
+    /// one choice-scoring pass per action left rather than a search.
+    fn finish_turn(&self, state: &GameState, player_index: usize) -> f64 {
+        let mut next = state.clone();
+        let mut scores: Vec<f64> = Vec::new();
+        for _ in 0..Self::FINISH_STEPS {
+            if !turn_is_open(&next, player_index) {
+                break;
+            }
+            let options = crate::colori_game::enumerate_choices(&next, player_index);
+            if options.is_empty() {
+                break;
+            }
+            scores.clear();
+            scores.resize(options.len(), 0.0);
+            self.score_all(&next, player_index, &options, &mut scores);
+            let best = best_first(&scores)[0];
+            probe(&mut next, player_index, &options[best]);
+        }
+        self.value(&next, player_index)
+    }
+
     /// Take `choice`, then follow the single best choice `depth - 1` more times,
     /// and score the position that leaves.
     ///
@@ -945,11 +979,11 @@ impl CompiledPolicy {
         let mut next = state.clone();
         probe(&mut next, player_index, choice);
         if depth <= 1 || !turn_is_open(&next, player_index) {
-            return self.value(&next, player_index);
+            return self.finish_turn(&next, player_index);
         }
         let options = crate::colori_game::enumerate_choices(&next, player_index);
         if options.is_empty() {
-            return self.value(&next, player_index);
+            return self.finish_turn(&next, player_index);
         }
         let mut scores = vec![0.0; options.len()];
         self.score_all(&next, player_index, &options, &mut scores);
