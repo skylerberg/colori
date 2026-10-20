@@ -59,6 +59,13 @@ pub struct HeuristicParams {
     pub rollout_ws_action_color_demand_multiplier: u32,
 }
 
+impl HeuristicParams {
+    /// What the AI plays with unless told otherwise, and what a genetic
+    /// algorithm run tunes from unless given a seed.
+    pub const DEFAULT_JSON: &str =
+        include_str!("../../../genetic-algorithm/batch-alobyo-gen-45.json");
+}
+
 /// Raw deserialization helper that supports both the old unified `rolloutWsActionBonus`
 /// field and the new per-ability fields. When the old field is present and a new field
 /// is absent, the old value is used as the default for each new field.

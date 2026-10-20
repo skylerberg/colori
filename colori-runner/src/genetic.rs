@@ -293,13 +293,19 @@ pub fn run_genetic_algorithm(args: &TrainArgs, threads: usize, output: &str) {
 
     let mut rng = WyRand::from_rng(&mut rand::rng());
 
-    let seed_params = load_heuristic_params(
-        args.seed_params.as_ref().expect("--seed-params is required for training")
-    );
+    let seed_params = match &args.seed_params {
+        Some(path) => {
+            eprintln!("Seeding population from {path}");
+            load_heuristic_params(path)
+        }
+        None => {
+            eprintln!("Seeding population from the params the AI plays with");
+            serde_json::from_str(HeuristicParams::DEFAULT_JSON)
+                .expect("Failed to parse the default heuristic params")
+        }
+    };
     let seed = &seed_params;
     let seed_genes = seed.to_genes();
-
-    eprintln!("Seeding population from provided params file");
 
     let num_genes = seed.to_genes().len();
 

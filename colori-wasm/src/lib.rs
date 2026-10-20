@@ -34,7 +34,7 @@ impl AiSettings {
             "9iii4n-gen-19-avoid-alum-warehouse-gondola" => include_str!(
                 "../../genetic-algorithm/9iii4n-gen-19-avoid-alum-warehouse-gondola.json"
             ),
-            _ => include_str!("../../genetic-algorithm/batch-alobyo-gen-45.json"),
+            _ => HeuristicParams::DEFAULT_JSON,
         };
         let heuristic_params: HeuristicParams =
             serde_json::from_str(params_json).expect("Failed to parse trained heuristic params");

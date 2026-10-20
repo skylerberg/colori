@@ -100,11 +100,11 @@ pub struct TrainArgs {
     #[arg(long, default_value_t = 4000)]
     pub eval_iterations: u32,
 
-    /// Path to seed heuristic params JSON file
+    /// Path to seed heuristic params JSON file [default: the params the AI plays with]
     #[arg(long)]
     pub seed_params: Option<String>,
 
-    /// Path to baseline heuristic params JSON file
+    /// Path to baseline heuristic params JSON file [default: the seed]
     #[arg(long)]
     pub baseline_params: Option<String>,
 }
