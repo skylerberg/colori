@@ -34,6 +34,8 @@ pub enum Commands {
     PolicyEvolve(PolicyEvolveArgs),
     /// Measure what each gene is worth, so the genome can be cut down
     PolicyPrune(PolicyPruneArgs),
+    /// Dump decisions and position quantities, to see whether a tree could carry it
+    PolicyDistill(PolicyDistillArgs),
 }
 
 // ── Subcommand args ──
@@ -319,6 +321,35 @@ impl PolicyPruneArgs {
     pub fn plan(&self) -> colori_core::policy::Plan {
         colori_core::policy::Plan::new(self.lookahead_width, self.lookahead)
     }
+}
+
+#[derive(Parser)]
+pub struct PolicyDistillArgs {
+    /// Genome whose decisions are dumped
+    #[arg(long, default_value = "starter")]
+    pub genome: String,
+
+    #[arg(long)]
+    pub heuristic_params_file: Option<String>,
+
+    #[arg(long, default_value_t = 120)]
+    pub games: usize,
+
+    #[arg(long, default_value_t = 0)]
+    pub seed_base: u64,
+
+    #[arg(long, default_value_t = 4)]
+    pub players: usize,
+
+    /// Where to write the CSV
+    #[arg(long, default_value = "policy-runs/decisions.csv")]
+    pub write: String,
+
+    #[arg(long, default_value_t = 0)]
+    pub lookahead: usize,
+
+    #[arg(long, default_value_t = 4)]
+    pub lookahead_width: usize,
 }
 
 /// Which numbers a tuning run may move.

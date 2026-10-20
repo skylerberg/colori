@@ -3,6 +3,7 @@ mod genetic;
 mod policy_evolve;
 mod policy_play;
 mod policy_prune;
+mod policy_distill;
 mod simulation;
 mod tournament;
 
@@ -49,6 +50,10 @@ fn main() {
         Some(Commands::PolicyPrune(args)) => {
             let output = cli.output.unwrap_or_else(|| "policy-runs".to_string());
             policy_prune::run_policy_prune(&args, threads, &output);
+        }
+        Some(Commands::PolicyDistill(args)) => {
+            let output = cli.output.unwrap_or_else(|| "policy-runs".to_string());
+            policy_distill::run_policy_distill(&args, threads, &output);
         }
         None => {
             // Default: simulate with default args

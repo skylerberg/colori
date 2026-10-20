@@ -283,6 +283,38 @@ buyers and colours, so deviating from the optimum pays a little — while removi
 many genes at once breaks the policy outright. Both effects are in every
 measurement; the tier curve is where the second one shows.
 
+## Could this be a decision tree?
+
+Partly, and the measurement is in `policy-distill`.
+
+A tree over the same fifty readings would have to reproduce an **oblique**
+boundary (the boundary between two weighted sums) with **axis-aligned** splits —
+the worst case for a tree, needing a staircase of splits for every slanted line,
+so either enormous or lossy.
+
+A tree over a dozen *interpretable* quantities is a different proposition. It
+cannot separate "trash this card for its Sell" from "trash it for its Workshop",
+because that difference lives in the card. What it can decide is **what kind of
+action to take** — sell, store, mix, spend, claim, end — and hand the choice of
+card or buyer to a greedy rule inside that kind.
+
+Measured on 38,682 decisions from 150 games, held out:
+
+| depth | 3 | 4 | 5 | 6 |
+|---|---|---|---|---|
+| agreement with the policy | 72.7% | 76.4% | 77.9% | 80.0% |
+
+and the depth-5 tree reads like a strategy: *if a Sell is on the stack, sell*; *if
+no buyer is affordable and no slot is empty, end or mix*; *if actions remain and
+buyers are affordable, sell rather than mix unless the workshop is nearly
+empty*. That is a real skeleton for a hand-written deterministic bot.
+
+What it does not carry is the 20% — and the misses concentrate where the
+trade-offs are contested, which is exactly where the points are. So the tree is a
+viable *skeleton*, not a substitute for the scorer: the payload rules (which card,
+which subset, which buyer) still need a valuation, and that valuation is where
+most of the strength lives.
+
 ## What is not here
 
 - **Feature interactions** beyond `shape`: no `a · b` products. A rule that only
