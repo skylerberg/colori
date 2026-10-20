@@ -34,7 +34,8 @@
 use std::collections::BTreeMap;
 
 use colori_core::policy::{
-    features, rule_count, CompiledPolicy, Gate, PolicyGenome, Shape, VALUE_FEATURES,
+    features, rule_count, CompiledPolicy, Gate, InteractionGene, Op, PolicyGenome, Shape,
+    VALUE_FEATURES,
 };
 use colori_core::scoring::HeuristicParams;
 use rand::{RngExt, SeedableRng};
@@ -51,6 +52,9 @@ struct Candidate {
     label: String,
     weights: Weights,
     summary: ScoreSummary,
+    /// Per-game scores, in seed order. Two candidates measured on the same seeds
+    /// can be compared game by game, which cancels the deal each game got.
+    scores: Vec<f64>,
 }
 
 impl Candidate {
@@ -95,6 +99,10 @@ struct GenerationReport {
     /// The best-ever genome on seeds it was never tuned against.
     #[serde(skip_serializing_if = "Option::is_none")]
     holdout: Option<ScoreSummary>,
+    /// The composed readings the search is currently working with.
+    compositions: Vec<String>,
+    /// What each structural attempt was, what it scored, and whether it was kept.
+    structure_attempts: Vec<String>,
     candidates: Vec<GeneRow>,
     weights: Vec<WeightRow>,
     activity: Vec<FeatureActivity>,
@@ -148,13 +156,16 @@ struct Rules {
 pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &str) {
     let params = policy_play::load_params(args.heuristic_params_file.as_deref());
     let template = policy_play::load_genome(&args.template);
+    // The incumbent: its weights are searched, and its list of composed readings
+    // is what the structural step mutates.
+    let mut current = template.clone();
     let ladder_policies = policy_play::compile_ladder(&args.anchors, &params);
     assert!(
         !ladder_policies.is_empty(),
         "policy-evolve needs at least one frozen opponent to measure against"
     );
     let ladder: Vec<&CompiledPolicy> = ladder_policies.iter().collect();
-    let rules = rules_of(&template);
+    let mut rules = rules_of(&current);
 
     assert!(
         !rules.tunables.is_empty(),
@@ -207,7 +218,9 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
 
     std::fs::create_dir_all(output).expect("failed to create the output directory");
 
+    let pool = operand_pool();
     let mut best_ever: Option<Candidate> = None;
+    let mut compositions: Vec<String> = current.interactions.iter().map(|gene| gene.label()).collect();
 
     for generation in 0..args.generations {
         let started = std::time::Instant::now();
@@ -215,7 +228,7 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
         let mut candidates: Vec<Candidate> = Vec::with_capacity(args.population);
 
         // Candidate zero is the mean itself.
-        let mean_policy = build(&template, &rules, &mean, &params);
+        let mean_policy = build(&current, &rules, &mean, &params);
         let mut mean_candidate = evaluate(&mean_policy, &ladder, args, &train_seeds, threads, "mean");
         mean_candidate.weights = mean.clone();
         candidates.push(mean_candidate);
@@ -228,7 +241,7 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
                     (centre + sample_normal(&mut sampler, *spread)).clamp(-args.max_weight, args.max_weight)
                 })
                 .collect();
-            let policy = build(&template, &rules, &weights, &params);
+            let policy = build(&current, &rules, &weights, &params);
             let mut candidate = evaluate(
                 &policy,
                 &ladder,
@@ -265,11 +278,12 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
                 label: format!("generation {generation}"),
                 weights: generation_best.weights.clone(),
                 summary: generation_best.summary.clone(),
+                scores: generation_best.scores.clone(),
             });
         }
         let best = best_ever.as_ref().expect("set just above");
 
-        let best_policy = build(&template, &rules, &best.weights, &params);
+        let best_policy = build(&current, &rules, &best.weights, &params);
         let activity = policy_play::activity_of(&best_policy, args.players, 4, args.seed_base, threads);
         let holdout = if holdout_seeds.is_empty() {
             None
@@ -279,8 +293,57 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
             )
         };
 
+        // Structure: mutate one composed reading and see whether the result
+        // beats the incumbent's own numbers by more than its error bars.
+        let mut adopted: Option<(PolicyGenome, Rules, Weights)> = None;
+        let mut mutation_rows: Vec<String> = Vec::new();
+        if args.mutations > 0 && !pool.is_empty() {
+            let seed_genome = genome_with(&current, &rules, &new_mean);
+            for attempt in 0..args.mutations {
+                let mut mutant = seed_genome.clone();
+                let change = mutate_compositions(&mut mutant.interactions, &mut sampler, &pool);
+                let mutant_rules = rules_of(&mutant);
+                let mutant_weights = mutant_rules.started_at.clone();
+                let policy = build(&mutant, &mutant_rules, &mutant_weights, &params);
+                let outcome = evaluate(
+                    &policy,
+                    &ladder,
+                    args,
+                    &train_seeds,
+                    threads,
+                    &format!("mutant {attempt}"),
+                );
+                // Paired against the mean genome, game by game: both were played
+                // on the same seeds, so a game that dealt well to one dealt well
+                // to the other and the difference is what the change did.
+                let (gain, bars) = paired_gain(&mean_row.scores, &outcome.scores);
+                let keep = gain > bars;
+                mutation_rows.push(format!(
+                    "{change}: {gain:+.3} vs bars {bars:.3}{}",
+                    if keep { " — adopted" } else { "" }
+                ));
+                if keep {
+                    adopted = Some((mutant, mutant_rules, mutant_weights));
+                    break;
+                }
+            }
+        }
+        if let Some((mutant, _, mutant_weights)) = &adopted {
+            compositions = mutant.interactions.iter().map(|gene| gene.label()).collect();
+            mean = mutant_weights.clone();
+            current = mutant.clone();
+            rules = rules_of(&current);
+            sigma = rules
+                .started_at
+                .iter()
+                .map(|weight| args.sigma * weight.abs().max(0.1))
+                .collect();
+        }
+
         let report = GenerationReport {
             generation,
+            compositions: compositions.clone(),
+            structure_attempts: mutation_rows.clone(),
             games_per_candidate: args.games,
             seed_base: args.seed_base,
             population: args.population,
@@ -329,13 +392,18 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
             },
             report.wall_clock_secs,
         );
+        for row in &mutation_rows {
+            eprintln!("         composed: {row}");
+        }
 
-        mean = new_mean;
-        sigma = new_sigma;
+        if adopted.is_none() {
+            mean = new_mean;
+            sigma = new_sigma;
+        }
     }
 
     let best = best_ever.expect("at least one generation ran");
-    let genome = genome_with(&template, &rules, &best.weights);
+    let genome = genome_with(&current, &rules, &best.weights);
     let path = format!("{output}/best-genome.json");
     std::fs::write(
         &path,
@@ -489,6 +557,7 @@ fn evaluate(
         label: label.to_string(),
         weights: Vec::new(),
         summary,
+        scores: batch.scores.clone(),
     }
 }
 
@@ -530,6 +599,78 @@ fn gene_row(label: &str, candidate: &Candidate, rules: &Rules) -> GeneRow {
         summary: candidate.summary.clone(),
         weights,
     }
+}
+
+/// The mean per-game gain of one set of scores over another, with the bar it has
+/// to clear: twice the standard error of the paired difference.
+fn paired_gain(baseline: &[f64], other: &[f64]) -> (f64, f64) {
+    let n = baseline.len().min(other.len());
+    if n < 2 {
+        return (f64::NEG_INFINITY, f64::INFINITY);
+    }
+    let differences: Vec<f64> = (0..n).map(|game| other[game] - baseline[game]).collect();
+    let mean = differences.iter().sum::<f64>() / n as f64;
+    let variance = differences
+        .iter()
+        .map(|difference| (difference - mean).powi(2))
+        .sum::<f64>()
+        / (n - 1) as f64;
+    (mean, 2.0 * variance.sqrt() / (n as f64).sqrt())
+}
+
+/// Every name a composed reading may draw on: the choice rules and the scalars
+/// the position supplies. Value rules are excluded — they read a position with no
+/// choice in hand, so they cannot be one half of something about a choice.
+fn operand_pool() -> Vec<&'static str> {
+    let mut pool: Vec<&'static str> = features().map(|def| def.name).collect();
+    pool.extend(
+        colori_core::policy::interactions::SCALARS
+            .iter()
+            .map(|(name, _)| *name),
+    );
+    pool
+}
+
+/// The most composed readings the search will hold at once.
+const MAX_COMPOSITIONS: usize = 14;
+
+/// Change one composed reading: its operator, one of its operands, or how many
+/// there are. Returns a description for the report.
+fn mutate_compositions(
+    genes: &mut Vec<InteractionGene>,
+    rng: &mut WyRand,
+    pool: &[&'static str],
+) -> String {
+    let draw = |rng: &mut WyRand| pool[rng.random_range(0..pool.len())];
+    let draw_op = |rng: &mut WyRand| Op::ALL[rng.random_range(0..Op::ALL.len())];
+
+    let roll: f64 = rng.random();
+    if genes.is_empty() || (roll < 0.2 && genes.len() < MAX_COMPOSITIONS) {
+        let gene = InteractionGene::new(draw_op(rng), draw(rng), draw(rng), 0.2);
+        let label = gene.label();
+        genes.push(gene);
+        return format!("added {label}");
+    }
+    if genes.len() > 1 && roll < 0.32 {
+        let index = rng.random_range(0..genes.len());
+        let label = genes.remove(index).label();
+        return format!("dropped {label}");
+    }
+    let index = rng.random_range(0..genes.len());
+    let before = genes[index].label();
+    // Whatever is changed has to actually change: a mutation that draws the same
+    // operand spends an evaluation on nothing.
+    for _ in 0..8 {
+        match rng.random_range(0..3) {
+            0 => genes[index].op = draw_op(rng),
+            1 => genes[index].a = draw(rng).to_string(),
+            _ => genes[index].b = draw(rng).to_string(),
+        }
+        if genes[index].label() != before {
+            break;
+        }
+    }
+    format!("{before} -> {}", genes[index].label())
 }
 
 fn sample_normal(rng: &mut WyRand, scale: f64) -> f64 {

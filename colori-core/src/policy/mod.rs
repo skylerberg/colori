@@ -269,6 +269,14 @@ impl PolicyGenome {
         // The rules for which time matters, given a weight of their own for the
         // opening and the close — seeded at the weight they already have, so the
         // policy starts unchanged and the search is free to pull the two apart.
+        // The dependence on the clock is written as a composition rather than as
+        // a rule of its own: a point is worth this much, scaled by how late it
+        // is; a card's storage is worth this much per round it would come back.
+        genome
+            .compose(Op::Multiply, "points_immediate", "lateness", 0.5)
+            .compose(Op::Multiply, "colors_demanded", "lateness", 0.5)
+            .compose(Op::Multiply, "materials_demanded", "lateness", 0.5)
+            .compose(Op::Multiply, "card_workshop_value", "rounds_left", 0.5);
         for name in REGIME_RULES {
             let weight = genome.weight(name);
             for gate in Gate::ALL {
@@ -327,7 +335,6 @@ const STARTER_WEIGHTS: &[(&str, f64)] = &[
     // The two halves of a card: what it stores if kept, what it does if
     // trashed. The action half is priced by the ability rules.
     ("card_workshop_value", 1.0),
-    ("card_workshop_value_long", 1.0),
     ("draft_color_demand", 0.5),
     ("draft_material_demand", 0.8),
     // Abilities are priced by kind through the ability rules; a flat count on
@@ -412,10 +419,6 @@ const STARTER_WEIGHTS: &[(&str, f64)] = &[
     ("ability_wilds_priced", 0.5),
     ("ability_boats_priced", 0.5),
     ("ability_sell_ready", 0.5),
-    ("points_immediate_late", 0.5),
-    ("colours_demanded_late", 0.5),
-    ("materials_demanded_late", 0.5),
-    ("keep_value_early", 0.5),
     // ── Reading something specific rather than something total ──
     ("textiles_gained", 0.6),
     ("ceramics_gained", 0.6),
@@ -469,8 +472,6 @@ const STARTER_WEIGHTS: &[(&str, f64)] = &[
 /// numbers at all.
 const REGIME_RULES: &[&str] = &[
     "card_workshop_value",
-    "card_workshop_value_long",
-    "keep_value_early",
     "points_immediate",
     "ability_workshop",
     "ability_sell",
@@ -1480,16 +1481,31 @@ mod tests {
                         decision.contributions.len() <= policy.terms().len(),
                         "a traced decision cannot report more terms than the policy has"
                     );
-                    // Every term reported answers for the choice that took it.
+                    // Everything reported answers for the choice that took it,
+                    // whether it is a rule or a composed reading.
                     let choice = decision.choice;
+                    let bit = ChoiceVariant::of(&choice).bit();
                     for contribution in &decision.contributions {
-                        let term = policy
+                        let mask = match policy
                             .terms()
                             .iter()
-                            .find(|term| term.name == contribution.feature)
-                            .expect("a reported term is one of the policy's");
+                            .find(|term| term.name == contribution.feature.as_str())
+                        {
+                            Some(term) => term.mask,
+                            None => policy
+                                .interactions()
+                                .iter()
+                                .find(|rule| rule.label == contribution.feature)
+                                .unwrap_or_else(|| {
+                                    panic!(
+                                        "{} is neither a rule nor a composed reading",
+                                        contribution.feature
+                                    )
+                                })
+                                .mask,
+                        };
                         assert!(
-                            term.mask & ChoiceVariant::of(&choice).bit() != 0,
+                            mask & bit != 0,
                             "{} reported for a choice outside its group",
                             contribution.feature
                         );

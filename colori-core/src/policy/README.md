@@ -73,6 +73,31 @@ enumeration order, which is itself deterministic.
 
 ## Two loops, with different jobs
 
+Two things make the vocabulary non-linear:
+
+- **Regimes.** A rule may carry its own weight for a stretch of the game
+  (`early`, `late`), falling back to its base weight when it says nothing. This
+  is how "keeping a card in round one is worth much more than keeping one in
+  round six" gets expressed: the search found `ability_workshop` at 3.07 early
+  against 5.61 late, which is the same statement.
+- **Composed readings.** An interaction combines two operands with one operator
+  (`multiply`, `min`, `max`, `add`), where an operand is any rule or a scalar the
+  position supplies (`lateness`, `earliness`, `rounds_left`, `empty_slots`,
+  `purchasable`, `affordable_buyers`). `multiply` scales one reading by another;
+  `min`/`max` pick the binding constraint.
+
+The dependence on the clock is written as compositions rather than as rules of
+its own — `multiply(points_immediate, lateness)` and
+`multiply(card_workshop_value, rounds_left)` replaced five hand-written time
+rules at no cost in strength, which is the evidence that the mechanism can
+substitute for hand-writing.
+
+Structure is searched, not only weights: `policy-evolve --mutations N` mutates one
+composed reading per attempt (its operator, an operand, or whether it exists) and
+keeps the change only if a **paired** comparison beats its error bars — both
+genomes played the same seeds, so a game that dealt well to one dealt well to the
+other.
+
 The third loop is a planned decision: over the *current turn* the policy can
 follow its best few choices a couple of decisions deeper and score the position
 that leaves, which is where sequences like "trash the dye for its Sell, then

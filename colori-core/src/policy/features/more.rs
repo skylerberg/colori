@@ -36,15 +36,6 @@ use super::super::effects::{
 
 // ── Shared readings ──
 
-/// How late in the game it is: zero in the first round, one in the last.
-fn lateness(ctx: &Ctx) -> f64 {
-    1.0 - (ctx.rounds_left.saturating_sub(1)) as f64 / ctx.max_rounds.max(1) as f64
-}
-
-fn earliness(ctx: &Ctx) -> f64 {
-    1.0 - lateness(ctx)
-}
-
 /// The wheel as it would be with this choice's effect applied.
 fn wheel_after(ctx: &Ctx, d: &Delta) -> [i32; NUM_COLORS] {
     let mut wheel = [0i32; NUM_COLORS];
@@ -660,34 +651,8 @@ fn ability_sell_ready(ctx: &Ctx, choice: &Choice, d: &Delta) -> f64 {
 
 // ── Time ──
 
-fn points_immediate_late(ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
-    d.points * lateness(ctx)
-}
-
-fn colours_demanded_late(ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
-    let demanded: f64 = (0..NUM_COLORS)
-        .map(|i| d.gained_colors[i] as f64 * ctx.color_value[i])
-        .sum();
-    demanded * lateness(ctx)
-}
-
-fn materials_demanded_late(ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
-    let demanded: f64 = (0..3)
-        .map(|i| d.gained_materials[i] as f64 * ctx.material_value[i])
-        .sum();
-    demanded * lateness(ctx)
-}
-
 /// Storage value weighted towards the early game: a card kept in round two
 /// comes round five more times, one kept in round six once.
-fn keep_value_early(ctx: &Ctx, choice: &Choice, _d: &Delta) -> f64 {
-    let card = match choice {
-        Choice::DraftPick { card } => *card,
-        _ => return 0.0,
-    };
-    card_storage(ctx, card) * earliness(ctx)
-}
-
 fn spare_mixer(ctx: &Ctx, choice: &Choice, _d: &Delta) -> f64 {
     // A mix that spends a colour the wheel holds several of costs less than one
     // that spends the last of it.
@@ -947,31 +912,6 @@ pub const MORE_RULES: &[FeatureDef] = &[
         group: Group::Action,
         doc: "Sell grants, priced at the best buyer that could actually be sold to.",
         eval: ability_sell_ready,
-    },
-    FeatureDef {
-        name: "points_immediate_late",
-        group: Group::Universal,
-        doc: "Points banked now, weighed by how late it is: cashing beats building at the end.",
-        eval: points_immediate_late,
-    },
-    FeatureDef {
-        name: "colours_demanded_late",
-        group: Group::Universal,
-        doc: "Demand-priced colours gained, weighed by how late it is.",
-        eval: colours_demanded_late,
-    },
-    FeatureDef {
-        name: "materials_demanded_late",
-        group: Group::Universal,
-        doc: "Demand-priced materials gained, weighed by how late it is.",
-        eval: materials_demanded_late,
-    },
-    FeatureDef {
-        name: "keep_value_early",
-        group: Group::Draft,
-        doc: "Storage value of the picked card, weighed by how early it is: a card kept \\
-              early comes round again and again.",
-        eval: keep_value_early,
     },
 ];
 

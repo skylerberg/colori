@@ -372,14 +372,6 @@ pub const CORE_RULES: &[FeatureDef] = &[
         eval: draft_color_demand,
     },
     FeatureDef {
-        name: "card_workshop_value_long",
-        group: Group::Universal,
-        doc: "The same storage value, multiplied by the rounds still to play. A card kept \
-              is not stored once: it settles into the personal deck and comes back round \
-              every round, so what keeping it buys depends on how much game is left.",
-        eval: card_workshop_value_long,
-    },
-    FeatureDef {
         name: "card_workshop_value",
         group: Group::Universal,
         doc: "What the card this choice takes or gives up would store in a workshop, in points: \
@@ -929,10 +921,6 @@ fn card_workshop_value(ctx: &Ctx, choice: &Choice, _d: &Delta) -> f64 {
         _ => None,
     };
     trashed.map_or(0.0, |card| -storage_value(ctx, card))
-}
-
-fn card_workshop_value_long(ctx: &Ctx, choice: &Choice, d: &Delta) -> f64 {
-    card_workshop_value(ctx, choice, d) * ctx.rounds_left as f64
 }
 
 fn draft_color_demand(ctx: &Ctx, choice: &Choice, _d: &Delta) -> f64 {

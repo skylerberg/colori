@@ -340,6 +340,10 @@ pub struct PolicyEvolveArgs {
     #[arg(long, default_value_t = 4)]
     pub players: usize,
 
+    /// Composed readings to mutate per generation. 0 tunes weights only.
+    #[arg(long, default_value_t = 4)]
+    pub mutations: usize,
+
     /// Decisions deep to look ahead inside a turn
     #[arg(long, default_value_t = 0)]
     pub lookahead: usize,
