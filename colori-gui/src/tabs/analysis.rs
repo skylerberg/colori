@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use eframe::egui;
+use colori_core::draft_phase::DRAFT_HAND_SIZE;
 use colori_core::game_log::StructuredGameLog;
 use colori_core::scoring::format_half_points;
 
@@ -15,8 +16,7 @@ use crate::widgets::stat_grid::{stat_grid, StatCard};
 pub struct CachedAnalysis {
     pub filter_key: String, // "batch:variant" to detect changes
     pub action_dist: HashMap<String, usize>,
-    pub draft_freq: HashMap<String, usize>,
-    pub draft_freq_normalized: HashMap<String, f64>,
+    pub pick_positions: HashMap<String, PickPosition>,
     pub cards_added: HashMap<String, usize>,
     pub cards_added_normalized: HashMap<String, f64>,
     pub trashed_draft: HashMap<String, usize>,
@@ -35,7 +35,6 @@ pub struct CachedAnalysis {
     pub card_win_rate: HashMap<String, WinRateEntry>,
     pub draft_win_rate: HashMap<String, WinRateEntry>,
     // Derived
-    pub draft_freq_categories: Vec<CategoryStat>,
     pub cards_added_categories: Vec<CategoryStat>,
     pub card_win_rate_categories: Vec<WinRateCategoryStat>,
     pub draft_win_rate_categories: Vec<WinRateCategoryStat>,
@@ -58,7 +57,7 @@ impl CachedAnalysis {
 
         let action_dist = compute_action_distribution(logs, filter_ref);
         let draft_freq = compute_draft_frequency(logs, filter_ref);
-        let draft_freq_normalized = normalize_by_draft_copies(&draft_freq);
+        let pick_positions = compute_pick_positions(logs, filter_ref);
         let cards_added = compute_cards_added_to_deck(logs, filter_ref);
         let cards_added_normalized = normalize_by_draft_copies(&cards_added);
         let trashed_draft = compute_trashed_from_draft(logs, filter_ref);
@@ -127,8 +126,7 @@ impl CachedAnalysis {
         CachedAnalysis {
             filter_key,
             action_dist,
-            draft_freq,
-            draft_freq_normalized,
+            pick_positions,
             cards_added,
             cards_added_normalized,
             trashed_draft,
@@ -145,7 +143,6 @@ impl CachedAnalysis {
             penultimate_deck_sizes,
             card_win_rate,
             draft_win_rate,
-            draft_freq_categories,
             cards_added_categories,
             card_win_rate_categories,
             draft_win_rate_categories,
@@ -173,6 +170,10 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
                     StatCard {
                         value: format!("{}", analysis.num_games),
                         label: "Games".into(),
+                    },
+                    StatCard {
+                        value: format!("{:.1}", average_score(&analysis.score_dist)),
+                        label: "Avg Score".into(),
                     },
                     StatCard {
                         value: format!("{:.0}", analysis.avg_plies),
@@ -385,23 +386,12 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
         // --- Draft Analysis ---
         section_group_heading(ui, "Draft Analysis");
 
-        let id = ui.make_persistent_id("draft_frequency");
+        let id = ui.make_persistent_id("pick_position");
         egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
             .show_header(ui, |ui| {
-                ui.strong("Draft Frequency");
+                ui.strong("Pick Position");
             })
-            .body(|ui| {
-                ui.strong("By Category");
-                render_category_bar_rows(ui, &analysis.draft_freq_categories, "Drafts per Copy");
-                ui.add_space(8.0);
-                ui.strong("By Card");
-                render_f64_hashmap_bar_rows(
-                    ui,
-                    &analysis.draft_freq_normalized,
-                    "Drafts per Copy",
-                    2,
-                );
-            });
+            .body(|ui| render_pick_positions(ui, &analysis.pick_positions));
 
         // 9. Cards Added to Deck
         let id = ui.make_persistent_id("cards_added_deck");
@@ -555,6 +545,16 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
 // -- Helper rendering functions --
 
 /// Render a section group heading with a separator line above it.
+/// The mean score, in points, of a distribution keyed by half points.
+fn average_score(score_dist: &std::collections::BTreeMap<u32, usize>) -> f64 {
+    let games: usize = score_dist.values().sum();
+    if games == 0 {
+        return 0.0;
+    }
+    let half_points: usize = score_dist.iter().map(|(&score, &count)| score as usize * count).sum();
+    half_points as f64 / games as f64 / 2.0
+}
+
 fn section_group_heading(ui: &mut egui::Ui, title: &str) {
     ui.add_space(8.0);
     ui.separator();
@@ -646,6 +646,27 @@ fn render_category_bar_rows(ui: &mut egui::Ui, categories: &[CategoryStat], val_
         })
         .collect();
     bar_table(ui, &["Category", val_header], &rows);
+}
+
+/// Cards ordered by how early they are picked; a longer bar is an earlier pick.
+fn render_pick_positions(ui: &mut egui::Ui, positions: &HashMap<String, PickPosition>) {
+    if positions.is_empty() {
+        ui.label("No data available.");
+        return;
+    }
+    ui.label("Average pick number within a round's draft (1 = first pick). A hand's last card is not picked, so it is not counted.");
+    let mut sorted: Vec<_> = positions.iter().collect();
+    sorted.sort_by(|a, b| a.1.average().total_cmp(&b.1.average()));
+    let last_pick = (DRAFT_HAND_SIZE - 1) as f32;
+    let rows: Vec<_> = sorted
+        .iter()
+        .map(|(name, position)| {
+            let average = position.average();
+            let earliness = (last_pick - average as f32) / (last_pick - 1.0);
+            (name.to_string(), format!("{:.2} ({} picks)", average, position.picks), earliness)
+        })
+        .collect();
+    bar_table(ui, &["Card", "Avg Pick"], &rows);
 }
 
 fn render_f64_hashmap_bar_rows(

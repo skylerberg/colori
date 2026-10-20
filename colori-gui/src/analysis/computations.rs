@@ -401,7 +401,8 @@ fn choice_type_name(choice: &Choice) -> String {
 
 // ── Draft analysis ──
 
-/// Count how many times each card was drafted (by display name).
+/// Count how many times each card was picked (by display name). The last card
+/// of a hand is handed over without a pick, so it is not counted.
 pub fn compute_draft_frequency(
     logs: &[StructuredGameLog],
     filter: Option<&PlayerFilter>,
@@ -422,6 +423,47 @@ pub fn compute_draft_frequency(
         }
     }
     counts
+}
+
+/// How early a card is picked: the sum of its pick numbers (1 is a hand's first
+/// pick) over `picks` picks.
+#[derive(Default)]
+pub struct PickPosition {
+    pub picks: usize,
+    pub position_sum: usize,
+}
+
+impl PickPosition {
+    pub fn average(&self) -> f64 {
+        self.position_sum as f64 / self.picks as f64
+    }
+}
+
+/// Where in a round's draft each card is picked (by display name). A player's
+/// picks are numbered in the order they made them within the round.
+pub fn compute_pick_positions(
+    logs: &[StructuredGameLog],
+    filter: Option<&PlayerFilter>,
+) -> HashMap<String, PickPosition> {
+    let mut positions: HashMap<String, PickPosition> = HashMap::new();
+    for (log_idx, log) in logs.iter().enumerate() {
+        let allowed = filter.and_then(|f| f.get(&log_idx));
+        let mut picks_so_far: HashMap<(u32, usize), usize> = HashMap::new();
+        for entry in &log.entries {
+            let Choice::DraftPick { card } = &entry.choice else {
+                continue;
+            };
+            let picked = picks_so_far.entry((entry.round, entry.player_index)).or_insert(0);
+            *picked += 1;
+            if allowed.is_some_and(|allowed| !allowed.contains(&entry.player_index)) {
+                continue;
+            }
+            let position = positions.entry(card_name_from_instance(*card)).or_default();
+            position.picks += 1;
+            position.position_sum += *picked;
+        }
+    }
+    positions
 }
 
 /// Count cards that were drafted and not subsequently trashed (added to final deck).
@@ -1206,7 +1248,9 @@ pub fn compute_duration_stats(
     })
 }
 
-/// Compute deck sizes at the end of the penultimate round.
+/// Compute deck sizes at the end of the penultimate round: each player's deck
+/// plus workshop area, which is every card they own once the round's drafted
+/// cards have moved into the workshop.
 pub fn compute_penultimate_round_deck_sizes(
     logs: &[StructuredGameLog],
     filter: Option<&PlayerFilter>,
@@ -1233,10 +1277,13 @@ pub fn compute_penultimate_round_deck_sizes(
             .map(|p| {
                 (p.deck.iter().map(|segment| segment.len()).sum::<usize>()
                     + p.workshopped_cards.len()
-                    + p.workshop_cards.len()
-                    + p.drafted_cards.len()) as i32
+                    + p.workshop_cards.len()) as i32
             })
             .collect();
+
+        // The card a player takes from the last hand is not a logged pick, so
+        // the first pick of a round stands for it too.
+        let mut drafted_in_round: HashSet<(u32, usize)> = HashSet::new();
 
         for entry in &log.entries {
             if entry.round > penultimate_round {
@@ -1246,6 +1293,9 @@ pub fn compute_penultimate_round_deck_sizes(
             match &entry.choice {
                 Choice::DraftPick { .. } => {
                     player_deck_sizes[pi] += 1;
+                    if drafted_in_round.insert((entry.round, pi)) {
+                        player_deck_sizes[pi] += 1;
+                    }
                 }
                 Choice::TrashDraftedCard { .. }
                 | Choice::TrashAndMix { .. }
@@ -1253,11 +1303,6 @@ pub fn compute_penultimate_round_deck_sizes(
                 | Choice::TrashAndWorkshop { .. }
                 | Choice::TrashAndMoveToDraftPool { .. } => {
                     player_deck_sizes[pi] -= 1;
-                }
-                Choice::MoveToDraftPool { card } => {
-                    if card.is_some() {
-                        player_deck_sizes[pi] -= 1;
-                    }
                 }
                 _ => {}
             }
