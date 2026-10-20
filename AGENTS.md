@@ -62,6 +62,7 @@ Rust workspace plus a Svelte frontend:
 - **Rust**: Inline tests using `#[cfg(test)]` modules within source files. Run with `cargo test`.
 - **TypeScript**: Vitest for tests (`.test.ts`) and benchmarks (`.bench.ts`). Run with `pnpm run test` or `pnpm run bench`.
 - **Rust benchmarks**: Criterion-based, configured in `colori-core/Cargo.toml`.
+- **Search fingerprint**: `cargo run --release -p colori-core --example search_fingerprint` prints the search's visits and rewards at fixed positions and seeds. To check a change that should leave search behaviour alone, diff its output against one taken from the code before the change.
 
 ## Code Conventions
 

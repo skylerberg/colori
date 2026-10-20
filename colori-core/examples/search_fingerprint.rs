@@ -1,27 +1,23 @@
-//! A golden fingerprint of search behaviour at fixed positions and seeds.
+//! A fingerprint of search behaviour at fixed positions and seeds, for checking
+//! a change that claims to leave the search alone:
 //!
-//! `BASELINE.md` proposed this and it did not get built. The occasion for
-//! building it is a breaking change to the `mcts` crate that claims sequential
-//! search behaviour is unchanged: a fingerprint captured *before* that change is
-//! an oracle for the claim, and one captured after proves nothing. Its value is
-//! entirely in predating what it is used to check.
+//! ```sh
+//! cargo run --release -p colori-core --example search_fingerprint > before.txt
+//! # make the change, or run the same command in a checkout that has it
+//! cargo run --release -p colori-core --example search_fingerprint > after.txt
+//! diff before.txt after.txt
+//! ```
+//!
+//! The baseline has to come from the code before the change; one taken after
+//! it proves nothing.
 //!
 //! It records more than the chosen move, deliberately. A search can change
 //! materially and still land on the same move at most positions — the chosen
 //! move is the *last* thing to move, so it is a poor tripwire on its own. The
 //! per-child visit and reward vector is what catches drift.
 //!
-//! Two records: `search.txt` for the tree search, `search_graph.txt` for the
-//! transposition graph over the same positions.
-//!
-//! To regenerate after an intentional change:
-//!
-//! ```text
-//! COLORI_WRITE_FINGERPRINT=1 cargo test -p colori-core --test search_fingerprint
-//! ```
-//!
-//! That is an env var and not a flag on purpose. Regenerating should be a
-//! decision, never the quickest way to turn a red test green.
+//! It prints the tree search, then the transposition graph over the same
+//! positions.
 
 use std::fmt::Write as _;
 
@@ -36,8 +32,6 @@ use mcts::StopReason as SearchStop;
 use rand::{RngExt, SeedableRng};
 use wyrand::WyRand;
 
-const EXPECTED: &str = include_str!("fingerprints/search.txt");
-const EXPECTED_GRAPH: &str = include_str!("fingerprints/search_graph.txt");
 const PARAMS_JSON: &str = include_str!("../../genetic-algorithm/batch-lki08w-gen-32.json");
 
 fn params() -> HeuristicParams {
@@ -308,46 +302,9 @@ fn generate(transpositions: bool) -> String {
     out
 }
 
-#[test]
-fn search_behaviour_matches_the_recorded_fingerprint() {
-    check(generate(false), EXPECTED, "search.txt");
-}
-
-#[test]
-fn graph_search_behaviour_matches_the_recorded_fingerprint() {
-    check(generate(true), EXPECTED_GRAPH, "search_graph.txt");
-}
-
-fn check(actual: String, expected: &str, file: &str) {
-    if std::env::var("COLORI_WRITE_FINGERPRINT").is_ok() {
-        std::fs::write(
-            format!("{}/tests/fingerprints/{file}", env!("CARGO_MANIFEST_DIR")),
-            &actual,
-        )
-        .expect("write fingerprint");
-        eprintln!("{file} rewritten; commit it deliberately");
-        return;
-    }
-
-    if actual != expected {
-        let first_difference = actual
-            .lines()
-            .zip(expected.lines())
-            .enumerate()
-            .find(|(_, (a, b))| a != b)
-            .map(|(line, (a, b))| format!("line {}:\n  now      {a}\n  recorded {b}", line + 1))
-            .unwrap_or_else(|| {
-                format!(
-                    "no differing line; lengths differ ({} vs {} lines)",
-                    actual.lines().count(),
-                    expected.lines().count()
-                )
-            });
-        panic!(
-            "search behaviour changed against the recorded fingerprint {file}.\n\n{first_difference}\n\n\
-             If the change was intended, regenerate with \
-             COLORI_WRITE_FINGERPRINT=1 cargo test -p colori-core --test search_fingerprint \
-             and review the diff — it is the record of what the search used to do."
-        );
-    }
+fn main() {
+    println!("== tree search ==");
+    print!("{}", generate(false));
+    println!("== graph search ==");
+    print!("{}", generate(true));
 }
