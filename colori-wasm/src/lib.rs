@@ -29,12 +29,12 @@ struct AiSettings {
 impl AiSettings {
     fn mcts_config(&self, iterations: u32) -> MctsConfig {
         let params_json = match self.params.as_str() {
+            "lki08w-gen-32" => include_str!("../../genetic-algorithm/batch-lki08w-gen-32.json"),
             "9iii4n-gen-19" => include_str!("../../genetic-algorithm/batch-9iii4n-gen-19.json"),
             "9iii4n-gen-19-avoid-alum-warehouse-gondola" => include_str!(
                 "../../genetic-algorithm/9iii4n-gen-19-avoid-alum-warehouse-gondola.json"
             ),
-            "alobyo-gen-45" => include_str!("../../genetic-algorithm/batch-alobyo-gen-45.json"),
-            _ => include_str!("../../genetic-algorithm/batch-lki08w-gen-32.json"),
+            _ => include_str!("../../genetic-algorithm/batch-alobyo-gen-45.json"),
         };
         let heuristic_params: HeuristicParams =
             serde_json::from_str(params_json).expect("Failed to parse trained heuristic params");
@@ -190,16 +190,16 @@ mod tests {
     #[test]
     fn the_default_plays_with_its_trained_lookahead() {
         for json in ["{}", r#"{"params":"default","rolloutLookahead":null}"#] {
-            assert_eq!(config(json).heuristic_params.heuristic_lookahead, 3);
+            assert_eq!(config(json).heuristic_params.heuristic_lookahead, 2);
         }
     }
 
     #[test]
     fn each_params_choice_loads_its_own_file() {
+        assert_eq!(config(r#"{"params":"lki08w-gen-32"}"#).heuristic_params.heuristic_lookahead, 3);
         assert_eq!(config(r#"{"params":"9iii4n-gen-19"}"#).heuristic_params.heuristic_lookahead, 1);
         let avoiding = config(r#"{"params":"9iii4n-gen-19-avoid-alum-warehouse-gondola"}"#);
         assert_eq!(avoiding.heuristic_params.alum_quality, -50.0);
-        assert_eq!(config(r#"{"params":"alobyo-gen-45"}"#).heuristic_params.heuristic_lookahead, 2);
     }
 
     #[test]

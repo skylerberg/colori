@@ -117,7 +117,7 @@ impl Default for MctsGuiConfig {
             heuristic_rollout: true,
             early_termination: true,
             transpositions: false,
-            heuristic_params_path: "genetic-algorithm/batch-lki08w-gen-32.json".to_string(),
+            heuristic_params_path: "genetic-algorithm/batch-alobyo-gen-45.json".to_string(),
         }
     }
 }

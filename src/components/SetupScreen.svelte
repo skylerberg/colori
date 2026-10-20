@@ -125,10 +125,10 @@
       <div class="advanced-content">
         <label for="ai-params">AI Parameters:</label>
         <select id="ai-params" bind:value={aiParams}>
-          <option value="default">lki08w gen 32 (default)</option>
+          <option value="default">alobyo gen 45 (default)</option>
+          <option value="lki08w-gen-32">lki08w gen 32</option>
           <option value="9iii4n-gen-19">9iii4n gen 19</option>
           <option value="9iii4n-gen-19-avoid-alum-warehouse-gondola">9iii4n gen 19, avoiding Alum, Warehouse, Gondola</option>
-          <option value="alobyo-gen-45">alobyo gen 45</option>
         </select>
 
         <label for="rollout-lookahead">Rollout Lookahead:</label>
