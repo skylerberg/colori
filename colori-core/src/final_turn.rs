@@ -27,8 +27,10 @@ use crate::colors::{
 };
 use crate::scoring::player_ranking;
 use crate::types::{
-    Ability, Choice, Color, DucatPurchase, GamePhase, GameState, PlayerState, NUM_COLORS,
+    Ability, AbilityStack, Choice, Color, DucatPurchase, GamePhase, GameState, PlayerState,
+    SellCardInstance, MAX_BUYERS, NUM_COLORS,
 };
+use crate::unordered_cards::UnorderedCards;
 
 type Ranking = (u32, usize, u32);
 
@@ -71,7 +73,7 @@ struct Solver {
     best: Option<Ranking>,
     /// Positions already searched. No line from one beats `best`, which only
     /// rises, so none needs searching again however it is reached.
-    searched: FxHashSet<u128>,
+    searched: FxHashSet<Position>,
     /// Nothing in a turn is random, so this decides nothing.
     rng: WyRand,
 }
@@ -81,7 +83,7 @@ impl Solver {
         if self
             .best
             .is_some_and(|best| ceiling(state, self.player) <= best)
-            || !self.searched.insert(state.own_key(self.player))
+            || !self.searched.insert(Position::of(state, self.player))
         {
             return;
         }
@@ -99,6 +101,49 @@ impl Solver {
             let mut next = state.clone();
             apply_choice(&mut next, self.player, choice, &mut self.rng);
             self.search(&next);
+        }
+    }
+}
+
+/// What decides the rest of a turn and where it leaves the player, kept whole
+/// so that positions merge only when they are the same. A choice names cards by
+/// type and takes the lowest-numbered copy, so whichever order reaches a
+/// position holds the same copies of each. What was sold follows from which
+/// buyers are left; the deck, the round and the cards already workshopped play
+/// no further part.
+#[derive(PartialEq, Eq, Hash)]
+struct Position {
+    pending: AbilityStack,
+    workshop: UnorderedCards,
+    drafted: UnorderedCards,
+    wheel: [u8; NUM_COLORS],
+    materials: [u32; 3],
+    ducats: u32,
+    wilds: u32,
+    boats: u32,
+    buyers: [Option<SellCardInstance>; MAX_BUYERS],
+}
+
+impl Position {
+    fn of(state: &GameState, player_index: usize) -> Self {
+        let player = &state.players[player_index];
+        let GamePhase::Action { action_state } = &state.phase else {
+            unreachable!("a turn is played in the action phase");
+        };
+        let mut buyers = [None; MAX_BUYERS];
+        for (slot, buyer) in buyers.iter_mut().zip(player.buyers.iter()) {
+            *slot = Some(*buyer);
+        }
+        Position {
+            pending: action_state.turns[player_index].ability_stack.clone(),
+            workshop: player.workshop_cards,
+            drafted: player.drafted_cards,
+            wheel: player.color_wheel.counts,
+            materials: player.materials.counts,
+            ducats: player.ducats,
+            wilds: player.wild_primaries,
+            boats: player.boats,
+            buyers,
         }
     }
 }
