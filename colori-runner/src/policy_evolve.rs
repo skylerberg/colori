@@ -181,6 +181,10 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
     let mut sampler = WyRand::seed_from_u64(args.sampler_seed);
 
     let train_seeds: Vec<u64> = (0..args.games).map(|i| args.seed_base + i as u64).collect();
+    // Used only to fit a newly composed reading's weight, never for the verdict.
+    let screen_seeds: Vec<u64> = (0..args.screen_games)
+        .map(|i| args.seed_base + SCREEN_SEED_OFFSET + i as u64)
+        .collect();
     let holdout_seeds: Vec<u64> = (0..args.holdout_games)
         .map(|i| args.holdout_seed_base + i as u64)
         .collect();
@@ -299,9 +303,48 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
         let mut mutation_rows: Vec<String> = Vec::new();
         if args.mutations > 0 && !pool.is_empty() {
             let seed_genome = genome_with(&current, &rules, &new_mean);
+            // A composition entering at a weight nobody chose is not that
+            // composition at its best, so it is fitted first — on a separate
+            // set of seeds, so the verdict that follows is not a best-of-seven
+            // dressed up as a single test.
+            let screen_baseline = evaluate(
+                &build(&current, &rules, &new_mean, &params),
+                &ladder,
+                args,
+                &screen_seeds,
+                threads,
+                "screen",
+            );
             for attempt in 0..args.mutations {
                 let mut mutant = seed_genome.clone();
-                let change = mutate_compositions(&mut mutant.interactions, &mut sampler, &pool);
+                let (change, moved) = mutate_compositions(&mut mutant.interactions, &mut sampler, &pool);
+
+                // Fit the weight of whatever just changed.
+                if let Some(index) = moved {
+                    let mut best_fit = mutant.interactions[index].weight;
+                    let mut best_screen = f64::NEG_INFINITY;
+                    for trial in WEIGHT_TRIALS {
+                        let mut candidate = mutant.clone();
+                        candidate.interactions[index].weight = trial;
+                        let rules_for = rules_of(&candidate, args.tune);
+                        let policy = build(&candidate, &rules_for, &rules_for.started_at, &params);
+                        let scored = evaluate(
+                            &policy,
+                            &ladder,
+                            args,
+                            &screen_seeds,
+                            threads,
+                            "screen trial",
+                        );
+                        let (gain, _) = paired_gain(&screen_baseline.scores, &scored.scores);
+                        if gain > best_screen {
+                            best_screen = gain;
+                            best_fit = trial;
+                        }
+                    }
+                    mutant.interactions[index].weight = best_fit;
+                }
+
                 let mutant_rules = rules_of(&mutant, args.tune);
                 let mutant_weights = mutant_rules.started_at.clone();
                 let policy = build(&mutant, &mutant_rules, &mutant_weights, &params);
@@ -316,7 +359,16 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
                 // Paired against the mean genome, game by game: both were played
                 // on the same seeds, so a game that dealt well to one dealt well
                 // to the other and the difference is what the change did.
-                let (gain, bars) = paired_gain(&mean_row.scores, &outcome.scores);
+                //
+                // The bar leans towards accepting, because the two mistakes are
+                // not the same size. A composition that is no good enters with a
+                // fitted weight near zero and gets driven to zero by the weight
+                // search, which costs a little compute; a good composition that
+                // is rejected is gone, and no later generation will propose it
+                // again. `paired_gain` reports two standard errors, so this
+                // divides by two and applies the configured bars.
+                let (gain, two_errors) = paired_gain(&mean_row.scores, &outcome.scores);
+                let bars = two_errors / 2.0 * args.mutant_bars;
                 let keep = gain > bars;
                 mutation_rows.push(format!(
                     "{change}: {gain:+.3} vs bars {bars:.3}{}",
@@ -338,6 +390,9 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
                 .iter()
                 .map(|weight| args.sigma * weight.abs().max(0.1))
                 .collect();
+        } else {
+            mean = new_mean;
+            sigma = new_sigma;
         }
 
         let report = GenerationReport {
@@ -363,8 +418,8 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
                 .enumerate()
                 .map(|(index, (tunable, start))| WeightRow {
                     feature: tunable.label(),
-                    mean: new_mean[index],
-                    sigma: new_sigma[index],
+                    mean: mean[index],
+                    sigma: sigma[index],
                     started_at: *start,
                 })
                 .collect(),
@@ -396,10 +451,6 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
             eprintln!("         composed: {row}");
         }
 
-        if adopted.is_none() {
-            mean = new_mean;
-            sigma = new_sigma;
-        }
     }
 
     let best = best_ever.expect("at least one generation ran");
@@ -644,13 +695,20 @@ fn operand_pool() -> Vec<&'static str> {
 /// The most composed readings the search will hold at once.
 const MAX_COMPOSITIONS: usize = 14;
 
+/// A separate seed range for fitting a new composition's weight, so that the
+/// verdict that follows is not a best-of-N dressed up as a single test.
+const SCREEN_SEED_OFFSET: u64 = 1_000_000;
+
+/// The weights a newly composed reading is tried at before it is judged.
+const WEIGHT_TRIALS: [f64; 5] = [-2.0, -0.5, 0.5, 1.0, 2.0];
+
 /// Change one composed reading: its operator, one of its operands, or how many
 /// there are. Returns a description for the report.
 fn mutate_compositions(
     genes: &mut Vec<InteractionGene>,
     rng: &mut WyRand,
     pool: &[&'static str],
-) -> String {
+) -> (String, Option<usize>) {
     let draw = |rng: &mut WyRand| pool[rng.random_range(0..pool.len())];
     let draw_op = |rng: &mut WyRand| Op::ALL[rng.random_range(0..Op::ALL.len())];
 
@@ -659,12 +717,12 @@ fn mutate_compositions(
         let gene = InteractionGene::new(draw_op(rng), draw(rng), draw(rng), 0.2);
         let label = gene.label();
         genes.push(gene);
-        return format!("added {label}");
+        return (format!("added {label}"), Some(genes.len() - 1));
     }
     if genes.len() > 1 && roll < 0.32 {
         let index = rng.random_range(0..genes.len());
         let label = genes.remove(index).label();
-        return format!("dropped {label}");
+        return (format!("dropped {label}"), None);
     }
     let index = rng.random_range(0..genes.len());
     let before = genes[index].label();
@@ -680,7 +738,7 @@ fn mutate_compositions(
             break;
         }
     }
-    format!("{before} -> {}", genes[index].label())
+    (format!("{before} -> {}", genes[index].label()), Some(index))
 }
 
 fn sample_normal(rng: &mut WyRand, scale: f64) -> f64 {

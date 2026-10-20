@@ -98,6 +98,23 @@ keeps the change only if a **paired** comparison beats its error bars — both
 genomes played the same seeds, so a game that dealt well to one dealt well to the
 other.
 
+Three things had to be right before that search found anything at all, and the
+first is the one that looked like the search being too weak:
+
+1. **Fit a newcomer before judging it.** A composition introduced at a weight
+   nobody chose is not that composition at its best. Each mutation now tries a
+   grid of weights for the operand it changed, on a *separate* seed range so the
+   verdict that follows is not a best-of-N dressed up as a single test.
+2. **Lean towards accepting.** The two mistakes are not the same size: a
+   worthless composition enters with a fitted weight near zero and the weight
+   search drives it to zero, which costs compute; a good one that is rejected is
+   gone, because nothing will propose it again. The bar is therefore one standard
+   error, not two.
+3. **Parallel universes.** The comparison is paired game by game.
+
+With all three, a template with *no* composed readings ends a run holding eight,
+discovered rather than written.
+
 The third loop is a planned decision: over the *current turn* the policy can
 follow its best few choices a couple of decisions deeper and score the position
 that leaves, which is where sequences like "trash the dye for its Sell, then

@@ -354,6 +354,15 @@ pub struct PolicyEvolveArgs {
     #[arg(long, default_value_t = 4)]
     pub mutations: usize,
 
+    /// Games used to fit a new composition's weight before judging it
+    #[arg(long, default_value_t = 64)]
+    pub screen_games: usize,
+
+    /// Standard errors a new composition must clear. Below two on purpose: a
+    /// worthless composition costs compute, a rejected good one is lost.
+    #[arg(long, default_value_t = 1.0)]
+    pub mutant_bars: f64,
+
     /// What to search: everything, or only the value function a planned
     /// decision scores its leaves with.
     #[arg(long, value_enum, default_value_t = TuneScope::All)]
