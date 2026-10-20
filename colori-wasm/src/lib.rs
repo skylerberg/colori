@@ -33,6 +33,7 @@ impl AiSettings {
             "9iii4n-gen-19-avoid-alum-warehouse-gondola" => include_str!(
                 "../../genetic-algorithm/9iii4n-gen-19-avoid-alum-warehouse-gondola.json"
             ),
+            "alobyo-gen-45" => include_str!("../../genetic-algorithm/batch-alobyo-gen-45.json"),
             _ => include_str!("../../genetic-algorithm/batch-lki08w-gen-32.json"),
         };
         let heuristic_params: HeuristicParams =
@@ -198,6 +199,7 @@ mod tests {
         assert_eq!(config(r#"{"params":"9iii4n-gen-19"}"#).heuristic_params.heuristic_lookahead, 1);
         let avoiding = config(r#"{"params":"9iii4n-gen-19-avoid-alum-warehouse-gondola"}"#);
         assert_eq!(avoiding.heuristic_params.alum_quality, -50.0);
+        assert_eq!(config(r#"{"params":"alobyo-gen-45"}"#).heuristic_params.heuristic_lookahead, 2);
     }
 
     #[test]
