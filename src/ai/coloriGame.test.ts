@@ -40,9 +40,9 @@ describe('wasm_run_ismcts', () => {
   it('searches with each kind of advanced AI setting', () => {
     const state = setupDraftGame(2);
     const settings: AiSettings[] = [
+      { params: 'lki08w-gen-32' },
       { params: '9iii4n-gen-19' },
       { params: '9iii4n-gen-19-avoid-alum-warehouse-gondola' },
-      { params: 'alobyo-gen-45' },
       { rolloutLookahead: 0 },
       { rolloutLookahead: 6 },
     ];
