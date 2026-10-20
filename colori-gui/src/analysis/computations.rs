@@ -1,7 +1,8 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use colori_core::game_log::{FinalScore, PlayerVariant, StructuredGameLog};
-use colori_core::types::{SellCard, SellCardInstance, CardInstance, Choice, DucatPurchase, MaterialType, ALL_COLORS};
+use colori_core::game_log::DrawEvent;
+use colori_core::types::{Buyer, SellCard, SellCardInstance, CardInstance, Choice, DucatPurchase, MaterialType, ALL_BUYERS, ALL_COLORS};
 
 use super::card_names::{sell_card_display_name, card_display_name, get_draft_copies_by_name};
 use super::categories::CardCategory;
@@ -14,6 +15,15 @@ pub type PlayerFilter = HashMap<usize, HashSet<usize>>;
 pub struct WinRateEntry {
     pub wins: f64,
     pub games: f64,
+}
+
+/// Claim counts a buyer type's win rates are split by: none, one, two, three or more.
+pub const CLAIM_COUNT_BUCKETS: usize = 4;
+
+/// One buyer type's win rates, split by how many of that type a player claimed.
+pub struct BuyerTypeWinRates {
+    pub buyer: Buyer,
+    pub by_claims: [WinRateEntry; CLAIM_COUNT_BUCKETS],
 }
 
 pub struct CategoryStat {
@@ -1186,6 +1196,63 @@ pub fn compute_deck_size_stats(
         min: sizes[0],
         max: *sizes.last().unwrap(),
     }
+}
+
+/// Win rate by buyer type, split by how many cards of that type the player
+/// claimed in the buyers phases, whether off the display or unseen off the deck.
+pub fn compute_win_rate_by_buyer_claims(
+    logs: &[StructuredGameLog],
+    filter: Option<&PlayerFilter>,
+) -> Vec<BuyerTypeWinRates> {
+    let mut rates: Vec<BuyerTypeWinRates> = ALL_BUYERS
+        .iter()
+        .map(|&buyer| BuyerTypeWinRates {
+            buyer,
+            by_claims: std::array::from_fn(|_| WinRateEntry { wins: 0.0, games: 0.0 }),
+        })
+        .collect();
+
+    for (log_idx, log) in logs.iter().enumerate() {
+        let Some(final_scores) = &log.final_scores else {
+            continue;
+        };
+        let allowed = filter.and_then(|f| f.get(&log_idx));
+        let (is_winner_fn, num_winners) = compute_winners(final_scores);
+
+        let mut claims = vec![[0usize; ALL_BUYERS.len()]; log.player_names.len()];
+        for entry in &log.entries {
+            let sell_card = match &entry.choice {
+                Choice::TakeBuyer { sell_card } => Some(*sell_card),
+                Choice::DrawBuyer => entry.draws.iter().find_map(|draw| match draw {
+                    DrawEvent::BuyerDraw { sell_card, .. } => Some(sell_card.sell_card),
+                    _ => None,
+                }),
+                _ => None,
+            };
+            let Some(sell_card) = sell_card else {
+                continue;
+            };
+            let buyer = ALL_BUYERS.iter().position(|&b| b == sell_card.buyer()).expect("every buyer is listed");
+            if let Some(player_claims) = claims.get_mut(entry.player_index) {
+                player_claims[buyer] += 1;
+            }
+        }
+
+        for (player, player_claims) in claims.iter().enumerate() {
+            if allowed.is_some_and(|allowed| !allowed.contains(&player)) {
+                continue;
+            }
+            let won = is_winner_fn(&log.player_names[player]);
+            for (rate, &claimed) in rates.iter_mut().zip(player_claims.iter()) {
+                let entry = &mut rate.by_claims[claimed.min(CLAIM_COUNT_BUCKETS - 1)];
+                entry.games += 1.0;
+                if won {
+                    entry.wins += 1.0 / num_winners as f64;
+                }
+            }
+        }
+    }
+    rates
 }
 
 /// Compute the average number of choices per game.
