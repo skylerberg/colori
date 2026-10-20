@@ -4,8 +4,9 @@
 //! the player's position — which colours the sitting buyers still want, what a
 //! unit of each is worth in points — so it is built once here and shared.
 
-use crate::action_phase::can_afford_sell_card;
-use crate::colors::PRIMARIES;
+use crate::action_phase::{boats_to_sell, can_afford_sell_card, can_buy_with_ducat};
+use crate::colors::{can_supply_mix, mix_result, wild_primaries_to_cover_sale, PRIMARIES, VALID_MIX_PAIRS};
+use crate::types::ALL_DUCAT_PURCHASES;
 use crate::scoring::CardHeuristicTable;
 use crate::types::*;
 
@@ -58,12 +59,45 @@ pub struct Ctx<'a> {
     /// walking the buyers and testing affordability dozens of times per
     /// decision.
     pub best_unaffordable: Option<SellCard>,
+    /// How many of the player's buyers want each colour, and each material.
+    /// Demand says how much is wanted in total; this says how many plans are
+    /// competing for a unit, which is what makes one unit serve two buyers.
+    pub color_buyers: [u8; NUM_COLORS],
+    pub material_buyers: [u8; 3],
+    /// Buyers the player could sell to right now.
+    pub buyers_affordable: u32,
+    /// Buyer slots this round, and how many are empty.
+    pub slots: u32,
+    pub empty_slots: u32,
+    /// Units the highest-point buyer is still short of.
+    pub best_buyer_points: u32,
+    pub best_buyer_short_units: u32,
+    /// Legal ducat purchases available, which is what gives a ducat its option
+    /// value beyond the point it scores.
+    pub purchasable: u32,
+    /// Mixes the wheel could supply right now.
+    pub mixable_pairs: u32,
+    /// The best colour value a mix could produce from this wheel.
+    pub best_mix_value: f64,
+    /// The best storage value among the cards in the workshop, which is what a
+    /// workshop pick is worth.
+    pub workshop_storage: f64,
+    /// Total colour and material units held, wanted or not.
+    pub total_colors: u32,
+    pub total_materials: u32,
     /// Distinct colours the player is holding.
     pub distinct_colors: u32,
     /// Cards in the draft pool, i.e. the ones this turn could still trash.
     pub drafted: u32,
     /// Every card the player owns, wherever it sits.
     pub owned_cards: u32,
+}
+
+/// How many units `sell_card` is still short of, boats and wild primaries
+/// counted as the cover they are.
+pub fn buyer_short_units(player: &PlayerState, sell_card: SellCard) -> u32 {
+    let wilds = wild_primaries_to_cover_sale(&player.color_wheel, sell_card.stats()).unwrap_or(0);
+    boats_to_sell(player, sell_card) + wilds
 }
 
 impl<'a> Ctx<'a> {
@@ -87,6 +121,11 @@ impl<'a> Ctx<'a> {
         let mut best_affordable_points = 0u32;
         let mut best_unaffordable: Option<SellCard> = None;
         let mut best_unaffordable_points = 0u32;
+        let mut color_buyers = [0u8; NUM_COLORS];
+        let mut material_buyers = [0u8; 3];
+        let mut buyers_affordable = 0u32;
+        let mut best_buyer_points = 0u32;
+        let mut best_buyer_short_units = 0u32;
 
         // A buyer's points are spread evenly over the units it takes. That
         // understates the last unit, which is what actually completes the
@@ -104,7 +143,21 @@ impl<'a> Ctx<'a> {
             let per_unit = stats.points as f64 / (units.max(1) as f64);
 
             pending_points += stats.points;
+            let short_units = buyer_short_units(player, buyer.sell_card);
+            if stats.points > best_buyer_points {
+                best_buyer_points = stats.points;
+                best_buyer_short_units = short_units;
+            }
+            for &(color, _) in stats.colors() {
+                color_buyers[color.index()] = color_buyers[color.index()].saturating_add(1);
+            }
+            for (i, &needed) in stats.materials.iter().enumerate() {
+                if needed > 0 {
+                    material_buyers[i] = material_buyers[i].saturating_add(1);
+                }
+            }
             if can_afford_sell_card(player, &buyer.sell_card) {
+                buyers_affordable += 1;
                 affordable_points += stats.points;
                 best_affordable_points = best_affordable_points.max(stats.points);
             } else if stats.points > best_unaffordable_points {
@@ -143,6 +196,35 @@ impl<'a> Ctx<'a> {
         let deck_cards = player.deck.cards().len();
         let drafted = player.drafted_cards.len();
 
+        // What the wheel could mix right now, and what the best of it is worth.
+        let mut mixable_pairs = 0u32;
+        let mut best_mix_value = 0.0f64;
+        for &(a, b) in VALID_MIX_PAIRS.iter() {
+            if can_supply_mix(&player.color_wheel, player.wild_primaries, a, b) {
+                mixable_pairs += 1;
+                best_mix_value = best_mix_value.max(color_value[mix_result(a, b).index()]);
+            }
+        }
+
+        let workshop_storage = player
+            .workshop_cards
+            .iter()
+            .map(|id| {
+                let card = state.card_lookup[id as usize];
+                card.material_types()
+                    .iter()
+                    .map(|&m| material_value[m as usize])
+                    .sum::<f64>()
+                    + card.colors().iter().map(|&c| color_value[c.index()]).sum::<f64>()
+            })
+            .fold(0.0f64, f64::max);
+
+        let slots = (state.round.max(1) as usize).min(MAX_BUYERS) as u32;
+        let purchasable = ALL_DUCAT_PURCHASES
+            .iter()
+            .filter(|&&purchase| can_buy_with_ducat(player, purchase))
+            .count() as u32;
+
         Ctx {
             state,
             player_index,
@@ -163,6 +245,19 @@ impl<'a> Ctx<'a> {
             affordable_points,
             best_affordable_points,
             best_unaffordable,
+            color_buyers,
+            material_buyers,
+            buyers_affordable,
+            slots,
+            empty_slots: slots.saturating_sub(player.buyers.len() as u32),
+            best_buyer_points,
+            best_buyer_short_units,
+            purchasable,
+            mixable_pairs,
+            best_mix_value,
+            workshop_storage,
+            total_colors: player.color_wheel.counts.iter().map(|&c| c as u32).sum(),
+            total_materials: player.materials.counts.iter().sum(),
             distinct_colors,
             drafted,
             owned_cards: deck_cards

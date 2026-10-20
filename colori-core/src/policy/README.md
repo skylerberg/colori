@@ -25,8 +25,11 @@ soon as they interact — which is exactly where hand-written rules rot.
 score(choice) = Σ  weight_f · shape_f( feature_f(state, choice) )
 ```
 
-- `colori-core/src/policy/features.rs` — every feature, with its group and a
-  one-line statement of which way a positive weight points.
+- `colori-core/src/policy/features/` — the rule vocabulary, one table per file
+  (`mod.rs` for the first, `more.rs` for the second and larger one), each rule
+  with its group and a one-line statement of which way a positive weight points.
+- `colori-core/src/policy/value.rs` — rules that read a *position* rather than a
+  choice, which is what a planned decision scores its leaves with.
 - `colori-core/src/policy/effects.rs` — what a choice *moves* (colours,
   materials, boats, ducats, points, ability grants), read off the choice's
   payload. A mix sequence is replayed against a copy of the colour wheel and
@@ -46,7 +49,16 @@ three things:
    explanation**: the largest contributions say what the policy was thinking.
 3. A new rule is a new `FeatureDef` and nothing else. It cannot change how
    existing rules behave, so it is safe to propose one from outside the loop and
-   measure it.
+   measure it. The vocabulary is meant to grow: a rule is one small, general
+   reading of the board, and what the bot can notice is the union of them.
+
+Two disciplines hold across the vocabulary:
+
+- **Every rule is a delta.** A quantity that reads the same for every choice in
+  a decision cancels out of the comparison; that kind of reading is a value rule.
+- **Everything is in points.** A count of wanted colours and a colour's point
+  value are different units, and mixing them is what made the first draft of the
+  draft rules useless.
 
 Terms are evaluated in `FEATURES` order, never in a genome file's key order:
 floating-point addition is not associative, so a genome that scored differently
@@ -54,6 +66,13 @@ after a re-save would not be deterministic. Ties go to the earliest choice in
 enumeration order, which is itself deterministic.
 
 ## Two loops, with different jobs
+
+The third loop is a planned decision: over the *current turn* the policy can
+follow its best few choices a couple of decisions deeper and score the position
+that leaves, which is where sequences like "trash the dye for its Sell, then
+choose the buyer" become visible. It is bounded, deterministic and cheap, and it
+composes with the tuned one-ply score rather than replacing it, so bad value
+weights cost nothing.
 
 | Loop | Question | Method | Cost |
 | --- | --- | --- | --- |

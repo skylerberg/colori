@@ -93,6 +93,14 @@ pub struct Delta {
     pub gained_card_quality: f64,
     /// Ability grants, by [`ability_kind`], summed by [`ability_amount`].
     pub abilities: [u32; NUM_ABILITY_KINDS],
+    /// What the cards this choice trashes would have granted *had they been kept
+    /// and workshopped*, by [`ability_kind`].
+    ///
+    /// Every action card trashes for a move to the draft pool, which is worth
+    /// little, and workshops for something that fires every round — a ducat, two
+    /// wild primaries, a boat. Without this the policy sees only the cheap half
+    /// and trashes the engine.
+    pub forgone_abilities: [u32; NUM_ABILITY_KINDS],
 }
 
 impl Delta {
@@ -112,6 +120,7 @@ impl Delta {
             trash_quality: 0.0,
             gained_card_quality: 0.0,
             abilities: [0; NUM_ABILITY_KINDS],
+            forgone_abilities: [0; NUM_ABILITY_KINDS],
         }
     }
 
@@ -210,6 +219,9 @@ fn trash(card: Card, card_table: &CardHeuristicTable, d: &mut Delta) {
     d.trash_quality += card_table.quality(card);
     for &ability in card.trash_abilities() {
         d.abilities[ability_kind(ability)] += ability_amount(ability);
+    }
+    for &ability in card.workshop_abilities() {
+        d.forgone_abilities[ability_kind(ability)] += ability_amount(ability);
     }
 }
 

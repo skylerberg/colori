@@ -264,6 +264,16 @@ pub struct PolicyPlayArgs {
     /// came closest to getting wrong
     #[arg(long)]
     pub trace_seed: Option<u64>,
+
+    /// Decisions deep to look ahead inside a turn. 0 is the plain one-ply
+    /// policy; 2 follows a choice, then the best reply, and scores the position
+    /// that leaves.
+    #[arg(long, default_value_t = 0)]
+    pub lookahead: usize,
+
+    /// How many of the best-scoring choices to follow when looking ahead
+    #[arg(long, default_value_t = 4)]
+    pub lookahead_width: usize,
 }
 
 #[derive(Parser)]
@@ -329,4 +339,24 @@ pub struct PolicyEvolveArgs {
     /// Players at the table
     #[arg(long, default_value_t = 4)]
     pub players: usize,
+
+    /// Decisions deep to look ahead inside a turn
+    #[arg(long, default_value_t = 0)]
+    pub lookahead: usize,
+
+    /// How many of the best-scoring choices to follow when looking ahead
+    #[arg(long, default_value_t = 4)]
+    pub lookahead_width: usize,
+}
+
+impl PolicyPlayArgs {
+    pub fn plan(&self) -> colori_core::policy::Plan {
+        colori_core::policy::Plan::new(self.lookahead_width, self.lookahead)
+    }
+}
+
+impl PolicyEvolveArgs {
+    pub fn plan(&self) -> colori_core::policy::Plan {
+        colori_core::policy::Plan::new(self.lookahead_width, self.lookahead)
+    }
 }

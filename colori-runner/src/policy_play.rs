@@ -42,6 +42,22 @@ use crate::cli::PolicyPlayArgs;
 /// beats hanging an overnight run.
 const MAX_DECISIONS: u32 = 20_000;
 
+/// How to play and how much to keep.
+#[derive(Debug, Clone, Copy)]
+pub struct Gameplay {
+    pub record: Record,
+    pub plan: colori_core::policy::Plan,
+}
+
+impl Gameplay {
+    /// A plain one-ply game that keeps only the scores.
+    #[cfg(test)]
+    pub const QUIET: Gameplay = Gameplay {
+        record: Record::Nothing,
+        plan: colori_core::policy::Plan::NONE,
+    };
+}
+
 /// How much of a game to keep.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Record {
@@ -111,7 +127,7 @@ fn decide(
     policy: &CompiledPolicy,
     state: &GameState,
     seat: usize,
-    record: Record,
+    play: Gameplay,
 ) -> Decision {
     let choices = enumerate_choices(state, seat);
     assert!(
@@ -119,7 +135,11 @@ fn decide(
         "seat {seat} has nothing to choose from in {:?}",
         state.phase
     );
-    let decision = if record == Record::Nothing {
+    let decision = if play.plan.is_on() {
+        // A planned decision has no per-term trace: the terms it weighed belong
+        // to the leaves, not to the choice.
+        policy.decide_planned(state, seat, &choices, play.plan)
+    } else if play.record == Record::Nothing {
         policy.decide_scored(state, seat, &choices)
     } else {
         policy.decide_with_trace(state, seat, &choices)
@@ -132,7 +152,7 @@ fn decide(
 /// Every seat decides on its own view of an action phase, as the game's own AI
 /// drivers do: turns are simultaneous, and a policy that read the live state
 /// would be seeing moves nobody has seen yet.
-pub fn play_game(policies: &[&CompiledPolicy], seed: u64, record: Record) -> GameOutcome {
+pub fn play_game(policies: &[&CompiledPolicy], seed: u64, play: Gameplay) -> GameOutcome {
     let num_players = policies.len();
     assert!(
         (1..=MAX_PLAYERS).contains(&num_players),
@@ -164,9 +184,9 @@ pub fn play_game(policies: &[&CompiledPolicy], seed: u64, record: Record) -> Gam
         match &state.phase {
             GamePhase::Buyers { buyers_state } => {
                 let seat = buyers_state.current_player_index;
-                let decision = decide(policies[seat], &state, seat, record);
-                let considered = considered_choices(policies[seat], &state, seat, record);
-                play(
+                let decision = decide(policies[seat], &state, seat, play);
+                let considered = considered_choices(policies[seat], &state, seat, play.record);
+                commit(
                     &mut state,
                     &mut rng,
                     seat,
@@ -174,16 +194,16 @@ pub fn play_game(policies: &[&CompiledPolicy], seed: u64, record: Record) -> Gam
                     "buyers",
                     &mut seq,
                     &mut trace,
-                    record,
+                    play.record,
                     considered,
                 );
                 decisions_per_seat[seat] += 1;
             }
             GamePhase::Draft { draft_state } => {
                 let seat = draft_state.current_player_index;
-                let decision = decide(policies[seat], &state, seat, record);
-                let considered = considered_choices(policies[seat], &state, seat, record);
-                play(
+                let decision = decide(policies[seat], &state, seat, play);
+                let considered = considered_choices(policies[seat], &state, seat, play.record);
+                commit(
                     &mut state,
                     &mut rng,
                     seat,
@@ -191,7 +211,7 @@ pub fn play_game(policies: &[&CompiledPolicy], seed: u64, record: Record) -> Gam
                     "draft",
                     &mut seq,
                     &mut trace,
-                    record,
+                    play.record,
                     considered,
                 );
                 decisions_per_seat[seat] += 1;
@@ -205,11 +225,11 @@ pub fn play_game(policies: &[&CompiledPolicy], seed: u64, record: Record) -> Gam
                         let (decision, considered) = {
                             let view = views.view(seat);
                             (
-                                decide(policies[seat], view, seat, record),
-                                considered_choices(policies[seat], view, seat, record),
+                                decide(policies[seat], view, seat, play),
+                                considered_choices(policies[seat], view, seat, play.record),
                             )
                         };
-                        play(
+                        commit(
                             &mut state,
                             &mut rng,
                             seat,
@@ -217,7 +237,7 @@ pub fn play_game(policies: &[&CompiledPolicy], seed: u64, record: Record) -> Gam
                             "action",
                             &mut seq,
                             &mut trace,
-                            record,
+                            play.record,
                             considered,
                         );
                         views.apply(seat, &decision.choice);
@@ -279,7 +299,7 @@ fn considered_choices(
     policy.rank(view, seat, &choices)
 }
 
-fn play(
+fn commit(
     state: &mut GameState,
     rng: &mut WyRand,
     seat: usize,
@@ -323,7 +343,7 @@ pub fn play_batch(
     players: usize,
     seeds: &[u64],
     threads: usize,
-    record: Record,
+    play: Gameplay,
 ) -> Vec<GameOutcome> {
     let threads = threads.max(1).min(seeds.len().max(1));
     let chunk = (seeds.len() + threads - 1) / threads.max(1);
@@ -345,7 +365,7 @@ pub fn play_batch(
                     .map(|(offset, &seed)| {
                         let game_index = start + offset;
                         let seats = seat_table(candidate, ladder, players, game_index);
-                        play_game(&seats, seed, record)
+                        play_game(&seats, seed, play)
                     })
                     .collect::<Vec<_>>()
             }));
@@ -642,7 +662,10 @@ pub fn activity_of(
         players,
         &seeds,
         threads.min(games),
-        Record::Everything,
+        Gameplay {
+            record: Record::Everything,
+            plan: colori_core::policy::Plan::NONE,
+        },
     );
 
     let mut totals: Vec<(String, (f64, u32))> = Vec::new();
@@ -808,7 +831,10 @@ pub fn run_policy_play(args: &PolicyPlayArgs, threads: usize, output: &str) {
         args.players,
         &seeds,
         threads,
-        Record::Nothing,
+        Gameplay {
+            record: Record::Nothing,
+            plan: args.plan(),
+        },
     );
     let elapsed = started.elapsed();
 
@@ -912,7 +938,7 @@ fn write_trace(
 ) {
     let game_index = seed.saturating_sub(args.seed_base) as usize;
     let seats = seat_table(candidate, ladder, args.players, game_index);
-    let outcome = play_game(&seats, seed, Record::Decision);
+    let outcome = play_game(&seats, seed, Gameplay { record: Record::Decision, plan: args.plan() });
 
     std::fs::create_dir_all(output).expect("failed to create the output directory");
     let path = format!("{output}/trace-{seed}.json");
@@ -1007,8 +1033,8 @@ mod tests {
         let policy = starter();
         let seats: [&CompiledPolicy; 4] = [&policy; 4];
         for seed in 0..6 {
-            let first = play_game(&seats, seed, Record::Nothing);
-            let second = play_game(&seats, seed, Record::Nothing);
+            let first = play_game(&seats, seed, Gameplay::QUIET);
+            let second = play_game(&seats, seed, Gameplay::QUIET);
             assert_eq!(scores(&first), scores(&second), "seed {seed} scored differently");
             assert_eq!(first.rounds, second.rounds);
             for (a, b) in first.seats.iter().zip(&second.seats) {
@@ -1022,7 +1048,7 @@ mod tests {
     fn a_game_runs_to_a_score() {
         let policy = starter();
         let seats: [&CompiledPolicy; 4] = [&policy; 4];
-        let outcome = play_game(&seats, 3, Record::Nothing);
+        let outcome = play_game(&seats, 3, Gameplay::QUIET);
         assert_eq!(outcome.seats.len(), 4);
         assert!(outcome.rounds > 1, "the game ended after {} rounds", outcome.rounds);
         assert!(
@@ -1040,7 +1066,7 @@ mod tests {
         let policy = starter();
         let seats: [&CompiledPolicy; 4] = [&policy; 4];
         let played: Vec<Vec<u32>> = (0..5)
-            .map(|seed| scores(&play_game(&seats, seed, Record::Nothing)))
+            .map(|seed| scores(&play_game(&seats, seed, Gameplay::QUIET)))
             .collect();
         assert!(
             played.windows(2).any(|pair| pair[0] != pair[1]),
@@ -1052,7 +1078,7 @@ mod tests {
     fn a_traced_game_records_its_decisions() {
         let policy = starter();
         let seats: [&CompiledPolicy; 4] = [&policy; 4];
-        let outcome = play_game(&seats, 11, Record::Decision);
+        let outcome = play_game(&seats, 11, Gameplay { record: Record::Decision, plan: colori_core::policy::Plan::NONE });
         assert!(!outcome.trace.is_empty(), "a traced game recorded nothing");
         for record in &outcome.trace {
             assert!(!record.decision.contributions.is_empty());
@@ -1067,7 +1093,7 @@ mod tests {
         // test here.
         let seeds: Vec<u64> = (0..8).collect();
         let ladder: [&CompiledPolicy; 1] = [&candidate];
-        let outcomes = play_batch(&candidate, Some(&ladder), 4, &seeds, 3, Record::Nothing);
+        let outcomes = play_batch(&candidate, Some(&ladder), 4, &seeds, 3, Gameplay::QUIET);
         assert_eq!(outcomes.len(), seeds.len());
         assert_eq!(
             outcomes.iter().map(|outcome| outcome.seed).collect::<Vec<_>>(),

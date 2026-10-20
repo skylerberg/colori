@@ -1,4 +1,10 @@
-//! The rule vocabulary: every feature a genome can weigh.
+//! The rule vocabulary: every rule a genome can weigh.
+//!
+//! Rules are grouped into files by what they are about, and each file has one
+//! table. A rule knows nothing about any other rule: it is one small, general
+//! reading of a position, in points. What the policy can express comes from
+//! which readings exist and how they are weighted, so adding a rule adds a way
+//! to see the board rather than telling the bot to do anything.
 //!
 //! A feature answers one question about a choice and answers it **in points** —
 //! the points it expects the choice to be worth over the rest of the game. One
@@ -171,12 +177,14 @@ pub struct FeatureDef {
     pub eval: FeatureFn,
 }
 
-/// Every feature a genome may weigh, in evaluation order.
+pub mod more;
+
+/// The rules that came first, in evaluation order.
 ///
 /// Order is fixed here rather than taken from the genome file so that summing
 /// the terms is reproducible: floating point addition is not associative, and
 /// a policy whose score depends on JSON key order is not deterministic.
-pub const FEATURES: &[FeatureDef] = &[
+pub const CORE_RULES: &[FeatureDef] = &[
     // ── Straight value ──
     FeatureDef {
         name: "points_immediate",
@@ -481,6 +489,38 @@ pub const FEATURES: &[FeatureDef] = &[
         doc: "Cards the workshop choice stores.",
         eval: workshop_set_size,
     },
+    // ── What a trash gives up ──
+    FeatureDef {
+        name: "forgone_ducats",
+        group: Group::Trash,
+        doc: "Ducats the trashed card would have paid every round it was workshopped. \
+              A positive weight prices giving that up.",
+        eval: forgone_ducats,
+    },
+    FeatureDef {
+        name: "forgone_wilds",
+        group: Group::Trash,
+        doc: "Wild primaries the trashed card would have paid every round.",
+        eval: forgone_wilds,
+    },
+    FeatureDef {
+        name: "forgone_boats",
+        group: Group::Trash,
+        doc: "Boats the trashed card would have paid every round.",
+        eval: forgone_boats,
+    },
+    FeatureDef {
+        name: "forgone_secondary",
+        group: Group::Trash,
+        doc: "Secondary colours the trashed card would have added every round.",
+        eval: forgone_secondary,
+    },
+    FeatureDef {
+        name: "forgone_mix",
+        group: Group::Trash,
+        doc: "Mixes the trashed card would have granted every round.",
+        eval: forgone_mix,
+    },
     // ── Ending the turn ──
     FeatureDef {
         name: "end_turn_unspent_cards",
@@ -510,8 +550,25 @@ pub const FEATURES: &[FeatureDef] = &[
     },
 ];
 
+/// Every rule table, in evaluation order.
+///
+/// A list of tables rather than a single table, so that a new batch of rules can
+/// live in its own file. Order within and between tables is fixed, which is what
+/// keeps the sum reproducible.
+pub const RULE_TABLES: &[&[FeatureDef]] = &[CORE_RULES, more::MORE_RULES];
+
+/// Every rule a genome may weigh.
+pub fn features() -> impl Iterator<Item = &'static FeatureDef> {
+    RULE_TABLES.iter().flat_map(|table| table.iter())
+}
+
+/// How many rules this build has.
+pub fn rule_count() -> usize {
+    RULE_TABLES.iter().map(|table| table.len()).sum()
+}
+
 pub fn lookup(name: &str) -> Option<&'static FeatureDef> {
-    FEATURES.iter().find(|def| def.name == name)
+    features().find(|def| def.name == name)
 }
 
 // ── Helpers ──
@@ -844,7 +901,7 @@ fn pending_points_share(ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
 /// those colours in a workshop scored their point value. The tuner's answer was
 /// to switch the rule off, which is the report telling you the rule was wrong.
 /// The storage one card offers in a workshop, in points.
-fn storage_value(ctx: &Ctx, card: Card) -> f64 {
+pub(super) fn storage_value(ctx: &Ctx, card: Card) -> f64 {
     card.material_types()
         .iter()
         .map(|&material| ctx.material_value[material as usize])
@@ -1016,6 +1073,30 @@ fn mix_count(_ctx: &Ctx, choice: &Choice, _d: &Delta) -> f64 {
     mix_sequence_of(choice).map_or(0.0, |mixes| mixes.len() as f64)
 }
 
+fn forgone_slot(d: &Delta, kind: usize) -> f64 {
+    d.forgone_abilities[kind] as f64
+}
+
+fn forgone_ducats(_ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
+    forgone_slot(d, ABILITY_GAIN_DUCATS)
+}
+
+fn forgone_wilds(_ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
+    forgone_slot(d, ABILITY_GAIN_WILD_PRIMARIES)
+}
+
+fn forgone_boats(_ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
+    forgone_slot(d, ABILITY_GAIN_BOATS)
+}
+
+fn forgone_secondary(_ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
+    forgone_slot(d, ABILITY_GAIN_SECONDARY)
+}
+
+fn forgone_mix(_ctx: &Ctx, _choice: &Choice, d: &Delta) -> f64 {
+    forgone_slot(d, ABILITY_MIX)
+}
+
 fn mix_grant_unused(_ctx: &Ctx, choice: &Choice, d: &Delta) -> f64 {
     match mix_sequence_of(choice) {
         // The choice had its chance to mix and took none of it. Only a choice
@@ -1084,7 +1165,7 @@ mod tests {
 
     #[test]
     fn feature_names_are_unique() {
-        let mut names: Vec<&str> = FEATURES.iter().map(|def| def.name).collect();
+        let mut names: Vec<&str> = features().map(|def| def.name).collect();
         names.sort_unstable();
         let before = names.len();
         names.dedup();
@@ -1105,8 +1186,7 @@ mod tests {
             "ability_boats",
         ];
         for name in ABILITY_FEATURES {
-            let def = lookup(name).unwrap_or_else(|| panic!("{name} is not a feature"));
-            assert_eq!(def.group, Group::Universal);
+            assert!(lookup(name).is_some(), "{name} is not a feature");
         }
     }
 
@@ -1120,7 +1200,7 @@ mod tests {
                 for choice in &choices {
                     let ctx = Ctx::new(&state, player_index, &table);
                     let d = delta(ctx.player, choice, &table);
-                    for def in FEATURES {
+                    for def in features() {
                         if def.group.applies_to(choice) {
                             continue;
                         }
@@ -1147,7 +1227,7 @@ mod tests {
                 for choice in &choices {
                     let ctx = Ctx::new(&state, player_index, &table);
                     let d = delta(ctx.player, choice, &table);
-                    for def in FEATURES {
+                    for def in features() {
                         let value = (def.eval)(&ctx, choice, &d);
                         assert!(
                             value.is_finite(),

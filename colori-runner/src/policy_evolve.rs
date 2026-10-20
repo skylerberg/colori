@@ -33,7 +33,7 @@
 
 use std::collections::BTreeMap;
 
-use colori_core::policy::{CompiledPolicy, PolicyGenome, Shape, FEATURES};
+use colori_core::policy::{features, rule_count, CompiledPolicy, PolicyGenome, Shape, VALUE_FEATURES};
 use colori_core::scoring::HeuristicParams;
 use rand::{RngExt, SeedableRng};
 use serde::Serialize;
@@ -136,13 +136,16 @@ pub fn run_policy_evolution(args: &PolicyEvolveArgs, threads: usize, output: &st
         .collect();
 
     eprintln!(
-        "Tuning {} of {} rules for {} generations, {} games each, {} players, {} threads",
+        "Tuning {} of {} rules for {} generations, {} games each, {} players, {} threads,
+         planning {} ahead over {} choices",
         rules.names.len(),
-        FEATURES.len(),
+        rule_count() + VALUE_FEATURES.len(),
         args.generations,
         args.games,
         args.players,
-        threads
+        threads,
+        args.plan().depth,
+        args.plan().width
     );
     eprintln!("Frozen opponents: {}", args.anchors.join(", "));
     eprintln!("Rules under the search: {}", rules.names.join(", "));
@@ -303,9 +306,21 @@ fn rules_of(template: &PolicyGenome) -> Rules {
     let mut names = Vec::new();
     let mut shapes = Vec::new();
     let mut started_at = Vec::new();
-    // Walk the feature table rather than the genome's map so that the search's
-    // vector order is the same in every run of the same template.
-    for def in FEATURES {
+    // Walk the feature tables rather than the genome's map so that the search's
+    // vector order is the same in every run of the same template. Choice rules
+    // first, then the value rules a planned decision scores its leaves with.
+    for def in features() {
+        let Some(gene) = template.features.get(def.name) else {
+            continue;
+        };
+        if gene.weight == 0.0 {
+            continue;
+        }
+        names.push(def.name);
+        shapes.push(gene.shape);
+        started_at.push(gene.weight);
+    }
+    for def in VALUE_FEATURES {
         let Some(gene) = template.features.get(def.name) else {
             continue;
         };
@@ -318,7 +333,8 @@ fn rules_of(template: &PolicyGenome) -> Rules {
     }
     for name in template.features.keys() {
         assert!(
-            FEATURES.iter().any(|def| def.name == name),
+            features().any(|def| def.name == name)
+                || VALUE_FEATURES.iter().any(|def| def.name == name),
             "the template names {name:?}, which is not a feature"
         );
     }
@@ -375,7 +391,10 @@ fn evaluate(
         args.players,
         seeds,
         threads,
-        policy_play::Record::Nothing,
+        policy_play::Gameplay {
+            record: policy_play::Record::Nothing,
+            plan: args.plan(),
+        },
     );
     let batch = policy_play::Batch::of(&outcomes, args.players, false);
     let summary = ScoreSummary::summarize(&batch, &outcomes, args.players, false);

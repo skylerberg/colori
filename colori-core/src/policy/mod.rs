@@ -43,17 +43,19 @@
 pub mod context;
 pub mod effects;
 pub mod features;
+pub mod value;
 
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
 use crate::scoring::{CardHeuristicTable, HeuristicParams};
-use crate::types::{Choice, GameState};
+use crate::types::{Choice, GamePhase, GameState};
 
 pub use context::{Ctx, PhaseKind};
 pub use effects::Delta;
-pub use features::{ChoiceVariant, FeatureDef, FeatureFn, Group, ALL_CHOICE_VARIANTS, FEATURES};
+pub use features::{features, rule_count, ChoiceVariant, FeatureDef, FeatureFn, Group, ALL_CHOICE_VARIANTS};
+pub use value::{ValueDef, ValueFn, VALUE_FEATURES};
 
 // ── Shapes ──
 
@@ -233,6 +235,14 @@ const STARTER_WEIGHTS: &[(&str, f64)] = &[
     ("mix_grant_unused", 0.8),
     // Workshop.
     ("workshop_set_size", 0.1),
+    // Giving up a card's workshop ability, which fires every round the card
+    // comes back round: this is what makes keeping an action card worth more
+    // than its cheap trash ability.
+    ("forgone_ducats", 1.5),
+    ("forgone_wilds", 0.8),
+    ("forgone_boats", 0.5),
+    ("forgone_secondary", 0.6),
+    ("forgone_mix", 0.4),
     // Ending the turn. These two are negative on purpose: ending the turn
     // *while* cards and actions are still open is what should cost, so the
     // weight prices leaving work undone rather than rewarding it.
@@ -240,6 +250,73 @@ const STARTER_WEIGHTS: &[(&str, f64)] = &[
     ("end_turn_open_actions", -0.5),
     ("end_turn_kept_value", 1.0),
     ("end_turn_late_game", 1.5),
+    // ── The second vocabulary ──
+    // Hand-set priors for rules that read the position more sharply. They are
+    // guesses at magnitudes, not at direction: the search is free to invert any
+    // of them, and several were inverted after the first run.
+    ("colours_completing", 1.0),
+    ("colours_shared_demand", 0.5),
+    ("colours_tertiary_gained", 0.8),
+    ("colours_secondary_gained", 0.5),
+    ("colours_primary_spent", 0.3),
+    ("colours_duplicate_gained", -0.1),
+    ("colours_breadth_gained", 0.2),
+    ("wheel_mixing_options_delta", 0.3),
+    ("materials_completing", 1.0),
+    ("materials_shared_demand", 0.5),
+    ("materials_surplus_gained", -0.2),
+    ("materials_diversity_gained", 0.2),
+    ("materials_boat_relief", 0.6),
+    ("wilds_relief", 0.5),
+    ("boats_relief", 0.6),
+    ("ducats_options", 0.1),
+    ("buyer_short_one_filled", 2.0),
+    ("buyer_affordable_delta", 1.0),
+    ("buyer_completion_efficiency", 1.0),
+    ("buyer_slot_freed", -0.3),
+    ("buyer_stacked_demand", 0.5),
+    ("sell_net_opportunity_cost", 1.0),
+    ("sell_is_the_best_affordable", 0.5),
+    ("offer_material_alignment", 0.5),
+    ("offer_color_alignment", 0.4),
+    ("offer_blind_cost", 0.3),
+    ("spare_mixer", 0.2),
+    ("draft_fills_gap", 0.6),
+    ("draft_redundant_supply", 0.3),
+    ("draft_completes_an_order", 0.8),
+    ("draft_ability_novelty", 0.3),
+    ("draft_no_demand", 0.4),
+    ("card_serves_best_buyer", 0.5),
+    ("picks_that_store", 0.5),
+    ("ability_workshop_priced", 0.3),
+    ("ability_mix_priced", 0.3),
+    ("ability_move_to_pool_priced", 0.2),
+    ("ability_secondary_priced", 0.5),
+    ("ability_wilds_priced", 0.5),
+    ("ability_boats_priced", 0.5),
+    ("ability_sell_ready", 0.5),
+    ("points_immediate_late", 0.5),
+    ("colours_demanded_late", 0.5),
+    ("materials_demanded_late", 0.5),
+    ("keep_value_early", 0.5),
+    // The value function a planned decision scores its leaves with. A position
+    // is worth the points it has banked, plus a fraction of the plan it is on
+    // and the resources it is holding to get there.
+    // Scaled so that a whole position is worth a few points — the order of a
+    // choice's own score — rather than the twenty-odd a game totals. The search
+    // moves them from here.
+    ("value_banked", 0.10),
+    ("value_pending", 0.03),
+    ("value_affordable", 0.05),
+    ("value_stored_colors", 0.06),
+    ("value_stored_materials", 0.06),
+    ("value_loose_colors", 0.01),
+    ("value_loose_materials", 0.01),
+    ("value_wilds", 0.05),
+    ("value_boats", 0.05),
+    ("value_engine", 0.05),
+    ("value_hand", 0.0),
+    ("value_drafted", 0.0),
 ];
 
 // ── Errors ──
@@ -273,9 +350,9 @@ impl std::fmt::Display for GenomeError {
 impl std::error::Error for GenomeError {}
 
 fn known_feature_names() -> String {
-    FEATURES
-        .iter()
+    features()
         .map(|def| def.name)
+        .chain(VALUE_FEATURES.iter().map(|def| def.name))
         .collect::<Vec<_>>()
         .join(", ")
 }
@@ -304,12 +381,53 @@ impl Term {
     }
 }
 
+/// One value rule switched on.
+#[derive(Debug, Clone, Copy)]
+pub struct ValueTerm {
+    pub name: &'static str,
+    pub weight: f64,
+    pub shape: Shape,
+    eval: ValueFn,
+}
+
+/// How far a planned decision looks ahead over the current turn.
+///
+/// Planning is not a search of the whole game — it cannot be, and it does not
+/// need to be. Almost every sale and every storage play is *two or three
+/// decisions long* inside one turn, and a one-ply policy cannot see past the
+/// first of them. Following the best few choices a couple of decisions deeper,
+/// and scoring the position they leave, is where that structure gets looked at.
+///
+/// `width` is only spent at the root; past it the plan follows the single best
+/// choice, so cost grows with `width * depth` rather than with its product.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Plan {
+    /// How many of the best-scoring choices to follow.
+    pub width: usize,
+    /// Decisions deep to follow them. Zero is the plain one-ply policy.
+    pub depth: usize,
+}
+
+impl Plan {
+    pub const NONE: Plan = Plan { width: 0, depth: 0 };
+
+    pub const fn new(width: usize, depth: usize) -> Self {
+        Plan { width, depth }
+    }
+
+    #[inline]
+    pub fn is_on(self) -> bool {
+        self.width > 0 && self.depth > 0
+    }
+}
+
 /// A genome checked against this build, ready to play.
 ///
 /// Holds no interior mutability and no randomness, so one policy can be shared
 /// across threads or seats and is safe to reuse for a whole run.
 pub struct CompiledPolicy {
     terms: Vec<Term>,
+    values: Vec<ValueTerm>,
     card_table: CardHeuristicTable,
 }
 
@@ -319,7 +437,7 @@ impl CompiledPolicy {
         // genome that mentions a rule this build lacks is a mismatch worth
         // reporting, not something to ignore.
         for (name, gene) in &genome.features {
-            if features::lookup(name).is_none() {
+            if features::lookup(name).is_none() && value::lookup_value(name).is_none() {
                 return Err(GenomeError::UnknownFeature(name.clone()));
             }
             if !gene.weight.is_finite() {
@@ -331,7 +449,7 @@ impl CompiledPolicy {
         }
 
         let mut terms = Vec::with_capacity(genome.features.len());
-        for def in FEATURES {
+        for def in features() {
             let Some(gene) = genome.features.get(def.name) else {
                 continue;
             };
@@ -348,12 +466,31 @@ impl CompiledPolicy {
             });
         }
 
+        // Value rules are optional: without planning they are never read, and a
+        // policy that only values positions cannot choose anything.
+        let mut values = Vec::new();
+        for def in VALUE_FEATURES {
+            let Some(gene) = genome.features.get(def.name) else {
+                continue;
+            };
+            if gene.weight == 0.0 {
+                continue;
+            }
+            values.push(ValueTerm {
+                name: def.name,
+                weight: gene.weight,
+                shape: gene.shape,
+                eval: def.eval,
+            });
+        }
+
         if terms.is_empty() {
             return Err(GenomeError::NothingEnabled);
         }
 
         Ok(CompiledPolicy {
             terms,
+            values,
             card_table: CardHeuristicTable::new(params),
         })
     }
@@ -365,9 +502,38 @@ impl CompiledPolicy {
             .expect("the starter genome names only features this build has")
     }
 
-    /// The features this policy weighs, in evaluation order.
+    /// The choice rules this policy weighs, in evaluation order.
     pub fn terms(&self) -> &[Term] {
         &self.terms
+    }
+
+    /// The value rules this policy weighs. Empty when it does not plan.
+    pub fn value_terms(&self) -> &[ValueTerm] {
+        &self.values
+    }
+
+    /// What this position is worth to `player_index`, in points.
+    ///
+    /// The value function a planned decision scores its leaves with.
+    pub fn value(&self, state: &GameState, player_index: usize) -> f64 {
+        let ctx = Ctx::new(state, player_index, &self.card_table);
+        self.values
+            .iter()
+            .map(|term| term.shape.apply((term.eval)(&ctx)) * term.weight)
+            .sum()
+    }
+
+    /// Every choice's score, in enumeration order. Allocation-free.
+    fn score_all(&self, state: &GameState, player_index: usize, choices: &[Choice], out: &mut [f64]) {
+        let ctx = Ctx::new(state, player_index, &self.card_table);
+        for (index, choice) in choices.iter().enumerate() {
+            let delta = effects::delta(ctx.player, choice, &self.card_table);
+            let mut score = 0.0;
+            for term in self.applicable(choice) {
+                score += term.contribution(&ctx, choice, &delta);
+            }
+            out[index] = score;
+        }
     }
 
     /// The terms that answer for this choice.
@@ -421,6 +587,81 @@ impl CompiledPolicy {
     ) -> Option<Choice> {
         let (best, _score) = self.best_scored(state, player_index, choices)?;
         Some(choices[best])
+    }
+
+    /// Like [`CompiledPolicy::decide_scored`], but able to follow the best few
+    /// choices a couple of decisions into the turn and score the position they
+    /// leave.
+    ///
+    /// Falls back to the plain one-ply choice when the plan is off, when the
+    /// genome weighs no value rules, or when nothing is being decided.
+    pub fn decide_planned(
+        &self,
+        state: &GameState,
+        player_index: usize,
+        choices: &[Choice],
+        plan: Plan,
+    ) -> Option<Decision> {
+        if choices.is_empty() {
+            return None;
+        }
+        if !plan.is_on() || self.values.is_empty() {
+            return self.decide_scored(state, player_index, choices);
+        }
+
+        let mut scores = vec![0.0; choices.len()];
+        self.score_all(state, player_index, choices, &mut scores);
+        let order = best_first(&scores);
+
+        // What a line is worth is the choice's own score *plus* what the
+        // position it leads to is worth. The first part is the tuned one-ply
+        // policy and the second is the value function, so a genome whose value
+        // weights are all near zero plans nothing and the policy degrades
+        // exactly to its one-ply self. Planning can therefore lose strength
+        // through bad tuning, but never through being switched on.
+        let mut best_choice = order[0];
+        let mut best_value = f64::NEG_INFINITY;
+        for &index in order.iter().take(plan.width) {
+            let value = scores[index] + self.follow(state, player_index, &choices[index], plan.depth);
+            // Strictly greater, so on a tie the better-scoring choice keeps it.
+            if value > best_value {
+                best_value = value;
+                best_choice = index;
+            }
+        }
+
+        Some(Decision {
+            choice: choices[best_choice],
+            score: scores[best_choice],
+            runner_up: None,
+            runner_up_score: None,
+            contributions: Vec::new(),
+            runner_up_contributions: Vec::new(),
+        })
+    }
+
+    /// Take `choice`, then follow the single best choice `depth - 1` more times,
+    /// and score the position that leaves.
+    ///
+    /// Nothing inside a turn is random, so probing a line is exact rather than a
+    /// sample — the only liberty is that a line reaching the end of the round
+    /// draws its cards from a seeded generator rather than the game's.
+    fn follow(&self, state: &GameState, player_index: usize, choice: &Choice, depth: usize) -> f64 {
+        let mut next = state.clone();
+        probe(&mut next, player_index, choice);
+        if depth <= 1 || !turn_is_open(&next, player_index) {
+            return self.value(&next, player_index);
+        }
+        let options = crate::colori_game::enumerate_choices(&next, player_index);
+        if options.is_empty() {
+            return self.value(&next, player_index);
+        }
+        let mut scores = vec![0.0; options.len()];
+        self.score_all(&next, player_index, &options, &mut scores);
+        // Only the best child is followed, so depth costs branchings, not
+        // branchings to the power of depth.
+        let best = best_first(&scores)[0];
+        self.follow(&next, player_index, &options[best], depth - 1)
     }
 
     /// Like [`CompiledPolicy::decide`], with the score the winner took but
@@ -550,6 +791,34 @@ impl CompiledPolicy {
         }
         Some((best_index, best_score))
     }
+}
+
+/// Choices ordered best first, keeping enumeration order on a tie.
+fn best_first(scores: &[f64]) -> Vec<usize> {
+    let mut order: Vec<usize> = (0..scores.len()).collect();
+    // Stable, so an equal score keeps the earlier choice.
+    order.sort_by(|&a, &b| {
+        scores[b]
+            .partial_cmp(&scores[a])
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    order
+}
+
+/// Apply one choice to a position being probed.
+fn probe(state: &mut GameState, player_index: usize, choice: &Choice) {
+    // Nothing inside a turn is random; the generator decides nothing.
+    use rand::SeedableRng;
+    let mut rng = wyrand::WyRand::seed_from_u64(0);
+    crate::colori_game::apply_choice_to_state(state, player_index, choice, &mut rng);
+}
+
+/// Whether `player_index` still has decisions left in this turn.
+fn turn_is_open(state: &GameState, player_index: usize) -> bool {
+    matches!(
+        &state.phase,
+        GamePhase::Action { action_state } if !action_state.turns[player_index].ended
+    )
 }
 
 /// What one feature contributed to a choice's score.
@@ -718,7 +987,7 @@ mod tests {
     fn the_starter_genome_names_only_real_features() {
         for (name, _) in STARTER_WEIGHTS {
             assert!(
-                features::lookup(name).is_some(),
+                features::lookup(name).is_some() || value::lookup_value(name).is_some(),
                 "the starter rules name {name:?}, which is not a feature"
             );
         }
