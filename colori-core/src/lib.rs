@@ -14,6 +14,7 @@ pub mod game_log;
 pub mod ismcts;
 pub mod mcts_impl;
 mod opponent_turns;
+pub mod policy;
 pub mod replay;
 pub(crate) mod rollout;
 pub mod scoring;

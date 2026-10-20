@@ -28,6 +28,10 @@ pub enum Commands {
     Tournament(TournamentArgs),
     /// Train heuristic params using genetic algorithm
     Train(TrainArgs),
+    /// Play games with a deterministic rules policy
+    PolicyPlay(PolicyPlayArgs),
+    /// Tune a rules policy's weights with a cross-entropy method
+    PolicyEvolve(PolicyEvolveArgs),
 }
 
 // ── Subcommand args ──
@@ -219,4 +223,102 @@ pub fn load_heuristic_params(path: &str) -> HeuristicParams {
         .unwrap_or_else(|_| panic!("Failed to read heuristic params file: {}", path));
     serde_json::from_str::<HeuristicParams>(&contents)
         .unwrap_or_else(|_| panic!("Failed to parse heuristic params file: {}", path))
+}
+
+// ── Deterministic policy ──
+
+#[derive(Parser)]
+pub struct PolicyPlayArgs {
+    /// Genome to play: `starter` for the built-in rules, or a path to a JSON file
+    #[arg(long, default_value = "starter")]
+    pub genome: String,
+
+    /// Play this genome on one seat against `--genome` instead of a mirror match
+    #[arg(long)]
+    pub challenger: Option<String>,
+
+    /// Heuristic params file the card table is built from. Without one every
+    /// card weighs the same, so card-quality rules do nothing.
+    #[arg(long)]
+    pub heuristic_params_file: Option<String>,
+
+    /// Number of games
+    #[arg(long, default_value_t = 200)]
+    pub games: usize,
+
+    /// First seed. Game i uses seed_base + i, so two genomes measured on the
+    /// same range see the same opening hands.
+    #[arg(long, default_value_t = 0)]
+    pub seed_base: u64,
+
+    /// Players at the table
+    #[arg(long, default_value_t = 4)]
+    pub players: usize,
+
+    /// Write one game's full decision trace and print the decisions the rules
+    /// came closest to getting wrong
+    #[arg(long)]
+    pub trace_seed: Option<u64>,
+}
+
+#[derive(Parser)]
+pub struct PolicyEvolveArgs {
+    /// Genome whose rules are tuned: `starter` or a path to a JSON file
+    #[arg(long, default_value = "starter")]
+    pub template: String,
+
+    /// Genome every candidate is measured against, on all but one seat
+    #[arg(long, default_value = "starter")]
+    pub anchor: String,
+
+    /// Heuristic params file the card table is built from
+    #[arg(long)]
+    pub heuristic_params_file: Option<String>,
+
+    /// Genomes evaluated per generation
+    #[arg(long, default_value_t = 24)]
+    pub population: usize,
+
+    #[arg(long, default_value_t = 40)]
+    pub generations: usize,
+
+    /// Games per candidate per generation
+    #[arg(long, default_value_t = 64)]
+    pub games: usize,
+
+    /// First training seed; every candidate is measured on the same range
+    #[arg(long, default_value_t = 0)]
+    pub seed_base: u64,
+
+    /// Games on the held-out seed range, measured every generation and never
+    /// tuned against. Zero leaves the holdout out.
+    #[arg(long, default_value_t = 0)]
+    pub holdout_games: usize,
+
+    #[arg(long, default_value_t = 1_000_000)]
+    pub holdout_seed_base: u64,
+
+    /// Initial spread, relative to each weight's magnitude
+    #[arg(long, default_value_t = 0.25)]
+    pub sigma: f64,
+
+    /// Smallest spread the search keeps, so it never stops probing
+    #[arg(long, default_value_t = 0.01)]
+    pub sigma_floor: f64,
+
+    /// Fraction of the population the sampling distribution is refitted to
+    #[arg(long, default_value_t = 0.2)]
+    pub elite_fraction: f64,
+
+    /// Hard clamp on any weight
+    #[arg(long, default_value_t = 20.0)]
+    pub max_weight: f64,
+
+    /// Seed for the sampler, so the sampling can be repeated exactly
+    #[arg(long, default_value_t = 7)]
+    pub sampler_seed: u64,
+
+    /// Players at the table
+    #[arg(long, default_value_t = 4)]
+    pub players: usize,
 }

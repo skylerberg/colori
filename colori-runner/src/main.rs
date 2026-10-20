@@ -1,5 +1,7 @@
 mod cli;
 mod genetic;
+mod policy_evolve;
+mod policy_play;
 mod simulation;
 mod tournament;
 
@@ -34,6 +36,14 @@ fn main() {
         Some(Commands::Train(args)) => {
             let output = cli.output.unwrap_or_else(|| "genetic-algorithm".to_string());
             genetic::run_genetic_algorithm(&args, threads, &output);
+        }
+        Some(Commands::PolicyPlay(args)) => {
+            let output = cli.output.unwrap_or_else(|| "policy-runs".to_string());
+            policy_play::run_policy_play(&args, threads, &output);
+        }
+        Some(Commands::PolicyEvolve(args)) => {
+            let output = cli.output.unwrap_or_else(|| "policy-runs".to_string());
+            policy_evolve::run_policy_evolution(&args, threads, &output);
         }
         None => {
             // Default: simulate with default args

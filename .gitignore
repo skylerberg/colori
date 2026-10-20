@@ -6,6 +6,8 @@ src/wasm-pkg/
 target/
 game-logs/
 game-log-archive/
+# Reports and traces from `colori-runner policy-play` / `policy-evolve`.
+policy-runs/
 
 # Training runs emit hundreds of disposable param files. Everything the build
 # and the default variants actually load is checked in explicitly below, so a
