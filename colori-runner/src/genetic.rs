@@ -1,4 +1,4 @@
-use crate::cli::{NamedVariant, TrainArgs, load_heuristic_params};
+use crate::cli::{NamedVariant, TrainArgs, default_heuristic_params, load_heuristic_params};
 use crate::simulation::run_game;
 use colori_core::ismcts::MctsConfig;
 use colori_core::scoring::HeuristicParams;
@@ -300,8 +300,7 @@ pub fn run_genetic_algorithm(args: &TrainArgs, threads: usize, output: &str) {
         }
         None => {
             eprintln!("Seeding population from the params the AI plays with");
-            serde_json::from_str(HeuristicParams::DEFAULT_JSON)
-                .expect("Failed to parse the default heuristic params")
+            default_heuristic_params()
         }
     };
     let seed = &seed_params;
