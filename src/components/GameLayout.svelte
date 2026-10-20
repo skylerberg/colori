@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { GameState } from '../data/types';
-  import { formatTime } from '../gameUtils';
+  import { formatTime, revealedDraftedCount } from '../gameUtils';
   import type { Snippet } from 'svelte';
   import BuyersBoard from './BuyersBoard.svelte';
   import PlayerBoard from './PlayerBoard.svelte';
@@ -44,6 +44,9 @@
   });
 
   let shownPlayer = $derived(gameState.players[selectedPlayerIndex]);
+  // Another seat's picks stay face down until everyone has picked for that
+  // round; the viewer's own picks show as they are made.
+  let revealedDrafted = $derived(revealedDraftedCount(gameState.phase, selectedPlayerIndex, viewerIndex));
   let boardInteraction = $derived(interaction.seat === selectedPlayerIndex ? interaction : null);
   // The viewer has a move to make on a board they are not looking at.
   let awayFromOwnBoard = $derived(
@@ -122,7 +125,7 @@
                 seat={selectedPlayerIndex}
                 round={gameState.round}
                 draftOrder={draftCardOrder?.[selectedPlayerIndex]}
-                faceDownDrafted={gameState.phase.type === 'draft' && selectedPlayerIndex !== viewerIndex}
+                revealedDrafted={revealedDrafted}
                 claiming={gameState.phase.type === 'buyers' && gameState.phase.buyersState.currentPlayerIndex === selectedPlayerIndex}
                 interaction={boardInteraction}
               />
