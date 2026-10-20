@@ -42,6 +42,7 @@ describe('wasm_run_ismcts', () => {
     const settings: AiSettings[] = [
       { params: '9iii4n-gen-19' },
       { params: '9iii4n-gen-19-avoid-alum-warehouse-gondola' },
+      { params: 'alobyo-gen-45' },
       { rolloutLookahead: 0 },
       { rolloutLookahead: 6 },
     ];
