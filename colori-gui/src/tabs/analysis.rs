@@ -27,6 +27,7 @@ pub struct CachedAnalysis {
     pub score_dist: std::collections::BTreeMap<u32, usize>,
     pub win_rate_position: HashMap<usize, WinRateEntry>,
     pub avg_plies: f64,
+    pub unseen_buyer_share: Option<f64>,
     pub color_stats: HashMap<String, f64>,
     pub duration_stats: Option<DurationStats>,
     pub variant_win_rate: Option<HashMap<String, WinRateEntry>>,
@@ -68,6 +69,7 @@ impl CachedAnalysis {
         let score_dist = compute_score_distribution(logs, filter_ref);
         let win_rate_position = compute_win_rate_by_position(logs, filter_ref);
         let avg_plies = compute_average_plies(logs, filter_ref);
+        let unseen_buyer_share = compute_unseen_buyer_share(logs, filter_ref);
         let color_stats = compute_color_wheel_stats(logs, filter_ref);
         let duration_stats = compute_duration_stats(logs, filter_ref);
         let variant_win_rate = compute_win_rate_by_variant(logs);
@@ -138,6 +140,7 @@ impl CachedAnalysis {
             score_dist,
             win_rate_position,
             avg_plies,
+            unseen_buyer_share,
             color_stats,
             duration_stats,
             variant_win_rate,
@@ -198,6 +201,12 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
                         label: "Deck Size Range".into(),
                     },
                 ];
+                if let Some(share) = analysis.unseen_buyer_share {
+                    cards.push(StatCard {
+                        value: format!("{:.1}%", share * 100.0),
+                        label: "Buyers Drawn Unseen".into(),
+                    });
+                }
                 if let Some(ref ds) = analysis.duration_stats {
                     cards.push(StatCard {
                         value: format!("{:.1}s", ds.avg_ms / 1000.0),
