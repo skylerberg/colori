@@ -5,10 +5,45 @@ use super::mix_sequences::enumerate_mix_sequences;
 use super::multiset::{count_card_types, enumerate_multiset_subsets, enumerate_multiset_subsets_exact};
 use super::should_force_max_workshop;
 
+/// What enumerating a copied card's Workshop ability needs, none of which
+/// depends on *which* card was copied: the workshop's card types, and whether
+/// holding picks back can pay off.
+///
+/// A hand often holds several Workshop cards, and this was tallied once per
+/// copy. It is filled in on first use, so a hand with no Workshop card pays
+/// nothing for it.
+#[derive(Default)]
+pub(super) struct WorkshopTally {
+    inner: Option<WorkshopTallyInner>,
+}
+
+struct WorkshopTallyInner {
+    card_types: [Card; 46],
+    type_counts: [u8; 46],
+    len: usize,
+    force_max: bool,
+}
+
+impl WorkshopTally {
+    fn get(&mut self, state: &GameState, player: &PlayerState) -> &WorkshopTallyInner {
+        self.inner.get_or_insert_with(|| {
+            let (card_types, type_counts, len) =
+                count_card_types(player.workshop_cards, &state.card_lookup);
+            WorkshopTallyInner {
+                card_types,
+                type_counts,
+                len,
+                force_max: should_force_max_workshop(state, player),
+            }
+        })
+    }
+}
+
 pub(super) fn enumerate_trash_choices(
     state: &GameState,
     player: &PlayerState,
     card: Card,
+    tally: &mut WorkshopTally,
     choices: &mut Vec<Choice>,
 ) {
     // What follows the first ability is left on the stack and chosen for on
@@ -40,11 +75,11 @@ pub(super) fn enumerate_trash_choices(
             }
         }
         Ability::Workshop { count } => {
-            let force_max = should_force_max_workshop(state, player);
+            let tally = tally.get(state, player);
             let (card_types, type_counts, len) =
-                count_card_types(player.workshop_cards, &state.card_lookup);
+                (&tally.card_types[..], &tally.type_counts[..], tally.len);
             let total_available: usize = type_counts[..len].iter().map(|&c| c as usize).sum();
-            if force_max {
+            if tally.force_max {
                 if total_available == 0 {
                     choices.push(Choice::TrashAndWorkshop {
                         card,
