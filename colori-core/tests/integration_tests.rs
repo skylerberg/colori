@@ -1339,7 +1339,9 @@ fn test_using_every_mix_leaves_a_mix_beneath_it_alone() {
     let (mut state, _, _, _) = setup_action_state_with(false, None, None, None);
     let wheel = &mut state.players[0].color_wheel;
     *wheel = ColorWheel::new();
-    wheel.set(Color::Red, 1);
+    // Red pairs with Yellow or with Orange, so the mix below is one the wheel
+    // can still make once the first ability has been used.
+    wheel.set(Color::Red, 2);
     wheel.set(Color::Yellow, 1);
     wheel.set(Color::Blue, 1);
     if let GamePhase::Action { ref mut action_state } = state.phase {
@@ -1359,6 +1361,61 @@ fn test_using_every_mix_leaves_a_mix_beneath_it_alone() {
         Some(Ability::MixColors { count: 1 }),
         "the second mix ability is still owed"
     );
+}
+
+/// A mix the wheel cannot supply has one answer — mix nothing — so it is taken
+/// with the trash that granted it rather than asked about.
+///
+/// The ability arrives by the route that made it an offer: a trash whose first
+/// ability is a Workshop leaves the mix it granted beneath the picks.
+#[test]
+fn a_mix_the_wheel_cannot_supply_never_becomes_a_decision() {
+    let mut state = state_with_drafted(Card::CeramicsRed);
+    state.players[0].color_wheel = ColorWheel::new();
+    state.players[0].wild_primaries = 0;
+    let trash = Choice::TrashAndWorkshop {
+        card: Card::CeramicsRed,
+        workshop_cards: CopyVec::new(),
+    };
+    assert!(enumerate_choices(&state, 0).contains(&trash));
+
+    let mut rng = WyRand::seed_from_u64(0);
+    apply_choice_to_state(&mut state, 0, &trash, &mut rng);
+    assert_eq!(
+        pending_ability(&state),
+        None,
+        "the mix ability went with the trash that could not use it"
+    );
+    assert!(
+        enumerate_choices(&state, 0).contains(&Choice::EndTurn),
+        "what is left is the turn's own menu"
+    );
+}
+
+/// The ability a mix sequence answers may already be gone, because it could mix
+/// nothing and was taken for the player. A game logged before that was true
+/// still replays: its empty sequence asks for exactly what already happened.
+#[test]
+fn an_empty_mix_sequence_with_no_ability_left_does_nothing() {
+    let mut state = state_with_drafted(Card::CeramicsRed);
+    state.players[0].color_wheel = ColorWheel::new();
+    state.players[0].wild_primaries = 0;
+    let mut rng = WyRand::seed_from_u64(0);
+    apply_choice_to_state(
+        &mut state,
+        0,
+        &Choice::TrashAndWorkshop {
+            card: Card::CeramicsRed,
+            workshop_cards: CopyVec::new(),
+        },
+        &mut rng,
+    );
+    let before = state.players[0].clone();
+
+    apply_choice_to_state(&mut state, 0, &Choice::MixAll { mixes: CopyVec::new() }, &mut rng);
+    assert_eq!(state.players[0].color_wheel, before.color_wheel);
+    assert_eq!(state.players[0].wild_primaries, before.wild_primaries);
+    assert_eq!(pending_ability(&state), None);
 }
 
 /// Put `card` in player 0's draft pool with the action phase open and nothing

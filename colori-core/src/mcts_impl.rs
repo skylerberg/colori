@@ -1095,7 +1095,12 @@ mod tests {
         searcher.search(&state, draft_state.current_player_index, &config, Some(8), &mut rng);
         assert!(holds_nothing(&searcher), "after a draft pick");
 
-        play_randomly_until(&mut state, &mut rng, |s| matches!(s.phase, GamePhase::Action { .. }));
+        // A later round's turn holds several decisions whatever the searcher
+        // picks first; a turn early enough to be worth ending outright would
+        // make the reuse this checks vacuous.
+        play_randomly_until(&mut state, &mut rng, |s| {
+            s.round >= 3 && matches!(s.phase, GamePhase::Action { .. })
+        });
         let decisions = play_turn(&state, 0, |view| {
             let outcome = searcher.search(view, 0, &config, Some(8), &mut rng);
             (outcome.choice, outcome.reused_iterations)

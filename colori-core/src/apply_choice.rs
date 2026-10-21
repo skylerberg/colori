@@ -91,7 +91,13 @@ pub(crate) fn resolve_card_types_to_ids(
 fn resolve_mix_sequence(state: &mut GameState, player_index: usize, mixes: &[(Color, Color)]) {
     let granted = match ability_stack(state, player_index).last() {
         Some(Ability::MixColors { count }) => *count,
-        _ => panic!("No pending mix"),
+        // The ability is gone because it could mix nothing, which is what an
+        // empty sequence asks for too. A sequence that mixes something with no
+        // ability to mix it is a caller's mistake.
+        _ => {
+            assert!(mixes.is_empty(), "Mixing with no pending mix ability");
+            return;
+        }
     };
     for &(a, b) in mixes {
         resolve_mix_colors(state, player_index, a, b);
