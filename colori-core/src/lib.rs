@@ -20,5 +20,6 @@ pub(crate) mod rollout;
 pub mod scoring;
 pub mod setup;
 mod transposition;
+pub mod turn_plan;
 pub mod types;
 pub mod unordered_cards;

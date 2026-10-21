@@ -26,11 +26,10 @@ use crate::colors::{
     VALID_MIX_PAIRS,
 };
 use crate::scoring::player_ranking;
+use crate::turn_plan::{mix_needs, mixes_are_needed, Position};
 use crate::types::{
-    Ability, AbilityStack, Choice, Color, DucatPurchase, GamePhase, GameState, PlayerState,
-    SellCardInstance, MAX_BUYERS, NUM_COLORS,
+    Ability, Choice, DucatPurchase, GamePhase, GameState, NUM_COLORS,
 };
-use crate::unordered_cards::UnorderedCards;
 
 type Ranking = (u32, usize, u32);
 
@@ -98,49 +97,6 @@ impl Solver {
             let mut next = state.clone();
             apply_choice(&mut next, self.player, choice, &mut self.rng);
             self.search(&next);
-        }
-    }
-}
-
-/// What decides the rest of a turn and where it leaves the player, kept whole
-/// so that positions merge only when they are the same. A choice names cards by
-/// type and takes the lowest-numbered copy, so whichever order reaches a
-/// position holds the same copies of each. What was sold follows from which
-/// buyers are left; the deck, the round and the cards already workshopped play
-/// no further part.
-#[derive(PartialEq, Eq, Hash)]
-struct Position {
-    pending: AbilityStack,
-    workshop: UnorderedCards,
-    drafted: UnorderedCards,
-    wheel: [u8; NUM_COLORS],
-    materials: [u32; 3],
-    ducats: u32,
-    wilds: u32,
-    boats: u32,
-    buyers: [Option<SellCardInstance>; MAX_BUYERS],
-}
-
-impl Position {
-    fn of(state: &GameState, player_index: usize) -> Self {
-        let player = &state.players[player_index];
-        let GamePhase::Action { action_state } = &state.phase else {
-            unreachable!("a turn is played in the action phase");
-        };
-        let mut buyers = [None; MAX_BUYERS];
-        for (slot, buyer) in buyers.iter_mut().zip(player.buyers.iter()) {
-            *slot = Some(*buyer);
-        }
-        Position {
-            pending: action_state.turns[player_index].ability_stack.clone(),
-            workshop: player.workshop_cards,
-            drafted: player.drafted_cards,
-            wheel: player.color_wheel.counts,
-            materials: player.materials.counts,
-            ducats: player.ducats,
-            wilds: player.wild_primaries,
-            boats: player.boats,
-            buyers,
         }
     }
 }
@@ -336,54 +292,6 @@ fn worth_trying(state: &GameState, player_index: usize) -> Vec<Choice> {
         _ => 3,
     });
     choices
-}
-
-/// How many more of each color mixing could still put toward a sale.
-///
-/// A tertiary is needed as far as the remaining buyers ask for more than the
-/// wheel holds; a secondary, as far as they and the tertiaries still needed
-/// ask for more. Any other mix only spends colors: taking it out of a line
-/// leaves every later step affordable and the score no lower. That takes three
-/// things. A secondary or tertiary on the wheel is spent only on a sale or on
-/// mixing what is needed. A sale that a wheel with more colors could no longer
-/// avoid needs no avoiding: a Sell only ever comes from trashing a card that
-/// does nothing else, or from a ducat. And a primary kept back can only pay
-/// where a wild primary would have, which keeps the wild. Primaries are never
-/// made, so they have no entry.
-fn mix_needs(player: &PlayerState) -> [u8; NUM_COLORS] {
-    let mut wanted = [0u8; NUM_COLORS];
-    for buyer in player.buyers.iter() {
-        for &(color, count) in buyer.sell_card.stats().colors() {
-            wanted[color.index()] += count;
-        }
-    }
-    let held = &player.color_wheel.counts;
-    let mut need = [0u8; NUM_COLORS];
-    for tertiary in TERTIARIES {
-        let t = tertiary.index();
-        need[t] = wanted[t].saturating_sub(held[t]);
-    }
-    for tertiary in TERTIARIES {
-        let (_, secondary) = unmix_components(tertiary);
-        wanted[secondary.index()] += need[tertiary.index()];
-    }
-    for secondary in SECONDARIES {
-        let s = secondary.index();
-        need[s] = wanted[s].saturating_sub(held[s]);
-    }
-    need
-}
-
-/// Whether every mix makes something still needed. Making a tertiary uses up
-/// one of the secondary it needs and one of what that secondary is needed for,
-/// so the order of a sequence makes no difference here.
-fn mixes_are_needed(mixes: &[(Color, Color)], need: &[u8; NUM_COLORS]) -> bool {
-    let mut made = [0u8; NUM_COLORS];
-    mixes.iter().all(|&(a, b)| {
-        let product = mix_result(a, b).index();
-        made[product] += 1;
-        made[product] <= need[product]
-    })
 }
 
 #[cfg(test)]
