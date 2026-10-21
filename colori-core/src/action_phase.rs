@@ -82,7 +82,16 @@ pub fn process_ability_stack(state: &mut GameState, player_index: usize) {
                 continue;
             }
             Ability::MixColors { .. } => {
-                return; // always needs input
+                // A mix nobody can make has one answer, mixing nothing, which
+                // `enumerate_mix_sequences` spells as an empty sequence. Popping
+                // it here is that answer, taken without asking: a position no
+                // one can choose differently at is not a decision. The same
+                // reason the `Workshop` and `Sell` arms above fizzle.
+                if can_mix_any(&state.players[player_index]) {
+                    return; // waiting for input
+                }
+                ability_stack_mut(state, player_index).pop();
+                continue;
             }
             Ability::MoveToDraftPool => {
                 return; // always needs input
