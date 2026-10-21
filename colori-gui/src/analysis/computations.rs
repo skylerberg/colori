@@ -272,6 +272,7 @@ pub fn format_choice(choice: &Choice) -> String {
         Choice::DraftPick { card } => {
             format!("Drafted {}", card_name(card))
         }
+        Choice::KeepCard { card } => format!("Kept {}", card_name(card)),
         Choice::TrashDraftedCard { card } => {
             format!("Trashed {} from draft", card_name(card))
         }
