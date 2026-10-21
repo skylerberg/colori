@@ -511,7 +511,7 @@ impl ColoriSearcher {
         );
 
         let search_config = mcts::Config {
-            iterations: config.iterations,
+            iterations: config.iterations_for(&state.phase),
             time_limit_ms: config.time_limit_ms,
             exploration_constant: config.exploration_constant,
             progressive_bias_weight: config.progressive_bias_weight,
@@ -723,6 +723,60 @@ mod tests {
         }
 
         panic!("seed={seed} players={num_players}: game did not finish in 5000 steps");
+    }
+
+    /// Play at random until the game reaches `phase`.
+    fn advance_until(state: &mut GameState, rng: &mut WyRand, phase: impl Fn(&GameState) -> bool) {
+        while !phase(state) {
+            if matches!(state.phase, GamePhase::Draw) {
+                execute_draw_phase(state, rng);
+                continue;
+            }
+            let GameStatus::AwaitingAction { player_index } = get_game_status(state, None) else {
+                unreachable!("round 1 reaches both phases");
+            };
+            let choices = enumerate_choices(state, player_index);
+            let pick = rng.next_u64() % choices.len() as u64;
+            apply_choice_to_state(state, player_index, &choices[pick as usize], rng);
+        }
+    }
+
+    /// The budget a phase is configured with is the visits it spends: a draft
+    /// pick searches with its own, an action choice with its own.
+    #[test]
+    fn a_per_phase_budget_is_what_each_phase_spends() {
+        let mut rng = WyRand::seed_from_u64(11);
+        let mut state = create_initial_game_state(3, &[true; 3], &mut rng);
+        execute_draw_phase(&mut state, &mut rng);
+
+        let mut budgeted = config(4_000);
+        budgeted.draft_iterations = Some(37);
+        budgeted.action_iterations = Some(53);
+        // Otherwise a settled position stops early and spends fewer visits.
+        budgeted.early_termination = false;
+
+        let horizon = Some(std::cmp::max(8, state.round + 2));
+        advance_until(&mut state, &mut rng, |s| matches!(s.phase, GamePhase::Draft { .. }));
+        let GameStatus::AwaitingAction { player_index } = get_game_status(&state, None) else {
+            unreachable!("round 1 passes through a draft");
+        };
+        let mut searcher = ColoriSearcher::new(&state);
+        let draft = searcher.search(&state, player_index, &budgeted, horizon, &mut rng);
+        assert_eq!(
+            draft.iterations_used, 37,
+            "a draft pick spends the draft budget"
+        );
+
+        advance_until(&mut state, &mut rng, |s| matches!(s.phase, GamePhase::Action { .. }));
+        let GameStatus::AwaitingAction { player_index } = get_game_status(&state, None) else {
+            unreachable!("the action phase has a seat still acting");
+        };
+        let mut searcher = ColoriSearcher::new(&state);
+        let action = searcher.search(&state, player_index, &budgeted, horizon, &mut rng);
+        assert_eq!(
+            action.iterations_used, 53,
+            "an action choice spends the action budget"
+        );
     }
 
     #[test]

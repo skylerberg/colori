@@ -43,6 +43,10 @@ pub struct GameRunOutput {
     pub duration_ms: Option<u64>,
     pub player_time_ms: Vec<u64>,
     pub player_iterations: Vec<u64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub player_draft_iterations: Vec<u64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub player_action_iterations: Vec<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub iterations: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -119,6 +123,14 @@ pub fn format_variant_label(variant: &NamedVariant, differing: &DifferingFields)
     if differing.max_rollout_steps_differs {
         parts.push(format!("rollout={}", config.max_rollout_steps));
     }
+    if differing.phase_budgets_differ {
+        // Draft first, action second.
+        parts.push(format!(
+            "draft={} action={}",
+            format_iterations(config.draft_iterations.unwrap_or(config.iterations)),
+            format_iterations(config.action_iterations.unwrap_or(config.iterations)),
+        ));
+    }
     if parts.is_empty() {
         if let Some(tl) = config.time_limit_ms {
             parts.push(format_time_limit(tl));
@@ -134,6 +146,8 @@ pub struct DifferingFields {
     pub exploration_constant_differs: bool,
     pub max_rollout_steps_differs: bool,
     pub time_limit_differs: bool,
+    /// Draft and action budgets set separately, so a label has to say which.
+    pub phase_budgets_differ: bool,
 }
 
 pub fn compute_differing_fields(variants: &[NamedVariant]) -> DifferingFields {
@@ -143,6 +157,7 @@ pub fn compute_differing_fields(variants: &[NamedVariant]) -> DifferingFields {
             exploration_constant_differs: false,
             max_rollout_steps_differs: false,
             time_limit_differs: false,
+            phase_budgets_differ: false,
         };
     }
     let first = &variants[0].ai;
@@ -151,6 +166,9 @@ pub fn compute_differing_fields(variants: &[NamedVariant]) -> DifferingFields {
         exploration_constant_differs: variants.iter().any(|v| v.ai.exploration_constant != first.exploration_constant),
         max_rollout_steps_differs: variants.iter().any(|v| v.ai.max_rollout_steps != first.max_rollout_steps),
         time_limit_differs: variants.iter().any(|v| v.ai.time_limit_ms != first.time_limit_ms),
+        phase_budgets_differ: variants
+            .iter()
+            .any(|v| v.ai.draft_iterations != first.draft_iterations || v.ai.action_iterations != first.action_iterations),
     }
 }
 
@@ -162,7 +180,11 @@ pub fn has_any_difference(variants: &[NamedVariant]) -> bool {
         return true;
     }
     let diff = compute_differing_fields(variants);
-    diff.iterations_differs || diff.exploration_constant_differs || diff.max_rollout_steps_differs || diff.time_limit_differs
+    diff.iterations_differs
+        || diff.exploration_constant_differs
+        || diff.max_rollout_steps_differs
+        || diff.time_limit_differs
+        || diff.phase_budgets_differ
 }
 
 fn variant_to_player_variant(variant: &NamedVariant) -> PlayerVariant {
@@ -172,6 +194,8 @@ fn variant_to_player_variant(variant: &NamedVariant) -> PlayerVariant {
         name: variant.name.clone(),
         algorithm: Some("ucb".to_string()),
         iterations: config.iterations,
+        draft_iterations: config.draft_iterations,
+        action_iterations: config.action_iterations,
         time_limit_ms: config.time_limit_ms,
         exploration_constant: if config.exploration_constant != base.exploration_constant {
             Some(config.exploration_constant)
@@ -282,6 +306,8 @@ pub fn run_game(
     let mut searcher = ColoriSearcher::new(&state);
     let mut player_time = vec![std::time::Duration::ZERO; num_players];
     let mut player_iterations_count = vec![0u64; num_players];
+    let mut player_draft_iterations = vec![0u64; num_players];
+    let mut player_action_iterations = vec![0u64; num_players];
 
     let mut decide = |searcher: &mut ColoriSearcher, state: &GameState, player_index: usize, rng: &mut WyRand| {
         let config = &shuffled_variants[player_index].ai;
@@ -300,6 +326,11 @@ pub fn run_game(
         let result = searcher.search(state, player_index, config, Some(max_rollout_round), rng);
         player_time[player_index] += mcts_start.elapsed();
         player_iterations_count[player_index] += result.iterations_used as u64;
+        match &state.phase {
+            GamePhase::Draft { .. } => player_draft_iterations[player_index] += result.iterations_used as u64,
+            GamePhase::Action { .. } => player_action_iterations[player_index] += result.iterations_used as u64,
+            _ => {}
+        }
         result.choice
     };
 
@@ -413,6 +444,8 @@ pub fn run_game(
         duration_ms,
         player_time_ms,
         player_iterations: player_iterations_count,
+        player_draft_iterations,
+        player_action_iterations,
         iterations: log_iterations,
         player_variants: log_player_variants,
         note,

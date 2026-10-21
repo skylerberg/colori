@@ -127,6 +127,13 @@ struct VariantFileEntry {
     name: Option<String>,
     #[serde(default)]
     iterations: Option<u32>,
+    /// Draft picks are searched with this budget instead of `iterations`.
+    #[serde(default)]
+    draft_iterations: Option<u32>,
+    /// Action-phase choices are searched with this budget instead of
+    /// `iterations`.
+    #[serde(default)]
+    action_iterations: Option<u32>,
     #[serde(default)]
     exploration_constant: Option<f64>,
     #[serde(default)]
@@ -174,6 +181,8 @@ impl VariantFileEntry {
             name: self.name,
             ai: MctsConfig {
                 iterations: self.iterations.unwrap_or(base.iterations),
+                draft_iterations: self.draft_iterations,
+                action_iterations: self.action_iterations,
                 exploration_constant: self.exploration_constant.unwrap_or(base.exploration_constant),
                 max_rollout_steps: self.max_rollout_steps.unwrap_or(base.max_rollout_steps),
                 use_heuristic_eval: self.use_heuristic_eval.unwrap_or(base.use_heuristic_eval),
@@ -227,4 +236,32 @@ pub fn load_heuristic_params(path: &str) -> HeuristicParams {
 
 pub fn default_heuristic_params() -> HeuristicParams {
     serde_json::from_str(HeuristicParams::DEFAULT_JSON).expect("Failed to parse the default heuristic params")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse(entry: &str) -> NamedVariant {
+        serde_json::from_str::<VariantFileEntry>(entry)
+            .expect("a variant entry should parse")
+            .into_named_variant()
+    }
+
+    /// A variant file can give the draft and the action phase their own
+    /// budgets, leaving the phases the JSON does not name on the base budget.
+    #[test]
+    fn a_variant_file_sets_a_budget_per_phase() {
+        let params = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../genetic-algorithm/batch-alobyo-gen-45.json"
+        );
+        let variant = parse(&format!(
+            r#"{{ "iterations": 4000, "actionIterations": 1000,
+                  "heuristicParamsFile": "{params}" }}"#
+        ));
+        assert_eq!(variant.ai.iterations, 4_000);
+        assert_eq!(variant.ai.action_iterations, Some(1_000));
+        assert_eq!(variant.ai.draft_iterations, None);
+    }
 }
