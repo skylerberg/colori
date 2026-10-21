@@ -16,6 +16,7 @@
 //!
 //! ```sh
 //! cargo run --release -p colori-core --example turn_plan_census -- [players] [seeds] [budget] [plan cap]
+//! cargo run --release -p colori-core --example turn_plan_census -- dump [players] [seed] [round] [player]
 //! ```
 //!
 //! `budget` bounds the total turn positions expanded, so a pathological turn
@@ -28,8 +29,8 @@ use colori_core::choices::enumerate_choices;
 use colori_core::colori_game::{apply_choice_to_state, get_game_status, GameStatus};
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::setup::create_initial_game_state;
-use colori_core::turn_plan::{enumerate_turn_plans, PlanLimits, TurnPlans};
-use colori_core::types::{Choice, GamePhase, GameState};
+use colori_core::turn_plan::{enumerate_turn_plans, PlanLimits, TurnPlan, TurnPlans};
+use colori_core::types::{Card, Choice, DucatPurchase, GamePhase, GameState, WorkshopCards};
 use rand::{RngExt, SeedableRng};
 use wyrand::WyRand;
 
@@ -116,6 +117,10 @@ impl Census {
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().is_some_and(|arg| arg == "dump") {
+        dump_one(&args[1..]);
+        return;
+    }
     let number = |i: usize, default: usize| -> usize {
         args.get(i)
             .map(|arg| arg.parse().unwrap_or_else(|_| panic!("{arg:?} is not a number")))
@@ -172,47 +177,204 @@ fn main() {
     report(&census, players, seeds, budget);
 }
 
-/// How many different sets of actions the plans take, once everything that
-/// answers an ability is collapsed. A plan's actions are the trashes it takes
-/// and the ducats it spends; what a workshop takes, which mixes are made and
-/// which buyer is sold to are resolutions, not choices of action.
-fn skeletons(state: &GameState, player: usize, plans: &[colori_core::turn_plan::TurnPlan]) -> usize {
+/// One action of a plan: a trash, or a ducat spent. Everything that *answers*
+/// an ability — which cards a workshop takes, which mixes, which buyer is sold
+/// to — rides along inside the trash's choice, and is not an action.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Action {
+    Trash { group: u8, card: Card },
+    Ducat(DucatPurchase),
+}
+
+const TRASH_TO_POOL: u8 = 0;
+const TRASH_FOR_GAIN: u8 = 1;
+const TRASH_FOR_WORKSHOP: u8 = 2;
+const TRASH_FOR_MIX: u8 = 3;
+const TRASH_FOR_SELL: u8 = 4;
+
+impl Action {
+    /// For grouping and counting: the group, then the card or purchase.
+    fn key(self) -> (u8, u8) {
+        match self {
+            Action::Trash { group, card } => (group, card as u8),
+            Action::Ducat(purchase) => (5, purchase as u8),
+        }
+    }
+
+    fn name(self) -> String {
+        match self {
+            Action::Trash { group, card } => {
+                let verb = match group {
+                    TRASH_TO_POOL => "to the draft pool",
+                    TRASH_FOR_GAIN => "for what it gives",
+                    TRASH_FOR_WORKSHOP => "for a workshop",
+                    TRASH_FOR_MIX => "for a mix",
+                    _ => "for a sale",
+                };
+                format!("trash {} {verb}", card.name())
+            }
+            Action::Ducat(purchase) => format!("spend a ducat on {}", match purchase {
+                DucatPurchase::Workshop => "a workshop",
+                DucatPurchase::MixColors => "a mix",
+                DucatPurchase::Sell => "a sale",
+            }),
+        }
+    }
+}
+
+/// The actions a plan takes, in the order it takes them.
+fn actions_of(state: &GameState, player: usize, plan: &TurnPlan) -> Vec<Action> {
+    let mut walked = state.clone();
+    let mut actions = Vec::new();
+    for choice in &plan.line {
+        if between_abilities(&walked, player) {
+            actions.extend(match choice {
+                Choice::TrashDraftedCard { card } => {
+                    Some(Action::Trash { group: TRASH_FOR_GAIN, card: *card })
+                }
+                Choice::TrashAndWorkshop { card, .. } => {
+                    Some(Action::Trash { group: TRASH_FOR_WORKSHOP, card: *card })
+                }
+                Choice::TrashAndMix { card, .. } => {
+                    Some(Action::Trash { group: TRASH_FOR_MIX, card: *card })
+                }
+                Choice::TrashAndSell { card, .. } => {
+                    Some(Action::Trash { group: TRASH_FOR_SELL, card: *card })
+                }
+                Choice::TrashAndMoveToDraftPool { card, .. } => {
+                    Some(Action::Trash { group: TRASH_TO_POOL, card: *card })
+                }
+                Choice::SpendDucat { purchase } => Some(Action::Ducat(*purchase)),
+                _ => None,
+            });
+        }
+        apply_choice_to_state(&mut walked, player, choice, &mut WyRand::seed_from_u64(0));
+    }
+    actions
+}
+
+/// A plan in one line, with the answers its actions needed spelled out.
+fn plan_label(plan: &TurnPlan) -> String {
+    let cards = |cards: &WorkshopCards| {
+        if cards.is_empty() {
+            "nothing".to_string()
+        } else {
+            cards.iter().map(|card| card.name()).collect::<Vec<_>>().join("+")
+        }
+    };
+    plan.line
+        .iter()
+        .map(|choice| match choice {
+            Choice::TrashDraftedCard { card } => format!("trash {}", card.name()),
+            Choice::TrashAndWorkshop { card, workshop_cards } => {
+                format!("trash {} for a workshop, taking {}", card.name(), cards(workshop_cards))
+            }
+            Choice::TrashAndMix { card, mixes } => {
+                format!("trash {} for {} mix(es) {mixes:?}", card.name(), mixes.len())
+            }
+            Choice::TrashAndSell { card, sell_card } => {
+                format!("trash {} for {}", card.name(), sell_card.buyer().name())
+            }
+            Choice::TrashAndMoveToDraftPool { card, target } => match target {
+                Some(target) => format!("trash {} to move {} to the pool", card.name(), target.name()),
+                None => format!("trash {} to move nothing", card.name()),
+            },
+            Choice::SpendDucat { purchase } => format!(
+                "spend a ducat on {}",
+                Action::Ducat(*purchase).name().trim_start_matches("spend a ducat on ")
+            ),
+            Choice::EndTurn => "end".to_string(),
+            other => format!("{other:?}"),
+        })
+        .collect::<Vec<_>>()
+        .join(" -> ")
+}
+
+/// How many different sets of actions the plans take.
+fn skeletons(state: &GameState, player: usize, plans: &[TurnPlan]) -> usize {
     use std::hash::{Hash, Hasher};
 
     let mut seen: std::collections::HashSet<u64> = Default::default();
-    let mut walked = state.clone();
     for plan in plans {
-        let mut actions: Vec<(u8, u8)> = Vec::new();
-        for choice in &plan.line {
-            let between_abilities = match &walked.phase {
-                GamePhase::Action { action_state } => {
-                    action_state.turns[player].ability_stack.is_empty()
-                }
-                _ => false,
-            };
-            if between_abilities {
-                let action = match choice {
-                    Choice::TrashDraftedCard { card } => Some((0, *card as u8)),
-                    Choice::TrashAndWorkshop { card, .. } => Some((1, *card as u8)),
-                    Choice::TrashAndMix { card, .. } => Some((2, *card as u8)),
-                    Choice::TrashAndSell { card, .. } => Some((3, *card as u8)),
-                    Choice::TrashAndMoveToDraftPool { card, .. } => Some((4, *card as u8)),
-                    Choice::SpendDucat { purchase } => Some((5, *purchase as u8)),
-                    _ => None,
-                };
-                if let Some(action) = action {
-                    actions.push(action);
-                }
-            }
-            apply_choice_to_state(&mut walked, player, choice, &mut WyRand::seed_from_u64(0));
-        }
-        actions.sort_unstable();
+        let mut keys: Vec<(u8, u8)> = actions_of(state, player, plan).iter().map(|a| a.key()).collect();
+        keys.sort_unstable();
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        actions.hash(&mut hasher);
+        keys.hash(&mut hasher);
         seen.insert(hasher.finish());
-        walked = state.clone();
     }
     seen.len()
+}
+
+/// Print one turn's plans grouped by the actions they take, so that what an
+/// action set is and what answering its abilities adds can be read directly.
+fn dump(state: &GameState, player: usize) {
+    use std::collections::BTreeMap;
+
+    let found = enumerate_turn_plans(state, player, PlanLimits::capped(50_000, 3_000_000));
+    let mut groups: BTreeMap<Vec<(u8, u8)>, Vec<&TurnPlan>> = BTreeMap::new();
+    for plan in &found.plans {
+        let mut key: Vec<(u8, u8)> = actions_of(state, player, plan).iter().map(|a| a.key()).collect();
+        key.sort_unstable();
+        groups.entry(key).or_default().push(plan);
+    }
+    let turns = &state.players[player];
+    println!(
+        "round {} player {player}: {} end states from {} action sets, {} turn positions walked{}",
+        state.round,
+        found.plans.len(),
+        groups.len(),
+        found.positions,
+        if found.truncated { " (capped)" } else { "" },
+    );
+    let cards = |cards: &colori_core::unordered_cards::UnorderedCards| {
+        cards
+            .iter()
+            .map(|id| state.card_lookup[id as usize].name())
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    println!("  drafted:  {}", cards(&turns.drafted_cards));
+    println!("  workshop: {}", cards(&turns.workshop_cards));
+    println!(
+        "  {} ducats, {} wilds, {} boats; buyers: {}",
+        turns.ducats,
+        turns.wild_primaries,
+        turns.boats,
+        turns
+            .buyers
+            .iter()
+            .map(|buyer| buyer.sell_card.buyer().name())
+            .collect::<Vec<_>>()
+            .join(", "),
+    );
+
+    let mut groups: Vec<_> = groups.into_iter().collect();
+    groups.sort_by_key(|(_, plans)| std::cmp::Reverse(plans.len()));
+    for (key, plans) in groups.iter().take(3) {
+        let named: Vec<String> = actions_of(state, player, plans[0])
+            .iter()
+            .map(|action| action.name())
+            .collect();
+        println!(
+            "\n  {} end states from {} action set: {}",
+            plans.len(),
+            if key.is_empty() { "the empty" } else { "one" },
+            if named.is_empty() { "end the turn".to_string() } else { named.join(" + ") },
+        );
+        for plan in plans.iter().take(4) {
+            println!("    {}", plan_label(plan));
+        }
+        if plans.len() > 4 {
+            println!("    ... {} more", plans.len() - 4);
+        }
+    }
+}
+
+fn between_abilities(state: &GameState, player: usize) -> bool {
+    match &state.phase {
+        GamePhase::Action { action_state } => action_state.turns[player].ability_stack.is_empty(),
+        _ => false,
+    }
 }
 
 fn median(values: &mut [usize]) -> usize {
@@ -230,6 +392,36 @@ fn percentile(values: &mut [usize], percent: usize) -> usize {
     values.sort_unstable();
     let index = (values.len() - 1) * percent / 100;
     values[index]
+}
+
+/// `dump [players] [seed] [round] [player]`: one turn's plans, grouped.
+fn dump_one(args: &[String]) {
+    let number = |i: usize, default: usize| -> usize {
+        args.get(i)
+            .map(|arg| arg.parse().unwrap_or_else(|_| panic!("{arg:?} is not a number")))
+            .unwrap_or(default)
+    };
+    let (players, seed, round, player) = (number(0, 3), number(1, 0) as u64, number(2, 1), number(3, 0));
+    let mut rng = WyRand::seed_from_u64(seed);
+    let mut state = create_initial_game_state(players, &vec![true; players], &mut rng);
+    execute_draw_phase(&mut state, &mut rng);
+    let mut sampled_round = 0;
+    while !matches!(state.phase, GamePhase::GameOver) {
+        if matches!(state.phase, GamePhase::Action { .. }) && state.round != sampled_round {
+            sampled_round = state.round;
+            if state.round == round as u32 {
+                dump(&state, player);
+                return;
+            }
+        }
+        let GameStatus::AwaitingAction { player_index } = get_game_status(&state, None) else {
+            break;
+        };
+        let choices = enumerate_choices(&state, player_index);
+        let choice = choices[rng.random_range(0..choices.len())];
+        apply_choice_to_state(&mut state, player_index, &choice, &mut rng);
+    }
+    panic!("the game ended before round {round}");
 }
 
 fn report(census: &Census, players: usize, seeds: usize, budget: usize) {
