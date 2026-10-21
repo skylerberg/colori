@@ -255,6 +255,11 @@ fn actions_of(state: &GameState, player: usize, plan: &TurnPlan) -> Vec<Action> 
 
 /// A plan in one line, with the answers its actions needed spelled out.
 fn plan_label(plan: &TurnPlan) -> String {
+    plan_segments(plan).join(" -> ")
+}
+
+/// A plan's choices, each with the answers it needed spelled out.
+fn plan_segments(plan: &TurnPlan) -> Vec<String> {
     let cards = |cards: &WorkshopCards| {
         if cards.is_empty() {
             "nothing".to_string()
@@ -286,8 +291,90 @@ fn plan_label(plan: &TurnPlan) -> String {
             Choice::EndTurn => "end".to_string(),
             other => format!("{other:?}"),
         })
-        .collect::<Vec<_>>()
-        .join(" -> ")
+        .collect()
+}
+
+/// A tree of the plans in one action set: every choice, how many tie-offs it
+/// offered, and how many end states hang below it.
+#[derive(Default)]
+struct Trie {
+    children: Vec<(String, Trie)>,
+    /// Plans whose line ends at or below this node.
+    ends: usize,
+}
+
+impl Trie {
+    fn of(plans: &[&TurnPlan]) -> Trie {
+        let mut root = Trie::default();
+        for plan in plans {
+            let mut node = &mut root;
+            node.ends += 1;
+            for segment in plan_segments(plan) {
+                let index = match node.children.iter().position(|(label, _)| *label == segment) {
+                    Some(index) => index,
+                    None => {
+                        node.children.push((segment, Trie::default()));
+                        node.children.len() - 1
+                    }
+                };
+                node = &mut node.children[index].1;
+                node.ends += 1;
+            }
+        }
+        root
+    }
+
+    /// How many nodes the tree has at each depth, and how many branches each
+    /// of them offers on average. The multiplication the count comes from is
+    /// the growth of the node count, level by level, down to the leaves.
+    fn profile(&self) -> String {
+        let mut lines = Vec::new();
+        let mut frontier = vec![self];
+        let mut depth = 0;
+        while !frontier.is_empty() {
+            let mut next = Vec::new();
+            let mut branches = 0;
+            let mut widest = 0;
+            for node in &frontier {
+                branches += node.children.len();
+                widest = widest.max(node.children.len());
+                next.extend(node.children.iter().map(|(_, child)| child));
+            }
+            let mean = branches as f64 / frontier.len() as f64;
+            lines.push(format!(
+                "{}nodes {:>5}  branches/node {:>5.1}  widest {widest:>3}",
+                if depth == 0 { "  " } else { "    " },
+                frontier.len(),
+                mean,
+            ));
+            depth += 1;
+            frontier = next;
+        }
+        lines.join("\n")
+    }
+
+    fn print(&self, depth: usize, out: &mut String) {
+        const SHOWN: usize = 6;
+        let shown = self.children.len().min(SHOWN);
+        for (label, child) in self.children.iter().take(shown) {
+            out.push_str(&format!(
+                "{}{label}  [{} tie-offs here, {} end states]\n",
+                "  ".repeat(depth + 1),
+                child.children.len(),
+                child.ends,
+            ));
+            child.print(depth + 1, out);
+        }
+        let hidden: usize = self.children[shown..].iter().map(|(_, child)| child.ends).sum();
+        if self.children.len() > shown {
+            out.push_str(&format!(
+                "{}... {} more tie-offs, {hidden} end states",
+                "  ".repeat(depth + 1),
+                self.children.len() - shown,
+            ));
+            out.push('\n');
+        }
+    }
 }
 
 /// How many different sets of actions the plans take.
@@ -366,6 +453,14 @@ fn dump(state: &GameState, player: usize) {
         }
         if plans.len() > 4 {
             println!("    ... {} more", plans.len() - 4);
+        }
+        if std::ptr::eq(plans, &groups[0].1) {
+            let mut out = String::new();
+            let trie = Trie::of(plans);
+            println!("\n  the same action set as a tree:");
+            trie.print(1, &mut out);
+            print!("{out}");
+            println!("\n  level by level:\n{}", trie.profile());
         }
     }
 }
