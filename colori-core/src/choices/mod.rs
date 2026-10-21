@@ -21,12 +21,11 @@ use multiset::{count_card_types, enumerate_multiset_subsets, enumerate_multiset_
 /// is strictly worse and the smaller subsets are dead branches in the search
 /// tree.
 pub(crate) fn should_force_max_workshop(state: &GameState, player: &PlayerState) -> bool {
-    state.force_max_workshop
-        && !player.drafted_cards.iter().any(|id| {
-            state.card_lookup[id as usize]
-                .trash_abilities()
-                .contains(&Ability::MoveToDraftPool)
-        })
+    !player.drafted_cards.iter().any(|id| {
+        state.card_lookup[id as usize]
+            .trash_abilities()
+            .contains(&Ability::MoveToDraftPool)
+    })
 }
 
 // ── Choice enumeration ──
@@ -75,7 +74,14 @@ pub fn enumerate_choices_into(state: &GameState, player_index: usize, choices: &
                     let (card_types, type_counts, len) = count_card_types(player.workshop_cards, &state.card_lookup);
                     let total_available: usize = type_counts[..len].iter().map(|&c| c as usize).sum();
                     if force_max {
-                        if total_available <= *count as usize {
+                        if total_available == 0 {
+                            // `process_ability_stack` pops a Workshop ability
+                            // with nothing to choose from, so this is
+                            // unreachable today; skipping is what the game does
+                            // with it, and the alternative would be an empty
+                            // offer the choice checker rejects.
+                            choices.push(Choice::SkipWorkshop);
+                        } else if total_available <= *count as usize {
                             // Only one option: workshop everything
                             let mut all_cards = WorkshopCards::new();
                             for i in 0..len {

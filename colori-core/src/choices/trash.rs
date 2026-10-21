@@ -18,8 +18,8 @@ pub(super) struct WorkshopTally {
 }
 
 struct WorkshopTallyInner {
-    card_types: [Card; 46],
-    type_counts: [u8; 46],
+    card_types: [Card; NUM_CARDS],
+    type_counts: [u8; NUM_CARDS],
     len: usize,
     force_max: bool,
 }

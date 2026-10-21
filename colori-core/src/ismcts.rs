@@ -28,7 +28,6 @@ pub struct MctsConfig {
     pub early_termination: bool,
     pub time_limit_ms: Option<u64>,
     pub random_first_pick: bool,
-    pub force_max_workshop: bool,
     /// Search a graph that merges every route into one position, rather than a
     /// tree that grows one node per order of play. See `crate::transposition`
     /// for which positions are merged.
@@ -51,7 +50,6 @@ impl MctsConfig {
             early_termination: true,
             time_limit_ms: None,
             random_first_pick: false,
-            force_max_workshop: true,
             transpositions: false,
         }
     }
@@ -111,7 +109,6 @@ impl<'de> Deserialize<'de> for MctsConfig {
             early_termination: helper.early_termination,
             time_limit_ms: helper.time_limit_ms,
             random_first_pick: helper.random_first_pick,
-            force_max_workshop: true,
             transpositions: helper.transpositions,
         })
     }

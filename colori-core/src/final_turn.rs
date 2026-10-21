@@ -45,10 +45,7 @@ pub fn solve(state: &GameState, player: usize) -> Option<Choice> {
         return None;
     }
 
-    let mut root = state.clone();
-    // Workshopping fewer cards than a pick allows is never better, unless a
-    // card held back could be moved to the draft pool, which the pruning checks.
-    root.force_max_workshop = true;
+    let root = state.clone();
     let mut solver = Solver {
         player,
         best: None,
@@ -401,6 +398,7 @@ mod tests {
     use crate::colori_game::{apply_choice_to_state, get_game_status, GameStatus};
     use crate::draw_phase::execute_draw_phase;
     use crate::setup::create_initial_game_state;
+    use crate::types::{Card, WorkshopCards};
 
     fn taking_turn(state: &GameState, player: usize) -> bool {
         matches!(&state.phase, GamePhase::Action { action_state } if !action_state.turns[player].ended)
@@ -423,6 +421,77 @@ mod tests {
         state
     }
 
+    /// Every choice the game allows, including the workshop subsets the
+    /// solver's pruning sets aside. The brute force must not share the pruning
+    /// it is checking, so it widens the workshop choices itself: any non-empty
+    /// subset up to the picks granted, plus taking none.
+    fn all_choices(state: &GameState, player: usize) -> Vec<Choice> {
+        let cards: Vec<Card> = state.players[player]
+            .workshop_cards
+            .iter()
+            .map(|id| state.card_lookup[id as usize])
+            .collect();
+        let subsets = |count: u32| -> Vec<WorkshopCards> {
+            let mut out = Vec::new();
+            for mask in 1u32..1 << cards.len() {
+                if mask.count_ones() > count {
+                    continue;
+                }
+                let mut picked = WorkshopCards::new();
+                for (i, &card) in cards.iter().enumerate() {
+                    if mask >> i & 1 == 1 {
+                        picked.push(card);
+                    }
+                }
+                out.push(picked);
+            }
+            out
+        };
+        let pending_workshop = match &state.phase {
+            GamePhase::Action { action_state } => match action_state.turns[player].ability_stack.last() {
+                Some(Ability::Workshop { count }) => Some(*count),
+                _ => None,
+            },
+            _ => None,
+        };
+
+        let mut choices = Vec::new();
+        for choice in enumerate_choices(state, player) {
+            match choice {
+                Choice::Workshop { .. } => {
+                    let count = pending_workshop.expect("a workshop choice answers a workshop");
+                    choices.push(Choice::SkipWorkshop);
+                    choices.extend(
+                        subsets(count)
+                            .into_iter()
+                            .map(|card_types| Choice::Workshop { card_types }),
+                    );
+                }
+                Choice::TrashAndWorkshop { card, .. } => {
+                    let Ability::Workshop { count } = card.trash_abilities()[0] else {
+                        unreachable!("a workshop follows only a card that grants one")
+                    };
+                    choices.push(Choice::TrashAndWorkshop {
+                        card,
+                        workshop_cards: WorkshopCards::new(),
+                    });
+                    choices.extend(subsets(count).into_iter().map(|workshop_cards| {
+                        Choice::TrashAndWorkshop { card, workshop_cards }
+                    }));
+                }
+                other => choices.push(other),
+            }
+        }
+        // Two copies of a card make the same subset more than once.
+        let mut unique: Vec<Choice> = Vec::with_capacity(choices.len());
+        for choice in choices {
+            if !unique.contains(&choice) {
+                unique.push(choice);
+            }
+        }
+        unique
+    }
+
     /// The best ranking any line of legal choices ends with, found by trying
     /// them all, or `None` if that takes more than `budget` choices. Checks on
     /// the way that no position's ceiling is below it.
@@ -438,7 +507,7 @@ mod tests {
         }
         let mut rng = WyRand::seed_from_u64(0);
         let mut ranking = (0, 0, 0);
-        for choice in enumerate_choices(state, player) {
+        for choice in all_choices(state, player) {
             *budget = budget.checked_sub(1)?;
             let after = if choice == Choice::EndTurn {
                 player_ranking(&state.players[player])
@@ -483,8 +552,7 @@ mod tests {
         for seed in 0..20 {
             let players = 2 + seed as usize % 3;
             let rounds = 2 + seed as u32 % 3;
-            let mut state = last_turn(players, rounds, seed);
-            state.force_max_workshop = false;
+            let state = last_turn(players, rounds, seed);
             let mut rng = WyRand::seed_from_u64(seed);
             for player in 0..players {
                 let mut position = state.clone();

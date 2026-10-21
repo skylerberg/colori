@@ -152,8 +152,6 @@ struct VariantFileEntry {
     #[serde(default)]
     random_first_pick: Option<bool>,
     #[serde(default)]
-    force_max_workshop: Option<bool>,
-    #[serde(default)]
     transpositions: Option<bool>,
 }
 
@@ -185,7 +183,6 @@ impl VariantFileEntry {
                 early_termination: self.early_termination.unwrap_or(base.early_termination),
                 time_limit_ms: self.time_limit_ms,
                 random_first_pick: self.random_first_pick.unwrap_or(base.random_first_pick),
-                force_max_workshop: self.force_max_workshop.unwrap_or(base.force_max_workshop),
                 transpositions: self.transpositions.unwrap_or(base.transpositions),
             },
         }
