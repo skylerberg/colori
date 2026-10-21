@@ -132,7 +132,6 @@ mod tests {
             false,
             1000,
             false,
-            true,
             0.75,
         )
     }

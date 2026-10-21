@@ -74,7 +74,6 @@ pub struct SearchContext {
     pub max_rollout_steps: u32,
     /// Skip the rollout and evaluate the leaf directly.
     pub no_rollout: bool,
-    pub force_max_workshop: bool,
     /// Used by the DUCT bandit, which runs its own UCB outside the tree.
     pub exploration_constant: f64,
     /// The round whose action phase the search began in, if it began in one:
@@ -97,7 +96,6 @@ impl SearchContext {
         heuristic_draft: bool,
         max_rollout_steps: u32,
         no_rollout: bool,
-        force_max_workshop: bool,
         exploration_constant: f64,
     ) -> Self {
         let (effective_max_rollout_round, use_heuristic) = if use_heuristic_eval {
@@ -129,7 +127,6 @@ impl SearchContext {
             heuristic_draft,
             max_rollout_steps,
             no_rollout,
-            force_max_workshop,
             exploration_constant,
             merge_round: matches!(state.phase, GamePhase::Action { .. }).then_some(state.round),
         }
@@ -307,9 +304,6 @@ impl Game for GameState {
             &ctx.cached_whole_points,
             &mut rng,
         );
-        // A search-policy flag that prunes legal moves, so it has to survive
-        // being overwritten by the clone inside determinization.
-        dest.force_max_workshop = ctx.force_max_workshop;
     }
 
     fn advance<R: Rng + ?Sized>(
@@ -510,7 +504,6 @@ impl ColoriSearcher {
             config.heuristic_draft,
             config.max_rollout_steps,
             config.no_rollout,
-            config.force_max_workshop,
             config.exploration_constant,
         );
 

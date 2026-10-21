@@ -3,12 +3,15 @@ use crate::unordered_cards::UnorderedCards;
 
 /// Count occurrences of each card type in an UnorderedCards bitset,
 /// returning a sorted array of (Card, count) pairs and the number of distinct types.
+///
+/// A workshop holds at most five cards, so this is far more room than a tally
+/// can need; `NUM_CARDS` is what bounds it whatever the card set.
 pub(super) fn count_card_types(
     mask: UnorderedCards,
     card_lookup: &[Card; 256],
-) -> ([Card; 46], [u8; 46], usize) {
-    let mut card_types = [Card::BasicRed; 46];
-    let mut type_counts = [0u8; 46];
+) -> ([Card; NUM_CARDS], [u8; NUM_CARDS], usize) {
+    let mut card_types = [Card::BasicRed; NUM_CARDS];
+    let mut type_counts = [0u8; NUM_CARDS];
     let mut len = 0usize;
     let mut seen: u64 = 0;
     for id in mask.iter() {
@@ -69,7 +72,11 @@ pub(super) fn enumerate_multiset_subsets(
             choices,
             make_choice,
         );
-        current_subset.push(card);
+        // One more copy goes on for the next pass; the last push would only
+        // overrun the picks granted before being truncated again.
+        if take < max_take {
+            current_subset.push(card);
+        }
     }
     current_subset.truncate(base_len);
 }
@@ -112,7 +119,73 @@ pub(super) fn enumerate_multiset_subsets_exact(
                 make_choice,
             );
         }
-        current_subset.push(card);
+        // As above: the last push would only overrun the picks granted.
+        if take < max_take {
+            current_subset.push(card);
+        }
     }
     current_subset.truncate(base_len);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The sizes of the subsets each enumerator offers for a workshop of
+    /// `types`, in the order it offers them.
+    fn subset_sizes(types: &[Card], counts: &[u8], picks: usize, exact: bool) -> Vec<usize> {
+        let mut choices = Vec::new();
+        let make_choice = |card_types| Choice::Workshop { card_types };
+        if exact {
+            enumerate_multiset_subsets_exact(
+                types,
+                counts,
+                picks,
+                &mut WorkshopCards::new(),
+                &mut choices,
+                &make_choice,
+            );
+        } else {
+            enumerate_multiset_subsets(
+                types,
+                counts,
+                picks,
+                &mut WorkshopCards::new(),
+                &mut choices,
+                &make_choice,
+            );
+        }
+        choices
+            .into_iter()
+            .map(|choice| match choice {
+                Choice::Workshop { card_types } => card_types.len(),
+                _ => unreachable!("only workshop choices are made here"),
+            })
+            .collect()
+    }
+
+    /// Three copies of one card is the most of any card a pick can take, and
+    /// three is all a choice holds: the last copy the recursion pushes is never
+    /// part of a subset, so it must not be pushed at all.
+    #[test]
+    fn taking_the_most_copies_stays_within_a_choice() {
+        let mut every = subset_sizes(&[Card::Realgar], &[3], 3, false);
+        every.sort_unstable();
+        assert_eq!(every, [1, 2, 3]);
+
+        assert_eq!(subset_sizes(&[Card::Realgar], &[3], 3, true), [3]);
+    }
+
+    #[test]
+    fn every_take_up_to_the_picks_is_offered() {
+        let mut every = subset_sizes(&[Card::Realgar, Card::Woad], &[2, 1], 2, false);
+        every.sort_unstable();
+        every.dedup();
+        assert_eq!(every, [1, 2]);
+
+        let mut exact = subset_sizes(&[Card::Realgar, Card::Woad], &[2, 1], 2, true);
+        exact.sort_unstable();
+        exact.dedup();
+        assert_eq!(exact, [2]);
+    }
 }

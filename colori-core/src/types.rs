@@ -12,8 +12,11 @@ pub type AbilityStack = SmallVec<[Ability; 4]>;
 /// choice can carry.
 pub const MAX_MIX_SEQUENCE: usize = 3;
 pub type MixSequence = CopyVec<(Color, Color), MAX_MIX_SEQUENCE>;
-/// The cards a workshop choice takes, by type. A workshop takes at most three.
-pub type WorkshopCards = CopyVec<Card, 4>;
+/// The most cards one Workshop ability grants. Nothing enters the workshop
+/// during a turn, so a choice never takes more than the picks it was given.
+pub const MAX_WORKSHOP_PICKS: usize = 3;
+/// The cards a workshop choice takes, by type.
+pub type WorkshopCards = CopyVec<Card, MAX_WORKSHOP_PICKS>;
 
 pub const MAX_PLAYERS: usize = 4;
 
@@ -950,12 +953,10 @@ pub struct GameState {
     pub sell_card_lookup: [SellCard; 256],
     #[serde(skip)]
     pub draw_log: Option<DrawLog>,
-    #[serde(skip)]
-    pub force_max_workshop: bool,
 }
 
-/// Equal when they are the same position. The draw log and the search's
-/// pruning flag travel with a state without being part of it.
+/// Equal when they are the same position. The draw log travels with a state
+/// without being part of it.
 impl PartialEq for GameState {
     fn eq(&self, other: &Self) -> bool {
         let GameState {
@@ -971,7 +972,6 @@ impl PartialEq for GameState {
             card_lookup,
             sell_card_lookup,
             draw_log: _,
-            force_max_workshop: _,
         } = self;
         *players == other.players
             && *draft_deck == other.draft_deck
@@ -1065,6 +1065,24 @@ pub enum Choice {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A workshop choice carries its cards in a fixed-size array, so no ability
+    /// may grant more picks than that array holds.
+    #[test]
+    fn no_ability_grants_more_workshop_picks_than_a_choice_can_hold() {
+        for card in CARD_DATA {
+            let abilities = card.trash_abilities.iter().chain(card.workshop_abilities);
+            for ability in abilities {
+                if let Ability::Workshop { count } = ability {
+                    assert!(
+                        *count as usize <= MAX_WORKSHOP_PICKS,
+                        "{} grants Workshop ×{count}",
+                        card.name
+                    );
+                }
+            }
+        }
+    }
 
     #[test]
     fn sell_card_stats_agree_with_the_buyer_tables() {
