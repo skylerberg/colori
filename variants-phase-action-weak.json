@@ -1,0 +1,18 @@
+[
+  {
+    "name": "arm: draft 4k, action 1k",
+    "iterations": 4000,
+    "actionIterations": 1000,
+    "heuristicParamsFile": "genetic-algorithm/batch-alobyo-gen-45.json"
+  },
+  {
+    "name": "ref-a: draft 4k, action 4k",
+    "iterations": 4000,
+    "heuristicParamsFile": "genetic-algorithm/batch-alobyo-gen-45.json"
+  },
+  {
+    "name": "ref-b: draft 4k, action 4k",
+    "iterations": 4000,
+    "heuristicParamsFile": "genetic-algorithm/batch-alobyo-gen-45.json"
+  }
+]

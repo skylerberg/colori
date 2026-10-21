@@ -60,6 +60,13 @@ pub struct StructuredGameLog {
     pub player_time_ms: Vec<u64>,
     #[serde(default)]
     pub player_iterations: Vec<u64>,
+    /// ["player_iterations"] summed over draft picks and over action choices
+    /// separately. A phase's budget cannot be read back off the total, which
+    /// sums both, so a run that varies a budget per phase records this too.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub player_draft_iterations: Vec<u64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub player_action_iterations: Vec<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub iterations: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -152,6 +159,12 @@ pub struct PlayerVariant {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub algorithm: Option<String>,
     pub iterations: u32,
+    /// The phase-specific budgets, when the seat searched its phases
+    /// differently. `iterations` is the budget of whichever phase is unset.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub draft_iterations: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub action_iterations: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_limit_ms: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]

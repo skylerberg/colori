@@ -17,6 +17,17 @@ use smallvec::SmallVec;
 #[derive(Clone, Debug)]
 pub struct MctsConfig {
     pub iterations: u32,
+    /// Visits a draft pick searches with; [`MctsConfig::iterations`] when unset.
+    ///
+    /// The phases differ by an order of magnitude in branching: a pick offers at
+    /// most `DRAFT_HAND_SIZE` cards, an action choice can offer dozens, so the
+    /// same budget buys very different coverage. Splitting the budget lets one
+    /// be varied without the other.
+    pub draft_iterations: Option<u32>,
+    /// Visits an action-phase choice searches with; [`MctsConfig::iterations`]
+    /// when unset. Buyers-phase draws are not action choices and keep the base
+    /// budget.
+    pub action_iterations: Option<u32>,
     pub exploration_constant: f64,
     pub max_rollout_steps: u32,
     pub use_heuristic_eval: bool,
@@ -40,6 +51,8 @@ impl MctsConfig {
     pub fn new(heuristic_params: HeuristicParams) -> Self {
         MctsConfig {
             iterations: 100,
+            draft_iterations: None,
+            action_iterations: None,
             exploration_constant: 0.75,
             max_rollout_steps: 1000,
             use_heuristic_eval: true,
@@ -55,6 +68,15 @@ impl MctsConfig {
             transpositions: false,
         }
     }
+
+    /// The budget a position in `phase` searches with.
+    pub fn iterations_for(&self, phase: &GamePhase) -> u32 {
+        match phase {
+            GamePhase::Draft { .. } => self.draft_iterations.unwrap_or(self.iterations),
+            GamePhase::Action { .. } => self.action_iterations.unwrap_or(self.iterations),
+            _ => self.iterations,
+        }
+    }
 }
 
 impl<'de> Deserialize<'de> for MctsConfig {
@@ -67,6 +89,10 @@ impl<'de> Deserialize<'de> for MctsConfig {
         struct MctsConfigHelper {
             #[serde(default = "default_iterations")]
             iterations: u32,
+            #[serde(default)]
+            draft_iterations: Option<u32>,
+            #[serde(default)]
+            action_iterations: Option<u32>,
             #[serde(default = "default_exploration_constant")]
             exploration_constant: f64,
             #[serde(default = "default_max_rollout_steps")]
@@ -100,6 +126,8 @@ impl<'de> Deserialize<'de> for MctsConfig {
         let helper = MctsConfigHelper::deserialize(deserializer)?;
         Ok(MctsConfig {
             iterations: helper.iterations,
+            draft_iterations: helper.draft_iterations,
+            action_iterations: helper.action_iterations,
             exploration_constant: helper.exploration_constant,
             max_rollout_steps: helper.max_rollout_steps,
             use_heuristic_eval: helper.use_heuristic_eval,
@@ -274,5 +302,80 @@ pub(crate) fn advance_past_opponent_draft_picks<R: Rng>(
         let card_id = find_card_id(state, card);
         pick_log.push((pick_number, current_player, card));
         player_pick(state, card_id, rng);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fixed_vec::FixedVec;
+    use crate::types::{ActionState, BuyersState, DraftState, PlayerTurn, MAX_PLAYERS};
+
+    fn config() -> MctsConfig {
+        const PARAMS_JSON: &str = include_str!("../../genetic-algorithm/batch-lki08w-gen-32.json");
+        let params: HeuristicParams =
+            serde_json::from_str(PARAMS_JSON).expect("frozen heuristic params should parse");
+        MctsConfig::new(params)
+    }
+
+    fn draft_phase() -> GamePhase {
+        GamePhase::Draft {
+            draft_state: DraftState {
+                pick_number: 0,
+                current_player_index: 0,
+                hands: Default::default(),
+                num_hands: 3,
+            },
+        }
+    }
+
+    fn action_phase() -> GamePhase {
+        let mut turns: FixedVec<PlayerTurn, MAX_PLAYERS> = FixedVec::new();
+        for _ in 0..3 {
+            turns.push(PlayerTurn::default());
+        }
+        GamePhase::Action {
+            action_state: ActionState { turns },
+        }
+    }
+
+    fn buyers_phase() -> GamePhase {
+        GamePhase::Buyers {
+            buyers_state: BuyersState {
+                current_player_index: 0,
+            },
+        }
+    }
+
+    /// A phase's own budget applies where it is set, and the base budget
+    /// everywhere else.
+    #[test]
+    fn a_phase_budget_overrides_the_base_budget() {
+        let mut base = config();
+        base.iterations = 500;
+        for phase in [draft_phase(), action_phase(), buyers_phase()] {
+            assert_eq!(base.iterations_for(&phase), 500);
+        }
+
+        let mut split = config();
+        split.iterations = 500;
+        split.draft_iterations = Some(1_000);
+        split.action_iterations = Some(4_000);
+        assert_eq!(split.iterations_for(&draft_phase()), 1_000);
+        assert_eq!(split.iterations_for(&action_phase()), 4_000);
+        // A buyer is not chosen, so a per-phase action budget leaves it alone.
+        assert_eq!(split.iterations_for(&buyers_phase()), 500);
+    }
+
+    /// The budgets arrive from the variant file rather than only from code.
+    #[test]
+    fn a_deserialized_config_carries_its_phase_budgets() {
+        const PARAMS_JSON: &str = include_str!("../../genetic-algorithm/batch-lki08w-gen-32.json");
+        let json = format!(
+            r#"{{ "iterations": 4000, "draftIterations": 1000, "heuristicParams": {PARAMS_JSON} }}"#
+        );
+        let config: MctsConfig = serde_json::from_str(&json).expect("variant JSON should parse");
+        assert_eq!(config.iterations_for(&draft_phase()), 1_000);
+        assert_eq!(config.iterations_for(&action_phase()), 4_000);
     }
 }
