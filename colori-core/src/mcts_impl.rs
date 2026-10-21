@@ -18,9 +18,12 @@
 
 use mcts::rand_core::Rng;
 use mcts::{ChoicesOnRevisit, Game, Status};
+use rand::SeedableRng;
+use wyrand::WyRand;
 
+use crate::apply_choice::apply_choice;
 use crate::choices::{enumerate_choices, enumerate_choices_into};
-use crate::colori_game::{apply_choice_to_state, determinize_in_place};
+use crate::colori_game::{apply_choice_to_state, determinize_in_place, is_taking_turn};
 use crate::final_turn;
 use crate::ismcts::MctsConfig;
 use crate::ismcts::{advance_past_opponent_draft_picks, OpponentDraftStats};
@@ -458,10 +461,11 @@ pub struct SearchOutcome {
 /// Holds the reusable buffers and the retained tree across a player's moves.
 ///
 /// Keep one per player for the length of a game and call [`Self::search`] each
-/// turn; [`Self::reuse_subtree`] carries the relevant subtree forward. Searches
-/// as a tree, or as a transposition graph when [`MctsConfig::transpositions`] is
-/// on; switching between the two drops whatever was retained. The game's last
-/// turn is not searched but solved, and retains nothing.
+/// turn; [`Self::reuse_subtree`] carries the relevant subtree forward, and
+/// [`TurnSearcher`] judges when it may. Searches as a tree, or as a
+/// transposition graph when [`MctsConfig::transpositions`] is on; switching
+/// between the two drops whatever was retained. The game's last turn is not
+/// searched but solved, and retains nothing.
 pub struct ColoriSearcher {
     inner: Inner,
 }
@@ -600,6 +604,59 @@ impl ColoriSearcher {
     }
 }
 
+/// A [`ColoriSearcher`] that decides for itself when its tree carries over.
+///
+/// Nothing hidden comes to light during an action turn, so the subtree under
+/// the move just chosen is sound for the same player's next decision. A search
+/// inherits it only when asked about exactly the position that move led to;
+/// any other position, and every decision outside a turn, starts fresh.
+pub struct TurnSearcher {
+    searcher: ColoriSearcher,
+    /// The player still taking their turn, and where their last choice left it.
+    continuation: Option<(usize, GameState)>,
+}
+
+impl TurnSearcher {
+    pub fn new(state: &GameState) -> Self {
+        Self {
+            searcher: ColoriSearcher::new(state),
+            continuation: None,
+        }
+    }
+
+    pub fn search<R: Rng>(
+        &mut self,
+        state: &GameState,
+        player_index: usize,
+        config: &MctsConfig,
+        max_rollout_round: Option<u32>,
+        rng: &mut R,
+    ) -> SearchOutcome {
+        let continues = self
+            .continuation
+            .take()
+            .is_some_and(|(player, position)| player == player_index && position == *state);
+        if !continues {
+            self.searcher.clear_tree();
+        }
+        let outcome = self
+            .searcher
+            .search(state, player_index, config, max_rollout_round, rng);
+
+        if is_taking_turn(state, player_index) {
+            let mut next = state.clone();
+            // Nothing in a turn is random, so this generator decides nothing.
+            apply_choice(&mut next, player_index, &outcome.choice, &mut WyRand::seed_from_u64(0));
+            if is_taking_turn(&next, player_index) && self.searcher.reuse_subtree(&outcome.choice) {
+                self.continuation = Some((player_index, next));
+                return outcome;
+            }
+        }
+        self.searcher.clear_tree();
+        outcome
+    }
+}
+
 /// A finished search's tree or graph, owned.
 pub enum Retained {
     Tree(SearchNode),
@@ -627,7 +684,7 @@ impl Retained {
 mod tests {
     use super::*;
     use crate::choices::check_choice_available;
-    use crate::colori_game::{get_game_status, GameStatus};
+    use crate::colori_game::{get_game_status, ActionPhaseViews, GameStatus};
     use crate::draw_phase::execute_draw_phase;
     use crate::setup::create_initial_game_state;
     use rand::SeedableRng;
@@ -906,5 +963,153 @@ mod tests {
             (outcome.choice, outcome.iterations_used)
         };
         assert_eq!(run(), run());
+    }
+
+    fn play_randomly_until(state: &mut GameState, rng: &mut WyRand, stop: impl Fn(&GameState) -> bool) {
+        while !stop(state) {
+            let GameStatus::AwaitingAction { player_index } = get_game_status(state, None) else {
+                panic!("the game ended first");
+            };
+            let choices = enumerate_choices(state, player_index);
+            let choice = choices[(rng.next_u64() % choices.len() as u64) as usize];
+            apply_choice_to_state(state, player_index, &choice, rng);
+        }
+    }
+
+    fn action_phase(seed: u64, round: u32) -> GameState {
+        let mut rng = WyRand::seed_from_u64(seed);
+        let mut state = create_initial_game_state(3, &[true; 3], &mut rng);
+        execute_draw_phase(&mut state, &mut rng);
+        play_randomly_until(&mut state, &mut rng, |s| {
+            s.round == round && matches!(s.phase, GamePhase::Action { .. })
+        });
+        state
+    }
+
+    /// Each decision of `player`'s turn from `state`, as (choice, iterations
+    /// reused), with `decide` searching the position reached so far.
+    fn play_turn(
+        state: &GameState,
+        player: usize,
+        mut decide: impl FnMut(&GameState) -> (Choice, u32),
+    ) -> Vec<(Choice, u32)> {
+        let mut views = ActionPhaseViews::new(state);
+        let mut decisions = Vec::new();
+        while is_taking_turn(views.view(player), player) {
+            let decision = decide(views.view(player));
+            views.apply(player, &decision.0);
+            decisions.push(decision);
+        }
+        decisions
+    }
+
+    /// The runner carried a turn's tree by hand before `TurnSearcher` judged it.
+    #[test]
+    fn a_turn_searcher_reuses_where_carrying_the_tree_by_hand_did() {
+        let config = config(400);
+        for seed in 0..3 {
+            let state = action_phase(seed, 2);
+            let player = seed as usize;
+
+            let mut rng = WyRand::seed_from_u64(seed);
+            let mut by_hand = ColoriSearcher::new(&state);
+            let expected = play_turn(&state, player, |view| {
+                let outcome = by_hand.search(view, player, &config, Some(8), &mut rng);
+                let mut next = view.clone();
+                apply_choice_to_state(&mut next, player, &outcome.choice, &mut WyRand::seed_from_u64(0));
+                if is_taking_turn(&next, player) {
+                    by_hand.reuse_subtree(&outcome.choice);
+                } else {
+                    by_hand.clear_tree();
+                }
+                (outcome.choice, outcome.reused_iterations)
+            });
+
+            let mut rng = WyRand::seed_from_u64(seed);
+            let mut searcher = TurnSearcher::new(&state);
+            let decisions = play_turn(&state, player, |view| {
+                let outcome = searcher.search(view, player, &config, Some(8), &mut rng);
+                (outcome.choice, outcome.reused_iterations)
+            });
+
+            assert_eq!(decisions, expected, "seed {seed}");
+            assert_eq!(decisions[0].1, 0, "seed {seed}: the turn's first search inherited a tree");
+            assert!(
+                decisions[1..].iter().any(|&(_, reused)| reused > 0),
+                "seed {seed}: no decision after the first inherited anything: {decisions:?}"
+            );
+        }
+    }
+
+    /// Searches `player`'s first decision at `state` and returns the position it
+    /// led to, which the searcher expects next.
+    fn first_decision(searcher: &mut TurnSearcher, state: &GameState, player: usize) -> GameState {
+        let outcome = searcher.search(state, player, &config(400), Some(8), &mut WyRand::seed_from_u64(1));
+        let mut next = state.clone();
+        apply_choice_to_state(&mut next, player, &outcome.choice, &mut WyRand::seed_from_u64(0));
+        assert!(
+            searcher.continuation.is_some(),
+            "the first decision, {:?}, ended the turn; pick another position",
+            outcome.choice
+        );
+        next
+    }
+
+    #[test]
+    fn a_turn_searcher_starts_fresh_anywhere_but_where_its_choice_led() {
+        let state = action_phase(0, 2);
+        let reused = |searcher: &mut TurnSearcher, position: &GameState, player: usize| {
+            searcher
+                .search(position, player, &config(400), Some(8), &mut WyRand::seed_from_u64(2))
+                .reused_iterations
+        };
+
+        let mut searcher = TurnSearcher::new(&state);
+        let next = first_decision(&mut searcher, &state, 0);
+        assert!(reused(&mut searcher, &next, 0) > 0, "the turn's own next decision");
+
+        let mut searcher = TurnSearcher::new(&state);
+        first_decision(&mut searcher, &state, 0);
+        assert_eq!(reused(&mut searcher, &state, 0), 0, "a position the choice did not lead to");
+
+        let mut searcher = TurnSearcher::new(&state);
+        let next = first_decision(&mut searcher, &state, 0);
+        assert!(is_taking_turn(&next, 1));
+        assert_eq!(reused(&mut searcher, &next, 1), 0, "another player at that position");
+    }
+
+    #[test]
+    fn a_turn_searcher_keeps_no_tree_outside_a_turn() {
+        let holds_nothing = |searcher: &TurnSearcher| {
+            searcher.continuation.is_none() && searcher.searcher.stats().is_none()
+        };
+        let config = config(400);
+        let mut rng = WyRand::seed_from_u64(3);
+        let mut state = create_initial_game_state(3, &[true; 3], &mut rng);
+        execute_draw_phase(&mut state, &mut rng);
+        let mut searcher = TurnSearcher::new(&state);
+
+        let GamePhase::Buyers { buyers_state } = &state.phase else {
+            panic!("a round opens with the buyers phase");
+        };
+        searcher.search(&state, buyers_state.current_player_index, &config, Some(8), &mut rng);
+        assert!(holds_nothing(&searcher), "after a buyer claim");
+
+        play_randomly_until(&mut state, &mut rng, |s| matches!(s.phase, GamePhase::Draft { .. }));
+        let GamePhase::Draft { draft_state } = &state.phase else {
+            unreachable!();
+        };
+        searcher.search(&state, draft_state.current_player_index, &config, Some(8), &mut rng);
+        assert!(holds_nothing(&searcher), "after a draft pick");
+
+        play_randomly_until(&mut state, &mut rng, |s| matches!(s.phase, GamePhase::Action { .. }));
+        let decisions = play_turn(&state, 0, |view| {
+            let outcome = searcher.search(view, 0, &config, Some(8), &mut rng);
+            (outcome.choice, outcome.reused_iterations)
+        });
+        assert!(decisions.len() > 1, "the turn should take more than one decision");
+        assert!(holds_nothing(&searcher), "after the turn's last decision");
+        let outcome = searcher.search(&state, 1, &config, Some(8), &mut rng);
+        assert_eq!(outcome.reused_iterations, 0, "the next search after a turn's end");
     }
 }

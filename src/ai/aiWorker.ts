@@ -1,4 +1,4 @@
-import init, { wasm_run_ismcts } from '../wasm-pkg/colori_wasm.js';
+import init, { AiSearcher } from '../wasm-pkg/colori_wasm.js';
 import type { AiSettings, GameState } from '../data/types';
 import { engineCall } from '../engine/engineCall';
 
@@ -22,6 +22,8 @@ export interface AIWorkerError {
 export type AIWorkerResponse = AIWorkerSuccess | AIWorkerError;
 
 let wasmReady: Promise<unknown> | null = null;
+// Held for the worker's lifetime, so a turn's decisions share one search tree.
+let searcher: AiSearcher | null = null;
 
 function ensureInit(): Promise<unknown> {
   if (!wasmReady) {
@@ -37,7 +39,8 @@ self.onmessage = async (event: MessageEvent<AIWorkerRequest>) => {
     const gameStateJson = JSON.stringify(gameState);
 
     const aiSettingsJson = JSON.stringify(aiSettings);
-    const resultJson = engineCall(() => wasm_run_ismcts(gameStateJson, playerIndex, iterations, aiSettingsJson));
+    const ai = (searcher ??= new AiSearcher());
+    const resultJson = engineCall(() => ai.search(gameStateJson, playerIndex, iterations, aiSettingsJson));
 
     const choice = JSON.parse(resultJson);
     self.postMessage({ type: 'success', choice } satisfies AIWorkerSuccess);

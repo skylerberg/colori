@@ -13,7 +13,7 @@
 //! policy. So opponents improve as the search does, and none of it depends on
 //! what the searching player chose.
 
-use crate::colori_game::{apply_choice_to_state, enumerate_choices_into};
+use crate::colori_game::{apply_choice_to_state, enumerate_choices_into, is_taking_turn};
 use crate::rollout::play_out_action_turn;
 use crate::scoring::HeuristicParams;
 use crate::types::{Choice, GamePhase, GameState, MAX_PLAYERS};
@@ -212,10 +212,6 @@ impl OpponentTurns {
         }
         self.visited.clear();
     }
-}
-
-fn is_taking_turn(state: &GameState, player: usize) -> bool {
-    matches!(&state.phase, GamePhase::Action { action_state } if !action_state.turns[player].ended)
 }
 
 #[cfg(test)]

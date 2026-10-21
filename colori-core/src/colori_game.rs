@@ -28,6 +28,10 @@ pub fn apply_choice_to_state<R: Rng>(
 
 // ── Simultaneous action phase ──
 
+pub fn is_taking_turn(state: &GameState, player_index: usize) -> bool {
+    matches!(&state.phase, GamePhase::Action { action_state } if !action_state.turns[player_index].ended)
+}
+
 /// Each player's view of an action phase: the state as the phase began, with
 /// only that player's own choices applied since.
 ///

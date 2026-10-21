@@ -1,8 +1,10 @@
-use colori_core::colori_game::{apply_choice_to_state, enumerate_choices, ActionPhaseViews};
+use colori_core::colori_game::{
+    apply_choice_to_state, enumerate_choices, is_taking_turn, ActionPhaseViews,
+};
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::game_log::{DrawEvent, DrawLog, FinalPlayerStats, FinalScore, PlayerVariant};
 use colori_core::ismcts::MctsConfig;
-use colori_core::mcts_impl::ColoriSearcher;
+use colori_core::mcts_impl::TurnSearcher;
 use colori_core::scoring::score_in_half_points;
 use colori_core::setup::create_initial_game_state;
 use colori_core::types::*;
@@ -190,10 +192,6 @@ fn variant_to_player_variant(variant: &NamedVariant) -> PlayerVariant {
 
 // ── Game loop ──
 
-fn is_taking_turn(state: &GameState, player_index: usize) -> bool {
-    matches!(&state.phase, GamePhase::Action { action_state } if !action_state.turns[player_index].ended)
-}
-
 #[derive(Default)]
 struct EntryLog {
     entries: Vec<StructuredLogEntry>,
@@ -279,17 +277,15 @@ pub fn run_game(
     };
 
     let mut log = EntryLog::default();
-    let mut searcher = ColoriSearcher::new(&state);
+    let mut searcher = TurnSearcher::new(&state);
     let mut player_time = vec![std::time::Duration::ZERO; num_players];
     let mut player_iterations_count = vec![0u64; num_players];
 
-    let mut decide = |searcher: &mut ColoriSearcher, state: &GameState, player_index: usize, rng: &mut WyRand| {
+    let mut decide = |searcher: &mut TurnSearcher, state: &GameState, player_index: usize, rng: &mut WyRand| {
         let config = &shuffled_variants[player_index].ai;
         let is_first_pick = state.round == 1
             && matches!(&state.phase, GamePhase::Draft { draft_state } if draft_state.pick_number == 0);
         if is_first_pick && config.random_first_pick {
-            // No search ran, so nothing to carry forward.
-            searcher.clear_tree();
             return enumerate_choices(state, player_index)
                 .choose(rng)
                 .expect("No choices available")
@@ -309,13 +305,11 @@ pub fn run_game(
                 let player_index = buyers_state.current_player_index;
                 let choice = decide(&mut searcher, &state, player_index, rng);
                 log.play(&mut state, player_index, &choice, "buyers", rng);
-                searcher.clear_tree();
             }
             GamePhase::Draft { draft_state } => {
                 let player_index = draft_state.current_player_index;
                 let choice = decide(&mut searcher, &state, player_index, rng);
                 log.play(&mut state, player_index, &choice, "draft", rng);
-                searcher.clear_tree();
             }
             GamePhase::Action { .. } => {
                 // Everyone acts at once. Each player decides their whole turn
@@ -323,21 +317,12 @@ pub fn run_game(
                 // and each choice is played into the game as it is made.
                 let mut views = ActionPhaseViews::new(&state);
                 for player_index in 0..num_players {
-                    searcher.clear_tree();
                     while is_taking_turn(views.view(player_index), player_index) {
                         let view = views.view(player_index);
                         let choice = decide(&mut searcher, view, player_index, rng);
 
                         log.play(&mut state, player_index, &choice, "action", rng);
                         views.apply(player_index, &choice);
-
-                        // Nothing hidden is revealed during a turn, so the
-                        // subtree stays sound for as long as the turn goes on.
-                        if is_taking_turn(views.view(player_index), player_index) {
-                            searcher.reuse_subtree(&choice);
-                        } else {
-                            searcher.clear_tree();
-                        }
                     }
                 }
             }
