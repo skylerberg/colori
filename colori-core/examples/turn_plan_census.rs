@@ -29,7 +29,7 @@ use colori_core::colori_game::{apply_choice_to_state, get_game_status, GameStatu
 use colori_core::draw_phase::execute_draw_phase;
 use colori_core::setup::create_initial_game_state;
 use colori_core::turn_plan::{enumerate_turn_plans, PlanLimits, TurnPlans};
-use colori_core::types::{GamePhase, GameState};
+use colori_core::types::{Choice, GamePhase, GameState};
 use rand::{RngExt, SeedableRng};
 use wyrand::WyRand;
 
@@ -50,6 +50,9 @@ struct Sample {
     any_order_plans: usize,
     any_order_truncated: bool,
     pruned_plans: usize,
+    /// Distinct sets of actions the plans take, with every resolution of them
+    /// — which cards a workshop takes, which mixes, which buyer — collapsed.
+    skeletons: usize,
 }
 
 struct Census {
@@ -91,6 +94,7 @@ impl Census {
         if canonical.truncated {
             self.truncated += 1;
         }
+        let skeletons = skeletons(state, player, &canonical.plans);
         self.samples.entry(round).or_default().push(Sample {
             plans: canonical.plans.len(),
             positions: canonical.positions,
@@ -99,6 +103,7 @@ impl Census {
             any_order_plans: any_order.plans.len(),
             any_order_truncated: any_order.truncated,
             pruned_plans: pruned.plans.len(),
+            skeletons,
         });
     }
 
@@ -167,6 +172,49 @@ fn main() {
     report(&census, players, seeds, budget);
 }
 
+/// How many different sets of actions the plans take, once everything that
+/// answers an ability is collapsed. A plan's actions are the trashes it takes
+/// and the ducats it spends; what a workshop takes, which mixes are made and
+/// which buyer is sold to are resolutions, not choices of action.
+fn skeletons(state: &GameState, player: usize, plans: &[colori_core::turn_plan::TurnPlan]) -> usize {
+    use std::hash::{Hash, Hasher};
+
+    let mut seen: std::collections::HashSet<u64> = Default::default();
+    let mut walked = state.clone();
+    for plan in plans {
+        let mut actions: Vec<(u8, u8)> = Vec::new();
+        for choice in &plan.line {
+            let between_abilities = match &walked.phase {
+                GamePhase::Action { action_state } => {
+                    action_state.turns[player].ability_stack.is_empty()
+                }
+                _ => false,
+            };
+            if between_abilities {
+                let action = match choice {
+                    Choice::TrashDraftedCard { card } => Some((0, *card as u8)),
+                    Choice::TrashAndWorkshop { card, .. } => Some((1, *card as u8)),
+                    Choice::TrashAndMix { card, .. } => Some((2, *card as u8)),
+                    Choice::TrashAndSell { card, .. } => Some((3, *card as u8)),
+                    Choice::TrashAndMoveToDraftPool { card, .. } => Some((4, *card as u8)),
+                    Choice::SpendDucat { purchase } => Some((5, *purchase as u8)),
+                    _ => None,
+                };
+                if let Some(action) = action {
+                    actions.push(action);
+                }
+            }
+            apply_choice_to_state(&mut walked, player, choice, &mut WyRand::seed_from_u64(0));
+        }
+        actions.sort_unstable();
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        actions.hash(&mut hasher);
+        seen.insert(hasher.finish());
+        walked = state.clone();
+    }
+    seen.len()
+}
+
 fn median(values: &mut [usize]) -> usize {
     if values.is_empty() {
         return 0;
@@ -193,28 +241,31 @@ fn report(census: &Census, players: usize, seeds: usize, budget: usize) {
     );
     let _ = writeln!(
         out,
-        "{:>5}  {:>5}  {:>10}  {:>10}  {:>9}  {:>6}  {:>14}  {:>7}  {:>8}  {:>10}",
+        "{:>5}  {:>5}  {:>10}  {:>10}  {:>9}  {:>6}  {:>10}  {:>14}  {:>7}  {:>8}  {:>10}",
         "round",
         "seats",
         "plans(med)",
         "plans(p90)",
         "plans(max)",
         "kept%",
+        "action sets",
         "positions(med)",
         "longest",
         "mean-len",
         "pruned(med)"
     );
-    let _ = writeln!(out, "{}", "-".repeat(104));
+    let _ = writeln!(out, "{}", "-".repeat(115));
 
     let mut all_plans = Vec::new();
     let mut all_positions = Vec::new();
     let mut all_pruned = Vec::new();
     let mut all_kept = Vec::new();
+    let mut all_skeletons = Vec::new();
     for (round, samples) in &census.samples {
         let plans: Vec<usize> = samples.iter().map(|s| s.plans).collect();
         let positions: Vec<usize> = samples.iter().map(|s| s.positions).collect();
         let pruned: Vec<usize> = samples.iter().map(|s| s.pruned_plans).collect();
+        let skeletons: Vec<usize> = samples.iter().map(|s| s.skeletons).collect();
         let kept: Vec<usize> = samples
             .iter()
             .filter(|s| !s.any_order_truncated)
@@ -224,12 +275,13 @@ fn report(census: &Census, players: usize, seeds: usize, budget: usize) {
         let mean = samples.iter().map(|s| s.mean_length).sum::<f64>() / samples.len() as f64;
         let _ = writeln!(
             out,
-            "{round:>5}  {:>5}  {:>10}  {:>10}  {:>9}  {:>5}%  {:>14}  {:>7}  {mean:>8.1}  {:>10}",
+            "{round:>5}  {:>5}  {:>10}  {:>10}  {:>9}  {:>5}%  {:>10}  {:>14}  {:>7}  {mean:>8.1}  {:>10}",
             samples.len(),
             median(&mut plans.clone()),
             percentile(&mut plans.clone(), 90),
             plans.iter().max().copied().unwrap_or(0),
             median(&mut kept.clone()),
+            median(&mut skeletons.clone()),
             median(&mut positions.clone()),
             longest,
             median(&mut pruned.clone()),
@@ -238,9 +290,10 @@ fn report(census: &Census, players: usize, seeds: usize, budget: usize) {
         all_positions.extend(positions);
         all_pruned.extend(pruned);
         all_kept.extend(kept);
+        all_skeletons.extend(skeletons);
     }
 
-    let _ = writeln!(out, "{}", "-".repeat(104));
+    let _ = writeln!(out, "{}", "-".repeat(115));
     let _ = writeln!(
         out,
         "plans      median {}  p90 {}  max {}",
@@ -260,6 +313,12 @@ fn report(census: &Census, players: usize, seeds: usize, budget: usize) {
         out,
         "canonical order keeps {}% of the end states (median)",
         median(&mut all_kept),
+    );
+    let _ = writeln!(
+        out,
+        "skeletons  median {}  p90 {}  (plans with every resolution collapsed)",
+        median(&mut all_skeletons.clone()),
+        percentile(&mut all_skeletons, 90),
     );
     let _ = writeln!(
         out,
