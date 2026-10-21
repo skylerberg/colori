@@ -30,10 +30,31 @@ pub(crate) fn should_force_max_workshop(state: &GameState, player: &PlayerState)
 
 // ── Choice enumeration ──
 
+/// How a turn decides what to do with its drafted cards.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum TurnMode {
+    /// The game's own model: any drafted card may be trashed at any time, and
+    /// the player ends the turn whenever they like. A card left alone is kept.
+    Free,
+    /// Every drafted card has to be decided — used for its action, or kept —
+    /// before the turn can end. `EndTurn` is offered once the pool is empty,
+    /// which leaves room to spend the last ducats.
+    KeepCards,
+}
+
 /// What `player_index` may choose now. The buyers phase and the draft seat one
 /// player at a time and offer nothing to anyone else; in the action phase
 /// everyone still taking their turn has choices.
 pub fn enumerate_choices_into(state: &GameState, player_index: usize, choices: &mut Vec<Choice>) {
+    enumerate_choices_into_mode(state, player_index, TurnMode::Free, choices);
+}
+
+pub fn enumerate_choices_into_mode(
+    state: &GameState,
+    player_index: usize,
+    mode: TurnMode,
+    choices: &mut Vec<Choice>,
+) {
     choices.clear();
     match &state.phase {
         GamePhase::Buyers { buyers_state } => {
@@ -61,13 +82,22 @@ pub fn enumerate_choices_into(state: &GameState, player_index: usize, choices: &
                     let mut tally = WorkshopTally::default();
                     for_each_unique_card_type(&player.drafted_cards, &state.card_lookup, |card| {
                         enumerate_trash_choices(state, player, card, &mut tally, choices);
+                        // Every card in the pool has to be decided, so keeping
+                        // one is offered beside using it.
+                        if mode == TurnMode::KeepCards {
+                            choices.push(Choice::KeepCard { card });
+                        }
                     });
                     for purchase in ALL_DUCAT_PURCHASES {
                         if can_buy_with_ducat(player, purchase) {
                             choices.push(Choice::SpendDucat { purchase });
                         }
                     }
-                    choices.push(Choice::EndTurn);
+                    // The turn can only end once there is nothing left to
+                    // decide; after that, ducats are still there to spend.
+                    if mode == TurnMode::Free || player.drafted_cards.is_empty() {
+                        choices.push(Choice::EndTurn);
+                    }
                 }
                 Some(Ability::Workshop { count }) => {
                     let force_max = should_force_max_workshop(state, player);
@@ -246,6 +276,7 @@ pub fn check_choice_available(state: &GameState, player_index: usize, choice: &C
             }
         }
         Choice::EndTurn => open_turn_stack(state, player_index).is_some_and(|stack| stack.is_empty()),
+        Choice::KeepCard { card } => check_trash_preconditions(state, player_index, card),
         Choice::Workshop { card_types } => {
             matches!(pending_ability(state, player_index), Some(Ability::Workshop { .. }))
                 && !card_types.is_empty()
@@ -336,5 +367,162 @@ fn enumerate_buyer_choices(state: &GameState, choices: &mut Vec<Choice>) {
     }
     if !state.sell_card_deck.is_empty() {
         choices.push(Choice::DrawBuyer);
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use rand::{RngExt, SeedableRng};
+    use wyrand::WyRand;
+
+    use super::*;
+    use crate::colori_game::{apply_choice_to_state, get_game_status, GameStatus};
+    use crate::unordered_cards::UnorderedCards;
+    use crate::draw_phase::execute_draw_phase;
+    use crate::setup::create_initial_game_state;
+
+    /// Random play from a fresh game to its first action phase.
+    fn action_phase(players: usize, seed: u64) -> GameState {
+        let mut rng = WyRand::seed_from_u64(seed);
+        let mut state = create_initial_game_state(players, &vec![true; players], &mut rng);
+        execute_draw_phase(&mut state, &mut rng);
+        while !matches!(state.phase, GamePhase::Action { .. }) {
+            if matches!(state.phase, GamePhase::Draw) {
+                execute_draw_phase(&mut state, &mut rng);
+                continue;
+            }
+            let GameStatus::AwaitingAction { player_index } = get_game_status(&state, None) else {
+                panic!("seed {seed}: the game ended before its first action phase");
+            };
+            let choices = enumerate_choices(&state, player_index);
+            let choice = choices[rng.random_range(0..choices.len())];
+            apply_choice_to_state(&mut state, player_index, &choice, &mut rng);
+        }
+        state
+    }
+
+    fn keep_mode(state: &GameState, player: usize) -> Vec<Choice> {
+        let mut choices = Vec::new();
+        enumerate_choices_into_mode(state, player, TurnMode::KeepCards, &mut choices);
+        choices
+    }
+
+    /// Every drafted card is used or kept, and the turn cannot end until the
+    /// pool is empty — then the kept cards become the next workshop.
+    #[test]
+    fn a_turn_decides_every_drafted_card_before_it_can_end() {
+        for seed in 0..4 {
+            let state = action_phase(3, seed);
+            let player = 0;
+            let drafted = state.players[player].drafted_cards;
+            assert!(!drafted.is_empty(), "seed {seed}: a hand to decide");
+
+            // The game's own model has no keep choice.
+            assert!(
+                !enumerate_choices(&state, player)
+                    .iter()
+                    .any(|choice| matches!(choice, Choice::KeepCard { .. })),
+                "seed {seed}: a free turn keeps cards by leaving them alone"
+            );
+
+            // The new model offers a use and a keep for every card, and no end.
+            let choices = keep_mode(&state, player);
+            assert!(
+                !choices.contains(&Choice::EndTurn),
+                "seed {seed}: a turn with cards left to decide cannot end"
+            );
+            for_each_unique_card_type(&drafted, &state.card_lookup, |card| {
+                assert!(
+                    choices.contains(&Choice::KeepCard { card }),
+                    "seed {seed}: {card:?} can be kept"
+                );
+            });
+
+            // Keep everything: the pool empties, and only then may it end.
+            let mut kept = state.clone();
+            let mut kept_ids = UnorderedCards::new();
+            while let Some(id) = kept.players[player].drafted_cards.lowest_bit() {
+                let card = kept.card_lookup[id as usize];
+                kept_ids.insert(id);
+                apply_choice_to_state(
+                    &mut kept,
+                    player,
+                    &Choice::KeepCard { card },
+                    &mut WyRand::seed_from_u64(0),
+                );
+            }
+            assert!(kept.players[player].drafted_cards.is_empty());
+            assert!(keep_mode(&kept, player).contains(&Choice::EndTurn));
+
+            let mut ended = kept.clone();
+            apply_choice_to_state(
+                &mut ended,
+                player,
+                &Choice::EndTurn,
+                &mut WyRand::seed_from_u64(0),
+            );
+            assert_eq!(
+                ended.players[player].workshop_cards, kept_ids,
+                "seed {seed}: what the turn kept is the next workshop"
+            );
+            assert!(
+                ended.players[player].kept_cards.is_empty(),
+                "seed {seed}: the kept cards have moved on"
+            );
+        }
+    }
+
+    /// A card moved into the draft pool is just another card to decide: use it
+    /// this turn, or keep it for the next.
+    #[test]
+    fn a_card_moved_into_the_pool_is_used_or_kept() {
+        let (state, moving) = (0..40)
+            .find_map(|seed| {
+                let state = action_phase(4, seed);
+                let player = 0;
+                keep_mode(&state, player)
+                    .into_iter()
+                    .find(|choice| {
+                        matches!(choice, Choice::TrashAndMoveToDraftPool { target: Some(_), .. })
+                            || matches!(choice, Choice::TrashAndMoveToDraftPool { target: None, .. })
+                                && !state.players[player].workshop_cards.is_empty()
+                    })
+                    .map(|choice| (state, choice))
+            })
+            .expect("some turn can move a card into the draft pool");
+        let Choice::TrashAndMoveToDraftPool { card, target } = moving else {
+            unreachable!("the found choice moves a card into the pool");
+        };
+        let moved = target.expect("a workshop card to move");
+
+        let mut used = state.clone();
+        apply_choice_to_state(
+            &mut used,
+            0,
+            &Choice::TrashAndMoveToDraftPool { card, target: Some(moved) },
+            &mut WyRand::seed_from_u64(0),
+        );
+        let offered = keep_mode(&used, 0);
+        assert!(
+            offered.contains(&Choice::KeepCard { card: moved })
+                || !used.players[0].drafted_cards.contains(
+                    used.players[0]
+                        .drafted_cards
+                        .iter()
+                        .find(|id| used.card_lookup[*id as usize] == moved)
+                        .expect("the moved card is in the pool")
+                ),
+            "the moved card is a decision of its own"
+        );
+        assert!(
+            offered.iter().any(|choice| matches!(
+                choice,
+                Choice::TrashDraftedCard { card } | Choice::TrashAndWorkshop { card, .. }
+                    | Choice::TrashAndMix { card, .. } | Choice::TrashAndSell { card, .. }
+                if *card == moved
+            )),
+            "the moved card can be used this turn"
+        );
     }
 }

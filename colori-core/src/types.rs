@@ -813,6 +813,10 @@ pub struct PlayerState {
     pub workshopped_cards: UnorderedCards,
     pub workshop_cards: UnorderedCards,
     pub drafted_cards: UnorderedCards,
+    /// Drafted cards this turn has kept rather than used. They join whatever is
+    /// still drafted when the turn ends to make the next turn's workshop.
+    #[serde(default)]
+    pub kept_cards: UnorderedCards,
     pub color_wheel: ColorWheel,
     pub materials: Materials,
     /// Sell cards claimed from the shared display and now sellable only by
@@ -1008,6 +1012,10 @@ pub enum Choice {
     DraftPick { card: Card },
     #[serde(rename = "trashDraftedCard", alias = "destroyDraftedCard")]
     TrashDraftedCard { card: Card },
+    /// Keep a drafted card instead of using it, taking it out of this turn's
+    /// pool to become part of next turn's workshop.
+    #[serde(rename = "keepCard")]
+    KeepCard { card: Card },
     #[serde(rename = "endTurn")]
     EndTurn,
     #[serde(rename = "workshop")]

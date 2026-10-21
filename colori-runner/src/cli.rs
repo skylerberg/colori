@@ -153,6 +153,8 @@ struct VariantFileEntry {
     random_first_pick: Option<bool>,
     #[serde(default)]
     transpositions: Option<bool>,
+    #[serde(default)]
+    keep_cards: Option<bool>,
 }
 
 impl VariantFileEntry {
@@ -184,6 +186,7 @@ impl VariantFileEntry {
                 time_limit_ms: self.time_limit_ms,
                 random_first_pick: self.random_first_pick.unwrap_or(base.random_first_pick),
                 transpositions: self.transpositions.unwrap_or(base.transpositions),
+                keep_cards: self.keep_cards.unwrap_or(base.keep_cards),
             },
         }
     }

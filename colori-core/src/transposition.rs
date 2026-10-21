@@ -133,6 +133,7 @@ mod tests {
             1000,
             false,
             0.75,
+            false,
         )
     }
 

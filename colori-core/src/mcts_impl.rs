@@ -22,7 +22,7 @@ use rand::SeedableRng;
 use wyrand::WyRand;
 
 use crate::apply_choice::apply_choice;
-use crate::choices::{enumerate_choices, enumerate_choices_into};
+use crate::choices::{enumerate_choices, enumerate_choices_into_mode, TurnMode};
 use crate::colori_game::{apply_choice_to_state, determinize_in_place, is_taking_turn};
 use crate::final_turn;
 use crate::ismcts::MctsConfig;
@@ -76,6 +76,10 @@ pub struct SearchContext {
     pub no_rollout: bool,
     /// Used by the DUCT bandit, which runs its own UCB outside the tree.
     pub exploration_constant: f64,
+    /// Whether every drafted card has to be used or kept before the turn ends,
+    /// so that keeping is a decision of its own rather than something that
+    /// happens to a card nobody trashed. Off is the game's own model.
+    pub keep_cards: bool,
     /// The round whose action phase the search began in, if it began in one:
     /// the only stretch of play in which the searcher's turn starts the same
     /// way on every iteration, and so the only states a transposition search
@@ -97,6 +101,7 @@ impl SearchContext {
         max_rollout_steps: u32,
         no_rollout: bool,
         exploration_constant: f64,
+        keep_cards: bool,
     ) -> Self {
         let (effective_max_rollout_round, use_heuristic) = if use_heuristic_eval {
             if state.round <= params.heuristic_round_threshold {
@@ -128,6 +133,7 @@ impl SearchContext {
             max_rollout_steps,
             no_rollout,
             exploration_constant,
+            keep_cards,
             merge_round: matches!(state.phase, GamePhase::Action { .. }).then_some(state.round),
         }
     }
@@ -239,7 +245,12 @@ impl Game for GameState {
     }
 
     fn choices_into(&self, ctx: &SearchContext, out: &mut Vec<Self::Choice>) {
-        enumerate_choices_into(self, self.search_actor(ctx), out);
+        let mode = if ctx.keep_cards {
+            TurnMode::KeepCards
+        } else {
+            TurnMode::Free
+        };
+        enumerate_choices_into_mode(self, self.search_actor(ctx), mode, out);
     }
 
     // In the action phase of the round a search began in, every iteration
@@ -278,9 +289,16 @@ impl Game for GameState {
                     ctx.heuristic_draft,
                     &ctx.heuristic_params,
                     &mut rng,
+                    ctx.keep_cards,
                 );
             } else {
-                apply_rollout_step(self, ctx.heuristic_draft, &ctx.heuristic_params, &mut rng);
+                apply_rollout_step(
+                    self,
+                    ctx.heuristic_draft,
+                    &ctx.heuristic_params,
+                    &mut rng,
+                    ctx.keep_cards,
+                );
             }
         }
         ctx.evaluate(self)
@@ -505,6 +523,7 @@ impl ColoriSearcher {
             config.max_rollout_steps,
             config.no_rollout,
             config.exploration_constant,
+            config.keep_cards,
         );
 
         let search_config = mcts::Config {
@@ -676,7 +695,7 @@ impl Retained {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::choices::check_choice_available;
+    use crate::choices::{check_choice_available, enumerate_choices_into};
     use crate::colori_game::{get_game_status, ActionPhaseViews, GameStatus};
     use crate::draw_phase::execute_draw_phase;
     use crate::setup::create_initial_game_state;
@@ -742,7 +761,15 @@ mod tests {
             );
             let choice = outcome.choice;
 
-            enumerate_choices_into(&state, player_index, &mut choices_buf);
+            // The game's last turn is solved rather than searched, and solved
+            // over the game's own model, so its answer may end the turn with
+            // cards left in the pool.
+            let mode = if config.keep_cards && outcome.stop_reason != StopReason::Solved {
+                TurnMode::KeepCards
+            } else {
+                TurnMode::Free
+            };
+            enumerate_choices_into_mode(&state, player_index, mode, &mut choices_buf);
             assert!(
                 choices_buf.contains(&choice),
                 "seed={seed} players={num_players} step={step} round={} phase={:?}: \
@@ -773,6 +800,21 @@ mod tests {
         }
 
         panic!("seed={seed} players={num_players}: game did not finish in 5000 steps");
+    }
+
+    /// A turn that decides every drafted card is played as a subset of the
+    /// legal choices, so whole games through it must stay legal.
+    #[test]
+    fn valid_moves_keeping_cards() {
+        let config = MctsConfig {
+            keep_cards: true,
+            ..config(10)
+        };
+        for players in [2, 3, 4] {
+            for seed in 0..3 {
+                play_full_game(players, seed, &config, true);
+            }
+        }
     }
 
     #[test]

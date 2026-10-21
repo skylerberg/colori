@@ -60,6 +60,7 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
                 workshopped_cards: UnorderedCards::new(),
                 workshop_cards: UnorderedCards::new(),
                 drafted_cards: UnorderedCards::new(),
+                kept_cards: UnorderedCards::new(),
                 color_wheel,
                 materials: Materials::new(),
                 buyers: FixedVec::new(),

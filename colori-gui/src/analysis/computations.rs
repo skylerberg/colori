@@ -395,6 +395,7 @@ fn choice_type_name(choice: &Choice) -> String {
         Choice::DrawBuyer => "drawBuyer".to_string(),
         Choice::DraftPick { .. } => "draftPick".to_string(),
         Choice::TrashDraftedCard { .. } => "trashDraftedCard".to_string(),
+        Choice::KeepCard { .. } => "keepCard".to_string(),
         Choice::EndTurn => "endTurn".to_string(),
         Choice::Workshop { .. } => "workshop".to_string(),
         Choice::SkipWorkshop => "skipWorkshop".to_string(),

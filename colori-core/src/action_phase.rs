@@ -29,15 +29,36 @@ pub fn initialize_action_phase(state: &mut GameState) {
     };
 }
 
-pub fn trash_drafted_card(state: &mut GameState, player_index: usize, card_instance_id: u32) {
+/// Take a card out of the draft pool because it is being used.
+///
+/// Every path that trashes a drafted card goes through here: the choice
+/// resolver, and the rollouts' fused mix and sale steps, which skip the ability
+/// stack.
+#[inline]
+pub(crate) fn take_drafted_card(state: &mut GameState, player_index: usize, id: u8) {
+    assert!(
+        state.players[player_index].drafted_cards.contains(id),
+        "Card not found in player's draftedCards"
+    );
+    state.players[player_index].drafted_cards.remove(id);
+}
+
+/// Keep a drafted card instead of using it. It steps out of the turn's pool and
+/// becomes part of next turn's workshop.
+pub fn resolve_keep_card(state: &mut GameState, player_index: usize, card_instance_id: u32) {
     let id = card_instance_id as u8;
     let player = &mut state.players[player_index];
-
     assert!(
         player.drafted_cards.contains(id),
         "Card not found in player's draftedCards"
     );
     player.drafted_cards.remove(id);
+    player.kept_cards.insert(id);
+}
+
+pub fn trash_drafted_card(state: &mut GameState, player_index: usize, card_instance_id: u32) {
+    let id = card_instance_id as u8;
+    take_drafted_card(state, player_index, id);
 
     let card = state.card_lookup[id as usize];
     state.trash.insert(id);
@@ -330,13 +351,15 @@ pub fn end_player_turn(state: &mut GameState, player_index: usize) {
     let player = &mut state.players[player_index];
 
     // The whole workshop area is shuffled onto the bottom of the deck, and
-    // whatever survived in the draft pool becomes the new workshop.
+    // whatever the turn kept becomes the new workshop — the cards it chose to
+    // keep, and anything still drafted that it left alone.
     player
         .deck
         .push_bottom(player.workshop_cards.union(player.workshopped_cards));
-    player.workshop_cards = player.drafted_cards;
+    player.workshop_cards = player.drafted_cards.union(player.kept_cards);
     player.workshopped_cards = UnorderedCards::new();
     player.drafted_cards = UnorderedCards::new();
+    player.kept_cards = UnorderedCards::new();
 
     let action_state = get_action_state_mut(state);
     let turn = &mut action_state.turns[player_index];

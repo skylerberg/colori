@@ -32,6 +32,10 @@ pub struct MctsConfig {
     /// tree that grows one node per order of play. See `crate::transposition`
     /// for which positions are merged.
     pub transpositions: bool,
+    /// Make every drafted card a decision: use it, or keep it for next turn.
+    /// `EndTurn` comes once the pool is empty, so the last ducats can still be
+    /// spent. Off is the game's own model, where a card nobody trashed is kept.
+    pub keep_cards: bool,
 }
 
 
@@ -51,6 +55,7 @@ impl MctsConfig {
             time_limit_ms: None,
             random_first_pick: false,
             transpositions: false,
+            keep_cards: false,
         }
     }
 }
@@ -86,6 +91,8 @@ impl<'de> Deserialize<'de> for MctsConfig {
             random_first_pick: bool,
             #[serde(default)]
             transpositions: bool,
+            #[serde(default)]
+            keep_cards: bool,
         }
 
         fn default_iterations() -> u32 { 100 }
@@ -110,6 +117,7 @@ impl<'de> Deserialize<'de> for MctsConfig {
             time_limit_ms: helper.time_limit_ms,
             random_first_pick: helper.random_first_pick,
             transpositions: helper.transpositions,
+            keep_cards: helper.keep_cards,
         })
     }
 }
