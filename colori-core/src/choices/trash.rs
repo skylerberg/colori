@@ -3,11 +3,11 @@ use crate::types::*;
 
 use super::mix_sequences::enumerate_mix_sequences;
 use super::multiset::{count_card_types, enumerate_multiset_subsets, enumerate_multiset_subsets_exact};
-use super::should_force_max_workshop;
+use super::WorkshopPruning;
 
 /// What enumerating a copied card's Workshop ability needs, none of which
-/// depends on *which* card was copied: the workshop's card types, and whether
-/// holding picks back can pay off.
+/// depends on *which* card was copied: the workshop's card types, and what
+/// decides whether holding picks back can pay off.
 ///
 /// A hand often holds several Workshop cards, and this was tallied once per
 /// copy. It is filled in on first use, so a hand with no Workshop card pays
@@ -21,7 +21,7 @@ struct WorkshopTallyInner {
     card_types: [Card; NUM_CARDS],
     type_counts: [u8; NUM_CARDS],
     len: usize,
-    force_max: bool,
+    pruning: WorkshopPruning,
 }
 
 impl WorkshopTally {
@@ -33,7 +33,7 @@ impl WorkshopTally {
                 card_types,
                 type_counts,
                 len,
-                force_max: should_force_max_workshop(state, player),
+                pruning: WorkshopPruning::new(state, player),
             }
         })
     }
@@ -79,7 +79,7 @@ pub(super) fn enumerate_trash_choices(
             let (card_types, type_counts, len) =
                 (&tally.card_types[..], &tally.type_counts[..], tally.len);
             let total_available: usize = type_counts[..len].iter().map(|&c| c as usize).sum();
-            if tally.force_max {
+            if tally.pruning.forces_max(count) {
                 if total_available == 0 {
                     choices.push(Choice::TrashAndWorkshop {
                         card,
