@@ -11,11 +11,11 @@ use crate::types::*;
 
 use trash::{enumerate_trash_choices, WorkshopTally};
 use mix_sequences::enumerate_mix_sequences;
-use multiset::{count_card_types, enumerate_multiset_subsets, enumerate_multiset_subsets_exact};
+use multiset::{count_card_types, enumerate_multiset_subsets};
 
-/// What deciding whether a workshop can take its maximum number of picks
-/// turns on: how many cards there are to take, and how many moves of a card
-/// into the draft pool the turn still has in it.
+/// What deciding which workshop picks are worth taking turns on: how many
+/// cards there are to take, and how many moves of a card into the draft pool
+/// the turn still has in it.
 ///
 /// Nothing enters the workshop mid-turn, so holding a pick back only pays off
 /// when a card in the draft pool could still move the card it left behind into
@@ -47,17 +47,19 @@ impl WorkshopPruning {
         }
     }
 
-    /// Whether the workshop may take only its maximum number of picks, leaving
-    /// the smaller subsets out of the enumeration.
+    /// The picks worth taking: the fewest that leaves no card idle, up to the
+    /// most the ability allows.
     ///
-    /// Taking the maximum is never worse when the cards it leaves behind are
-    /// enough for every move the turn can still make: the extra cards it takes
-    /// would otherwise sit in the workshop and drop to the bottom of the deck
-    /// anyway, so taking them gains and costs nothing. With nowhere to move a
-    /// card to, every pick is a free gain and all the smaller subsets are dead
-    /// branches in the search tree.
-    pub(crate) fn forces_max(&self, count: u32) -> bool {
-        self.movers == 0 || count as usize <= self.available.saturating_sub(self.movers)
+    /// At most `movers` cards can leave the workshop for the draft pool, so a
+    /// workspace smaller than `available - movers` picks leaves a card behind
+    /// that nothing will ever move: it sits in the workshop and drops to the
+    /// bottom of the deck. Taking it instead costs nothing, and gains its
+    /// colors, materials and workshop abilities, so every such workspace is
+    /// dominated by one that takes an idle card too.
+    pub(crate) fn pick_range(&self, count: u32) -> (usize, usize) {
+        let most = (count as usize).min(self.available);
+        let fewest = most.min(self.available.saturating_sub(self.movers));
+        (fewest, most)
     }
 }
 
@@ -111,42 +113,23 @@ pub fn enumerate_choices_into(state: &GameState, player_index: usize, choices: &
                     }
                 }
                 Some(Ability::Workshop { count }) => {
-                    let pruning = WorkshopPruning::new(state, player);
+                    let (fewest, most) = WorkshopPruning::new(state, player).pick_range(*count);
                     let (card_types, type_counts, len) = count_card_types(player.workshop_cards, &state.card_lookup);
-                    let total_available: usize = type_counts[..len].iter().map(|&c| c as usize).sum();
-                    if pruning.forces_max(*count) {
-                        if total_available == 0 {
-                            // `process_ability_stack` pops a Workshop ability
-                            // with nothing to choose from, so this is
-                            // unreachable today; skipping is what the game does
-                            // with it, and the alternative would be an empty
-                            // offer the choice checker rejects.
-                            choices.push(Choice::SkipWorkshop);
-                        } else if total_available <= *count as usize {
-                            // Only one option: workshop everything
-                            let mut all_cards = WorkshopCards::new();
-                            for i in 0..len {
-                                for _ in 0..type_counts[i] {
-                                    all_cards.push(card_types[i]);
-                                }
-                            }
-                            choices.push(Choice::Workshop { card_types: all_cards });
-                        } else {
-                            enumerate_multiset_subsets_exact(
-                                &card_types[..len],
-                                &type_counts[..len],
-                                *count as usize,
-                                &mut WorkshopCards::new(),
-                                choices,
-                                &|card_types| Choice::Workshop { card_types },
-                            );
-                        }
-                    } else {
+                    if fewest == 0 {
+                        // Every card left could still be moved, so forfeiting the
+                        // picks is a real option — even when a ducat paid for
+                        // them, since a search can begin, and the last turn be
+                        // solved, at this position rather than at the purchase.
+                        // It is also the only answer to an empty workshop, which
+                        // `process_ability_stack` pops before anyone is asked.
                         choices.push(Choice::SkipWorkshop);
+                    }
+                    if most > 0 {
                         enumerate_multiset_subsets(
                             &card_types[..len],
                             &type_counts[..len],
-                            *count as usize,
+                            fewest.max(1),
+                            most,
                             &mut WorkshopCards::new(),
                             choices,
                             &|card_types| Choice::Workshop { card_types },
@@ -570,9 +553,9 @@ mod tests {
         state
     }
 
-    fn forces_max(workshop: &[Card], drafted: &[Card], count: u32) -> bool {
+    fn pick_range(workshop: &[Card], drafted: &[Card], count: u32) -> (usize, usize) {
         let state = position(workshop, drafted);
-        WorkshopPruning::new(&state, &state.players[0]).forces_max(count)
+        WorkshopPruning::new(&state, &state.players[0]).pick_range(count)
     }
 
     /// The same position with player 0 taking their action turn and `pending`
@@ -589,32 +572,55 @@ mod tests {
         state
     }
 
-    /// With nothing that moves a card into the draft pool, every pick is a
-    /// free gain and the workshop always takes its maximum.
+    /// The sizes of the workshop picks `offered` makes for `card`.
+    fn offered_picks(offered: &[Choice], card: Card) -> Vec<usize> {
+        offered
+            .iter()
+            .filter_map(|choice| match choice {
+                Choice::TrashAndWorkshop {
+                    card: trashed,
+                    workshop_cards,
+                } if *trashed == card => Some(workshop_cards.len()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// With nothing that moves a card into the draft pool, no card can go idle
+    /// and the workshop always takes its maximum.
     #[test]
     fn a_turn_that_cannot_move_a_card_workshops_the_maximum() {
         let workshop = [Card::Realgar, Card::Woad, Card::GumArabic];
-        assert!(forces_max(&workshop, &[], 2));
-        assert!(forces_max(&workshop, &[], 5), "more picks than cards");
-        assert!(forces_max(&workshop, &[Card::Realgar], 3));
+        assert_eq!(pick_range(&workshop, &[], 2), (2, 2));
+        assert_eq!(pick_range(&workshop, &[], 5), (3, 3), "more picks than cards");
+        assert_eq!(pick_range(&workshop, &[Card::Realgar], 3), (3, 3));
     }
 
-    /// Each move takes one card out of the workshop, so taking the maximum is
-    /// safe while it still leaves a card behind for every move.
+    /// Each move can take one card out of the workshop, so the picks may stop
+    /// where the moves run out — but no earlier, since a card nothing can move
+    /// is a free gain.
     #[test]
-    fn the_workshop_takes_its_maximum_while_a_card_is_left_to_move() {
+    fn the_picks_start_where_a_card_would_go_idle() {
         let workshop = [Card::Realgar, Card::Woad, Card::Azurite];
         let mover = [Card::Alum];
-        assert!(forces_max(&workshop, &mover, 2), "one card left for Alum");
-        assert!(
-            !forces_max(&workshop, &mover, 3),
-            "nothing would be left for Alum to move"
+        assert_eq!(pick_range(&workshop, &mover, 2), (2, 2), "one card left for Alum");
+        assert_eq!(
+            pick_range(&workshop, &mover, 3),
+            (2, 3),
+            "three picks may be held back to two"
         );
 
+        // Two moves and four cards left the picks no room below two: taking
+        // one would leave two cards idle.
+        let four = [Card::Realgar, Card::Woad, Card::Azurite, Card::Cinnabar];
+        let two_movers = [Card::Alum, Card::Gondola];
+        assert_eq!(pick_range(&four, &two_movers, 3), (2, 3));
+
         let three_moves = [Card::Alum, Card::GumArabic, Card::Gondola];
-        assert!(
-            !forces_max(&workshop, &three_moves, 1),
-            "more moves than cards to leave behind"
+        assert_eq!(
+            pick_range(&workshop, &three_moves, 1),
+            (0, 1),
+            "every card could be moved, so none of them must be taken"
         );
     }
 
@@ -624,23 +630,24 @@ mod tests {
     fn a_mover_in_the_workshop_can_move_a_second_card() {
         let workshop = [Card::Alum, Card::Realgar, Card::Woad];
         let drafted_mover = [Card::Gondola];
-        assert!(forces_max(&workshop, &drafted_mover, 1));
-        assert!(
-            !forces_max(&workshop, &drafted_mover, 2),
+        assert_eq!(pick_range(&workshop, &drafted_mover, 1), (1, 1));
+        assert_eq!(
+            pick_range(&workshop, &drafted_mover, 2),
+            (1, 2),
             "the Alum the workshop takes could have moved the other card on"
         );
 
-        assert!(
-            forces_max(&workshop, &[], 3),
+        assert_eq!(
+            pick_range(&workshop, &[], 3),
+            (3, 3),
             "with no drafted mover, nothing can bring Alum into the pool"
         );
     }
 
-    /// The enumeration follows the pruning: a forced workshop offers only the
-    /// maximum subsets, while one that may be held back offers the smaller
-    /// ones too.
+    /// The enumeration follows the pruning: a pending workshop offers only the
+    /// sizes in the range, and forfeiting only while every card can be moved.
     #[test]
-    fn a_forced_workshop_offers_no_smaller_subset() {
+    fn a_pending_workshop_offers_only_the_picks_in_range() {
         let workshop = [Card::Realgar, Card::Woad, Card::Azurite];
         let state = open_turn(position(&workshop, &[]), &[Ability::Workshop { count: 2 }]);
         let offered = choices_for(&state, 0);
@@ -655,13 +662,50 @@ mod tests {
         assert!(picked.iter().all(|&picks| picks == 2), "only the maximum: {picked:?}");
         assert!(!offered.contains(&Choice::SkipWorkshop));
 
-        // A mover to leave a card behind for keeps the smaller subsets alive.
+        // One mover leaves two cards behind, so two or three picks are left.
         let state = open_turn(position(&workshop, &[Card::Alum]), &[Ability::Workshop { count: 3 }]);
+        let picked: Vec<usize> = choices_for(&state, 0)
+            .iter()
+            .filter_map(|choice| match choice {
+                Choice::Workshop { card_types } => Some(card_types.len()),
+                _ => None,
+            })
+            .collect();
+        assert!(picked.contains(&2) && picked.contains(&3), "two or three: {picked:?}");
+        assert!(!picked.contains(&1), "one would leave two cards idle");
+
+        // Every card can be moved, so taking none is coherent: the position can
+        // be reached (by the last turn's solver, or a re-rooted search) with
+        // the ducat that bought the picks already spent.
+        let state = open_turn(
+            position(&workshop[..2], &[Card::Alum, Card::Gondola]),
+            &[Ability::Workshop { count: 3 }],
+        );
         let offered = choices_for(&state, 0);
         assert!(offered.contains(&Choice::SkipWorkshop));
-        assert!(offered
-            .iter()
-            .any(|choice| matches!(choice, Choice::Workshop { card_types } if card_types.len() < 3)));
+        assert!(offered.iter().any(|c| matches!(c, Choice::Workshop { card_types } if card_types.len() == 1)));
+    }
+
+    /// Trashing a Workshop card offers giving up its picks only while every
+    /// card left could still be moved: otherwise taking an idle card is free.
+    #[test]
+    fn trashing_a_workshop_card_keeps_the_empty_picks_only_while_cards_can_move() {
+        let workshop = [Card::Realgar, Card::Woad];
+        let drafted = [Card::BasicRed, Card::Alum, Card::Gondola];
+        let offered = choices_for(&open_turn(position(&workshop, &drafted), &[]), 0);
+        let picks = offered_picks(&offered, Card::BasicRed);
+        assert!(picks.contains(&0), "both cards could be moved: {picks:?}");
+        assert!(picks.contains(&2));
+
+        // One mover cannot reach both cards, so one would go idle.
+        let drafted = [Card::BasicRed, Card::Alum];
+        let offered = choices_for(&open_turn(position(&workshop, &drafted), &[]), 0);
+        let picks = offered_picks(&offered, Card::BasicRed);
+        assert!(!picks.contains(&0), "a card would go idle: {picks:?}");
+        assert!(
+            picks.contains(&1) && picks.contains(&2),
+            "one card can be left for the mover: {picks:?}"
+        );
     }
 
     /// A hand can hold Workshop cards that grant different numbers of picks,
@@ -669,32 +713,21 @@ mod tests {
     #[test]
     fn a_hand_of_workshop_cards_asks_about_each_count_apart() {
         let workshop = [Card::Realgar, Card::Woad, Card::Azurite];
-        // One mover leaves two cards behind: two picks are still free, three
-        // are not.
+        // One mover leaves two cards behind: two picks still take the whole
+        // workshop's worth, three may be held back to two.
         let drafted = [Card::Alum, Card::BasicRed, Card::Cinnabar];
         let offered = choices_for(&open_turn(position(&workshop, &drafted), &[]), 0);
-        let picked = |card: Card| -> Vec<usize> {
-            offered
-                .iter()
-                .filter_map(|choice| match choice {
-                    Choice::TrashAndWorkshop {
-                        card: trashed,
-                        workshop_cards,
-                    } if *trashed == card => Some(workshop_cards.len()),
-                    _ => None,
-                })
-                .collect()
-        };
 
-        let two_picks = picked(Card::BasicRed);
+        let two_picks = offered_picks(&offered, Card::BasicRed);
         assert!(!two_picks.is_empty(), "Red grants two picks");
         assert!(
             two_picks.iter().all(|&picks| picks == 2),
-            "two picks take their maximum: {two_picks:?}"
+            "two picks leave no room below their maximum: {two_picks:?}"
         );
 
-        let three_picks = picked(Card::Cinnabar);
-        assert!(three_picks.contains(&0), "three picks may be held back");
+        let three_picks = offered_picks(&offered, Card::Cinnabar);
+        assert!(three_picks.contains(&2), "three picks may be held back to two");
         assert!(three_picks.contains(&3), "and may take the maximum");
+        assert!(!three_picks.contains(&0), "but never give up the picks");
     }
 }
