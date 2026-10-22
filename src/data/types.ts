@@ -177,9 +177,9 @@ export type Choice =
   | { type: 'draftPick'; card: Card }
   | { type: 'trashTopCard'; card: Card }
   | { type: 'keepCard'; card: Card }
-  // `keepRemaining` decides what becomes of the drafted cards the turn leaves
-  // undecided: kept on top of the deck, or trashed without using them. Old
-  // logs omit it, which means keeping.
+  // `keepRemaining` decides what becomes of the top cards the turn leaves
+  // undecided: kept on top of the deck, or trashed without using their top
+  // actions. Old logs omit it, which means keeping.
   | { type: 'endTurn'; keepRemaining: boolean }
   | { type: 'workshop'; cardTypes: Card[] }
   | { type: 'skipWorkshop' }
