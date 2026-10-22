@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use colori_core::unordered_cards::{set_card_registry, set_sell_card_registry};
+use colori_core::unordered_cards::{set_card_registry, set_buyer_registry};
 use rand::seq::SliceRandom;
 use rand::RngExt;
 use rand::SeedableRng;
@@ -80,7 +80,7 @@ pub fn run_tournament(args: &TournamentArgs, threads: usize, output: &str) {
         .zip(labels.iter())
         .map(|(v, label)| NamedVariant {
             name: Some(label.clone()),
-            ai: v.ai.clone(),
+            bot: v.bot.clone(),
         })
         .collect();
 
@@ -134,12 +134,12 @@ pub fn run_tournament(args: &TournamentArgs, threads: usize, output: &str) {
                     let log = run_game(0, &seated, note.clone(), None, &mut rng);
 
                     set_card_registry(&log.initial_state.card_lookup);
-                    set_sell_card_registry(&log.initial_state.sell_card_lookup);
+                    set_buyer_registry(&log.initial_state.buyer_lookup);
 
                     let scores = log.final_scores.as_ref().unwrap();
                     let rankings: Vec<_> = scores
                         .iter()
-                        .map(|s| (s.half_points(), s.completed_sell_cards, s.color_wheel_total))
+                        .map(|s| (s.half_points(), s.completed_orders, s.color_wheel_total))
                         .collect();
                     let best = *rankings.iter().max().unwrap();
                     let top = rankings.iter().filter(|&&r| r == best).count() as u64;

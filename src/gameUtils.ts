@@ -1,5 +1,5 @@
 import type { GameState, CardInstance, GamePhase, PlayerState } from './data/types';
-import { getSellCardData } from './data/cards';
+import { getBuyerData } from './data/cards';
 
 // Players with a decision to make: one at a time in the buyers phase and the
 // draft, and everyone still taking their turn in the action phase.
@@ -26,12 +26,12 @@ export function startingPlayerIndex(round: number, numPlayers: number): number {
   return (round - 1) % numPlayers;
 }
 
-// Mirrors `colori_core::scoring::score_in_half_points`: the points on sold
-// cards and a point a ducat, plus half a point for each unspent wild primary
-// and boat.
-export function playerScore(player: Pick<PlayerState, 'completedSellCards' | 'ducats' | 'wildPrimaries' | 'boats'>): number {
-  const sold = player.completedSellCards.reduce((sum, sellCard) => sum + getSellCardData(sellCard.card).points, 0);
-  return sold + player.ducats + (player.wildPrimaries + player.boats) / 2;
+// Mirrors `colori_core::scoring::score_in_half_points`: the points on
+// Completed Orders and a point a gold coin, plus half a point for each unspent
+// bowl and boat.
+export function playerScore(player: Pick<PlayerState, 'completedOrders' | 'goldCoins' | 'bowls' | 'boats'>): number {
+  const sold = player.completedOrders.reduce((sum, buyer) => sum + getBuyerData(buyer.card).points, 0);
+  return sold + player.goldCoins + (player.bowls + player.boats) / 2;
 }
 
 // Mirrors `colori_core::buyers_phase::buyer_capacity`.
@@ -43,17 +43,17 @@ export function buyerCapacity(round: number): number {
 
 // Mirrors `colori_core::draw_phase::round_income`: what everyone collects at
 // the start of `round`, as the round track shows.
-export function roundIncome(round: number): { ducats: number; boats: number; wildPrimaries: number } {
+export function roundIncome(round: number): { goldCoins: number; boats: number; bowls: number } {
   switch (round) {
     case 4:
     case 6:
-      return { ducats: 1, boats: 0, wildPrimaries: 0 };
+      return { goldCoins: 1, boats: 0, bowls: 0 };
     case 5:
-      return { ducats: 0, boats: 1, wildPrimaries: 0 };
+      return { goldCoins: 0, boats: 1, bowls: 0 };
     case 7:
-      return { ducats: 1, boats: 1, wildPrimaries: 1 };
+      return { goldCoins: 1, boats: 1, bowls: 1 };
     default:
-      return { ducats: 0, boats: 0, wildPrimaries: 0 };
+      return { goldCoins: 0, boats: 0, bowls: 0 };
   }
 }
 
@@ -62,9 +62,9 @@ export function roundNews(round: number): string[] {
   const news: string[] = [];
   const income = roundIncome(round);
   const gains = [
-    income.ducats > 0 && 'a ducat',
+    income.goldCoins > 0 && 'a gold coin',
     income.boats > 0 && 'a boat',
-    income.wildPrimaries > 0 && 'a wild primary',
+    income.bowls > 0 && 'a bowl',
   ].filter((gain): gain is string => !!gain);
   if (gains.length > 0) {
     news.push(`Everyone gains ${gains.length > 1 ? `${gains.slice(0, -1).join(', ')} and ${gains.at(-1)}` : gains[0]}`);
@@ -85,7 +85,7 @@ export function formatScore(score: number): string {
 // seat's board shows only the picks from rounds already done; the one it is
 // picking right now stays hidden. Your own seat shows each pick as you make it,
 // which is what the count of `Infinity` means.
-export function revealedDraftedCount(phase: GamePhase, seat: number, viewerIndex: number): number {
+export function revealedTopCardCount(phase: GamePhase, seat: number, viewerIndex: number): number {
   if (phase.type !== 'draft' || seat === viewerIndex) return Infinity;
   // One pick per seat per round, and `pickNumber` counts the rounds that have
   // finished, so it is also how many of that seat's picks are face up.

@@ -1,42 +1,42 @@
 <script lang="ts">
-  import type { CardInstance, Color, DucatPurchase, MaterialType, PlayerState, SellCard } from '../data/types';
+  import type { CardInstance, Color, GoldCoinPurchase, MaterialType, PlayerState, Buyer } from '../data/types';
   import type { TableInteraction } from '../stores/tableInteraction';
   import {
-    BOARD_ART_WIDTH, PLAYER_BOARD_HEIGHT, PLAYER_CARD, PLAYER_SELL_CARD, TUCK,
+    BOARD_ART_WIDTH, PLAYER_BOARD_HEIGHT, PLAYER_CARD, PLAYER_BUYER_CARD, TUCK,
     DRAFT_SLOT_X, WORKSHOP_SLOT_X, BUYER_SLOTS,
-    COMPLETED_SLOT, DECK, DUCAT_BAG, MATERIALS_CIRCLE, BOATS, WILD_PRIMARIES, MATERIALS,
-    DUCAT_PURCHASE_ICONS, DUCAT_PURCHASE_ICON_RADIUS, DUCAT_STRIP, WHEEL, WHEEL_REGIONS, assignSlots,
+    COMPLETED_SLOT, DECK, GOLD_COIN_BAG, MATERIALS_CIRCLE, BOATS, BOWLS, MATERIALS,
+    GOLD_COIN_PURCHASE_ICONS, GOLD_COIN_ICON_RADIUS, GOLD_COIN_STRIP, WHEEL, WHEEL_REGIONS, assignSlots,
   } from '../data/boardLayout';
-  import { playerBoardArtUrl, SELL_CARD_BACK_URL } from '../data/cardArt';
+  import { playerBoardArtUrl, BUYER_CARD_BACK_URL } from '../data/cardArt';
   import { saleShortfall } from '../engine/wasmEngine';
-  import { getAnyCardData, getSellCardData } from '../data/cards';
+  import { getAnyCardData, getBuyerData } from '../data/cards';
   import { formatAbility } from '../data/abilities';
   import { buyerCapacity, orderByDraftOrder } from '../gameUtils';
   import CardDisplay from './CardDisplay.svelte';
   import CardModal from './CardModal.svelte';
   import { fly } from 'svelte/transition';
 
-  let { player, seat, round, withTuckedCards = true, draftOrder = [], revealedDrafted = Infinity, claiming = false, interaction = null }: {
+  let { player, seat, round, withTuckedCards = true, draftOrder = [], revealedTopCards = Infinity, claiming = false, interaction = null }: {
     player: PlayerState;
     seat: number;
     round: number;
-    // Leave out the drafted and workshop cards, and the room they stick out into.
+    // Leave out the top cards and workshop cards, and the room they stick out into.
     withTuckedCards?: boolean;
-    // The order this seat drafted its cards in, so they fill the slots left to right.
+    // The order this seat picked its cards in, so they fill the slots left to right.
     draftOrder?: number[];
-    // How many of its drafted cards, in that order, are face up; the rest are
+    // How many of its top cards, in that order, are face up; the rest are
     // still face down, waiting for this pick round to finish.
-    revealedDrafted?: number;
+    revealedTopCards?: number;
     // This seat is claiming a buyer, so its next free slot is waiting for one.
     claiming?: boolean;
     interaction?: TableInteraction | null;
   } = $props();
 
   const MATERIAL_TYPES: MaterialType[] = ['Paintings', 'Ceramics', 'Textiles'];
-  const PURCHASES: { type: DucatPurchase; label: string }[] = [
+  const PURCHASES: { type: GoldCoinPurchase; label: string }[] = [
     { type: 'workshop', label: 'Workshop ×1' },
     { type: 'mixColors', label: 'Mix ×1' },
-    { type: 'sell', label: 'Sell' },
+    { type: 'sell', label: 'Sell to a buyer' },
   ];
 
   // Positions are given in pixels of the board art; the board scales with its width.
@@ -46,20 +46,20 @@
     if (height !== undefined) style += `height:calc(${height} * var(--u));`;
     return style;
   }
-  // The art sits below the drafted cards that stick out over its top edge.
+  // The art sits below the top cards that stick out over its top edge.
   let overhang = $derived(withTuckedCards ? TUCK : 0);
   const onArt = (y: number) => y + overhang;
 
-  let previousDrafted: (number | null)[] = [];
-  let draftedSlots = $derived.by(() => {
-    const ids = orderByDraftOrder(player.draftedCards, draftOrder).map(c => c.instanceId);
-    previousDrafted = assignSlots(previousDrafted, ids, DRAFT_SLOT_X.length);
-    return previousDrafted;
+  let previousTopCards: (number | null)[] = [];
+  let topCardSlots = $derived.by(() => {
+    const ids = orderByDraftOrder(player.topCards, draftOrder).map(c => c.instanceId);
+    previousTopCards = assignSlots(previousTopCards, ids, DRAFT_SLOT_X.length);
+    return previousTopCards;
   });
 
   let previousWorkshop: (number | null)[] = [];
   let workshopSlots = $derived.by(() => {
-    const ids = [...player.workshopCards, ...player.workshoppedCards].map(c => c.instanceId);
+    const ids = [...player.workshopCards, ...player.usedCards].map(c => c.instanceId);
     previousWorkshop = assignSlots(previousWorkshop, ids, WORKSHOP_SLOT_X.length);
     return previousWorkshop;
   });
@@ -71,15 +71,15 @@
   });
 
   let cardsById = $derived(new Map(
-    [...player.draftedCards, ...player.workshopCards, ...player.workshoppedCards].map(c => [c.instanceId, c]),
+    [...player.topCards, ...player.workshopCards, ...player.usedCards].map(c => [c.instanceId, c]),
   ));
   let buyersById = $derived(new Map(player.buyers.map(b => [b.instanceId, b])));
-  let usedIds = $derived(new Set(player.workshoppedCards.map(c => c.instanceId)));
+  let usedIds = $derived(new Set(player.usedCards.map(c => c.instanceId)));
   let openBuyerSlots = $derived(buyerCapacity(round));
   let nextBuyerSlot = $derived(claiming ? buyerSlots.findIndex((id, i) => id === null && i < openBuyerSlots) : -1);
 
   let wheel = $derived(interaction?.wheel?.wheel ?? player.colorWheel);
-  let wildPrimaries = $derived(interaction?.wheel?.wildPrimaries ?? player.wildPrimaries);
+  let bowls = $derived(interaction?.wheel?.bowls ?? player.bowls);
   let hoveredColor: Color | null = $state(null);
   // The colors a mix into the hovered color would use up.
   let previewedInputs: Color[] = $derived(hoveredColor ? interaction?.wheel?.spends[hoveredColor] ?? [] : []);
@@ -91,13 +91,13 @@
   let showDeck = $state(false);
   let showCompleted = $state(false);
 
-  function trashHint(card: string): string {
+  function topActionHint(card: string): string {
     const data = getAnyCardData(card);
-    return `Trash ${data.name}: ${formatAbility(data)}`;
+    return `Use ${data.name}'s top action, then trash it: ${formatAbility(data)}`;
   }
 
-  function buyerHint(card: SellCard, shortfall: string[]): string {
-    const { name, points } = getSellCardData(card);
+  function buyerHint(card: Buyer, shortfall: string[]): string {
+    const { name, points } = getBuyerData(card);
     if (shortfall.length === 0) return `${name}, ${points} points: ready to sell`;
     const counts = new Map<string, number>();
     for (const item of shortfall) counts.set(item, (counts.get(item) ?? 0) + 1);
@@ -131,9 +131,9 @@
   <!-- Under the art: cards tucked beneath the top and bottom edges. -->
   {#if withTuckedCards}
   {#each DRAFT_SLOT_X as x, i}
-    {@const id = draftedSlots[i]}
+    {@const id = topCardSlots[i]}
     {@const ci = id !== null ? cardsById.get(id) : undefined}
-    <div class="tucked drafted" class:filled={!!ci} class:trashable={!!ci && !!interaction?.trashDrafted}
+    <div class="tucked drafted" class:filled={!!ci} class:trashable={!!ci && !!interaction?.trashTopCard}
       style="{place(x, 0, PLAYER_CARD.width, PLAYER_CARD.height)}--card-height:calc({PLAYER_CARD.height} * var(--u));">
       {#if ci}
         {#key ci.instanceId}
@@ -141,9 +141,9 @@
             <CardDisplay
               card={ci.card}
               instanceId={ci.instanceId}
-              faceDown={i >= revealedDrafted}
-              hint={interaction?.trashDrafted ? trashHint(ci.card) : undefined}
-              onclick={interaction?.trashDrafted ? () => interaction!.trashDrafted!(ci.instanceId) : undefined}
+              faceDown={i >= revealedTopCards}
+              hint={interaction?.trashTopCard ? topActionHint(ci.card) : undefined}
+              onclick={interaction?.trashTopCard ? () => interaction!.trashTopCard!(ci.instanceId) : undefined}
             />
           </div>
         {/key}
@@ -209,13 +209,13 @@
   {#each WHEEL_REGIONS as region}
     {@render counter(wheel[region.color], region.counter.x, region.counter.y, region.color)}
   {/each}
-  {@render counter(wildPrimaries, WILD_PRIMARIES.x, WILD_PRIMARIES.y, 'Wild primaries (½ point each)', '', true)}
+  {@render counter(bowls, BOWLS.x, BOWLS.y, 'Bowls (½ point each)', '', true)}
 
   {#each MATERIAL_TYPES as material}
-    {@render counter(player.materials[material], MATERIALS[material].x, MATERIALS[material].y, material)}
+    {@render counter(player.materialsWheel[material], MATERIALS[material].x, MATERIALS[material].y, material)}
   {/each}
   {@render counter(player.boats, BOATS.x, BOATS.y, 'Boats (½ point each)', '', true)}
-  {@render counter(player.ducats, DUCAT_BAG.x, DUCAT_BAG.y, 'Ducats', 'ducats', true)}
+  {@render counter(player.goldCoins, GOLD_COIN_BAG.x, GOLD_COIN_BAG.y, 'Gold coins', 'goldCoins', true)}
 
   <button class="deck" style={place(DECK.x, onArt(DECK.y), DECK.width, DECK.height)} class:empty={deckCards.length === 0}
     onclick={() => showDeck = true} title="Deck: {deckCards.length} cards. Click to see them.">
@@ -227,8 +227,8 @@
     {@const id = buyerSlots[i]}
     {@const buyer = id !== null ? buyersById.get(id) : undefined}
     {@const sellable = !!buyer && !!interaction?.buyers?.selectable.includes(buyer.instanceId)}
-    <div class="buyer-slot" style={place(slot.x, onArt(slot.y), PLAYER_SELL_CARD.width, PLAYER_SELL_CARD.height)}
-      style:--card-height="calc({PLAYER_SELL_CARD.height} * var(--u))"
+    <div class="buyer-slot" style={place(slot.x, onArt(slot.y), PLAYER_BUYER_CARD.width, PLAYER_BUYER_CARD.height)}
+      style:--card-height="calc({PLAYER_BUYER_CARD.height} * var(--u))"
       class:awaiting={i === nextBuyerSlot}
       class:sellable
       class:unsellable={!!buyer && !!interaction?.buyers && !sellable}>
@@ -238,7 +238,7 @@
           <div in:fly={{ x: -30, duration: 300 }}>
             <CardDisplay
               card={buyer.card}
-              hint={sellable ? `Sell to this ${getSellCardData(buyer.card).name}` : buyerHint(buyer.card, shortfall)}
+              hint={sellable ? `Sell to this ${getBuyerData(buyer.card).name}` : buyerHint(buyer.card, shortfall)}
               onclick={sellable ? () => interaction!.buyers!.onClick(buyer.instanceId) : undefined}
             />
           </div>
@@ -250,15 +250,15 @@
     </div>
   {/each}
 
-  <button class="completed" style={place(COMPLETED_SLOT.x, onArt(COMPLETED_SLOT.y), PLAYER_SELL_CARD.width, PLAYER_SELL_CARD.height)}
-    disabled={player.completedSellCards.length === 0}
+  <button class="completed" style={place(COMPLETED_SLOT.x, onArt(COMPLETED_SLOT.y), PLAYER_BUYER_CARD.width, PLAYER_BUYER_CARD.height)}
+    disabled={player.completedOrders.length === 0}
     onclick={() => showCompleted = true}
-    title="Completed buyers: {player.completedSellCards.length}">
-    {#if player.completedSellCards.length > 0}
-      {#key player.completedSellCards.length}
-        <img class="completed-back" src={SELL_CARD_BACK_URL} alt="" in:fly={{ y: -30, duration: 300 }} />
+    title="Completed Orders: {player.completedOrders.length}">
+    {#if player.completedOrders.length > 0}
+      {#key player.completedOrders.length}
+        <img class="completed-back" src={BUYER_CARD_BACK_URL} alt="" in:fly={{ y: -30, duration: 300 }} />
       {/key}
-      <span class="completed-count">{player.completedSellCards.length}</span>
+      <span class="completed-count">{player.completedOrders.length}</span>
     {/if}
   </button>
 
@@ -269,20 +269,20 @@
   {/if}
   {@render tourAnchor('wheel', WHEEL.cx - WHEEL.outer, onArt(WHEEL.cy - WHEEL.outer), 2 * WHEEL.outer, 2 * WHEEL.outer)}
   {@render tourAnchor('materials', MATERIALS_CIRCLE.x, onArt(MATERIALS_CIRCLE.y), MATERIALS_CIRCLE.width, MATERIALS_CIRCLE.height)}
-  {@render tourAnchor('ducats', DUCAT_BAG.x - 100, onArt(DUCAT_STRIP.y - 130), DUCAT_STRIP.x + DUCAT_STRIP.width - DUCAT_BAG.x + 100, 210)}
-  {@render tourAnchor('buyers', BUYER_SLOTS[0].x, onArt(BUYER_SLOTS[0].y), COMPLETED_SLOT.x + PLAYER_SELL_CARD.width - BUYER_SLOTS[0].x, COMPLETED_SLOT.y + PLAYER_SELL_CARD.height - BUYER_SLOTS[0].y)}
+  {@render tourAnchor('goldCoins', GOLD_COIN_BAG.x - 100, onArt(GOLD_COIN_STRIP.y - 130), GOLD_COIN_STRIP.x + GOLD_COIN_STRIP.width - GOLD_COIN_BAG.x + 100, 210)}
+  {@render tourAnchor('buyers', BUYER_SLOTS[0].x, onArt(BUYER_SLOTS[0].y), COMPLETED_SLOT.x + PLAYER_BUYER_CARD.width - BUYER_SLOTS[0].x, COMPLETED_SLOT.y + PLAYER_BUYER_CARD.height - BUYER_SLOTS[0].y)}
   {@render tourAnchor('deck', DECK.x, onArt(DECK.y), DECK.width, DECK.height)}
 
-  {#if interaction?.ducats}
+  {#if interaction?.goldCoins}
     {#each PURCHASES as purchase}
-      {@const icon = DUCAT_PURCHASE_ICONS[purchase.type]}
-      {@const available = interaction.ducats.available.includes(purchase.type)}
-      {@const r = DUCAT_PURCHASE_ICON_RADIUS}
+      {@const icon = GOLD_COIN_PURCHASE_ICONS[purchase.type]}
+      {@const available = interaction.goldCoins.available.includes(purchase.type)}
+      {@const r = GOLD_COIN_ICON_RADIUS}
       <button class="purchase" class:available style={place(icon.x - r, onArt(icon.y - r), 2 * r, 2 * r)}
         disabled={!available}
-        onclick={() => interaction!.ducats!.onSpend(purchase.type)}
-        title={available ? `Spend a ducat: ${purchase.label}` : `Can't buy ${purchase.label} now`}
-        aria-label="Spend a ducat: {purchase.label}"></button>
+        onclick={() => interaction!.goldCoins!.onSpend(purchase.type)}
+        title={available ? `Spend a gold coin: ${purchase.label}` : `Can't buy ${purchase.label} now`}
+        aria-label="Spend a gold coin: {purchase.label}"></button>
     {/each}
   {/if}
 </div>
@@ -295,7 +295,7 @@
   <CardModal title="Deck ({deckCards.length})" cards={deckCards} onClose={() => showDeck = false} />
 {/if}
 {#if showCompleted}
-  <CardModal title="Completed buyers ({player.completedSellCards.length})" cards={player.completedSellCards} onClose={() => showCompleted = false} />
+  <CardModal title="Completed Orders ({player.completedOrders.length})" cards={player.completedOrders} onClose={() => showCompleted = false} />
 {/if}
 
 <style>
@@ -503,7 +503,7 @@
     border-color: rgba(201, 168, 76, 0.5);
   }
 
-  .counter.ducats {
+  .counter.goldCoins {
     min-width: max(calc(96 * var(--u)), 26px);
     height: max(calc(96 * var(--u)), 26px);
     font-size: max(calc(56 * var(--u)), 15px);
@@ -670,7 +670,7 @@
     pointer-events: none;
   }
 
-  /* ── Spending ducats ── */
+  /* ── Spending goldCoins ── */
   .purchase {
     position: absolute;
     z-index: 4;

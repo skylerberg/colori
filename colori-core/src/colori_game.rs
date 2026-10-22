@@ -1,30 +1,12 @@
 use crate::apply_choice::apply_choice;
-use crate::draw_phase::execute_draw_phase;
 use crate::scoring::compute_terminal_rewards;
 use crate::types::*;
 use crate::unordered_cards::UnorderedCards;
-use rand::{Rng, SeedableRng};
-use wyrand::WyRand;
+use rand::Rng;
 
 
 pub use crate::choices::{check_choice_available, enumerate_choices, enumerate_choices_into};
 pub use crate::rollout::{apply_rollout_step, apply_heuristic_rollout_step};
-
-// ── Apply choice with AI post-processing ──
-
-/// Apply the choice and, if it ended the round, run the next draw phase.
-pub fn apply_choice_to_state<R: Rng>(
-    state: &mut GameState,
-    player_index: usize,
-    choice: &Choice,
-    rng: &mut R,
-) {
-    apply_choice(state, player_index, choice, rng);
-
-    if matches!(state.phase, GamePhase::Draw) {
-        execute_draw_phase(state, rng);
-    }
-}
 
 // ── Simultaneous action phase ──
 
@@ -36,7 +18,7 @@ pub fn is_taking_turn(state: &GameState, player_index: usize) -> bool {
 /// only that player's own choices applied since.
 ///
 /// Everyone acts at once, and the search models each opponent as unable to
-/// see the searcher's moves. An AI is held to the same by searching its view
+/// see the searcher's moves. A bot is held to the same by searching its view
 /// rather than the live state, where turns others have already finished would
 /// tell it what they did.
 pub struct ActionPhaseViews {
@@ -59,10 +41,11 @@ impl ActionPhaseViews {
     }
 
     /// Bring `player_index`'s view up to date with a choice they made.
-    pub fn apply(&mut self, player_index: usize, choice: &Choice) {
-        // Nothing in a turn is random, so this generator decides nothing.
-        let mut rng = WyRand::seed_from_u64(0);
-        apply_choice_to_state(&mut self.views[player_index], player_index, choice, &mut rng);
+    /// Apply the player's own choice to their view. A turn that ends draws a
+    /// fresh workshop, and a view that never drew would part company with the
+    /// game, so the draw takes `rng` like any other.
+    pub fn apply<R: Rng>(&mut self, player_index: usize, choice: &Choice, rng: &mut R) {
+        apply_choice(&mut self.views[player_index], player_index, choice, rng);
     }
 }
 
@@ -100,7 +83,6 @@ pub fn get_game_status(state: &GameState, max_round: Option<u32>) -> GameStatus 
         GamePhase::GameOver => GameStatus::Terminated {
             scores: compute_terminal_rewards(&state.players),
         },
-        GamePhase::Draw => GameStatus::AwaitingAction { player_index: 0 },
     }
 }
 
@@ -168,6 +150,6 @@ pub fn determinize_in_place<R: Rng>(
 
         // No shuffle calls needed - bitset draw is already uniform random
     }
-    // No shuffle calls needed for player decks, sell_card_deck, or draft_deck
+    // No shuffle calls needed for player decks, buyer_deck, or draft_deck
     // because draw() from bitsets is inherently random
 }

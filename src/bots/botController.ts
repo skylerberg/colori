@@ -1,23 +1,23 @@
-import type { AiSettings, GameState, Choice } from '../data/types';
+import type { BotSettings, GameState, Choice } from '../data/types';
 import { EngineError } from '../engine/engineCall';
-import type { AIWorkerRequest, AIWorkerResponse } from './aiWorker';
-import AIWorkerModule from './aiWorker?worker';
+import type { BotWorkerRequest, BotWorkerResponse } from './botWorker';
+import BotWorkerModule from './botWorker?worker';
 
 export interface DraftPicker {
   playerIndex: number;
   iterations: number;
 }
 
-export class AIController {
+export class BotController {
   // One per seat, so seats can think at the same time: a worker serves one
   // search at a time, and a second would take over the first's reply.
   private workers = new Map<number, Worker>();
-  aiSettings: AiSettings = {};
+  botSettings: BotSettings = {};
 
   private draftWorkers = new Set<Worker>();
   private startedDraftPicks = new Map<string, Promise<Choice>>();
 
-  getAIChoice(
+  getBotChoice(
     gameState: GameState,
     playerIndex: number,
     iterations: number,
@@ -25,7 +25,7 @@ export class AIController {
     const worker = this.workerFor(playerIndex);
     const request = this.request(gameState, playerIndex, iterations);
     return new Promise((resolve, reject) => {
-      worker.onmessage = (event: MessageEvent<AIWorkerResponse>) => {
+      worker.onmessage = (event: MessageEvent<BotWorkerResponse>) => {
         if (event.data.type === 'error') {
           // A wasm instance that has failed can't be trusted with the next search.
           worker.terminate();
@@ -77,23 +77,23 @@ export class AIController {
   private workerFor(playerIndex: number): Worker {
     let worker = this.workers.get(playerIndex);
     if (!worker) {
-      worker = new AIWorkerModule();
+      worker = new BotWorkerModule();
       this.workers.set(playerIndex, worker);
     }
     return worker;
   }
 
-  // Each draft pick gets its own worker so every AI's pick is searched at once.
+  // Each draft pick gets its own worker so every bot's pick is searched at once.
   private searchDraftPick(gameState: GameState, { playerIndex, iterations }: DraftPicker): Promise<Choice> {
     const request = this.request(gameState, playerIndex, iterations);
     // The search picks from the current player's hand.
     if (request.gameState.phase.type === 'draft') {
       request.gameState.phase.draftState.currentPlayerIndex = playerIndex;
     }
-    const worker = new AIWorkerModule();
+    const worker = new BotWorkerModule();
     this.draftWorkers.add(worker);
     return new Promise((resolve, reject) => {
-      worker.onmessage = (event: MessageEvent<AIWorkerResponse>) => {
+      worker.onmessage = (event: MessageEvent<BotWorkerResponse>) => {
         worker.terminate();
         this.draftWorkers.delete(worker);
         if (event.data.type === 'error') {
@@ -107,8 +107,8 @@ export class AIController {
   }
 
   // A plain copy: Svelte state proxies can't be posted to a worker.
-  private request(gameState: GameState, playerIndex: number, iterations: number): AIWorkerRequest {
-    return JSON.parse(JSON.stringify({ gameState, playerIndex, iterations, aiSettings: this.aiSettings }));
+  private request(gameState: GameState, playerIndex: number, iterations: number): BotWorkerRequest {
+    return JSON.parse(JSON.stringify({ gameState, playerIndex, iterations, botSettings: this.botSettings }));
   }
 }
 

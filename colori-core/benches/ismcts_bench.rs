@@ -13,8 +13,8 @@
 //! across implementations — the feature gets its own bench instead.
 
 use colori_core::choices::enumerate_choices;
-use colori_core::colori_game::{apply_choice_to_state, get_game_status, GameStatus};
-use colori_core::draw_phase::execute_draw_phase;
+use colori_core::apply_choice::apply_choice;
+use colori_core::colori_game::{get_game_status, GameStatus};
 use colori_core::ismcts::MctsConfig;
 use colori_core::mcts_impl::ColoriSearcher;
 use colori_core::scoring::HeuristicParams;
@@ -49,17 +49,12 @@ fn config(iterations: u32) -> MctsConfig {
 /// Walk a fresh game forward by `steps` decisions, choosing uniformly at random.
 fn position(seed: u64, steps: usize) -> (GameState, usize) {
     let mut rng = WyRand::seed_from_u64(seed);
-    let ai_players = vec![true; PLAYERS];
-    let mut state = create_initial_game_state(PLAYERS, &ai_players, &mut rng);
-    execute_draw_phase(&mut state, &mut rng);
+    let bot_players = vec![true; PLAYERS];
+    let mut state = create_initial_game_state(PLAYERS, &bot_players, &mut rng);
 
     for taken in 0..steps {
         match &state.phase {
             GamePhase::GameOver => return (state, taken),
-            GamePhase::Draw => {
-                execute_draw_phase(&mut state, &mut rng);
-                continue;
-            }
             _ => {}
         }
         if matches!(get_game_status(&state, None), GameStatus::Terminated { .. }) {
@@ -71,7 +66,7 @@ fn position(seed: u64, steps: usize) -> (GameState, usize) {
             return (state, taken);
         }
         let choice = choices[rng.random_range(0..choices.len())].clone();
-        apply_choice_to_state(&mut state, player, &choice, &mut rng);
+        apply_choice(&mut state, player, &choice, &mut rng);
     }
     (state, steps)
 }

@@ -4,7 +4,7 @@ import type { Color, MaterialType } from './types';
 // (public/boards), exported 2000px wide. The player boards are 342.9 x 190.5
 // mm and the Buyer's Board 304.8 x 203.2 mm, so card sizes follow from the
 // printed card stock: bridge cards (57 x 87 mm) for the draft deck, mini cards
-// (44 x 67 mm) for sell cards.
+// (44 x 67 mm) for buyer cards.
 
 export interface Rect { x: number; y: number; width: number; height: number }
 export interface Point { x: number; y: number }
@@ -16,8 +16,8 @@ const BUYERS_PX_PER_MM = BOARD_ART_WIDTH / 304.8;
 
 export const PLAYER_BOARD_HEIGHT = 1111;
 export const PLAYER_CARD = { width: 57 * PLAYER_PX_PER_MM, height: 87 * PLAYER_PX_PER_MM };
-export const PLAYER_SELL_CARD = { width: 44 * PLAYER_PX_PER_MM, height: 67 * PLAYER_PX_PER_MM };
-// Drafted cards tuck halfway under the top edge, workshop cards under the bottom.
+export const PLAYER_BUYER_CARD = { width: 44 * PLAYER_PX_PER_MM, height: 67 * PLAYER_PX_PER_MM };
+// Top cards tuck halfway under the top edge, workshop cards under the bottom.
 export const TUCK = PLAYER_CARD.height / 2;
 
 export const DRAFT_SLOT_X = [273, 650, 1027, 1405];
@@ -33,24 +33,24 @@ export const BUYER_SLOTS: Point[] = [
 export const COMPLETED_SLOT: Point = { x: 1698, y: 542 };
 
 export const DECK: Rect = { x: 51, y: 503, width: PLAYER_CARD.width, height: PLAYER_CARD.height };
-export const DUCAT_BAG: Point = { x: 1279, y: 973 };
+export const GOLD_COIN_BAG: Point = { x: 1279, y: 973 };
 export const MATERIALS_CIRCLE: Rect = { x: 30, y: 90, width: 395, height: 380 };
-// Counters beside the printed gondola, wild primary bowl and material icons.
+// Counters beside the printed gondola, bowl and material icons.
 export const BOATS: Point = { x: 286, y: 281 };
-export const WILD_PRIMARIES: Point = { x: 949, y: 537 };
+export const BOWLS: Point = { x: 949, y: 537 };
 export const MATERIALS: Record<MaterialType, Point> = {
   Paintings: { x: 148, y: 280 },
   Ceramics: { x: 395, y: 276 },
   Textiles: { x: 269, y: 415 },
 };
-// The reminder strip: a ducat buys a workshop pick, a mix or a sale.
-export const DUCAT_PURCHASE_ICONS = {
+// The reminder strip: a goldCoin buys a workshop pick, a mix or a sale.
+export const GOLD_COIN_PURCHASE_ICONS = {
   workshop: { x: 1488, y: 996 },
   mixColors: { x: 1567, y: 996 },
   sell: { x: 1637, y: 996 },
 } as const;
-export const DUCAT_PURCHASE_ICON_RADIUS = 34;
-export const DUCAT_STRIP: Rect = { x: 1350, y: 960, width: 348, height: 73 };
+export const GOLD_COIN_ICON_RADIUS = 34;
+export const GOLD_COIN_STRIP: Rect = { x: 1350, y: 960, width: 348, height: 73 };
 
 // Where each character's face is, for cropping a portrait out of the board.
 export const PORTRAIT_FACES: Point[] = [
@@ -138,14 +138,14 @@ export const WHEEL_REGIONS: WheelRegion[] = (Object.keys(WHEEL_COUNTERS) as Colo
 
 // ── The Buyer's Board ──
 // Cropped to the right of the draft deck and trash, which only the physical
-// game needs, so the sell cards get the room.
+// game needs, so the buyer cards get the room.
 
 export const BUYERS_BOARD_WIDTH = 1552;
 export const BUYERS_BOARD_HEIGHT = 1333;
 const BUYERS_SELL_CARD = { width: 44 * BUYERS_PX_PER_MM, height: 67 * BUYERS_PX_PER_MM };
 
 export const BUYERS_BOARD = {
-  sellDeck: { x: 46, y: 270, ...BUYERS_SELL_CARD } as Rect,
+  buyerDeck: { x: 46, y: 270, ...BUYERS_SELL_CARD } as Rect,
   display: [
     { x: 439, y: 270 }, { x: 833, y: 270 }, { x: 1228, y: 270 },
     { x: 43, y: 857 }, { x: 437, y: 857 }, { x: 832, y: 856 }, { x: 1228, y: 857 },

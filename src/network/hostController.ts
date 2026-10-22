@@ -1,14 +1,14 @@
 import type { GameState } from '../data/types';
 import type { Choice } from '../data/types';
-import { aiPlayerName } from '../data/aiDifficulty';
+import { botPlayerName } from '../data/botDifficulty';
 import type { NetworkManager } from './networkManager';
 import type { LobbyPlayer, GuestMessage } from './types';
-import { createInitialGameState, executeDrawPhase, simultaneousPick, advanceDraft, applyChoice } from '../engine/wasmEngine';
+import { createInitialGameState, simultaneousPick, advanceDraft, applyChoice } from '../engine/wasmEngine';
 import { sanitizeGameState } from './sanitize';
 import type { StructuredGameLog } from '../data/types';
 import { GameLogAccumulator } from '../gameLog';
 import { isTakingActionTurn } from '../gameUtils';
-import { type LogEntry, draftedEntries, noteEntry, playEntry, roundEntry, snapshot } from '../logEntries';
+import { type LogEntry, topCardEntries, noteEntry, playEntry, roundEntry, snapshot } from '../logEntries';
 import { reportError } from '../stores/errorReport.svelte';
 
 const DISCONNECT_GRACE_MS = 60_000;
@@ -48,7 +48,7 @@ export class HostController {
   onGameOver: ((state: GameState) => void) | null = null;
   onPlayerDisconnected: ((playerIndex: number, playerName: string) => void) | null = null;
   onPlayerReconnected: ((playerIndex: number, playerName: string) => void) | null = null;
-  onPlayerReplacedByAI: ((playerIndex: number, playerName: string) => void) | null = null;
+  onPlayerReplacedByBot: ((playerIndex: number, playerName: string) => void) | null = null;
 
   constructor(network: NetworkManager, hostName: string) {
     this.network = network;
@@ -223,7 +223,7 @@ export class HostController {
     player.isConnected = true;
     this.peerToPlayerIndex.set(peerId, player.playerIndex);
     this.playerIndexToPeer.set(player.playerIndex, peerId);
-    this.gameState.aiPlayers[player.playerIndex] = false;
+    this.gameState.botPlayers[player.playerIndex] = false;
 
     const sanitized = sanitizeGameState(this.gameState, player.playerIndex, [...this.gameLog]);
     sanitized.resync = true;
@@ -271,23 +271,23 @@ export class HostController {
     this.onPlayerDisconnected?.(player.playerIndex, player.name);
 
     const timer = setTimeout(() => {
-      this.replaceWithAI(player.playerIndex);
+      this.replaceWithBot(player.playerIndex);
     }, DISCONNECT_GRACE_MS);
     this.disconnectTimers.set(player.playerIndex, timer);
   }
 
-  private replaceWithAI(playerIndex: number) {
+  private replaceWithBot(playerIndex: number) {
     if (!this.gameState) return;
-    this.gameState.aiPlayers[playerIndex] = true;
+    this.gameState.botPlayers[playerIndex] = true;
     this.disconnectTimers.delete(playerIndex);
     const name = this.gameState.playerNames[playerIndex];
-    this.addLog(`${name} was replaced by an AI`, playerIndex);
+    this.addLog(`${name} was replaced by a bot`, playerIndex);
     this.network.sendToAllGuests({
-      type: 'playerReplacedByAI',
+      type: 'playerReplacedByBot',
       playerIndex,
       playerName: name,
     });
-    this.onPlayerReplacedByAI?.(playerIndex, name);
+    this.onPlayerReplacedByBot?.(playerIndex, name);
     this.onGameStateChanged?.(this.gameState);
   }
 
@@ -295,23 +295,23 @@ export class HostController {
     this.submittedDraftPicks.clear();
     this.rejoinTokens.clear();
     const playerNames: string[] = new Array(this.playerCount);
-    const aiPlayers: boolean[] = new Array(this.playerCount).fill(true);
+    const botPlayers: boolean[] = new Array(this.playerCount).fill(true);
 
     for (const lp of this.lobbyPlayers) {
       if (lp.playerIndex < this.playerCount) {
         playerNames[lp.playerIndex] = lp.name;
-        aiPlayers[lp.playerIndex] = false;
+        botPlayers[lp.playerIndex] = false;
       }
     }
 
     for (let i = 0; i < this.playerCount; i++) {
       if (!playerNames[i]) {
-        playerNames[i] = aiPlayerName(i);
+        playerNames[i] = botPlayerName(i);
       }
     }
 
     try {
-      this.gameState = createInitialGameState(playerNames, aiPlayers);
+      this.gameState = createInitialGameState(playerNames, botPlayers);
     } catch (e) {
       reportError('Starting the game failed', e);
       return;
@@ -324,7 +324,8 @@ export class HostController {
       this.rejoinTokens.set(lp.playerIndex, lp.isHost ? HOST_REJOIN_TOKEN : randomToken());
     }
 
-    this.executeDrawIfNeeded();
+    // Nothing draws a round in any more, so the log opens at round 1.
+    this.gameLog.push(roundEntry(this.gameState.round));
 
     for (const lp of this.lobbyPlayers) {
       if (!lp.isHost && lp.isConnected) {
@@ -394,7 +395,7 @@ export class HostController {
       // *after* simultaneousPick is wrong: it excludes the player who just emptied
       // their hand, so the threshold drops below the still-pending picks and triggers
       // an early advanceDraft — which then drops the next pick that arrives over the
-      // network or is applied by the AI loop. With submittedDraftPicks.has(idx) we
+      // network or is applied by the bot loop. With submittedDraftPicks.has(idx) we
       // count "I've already done my pick this round" correctly regardless of order.
       const ds2 = (this.gameState.phase as { type: 'draft'; draftState: { hands: unknown[][] } }).draftState;
       const allDone = this.gameState.players.every(
@@ -408,8 +409,7 @@ export class HostController {
           return true;
         }
         this.submittedDraftPicks.clear();
-        if (this.gameState.phase.type !== 'draft') this.gameLog.push(...draftedEntries(this.gameState));
-        this.executeDrawIfNeeded();
+        if (this.gameState.phase.type !== 'draft') this.gameLog.push(...topCardEntries(this.gameState));
         this.broadcastGameState();
         this.onGameStateChanged?.(this.gameState);
         this.onLogUpdated?.(this.gameLog);
@@ -430,10 +430,11 @@ export class HostController {
     }
 
     let logged: LogEntry | null;
+    let round = this.gameState.round;
     try {
       this.structuredLog?.recordChoice(this.gameState, choice, playerIndex);
       const before = snapshot(this.gameState.players[playerIndex]);
-      const round = this.gameState.round;
+      round = this.gameState.round;
       const draws = applyChoice(this.gameState, playerIndex, choice);
       logged = playEntry(round, playerIndex, choice, before, this.gameState.players[playerIndex]);
       this.structuredLog?.attachDrawsToLastEntry(draws);
@@ -448,24 +449,11 @@ export class HostController {
     }
 
     if (logged) this.gameLog.push(logged);
-    this.executeDrawIfNeeded();
+    if (this.gameState.round !== round) this.gameLog.push(roundEntry(this.gameState.round));
     this.broadcastGameState();
     this.onGameStateChanged?.(this.gameState);
     this.onLogUpdated?.(this.gameLog);
     return true;
-  }
-
-  private executeDrawIfNeeded() {
-    if (!this.gameState) return;
-    if (this.gameState.phase.type === 'draw') {
-      this.gameLog.push(roundEntry(this.gameState.round));
-      try {
-        const draws = executeDrawPhase(this.gameState);
-        this.structuredLog?.recordDrawPhaseDraws(draws);
-      } catch (e) {
-        reportError('Starting the round failed', e);
-      }
-    }
   }
 
   private addLog(text: string, player: number) {

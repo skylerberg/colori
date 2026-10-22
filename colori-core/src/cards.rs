@@ -1,15 +1,15 @@
-use crate::types::{Buyer, Card, SellCard, ALL_SELL_CARDS};
+use crate::types::{Trade, Card, Buyer, ALL_BUYERS};
 
-pub const DYE_COPIES: usize = 3;
-/// A dye's tier shows in how many colors it carries, and the tertiary dyes are
+pub const PIGMENT_COPIES: usize = 3;
+/// A pigment's tier shows in how many colors it carries, and the tertiary pigments are
 /// the thinnest: one color each, and two copies of each.
-pub const TERTIARY_DYE_COPIES: usize = 2;
+pub const TERTIARY_PIGMENT_COPIES: usize = 2;
 pub const ACTION_COPIES: usize = 5;
 pub const MATERIAL_COLOR_COPIES: usize = 2;
 pub const DUAL_MATERIAL_COPIES: usize = 1;
 pub const PRIMARIES_COPIES: usize = 6;
 
-pub fn basic_dye_cards() -> [Card; 3] {
+pub fn starter_pigment_cards() -> [Card; 3] {
     [Card::BasicRed, Card::BasicYellow, Card::BasicBlue]
 }
 
@@ -31,7 +31,7 @@ pub fn starter_deck() -> [Card; 7] {
     ]
 }
 
-pub fn draft_dye_cards() -> [Card; 18] {
+pub fn draft_pigment_cards() -> [Card; 18] {
     [
         Card::Realgar, Card::Kermes, Card::Litharge,
         Card::Malachite, Card::Woad, Card::Logwood,
@@ -68,19 +68,19 @@ pub fn primaries_card() -> Card {
     Card::Primaries
 }
 
-/// Copies of a dye in the draft deck: two of a tertiary dye, three otherwise.
-pub fn dye_copies(card: Card) -> usize {
-    if card.colors().len() == 1 { TERTIARY_DYE_COPIES } else { DYE_COPIES }
+/// Copies of a pigment in the draft deck: two of a tertiary pigment, three otherwise.
+pub fn pigment_copies(card: Card) -> usize {
+    if card.colors().len() == 1 { TERTIARY_PIGMENT_COPIES } else { PIGMENT_COPIES }
 }
 
 /// Every card in the draft deck with how many copies of it there are.
 pub fn draft_deck_cards() -> impl Iterator<Item = (Card, usize)> {
-    let dyes = draft_dye_cards().into_iter().map(|c| (c, dye_copies(c)));
+    let pigments = draft_pigment_cards().into_iter().map(|c| (c, pigment_copies(c)));
     let material_colors = material_color_cards().into_iter().map(|c| (c, MATERIAL_COLOR_COPIES));
     let dual_materials = dual_material_cards().into_iter().map(|c| (c, DUAL_MATERIAL_COPIES));
     let actions = action_cards().into_iter().map(|c| (c, ACTION_COPIES));
     let primaries = std::iter::once((primaries_card(), PRIMARIES_COPIES));
-    dyes.chain(material_colors).chain(dual_materials).chain(actions).chain(primaries)
+    pigments.chain(material_colors).chain(dual_materials).chain(actions).chain(primaries)
 }
 
 /// Copies of `card` in the draft deck; zero for the starter cards.
@@ -90,15 +90,15 @@ pub fn draft_copies(card: Card) -> usize {
         .map_or(0, |(_, copies)| copies)
 }
 
-/// Copies of `sell_card` in the sell card deck.
-pub fn sell_card_copies(sell_card: SellCard) -> usize {
-    match sell_card.buyer() {
-        Buyer::Dyer | Buyer::Potter => 2,
+/// Copies of `buyer` in the buyer deck.
+pub fn buyer_copies(buyer: Buyer) -> usize {
+    match buyer.trade() {
+        Trade::Dyer | Trade::Potter => 2,
         _ => 1,
     }
 }
 
-/// Every sell card with how many copies of it are in the sell card deck.
-pub fn sell_deck_cards() -> impl Iterator<Item = (SellCard, usize)> {
-    ALL_SELL_CARDS.into_iter().map(|c| (c, sell_card_copies(c)))
+/// Every buyer with how many copies of it are in the buyer deck.
+pub fn buyer_deck_cards() -> impl Iterator<Item = (Buyer, usize)> {
+    ALL_BUYERS.into_iter().map(|c| (c, buyer_copies(c)))
 }

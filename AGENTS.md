@@ -1,10 +1,10 @@
 # Colori
 
-Colori is a strategic deck-building card game for 2-5 players about dyeing materials and selling to sell cards. Complete game rules are in `RULES.md`.
+Colori is a strategic deck-building card game for 2-5 players about dyeing materials and selling to buyers. Complete game rules are in `RULES.md`.
 
 ## Three Peaks Hub
 
-The physical game lives in the Three Peaks Hub project **Colori** (`threepeaks --project "Colori"`). The starter decks and the draft deck in `colori-core` mirror its **Main Deck**, and the sell cards its **Sell Cards** deck: copy counts come from `threepeaks deck show`, and what a card does is read off its image. `public/cards/` holds those same card faces; the six character starter decks are under `public/cards/characters/<1-6>/`, numbered in deck order, and the sell cards under `public/cards/sell/`.
+The physical game lives in the Three Peaks Hub project **Colori** (`threepeaks --project "Colori"`). The starter decks and the draft deck in `colori-core` mirror its **Main Deck**, and the buyers its **Sell Cards** deck (the printed name for the buyer cards): copy counts come from `threepeaks deck show`, and what a card does is read off its image. `public/cards/` holds those same card faces; the six character starter decks are under `public/cards/characters/<1-6>/`, numbered in deck order, and the buyers under `public/cards/sell/`.
 
 The game screen is built on the printed boards (Three Peaks components in the **Boards** section). `public/boards/<1-6>.webp` are the player boards for characters 1-6 (components OG, Fun, Lady, Suave, Merchant, In Charge; "Sauve" is an outdated draft) and `public/boards/buyers.webp` is the Buyer's Board, each exported 2000px wide. The Buyer's Board is cropped to the right of its draft deck and trash, which only the physical game needs. `src/data/boardLayout.ts` records where every slot, counter and color-wheel region sits on that art, so re-measure it when the art's layout changes.
 
@@ -17,7 +17,7 @@ The game screen is built on the printed boards (Three Peaks components in the **
 
 Rust workspace plus a Svelte frontend:
 
-- `colori-core/` — Core game engine library: game logic, phases, cards, colors, AI (MCTS)
+- `colori-core/` — Core game engine library: game logic, phases, cards, colors, bots (MCTS)
 - `colori-wasm/` — WASM bindings exposing Rust engine to the browser via wasm-bindgen (JSON serialization for state passing)
 - `colori-runner/` — CLI tool for batch game simulation and benchmarking
 - `colori-gui/` — Desktop GUI for game log analysis (egui/eframe)
@@ -25,7 +25,7 @@ Rust workspace plus a Svelte frontend:
   - `src/components/` — UI components (game screen, draft/action views, card display, multiplayer screens)
   - `src/data/` — TypeScript type definitions and game data (mirrors Rust types)
   - `src/engine/` — WASM engine loader and game state management
-  - `src/ai/` — AI controller and Web Worker for running MCTS in background threads
+  - `src/bots/` — Bot controller and Web Worker for running MCTS in background threads
   - `src/network/` — P2P multiplayer via trystero (host/guest controllers, state sanitization)
   - `src/wasm-pkg/` — Generated WASM output (gitignored)
 - `game-logs/` — JSON game replay logs (gitignored)
@@ -44,18 +44,18 @@ Rust workspace plus a Svelte frontend:
 
 ## Architecture Notes
 
-- Game state flows through phases: Draw → Buyers → Draft → Action → Game Over (repeats for 7 rounds)
+- Game state flows through phases: Buyers → Draft → Action, then Game Over after round 7. There is no draw phase: setup deals the opening workshop and each player tops theirs up as their own turn ends, so a round opens inside whoever ended the last turn of the one before.
 - All game logic lives in Rust (`colori-core`); other crates and the frontend consume it through bindings
-- The AI searches determinized states with the `mcts` crate it depends on — opponents' hands are re-drawn every iteration, so a search never sees them — except on the game's last turn: once the last draft is over nothing is hidden or random, so `ColoriSearcher::search` hands that turn to `colori-core/src/final_turn.rs`, which solves it exactly for the highest ranking (points, then sell cards, then colors). The pruning there takes some facts about the cards on trust; `the_cards_do_what_the_pruning_assumes` checks them, so a card change that breaks one fails that test. The frontend runs those searches in Web Workers.
-- The action phase is simultaneous: each seat has its own `PlayerTurn` (ability stack and `ended` flag), and every choice is applied for a named player. The search tree holds only the searching player's action-phase moves; opponents' turns are played outside it by `colori-core/src/opponent_turns.rs`, so neither side reacts to the other. AI drivers search an `ActionPhaseViews` view (the phase as it began plus that player's own moves), so no AI sees what others did that phase. Re-rooting a search tree is only sound for the same player's next decision in a turn; `TurnSearcher` (`colori-core/src/mcts_impl.rs`) makes that call for the runner and, as `AiSearcher`, for each seat's browser worker.
+- A bot searches determinized states with the `mcts` crate it depends on — opponents' hands are re-drawn every iteration, so a search never sees them — except on the game's last turn: once the last draft is over nothing is hidden or random, so `ColoriSearcher::search` hands that turn to `colori-core/src/final_turn.rs`, which solves it exactly for the highest ranking (points, then buyers, then colors). The pruning there takes some facts about the cards on trust; `the_cards_do_what_the_pruning_assumes` checks them, so a card change that breaks one fails that test. The frontend runs those searches in Web Workers.
+- The action phase is simultaneous: each seat has its own `PlayerTurn` (ability stack and `ended` flag), and every choice is applied for a named player. The search tree holds only the searching player's action-phase moves; opponents' turns are played outside it by `colori-core/src/opponent_turns.rs`, so neither side reacts to the other. Bot drivers search an `ActionPhaseViews` view (the phase as it began plus that player's own moves), so no bot sees what others did that phase. Re-rooting a search tree is only sound for the same player's next decision in a turn; `TurnSearcher` (`colori-core/src/mcts_impl.rs`) makes that call for the runner and, as `BotSearcher`, for each seat's browser worker.
 - Online multiplayer is peer-to-peer via trystero (WebRTC); opponent hands are sanitized before sending
 - Cross-language FFI: Rust ↔ WASM (JSON) ↔ TypeScript
 - Call the engine through `engineCall` (`src/engine/engineCall.ts`). A panic or failed allocation in wasm is otherwise a bare `RuntimeError: unreachable`; `colori-wasm/src/failure.rs` records the reason before the trap and `engineCall` puts it, with the call's input, in the error. Failures players should see go to `reportError` (`src/stores/errorReport.svelte.ts`), which shows a report they can copy or share.
-- Card instance IDs (`cardInstanceId`) and sell card instance IDs (`sellCardInstanceId`) use separate counters both starting from 0. In game logs, look up card IDs in `draftDeck` and player decks; look up sell card IDs in `sellCardDeck` and `sellCardDisplay`.
+- Card instance IDs (`cardInstanceId`) and buyer instance IDs (`buyerInstanceId`) use separate counters both starting from 0. In game logs, look up card IDs in `draftDeck` and player decks; look up buyer IDs in `buyerDeck` and `buyerDisplay`.
 - Starter cards take the first card IDs, seven per seat in seat order. The frontend uses that to pick which character's portrait a starter card shows (`src/data/cardArt.ts`).
 - `src/data/cards.ts` is generated by `colori-wasm/build.rs` from the Rust card data; change cards in `colori-core/src/types.rs` and `cards.rs`, then rebuild (`pnpm run build:wasm`) and commit the regenerated file.
-- Scores can end in .5: wild primaries and boats (wild materials) are worth half a point each unspent. `PlayerState::cached_whole_points` holds only the whole-point part (sell-card points plus ducats); `scoring::score_in_half_points` is the full score.
-- Use the board game's words. A drafted card is *trashed* (never "destroyed"), and trashed cards go to the *trash*. A sell card is worth *points*; *ducats* are only the gold coins, each a point that can also be spent on a Workshop pick, a Mix or a Sell. Old names survive as serde aliases so saved games, logs and trained parameters still load.
+- Scores can end in .5: bowls (wild primaries) and boats (wild materials) are worth half a point each unspent. `PlayerState::cached_whole_points` holds only the whole-point part (Completed Orders points plus gold coins); `scoring::score_in_half_points` is the full score.
+- Use the board game's words. A card's *top actions* are what happens when it is used, and using one *trashes* the card (never "destroyed") into the *trash*; a player's drafted cards are their *top cards*, and a workshop card lifted up joins them. A *pigment* card stores colors, a *special* card its workshop ability. A buyer is worth *points*; *gold coins* are only the coins, each a point that can also be spent on a Workshop pick, a Mix or a sale. *Bowls* are the wild primaries and *boats* the wild materials, and the printed game calls a card's used state *used*, not rotated. Old names survive as serde aliases so saved games, logs and trained parameters still load.
 
 ## Testing
 

@@ -1,4 +1,4 @@
-import type { GameState, PlayerState, GamePhase, CardInstance, SellCardInstance } from '../data/types';
+import type { GameState, PlayerState, GamePhase, CardInstance, BuyerInstance } from '../data/types';
 import type { SanitizedGameState } from './types';
 
 export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
@@ -7,14 +7,14 @@ export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
     // since the UI reads only the total for them.
     deck: sp.deck.length > 0 ? sp.deck : [new Array(sp.deckCount) as CardInstance[]],
     buyers: sp.buyers,
-    workshoppedCards: sp.workshoppedCards,
+    usedCards: sp.usedCards,
     workshopCards: sp.workshopCards,
-    draftedCards: sp.draftedCards,
+    topCards: sp.topCards,
     colorWheel: sp.colorWheel,
-    materials: sp.materials,
-    completedSellCards: sp.completedSellCards,
-    ducats: sp.ducats,
-    wildPrimaries: sp.wildPrimaries,
+    materialsWheel: sp.materialsWheel,
+    completedOrders: sp.completedOrders,
+    goldCoins: sp.goldCoins,
+    bowls: sp.bowls,
     boats: sp.boats,
   }));
 
@@ -34,10 +34,8 @@ export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
       type: 'action',
       actionState: { ...sanitized.phase.actionState },
     };
-  } else if (sanitized.phase.type === 'gameOver') {
-    phase = { type: 'gameOver' };
   } else {
-    phase = { type: 'draw' };
+    phase = { type: 'gameOver' };
   }
 
   return {
@@ -45,11 +43,11 @@ export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
     players,
     draftDeck: new Array(sanitized.draftDeckCount) as CardInstance[],
     trash: sanitized.trash,
-    sellCardDeck: new Array(sanitized.sellCardDeckCount) as SellCardInstance[],
-    sellCardDisplay: sanitized.sellCardDisplay,
+    buyerDeck: new Array(sanitized.buyerDeckCount) as BuyerInstance[],
+    buyerDisplay: sanitized.buyerDisplay,
     phase,
     round: sanitized.round,
     maxRounds: sanitized.maxRounds,
-    aiPlayers: sanitized.aiPlayers,
+    botPlayers: sanitized.botPlayers,
   };
 }

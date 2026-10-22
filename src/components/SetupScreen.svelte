@@ -1,36 +1,36 @@
 <script lang="ts">
-  import type { AiSettings, GameState } from '../data/types';
-  import { AI_DIFFICULTY_LEVELS, aiPlayerName, humanPlayerName } from '../data/aiDifficulty';
-  import { AI_PARAMS_CHOICES, END_OF_GAME_LOOKAHEAD, PLAYER_COUNTS } from '../data/gameSetup';
+  import type { BotSettings, GameState } from '../data/types';
+  import { BOT_DIFFICULTY_LEVELS, botPlayerName, humanPlayerName } from '../data/botDifficulty';
+  import { BOT_PARAMS_CHOICES, END_OF_GAME_LOOKAHEAD, PLAYER_COUNTS } from '../data/gameSetup';
   import { createInitialGameState } from '../engine/wasmEngine';
   import { loadSetup, saveSetup } from '../persistence';
   import CharacterPortrait from './CharacterPortrait.svelte';
 
   let { onGameStarted }: {
-    onGameStarted: (state: GameState, aiIterations: number[], aiSettings: AiSettings) => void;
+    onGameStarted: (state: GameState, botIterations: number[], botSettings: BotSettings) => void;
   } = $props();
 
   const lastSetup = loadSetup();
   let playerCount = $state(lastSetup.playerCount);
-  let isAI: boolean[] = $state(lastSetup.isAI);
-  let aiIterations: number[] = $state(lastSetup.aiIterations);
+  let isBot: boolean[] = $state(lastSetup.isBot);
+  let botIterations: number[] = $state(lastSetup.botIterations);
   let playerNames: string[] = $state(
-    lastSetup.names.map((name, i) => name ?? generatedName(i, lastSetup.isAI[i], lastSetup.aiIterations[i]))
+    lastSetup.names.map((name, i) => name ?? generatedName(i, lastSetup.isBot[i], lastSetup.botIterations[i]))
   );
-  // A name the player typed is theirs to keep: only auto-generated names follow the AI toggle
+  // A name the player typed is theirs to keep: only auto-generated names follow the Bot toggle
   // and the difficulty select.
   let autoNamed: boolean[] = $state(lastSetup.names.map(name => name === null));
-  let aiParams = $state(lastSetup.params);
+  let botParams = $state(lastSetup.params);
   let rolloutLookahead = $state(lastSetup.rolloutLookahead);
-  // Open when the remembered AI settings are not the defaults, so they don't carry over unseen.
+  // Open when the remembered bot settings are not the defaults, so they don't carry over unseen.
   let advancedOpen = $state(lastSetup.params !== 'default' || lastSetup.rolloutLookahead !== null);
 
   function generatedName(seat: number, ai: boolean, iterations: number): string {
-    return ai ? aiPlayerName(seat, iterations) : humanPlayerName(seat);
+    return ai ? botPlayerName(seat, iterations) : humanPlayerName(seat);
   }
 
   function defaultName(index: number): string {
-    return generatedName(index, isAI[index], aiIterations[index]);
+    return generatedName(index, isBot[index], botIterations[index]);
   }
 
   function updatePlayerCount(count: number) {
@@ -43,30 +43,30 @@
     autoNamed[index] = false;
   }
 
-  function toggleAI(index: number) {
-    isAI[index] = !isAI[index];
+  function toggleBot(index: number) {
+    isBot[index] = !isBot[index];
     if (autoNamed[index]) playerNames[index] = defaultName(index);
   }
 
   function handleDifficultyChange(index: number, event: Event) {
     const target = event.target as HTMLSelectElement;
-    aiIterations[index] = Number(target.value);
+    botIterations[index] = Number(target.value);
     if (autoNamed[index]) playerNames[index] = defaultName(index);
   }
 
   function startGame() {
     saveSetup({
       playerCount,
-      isAI,
-      aiIterations,
+      isBot,
+      botIterations,
       names: playerNames.map((name, i) => (autoNamed[i] ? null : name)),
-      params: aiParams,
+      params: botParams,
       rolloutLookahead,
     });
     const names = playerNames.slice(0, playerCount).map((n, i) => n.trim() || defaultName(i));
-    const aiPlayers = isAI.slice(0, playerCount);
-    const state = createInitialGameState(names, aiPlayers);
-    onGameStarted(state, aiIterations.slice(0, playerCount), { params: aiParams, rolloutLookahead });
+    const botPlayers = isBot.slice(0, playerCount);
+    const state = createInitialGameState(names, botPlayers);
+    onGameStarted(state, botIterations.slice(0, playerCount), { params: botParams, rolloutLookahead });
   }
 </script>
 
@@ -102,19 +102,19 @@
           placeholder={defaultName(i)}
         />
         <button
-          class="ai-toggle"
-          class:ai-active={isAI[i]}
-          onclick={() => toggleAI(i)}
+          class="bot-toggle"
+          class:bot-active={isBot[i]}
+          onclick={() => toggleBot(i)}
         >
-          {isAI[i] ? 'AI' : 'Human'}
+          {isBot[i] ? 'Bot' : 'Human'}
         </button>
-        {#if isAI[i]}
+        {#if isBot[i]}
           <select
             class="difficulty-select"
-            value={aiIterations[i]}
+            value={botIterations[i]}
             onchange={(e: Event) => handleDifficultyChange(i, e)}
           >
-            {#each AI_DIFFICULTY_LEVELS as level}
+            {#each BOT_DIFFICULTY_LEVELS as level}
               <option value={level.iterations}>{level.label}</option>
             {/each}
           </select>
@@ -131,9 +131,9 @@
 
     {#if advancedOpen}
       <div class="advanced-content">
-        <label for="ai-params">AI Parameters:</label>
-        <select id="ai-params" bind:value={aiParams}>
-          {#each AI_PARAMS_CHOICES as choice}
+        <label for="bot-params">Bot Parameters:</label>
+        <select id="bot-params" bind:value={botParams}>
+          {#each BOT_PARAMS_CHOICES as choice}
             <option value={choice.value}>{choice.label}</option>
           {/each}
         </select>
@@ -238,7 +238,7 @@
     border-color: var(--accent-gold, #c9a84c);
   }
 
-  .ai-toggle {
+  .bot-toggle {
     padding: 8px 12px;
     font-size: 0.8rem;
     font-weight: 600;
@@ -250,7 +250,7 @@
     cursor: pointer;
   }
 
-  .ai-toggle.ai-active {
+  .bot-toggle.bot-active {
     border-color: var(--accent-crimson, #8b2020);
     background: var(--accent-crimson, #8b2020);
     color: var(--text-on-dark, #f5ede0);

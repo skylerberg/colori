@@ -25,7 +25,7 @@ use std::hash::{Hash, Hasher};
 use mcts::Transposition;
 
 use crate::mcts_impl::SearchContext;
-use crate::types::{Card, GamePhase, GameState, SellCard, NUM_CARDS, NUM_SELL_CARDS};
+use crate::types::{Card, GamePhase, GameState, Buyer, NUM_CARDS, NUM_BUYERS};
 use crate::unordered_cards::UnorderedCards;
 
 impl Transposition for GameState {
@@ -69,14 +69,14 @@ impl GameState {
             self.card_types(*segment).hash(&mut h);
         }
         self.card_types(own.workshop_cards).hash(&mut h);
-        self.card_types(own.workshopped_cards).hash(&mut h);
-        self.card_types(own.drafted_cards).hash(&mut h);
+        self.card_types(own.used_cards).hash(&mut h);
+        self.card_types(own.top_cards).hash(&mut h);
         own.color_wheel.counts.hash(&mut h);
-        own.materials.counts.hash(&mut h);
-        sell_type_counts(own.buyers.iter().map(|b| b.sell_card)).hash(&mut h);
-        sell_type_counts(own.completed_sell_cards.iter().map(|c| c.sell_card)).hash(&mut h);
-        own.ducats.hash(&mut h);
-        own.wild_primaries.hash(&mut h);
+        own.materials_wheel.counts.hash(&mut h);
+        sell_type_counts(own.buyers.iter().map(|b| b.buyer)).hash(&mut h);
+        sell_type_counts(own.completed_orders.iter().map(|c| c.buyer)).hash(&mut h);
+        own.gold_coins.hash(&mut h);
+        own.bowls.hash(&mut h);
         own.boats.hash(&mut h);
         h.finish()
     }
@@ -91,8 +91,8 @@ impl GameState {
     }
 }
 
-fn sell_type_counts(cards: impl Iterator<Item = SellCard>) -> [u8; NUM_SELL_CARDS] {
-    let mut counts = [0u8; NUM_SELL_CARDS];
+fn sell_type_counts(cards: impl Iterator<Item = Buyer>) -> [u8; NUM_BUYERS] {
+    let mut counts = [0u8; NUM_BUYERS];
     for card in cards {
         counts[card as usize] += 1;
     }
@@ -108,8 +108,8 @@ mod tests {
     use wyrand::WyRand;
 
     use crate::choices::enumerate_choices;
-    use crate::colori_game::{apply_choice_to_state, get_game_status, GameStatus};
-    use crate::draw_phase::execute_draw_phase;
+    use crate::apply_choice::apply_choice;
+    use crate::colori_game::{get_game_status, GameStatus};
     use crate::mcts_impl::SearchContext;
     use crate::scoring::HeuristicParams;
     use crate::setup::create_initial_game_state;
@@ -144,18 +144,13 @@ mod tests {
     fn action_phase(players: usize, seed: u64, round: u32) -> GameState {
         let mut rng = WyRand::seed_from_u64(seed);
         let mut state = create_initial_game_state(players, &vec![true; players], &mut rng);
-        execute_draw_phase(&mut state, &mut rng);
         while !(state.round == round && matches!(state.phase, GamePhase::Action { .. })) {
-            if matches!(state.phase, GamePhase::Draw) {
-                execute_draw_phase(&mut state, &mut rng);
-                continue;
-            }
             let GameStatus::AwaitingAction { player_index } = get_game_status(&state, None) else {
                 panic!("seed {seed}: the game ended before round {round}");
             };
             let choices = enumerate_choices(&state, player_index);
             let choice = choices[rng.random_range(0..choices.len())].clone();
-            apply_choice_to_state(&mut state, player_index, &choice, &mut rng);
+            apply_choice(&mut state, player_index, &choice, &mut rng);
         }
         state
     }
@@ -167,7 +162,7 @@ mod tests {
             while player != perspective && taking_turn(state, player) {
                 let choices = enumerate_choices(state, player);
                 let choice = choices[rng.random_range(0..choices.len())].clone();
-                apply_choice_to_state(state, player, &choice, &mut rng);
+                apply_choice(state, player, &choice, &mut rng);
             }
         }
     }
@@ -179,8 +174,7 @@ mod tests {
         assert!(action.transposition_key(&ctx).is_some());
 
         let mut rng = WyRand::seed_from_u64(2);
-        let mut draft = create_initial_game_state(3, &[true; 3], &mut rng);
-        execute_draw_phase(&mut draft, &mut rng);
+        let draft = create_initial_game_state(3, &[true; 3], &mut rng);
         assert!(
             draft.transposition_key(&ctx).is_none(),
             "a state outside the action phase is never merged"
@@ -211,11 +205,11 @@ mod tests {
         assert_ne!(key, pending.transposition_key(&ctx));
 
         let mut richer = state.clone();
-        richer.players[2].ducats += 1;
+        richer.players[2].gold_coins += 1;
         assert_ne!(key, richer.transposition_key(&ctx));
 
         let mut opponent = state.clone();
-        opponent.players[0].ducats += 1;
+        opponent.players[0].gold_coins += 1;
         if let GamePhase::Action { action_state } = &mut opponent.phase {
             action_state.turns[1].ability_stack.push(Ability::Sell);
         }
@@ -243,7 +237,7 @@ mod tests {
                     break;
                 }
                 let choice = choices[rng.random_range(0..choices.len())].clone();
-                apply_choice_to_state(&mut walk, perspective, &choice, &mut rng);
+                apply_choice(&mut walk, perspective, &choice, &mut rng);
                 moves.push(choice);
             }
 
@@ -253,7 +247,7 @@ mod tests {
                     play_opponents(&mut state, perspective, opponents);
                     let mut rng = WyRand::seed_from_u64(0);
                     for choice in &moves {
-                        apply_choice_to_state(&mut state, perspective, choice, &mut rng);
+                        apply_choice(&mut state, perspective, choice, &mut rng);
                     }
                     state
                         .transposition_key(&ctx)
@@ -299,8 +293,8 @@ mod tests {
                         );
                         for choice in &choices {
                             let (mut a, mut b) = (state.clone(), other.clone());
-                            apply_choice_to_state(&mut a, perspective, choice, &mut rng);
-                            apply_choice_to_state(&mut b, perspective, choice, &mut rng);
+                            apply_choice(&mut a, perspective, choice, &mut rng);
+                            apply_choice(&mut b, perspective, choice, &mut rng);
                             assert_eq!(
                                 a.transposition_key(&ctx),
                                 b.transposition_key(&ctx),
@@ -318,7 +312,7 @@ mod tests {
                 }
                 for choice in &choices {
                     let mut next = state.clone();
-                    apply_choice_to_state(&mut next, perspective, choice, &mut rng);
+                    apply_choice(&mut next, perspective, choice, &mut rng);
                     frontier.push((next, depth + 1));
                 }
             }

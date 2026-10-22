@@ -1,21 +1,21 @@
 import type { Choice, GameState } from '../data/types';
 import { applyChoice, cloneGameState } from '../engine/wasmEngine';
 import { isTakingActionTurn } from '../gameUtils';
-import type { AIController } from './aiController';
+import type { BotController } from './botController';
 
 /**
- * Plays AI seats' action turns.
+ * Plays the bot seats' action turns.
  *
- * Everyone acts at once, so an AI decides on its own view of the phase: the
- * game as it stood when the AI started its turn, plus its own moves since. It
+ * Everyone acts at once, so a bot decides on its own view of the phase: the
+ * game as it stood when the bot started its turn, plus its own moves since. It
  * never sees anyone else's moves of the phase, which is also how its search
  * assumes everyone else plays.
  */
-export class AIActionTurns {
+export class BotActionTurns {
   private playing = new Set<number>();
   private generation = 0;
 
-  constructor(private ai: AIController) {}
+  constructor(private ai: BotController) {}
 
   /** Seats whose turn is being played. */
   get thinking(): number[] {
@@ -64,7 +64,7 @@ export class AIActionTurns {
     generation: number,
   ): Promise<void> {
     while (isTakingActionTurn(view, seat)) {
-      const choice = await this.ai.getAIChoice(view, seat, iterations);
+      const choice = await this.ai.getBotChoice(view, seat, iterations);
       if (generation !== this.generation || !play(seat, choice)) return;
       applyChoice(view, seat, choice);
     }

@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { Ability, CardInstance, Color, DucatPurchase, MaterialType, SellCard } from '../data/types';
+  import type { Ability, CardInstance, Color, GoldCoinPurchase, MaterialType, Buyer } from '../data/types';
   import { type LogChange, type LogEntry, type LogMove, isEmptyChange } from '../logEntries';
   import { colorToHex, mixResult, ALL_COLORS } from '../data/colors';
-  import { getAnyCardData, getSellCardData } from '../data/cards';
+  import { getAnyCardData, getBuyerData } from '../data/cards';
   import { formatSingleAbility } from '../data/abilities';
   import { roundNews } from '../gameUtils';
   import CardDisplay from './CardDisplay.svelte';
@@ -21,7 +21,7 @@
     Ceramics: '/icons/ceramics.webp',
     Textiles: '/icons/textiles.webp',
   };
-  const PURCHASES: Record<DucatPurchase, string> = { workshop: 'a workshop pick', mixColors: 'a mix', sell: 'a sale' };
+  const PURCHASES: Record<GoldCoinPurchase, string> = { workshop: 'a workshop pick', mixColors: 'a mix', sell: 'a sale' };
 
   // -1 for everyone.
   let view = $state(-1);
@@ -53,9 +53,9 @@
     return getAnyCardData(card).name;
   }
 
-  function trashAbilities(card: string): Ability[] {
+  function topActions(card: string): Ability[] {
     const data = getAnyCardData(card);
-    return data.kind === 'sellCard' ? [] : data.trashAbilities;
+    return data.kind === 'buyer' ? [] : data.topActions;
   }
 
   function signed(n: number): string {
@@ -80,11 +80,11 @@
   </span>
 {/snippet}
 
-{#snippet buyer(sellCard: SellCard)}
+{#snippet buyer(buyer: Buyer)}
   <span class="chip card-chip">
-    <span class="thumb sell"><CardDisplay card={sellCard} /></span>
-    <span class="chip-name">{getSellCardData(sellCard).name}</span>
-    <span class="points">{getSellCardData(sellCard).points}</span>
+    <span class="thumb sell"><CardDisplay card={buyer} /></span>
+    <span class="chip-name">{getBuyerData(buyer).name}</span>
+    <span class="points">{getBuyerData(buyer).points}</span>
   </span>
 {/snippet}
 
@@ -96,19 +96,19 @@
   <span class="move">
     {#if m.type === 'claim'}
       <span class="verb">{m.unseen ? 'drew' : 'claimed'}</span> {@render buyer(m.buyer)}
-      {#if m.unseen}<span class="aside">unseen, from the sell deck</span>{/if}
-    {:else if m.type === 'drafted'}
-      <span class="verb">drafted</span>
+      {#if m.unseen}<span class="aside">unseen, from the buyer deck</span>{/if}
+    {:else if m.type === 'picked'}
+      <span class="verb">picked</span>
       {#each m.cards as ci (ci.instanceId)}{@render card(ci)}{/each}
-    {:else if m.type === 'trash'}
-      <span class="verb">trashed</span> {@render card(m.card)}
-      {#each trashAbilities(m.card.card) as ability}
+    {:else if m.type === 'topAction'}
+      <span class="verb">used</span> {@render card(m.card)} <span class="aside">top action</span>
+      {#each topActions(m.card.card) as ability}
         <span class="ability">{formatSingleAbility(ability)}</span>
       {/each}
     {:else if m.type === 'trashWithoutUsing'}
       <span class="verb">trashed</span>
       {#each m.cards as ci (ci.instanceId)}{@render card(ci)}{/each}
-      <span class="aside">without using {m.cards.length === 1 ? 'it' : 'them'}</span>
+      <span class="aside">without using {m.cards.length === 1 ? 'its top action' : 'their top actions'}</span>
     {:else if m.type === 'keep'}
       <span class="verb">kept</span> {@render card(m.card)} <span class="aside">on top of their deck</span>
     {:else if m.type === 'workshop'}
@@ -132,17 +132,17 @@
       {/if}
     {:else if m.type === 'sell'}
       <span class="verb">sold to</span> {@render buyer(m.buyer)}
-    {:else if m.type === 'move'}
+    {:else if m.type === 'lift'}
       {#if m.card}
-        <span class="verb">moved</span> {@render card(m.card)} <span class="aside">up to the draft pool</span>
+        <span class="verb">lifted</span> {@render card(m.card)} <span class="aside">to their top cards</span>
       {:else}
-        <span class="verb">had no card to move</span>
+        <span class="verb">had no card to lift</span>
       {/if}
     {:else if m.type === 'secondary'}
       <span class="verb">took</span>
       <span class="chip mix-chip">{@render swatch(m.color)}<span class="chip-name">{m.color}</span></span>
-    {:else if m.type === 'spendDucat'}
-      <span class="verb">spent</span> <img class="icon" src="/icons/ducat.webp" alt="a ducat" />
+    {:else if m.type === 'spendGoldCoin'}
+      <span class="verb">spent</span> <img class="icon" src="/icons/gold-coin.webp" alt="a gold coin" />
       <span class="aside">on {PURCHASES[m.purchase]}</span>
     {:else if m.type === 'endTurn'}
       <span class="verb muted">ended their turn</span>
@@ -167,9 +167,9 @@
         </span>
       {/if}
     {/each}
-    {#if c.ducats}<span class="delta" class:minus={c.ducats < 0} title="Ducats">{signed(c.ducats)}<img class="icon" src="/icons/ducat.webp" alt="ducats" /></span>{/if}
+    {#if c.goldCoins}<span class="delta" class:minus={c.goldCoins < 0} title="Gold coins">{signed(c.goldCoins)}<img class="icon" src="/icons/gold-coin.webp" alt="gold coins" /></span>{/if}
     {#if c.boats}<span class="delta" class:minus={c.boats < 0} title="Boats">{signed(c.boats)}<img class="icon boat" src="/icons/boat.webp" alt="boats" /></span>{/if}
-    {#if c.wildPrimaries}<span class="delta" class:minus={c.wildPrimaries < 0} title="Wild primaries">{signed(c.wildPrimaries)}<span class="wild"></span></span>{/if}
+    {#if c.bowls}<span class="delta" class:minus={c.bowls < 0} title="Bowls">{signed(c.bowls)}<span class="wild"></span></span>{/if}
   </div>
 {/snippet}
 

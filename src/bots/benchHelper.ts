@@ -1,10 +1,9 @@
 import type { GameState } from '../data/types';
-import { createInitialGameState, executeDrawPhase, applyChoice } from '../engine/wasmEngine';
+import { createInitialGameState, applyChoice } from '../engine/wasmEngine';
 
 export function setupDraftGame(numPlayers: number): GameState {
   const names = Array.from({ length: numPlayers }, (_, i) => `Player ${i + 1}`);
   const state = createInitialGameState(names, names.map(() => true));
-  executeDrawPhase(state);
   resolveBuyers(state);
   return state;
 }
@@ -14,7 +13,7 @@ export function setupDraftGame(numPlayers: number): GameState {
 function resolveBuyers(state: GameState) {
   while (state.phase.type === 'buyers') {
     const claimant = state.phase.buyersState.currentPlayerIndex;
-    applyChoice(state, claimant, { type: 'takeBuyer', sellCard: state.sellCardDisplay[0].card });
+    applyChoice(state, claimant, { type: 'claimBuyer', buyer: state.buyerDisplay[0].card });
   }
 }
 

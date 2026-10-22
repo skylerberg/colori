@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { LobbyPlayer } from '../network/types';
-  import { aiPlayerName } from '../data/aiDifficulty';
+  import { botPlayerName } from '../data/botDifficulty';
   import CharacterPortrait from './CharacterPortrait.svelte';
 
   let { role, roomCode, lobbyPlayers, playerCount, hostName = '', onSetHostName, onSetPlayerCount, onStartGame, onJoin, onBack }: {
@@ -16,8 +16,8 @@
     onBack: () => void;
   } = $props();
 
-  // The host seats AI players wherever no one has joined.
-  let aiSeats = $derived(
+  // The host seats bots wherever no one has joined.
+  let botSeats = $derived(
     Array.from({ length: playerCount }, (_, i) => i).filter(i => !lobbyPlayers.some(p => p.playerIndex === i))
   );
 
@@ -114,11 +114,11 @@
             </span>
           </div>
         {/each}
-        {#each aiSeats as seat}
-          <div class="player-row ai-slot">
+        {#each botSeats as seat}
+          <div class="player-row bot-slot">
             <CharacterPortrait {seat} size={30} />
-            <span class="player-name">{aiPlayerName(seat)}</span>
-            <span class="ai-badge">AI</span>
+            <span class="player-name">{botPlayerName(seat)}</span>
+            <span class="bot-badge">Bot</span>
           </div>
         {/each}
       </div>
@@ -315,7 +315,7 @@
     opacity: 0.6;
   }
 
-  .player-row.ai-slot {
+  .player-row.bot-slot {
     border-style: dashed;
     border-color: var(--border-gold, rgba(201, 168, 76, 0.3));
     background: rgba(201, 168, 76, 0.04);
@@ -343,7 +343,7 @@
     flex-shrink: 0;
   }
 
-  .ai-badge {
+  .bot-badge {
     font-size: 0.75rem;
     background: var(--accent-crimson, #8b2020);
     color: var(--text-on-dark, #f5ede0);

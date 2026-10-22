@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { GameState, Choice, Ability, Color, DucatPurchase } from '../data/types';
+  import type { GameState, Choice, Ability, Color, GoldCoinPurchase } from '../data/types';
   import { canSell } from '../engine/wasmEngine';
   import { canMixAny, colorToHex, mixInputs, mixResult, mixWithWildPrimaries, textColorForBackground, WHEEL_ORDER } from '../data/colors';
   import { getCardData, SECONDARIES } from '../data/cards';
@@ -28,7 +28,7 @@
   let selectedWorkshopIds: number[] = $state([]);
   let plannedMixes: [Color, Color][] = $state([]);
   let decisionKey = $derived(JSON.stringify([
-    turn?.abilityStack, player.colorWheel, player.wildPrimaries, player.workshopCards.map(c => c.instanceId),
+    turn?.abilityStack, player.colorWheel, player.bowls, player.workshopCards.map(c => c.instanceId),
   ]));
   $effect(() => {
     decisionKey;
@@ -65,18 +65,18 @@
     onAction(cardTypes.length > 0 ? { type: 'workshop', cardTypes } : { type: 'skipWorkshop' });
   }
 
-  function moveToDraftPool(instanceId: number) {
+  function liftCard(instanceId: number) {
     const ci = player.workshopCards.find(c => c.instanceId === instanceId);
-    if (ci) onAction({ type: 'moveToDraftPool', card: ci.card });
+    if (ci) onAction({ type: 'liftCard', card: ci.card });
   }
 
   // ── Mixing ──
 
-  // The wheel as the planned mixes would leave it.
+  // The color wheel as the planned mixes would leave it.
   let mixedStock = $derived.by(() => {
-    let stock = { wheel: { ...player.colorWheel }, wildPrimaries: player.wildPrimaries };
+    let stock = { wheel: { ...player.colorWheel }, bowls: player.bowls };
     for (const [a, b] of plannedMixes) {
-      stock = mixWithWildPrimaries(stock.wheel, stock.wildPrimaries, a, b) ?? stock;
+      stock = mixWithWildPrimaries(stock.wheel, stock.bowls, a, b) ?? stock;
     }
     return stock;
   });
@@ -84,7 +84,7 @@
   // A mix is chosen by the color it makes, from the two either side of it.
   let mixable = $derived(new Map(WHEEL_ORDER.flatMap(color => {
     const inputs = mixInputs(color);
-    return inputs && mixWithWildPrimaries(mixedStock.wheel, mixedStock.wildPrimaries, ...inputs) ? [[color, inputs]] : [];
+    return inputs && mixWithWildPrimaries(mixedStock.wheel, mixedStock.bowls, ...inputs) ? [[color, inputs]] : [];
   })));
 
   let mixesLeft = $derived(topAbility?.type === 'mixColors' ? topAbility.count - plannedMixes.length : 0);
@@ -101,51 +101,51 @@
     else plannedMixes = mixes;
   }
 
-  let wildPrimaryHint = $derived.by(() => {
-    if (mixedStock.wildPrimaries === 0) return '';
-    const n = mixedStock.wildPrimaries;
-    return `Your ${n} wild ${n === 1 ? 'primary stands' : 'primaries stand'} in for a Red, Yellow or Blue you lack.`;
+  let bowlHint = $derived.by(() => {
+    if (mixedStock.bowls === 0) return '';
+    const n = mixedStock.bowls;
+    return `Your ${n} ${n === 1 ? 'bowl stands' : 'bowls stand'} in for a Red, Yellow or Blue you lack.`;
   });
 
-  // ── Selling ──
+  // ── Selling to a buyer ──
 
   let sellableBuyerIds = $derived(player.buyers.filter(b => canSell(player, b.instanceId)).map(b => b.instanceId));
 
   function sellTo(instanceId: number) {
     const buyer = player.buyers.find(b => b.instanceId === instanceId);
-    if (buyer) onAction({ type: 'selectSellCard', sellCard: buyer.card });
+    if (buyer) onAction({ type: 'sellToBuyer', buyer: buyer.card });
   }
 
-  // ── Between trashes ──
+  // ── Between top actions ──
 
-  function trashDrafted(instanceId: number) {
-    const ci = player.draftedCards.find(c => c.instanceId === instanceId);
-    if (ci) onAction({ type: 'trashDraftedCard', card: ci.card });
+  function trashTopCard(instanceId: number) {
+    const ci = player.topCards.find(c => c.instanceId === instanceId);
+    if (ci) onAction({ type: 'trashTopCard', card: ci.card });
   }
 
   // Mirrors the engine: a purchase is offered only when it can act, and only
-  // between trashes. See `action_phase::can_buy_with_ducat`.
-  let purchasable = $derived.by((): DucatPurchase[] => {
-    if (topAbility || player.ducats < 1) return [];
-    const options: DucatPurchase[] = [];
+  // between top actions. See `action_phase::can_buy_with_gold_coin`.
+  let purchasable = $derived.by((): GoldCoinPurchase[] => {
+    if (topAbility || player.goldCoins < 1) return [];
+    const options: GoldCoinPurchase[] = [];
     if (player.workshopCards.length > 0) options.push('workshop');
-    if (canMixAny(player.colorWheel, player.wildPrimaries)) options.push('mixColors');
+    if (canMixAny(player.colorWheel, player.bowls)) options.push('mixColors');
     if (sellableBuyerIds.length > 0) options.push('sell');
     return options;
   });
 
-  const PURCHASE_LABELS: Record<DucatPurchase, string> = { workshop: 'Workshop ×1', mixColors: 'Mix ×1', sell: 'Sell' };
+  const PURCHASE_LABELS: Record<GoldCoinPurchase, string> = { workshop: 'Workshop ×1', mixColors: 'Mix ×1', sell: 'Sell to a buyer' };
 
-  function spendDucat(purchase: DucatPurchase) {
-    onAction({ type: 'spendDucat', purchase });
+  function spendGoldCoin(purchase: GoldCoinPurchase) {
+    onAction({ type: 'spendGoldCoin', purchase });
   }
 
   // What the always-available End turn button will do with what is left.
   let endTurnTitle = $derived.by(() => {
     if (topAbility) return 'Leave this ability unfinished and end your turn';
-    const left = player.draftedCards.length;
+    const left = player.topCards.length;
     if (left === 0) return 'End your turn';
-    const cards = left === 1 ? 'the drafted card you have left' : `the ${left} drafted cards you have left`;
+    const cards = left === 1 ? 'the top card you have left' : `the ${left} top cards you have left`;
     return actionPrefs.keepRemaining
       ? `End your turn, keeping ${cards}`
       : `End your turn, trashing ${cards} without using ${left === 1 ? 'it' : 'them'}`;
@@ -155,17 +155,17 @@
 
   $effect(() => {
     interaction.seat = playerIndex;
-    interaction.trashDrafted = turn && !topAbility ? trashDrafted : null;
+    interaction.trashTopCard = turn && !topAbility ? trashTopCard : null;
     const movable = player.workshopCards.map(c => c.instanceId);
     interaction.workshop =
       topAbility?.type === 'workshop' ? { selectable: movable, selected: selectedWorkshopIds, onClick: toggleWorkshopCard }
-      : topAbility?.type === 'moveToDraftPool' ? { selectable: movable, selected: [], onClick: moveToDraftPool }
+      : topAbility?.type === 'liftCard' ? { selectable: movable, selected: [], onClick: liftCard }
       : null;
     interaction.buyers = topAbility?.type === 'sell' ? { selectable: sellableBuyerIds, onClick: sellTo } : null;
     if (topAbility?.type === 'mixColors') {
       interaction.wheel = {
         wheel: mixedStock.wheel,
-        wildPrimaries: mixedStock.wildPrimaries,
+        bowls: mixedStock.bowls,
         pickable: [...mixable.keys()],
         selected: [],
         spends: Object.fromEntries(mixable),
@@ -174,7 +174,7 @@
     } else if (topAbility?.type === 'gainSecondary') {
       interaction.wheel = {
         wheel: player.colorWheel,
-        wildPrimaries: player.wildPrimaries,
+        bowls: player.bowls,
         pickable: SECONDARIES,
         selected: [],
         spends: {},
@@ -183,16 +183,16 @@
     } else {
       interaction.wheel = null;
     }
-    interaction.ducats = purchasable.length > 0 ? { available: purchasable, onSpend: spendDucat } : null;
+    interaction.goldCoins = purchasable.length > 0 ? { available: purchasable, onSpend: spendGoldCoin } : null;
   });
 
   $effect(() => () => {
     interaction.seat = -1;
-    interaction.trashDrafted = null;
+    interaction.trashTopCard = null;
     interaction.workshop = null;
     interaction.buyers = null;
     interaction.wheel = null;
-    interaction.ducats = null;
+    interaction.goldCoins = null;
   });
 </script>
 
@@ -202,12 +202,12 @@
 
     {#if topAbility === null}
       <p class="panel-text">
-        {#if player.draftedCards.length > 0}
-          Click a drafted card sticking out of the top of your board to <strong>use it</strong> and take the ability
+        {#if player.topCards.length > 0}
+          Click a top card sticking out of the top of your board to <strong>use its top action</strong> and take the ability
           on its banner, or <strong>keep it</strong> to put it on top of your deck for next round. Any you leave
           undecided are handled by the Keep remaining box when you end your turn.
         {:else}
-          Your draft pool is empty. Spend what you like, then end your turn.
+          Your top cards are all decided. Spend what you like, then end your turn.
         {/if}
       </p>
     {:else}
@@ -240,16 +240,16 @@
                 : 'Workshop nothing'}
             >Skip</button>
           </div>
-        {:else if topAbility.type === 'moveToDraftPool'}
+        {:else if topAbility.type === 'liftCard'}
           {#if player.workshopCards.length > 0}
             <p class="panel-text">
-              Click a card in your workshop (bottom of your board) to move it up to your draft pool, where you can
-              trash it for its ability.
+              Click a card in your workshop (bottom of your board) to lift it to your top cards, where you can use
+              its top action.
             </p>
           {:else}
-            <p class="panel-text">Every card in your workshop has been used, so there is nothing to move.</p>
+            <p class="panel-text">Every card in your workshop has been used, so there is nothing to lift.</p>
             <div class="panel-actions">
-              <button class="panel-btn primary" onclick={() => onAction({ type: 'moveToDraftPool', card: null })}>Continue</button>
+              <button class="panel-btn primary" onclick={() => onAction({ type: 'liftCard', card: null })}>Continue</button>
             </div>
           {/if}
         {:else if topAbility.type === 'mixColors'}
@@ -258,10 +258,10 @@
               Click the color you want to make. It uses one each of the two colors either side of it, outlined
               when you point at it. {mixesLeft} {mixesLeft === 1 ? 'mix' : 'mixes'} left.
             {:else}
-              Nothing on your wheel can be mixed.
+              Nothing on your color wheel can be mixed.
             {/if}
           </p>
-          {#if wildPrimaryHint}<p class="panel-hint">{wildPrimaryHint}</p>{/if}
+          {#if bowlHint}<p class="panel-hint">{bowlHint}</p>{/if}
           {#if plannedMixes.length > 0}
             <ul class="planned-mixes">
               {#each plannedMixes as [a, b]}
@@ -289,11 +289,11 @@
           </div>
         {:else if topAbility.type === 'sell'}
           <p class="panel-text">Click a glowing buyer on your board to sell to them.</p>
-          {#if player.boats > 0 || player.wildPrimaries > 0}
-            <p class="panel-hint">A boat covers a material you lack and a wild primary a primary you lack; what a buyer asks for is spent first.</p>
+          {#if player.boats > 0 || player.bowls > 0}
+            <p class="panel-hint">A boat covers a material you lack and a bowl a primary you lack; what a buyer asks for is spent first.</p>
           {/if}
         {:else if topAbility.type === 'gainSecondary'}
-          <p class="panel-text">Choose a secondary color to gain — here, or on a petal of your wheel.</p>
+          <p class="panel-text">Choose a secondary color to gain — here, or on a petal of your color wheel.</p>
           <div class="panel-actions">
             {#each SECONDARIES as color}
               <button
@@ -314,11 +314,11 @@
       {/if}
     {/if}
 
-    {#if topAbility === null && player.draftedCards.length > 0}
+    {#if topAbility === null && player.topCards.length > 0}
       <div class="keeps">
         <span class="panel-hint">Or keep a card — it goes on top of your deck and comes back next round:</span>
         <div class="panel-actions">
-          {#each player.draftedCards as ci (ci.instanceId)}
+          {#each player.topCards as ci (ci.instanceId)}
             <button class="panel-btn" onclick={() => onAction({ type: 'keepCard', card: ci.card })}>
               Keep {getCardData(ci.card).name}
             </button>
@@ -328,11 +328,11 @@
     {/if}
 
     {#if purchasable.length > 0}
-      <div class="ducats">
-        <span class="panel-hint">Spend 1 of your {player.ducats} {player.ducats === 1 ? 'ducat' : 'ducats'} (a point each) for:</span>
+      <div class="goldCoins">
+        <span class="panel-hint">Spend 1 of your {player.goldCoins} gold {player.goldCoins === 1 ? 'coin' : 'coins'} (a point each) for:</span>
         <div class="panel-actions">
           {#each purchasable as purchase}
-            <button class="panel-btn" onclick={() => spendDucat(purchase)}>{PURCHASE_LABELS[purchase]}</button>
+            <button class="panel-btn" onclick={() => spendGoldCoin(purchase)}>{PURCHASE_LABELS[purchase]}</button>
           {/each}
         </div>
       </div>
@@ -348,8 +348,8 @@
         Keep remaining
         <span class="panel-check-hint">
           {actionPrefs.keepRemaining
-            ? 'drafted cards you have not used go on top of your deck'
-            : 'drafted cards you have not used are trashed without their actions'}
+            ? 'top cards you have not used go on top of your deck'
+            : 'top cards you have not used are trashed without their top actions'}
         </span>
       </label>
       <div class="panel-actions">
@@ -430,7 +430,7 @@
     color: rgba(201, 168, 76, 0.6);
   }
 
-  .ducats {
+  .goldCoins {
     display: flex;
     flex-direction: column;
     gap: 6px;

@@ -1,4 +1,4 @@
-import type { CardInstance, SellCardInstance, Color, MaterialType, PlayerTurn } from '../data/types';
+import type { CardInstance, BuyerInstance, Color, MaterialType, PlayerTurn } from '../data/types';
 import type { Choice } from '../data/types';
 import type { LogEntry } from '../logEntries';
 
@@ -9,15 +9,15 @@ export interface SanitizedPlayerState {
   // deckCount instead.
   deck: CardInstance[][];
   // Public: visible to all players (face-up piles in the tableau).
-  buyers: SellCardInstance[];
-  workshoppedCards: CardInstance[];
+  buyers: BuyerInstance[];
+  usedCards: CardInstance[];
   workshopCards: CardInstance[];
-  draftedCards: CardInstance[];
+  topCards: CardInstance[];
   colorWheel: Record<Color, number>;
-  materials: Record<MaterialType, number>;
-  completedSellCards: SellCardInstance[];
-  ducats: number;
-  wildPrimaries: number;
+  materialsWheel: Record<MaterialType, number>;
+  completedOrders: BuyerInstance[];
+  goldCoins: number;
+  bowls: number;
   boats: number;
 }
 
@@ -47,12 +47,12 @@ export interface SanitizedGameState {
   players: SanitizedPlayerState[];
   draftDeckCount: number;
   trash: CardInstance[];
-  sellCardDeckCount: number;
-  sellCardDisplay: SellCardInstance[];
+  buyerDeckCount: number;
+  buyerDisplay: BuyerInstance[];
   phase: SanitizedGamePhase;
   round: number;
   maxRounds: number;
-  aiPlayers: boolean[];
+  botPlayers: boolean[];
   myPlayerIndex: number;
   logEntries: LogEntry[];
   // Host's Date.now() at game start, so all clients share a consistent timer.
@@ -78,7 +78,7 @@ export type HostMessage =
   | { type: 'hostLeft'; reason: 'intentional' | 'crashed' }
   | { type: 'playerDisconnected'; playerIndex: number; playerName: string }
   | { type: 'playerReconnected'; playerIndex: number; playerName: string }
-  | { type: 'playerReplacedByAI'; playerIndex: number; playerName: string }
+  | { type: 'playerReplacedByBot'; playerIndex: number; playerName: string }
   | { type: 'pong'; t: number };
 
 export type GuestMessage =

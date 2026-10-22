@@ -48,35 +48,35 @@ export function mixInputs(color: Color): [Color, Color] | null {
   return [WHEEL_ORDER[(i - reach + n) % n], WHEEL_ORDER[(i + reach) % n]];
 }
 
-// A wild primary covers a Red, Yellow or Blue the wheel lacks, and stored
+// A bowl covers a Red, Yellow or Blue the color wheel lacks, and stored
 // colors are always spent first. These mirror `colori_core::colors`.
 
-// Mix a and b, or return null when the wheel and wild primaries cannot supply them.
+// Mix a and b, or return null when the color wheel and bowls cannot supply them.
 export function mixWithWildPrimaries(
   wheel: Record<Color, number>,
-  wildPrimaries: number,
+  bowls: number,
   a: Color,
   b: Color,
-): { wheel: Record<Color, number>; wildPrimaries: number } | null {
+): { wheel: Record<Color, number>; bowls: number } | null {
   if (!canMix(a, b)) return null;
   const next = { ...wheel };
-  let wildPrimariesLeft = wildPrimaries;
+  let bowlsLeft = bowls;
   for (const color of [a, b]) {
     if (next[color] > 0) {
       next[color]--;
-    } else if (isPrimary(color) && wildPrimariesLeft > 0) {
-      wildPrimariesLeft--;
+    } else if (isPrimary(color) && bowlsLeft > 0) {
+      bowlsLeft--;
     } else {
       return null;
     }
   }
   next[mixResult(a, b)]++;
-  return { wheel: next, wildPrimaries: wildPrimariesLeft };
+  return { wheel: next, bowls: bowlsLeft };
 }
 
-export function canMixAny(wheel: Record<Color, number>, wildPrimaries: number): boolean {
+export function canMixAny(wheel: Record<Color, number>, bowls: number): boolean {
   return WHEEL_ORDER.some((a, i) =>
-    WHEEL_ORDER.slice(i + 1).some(b => mixWithWildPrimaries(wheel, wildPrimaries, a, b) !== null));
+    WHEEL_ORDER.slice(i + 1).some(b => mixWithWildPrimaries(wheel, bowls, a, b) !== null));
 }
 
 // Returns the color produced by mixing a and b.

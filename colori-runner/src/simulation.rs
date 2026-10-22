@@ -1,14 +1,12 @@
-use colori_core::colori_game::{
-    apply_choice_to_state, enumerate_choices, is_taking_turn, ActionPhaseViews,
-};
-use colori_core::draw_phase::execute_draw_phase;
+use colori_core::apply_choice::apply_choice;
+use colori_core::colori_game::{enumerate_choices, is_taking_turn, ActionPhaseViews};
 use colori_core::game_log::{DrawEvent, DrawLog, FinalPlayerStats, FinalScore, PlayerVariant};
 use colori_core::ismcts::MctsConfig;
 use colori_core::mcts_impl::TurnSearcher;
 use colori_core::scoring::score_in_half_points;
 use colori_core::setup::create_initial_game_state;
 use colori_core::types::*;
-use colori_core::unordered_cards::{set_sell_card_registry, set_card_registry};
+use colori_core::unordered_cards::{set_buyer_registry, set_card_registry};
 
 use rand::prelude::IndexedRandom;
 use rand::seq::SliceRandom;
@@ -34,7 +32,7 @@ pub struct GameRunOutput {
     pub game_started_at: String,
     pub game_ended_at: Option<String>,
     pub player_names: Vec<String>,
-    pub ai_players: Vec<bool>,
+    pub bot_players: Vec<bool>,
     pub initial_state: GameState,
     pub final_scores: Option<Vec<FinalScore>>,
     pub final_player_stats: Option<Vec<FinalPlayerStats>>,
@@ -105,7 +103,7 @@ pub fn format_variant_label(variant: &NamedVariant, differing: &DifferingFields)
     if let Some(name) = &variant.name {
         return name.clone();
     }
-    let config = &variant.ai;
+    let config = &variant.bot;
     let mut parts = Vec::new();
     if differing.time_limit_differs {
         if let Some(tl) = config.time_limit_ms {
@@ -147,12 +145,12 @@ pub fn compute_differing_fields(variants: &[NamedVariant]) -> DifferingFields {
             time_limit_differs: false,
         };
     }
-    let first = &variants[0].ai;
+    let first = &variants[0].bot;
     DifferingFields {
-        iterations_differs: variants.iter().any(|v| v.ai.iterations != first.iterations),
-        exploration_constant_differs: variants.iter().any(|v| v.ai.exploration_constant != first.exploration_constant),
-        max_rollout_steps_differs: variants.iter().any(|v| v.ai.max_rollout_steps != first.max_rollout_steps),
-        time_limit_differs: variants.iter().any(|v| v.ai.time_limit_ms != first.time_limit_ms),
+        iterations_differs: variants.iter().any(|v| v.bot.iterations != first.iterations),
+        exploration_constant_differs: variants.iter().any(|v| v.bot.exploration_constant != first.exploration_constant),
+        max_rollout_steps_differs: variants.iter().any(|v| v.bot.max_rollout_steps != first.max_rollout_steps),
+        time_limit_differs: variants.iter().any(|v| v.bot.time_limit_ms != first.time_limit_ms),
     }
 }
 
@@ -168,8 +166,8 @@ pub fn has_any_difference(variants: &[NamedVariant]) -> bool {
 }
 
 fn variant_to_player_variant(variant: &NamedVariant) -> PlayerVariant {
-    let base = MctsConfig::new(variant.ai.heuristic_params.clone());
-    let config = &variant.ai;
+    let base = MctsConfig::new(variant.bot.heuristic_params.clone());
+    let config = &variant.bot;
     PlayerVariant {
         name: variant.name.clone(),
         algorithm: Some("ucb".to_string()),
@@ -213,7 +211,7 @@ impl EntryLog {
         let round = state.round;
 
         state.draw_log = Some(DrawLog::Recording(Vec::new()));
-        apply_choice_to_state(state, player_index, choice, rng);
+        apply_choice(state, player_index, choice, rng);
         let draws = match state.draw_log.take() {
             Some(DrawLog::Recording(events)) => events,
             _ => Vec::new(),
@@ -259,8 +257,8 @@ pub fn run_game(
         })
         .collect();
 
-    let ai_players = vec![true; num_players];
-    let mut state = create_initial_game_state(num_players, &ai_players, rng);
+    let bot_players = vec![true; num_players];
+    let mut state = create_initial_game_state(num_players, &bot_players, rng);
     if let Some(mr) = max_rounds {
         state.max_rounds = mr;
     }
@@ -268,13 +266,9 @@ pub fn run_game(
 
     let game_started_at = now_epoch_secs_string();
 
-    // Start first round (draw phase -> draft phase)
-    state.draw_log = Some(DrawLog::Recording(Vec::new()));
-    execute_draw_phase(&mut state, rng);
-    let initial_draws = match state.draw_log.take() {
-        Some(DrawLog::Recording(events)) => events,
-        _ => Vec::new(),
-    };
+    // Setup dealt the opening workshops, so the captured state needs no draws
+    // replayed onto it.
+    let initial_draws: Vec<DrawEvent> = Vec::new();
 
     let mut log = EntryLog::default();
     let mut searcher = TurnSearcher::new(&state);
@@ -282,7 +276,7 @@ pub fn run_game(
     let mut player_iterations_count = vec![0u64; num_players];
 
     let mut decide = |searcher: &mut TurnSearcher, state: &GameState, player_index: usize, rng: &mut WyRand| {
-        let config = &shuffled_variants[player_index].ai;
+        let config = &shuffled_variants[player_index].bot;
         let is_first_pick = state.round == 1
             && matches!(&state.phase, GamePhase::Draft { draft_state } if draft_state.pick_number == 0);
         if is_first_pick && config.random_first_pick {
@@ -322,11 +316,11 @@ pub fn run_game(
                         let choice = decide(&mut searcher, view, player_index, rng);
 
                         log.play(&mut state, player_index, &choice, "action", rng);
-                        views.apply(player_index, &choice);
+                        views.apply(player_index, &choice, rng);
                     }
                 }
             }
-            GamePhase::Draw | GamePhase::GameOver => break,
+            GamePhase::GameOver => break,
         }
     }
     let entries = log.entries;
@@ -342,7 +336,7 @@ pub fn run_game(
             .map(|(i, p)| FinalScore {
                 name: names[i].clone(),
                 score: score_in_half_points(p) as f64 / 2.0,
-                completed_sell_cards: p.completed_sell_cards.len() as u32,
+                completed_orders: p.completed_orders.len() as u32,
                 color_wheel_total: p.color_wheel.counts.iter().map(|&c| c as u32).sum(),
             })
             .collect(),
@@ -356,13 +350,13 @@ pub fn run_game(
             .enumerate()
             .map(|(i, p)| FinalPlayerStats {
                 name: names[i].clone(),
-                deck_size: (p.deck.len() + p.workshop_cards.len() + p.workshopped_cards.len() + p.drafted_cards.len()) as usize,
-                completed_sell_cards: p.completed_sell_cards.to_vec(),
-                ducats: p.ducats,
-                wild_primaries: p.wild_primaries,
+                deck_size: (p.deck.len() + p.workshop_cards.len() + p.used_cards.len() + p.top_cards.len()) as usize,
+                completed_orders: p.completed_orders.to_vec(),
+                gold_coins: p.gold_coins,
+                bowls: p.bowls,
                 boats: p.boats,
                 color_wheel: p.color_wheel.clone(),
-                materials: p.materials.clone(),
+                materials_wheel: p.materials_wheel.clone(),
             })
             .collect(),
     );
@@ -381,7 +375,7 @@ pub fn run_game(
             ),
         )
     } else {
-        (Some(shuffled_variants[0].ai.iterations), None)
+        (Some(shuffled_variants[0].bot.iterations), None)
     };
 
     GameRunOutput {
@@ -389,7 +383,7 @@ pub fn run_game(
         game_started_at,
         game_ended_at,
         player_names: names,
-        ai_players,
+        bot_players,
         initial_state,
         final_scores,
         final_player_stats,
@@ -422,7 +416,7 @@ pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str) {
     if solo {
         eprintln!(
             "Running {} solo games ({} rounds, {} MCTS iterations, {} threads)",
-            args.games, args.max_rounds, player_variants[0].ai.iterations, threads
+            args.games, args.max_rounds, player_variants[0].bot.iterations, threads
         );
     } else if has_any_difference(&player_variants) {
         let differing = compute_differing_fields(&player_variants);
@@ -433,7 +427,7 @@ pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str) {
             labels.join(", "),
             threads
         );
-    } else if let Some(tl) = player_variants[0].ai.time_limit_ms {
+    } else if let Some(tl) = player_variants[0].bot.time_limit_ms {
         eprintln!(
             "Running {} games with {} players, {}ms MCTS time limit, {} threads",
             args.games, num_players, tl, threads
@@ -442,7 +436,7 @@ pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str) {
         eprintln!(
             "Running {} games with {} players, {} ISMCTS iterations, {} threads",
             args.games, num_players,
-            player_variants[0].ai.iterations,
+            player_variants[0].bot.iterations,
             threads
         );
     }
@@ -500,7 +494,7 @@ pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str) {
                         solo_total_half_points.fetch_add(half_points as u64, Ordering::Relaxed);
                     }
                     set_card_registry(&log.initial_state.card_lookup);
-                    set_sell_card_registry(&log.initial_state.sell_card_lookup);
+                    set_buyer_registry(&log.initial_state.buyer_lookup);
                     let epoch_millis = now_epoch_millis();
                     let game_id: String = {
                         const CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";

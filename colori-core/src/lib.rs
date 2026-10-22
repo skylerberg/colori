@@ -8,7 +8,7 @@ pub mod colors;
 pub mod deck;
 pub(crate) mod draw_log_helpers;
 pub mod draft_phase;
-pub mod draw_phase;
+pub mod round;
 pub mod final_turn;
 pub mod fixed_vec;
 pub mod game_log;

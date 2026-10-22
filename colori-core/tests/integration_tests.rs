@@ -1,5 +1,5 @@
 use colori_core::colori_game::{
-    apply_choice_to_state, check_choice_available, enumerate_choices, get_game_status,
+    check_choice_available, enumerate_choices, get_game_status,
     ActionPhaseViews, GameStatus,
 };
 use colori_core::apply_choice::apply_choice;
@@ -7,14 +7,14 @@ use colori_core::buyers_phase::initialize_buyers_phase;
 use colori_core::deck::{Deck, MAX_DECK_SEGMENTS};
 use colori_core::draft_phase::DRAFT_HAND_SIZE;
 use colori_core::game_log::{DrawEvent, DrawLog};
-use colori_core::draw_phase::{execute_draw_phase, round_income, RoundIncome};
-use colori_core::cards::{draft_copies, draft_deck_cards, sell_card_copies, sell_deck_cards, starter_deck};
+use colori_core::round::{round_income, start_round, RoundIncome};
+use colori_core::cards::{draft_copies, draft_deck_cards, buyer_copies, buyer_deck_cards, starter_deck};
 use colori_core::scoring::{calculate_whole_points, score_in_half_points};
 use colori_core::setup::create_initial_game_state;
-use colori_core::types::{Ability, AbilityStack, ActionState, Buyer, SellCard, Card, Choice, Color, ColorWheel, DucatPurchase, GamePhase, GameState, MaterialType, PlayerState, PlayerTurn, ALL_SELL_CARDS, MAX_SELL_CARD_DISPLAY};
-use colori_core::unordered_cards::{UnorderedCards, UnorderedSellCards};
+use colori_core::types::{Ability, AbilityStack, ActionState, Trade, Buyer, Card, Choice, Color, ColorWheel, GoldCoinPurchase, GamePhase, GameState, MaterialType, PlayerState, PlayerTurn, ALL_BUYERS, MAX_BUYER_DISPLAY};
+use colori_core::unordered_cards::{UnorderedCards, UnorderedBuyers};
 use colori_core::unordered_cards::{
-    get_sell_card_registry, get_card_registry, set_sell_card_registry, set_card_registry,
+    get_buyer_registry, get_card_registry, set_buyer_registry, set_card_registry,
 };
 use rand::RngExt;
 use rand::SeedableRng;
@@ -50,9 +50,9 @@ fn count_all_cards(state: &GameState) -> u32 {
 
     for player in state.players.iter() {
         total += player.deck.len();
-        total += player.workshopped_cards.len();
+        total += player.used_cards.len();
         total += player.workshop_cards.len();
-        total += player.drafted_cards.len();
+        total += player.top_cards.len();
     }
 
     total += state.draft_deck.len();
@@ -67,15 +67,15 @@ fn count_all_cards(state: &GameState) -> u32 {
     total
 }
 
-fn count_all_sell_cards(state: &GameState) -> u32 {
+fn count_all_buyers(state: &GameState) -> u32 {
     let mut total = 0u32;
 
-    total += state.sell_card_deck.len();
-    total += state.sell_card_display.len() as u32;
+    total += state.buyer_deck.len();
+    total += state.buyer_display.len() as u32;
 
     for player in state.players.iter() {
         total += player.buyers.len() as u32;
-        total += player.completed_sell_cards.len() as u32;
+        total += player.completed_orders.len() as u32;
     }
 
     total
@@ -90,7 +90,7 @@ fn check_no_negative_resources(state: &GameState, step: u32, seed: u64, num_play
                 pi, count, step, seed, num_players
             );
         }
-        for &count in player.materials.counts.iter() {
+        for &count in player.materials_wheel.counts.iter() {
             assert!(
                 count < 1000,
                 "Player {} has material count {} (likely u32 underflow) at step {} (seed={}, players={})",
@@ -102,13 +102,12 @@ fn check_no_negative_resources(state: &GameState, step: u32, seed: u64, num_play
 
 fn run_full_game_with_invariants(seed: u64, num_players: usize) -> GameState {
     let mut rng = WyRand::seed_from_u64(seed);
-    let ai_players = vec![true; num_players];
-    let mut state = create_initial_game_state(num_players, &ai_players, &mut rng);
+    let bot_players = vec![true; num_players];
+    let mut state = create_initial_game_state(num_players, &bot_players, &mut rng);
 
     let initial_cards = count_all_cards(&state);
-    let initial_sell_cards = count_all_sell_cards(&state);
+    let initial_buyers = count_all_buyers(&state);
 
-    execute_draw_phase(&mut state, &mut rng);
 
     let mut step = 0u32;
     loop {
@@ -122,9 +121,9 @@ fn run_full_game_with_invariants(seed: u64, num_players: usize) -> GameState {
             num_players
         );
         assert_eq!(
-            count_all_sell_cards(&state),
-            initial_sell_cards,
-            "Sell card conservation violated at step {} (seed={}, players={})",
+            count_all_buyers(&state),
+            initial_buyers,
+            "Buyer card conservation violated at step {} (seed={}, players={})",
             step,
             seed,
             num_players
@@ -144,11 +143,6 @@ fn run_full_game_with_invariants(seed: u64, num_players: usize) -> GameState {
 
         match state.phase {
             GamePhase::GameOver => break,
-            GamePhase::Draw => {
-                execute_draw_phase(&mut state, &mut rng);
-                step += 1;
-                continue;
-            }
             _ => {}
         }
 
@@ -170,7 +164,7 @@ fn run_full_game_with_invariants(seed: u64, num_players: usize) -> GameState {
             );
         }
 
-        apply_choice_to_state(&mut state, player, &choices[0], &mut rng);
+        apply_choice(&mut state, player, &choices[0], &mut rng);
         step += 1;
 
         assert!(
@@ -186,13 +180,12 @@ fn run_full_game_with_invariants(seed: u64, num_players: usize) -> GameState {
 
 fn run_random_game_with_invariants(seed: u64, num_players: usize) -> GameState {
     let mut rng = WyRand::seed_from_u64(seed);
-    let ai_players = vec![true; num_players];
-    let mut state = create_initial_game_state(num_players, &ai_players, &mut rng);
+    let bot_players = vec![true; num_players];
+    let mut state = create_initial_game_state(num_players, &bot_players, &mut rng);
 
     let initial_cards = count_all_cards(&state);
-    let initial_sell_cards = count_all_sell_cards(&state);
+    let initial_buyers = count_all_buyers(&state);
 
-    execute_draw_phase(&mut state, &mut rng);
 
     let mut step = 0u32;
     loop {
@@ -205,9 +198,9 @@ fn run_random_game_with_invariants(seed: u64, num_players: usize) -> GameState {
             num_players
         );
         assert_eq!(
-            count_all_sell_cards(&state),
-            initial_sell_cards,
-            "Sell card conservation violated at step {} (seed={}, players={})",
+            count_all_buyers(&state),
+            initial_buyers,
+            "Buyer card conservation violated at step {} (seed={}, players={})",
             step,
             seed,
             num_players
@@ -227,11 +220,6 @@ fn run_random_game_with_invariants(seed: u64, num_players: usize) -> GameState {
 
         match state.phase {
             GamePhase::GameOver => break,
-            GamePhase::Draw => {
-                execute_draw_phase(&mut state, &mut rng);
-                step += 1;
-                continue;
-            }
             _ => {}
         }
 
@@ -254,7 +242,7 @@ fn run_random_game_with_invariants(seed: u64, num_players: usize) -> GameState {
         }
 
         let idx = rng.random_range(0..choices.len());
-        apply_choice_to_state(&mut state, player, &choices[idx], &mut rng);
+        apply_choice(&mut state, player, &choices[idx], &mut rng);
         step += 1;
 
         assert!(
@@ -276,8 +264,8 @@ fn generate_invalid_choices(state: &GameState, player: usize) -> Vec<Choice> {
             // Wrong-phase choices
             invalid.push(Choice::EndTurn { keep_remaining: true });
             invalid.push(Choice::SkipWorkshop);
-            invalid.push(Choice::SelectSellCard {
-                sell_card: SellCard::IlluminatorVermilion,
+            invalid.push(Choice::SellToBuyer {
+                buyer: Buyer::IlluminatorVermilion,
             });
             invalid.push(Choice::GainSecondary {
                 color: Color::Orange,
@@ -285,7 +273,7 @@ fn generate_invalid_choices(state: &GameState, player: usize) -> Vec<Choice> {
             invalid.push(Choice::MixAll {
                 mixes: CopyVec::new(),
             });
-            invalid.push(Choice::MoveToDraftPool { card: None });
+            invalid.push(Choice::LiftCard { card: None });
             // DraftPick with card types not in the current hand
             let hand = draft_state.hands[player];
             let all_cards = [
@@ -316,8 +304,8 @@ fn generate_invalid_choices(state: &GameState, player: usize) -> Vec<Choice> {
             if stack.is_empty() {
                 // Empty stack: these require specific abilities on stack
                 invalid.push(Choice::SkipWorkshop);
-                invalid.push(Choice::SelectSellCard {
-                    sell_card: SellCard::IlluminatorVermilion,
+                invalid.push(Choice::SellToBuyer {
+                    buyer: Buyer::IlluminatorVermilion,
                 });
                 invalid.push(Choice::GainSecondary {
                     color: Color::Orange,
@@ -325,13 +313,13 @@ fn generate_invalid_choices(state: &GameState, player: usize) -> Vec<Choice> {
                 invalid.push(Choice::MixAll {
                     mixes: CopyVec::new(),
                 });
-                invalid.push(Choice::MoveToDraftPool { card: None });
+                invalid.push(Choice::LiftCard { card: None });
             } else {
                 let top = stack.last().unwrap();
                 match top {
                     Ability::Workshop { .. } => {
-                        invalid.push(Choice::SelectSellCard {
-                            sell_card: SellCard::IlluminatorVermilion,
+                        invalid.push(Choice::SellToBuyer {
+                            buyer: Buyer::IlluminatorVermilion,
                         });
                         invalid.push(Choice::GainSecondary {
                             color: Color::Orange,
@@ -369,12 +357,11 @@ fn generate_invalid_choices(state: &GameState, player: usize) -> Vec<Choice> {
                             color: Color::Orange,
                         });
                     }
-                    Ability::MoveToDraftPool => {
+                    Ability::LiftCard => {
                         invalid.push(Choice::SkipWorkshop);
                     }
-                    Ability::GainDucats { .. }
-                    | Ability::GainWildPrimaries { .. }
-                    | Ability::GainPrimaries
+                    Ability::GainGoldCoins { .. }
+                    | Ability::GainBowls { .. }
                     | Ability::GainBoats { .. } => {
                         // Auto-resolved, but just in case
                     }
@@ -389,14 +376,14 @@ fn generate_invalid_choices(state: &GameState, player: usize) -> Vec<Choice> {
 
 fn serialize_state(state: &GameState) -> String {
     set_card_registry(&state.card_lookup);
-    set_sell_card_registry(&state.sell_card_lookup);
+    set_buyer_registry(&state.buyer_lookup);
     serde_json::to_string(state).unwrap()
 }
 
 fn deserialize_state(json: &str) -> GameState {
     let mut state: GameState = serde_json::from_str(json).unwrap();
     state.card_lookup = get_card_registry();
-    state.sell_card_lookup = get_sell_card_registry();
+    state.buyer_lookup = get_buyer_registry();
     for p in state.players.iter_mut() {
         p.cached_whole_points = calculate_whole_points(p);
     }
@@ -425,8 +412,8 @@ fn assert_states_match(a: &GameState, b: &GameState, context: &str) {
             pi, context
         );
         assert_eq!(
-            pa.workshopped_cards, pb.workshopped_cards,
-            "player {} workshopped_cards mismatch: {}",
+            pa.used_cards, pb.used_cards,
+            "player {} used_cards mismatch: {}",
             pi, context
         );
         assert_eq!(
@@ -435,8 +422,8 @@ fn assert_states_match(a: &GameState, b: &GameState, context: &str) {
             pi, context
         );
         assert_eq!(
-            pa.drafted_cards, pb.drafted_cards,
-            "player {} drafted_cards mismatch: {}",
+            pa.top_cards, pb.top_cards,
+            "player {} top_cards mismatch: {}",
             pi, context
         );
         assert_eq!(
@@ -445,13 +432,13 @@ fn assert_states_match(a: &GameState, b: &GameState, context: &str) {
             pi, context
         );
         assert_eq!(
-            pa.materials.counts, pb.materials.counts,
+            pa.materials_wheel.counts, pb.materials_wheel.counts,
             "player {} materials mismatch: {}",
             pi, context
         );
         assert_eq!(
-            pa.ducats, pb.ducats,
-            "player {} ducats mismatch: {}",
+            pa.gold_coins, pb.gold_coins,
+            "player {} gold_coins mismatch: {}",
             pi, context
         );
         assert_eq!(
@@ -472,31 +459,31 @@ fn assert_states_match(a: &GameState, b: &GameState, context: &str) {
                 pi, bi, context
             );
             assert_eq!(
-                ba.sell_card, bb.sell_card,
+                ba.buyer, bb.buyer,
                 "player {} buyer {} card mismatch: {}",
                 pi, bi, context
             );
         }
         assert_eq!(
-            pa.completed_sell_cards.len(),
-            pb.completed_sell_cards.len(),
-            "player {} completed_sell_cards length mismatch: {}",
+            pa.completed_orders.len(),
+            pb.completed_orders.len(),
+            "player {} completed_orders length mismatch: {}",
             pi, context
         );
         for (bi, (ba, bb)) in pa
-            .completed_sell_cards
+            .completed_orders
             .iter()
-            .zip(pb.completed_sell_cards.iter())
+            .zip(pb.completed_orders.iter())
             .enumerate()
         {
             assert_eq!(
                 ba.instance_id, bb.instance_id,
-                "player {} sell_card {} instance_id mismatch: {}",
+                "player {} buyer {} instance_id mismatch: {}",
                 pi, bi, context
             );
             assert_eq!(
-                ba.sell_card, bb.sell_card,
-                "player {} sell_card {} card mismatch: {}",
+                ba.buyer, bb.buyer,
+                "player {} buyer {} card mismatch: {}",
                 pi, bi, context
             );
         }
@@ -514,30 +501,30 @@ fn assert_states_match(a: &GameState, b: &GameState, context: &str) {
         context
     );
     assert_eq!(
-        a.sell_card_deck, b.sell_card_deck,
-        "sell_card_deck mismatch: {}",
+        a.buyer_deck, b.buyer_deck,
+        "buyer_deck mismatch: {}",
         context
     );
     assert_eq!(
-        a.sell_card_display.len(),
-        b.sell_card_display.len(),
-        "sell_card_display length mismatch: {}",
+        a.buyer_display.len(),
+        b.buyer_display.len(),
+        "buyer_display length mismatch: {}",
         context
     );
     for (i, (ba, bb)) in a
-        .sell_card_display
+        .buyer_display
         .iter()
-        .zip(b.sell_card_display.iter())
+        .zip(b.buyer_display.iter())
         .enumerate()
     {
         assert_eq!(
             ba.instance_id, bb.instance_id,
-            "sell_card_display {} instance_id mismatch: {}",
+            "buyer_display {} instance_id mismatch: {}",
             i, context
         );
         assert_eq!(
-            ba.sell_card, bb.sell_card,
-            "sell_card_display {} card mismatch: {}",
+            ba.buyer, bb.buyer,
+            "buyer_display {} card mismatch: {}",
             i, context
         );
     }
@@ -608,7 +595,6 @@ fn assert_states_match(a: &GameState, b: &GameState, context: &str) {
                 );
             }
         }
-        (GamePhase::Draw, GamePhase::Draw) => {}
         (GamePhase::GameOver, GamePhase::GameOver) => {}
         _ => panic!(
             "Phase variant mismatch: {:?} vs {:?}: {}",
@@ -631,7 +617,7 @@ fn test_card_conservation() {
 }
 
 #[test]
-fn test_sell_card_conservation() {
+fn test_buyer_conservation() {
     for seed in 0..10 {
         for num_players in 2..=4 {
             run_full_game_with_invariants(seed, num_players);
@@ -754,20 +740,14 @@ fn test_invalid_choices_rejected() {
     for seed in 800..830 {
         for num_players in 2..=4 {
             let mut rng = WyRand::seed_from_u64(seed);
-            let ai_players = vec![true; num_players];
-            let mut state = create_initial_game_state(num_players, &ai_players, &mut rng);
+            let bot_players = vec![true; num_players];
+            let mut state = create_initial_game_state(num_players, &bot_players, &mut rng);
 
-            execute_draw_phase(&mut state, &mut rng);
 
             let mut step = 0u32;
             loop {
                 match state.phase {
                     GamePhase::GameOver => break,
-                    GamePhase::Draw => {
-                        execute_draw_phase(&mut state, &mut rng);
-                        step += 1;
-                        continue;
-                    }
                     _ => {}
                 }
 
@@ -789,7 +769,7 @@ fn test_invalid_choices_rejected() {
                 assert!(!choices.is_empty());
 
                 let idx = rng.random_range(0..choices.len());
-                apply_choice_to_state(&mut state, player, &choices[idx], &mut rng);
+                apply_choice(&mut state, player, &choices[idx], &mut rng);
                 step += 1;
 
                 if step >= 50_000 {
@@ -807,10 +787,9 @@ fn test_serialization_round_trip_preserves_state() {
     for seed in 900..930 {
         for num_players in 2..=4 {
             let mut rng = WyRand::seed_from_u64(seed);
-            let ai_players = vec![true; num_players];
-            let mut state = create_initial_game_state(num_players, &ai_players, &mut rng);
+            let bot_players = vec![true; num_players];
+            let mut state = create_initial_game_state(num_players, &bot_players, &mut rng);
 
-            execute_draw_phase(&mut state, &mut rng);
 
             let mut step = 0u32;
             loop {
@@ -828,11 +807,6 @@ fn test_serialization_round_trip_preserves_state() {
 
                 match state.phase {
                     GamePhase::GameOver => break,
-                    GamePhase::Draw => {
-                        execute_draw_phase(&mut state, &mut rng);
-                        step += 1;
-                        continue;
-                    }
                     _ => {}
                 }
 
@@ -841,7 +815,7 @@ fn test_serialization_round_trip_preserves_state() {
                 assert!(!choices.is_empty());
 
                 let idx = rng.random_range(0..choices.len());
-                apply_choice_to_state(&mut state, player, &choices[idx], &mut rng);
+                apply_choice(&mut state, player, &choices[idx], &mut rng);
                 step += 1;
 
                 if step >= 50_000 {
@@ -857,20 +831,14 @@ fn test_serialization_round_trip_determinism() {
     for seed in 930..960 {
         for num_players in 2..=4 {
             let mut rng = WyRand::seed_from_u64(seed);
-            let ai_players = vec![true; num_players];
-            let mut state = create_initial_game_state(num_players, &ai_players, &mut rng);
+            let bot_players = vec![true; num_players];
+            let mut state = create_initial_game_state(num_players, &bot_players, &mut rng);
 
-            execute_draw_phase(&mut state, &mut rng);
 
             let mut step = 0u32;
             loop {
                 match state.phase {
                     GamePhase::GameOver => break,
-                    GamePhase::Draw => {
-                        execute_draw_phase(&mut state, &mut rng);
-                        step += 1;
-                        continue;
-                    }
                     _ => {}
                 }
 
@@ -891,8 +859,8 @@ fn test_serialization_round_trip_determinism() {
                     let mut rng_a = WyRand::seed_from_u64(rng_seed);
                     let mut rng_b = WyRand::seed_from_u64(rng_seed);
 
-                    apply_choice_to_state(&mut original, player, choice, &mut rng_a);
-                    apply_choice_to_state(&mut restored, player, choice, &mut rng_b);
+                    apply_choice(&mut original, player, choice, &mut rng_a);
+                    apply_choice(&mut restored, player, choice, &mut rng_b);
 
                     assert_states_match(
                         &original,
@@ -904,7 +872,7 @@ fn test_serialization_round_trip_determinism() {
                     );
                 }
 
-                apply_choice_to_state(&mut state, player, choice, &mut rng);
+                apply_choice(&mut state, player, choice, &mut rng);
                 step += 1;
 
                 if step >= 50_000 {
@@ -924,20 +892,20 @@ fn test_draft_deck_card_count() {
     assert_eq!(
         state.draft_deck.len(),
         100,
-        "Draft deck should have 100 cards (54 dye + 21 material + 25 action)"
+        "Draft deck should have 100 cards (54 pigment + 21 material + 25 action)"
     );
 }
 
 #[test]
-fn test_sell_card_deck_card_count() {
+fn test_buyer_deck_card_count() {
     for num_players in 2..=4 {
         let mut rng = WyRand::seed_from_u64(0);
-        let ai_players = vec![true; num_players];
-        let state = create_initial_game_state(num_players, &ai_players, &mut rng);
-        let total_sell_cards = state.sell_card_deck.len() + state.sell_card_display.len() as u32;
+        let bot_players = vec![true; num_players];
+        let state = create_initial_game_state(num_players, &bot_players, &mut rng);
+        let total_buyers = state.buyer_deck.len() + state.buyer_display.len() as u32;
         assert_eq!(
-            total_sell_cards, 75,
-            "Total sell cards should be 75 (players={})",
+            total_buyers, 75,
+            "Total buyers should be 75 (players={})",
             num_players
         );
     }
@@ -947,15 +915,20 @@ fn test_sell_card_deck_card_count() {
 fn test_personal_deck_card_count() {
     for num_players in 2..=4 {
         let mut rng = WyRand::seed_from_u64(0);
-        let ai_players = vec![true; num_players];
-        let state = create_initial_game_state(num_players, &ai_players, &mut rng);
+        let bot_players = vec![true; num_players];
+        let state = create_initial_game_state(num_players, &bot_players, &mut rng);
         for (i, player) in state.players.iter().enumerate() {
             assert_eq!(
-                player.deck.len(),
+                player.deck.len() + player.workshop_cards.len(),
                 7,
                 "Player {} should start with 7 cards (players={})",
                 i,
                 num_players
+            );
+            assert_eq!(
+                player.workshop_cards.len(),
+                5,
+                "setup deals five of them into the workshop (players={num_players})"
             );
         }
     }
@@ -1020,8 +993,8 @@ fn find_card_id(state: &GameState, target: Card) -> u8 {
             for player in state.players.iter() {
                 if player.deck.contains(idx as u8) { return idx as u8; }
                 if player.workshop_cards.contains(idx as u8) { return idx as u8; }
-                if player.workshopped_cards.contains(idx as u8) { return idx as u8; }
-                if player.drafted_cards.contains(idx as u8) { return idx as u8; }
+                if player.used_cards.contains(idx as u8) { return idx as u8; }
+                if player.top_cards.contains(idx as u8) { return idx as u8; }
             }
             if state.draft_deck.contains(idx as u8) { return idx as u8; }
         }
@@ -1033,8 +1006,8 @@ fn remove_card_anywhere(state: &mut GameState, id: u8) {
     for player in state.players.iter_mut() {
         if player.deck.contains(id) { player.deck.remove(id); return; }
         if player.workshop_cards.contains(id) { player.workshop_cards.remove(id); return; }
-        if player.workshopped_cards.contains(id) { player.workshopped_cards.remove(id); return; }
-        if player.drafted_cards.contains(id) { player.drafted_cards.remove(id); return; }
+        if player.used_cards.contains(id) { player.used_cards.remove(id); return; }
+        if player.top_cards.contains(id) { player.top_cards.remove(id); return; }
     }
     if state.draft_deck.contains(id) { state.draft_deck.remove(id); return; }
     panic!("Could not find card id {} anywhere", id);
@@ -1057,22 +1030,29 @@ fn setup_action_state_with(
 ) -> (GameState, u8, Option<u8>, Option<u8>) {
     let mut rng = WyRand::seed_from_u64(12345);
     let mut state = create_initial_game_state(2, &[true, true], &mut rng);
+    // These fixtures take the board as they find it, so the workshop setup
+    // dealt goes back to the deck.
+    for p in state.players.iter_mut() {
+        let dealt = p.workshop_cards;
+        p.workshop_cards = UnorderedCards::new();
+        p.deck.push_top(dealt);
+    }
     // Count what a card or sale gives from an empty purse.
     let player = &mut state.players[0];
-    player.ducats = 0;
+    player.gold_coins = 0;
     player.boats = 0;
     player.cached_whole_points = 0;
 
     let alum_id = find_card_id(&state, Card::Alum);
     remove_card_anywhere(&mut state, alum_id);
     if alum_in_drafted {
-        state.players[0].drafted_cards.insert(alum_id);
+        state.players[0].top_cards.insert(alum_id);
     }
 
     let ws_id = workshopped_target.map(|c| {
         let id = find_card_id(&state, c);
         remove_card_anywhere(&mut state, id);
-        state.players[0].workshopped_cards.insert(id);
+        state.players[0].used_cards.insert(id);
         id
     });
 
@@ -1093,41 +1073,41 @@ fn setup_action_state_with(
 }
 
 #[test]
-fn test_move_to_draft_pool_targets_only_unworkshopped_cards() {
+fn test_lift_card_targets_only_unused_cards() {
     let (state, _, _, _) = setup_action_state_with(
         false,
         Some(Card::StarterCeramics),
         Some(Card::StarterCanvas),
-        Some(Ability::MoveToDraftPool),
+        Some(Ability::LiftCard),
     );
 
-    let canvas = Choice::MoveToDraftPool { card: Some(Card::StarterCanvas) };
-    let ceramics = Choice::MoveToDraftPool { card: Some(Card::StarterCeramics) };
+    let canvas = Choice::LiftCard { card: Some(Card::StarterCanvas) };
+    let ceramics = Choice::LiftCard { card: Some(Card::StarterCeramics) };
     assert_eq!(enumerate_choices(&state, 0), vec![canvas.clone()]);
     assert!(check_choice_available(&state, 0, &canvas));
     assert!(!check_choice_available(&state, 0, &ceramics), "a workshopped card cannot be moved");
     assert!(
-        !check_choice_available(&state, 0, &Choice::MoveToDraftPool { card: None }),
+        !check_choice_available(&state, 0, &Choice::LiftCard { card: None }),
         "the move is mandatory while there is a card to move"
     );
 }
 
 #[test]
-fn test_move_to_draft_pool_fizzles_when_only_workshopped_cards_remain() {
+fn test_lift_card_fizzles_when_only_used_cards_remain() {
     let (state, _, _, _) = setup_action_state_with(
         false,
         Some(Card::StarterCeramics),
         None,
-        Some(Ability::MoveToDraftPool),
+        Some(Ability::LiftCard),
     );
     assert_eq!(
         enumerate_choices(&state, 0),
-        vec![Choice::MoveToDraftPool { card: None }]
+        vec![Choice::LiftCard { card: None }]
     );
 }
 
 #[test]
-fn test_trashing_alum_targets_only_unworkshopped_cards() {
+fn test_trashing_alum_targets_only_unused_cards() {
     // No ability on the stack — enumerating trash-drafted choices for Alum.
     let (state, _, _, _) = setup_action_state_with(
         true,
@@ -1139,9 +1119,9 @@ fn test_trashing_alum_targets_only_unworkshopped_cards() {
     let choices = enumerate_choices(&state, 0);
     let moves: Vec<&Choice> = choices
         .iter()
-        .filter(|c| matches!(c, Choice::TrashAndMoveToDraftPool { .. }))
+        .filter(|c| matches!(c, Choice::TrashAndLift { .. }))
         .collect();
-    let canvas = Choice::TrashAndMoveToDraftPool {
+    let canvas = Choice::TrashAndLift {
         card: Card::Alum,
         target: Some(Card::StarterCanvas),
     };
@@ -1150,40 +1130,40 @@ fn test_trashing_alum_targets_only_unworkshopped_cards() {
     assert!(!check_choice_available(
         &state,
         0,
-        &Choice::TrashAndMoveToDraftPool { card: Card::Alum, target: Some(Card::StarterCeramics) }
+        &Choice::TrashAndLift { card: Card::Alum, target: Some(Card::StarterCeramics) }
     ));
     assert!(!check_choice_available(
         &state,
         0,
-        &Choice::TrashAndMoveToDraftPool { card: Card::Alum, target: None }
+        &Choice::TrashAndLift { card: Card::Alum, target: None }
     ));
 }
 
-/// The move does not trash the card: it lands in the draft pool, where the
+/// The move does not trash the card: it lands in the top cards, where the
 /// ordinary trash path can pick it up later — or leave it there for end of
 /// turn to return to the workshop.
 #[test]
-fn test_apply_move_to_draft_pool_moves_the_card_without_trashing_it() {
+fn test_apply_lift_card_moves_the_card_without_trashing_it() {
     let (mut state, _, _, wsc_id) = setup_action_state_with(
         false,
         None,
         Some(Card::StarterCanvas),
-        Some(Ability::MoveToDraftPool),
+        Some(Ability::LiftCard),
     );
     let wsc_id = wsc_id.unwrap();
 
     let mut rng = WyRand::seed_from_u64(99);
-    apply_choice_to_state(
+    apply_choice(
         &mut state,
         0,
-        &Choice::MoveToDraftPool { card: Some(Card::StarterCanvas) },
+        &Choice::LiftCard { card: Some(Card::StarterCanvas) },
         &mut rng,
     );
 
     assert!(!state.players[0].workshop_cards.contains(wsc_id),
         "moved card should have left the workshop");
-    assert!(state.players[0].drafted_cards.contains(wsc_id),
-        "moved card should be in the draft pool");
+    assert!(state.players[0].top_cards.contains(wsc_id),
+        "moved card should be in the top cards");
     assert!(!state.trash.contains(wsc_id),
         "the move must not trash the card");
     if let GamePhase::Action { ref action_state } = state.phase {
@@ -1195,25 +1175,25 @@ fn test_apply_move_to_draft_pool_moves_the_card_without_trashing_it() {
 }
 
 #[test]
-fn test_score_is_points_plus_half_points_for_wild_primaries_and_boats() {
+fn test_score_is_points_plus_half_points_for_bowls_and_boats() {
     for seed in 50..60 {
         for num_players in 2..=4 {
             let state = run_full_game_with_invariants(seed, num_players);
             for (i, player) in state.players.iter().enumerate() {
-                let sell_card_points: u32 = player
-                    .completed_sell_cards
+                let buyer_points: u32 = player
+                    .completed_orders
                     .iter()
-                    .map(|bi| bi.sell_card.points())
+                    .map(|bi| bi.buyer.points())
                     .sum();
                 assert_eq!(
                     calculate_whole_points(player),
-                    sell_card_points + player.ducats,
+                    buyer_points + player.gold_coins,
                     "Whole points mismatch for player {} (seed={}, players={})",
                     i, seed, num_players,
                 );
                 assert_eq!(
                     score_in_half_points(player),
-                    2 * (sell_card_points + player.ducats) + player.wild_primaries + player.boats,
+                    2 * (buyer_points + player.gold_coins) + player.bowls + player.boats,
                     "Score mismatch for player {} (seed={}, players={})",
                     i, seed, num_players,
                 );
@@ -1231,7 +1211,7 @@ fn state_after_workshopping(card: Card) -> GameState {
         Some(Ability::Workshop { count: 1 }),
     );
     let mut rng = WyRand::seed_from_u64(3);
-    apply_choice_to_state(
+    apply_choice(
         &mut state,
         0,
         &Choice::Workshop { card_types: CopyVec::from_slice(&[card]) },
@@ -1248,17 +1228,17 @@ fn pending_ability(state: &GameState) -> Option<Ability> {
 }
 
 #[test]
-fn test_workshopping_warehouse_gains_two_wild_primaries() {
+fn test_workshopping_warehouse_gains_two_bowls() {
     let state = state_after_workshopping(Card::Warehouse);
-    assert_eq!(state.players[0].wild_primaries, 2);
-    assert_eq!(pending_ability(&state), None, "wild primaries arrive without a choice");
+    assert_eq!(state.players[0].bowls, 2);
+    assert_eq!(pending_ability(&state), None, "bowls arrive without a choice");
     assert_eq!(score_in_half_points(&state.players[0]), 2);
 }
 
 #[test]
-fn test_workshopping_chalk_gains_one_wild_primary() {
+fn test_workshopping_chalk_gains_one_bowl() {
     let state = state_after_workshopping(Card::Chalk);
-    assert_eq!(state.players[0].wild_primaries, 1);
+    assert_eq!(state.players[0].bowls, 1);
     assert_eq!(pending_ability(&state), None);
 }
 
@@ -1301,10 +1281,10 @@ fn test_trashing_primaries_grants_two_workshop_picks() {
     assert!(!choices.contains(&three_picks), "a third pick is not");
 
     let mut rng = WyRand::seed_from_u64(3);
-    apply_choice_to_state(&mut state, 0, &two_picks, &mut rng);
+    apply_choice(&mut state, 0, &two_picks, &mut rng);
 
     let player = &state.players[0];
-    assert_eq!((player.materials.get(MaterialType::Textiles), player.materials.get(MaterialType::Paintings)), (1, 1));
+    assert_eq!((player.materials_wheel.get(MaterialType::Textiles), player.materials_wheel.get(MaterialType::Paintings)), (1, 1));
     assert_eq!(player.workshop_cards.len(), 1, "the unpicked card stays in the workshop");
     assert_eq!(state.trash.len(), 1, "the card is trashed, not kept");
     assert_eq!(pending_ability(&state), None);
@@ -1344,7 +1324,7 @@ fn test_linseed_oil_grants_three_mixes_in_one_choice() {
     let choice = Choice::MixAll { mixes };
     assert!(check_choice_available(&state, 0, &choice));
     let mut rng = WyRand::seed_from_u64(3);
-    apply_choice_to_state(&mut state, 0, &choice, &mut rng);
+    apply_choice(&mut state, 0, &choice, &mut rng);
 
     let wheel = &state.players[0].color_wheel;
     assert_eq!(wheel.get(Color::Vermilion), 1);
@@ -1368,8 +1348,8 @@ fn test_mix_sequences_offer_each_outcome_once() {
     for choice in &choices {
         let mut after = state.clone();
         let mut rng = WyRand::seed_from_u64(3);
-        apply_choice_to_state(&mut after, 0, choice, &mut rng);
-        let outcome = (after.players[0].color_wheel.counts, after.players[0].wild_primaries);
+        apply_choice(&mut after, 0, choice, &mut rng);
+        let outcome = (after.players[0].color_wheel.counts, after.players[0].bowls);
         assert!(!outcomes.contains(&outcome), "{:?} repeats an earlier outcome", choice);
         outcomes.push(outcome);
     }
@@ -1393,7 +1373,7 @@ fn test_using_every_mix_leaves_a_mix_beneath_it_alone() {
     }
 
     let mut rng = WyRand::seed_from_u64(3);
-    apply_choice_to_state(
+    apply_choice(
         &mut state,
         0,
         &Choice::MixAll { mixes: CopyVec::from_slice(&[(Color::Red, Color::Yellow)]) },
@@ -1415,7 +1395,7 @@ fn test_using_every_mix_leaves_a_mix_beneath_it_alone() {
 fn a_mix_the_wheel_cannot_supply_never_becomes_a_decision() {
     let mut state = state_with_drafted(Card::CeramicsRed);
     state.players[0].color_wheel = ColorWheel::new();
-    state.players[0].wild_primaries = 0;
+    state.players[0].bowls = 0;
     let trash = Choice::TrashAndWorkshop {
         card: Card::CeramicsRed,
         workshop_cards: CopyVec::new(),
@@ -1423,7 +1403,7 @@ fn a_mix_the_wheel_cannot_supply_never_becomes_a_decision() {
     assert!(enumerate_choices(&state, 0).contains(&trash));
 
     let mut rng = WyRand::seed_from_u64(0);
-    apply_choice_to_state(&mut state, 0, &trash, &mut rng);
+    apply_choice(&mut state, 0, &trash, &mut rng);
     assert_eq!(
         pending_ability(&state),
         None,
@@ -1442,9 +1422,9 @@ fn a_mix_the_wheel_cannot_supply_never_becomes_a_decision() {
 fn an_empty_mix_sequence_with_no_ability_left_does_nothing() {
     let mut state = state_with_drafted(Card::CeramicsRed);
     state.players[0].color_wheel = ColorWheel::new();
-    state.players[0].wild_primaries = 0;
+    state.players[0].bowls = 0;
     let mut rng = WyRand::seed_from_u64(0);
-    apply_choice_to_state(
+    apply_choice(
         &mut state,
         0,
         &Choice::TrashAndWorkshop {
@@ -1455,19 +1435,19 @@ fn an_empty_mix_sequence_with_no_ability_left_does_nothing() {
     );
     let before = state.players[0].clone();
 
-    apply_choice_to_state(&mut state, 0, &Choice::MixAll { mixes: CopyVec::new() }, &mut rng);
+    apply_choice(&mut state, 0, &Choice::MixAll { mixes: CopyVec::new() }, &mut rng);
     assert_eq!(state.players[0].color_wheel, before.color_wheel);
-    assert_eq!(state.players[0].wild_primaries, before.wild_primaries);
+    assert_eq!(state.players[0].bowls, before.bowls);
     assert_eq!(pending_ability(&state), None);
 }
 
-/// Put `card` in player 0's draft pool with the action phase open and nothing
+/// Put `card` in player 0's top cards with the action phase open and nothing
 /// pending.
 fn state_with_drafted(card: Card) -> GameState {
     let (mut state, _, _, _) = setup_action_state_with(false, None, None, None);
     let id = find_card_id(&state, card);
     remove_card_anywhere(&mut state, id);
-    state.players[0].drafted_cards.insert(id);
+    state.players[0].top_cards.insert(id);
     state
 }
 
@@ -1484,16 +1464,16 @@ fn test_trashing_an_imports_card_workshops_then_mixes() {
         workshop_cards: CopyVec::from_slice(&[Card::StarterFabric]),
     };
     assert!(enumerate_choices(&state, 0).contains(&trash));
-    apply_choice_to_state(&mut state, 0, &trash, &mut rng);
+    apply_choice(&mut state, 0, &trash, &mut rng);
 
-    assert_eq!(state.players[0].materials.get(MaterialType::Textiles), 1);
+    assert_eq!(state.players[0].materials_wheel.get(MaterialType::Textiles), 1);
     assert_eq!(
         pending_ability(&state),
         Some(Ability::MixColors { count: 1 }),
         "the mix follows the workshop"
     );
 
-    apply_choice_to_state(
+    apply_choice(
         &mut state,
         0,
         &Choice::MixAll { mixes: CopyVec::from_slice(&[(Color::Red, Color::Blue)]) },
@@ -1514,7 +1494,7 @@ fn test_an_imports_card_still_mixes_when_the_workshop_is_empty() {
     };
     assert!(enumerate_choices(&state, 0).contains(&trash));
     let mut rng = WyRand::seed_from_u64(3);
-    apply_choice_to_state(&mut state, 0, &trash, &mut rng);
+    apply_choice(&mut state, 0, &trash, &mut rng);
 
     assert_eq!(
         pending_ability(&state),
@@ -1524,7 +1504,7 @@ fn test_an_imports_card_still_mixes_when_the_workshop_is_empty() {
 }
 
 #[test]
-fn test_a_wild_primary_stands_in_for_a_missing_primary_in_a_mix() {
+fn test_a_bowl_stands_in_for_a_missing_primary_in_a_mix() {
     let mut state = state_with_drafted(Card::Realgar);
     let player = &mut state.players[0];
     player.color_wheel = ColorWheel::new();
@@ -1534,108 +1514,108 @@ fn test_a_wild_primary_stands_in_for_a_missing_primary_in_a_mix() {
         card: Card::Realgar,
         mixes: CopyVec::from_slice(&[(Color::Red, Color::Orange)]),
     };
-    assert!(!enumerate_choices(&state, 0).contains(&mix), "no Red and no wild primary");
+    assert!(!enumerate_choices(&state, 0).contains(&mix), "no Red and no bowl");
     assert!(!check_choice_available(&state, 0, &mix));
 
-    state.players[0].wild_primaries = 1;
+    state.players[0].bowls = 1;
     assert!(enumerate_choices(&state, 0).contains(&mix));
     assert!(check_choice_available(&state, 0, &mix));
 
     let mut rng = WyRand::seed_from_u64(3);
-    apply_choice_to_state(&mut state, 0, &mix, &mut rng);
-    assert_eq!(state.players[0].wild_primaries, 0);
+    apply_choice(&mut state, 0, &mix, &mut rng);
+    assert_eq!(state.players[0].bowls, 0);
     assert_eq!(state.players[0].color_wheel.get(Color::Vermilion), 1);
     assert_eq!(state.players[0].color_wheel.get(Color::Orange), 0);
 }
 
-/// Give `player` exactly what `sell_card` asks for.
-fn stock_for(player: &mut PlayerState, sell_card: SellCard) {
-    for &material in sell_card.required_materials() {
-        player.materials.increment(material);
+/// Give `player` exactly what `buyer` asks for.
+fn stock_for(player: &mut PlayerState, buyer: Buyer) {
+    for &material in buyer.required_materials() {
+        player.materials_wheel.increment(material);
     }
-    player.boats += sell_card.required_boats();
-    for &color in sell_card.color_cost() {
+    player.boats += buyer.required_boats();
+    for &color in buyer.color_cost() {
         player.color_wheel.increment(color);
     }
 }
 
-/// Give player 0 a buyer for `sell_card` and a pending Sell.
-fn state_selling(sell_card: SellCard) -> GameState {
+/// Give player 0 a buyer for `buyer` and a pending Sell.
+fn state_selling(buyer: Buyer) -> GameState {
     let (mut state, _, _, _) = setup_action_state_with(false, None, None, Some(Ability::Sell));
     state.players[0].color_wheel = ColorWheel::new();
-    state.players[0].buyers.push(colori_core::types::SellCardInstance {
+    state.players[0].buyers.push(colori_core::types::BuyerInstance {
         instance_id: 200,
-        sell_card,
+        buyer,
     });
     state
 }
 
 #[test]
-fn test_a_boat_and_a_wild_primary_stand_in_for_what_a_sale_is_missing() {
-    let sell_card = SellCard::DyerRedYellow;
-    let mut state = state_selling(sell_card);
+fn test_a_boat_and_a_bowl_stand_in_for_what_a_sale_is_missing() {
+    let buyer = Buyer::DyerRedYellow;
+    let mut state = state_selling(buyer);
     state.players[0].color_wheel.set(Color::Yellow, 1);
-    let select = Choice::SelectSellCard { sell_card };
+    let select = Choice::SellToBuyer { buyer };
 
     assert!(enumerate_choices(&state, 0).is_empty(), "no Textiles and no Red");
     state.players[0].boats = 1;
     assert!(!check_choice_available(&state, 0, &select), "still no Red");
-    state.players[0].wild_primaries = 1;
+    state.players[0].bowls = 1;
     assert!(enumerate_choices(&state, 0).contains(&select));
 
     let mut rng = WyRand::seed_from_u64(3);
-    apply_choice_to_state(&mut state, 0, &select, &mut rng);
+    apply_choice(&mut state, 0, &select, &mut rng);
     let player = &state.players[0];
-    assert_eq!((player.boats, player.wild_primaries), (0, 0));
+    assert_eq!((player.boats, player.bowls), (0, 0));
     assert_eq!(player.color_wheel.get(Color::Yellow), 0);
-    assert_eq!(player.completed_sell_cards.len(), 1);
+    assert_eq!(player.completed_orders.len(), 1);
     assert_eq!(player.cached_whole_points, calculate_whole_points(player));
-    assert_eq!(score_in_half_points(player), 2 * sell_card.points());
+    assert_eq!(score_in_half_points(player), 2 * buyer.points());
 }
 
 #[test]
-fn test_a_sale_spends_what_it_asks_for_before_any_boat_or_wild_primary() {
-    let sell_card = SellCard::DyerRedYellow;
-    let mut state = state_selling(sell_card);
+fn test_a_sale_spends_what_it_asks_for_before_any_boat_or_bowl() {
+    let buyer = Buyer::DyerRedYellow;
+    let mut state = state_selling(buyer);
     let player = &mut state.players[0];
-    stock_for(player, sell_card);
+    stock_for(player, buyer);
     player.boats = 1;
-    player.wild_primaries = 1;
+    player.bowls = 1;
 
     let mut rng = WyRand::seed_from_u64(3);
-    apply_choice_to_state(&mut state, 0, &Choice::SelectSellCard { sell_card }, &mut rng);
+    apply_choice(&mut state, 0, &Choice::SellToBuyer { buyer }, &mut rng);
     let player = &state.players[0];
-    assert_eq!((player.boats, player.wild_primaries), (1, 1));
-    assert_eq!(player.materials.get(MaterialType::Textiles), 0);
+    assert_eq!((player.boats, player.bowls), (1, 1));
+    assert_eq!(player.materials_wheel.get(MaterialType::Textiles), 0);
     assert_eq!(player.color_wheel.get(Color::Red), 0);
 }
 
 #[test]
 fn test_a_shipwright_takes_a_boat_as_well_as_its_textiles() {
-    let sell_card = SellCard::ShipwrightPurpleGreen;
-    let select = Choice::SelectSellCard { sell_card };
-    let mut state = state_selling(sell_card);
+    let buyer = Buyer::ShipwrightPurpleGreen;
+    let select = Choice::SellToBuyer { buyer };
+    let mut state = state_selling(buyer);
     let player = &mut state.players[0];
     player.color_wheel.set(Color::Purple, 1);
     player.color_wheel.set(Color::Green, 1);
-    player.materials.increment(MaterialType::Textiles);
+    player.materials_wheel.increment(MaterialType::Textiles);
     assert!(!check_choice_available(&state, 0, &select), "no boat");
 
     state.players[0].boats = 1;
     assert!(check_choice_available(&state, 0, &select));
     let mut rng = WyRand::seed_from_u64(3);
-    apply_choice_to_state(&mut state, 0, &select, &mut rng);
+    apply_choice(&mut state, 0, &select, &mut rng);
     let player = &state.players[0];
     assert_eq!(player.boats, 0);
-    assert_eq!(player.materials.get(MaterialType::Textiles), 0);
+    assert_eq!(player.materials_wheel.get(MaterialType::Textiles), 0);
     assert_eq!(player.cached_whole_points, 4);
 }
 
 #[test]
 fn test_a_shipwright_without_textiles_takes_a_second_boat() {
-    let sell_card = SellCard::ShipwrightOrangeGreen;
-    let select = Choice::SelectSellCard { sell_card };
-    let mut state = state_selling(sell_card);
+    let buyer = Buyer::ShipwrightOrangeGreen;
+    let select = Choice::SellToBuyer { buyer };
+    let mut state = state_selling(buyer);
     let player = &mut state.players[0];
     player.color_wheel.set(Color::Orange, 1);
     player.color_wheel.set(Color::Green, 1);
@@ -1644,43 +1624,43 @@ fn test_a_shipwright_without_textiles_takes_a_second_boat() {
 
     state.players[0].boats = 2;
     let mut rng = WyRand::seed_from_u64(3);
-    apply_choice_to_state(&mut state, 0, &select, &mut rng);
+    apply_choice(&mut state, 0, &select, &mut rng);
     assert_eq!(state.players[0].boats, 0);
 }
 
 #[test]
 fn test_a_tilemaker_takes_two_ceramics() {
-    let sell_card = SellCard::TilemakerTeal;
-    let select = Choice::SelectSellCard { sell_card };
-    let mut state = state_selling(sell_card);
+    let buyer = Buyer::TilemakerTeal;
+    let select = Choice::SellToBuyer { buyer };
+    let mut state = state_selling(buyer);
     let player = &mut state.players[0];
     player.color_wheel.set(Color::Teal, 1);
-    player.materials.increment(MaterialType::Ceramics);
+    player.materials_wheel.increment(MaterialType::Ceramics);
     assert!(!check_choice_available(&state, 0, &select), "one Ceramics short");
 
     // A boat covers the second.
     state.players[0].boats = 1;
     let mut rng = WyRand::seed_from_u64(3);
-    apply_choice_to_state(&mut state, 0, &select, &mut rng);
+    apply_choice(&mut state, 0, &select, &mut rng);
     let player = &state.players[0];
-    assert_eq!(player.materials.get(MaterialType::Ceramics), 0);
+    assert_eq!(player.materials_wheel.get(MaterialType::Ceramics), 0);
     assert_eq!(player.boats, 0);
     assert_eq!(player.cached_whole_points, 4);
 }
 
 #[test]
 fn test_glassmakers_and_illuminators_take_no_material() {
-    for sell_card in [SellCard::GlassmakerAmberBlue, SellCard::IlluminatorFuchsia] {
-        let mut state = state_selling(sell_card);
-        for &color in sell_card.color_cost() {
+    for buyer in [Buyer::GlassmakerAmberBlue, Buyer::IlluminatorFuchsia] {
+        let mut state = state_selling(buyer);
+        for &color in buyer.color_cost() {
             state.players[0].color_wheel.increment(color);
         }
         let mut rng = WyRand::seed_from_u64(3);
-        apply_choice_to_state(&mut state, 0, &Choice::SelectSellCard { sell_card }, &mut rng);
+        apply_choice(&mut state, 0, &Choice::SellToBuyer { buyer }, &mut rng);
         let player = &state.players[0];
-        assert_eq!(player.completed_sell_cards.len(), 1, "{:?}", sell_card);
+        assert_eq!(player.completed_orders.len(), 1, "{:?}", buyer);
         assert_eq!(player.color_wheel.counts.iter().map(|&c| c as u32).sum::<u32>(), 0);
-        assert_eq!(player.cached_whole_points, sell_card.points());
+        assert_eq!(player.cached_whole_points, buyer.points());
     }
 }
 
@@ -1688,38 +1668,38 @@ fn test_glassmakers_and_illuminators_take_no_material() {
 fn test_sell_deck_composition() {
     let mut rng = WyRand::seed_from_u64(1);
     let state = create_initial_game_state(2, &[true, true], &mut rng);
-    let in_play = |sell_card: SellCard| {
+    let in_play = |buyer: Buyer| {
         let in_deck = state
-            .sell_card_deck
+            .buyer_deck
             .iter()
-            .filter(|&id| state.sell_card_lookup[id as usize] == sell_card)
+            .filter(|&id| state.buyer_lookup[id as usize] == buyer)
             .count();
-        let on_display = state.sell_card_display.iter().filter(|c| c.sell_card == sell_card).count();
+        let on_display = state.buyer_display.iter().filter(|c| c.buyer == buyer).count();
         in_deck + on_display
     };
-    for (sell_card, copies) in sell_deck_cards() {
-        assert_eq!(in_play(sell_card), copies, "copies of {:?}", sell_card);
+    for (buyer, copies) in buyer_deck_cards() {
+        assert_eq!(in_play(buyer), copies, "copies of {:?}", buyer);
     }
 
-    let cards_of = |buyer: Buyer| ALL_SELL_CARDS.iter().filter(|c| c.buyer() == buyer).count();
+    let cards_of = |trade: Trade| ALL_BUYERS.iter().filter(|c| c.trade() == trade).count();
     let expected = [
-        (Buyer::Shipwright, 3, 1, 4),
-        (Buyer::Glassmaker, 6, 1, 3),
-        (Buyer::Dyer, 9, 2, 2),
-        (Buyer::Illuminator, 6, 1, 2),
-        (Buyer::Potter, 6, 2, 3),
-        (Buyer::Tilemaker, 6, 1, 4),
-        (Buyer::Painter, 18, 1, 4),
-        (Buyer::MasterPainter, 6, 1, 5),
+        (Trade::Shipwright, 3, 1, 4),
+        (Trade::Glassmaker, 6, 1, 3),
+        (Trade::Dyer, 9, 2, 2),
+        (Trade::Illuminator, 6, 1, 2),
+        (Trade::Potter, 6, 2, 3),
+        (Trade::Tilemaker, 6, 1, 4),
+        (Trade::Painter, 18, 1, 4),
+        (Trade::MasterPainter, 6, 1, 5),
     ];
-    for (buyer, cards, copies, points) in expected {
-        assert_eq!(cards_of(buyer), cards, "{:?} cards", buyer);
-        assert_eq!(buyer.points(), points, "{:?} points", buyer);
-        for sell_card in ALL_SELL_CARDS.iter().filter(|c| c.buyer() == buyer) {
-            assert_eq!(sell_card_copies(*sell_card), copies, "{:?} copies", sell_card);
+    for (trade, cards, copies, points) in expected {
+        assert_eq!(cards_of(trade), cards, "{:?} cards", trade);
+        assert_eq!(trade.points(), points, "{:?} points", trade);
+        for buyer in ALL_BUYERS.iter().filter(|c| c.trade() == trade) {
+            assert_eq!(buyer_copies(*buyer), copies, "{:?} copies", buyer);
         }
     }
-    assert_eq!(sell_deck_cards().map(|(_, copies)| copies).sum::<usize>(), 75);
+    assert_eq!(buyer_deck_cards().map(|(_, copies)| copies).sum::<usize>(), 75);
 }
 
 #[test]
@@ -1727,12 +1707,18 @@ fn test_starter_deck_composition() {
     let mut rng = WyRand::seed_from_u64(1);
     let state = create_initial_game_state(4, &[true; 4], &mut rng);
     for player in state.players.iter() {
-        let mut cards: Vec<Card> = player.deck.cards().iter().map(|id| state.card_lookup[id as usize]).collect();
+        let mut cards: Vec<Card> = player
+            .deck
+            .cards()
+            .union(player.workshop_cards)
+            .iter()
+            .map(|id| state.card_lookup[id as usize])
+            .collect();
         let mut expected = starter_deck().to_vec();
         cards.sort_by_key(|&c| c as usize);
         expected.sort_by_key(|&c| c as usize);
         assert_eq!(cards, expected);
-        assert_eq!((player.wild_primaries, player.boats, player.ducats), (0, 1, 1));
+        assert_eq!((player.bowls, player.boats, player.gold_coins), (0, 1, 1));
         assert_eq!(player.cached_whole_points, calculate_whole_points(player));
     }
 }
@@ -1745,7 +1731,8 @@ fn test_starter_cards_take_the_first_ids_a_deck_per_seat() {
     let deck_size = starter_deck().len() as u8;
     for (seat, player) in state.players.iter().enumerate() {
         let first = seat as u8 * deck_size;
-        let ids: Vec<u8> = player.deck.cards().iter().collect();
+        let mut ids: Vec<u8> = player.deck.cards().union(player.workshop_cards).iter().collect();
+        ids.sort_unstable();
         assert_eq!(ids, (first..first + deck_size).collect::<Vec<u8>>());
     }
 }
@@ -1778,7 +1765,7 @@ fn test_draft_deck_composition() {
         Card::LapisLazuli,
         Card::Cochineal,
     ] {
-        assert_eq!(draft_copies(tertiary), 2, "{:?} is a tertiary dye", tertiary);
+        assert_eq!(draft_copies(tertiary), 2, "{:?} is a tertiary pigment", tertiary);
     }
     for card in starter_deck() {
         assert_eq!(draft_copies(card), 0, "{:?} is a starter card", card);
@@ -1793,22 +1780,21 @@ fn test_draft_deck_composition() {
 fn state_at_first_end_of_turn(seed: u64) -> (GameState, UnorderedCards, UnorderedCards) {
     let mut rng = WyRand::seed_from_u64(seed);
     let mut state = create_initial_game_state(2, &[true, true], &mut rng);
-    execute_draw_phase(&mut state, &mut rng);
 
     // Claim buyers, then finish the draft, always taking the first option.
     while matches!(state.phase, GamePhase::Buyers { .. } | GamePhase::Draft { .. }) {
         let player = actor(&state);
         let choices = enumerate_choices(&state, player);
-        apply_choice_to_state(&mut state, player, &choices[0], &mut rng);
+        apply_choice(&mut state, player, &choices[0], &mut rng);
     }
 
     let workshop_area = state.players[0]
         .workshop_cards
-        .union(state.players[0].workshopped_cards);
-    let drafted = state.players[0].drafted_cards;
+        .union(state.players[0].used_cards);
+    let drafted = state.players[0].top_cards;
     assert!(!workshop_area.is_empty() && !drafted.is_empty());
 
-    apply_choice_to_state(&mut state, 0, &Choice::EndTurn { keep_remaining: true }, &mut rng);
+    apply_choice(&mut state, 0, &Choice::EndTurn { keep_remaining: true }, &mut rng);
     (state, workshop_area, drafted)
 }
 
@@ -1822,23 +1808,23 @@ fn test_end_of_turn_sends_the_workshop_to_the_bottom_of_the_deck() {
         bottom, workshop_area,
         "the whole workshop area should form the deck's bottom segment"
     );
-    assert!(player.workshopped_cards.is_empty());
+    assert!(player.used_cards.is_empty());
 }
 
 #[test]
-fn test_end_of_turn_puts_undecided_draft_pool_cards_on_top_of_the_deck() {
-    let (state, _, drafted) = state_at_first_end_of_turn(4);
+fn test_end_of_turn_puts_undecided_top_cards_on_top_of_the_deck() {
+    let (state, _, _) = state_at_first_end_of_turn(4);
     let player = &state.players[0];
 
-    assert!(player.drafted_cards.is_empty());
+    assert!(player.top_cards.is_empty());
     assert!(
-        player.workshop_cards.is_empty(),
-        "the workshop area goes to the deck, so the turn leaves no workshop behind"
+        player.used_cards.is_empty(),
+        "the workshop area goes to the deck, so the turn leaves nothing used behind"
     );
-    let top = player.deck.segments()[0];
-    assert!(
-        drafted.difference(top).is_empty(),
-        "a card the turn never decided is a card it kept: it waits on top of the deck"
+    assert_eq!(
+        player.workshop_cards.len(),
+        5,
+        "what the turn kept, and the deck under it, are drawn as the turn ends"
     );
 }
 
@@ -1866,32 +1852,18 @@ fn test_cards_put_on_the_bottom_are_drawn_after_what_was_above_them() {
 }
 
 #[test]
-fn test_draw_phase_tops_the_workshop_up_to_five() {
-    let (mut state, _, drafted) = state_at_first_end_of_turn(4);
-    let mut rng = WyRand::seed_from_u64(2);
+fn test_a_turn_that_kept_cards_draws_them_back_into_the_workshop() {
+    let (state, _, _) = state_at_first_end_of_turn(4);
 
-    // Finish player 1's turn so the round ends. `apply_choice` is the raw
-    // engine call: `apply_choice_to_state` would run the next draw phase for
-    // us, and the carried-over workshop is what this test wants to see first.
-    while !matches!(state.phase, GamePhase::Draw) {
-        let player = actor(&state);
-        let choices = enumerate_choices(&state, player);
-        apply_choice(&mut state, player, &choices[0], &mut rng);
-    }
-    assert!(
-        state.players[0].workshop_cards.is_empty(),
-        "a finished turn leaves no workshop: its cards sit on top of the deck"
-    );
-
-    execute_draw_phase(&mut state, &mut rng);
     assert_eq!(
         state.players[0].workshop_cards.len(),
         5,
-        "the draw phase should top the workshop up to five, not add five to it"
+        "a turn tops the workshop up to five, however many cards it kept"
     );
-    assert!(
-        drafted.difference(state.players[0].workshop_cards).is_empty(),
-        "the cards kept last round are drawn straight back into the workshop"
+    assert_eq!(
+        state.players[1].workshop_cards.len(),
+        5,
+        "and seat 1 still holds the workshop setup dealt it"
     );
 }
 
@@ -1904,7 +1876,6 @@ fn test_a_dry_deck_yields_fewer_cards_rather_than_reshuffling() {
     let owned = state.players[0].deck.cards();
     state.players[0].deck = Deck::from_cards(owned);
 
-    execute_draw_phase(&mut state, &mut rng);
     assert_eq!(state.players[0].workshop_cards.len(), 5);
     assert_eq!(state.players[0].deck.len(), 2);
 
@@ -1939,11 +1910,10 @@ fn test_decks_stay_well_inside_the_segment_cap() {
 fn state_at_first_draft(seed: u64, num_players: usize) -> (GameState, WyRand) {
     let mut rng = WyRand::seed_from_u64(seed);
     let mut state = create_initial_game_state(num_players, &vec![true; num_players], &mut rng);
-    execute_draw_phase(&mut state, &mut rng);
     while matches!(state.phase, GamePhase::Buyers { .. }) {
         let player = actor(&state);
         let choices = enumerate_choices(&state, player);
-        apply_choice_to_state(&mut state, player, &choices[0], &mut rng);
+        apply_choice(&mut state, player, &choices[0], &mut rng);
     }
     (state, rng)
 }
@@ -1962,7 +1932,7 @@ fn test_each_player_drafts_a_full_hand_and_nothing_is_trashed() {
             while matches!(state.phase, GamePhase::Draft { .. }) {
                 let player = actor(&state);
                 let choices = enumerate_choices(&state, player);
-                apply_choice_to_state(&mut state, player, &choices[rng.random_range(0..choices.len())], &mut rng);
+                apply_choice(&mut state, player, &choices[rng.random_range(0..choices.len())], &mut rng);
                 picks += 1;
             }
 
@@ -1970,7 +1940,7 @@ fn test_each_player_drafts_a_full_hand_and_nothing_is_trashed() {
             assert!(matches!(state.phase, GamePhase::Action { .. }), "{context}");
             assert_eq!(picks, num_players * (DRAFT_HAND_SIZE as usize - 1), "{context}");
             for player in state.players.iter() {
-                assert_eq!(player.drafted_cards.len(), DRAFT_HAND_SIZE, "{context}");
+                assert_eq!(player.top_cards.len(), DRAFT_HAND_SIZE, "{context}");
             }
             assert_eq!(state.trash, trashed_before, "{context}");
         }
@@ -1987,31 +1957,30 @@ fn test_solo_draft_trashes_the_phantom_hand() {
     while matches!(state.phase, GamePhase::Draft { .. }) {
         let player = actor(&state);
         let choices = enumerate_choices(&state, player);
-        apply_choice_to_state(&mut state, player, &choices[0], &mut rng);
+        apply_choice(&mut state, player, &choices[0], &mut rng);
     }
 
-    assert_eq!(state.players[0].drafted_cards.len(), DRAFT_HAND_SIZE);
+    assert_eq!(state.players[0].top_cards.len(), DRAFT_HAND_SIZE);
     assert_eq!(state.trash.len(), trashed_before + DRAFT_HAND_SIZE);
 }
 
 // ── Buyers phase ──
 
-fn buyers_of(state: &GameState, player: usize) -> Vec<SellCard> {
-    state.players[player].buyers.iter().map(|b| b.sell_card).collect()
+fn buyers_of(state: &GameState, player: usize) -> Vec<Buyer> {
+    state.players[player].buyers.iter().map(|b| b.buyer).collect()
 }
 
 /// Advance to the buyers phase of `round`, resolving every earlier phase by
 /// always taking the first legal option.
 fn state_at_buyers_phase(seed: u64, num_players: usize, round: u32) -> (GameState, WyRand) {
     let mut rng = WyRand::seed_from_u64(seed);
-    let ai_players = vec![true; num_players];
-    let mut state = create_initial_game_state(num_players, &ai_players, &mut rng);
-    execute_draw_phase(&mut state, &mut rng);
+    let bot_players = vec![true; num_players];
+    let mut state = create_initial_game_state(num_players, &bot_players, &mut rng);
 
     while state.round < round {
         let player = actor(&state);
         let choices = enumerate_choices(&state, player);
-        apply_choice_to_state(&mut state, player, &choices[0], &mut rng);
+        apply_choice(&mut state, player, &choices[0], &mut rng);
     }
     assert!(
         matches!(state.phase, GamePhase::Buyers { .. }),
@@ -2023,10 +1992,8 @@ fn state_at_buyers_phase(seed: u64, num_players: usize, round: u32) -> (GameStat
 #[test]
 fn test_the_round_opens_with_the_buyers_phase() {
     let mut rng = WyRand::seed_from_u64(3);
-    let mut state = create_initial_game_state(3, &[true, true, true], &mut rng);
-    assert!(matches!(state.phase, GamePhase::Draw));
+    let state = create_initial_game_state(3, &[true, true, true], &mut rng);
 
-    execute_draw_phase(&mut state, &mut rng);
     match &state.phase {
         GamePhase::Buyers { buyers_state } => {
             assert_eq!(buyers_state.current_player_index, 0, "round 1 starts with player 0");
@@ -2042,7 +2009,7 @@ fn test_players_claim_up_to_capacity_for_the_round() {
         while matches!(state.phase, GamePhase::Buyers { .. }) {
             let player = actor(&state);
             let choices = enumerate_choices(&state, player);
-            apply_choice_to_state(&mut state, player, &choices[0], &mut rng);
+            apply_choice(&mut state, player, &choices[0], &mut rng);
         }
         for (i, player) in state.players.iter().enumerate() {
             assert_eq!(
@@ -2072,7 +2039,7 @@ fn test_claiming_goes_round_robin() {
         order.push(buyers_state.current_player_index);
         let player = actor(&state);
         let choices = enumerate_choices(&state, player);
-        apply_choice_to_state(&mut state, player, &choices[0], &mut rng);
+        apply_choice(&mut state, player, &choices[0], &mut rng);
     }
 
     // Round 2 starts with player 1, two slots each.
@@ -2086,34 +2053,34 @@ fn test_the_display_refills_after_every_claim() {
     let (mut state, mut rng) = state_at_buyers_phase(5, 4, 3);
     while matches!(state.phase, GamePhase::Buyers { .. }) {
         assert_eq!(
-            state.sell_card_display.len(),
-            MAX_SELL_CARD_DISPLAY,
+            state.buyer_display.len(),
+            MAX_BUYER_DISPLAY,
             "the display should be full whenever someone is choosing"
         );
         let player = actor(&state);
         let choices = enumerate_choices(&state, player);
-        apply_choice_to_state(&mut state, player, &choices[0], &mut rng);
+        apply_choice(&mut state, player, &choices[0], &mut rng);
     }
 }
 
 #[test]
 fn test_claiming_off_the_deck_takes_a_card_nobody_could_see() {
     let (mut state, mut rng) = state_at_buyers_phase(9, 2, 1);
-    let display_before: Vec<SellCard> =
-        state.sell_card_display.iter().map(|c| c.sell_card).collect();
-    let deck_before = state.sell_card_deck.len();
+    let display_before: Vec<Buyer> =
+        state.buyer_display.iter().map(|c| c.buyer).collect();
+    let deck_before = state.buyer_deck.len();
     let player = match &state.phase {
         GamePhase::Buyers { buyers_state } => buyers_state.current_player_index,
         _ => unreachable!(),
     };
 
     assert!(enumerate_choices(&state, player).contains(&Choice::DrawBuyer));
-    apply_choice_to_state(&mut state, player, &Choice::DrawBuyer, &mut rng);
+    apply_choice(&mut state, player, &Choice::DrawBuyer, &mut rng);
 
     assert_eq!(state.players[player].buyers.len(), 1);
-    assert_eq!(state.sell_card_deck.len(), deck_before - 1);
+    assert_eq!(state.buyer_deck.len(), deck_before - 1);
     assert_eq!(
-        state.sell_card_display.iter().map(|c| c.sell_card).collect::<Vec<_>>(),
+        state.buyer_display.iter().map(|c| c.buyer).collect::<Vec<_>>(),
         display_before,
         "claiming off the deck should leave the display untouched"
     );
@@ -2127,29 +2094,29 @@ fn test_selling_takes_from_your_buyers_and_leaves_the_display_alone() {
     let mut state = create_initial_game_state(2, &[true, true], &mut rng);
 
     // Give player 0 a buyer they can certainly afford, and the means to pay.
-    let sell_card = state.sell_card_display[0].sell_card;
-    let instance = state.sell_card_display.remove(0);
+    let buyer = state.buyer_display[0].buyer;
+    let instance = state.buyer_display.remove(0);
     state.players[0].buyers.push(instance);
-    stock_for(&mut state.players[0], sell_card);
+    stock_for(&mut state.players[0], buyer);
 
-    let display_before: Vec<SellCard> =
-        state.sell_card_display.iter().map(|c| c.sell_card).collect();
-    let deck_before = state.sell_card_deck.len();
+    let display_before: Vec<Buyer> =
+        state.buyer_display.iter().map(|c| c.buyer).collect();
+    let deck_before = state.buyer_deck.len();
 
     let mut ability_stack = AbilityStack::new();
     ability_stack.push(Ability::Sell);
     state.phase = open_action_phase(&state, ability_stack);
 
-    apply_choice_to_state(&mut state, 0, &Choice::SelectSellCard { sell_card }, &mut rng);
+    apply_choice(&mut state, 0, &Choice::SellToBuyer { buyer }, &mut rng);
 
     assert!(state.players[0].buyers.is_empty(), "the slot should be empty now");
-    assert_eq!(state.players[0].completed_sell_cards.len(), 1);
+    assert_eq!(state.players[0].completed_orders.len(), 1);
     assert_eq!(
-        state.sell_card_display.iter().map(|c| c.sell_card).collect::<Vec<_>>(),
+        state.buyer_display.iter().map(|c| c.buyer).collect::<Vec<_>>(),
         display_before,
         "a sale must not disturb the shared display"
     );
-    assert_eq!(state.sell_card_deck.len(), deck_before, "and must not draw");
+    assert_eq!(state.buyer_deck.len(), deck_before, "and must not draw");
 }
 
 /// A sold buyer leaves a hole, and the next buyers phase is what fills it.
@@ -2160,7 +2127,7 @@ fn test_an_emptied_slot_is_refilled_next_round() {
     while matches!(state.phase, GamePhase::Buyers { .. }) {
         let player = actor(&state);
         let choices = enumerate_choices(&state, player);
-        apply_choice_to_state(&mut state, player, &choices[0], &mut rng);
+        apply_choice(&mut state, player, &choices[0], &mut rng);
     }
     assert_eq!(state.players[0].buyers.len(), 2);
 
@@ -2171,13 +2138,13 @@ fn test_an_emptied_slot_is_refilled_next_round() {
     while !matches!(state.phase, GamePhase::Buyers { .. }) {
         let player = actor(&state);
         let choices = enumerate_choices(&state, player);
-        apply_choice_to_state(&mut state, player, &choices[0], &mut rng);
+        apply_choice(&mut state, player, &choices[0], &mut rng);
     }
     assert_eq!(state.round, 3);
     while matches!(state.phase, GamePhase::Buyers { .. }) {
         let player = actor(&state);
         let choices = enumerate_choices(&state, player);
-        apply_choice_to_state(&mut state, player, &choices[0], &mut rng);
+        apply_choice(&mut state, player, &choices[0], &mut rng);
     }
 
     assert_eq!(state.players[0].buyers.len(), 3, "round 3 capacity is three");
@@ -2190,15 +2157,15 @@ fn test_an_emptied_slot_is_refilled_next_round() {
 /// Both piles can run dry in a long game. The phase is then skipped rather
 /// than seating a player with nothing to take.
 #[test]
-fn test_an_exhausted_sell_card_supply_skips_the_buyers_phase() {
+fn test_an_exhausted_buyer_supply_skips_the_buyers_phase() {
     let mut rng = WyRand::seed_from_u64(12);
     let mut state = create_initial_game_state(2, &[true, true], &mut rng);
-    state.sell_card_deck = UnorderedSellCards::new();
-    while !state.sell_card_display.is_empty() {
-        state.sell_card_display.remove(0);
+    state.buyer_deck = UnorderedBuyers::new();
+    while !state.buyer_display.is_empty() {
+        state.buyer_display.remove(0);
     }
+    initialize_buyers_phase(&mut state, &mut rng);
 
-    execute_draw_phase(&mut state, &mut rng);
     assert!(
         matches!(state.phase, GamePhase::Draft { .. }),
         "with nothing to claim the buyers phase should hand straight over to the draft"
@@ -2212,12 +2179,12 @@ fn test_an_exhausted_sell_card_supply_skips_the_buyers_phase() {
     while !matches!(state.phase, GamePhase::GameOver) {
         let player = actor(&state);
         let choices = enumerate_choices(&state, player);
-        apply_choice_to_state(&mut state, player, &choices[0], &mut rng);
+        apply_choice(&mut state, player, &choices[0], &mut rng);
         guard += 1;
-        assert!(guard < 5_000, "game did not finish with an exhausted sell card supply");
+        assert!(guard < 5_000, "game did not finish with an exhausted buyer supply");
     }
     for player in state.players.iter() {
-        assert!(player.completed_sell_cards.is_empty());
+        assert!(player.completed_orders.is_empty());
     }
 }
 
@@ -2242,12 +2209,11 @@ fn test_a_recorded_game_replays_to_the_same_state() {
     for num_players in 1..=4 {
         for seed in 0..4 {
             let mut rng = WyRand::seed_from_u64(seed * 31 + num_players as u64);
-            let ai_players = vec![true; num_players];
-            let mut state = create_initial_game_state(num_players, &ai_players, &mut rng);
+            let bot_players = vec![true; num_players];
+            let mut state = create_initial_game_state(num_players, &bot_players, &mut rng);
             let initial = state.clone();
 
             state.draw_log = Some(DrawLog::Recording(Vec::new()));
-            execute_draw_phase(&mut state, &mut rng);
             let initial_draws = take_recording(&mut state);
 
             let mut script: Vec<(usize, Choice, Vec<DrawEvent>)> = Vec::new();
@@ -2257,7 +2223,7 @@ fn test_a_recorded_game_replays_to_the_same_state() {
                 assert!(!choices.is_empty(), "no legal choice (players={num_players}, seed={seed})");
                 let choice = choices[rng.random_range(0..choices.len())].clone();
                 state.draw_log = Some(DrawLog::Recording(Vec::new()));
-                apply_choice_to_state(&mut state, player, &choice, &mut rng);
+                apply_choice(&mut state, player, &choice, &mut rng);
                 script.push((player, choice, take_recording(&mut state)));
             }
             let recorded = state;
@@ -2265,12 +2231,11 @@ fn test_a_recorded_game_replays_to_the_same_state() {
             let mut replay_rng = WyRand::seed_from_u64(0xDEAD_BEEF);
             let mut replayed = initial;
             replayed.draw_log = Some(DrawLog::Replaying(initial_draws.into_iter().collect()));
-            execute_draw_phase(&mut replayed, &mut replay_rng);
             replayed.draw_log = None;
 
             for (player, choice, draws) in script {
                 replayed.draw_log = Some(DrawLog::Replaying(draws.into_iter().collect()));
-                apply_choice_to_state(&mut replayed, player, &choice, &mut replay_rng);
+                apply_choice(&mut replayed, player, &choice, &mut replay_rng);
                 replayed.draw_log = None;
             }
 
@@ -2283,7 +2248,7 @@ fn test_a_recorded_game_replays_to_the_same_state() {
     }
 }
 
-// ── Ducat income and spending ──
+// ── GoldCoin income and spending ──
 
 #[test]
 fn test_income_arrives_in_rounds_four_to_seven() {
@@ -2294,28 +2259,29 @@ fn test_income_arrives_in_rounds_four_to_seven() {
         let before: Vec<(u32, u32, u32)> = state
             .players
             .iter()
-            .map(|p| (p.ducats, p.boats, p.wild_primaries))
+            .map(|p| (p.gold_coins, p.boats, p.bowls))
             .collect();
 
-        execute_draw_phase(&mut state, &mut rng);
+
+        start_round(&mut state, &mut rng);
 
         let expected = match round {
-            4 | 6 => RoundIncome { ducats: 1, boats: 0, wild_primaries: 0 },
-            5 => RoundIncome { ducats: 0, boats: 1, wild_primaries: 0 },
-            7 => RoundIncome { ducats: 1, boats: 1, wild_primaries: 1 },
+            4 | 6 => RoundIncome { gold_coins: 1, boats: 0, bowls: 0 },
+            5 => RoundIncome { gold_coins: 0, boats: 1, bowls: 0 },
+            7 => RoundIncome { gold_coins: 1, boats: 1, bowls: 1 },
             _ => RoundIncome::default(),
         };
         assert_eq!(round_income(round), expected);
         for (i, player) in state.players.iter().enumerate() {
-            let (ducats, boats, wild_primaries) = before[i];
+            let (gold_coins, boats, bowls) = before[i];
             assert_eq!(
-                (player.ducats, player.boats, player.wild_primaries),
+                (player.gold_coins, player.boats, player.bowls),
                 (
-                    ducats + expected.ducats,
+                    gold_coins + expected.gold_coins,
                     boats + expected.boats,
-                    wild_primaries + expected.wild_primaries
+                    bowls + expected.bowls
                 ),
-                "player {i} ducats, boats and wild primaries after the round {round} draw phase"
+                "player {i} gold_coins, boats and bowls after round {round} opened"
             );
             assert_eq!(
                 player.cached_whole_points,
@@ -2326,22 +2292,22 @@ fn test_income_arrives_in_rounds_four_to_seven() {
     }
 }
 
-/// A ducat is a point, so paying one has to come off the score as well.
+/// A gold_coin is a point, so paying one has to come off the score as well.
 #[test]
-fn test_spending_a_ducat_costs_a_point_and_stacks_the_purchase() {
+fn test_spending_a_gold_coin_costs_a_point_and_stacks_the_purchase() {
     let (mut state, _, _, _) =
         setup_action_state_with(false, None, Some(Card::StarterCeramics), None);
-    state.players[0].ducats = 2;
+    state.players[0].gold_coins = 2;
     state.players[0].cached_whole_points = calculate_whole_points(&state.players[0]);
 
-    let choice = Choice::SpendDucat { purchase: DucatPurchase::Workshop };
+    let choice = Choice::SpendGoldCoin { purchase: GoldCoinPurchase::Workshop };
     assert!(enumerate_choices(&state, 0).contains(&choice));
     assert!(check_choice_available(&state, 0, &choice));
 
     let mut rng = WyRand::seed_from_u64(1);
-    apply_choice_to_state(&mut state, 0, &choice, &mut rng);
+    apply_choice(&mut state, 0, &choice, &mut rng);
 
-    assert_eq!(state.players[0].ducats, 1);
+    assert_eq!(state.players[0].gold_coins, 1);
     assert_eq!(state.players[0].cached_whole_points, calculate_whole_points(&state.players[0]));
     match &state.phase {
         GamePhase::Action { action_state } => assert_eq!(
@@ -2355,82 +2321,82 @@ fn test_spending_a_ducat_costs_a_point_and_stacks_the_purchase() {
 
 #[test]
 fn test_a_purchase_is_only_offered_when_it_would_do_something() {
-    let spend = |p| Choice::SpendDucat { purchase: p };
+    let spend = |p| Choice::SpendGoldCoin { purchase: p };
 
-    // No ducats, nothing on offer.
+    // No gold_coins, nothing on offer.
     let (state, _, _, _) = setup_action_state_with(false, None, Some(Card::StarterCeramics), None);
-    assert!(!enumerate_choices(&state, 0).iter().any(|c| matches!(c, Choice::SpendDucat { .. })));
+    assert!(!enumerate_choices(&state, 0).iter().any(|c| matches!(c, Choice::SpendGoldCoin { .. })));
 
-    // A ducat and a workshop card, but a bare colour wheel and no buyers.
+    // A gold_coin and a workshop card, but a bare colour wheel and no buyers.
     let (mut state, _, _, _) =
         setup_action_state_with(false, None, Some(Card::StarterCeramics), None);
-    state.players[0].ducats = 1;
+    state.players[0].gold_coins = 1;
     state.players[0].color_wheel = ColorWheel::new();
     state.players[0].cached_whole_points = calculate_whole_points(&state.players[0]);
 
     let choices = enumerate_choices(&state, 0);
-    assert!(choices.contains(&spend(DucatPurchase::Workshop)));
-    assert!(!choices.contains(&spend(DucatPurchase::MixColors)), "no two colours to mix");
-    assert!(!choices.contains(&spend(DucatPurchase::Sell)), "no buyer to sell to");
+    assert!(choices.contains(&spend(GoldCoinPurchase::Workshop)));
+    assert!(!choices.contains(&spend(GoldCoinPurchase::MixColors)), "no two colours to mix");
+    assert!(!choices.contains(&spend(GoldCoinPurchase::Sell)), "no buyer to sell to");
 
     // A mixable pair brings the mix back.
     state.players[0].color_wheel.increment(Color::Red);
     state.players[0].color_wheel.increment(Color::Yellow);
-    assert!(enumerate_choices(&state, 0).contains(&spend(DucatPurchase::MixColors)));
+    assert!(enumerate_choices(&state, 0).contains(&spend(GoldCoinPurchase::MixColors)));
 
     // Emptying the workshop takes the workshop pick away.
     state.players[0].workshop_cards = UnorderedCards::new();
-    assert!(!enumerate_choices(&state, 0).contains(&spend(DucatPurchase::Workshop)));
+    assert!(!enumerate_choices(&state, 0).contains(&spend(GoldCoinPurchase::Workshop)));
 }
 
 /// Buying is a turn action, not something to interleave with an ability that
 /// is already waiting for input.
 #[test]
-fn test_a_ducat_cannot_be_spent_while_an_ability_is_pending() {
+fn test_a_gold_coin_cannot_be_spent_while_an_ability_is_pending() {
     let (mut state, _, _, _) = setup_action_state_with(
         false,
         None,
         Some(Card::StarterCeramics),
         Some(Ability::Workshop { count: 2 }),
     );
-    state.players[0].ducats = 3;
+    state.players[0].gold_coins = 3;
     state.players[0].cached_whole_points = calculate_whole_points(&state.players[0]);
 
     let choices = enumerate_choices(&state, 0);
-    assert!(!choices.iter().any(|c| matches!(c, Choice::SpendDucat { .. })));
-    for purchase in colori_core::types::ALL_DUCAT_PURCHASES {
-        assert!(!check_choice_available(&state, 0, &Choice::SpendDucat { purchase }));
+    assert!(!choices.iter().any(|c| matches!(c, Choice::SpendGoldCoin { .. })));
+    for purchase in colori_core::types::ALL_GOLD_COIN_PURCHASES {
+        assert!(!check_choice_available(&state, 0, &Choice::SpendGoldCoin { purchase }));
     }
 }
 
-/// The whole point of the Sell purchase: one ducat in, a sell card worth two
+/// The whole point of the Sell purchase: one gold_coin in, a buyer worth two
 /// to five points out.
 #[test]
-fn test_a_ducat_buys_a_sale_that_pays_for_itself() {
+fn test_a_gold_coin_buys_a_sale_that_pays_for_itself() {
     let mut rng = WyRand::seed_from_u64(4);
     let mut state = create_initial_game_state(2, &[true, true], &mut rng);
 
-    let instance = state.sell_card_display.remove(0);
-    let sell_card = instance.sell_card;
+    let instance = state.buyer_display.remove(0);
+    let buyer = instance.buyer;
     state.players[0].buyers.push(instance);
-    stock_for(&mut state.players[0], sell_card);
-    state.players[0].ducats = 1;
+    stock_for(&mut state.players[0], buyer);
+    state.players[0].gold_coins = 1;
     state.players[0].cached_whole_points = calculate_whole_points(&state.players[0]);
     let score_before = state.players[0].cached_whole_points;
 
     state.phase = open_action_phase(&state, AbilityStack::new());
 
-    let spend = Choice::SpendDucat { purchase: DucatPurchase::Sell };
+    let spend = Choice::SpendGoldCoin { purchase: GoldCoinPurchase::Sell };
     assert!(enumerate_choices(&state, 0).contains(&spend));
-    apply_choice_to_state(&mut state, 0, &spend, &mut rng);
-    apply_choice_to_state(&mut state, 0, &Choice::SelectSellCard { sell_card }, &mut rng);
+    apply_choice(&mut state, 0, &spend, &mut rng);
+    apply_choice(&mut state, 0, &Choice::SellToBuyer { buyer }, &mut rng);
 
-    assert_eq!(state.players[0].ducats, 0, "the ducat was spent");
-    assert_eq!(state.players[0].completed_sell_cards.len(), 1);
+    assert_eq!(state.players[0].gold_coins, 0, "the gold_coin was spent");
+    assert_eq!(state.players[0].completed_orders.len(), 1);
     assert_eq!(
         state.players[0].cached_whole_points,
-        score_before - 1 + sell_card.points(),
-        "net gain is the sell card's value less the ducat"
+        score_before - 1 + buyer.points(),
+        "net gain is the buyer's value less the gold_coin"
     );
     assert_eq!(state.players[0].cached_whole_points, calculate_whole_points(&state.players[0]));
 }
@@ -2441,12 +2407,11 @@ fn test_a_ducat_buys_a_sale_that_pays_for_itself() {
 fn state_at_first_action_phase(seed: u64, num_players: usize) -> (GameState, WyRand) {
     let mut rng = WyRand::seed_from_u64(seed);
     let mut state = create_initial_game_state(num_players, &vec![true; num_players], &mut rng);
-    execute_draw_phase(&mut state, &mut rng);
     while !matches!(state.phase, GamePhase::Action { .. }) {
         let player = actor(&state);
         let choices = enumerate_choices(&state, player);
         let choice = choices[rng.random_range(0..choices.len())].clone();
-        apply_choice_to_state(&mut state, player, &choice, &mut rng);
+        apply_choice(&mut state, player, &choice, &mut rng);
     }
     (state, rng)
 }
@@ -2460,7 +2425,7 @@ fn random_turns(state: &GameState, rng: &mut WyRand) -> Vec<Vec<Choice>> {
             loop {
                 let choices = enumerate_choices(views.view(player), player);
                 let choice = choices[rng.random_range(0..choices.len())].clone();
-                views.apply(player, &choice);
+                views.apply(player, &choice, rng);
                 let ended = matches!(choice, Choice::EndTurn { .. });
                 turn.push(choice);
                 if ended {
@@ -2471,8 +2436,14 @@ fn random_turns(state: &GameState, rng: &mut WyRand) -> Vec<Vec<Choice>> {
         .collect()
 }
 
-/// Nobody's turn touches anyone else's, so the order turns are interleaved in
-/// cannot change where the round ends up.
+/// Nobody's turn touches anyone else's, so the order the choices within the
+/// round are taken in cannot change where it ends up.
+///
+/// A turn's last act draws the workshop, and that draw is where the shared
+/// generator is spent. So the two runs below end the seats' turns in the same
+/// order and only interleave the decisions before them: a different order of
+/// draws would sample the decks differently, which is randomness rather than
+/// anyone's moves telling.
 #[test]
 fn test_interleaving_turns_does_not_change_the_outcome() {
     for num_players in 2..=4 {
@@ -2480,24 +2451,46 @@ fn test_interleaving_turns_does_not_change_the_outcome() {
             let (start, mut rng) = state_at_first_action_phase(seed, num_players);
             let turns = random_turns(&start, &mut rng);
 
+            // Each run gets its own generator, seeded alike: a draw spends the
+            // shared one, so one generator cannot serve both.
             let mut one_after_another = start.clone();
+            let mut sequential_rng = WyRand::seed_from_u64(0);
             for (player, turn) in turns.iter().enumerate() {
                 for choice in turn {
-                    apply_choice(&mut one_after_another, player, choice, &mut rng);
+                    apply_choice(&mut one_after_another, player, choice, &mut sequential_rng);
                 }
             }
 
             let mut interleaved = start.clone();
+            let mut interleaved_rng = WyRand::seed_from_u64(0);
             let mut next = vec![0usize; num_players];
+            let is_ending = |player: usize, next: &[usize], turns: &[Vec<Choice>]| {
+                matches!(turns[player].get(next[player]), Some(Choice::EndTurn { .. }))
+            };
             while next.iter().zip(&turns).any(|(&i, turn)| i < turn.len()) {
-                let open: Vec<usize> = (0..num_players).filter(|&p| next[p] < turns[p].len()).collect();
-                let player = open[rng.random_range(0..open.len())];
-                apply_choice(&mut interleaved, player, &turns[player][next[player]], &mut rng);
+                let open: Vec<usize> = (0..num_players)
+                    .filter(|&p| next[p] < turns[p].len() && !is_ending(p, &next, &turns))
+                    .collect();
+                let player = if open.is_empty() {
+                    (0..num_players)
+                        .find(|&p| next[p] < turns[p].len())
+                        .expect("a turn is still open")
+                } else {
+                    // Which seat goes next is drawn from `rng`, so both runs
+                    // spend their own generator on the game and nothing else.
+                    open[rng.random_range(0..open.len())]
+                };
+                apply_choice(
+                    &mut interleaved,
+                    player,
+                    &turns[player][next[player]],
+                    &mut interleaved_rng,
+                );
                 next[player] += 1;
             }
 
             let context = format!("players={num_players}, seed={seed}");
-            assert!(matches!(one_after_another.phase, GamePhase::Draw), "{context}");
+            assert!(matches!(one_after_another.phase, GamePhase::Buyers { .. }), "{context}");
             assert_states_match(&one_after_another, &interleaved, &context);
         }
     }
@@ -2510,7 +2503,7 @@ fn test_the_round_ends_with_the_last_turn_whoever_takes_it() {
         while !matches!(&state.phase, GamePhase::Action { action_state } if action_state.turns[player].ended) {
             let choices = enumerate_choices(&state, player);
             let choice = choices.last().unwrap().clone();
-            apply_choice_to_state(&mut state, player, &choice, &mut rng);
+            apply_choice(&mut state, player, &choice, &mut rng);
         }
         assert!(matches!(state.phase, GamePhase::Action { .. }), "player 1 has not ended");
     }
@@ -2519,7 +2512,7 @@ fn test_the_round_ends_with_the_last_turn_whoever_takes_it() {
     let round = state.round;
     while state.round == round {
         let choices = enumerate_choices(&state, 1);
-        apply_choice_to_state(&mut state, 1, choices.last().unwrap(), &mut rng);
+        apply_choice(&mut state, 1, choices.last().unwrap(), &mut rng);
     }
 }
 
@@ -2532,10 +2525,10 @@ fn test_a_player_whose_turn_is_over_has_nothing_left_to_choose() {
     if let GamePhase::Action { ref mut action_state } = state.phase {
         action_state.turns[1].ability_stack = stack;
     }
-    apply_choice_to_state(&mut state, 0, &Choice::EndTurn { keep_remaining: true }, &mut rng);
+    apply_choice(&mut state, 0, &Choice::EndTurn { keep_remaining: true }, &mut rng);
     // Enough to buy a workshop pick, were the turn still open, and a card in
     // the workshop for it to take.
-    state.players[0].ducats = 3;
+    state.players[0].gold_coins = 3;
     state.players[0].cached_whole_points = calculate_whole_points(&state.players[0]);
     let mut drawn = UnorderedCards::new();
     state.players[0]
@@ -2549,7 +2542,7 @@ fn test_a_player_whose_turn_is_over_has_nothing_left_to_choose() {
     assert!(!check_choice_available(
         &state,
         0,
-        &Choice::SpendDucat { purchase: DucatPurchase::Workshop }
+        &Choice::SpendGoldCoin { purchase: GoldCoinPurchase::Workshop }
     ));
     assert!(
         check_choice_available(&state, 1, &Choice::EndTurn { keep_remaining: true }),
@@ -2568,7 +2561,7 @@ fn test_ending_a_turn_skips_the_ability_it_was_answering() {
         counts: [9; colori_core::types::NUM_COLORS],
     };
     state.players[0].boats = 9;
-    state.players[0].wild_primaries = 9;
+    state.players[0].bowls = 9;
     let buyers = state.players[0].buyers.clone();
     assert!(!buyers.is_empty(), "round one claims a buyer");
     let mut stack = AbilityStack::new();
@@ -2577,7 +2570,7 @@ fn test_ending_a_turn_skips_the_ability_it_was_answering() {
         action_state.turns[0].ability_stack = stack;
     }
 
-    apply_choice_to_state(&mut state, 0, &Choice::EndTurn { keep_remaining: true }, &mut rng);
+    apply_choice(&mut state, 0, &Choice::EndTurn { keep_remaining: true }, &mut rng);
 
     assert!(matches!(
         &state.phase,
@@ -2600,11 +2593,15 @@ fn test_a_view_shows_only_its_own_players_moves() {
         let turns = random_turns(&start, &mut rng);
         let mut views = ActionPhaseViews::new(&start);
         let mut live = start.clone();
+        // A turn that ends draws, so the two runs need a generator each, seeded
+        // alike, to draw the same cards.
+        let mut live_rng = WyRand::seed_from_u64(0);
+        let mut view_rng = WyRand::seed_from_u64(0);
 
         for (player, turn) in turns.iter().enumerate().take(2) {
             for choice in turn {
-                apply_choice_to_state(&mut live, player, choice, &mut rng);
-                views.apply(player, choice);
+                apply_choice(&mut live, player, choice, &mut live_rng);
+                views.apply(player, choice, &mut view_rng);
             }
         }
 
@@ -2628,12 +2625,12 @@ fn test_a_view_shows_only_its_own_players_moves() {
 #[test]
 fn test_logs_written_with_destroy_names_still_load() {
     let choices = [
-        (r#"{"type":"destroyDraftedCard","card":"Alum"}"#, "trashDraftedCard"),
+        (r#"{"type":"destroyDraftedCard","card":"Alum"}"#, "trashTopCard"),
         (r#"{"type":"destroyAndMix","card":"Woad","mixes":[]}"#, "trashAndMix"),
         (r#"{"type":"destroyAndMixAll","card":"Woad","mixes":[]}"#, "trashAndMix"),
         (r#"{"type":"destroyAndSell","card":"Indigo","sellCard":"DyerGreen"}"#, "trashAndSell"),
         (r#"{"type":"destroyAndWorkshop","card":"Cinnabar","workshopCards":[]}"#, "trashAndWorkshop"),
-        (r#"{"type":"destroyAndMoveToDraftPool","card":"Alum","target":null}"#, "trashAndMoveToDraftPool"),
+        (r#"{"type":"destroyAndLiftCard","card":"Alum","target":null}"#, "trashAndLift"),
     ];
     for (old, new_type) in choices {
         let choice: Choice = serde_json::from_str(old).unwrap_or_else(|e| panic!("{old}: {e}"));
@@ -2648,4 +2645,62 @@ fn test_logs_written_with_destroy_names_still_load() {
     json["destroyedPile"] = trash;
     let reloaded: GameState = serde_json::from_value(json).unwrap();
     assert_eq!(reloaded.trash.len(), state.trash.len());
+}
+
+/// Game logs and saved games from before the vocabulary changed still load:
+/// the old field and ability names are serde aliases of the new ones.
+#[test]
+fn states_and_abilities_written_with_the_old_names_still_load() {
+    let mut rng = WyRand::seed_from_u64(2);
+    let state = create_initial_game_state(2, &[true, false], &mut rng);
+    let json = serde_json::to_value(&state).unwrap();
+    let old_names = |name: &'static str| -> &'static str {
+        match name {
+            "usedCards" => "workshoppedCards",
+            "topCards" => "draftedCards",
+            "materialsWheel" => "materials",
+            "completedOrders" => "completedSellCards",
+            "goldCoins" => "ducats",
+            "bowls" => "wildPrimaries",
+            "buyerDeck" => "sellCardDeck",
+            "buyerDisplay" => "sellCardDisplay",
+            "botPlayers" => "aiPlayers",
+            other => other,
+        }
+    };
+    let rename = |value: &mut serde_json::Value| {
+        let Some(fields) = value.as_object_mut() else { return };
+        for new in [
+            "usedCards", "topCards", "materialsWheel", "completedOrders", "goldCoins", "bowls",
+            "buyerDeck", "buyerDisplay", "botPlayers",
+        ] {
+            if let Some(field) = fields.remove(new) {
+                fields.insert(old_names(new).to_string(), field);
+            }
+        }
+    };
+
+    let mut renamed = json.clone();
+    rename(&mut renamed);
+    if let Some(players) = renamed.get_mut("players").and_then(|p| p.as_array_mut()) {
+        for player in players {
+            rename(player);
+        }
+    }
+    let reloaded: GameState = serde_json::from_value(renamed)
+        .unwrap_or_else(|e| panic!("an old save should load: {e}"));
+    assert_eq!(
+        serde_json::to_value(&reloaded).unwrap(),
+        json,
+        "the old names say the same game",
+    );
+
+    for (old, expected) in [
+        (r#"{"type":"gainDucats","count":2}"#, Ability::GainGoldCoins { count: 2 }),
+        (r#"{"type":"gainWildPrimaries","count":1}"#, Ability::GainBowls { count: 1 }),
+        (r#"{"type":"moveToDraftPool"}"#, Ability::LiftCard),
+    ] {
+        let ability: Ability = serde_json::from_str(old).unwrap_or_else(|e| panic!("{old}: {e}"));
+        assert_eq!(ability, expected, "{old}");
+    }
 }

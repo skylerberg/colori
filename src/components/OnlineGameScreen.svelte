@@ -1,12 +1,12 @@
 <script lang="ts">
   import type { GameState, Choice, StructuredGameLog } from '../data/types';
   import type { SanitizedGameState } from '../network/types';
-  import { DEFAULT_AI_ITERATIONS } from '../data/aiDifficulty';
+  import { DEFAULT_BOT_ITERATIONS } from '../data/botDifficulty';
   import type { HostController } from '../network/hostController';
   import type { GuestController } from '../network/guestController';
   import { sanitizedToGameState } from '../network/stateAdapter';
-  import { AIController } from '../ai/aiController';
-  import { AIActionTurns } from '../ai/actionTurns';
+  import { BotController } from '../bots/botController';
+  import { BotActionTurns } from '../bots/actionTurns';
   import { actingPlayers, isTakingActionTurn } from '../gameUtils';
   import { reportError } from '../stores/errorReport.svelte';
   import { untrack } from 'svelte';
@@ -40,7 +40,7 @@
 
   // Shared state
   // A buyers claim or draft picks being searched for.
-  let aiThinking = $state(false);
+  let botThinking = $state(false);
   // svelte-ignore state_referenced_locally
   let effectiveStartTime = $state(gameStartTime);
   let connectionStatus = $state<'ok' | 'stalled' | 'lost'>('ok');
@@ -59,17 +59,17 @@
     return () => clearInterval(interval);
   });
 
-  // AI controller (host only)
+  // The bot controller (host only)
   // svelte-ignore state_referenced_locally
-  const aiController = role === 'host' ? new AIController() : null;
-  const aiActionTurns = aiController ? new AIActionTurns(aiController) : null;
+  const botController = role === 'host' ? new BotController() : null;
+  const botActionTurns = botController ? new BotActionTurns(botController) : null;
   let thinkingInActionPhase: number[] = $state([]);
-  let aiGenerationSeq = 0;
+  let botGenerationSeq = 0;
 
   $effect(() => {
     return () => {
-      aiActionTurns?.cancel();
-      aiController?.terminate();
+      botActionTurns?.cancel();
+      botController?.terminate();
     };
   });
 
@@ -99,9 +99,9 @@
     if (!gameState) return [];
     switch (gameState.phase.type) {
       case 'buyers':
-        return aiThinking ? acting : [];
+        return botThinking ? acting : [];
       case 'draft':
-        return aiThinking ? gameState.aiPlayers.flatMap((ai, i) => (ai ? [i] : [])) : [];
+        return botThinking ? gameState.botPlayers.flatMap((ai, i) => (ai ? [i] : [])) : [];
       case 'action':
         return thinkingInActionPhase;
       default:
@@ -140,12 +140,12 @@
   let hasPicked = $state(false);
 
   function syncFromGameState(gs: GameState) {
-    // Keep draftCardOrder in sync with the latest drafted cards per player.
+    // Keep draftCardOrder in sync with the latest top cards per player.
     if (draftCardOrder.length !== gs.players.length) {
       draftCardOrder = gs.players.map(() => []);
     } else {
       for (let i = 0; i < gs.players.length; i++) {
-        const drafted = gs.players[i].draftedCards;
+        const drafted = gs.players[i].topCards;
         if (drafted.length === 0 && draftCardOrder[i].length > 0) {
           draftCardOrder[i] = [];
           continue;
@@ -188,13 +188,13 @@
       onGameOver(state, structuredLog);
     };
     hostController.onPlayerDisconnected = (_idx, name) => {
-      showBanner(`${name} disconnected — waiting up to 60s before AI takes over`, 'warn', 6000);
+      showBanner(`${name} disconnected — waiting up to 60s before a bot takes over`, 'warn', 6000);
     };
     hostController.onPlayerReconnected = (_idx, name) => {
       showBanner(`${name} reconnected`, 'info');
     };
-    hostController.onPlayerReplacedByAI = (_idx, name) => {
-      showBanner(`${name} replaced by AI`, 'warn', 6000);
+    hostController.onPlayerReplacedByBot = (_idx, name) => {
+      showBanner(`${name} replaced by a bot`, 'warn', 6000);
     };
 
     hostGameState = hostController.getGameState();
@@ -229,8 +229,8 @@
     guestController.onPlayerReconnected = (_idx, name) => {
       showBanner(`${name} reconnected`, 'info');
     };
-    guestController.onPlayerReplacedByAI = (_idx, name) => {
-      showBanner(`${name} replaced by AI`, 'warn', 5000);
+    guestController.onPlayerReplacedByBot = (_idx, name) => {
+      showBanner(`${name} replaced by a bot`, 'warn', 5000);
     };
     guestController.onLatencyChange = (ms, stalled) => {
       latencyMs = ms;
@@ -250,35 +250,34 @@
     }
   }
 
-  // AI turn handling (host only)
+  // Bot turn handling (host only)
   $effect(() => {
-    if (role !== 'host' || !gameState || aiThinking) return;
+    if (role !== 'host' || !gameState || botThinking) return;
     if (gameState.phase.type === 'gameOver') return;
-    if (gameState.phase.type === 'draw') return;
 
     if (gameState.phase.type === 'draft') {
       const ds = gameState.phase.draftState;
-      const aiPlayerIndices = gameState.aiPlayers
-        .map((isAI, idx) => isAI ? idx : -1)
+      const botPlayerIndices = gameState.botPlayers
+        .map((isBot, idx) => isBot ? idx : -1)
         .filter(idx => idx >= 0)
         .filter(idx => !hostController!.hasSubmittedDraftPick(idx))
         .filter(idx => ds.hands[idx].length > 0);
 
-      if (aiPlayerIndices.length === 0) return;
+      if (botPlayerIndices.length === 0) return;
 
-      aiThinking = true;
-      const mySeq = ++aiGenerationSeq;
-      const snapshotAI = [...gameState.aiPlayers];
+      botThinking = true;
+      const mySeq = ++botGenerationSeq;
+      const snapshotBots = [...gameState.botPlayers];
       Promise.all(
-        aiPlayerIndices.map(playerIdx =>
-          aiController!.draftPick(gameState!, { playerIndex: playerIdx, iterations: DEFAULT_AI_ITERATIONS }).then(choice => ({
+        botPlayerIndices.map(playerIdx =>
+          botController!.draftPick(gameState!, { playerIndex: playerIdx, iterations: DEFAULT_BOT_ITERATIONS }).then(choice => ({
             playerIdx,
             choice,
           }))
         )
       ).then(results => {
-        if (mySeq !== aiGenerationSeq) {
-          aiThinking = false;
+        if (mySeq !== botGenerationSeq) {
+          botThinking = false;
           return;
         }
         try {
@@ -286,10 +285,10 @@
             if (!hostController) break;
             const curState = hostController.getGameState();
             if (!curState || curState.phase.type !== 'draft') break;
-            if (!curState.aiPlayers[playerIdx]) continue;
-            if (!snapshotAI[playerIdx]) continue;
+            if (!curState.botPlayers[playerIdx]) continue;
+            if (!snapshotBots[playerIdx]) continue;
             if (hostController.hasSubmittedDraftPick(playerIdx)) continue;
-            // Stale-pick guard: if hands rotated between when the AI computed this
+            // Stale-pick guard: if hands passed on between when the bot computed this
             // choice and now, the chosen card is no longer in this player's hand.
             // Apply it anyway and we'd corrupt the next pick.
             const hand = curState.phase.draftState.hands[playerIdx];
@@ -298,14 +297,14 @@
             hostController.applyAction(choice, playerIdx);
           }
         } finally {
-          // Only release aiThinking after applying all picks. Releasing before the
-          // loop lets the AI effect re-trigger on each intermediate state update
-          // and spawn a second concurrent AI batch.
-          aiThinking = false;
+          // Only release botThinking after applying all picks. Releasing before the
+          // loop lets the bot effect re-trigger on each intermediate state update
+          // and spawn a second concurrent bot batch.
+          botThinking = false;
         }
       }).catch((e) => {
-        reportError('An AI draft pick failed', e, gameState);
-        aiThinking = false;
+        reportError("A bot's draft pick failed", e, gameState);
+        botThinking = false;
       });
       return;
     }
@@ -317,43 +316,43 @@
 
     if (gameState.phase.type !== 'buyers') return;
     const playerIdx = gameState.phase.buyersState.currentPlayerIndex;
-    if (!gameState.aiPlayers[playerIdx]) return;
-    aiThinking = true;
-    const mySeq = ++aiGenerationSeq;
+    if (!gameState.botPlayers[playerIdx]) return;
+    botThinking = true;
+    const mySeq = ++botGenerationSeq;
 
-    aiController!.getAIChoice(gameState, playerIdx, DEFAULT_AI_ITERATIONS).then((choice) => {
-      aiThinking = false;
-      if (mySeq !== aiGenerationSeq) return;
+    botController!.getBotChoice(gameState, playerIdx, DEFAULT_BOT_ITERATIONS).then((choice) => {
+      botThinking = false;
+      if (mySeq !== botGenerationSeq) return;
       if (!hostController) return;
       const curState = hostController.getGameState();
       if (!curState || curState.phase.type !== 'buyers') return;
-      // Abandon if this player is no longer AI (reconnected) or no longer the one claiming.
-      if (!curState.aiPlayers[playerIdx]) return;
+      // Abandon if this player is no longer a bot (reconnected) or no longer the one claiming.
+      if (!curState.botPlayers[playerIdx]) return;
       if (curState.phase.buyersState.currentPlayerIndex !== playerIdx) return;
       hostController.applyAction(choice, playerIdx);
     }).catch((e) => {
-      reportError('An AI buyer claim failed', e, gameState);
-      aiThinking = false;
+      reportError("A bot's buyer claim failed", e, gameState);
+      botThinking = false;
     });
   });
 
-  // Each AI seat plays its action turn on its own view, as the phase opens or
+  // Each bot seat plays its action turn on its own view, as the phase opens or
   // as it takes over from a player who left.
   function startAITurns() {
-    if (!gameState || !hostController || !aiActionTurns) return;
-    const aiSeats = gameState.aiPlayers.flatMap((ai, i) => (ai ? [i] : []));
-    aiActionTurns.start(
+    if (!gameState || !hostController || !botActionTurns) return;
+    const botSeats = gameState.botPlayers.flatMap((ai, i) => (ai ? [i] : []));
+    botActionTurns.start(
       gameState,
-      aiSeats,
-      () => DEFAULT_AI_ITERATIONS,
+      botSeats,
+      () => DEFAULT_BOT_ITERATIONS,
       (seat, choice) => {
         const curState = hostController!.getGameState();
         // A player who reconnected takes their turn back.
-        if (!curState?.aiPlayers[seat] || !isTakingActionTurn(curState, seat)) return false;
+        if (!curState?.botPlayers[seat] || !isTakingActionTurn(curState, seat)) return false;
         return hostController!.applyAction(choice, seat);
       },
-      () => { thinkingInActionPhase = aiActionTurns.thinking; },
-      e => reportError('An AI turn failed', e, gameState),
+      () => { thinkingInActionPhase = botActionTurns.thinking; },
+      e => reportError("A bot's turn failed", e, gameState),
     );
   }
 

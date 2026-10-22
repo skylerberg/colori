@@ -1,6 +1,6 @@
-//! The buyers phase: claiming sell cards before the draft.
+//! The buyers phase: claiming buyers before the draft.
 //!
-//! Sell cards are no longer completed straight out of the shared display.
+//! Buyer cards are no longer completed straight out of the shared display.
 //! Before drafting, players take turns claiming cards into their own buyers
 //! section, and only what sits there can be sold to for the rest of the round.
 //! A sale empties the slot, and the next buyers phase refills it.
@@ -14,12 +14,12 @@ use rand::Rng;
 use crate::draft_phase::initialize_draft;
 use crate::draw_log_helpers::{is_replaying, record_buyer_draw, replay_buyer_draw};
 use crate::game_log::{DrawEvent, DrawLog};
-use crate::types::{BuyersState, GamePhase, GameState, SellCardInstance};
+use crate::types::{BuyersState, GamePhase, GameState, BuyerInstance};
 
 /// How many buyer slots a player has in `round`.
 ///
 /// One to start with, a second from round 2 and a third from round 3, as the
-/// round track on the Buyer's Board shows.
+/// round track on the Trade's Board shows.
 pub fn buyer_capacity(round: u32) -> usize {
     match round {
         0..=1 => 1,
@@ -35,7 +35,7 @@ pub(crate) fn needs_a_buyer(state: &GameState, player_index: usize) -> bool {
 /// Whether there is anything left to claim. Both piles can run dry late in a
 /// long game, and a player then simply leaves the slot empty.
 pub(crate) fn anything_to_claim(state: &GameState) -> bool {
-    !state.sell_card_display.is_empty() || !state.sell_card_deck.is_empty()
+    !state.buyer_display.is_empty() || !state.buyer_deck.is_empty()
 }
 
 /// Enter the buyers phase, or skip straight to the draft if nobody can claim.
@@ -92,11 +92,11 @@ fn advance_buyers<R: Rng>(state: &mut GameState, rng: &mut R) {
     }
 }
 
-/// Claim a face-up sell card, and reveal its replacement immediately so the
+/// Claim a face-up buyer, and reveal its replacement immediately so the
 /// next player also picks from a full display.
-pub fn take_buyer<R: Rng>(state: &mut GameState, sell_card_instance_id: u32, rng: &mut R) {
+pub fn take_buyer<R: Rng>(state: &mut GameState, buyer_instance_id: u32, rng: &mut R) {
     let player_index = current_player(state);
-    claim_from_display(state, player_index, sell_card_instance_id, rng);
+    claim_from_display(state, player_index, buyer_instance_id, rng);
     advance_buyers(state, rng);
 }
 
@@ -113,15 +113,15 @@ pub fn draw_buyer<R: Rng>(state: &mut GameState, rng: &mut R) {
 pub(crate) fn claim_from_display<R: Rng>(
     state: &mut GameState,
     player_index: usize,
-    sell_card_instance_id: u32,
+    buyer_instance_id: u32,
     rng: &mut R,
 ) {
     let index = state
-        .sell_card_display
+        .buyer_display
         .iter()
-        .position(|c| c.instance_id == sell_card_instance_id)
-        .expect("Sell card not found in sell card display");
-    let claimed = state.sell_card_display.remove(index);
+        .position(|c| c.instance_id == buyer_instance_id)
+        .expect("Buyer card not found in buyer display");
+    let claimed = state.buyer_display.remove(index);
     state.players[player_index].buyers.push(claimed);
     refill_display(state, rng);
 }
@@ -132,9 +132,9 @@ pub(crate) fn claim_from_deck<R: Rng>(state: &mut GameState, player_index: usize
     let drawn = if is_replaying(state) {
         replay_buyer_draw(state, player_index)
     } else {
-        state.sell_card_deck.draw(rng).map(|id| SellCardInstance {
+        state.buyer_deck.draw(rng).map(|id| BuyerInstance {
             instance_id: id as u32,
-            sell_card: state.sell_card_lookup[id as usize],
+            buyer: state.buyer_lookup[id as usize],
         })
     };
 
@@ -146,22 +146,22 @@ pub(crate) fn claim_from_deck<R: Rng>(state: &mut GameState, player_index: usize
 
 fn refill_display<R: Rng>(state: &mut GameState, rng: &mut R) {
     if is_replaying(state) {
-        crate::draw_log_helpers::replay_sell_card_reveal(state);
+        crate::draw_log_helpers::replay_buyer_reveal(state);
         return;
     }
-    let Some(id) = state.sell_card_deck.draw(rng) else {
+    let Some(id) = state.buyer_deck.draw(rng) else {
         return;
     };
-    let revealed = SellCardInstance {
+    let revealed = BuyerInstance {
         instance_id: id as u32,
-        sell_card: state.sell_card_lookup[id as usize],
+        buyer: state.buyer_lookup[id as usize],
     };
     if let Some(DrawLog::Recording(log)) = &mut state.draw_log {
-        log.push(DrawEvent::SellCardReveal {
-            sell_card: revealed,
+        log.push(DrawEvent::BuyerReveal {
+            buyer: revealed,
         });
     }
-    state.sell_card_display.push(revealed);
+    state.buyer_display.push(revealed);
 }
 
 #[cfg(test)]

@@ -56,7 +56,7 @@ function createTour(): Tour {
   newTour.addStep({
     id: 'buyers-board',
     title: "The Buyer's Board",
-    text: "Shared by everyone. The seven sell cards are buyers: each wants a set of colors and usually a material, and the seal shows its points. You can't sell to them here; at the start of each round you claim them onto your own board. The circles along the top track the rounds and what each one brings; point at one to see.",
+    text: "Shared by everyone. The seven buyer cards each want a set of colors and usually a material, and the seal shows the order's points. You can't sell to them here; at the start of each round you claim them onto your own board. The circles along the top track the rounds and what each one brings; point at one to see.",
     attachTo: { element: '.market', on: 'right' },
     buttons: [backButton, nextButton],
   });
@@ -72,15 +72,15 @@ function createTour(): Tour {
   newTour.addStep({
     id: 'color-wheel',
     title: 'Color Wheel',
-    text: 'The number by each color is how many you have. You start with one Red, Yellow and Blue. Mixing two colors two steps apart makes the color between them. The middle holds your wild primaries: each stands in for a Red, Yellow or Blue you lack, and is worth half a point at the end.',
+    text: 'The number by each color is how many you have. You start with one Red, Yellow and Blue. Mixing two colors two steps apart makes the color between them. The middle of your color wheel holds your bowls: each stands in for a Red, Yellow or Blue you lack, and is worth half a point at the end.',
     attachTo: { element: '.board-area [data-tour="wheel"]', on: 'right' },
     buttons: [backButton, nextButton],
   });
 
   newTour.addStep({
     id: 'materials',
-    title: 'Materials and Boats',
-    text: 'Your stored Paintings, Ceramics and Textiles. Most buyers want one. The gondola in the middle counts your boats: a boat stands in for a material you lack, and is worth half a point at the end.',
+    title: 'The Materials Wheel and Boats',
+    text: 'The materials wheel holds your stored Paintings, Ceramics and Textiles. Most buyers want one. The gondola in the middle counts your boats: a boat stands in for a material you lack, and is worth half a point at the end.',
     attachTo: { element: '.board-area [data-tour="materials"]', on: 'right' },
     buttons: [backButton, nextButton],
   });
@@ -88,23 +88,23 @@ function createTour(): Tour {
   newTour.addStep({
     id: 'buyers',
     title: 'Your Buyers',
-    text: 'The buyers you have claimed: one slot now, a second from round 2 and a third from round 3. You can only sell to these, and a green check appears on one when you hold everything it asks for. Sold buyers go face down onto Completed Orders.',
+    text: 'The buyers you have claimed: one slot now, a second from round 2 and a third from round 3. You can only sell to these, and a green check appears on one when you hold everything it asks for. A buyer you have sold to goes face down onto Completed Orders.',
     attachTo: { element: '.board-area [data-tour="buyers"]', on: 'left' },
     buttons: [backButton, nextButton],
   });
 
   newTour.addStep({
-    id: 'ducats',
-    title: 'Ducats',
-    text: 'Each ducat is worth a point. You start with one and collect more in rounds 4, 6 and 7. On your turn you can also spend one, through the strip beside the purse, for a single Workshop pick, a Mix or a Sale. The strip lights up when you can.',
-    attachTo: { element: '.board-area [data-tour="ducats"]', on: 'top' },
+    id: 'goldCoins',
+    title: 'Gold Coins',
+    text: 'Each gold coin is worth a point. You start with one and collect more in rounds 4, 6 and 7. On your turn you can also spend one, through the strip beside the purse, for a single Workshop pick, a Mix or a sale. The strip lights up when you can.',
+    attachTo: { element: '.board-area [data-tour="goldCoins"]', on: 'top' },
     buttons: [backButton, nextButton],
   });
 
   newTour.addStep({
     id: 'deck',
     title: 'Your Deck',
-    text: 'Each round your workshop is topped up to five cards from here. When your turn ends, the workshop goes to the bottom, so a card you use will not come back until the rest have been drawn. Click it to see what is in it.',
+    text: 'When your turn ends, your workshop goes to the bottom of this deck and you draw it straight back up to five, so a card you use will not come back until the rest above it have been drawn. Click it to see what is in it.',
     attachTo: { element: '.board-area [data-tour="deck"]', on: 'right' },
     buttons: [backButton, nextButton],
   });
@@ -120,7 +120,7 @@ function createTour(): Tour {
   newTour.addStep({
     id: 'buyers-phase',
     title: 'Buyers Phase',
-    text: "Players take turns claiming one sell card at a time until every open slot is full: click one on the Buyer's Board, or the sell deck to take its top card unseen.",
+    text: "Players take turns claiming one buyer at a time until every open slot is full: click one on the Buyer's Board, or the buyer deck to take its top card unseen.",
     attachTo: { element: '.market', on: 'right' },
     buttons: [backButton, nextButton],
   });
@@ -128,7 +128,7 @@ function createTour(): Tour {
   newTour.addStep({
     id: 'draft-phase',
     title: 'Draft Phase',
-    text: "You're dealt 4 cards. Keep one and the rest pass on; after 3 picks the last card passed to you is yours too. Drafted cards tuck under the top of your board, showing the banner that says what trashing them does.",
+    text: "You're dealt 4 cards. Take one and the rest pass on; after 3 picks the last card passed to you is yours too. Your picks are your top cards, tucked under the top of your board, showing the banner with the top action each has.",
     attachTo: { element: '.board-area [data-tour="drafted"]', on: 'bottom' },
     buttons: [backButton, nextButton],
   });
@@ -136,7 +136,7 @@ function createTour(): Tour {
   newTour.addStep({
     id: 'workshop',
     title: 'Workshop',
-    text: 'Your workshop cards tuck under the bottom edge, so the half that shows is what each gives when workshopped: colors, materials or an action. A Workshop ability lets you pick some of them.',
+    text: 'Your workshop cards tuck under the bottom edge, so the half that shows is what each gives when workshopped: colors, materials or a special card\'s workshop ability. A Workshop ability lets you pick some of them.',
     attachTo: { element: '.board-area [data-tour="workshop"]', on: 'top' },
     buttons: [backButton, nextButton],
   });
@@ -144,7 +144,7 @@ function createTour(): Tour {
   newTour.addStep({
     id: 'action-phase',
     title: 'Action Phase',
-    text: 'Everyone plays at once. Click a drafted card to trash it and use its ability: Workshop, Mix, Sell, or move a workshop card up to your draft pool. This panel says what each ability needs, and the board lights up what you can click. A card you keep goes on top of your deck, to be drawn again next round, and your used workshop goes to the bottom. End turn is always there when you are done, and the Keep remaining box says what becomes of any drafted cards you have not used.',
+    text: "Everyone plays at once. Click a top card to use its top action and then trash it: Workshop, Mix, Sell to a buyer, or lift a workshop card up to your top cards. This panel says what each ability needs, and the board lights up what you can click. A card you keep goes on top of your deck to come back as a workshop card, and your used workshop goes to the bottom of your deck. End turn is always there when you are done, and the Keep remaining box says what becomes of any top cards you have not decided.",
     attachTo: { element: '.controls', on: 'right' },
     buttons: [backButton, nextButton],
   });
@@ -152,7 +152,7 @@ function createTour(): Tour {
   newTour.addStep({
     id: 'end-game',
     title: 'Good Luck!',
-    text: 'The game ends after 7 rounds. Most points wins: the points on the buyers you sold to, a point for each ducat, and half a point for each wild primary and boat. Rest the pointer on a card, or press and hold it, to see all of it. Good luck, vendecolori!',
+    text: 'The game ends after 7 rounds. Most points wins: the points on your Completed Orders, a point for each gold coin, and half a point for each bowl and boat. Rest the pointer on a card, or press and hold it, to see all of it. Good luck, vendecolori!',
     buttons: [
       backButton,
       {

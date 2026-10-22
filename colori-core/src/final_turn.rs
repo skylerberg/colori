@@ -5,12 +5,12 @@
 //! or buyers. What a player can still do is fixed, and so is what it scores,
 //! whatever anyone else does. So their last turn has a best line, found here
 //! outright rather than estimated: the one that ends with them ranked highest,
-//! by points, then sell cards, then colors, as the game breaks ties. Everyone
+//! by points, then buyers, then colors, as the game breaks ties. Everyone
 //! else's result is out of their hands, so no other line wins a game this one
 //! would lose.
 //!
 //! A turn can reach millions of positions, nearly all of them mixes that make
-//! nothing a buyer wants or ducats spent on nothing that sells. The first are
+//! nothing a buyer wants or gold_coins spent on nothing that sells. The first are
 //! never tried, since no best line needs them, and the second are bounded: a
 //! position is searched only while what it could still score beats the best
 //! line found so far.
@@ -27,8 +27,8 @@ use crate::colors::{
 };
 use crate::scoring::player_ranking;
 use crate::types::{
-    Ability, AbilityStack, Choice, Color, DucatPurchase, GamePhase, GameState, PlayerState,
-    SellCardInstance, MAX_BUYERS, NUM_COLORS,
+    Ability, AbilityStack, Choice, Color, GoldCoinPurchase, GamePhase, GameState, PlayerState,
+    BuyerInstance, MAX_BUYERS, NUM_COLORS,
 };
 use crate::unordered_cards::UnorderedCards;
 
@@ -115,10 +115,10 @@ struct Position {
     drafted: UnorderedCards,
     wheel: [u8; NUM_COLORS],
     materials: [u32; 3],
-    ducats: u32,
+    gold_coins: u32,
     wilds: u32,
     boats: u32,
-    buyers: [Option<SellCardInstance>; MAX_BUYERS],
+    buyers: [Option<BuyerInstance>; MAX_BUYERS],
 }
 
 impl Position {
@@ -134,11 +134,11 @@ impl Position {
         Position {
             pending: action_state.turns[player_index].ability_stack.clone(),
             workshop: player.workshop_cards,
-            drafted: player.drafted_cards,
+            drafted: player.top_cards,
             wheel: player.color_wheel.counts,
-            materials: player.materials.counts,
-            ducats: player.ducats,
-            wilds: player.wild_primaries,
+            materials: player.materials_wheel.counts,
+            gold_coins: player.gold_coins,
+            wilds: player.bowls,
             boats: player.boats,
             buyers,
         }
@@ -148,17 +148,16 @@ impl Position {
 /// A ranking no line from `state` can beat.
 ///
 /// For each set of buyers the player might still sell to, it charges what the
-/// sales must cost at the least: a ducat for each sale beyond the Sells that
+/// sales must cost at the least: a gold_coin for each sale beyond the Sells that
 /// are free and each mix beyond the mixes that are, a boat for each material
-/// short, and a wild primary for each primary short. Everything the workshop
+/// short, and a bowl for each primary short. Everything the workshop
 /// could still give is counted as gained, and nothing as spent on getting it.
 fn ceiling(state: &GameState, player_index: usize) -> Ranking {
     let player = &state.players[player_index];
     let (mut points, sold, mut colors) = player_ranking(player);
 
-    let (mut ducats, mut wilds, mut boats) = (player.ducats, player.wild_primaries, player.boats);
+    let (mut gold_coins, mut wilds, mut boats) = (player.gold_coins, player.bowls, player.boats);
     let (mut free_sells, mut free_mixes, mut moves, mut any_secondaries) = (0, 0, 0, 0);
-    let mut primary_sets = 0u32;
     let pending = match &state.phase {
         GamePhase::Action { action_state } => {
             action_state.turns[player_index].ability_stack.as_slice()
@@ -166,7 +165,7 @@ fn ceiling(state: &GameState, player_index: usize) -> Ranking {
         _ => &[],
     };
     let drafted = player
-        .drafted_cards
+        .top_cards
         .iter()
         .map(|id| state.card_lookup[id as usize]);
     let workshop = || {
@@ -177,18 +176,18 @@ fn ceiling(state: &GameState, player_index: usize) -> Ranking {
     };
     let abilities = pending
         .iter()
-        .chain(drafted.flat_map(|card| card.trash_abilities()))
+        .chain(drafted.flat_map(|card| card.top_actions()))
         .chain(workshop().flat_map(|card| card.workshop_abilities()));
     for &ability in abilities {
         match ability {
             Ability::Sell => free_sells += 1,
             Ability::MixColors { count } => free_mixes += count,
-            Ability::MoveToDraftPool => moves += 1,
-            Ability::GainDucats { count } => {
+            Ability::LiftCard => moves += 1,
+            Ability::GainGoldCoins { count } => {
                 points += 2 * count;
-                ducats += count;
+                gold_coins += count;
             }
-            Ability::GainWildPrimaries { count } => {
+            Ability::GainBowls { count } => {
                 points += count;
                 wilds += count;
             }
@@ -200,19 +199,12 @@ fn ceiling(state: &GameState, player_index: usize) -> Ranking {
                 any_secondaries += 1;
                 colors += 1;
             }
-            Ability::GainPrimaries => {
-                primary_sets += 1;
-                colors += 3;
-            }
             Ability::Workshop { .. } => {}
         }
     }
 
     let mut supply = player.color_wheel.counts.map(u32::from);
-    for primary in PRIMARIES {
-        supply[primary.index()] += primary_sets;
-    }
-    let mut materials = player.materials.counts;
+    let mut materials = player.materials_wheel.counts;
     let (mut movable_sells, mut movable_mixes) = (0, 0);
     for card in workshop() {
         for &color in card.colors() {
@@ -222,7 +214,7 @@ fn ceiling(state: &GameState, player_index: usize) -> Ranking {
         for &material in card.material_types() {
             materials[material as usize] += 1;
         }
-        for &ability in card.trash_abilities() {
+        for &ability in card.top_actions() {
             match ability {
                 Ability::Sell => movable_sells += 1,
                 Ability::MixColors { count } => movable_mixes += count,
@@ -247,11 +239,11 @@ fn ceiling(state: &GameState, player_index: usize) -> Ranking {
             .enumerate()
             .filter(|(i, _)| subset >> i & 1 == 1)
         {
-            let stats = buyer.sell_card.stats();
+            let stats = buyer.buyer.stats();
             for &(color, count) in stats.colors() {
                 wanted[color.index()] += count as u32;
             }
-            for (w, &m) in wanted_materials.iter_mut().zip(&stats.materials) {
+            for (w, &m) in wanted_materials.iter_mut().zip(&stats.material_units) {
                 *w += m as u32;
             }
             boats_spent += stats.boats;
@@ -290,11 +282,11 @@ fn ceiling(state: &GameState, player_index: usize) -> Ranking {
             .sum();
 
         let sales = subset.count_ones();
-        let ducats_spent = sales.saturating_sub(free_sells) + mixes.saturating_sub(free_mixes);
-        if boats_spent > boats || wilds_spent > wilds || ducats_spent > ducats {
+        let gold_coins_spent = sales.saturating_sub(free_sells) + mixes.saturating_sub(free_mixes);
+        if boats_spent > boats || wilds_spent > wilds || gold_coins_spent > gold_coins {
             continue;
         }
-        let spent = 2 * ducats_spent + boats_spent + wilds_spent;
+        let spent = 2 * gold_coins_spent + boats_spent + wilds_spent;
         most_points = most_points.max(worth.saturating_sub(spent));
         most_sales = most_sales.max(sales as usize);
     }
@@ -312,18 +304,18 @@ fn worth_trying(state: &GameState, player_index: usize) -> Vec<Choice> {
         // A trash that mixes nothing, sells to nobody or moves nothing does
         // nothing at all.
         Choice::TrashAndMix { mixes, .. } => !mixes.is_empty() && mixes_are_needed(mixes, &need),
-        Choice::TrashDraftedCard { card } => {
-            // A Sell card nobody can buy from trashes for nothing; a card that
+        Choice::TrashTopCard { card } => {
+            // A Buyer card nobody can buy from trashes for nothing; a card that
             // trashes for what it gives is worth taking.
-            !matches!(card.trash_abilities()[0], Ability::Sell)
+            !matches!(card.top_actions()[0], Ability::Sell)
         }
-        Choice::TrashAndMoveToDraftPool { target: None, .. } => false,
+        Choice::TrashAndLift { target: None, .. } => false,
 
-        Choice::SpendDucat {
-            purchase: DucatPurchase::MixColors,
+        Choice::SpendGoldCoin {
+            purchase: GoldCoinPurchase::MixColors,
         } => VALID_MIX_PAIRS.iter().any(|&(a, b)| {
             need[mix_result(a, b).index()] > 0
-                && can_supply_mix(&player.color_wheel, player.wild_primaries, a, b)
+                && can_supply_mix(&player.color_wheel, player.bowls, a, b)
         }),
         Choice::GainSecondary { color } => {
             if need[color.index()] > 0 {
@@ -340,11 +332,11 @@ fn worth_trying(state: &GameState, player_index: usize) -> Vec<Choice> {
     // Sales first, so a good line is found early and bounds the rest.
     choices.sort_by_key(|choice| match choice {
         Choice::EndTurn { .. } => 0,
-        Choice::TrashAndSell { .. } | Choice::SelectSellCard { .. } => 1,
-        Choice::SpendDucat {
-            purchase: DucatPurchase::Sell,
+        Choice::TrashAndSell { .. } | Choice::SellToBuyer { .. } => 1,
+        Choice::SpendGoldCoin {
+            purchase: GoldCoinPurchase::Sell,
         } => 2,
-        Choice::SpendDucat { .. } => 4,
+        Choice::SpendGoldCoin { .. } => 4,
         _ => 3,
     });
     choices
@@ -359,13 +351,13 @@ fn worth_trying(state: &GameState, player_index: usize) -> Vec<Choice> {
 /// things. A secondary or tertiary on the wheel is spent only on a sale or on
 /// mixing what is needed. A sale that a wheel with more colors could no longer
 /// avoid needs no avoiding: a Sell only ever comes from trashing a card that
-/// does nothing else, or from a ducat. And a primary kept back can only pay
-/// where a wild primary would have, which keeps the wild. Primaries are never
+/// does nothing else, or from a gold_coin. And a primary kept back can only pay
+/// where a bowl would have, which keeps the wild. Primaries are never
 /// made, so they have no entry.
 fn mix_needs(player: &PlayerState) -> [u8; NUM_COLORS] {
     let mut wanted = [0u8; NUM_COLORS];
     for buyer in player.buyers.iter() {
-        for &(color, count) in buyer.sell_card.stats().colors() {
+        for &(color, count) in buyer.buyer.stats().colors() {
             wanted[color.index()] += count;
         }
     }
@@ -407,8 +399,8 @@ mod tests {
 
     use super::*;
     use crate::cards::{draft_deck_cards, starter_deck};
-    use crate::colori_game::{apply_choice_to_state, get_game_status, GameStatus};
-    use crate::draw_phase::execute_draw_phase;
+    use crate::apply_choice::apply_choice;
+    use crate::colori_game::{get_game_status, GameStatus};
     use crate::setup::create_initial_game_state;
     use crate::types::{Card, WorkshopCards};
 
@@ -421,14 +413,13 @@ mod tests {
         let mut rng = WyRand::seed_from_u64(seed);
         let mut state = create_initial_game_state(players, &vec![true; players], &mut rng);
         state.max_rounds = rounds;
-        execute_draw_phase(&mut state, &mut rng);
         while !(state.round == rounds && matches!(state.phase, GamePhase::Action { .. })) {
             let GameStatus::AwaitingAction { player_index } = get_game_status(&state, None) else {
                 unreachable!("the game ends after its last action phase");
             };
             let choices = enumerate_choices(&state, player_index);
             let choice = choices[rng.random_range(0..choices.len())];
-            apply_choice_to_state(&mut state, player_index, &choice, &mut rng);
+            apply_choice(&mut state, player_index, &choice, &mut rng);
         }
         state
     }
@@ -480,7 +471,7 @@ mod tests {
                     );
                 }
                 Choice::TrashAndWorkshop { card, .. } => {
-                    let Ability::Workshop { count } = card.trash_abilities()[0] else {
+                    let Ability::Workshop { count } = card.top_actions()[0] else {
                         unreachable!("a workshop follows only a card that grants one")
                     };
                     choices.push(Choice::TrashAndWorkshop {
@@ -545,7 +536,7 @@ mod tests {
         let mut line = Vec::new();
         while taking_turn(&state, player) {
             let choice = solve(&state, player).expect("the last turn is solved");
-            apply_choice_to_state(&mut state, player, &choice, &mut rng);
+            apply_choice(&mut state, player, &choice, &mut rng);
             line.push(choice);
         }
         (player_ranking(&state.players[player]), line)
@@ -581,7 +572,7 @@ mod tests {
                         choices.retain(|choice| !matches!(choice, Choice::EndTurn { .. }));
                     }
                     let choice = choices[rng.random_range(0..choices.len())];
-                    apply_choice_to_state(&mut position, player, &choice, &mut rng);
+                    apply_choice(&mut position, player, &choice, &mut rng);
                 }
             }
         }
@@ -604,7 +595,7 @@ mod tests {
         let mut rng = WyRand::seed_from_u64(0);
         while taking_turn(&ended, 1) {
             let choice = solve(&ended, 1).unwrap();
-            apply_choice_to_state(&mut ended, 1, &choice, &mut rng);
+            apply_choice(&mut ended, 1, &choice, &mut rng);
         }
         assert!(solve(&ended, 1).is_none(), "the turn is over");
     }
@@ -614,12 +605,12 @@ mod tests {
         let mut state = last_turn(2, 3, 9);
         let player = &mut state.players[0];
         player.buyers = Default::default();
-        player.drafted_cards = Default::default();
-        player.ducats = 3;
+        player.top_cards = Default::default();
+        player.gold_coins = 3;
         player.cached_whole_points += 3;
         assert!(
             !player.workshop_cards.is_empty(),
-            "a ducat could buy a workshop"
+            "a gold_coin could buy a workshop"
         );
         assert_eq!(solve(&state, 0), Some(Choice::EndTurn { keep_remaining: true }));
     }
@@ -633,10 +624,10 @@ mod tests {
             .into_iter()
             .chain(draft_deck_cards().map(|(card, _)| card));
         for card in cards {
-            let trash = card.trash_abilities();
+            let trash = card.top_actions();
             let stands_alone = trash
                 .iter()
-                .any(|ability| matches!(ability, Ability::Sell | Ability::MoveToDraftPool))
+                .any(|ability| matches!(ability, Ability::Sell | Ability::LiftCard))
                 || matches!(trash.first(), Some(Ability::MixColors { .. }));
             assert!(
                 !stands_alone || trash.len() == 1,

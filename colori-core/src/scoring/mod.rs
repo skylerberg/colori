@@ -40,23 +40,23 @@ impl CardHeuristicTable {
     }
 }
 
-/// Points from completed sell cards plus ducats: the whole-point part of a score,
+/// Points from completed buyers plus gold_coins: the whole-point part of a score,
 /// and what `PlayerState::cached_whole_points` caches.
 pub fn calculate_whole_points(player: &PlayerState) -> u32 {
-    let sell_card_points: u32 = player.completed_sell_cards.iter().map(|bi| bi.sell_card.points()).sum();
-    sell_card_points + player.ducats
+    let buyer_points: u32 = player.completed_orders.iter().map(|bi| bi.buyer.points()).sum();
+    buyer_points + player.gold_coins
 }
 
-/// A player's score, counted in half points so it stays whole: every ducat is
-/// two, and each unspent wild primary or boat is one.
+/// A player's score, counted in half points so it stays whole: every gold_coin is
+/// two, and each unspent bowl or boat is one.
 pub fn score_in_half_points(player: &PlayerState) -> u32 {
-    2 * calculate_whole_points(player) + player.wild_primaries + player.boats
+    2 * calculate_whole_points(player) + player.bowls + player.boats
 }
 
 /// `score_in_half_points` off the cache, for the search's hot paths.
 #[inline]
 fn cached_half_points(player: &PlayerState) -> u32 {
-    2 * player.cached_whole_points + player.wild_primaries + player.boats
+    2 * player.cached_whole_points + player.bowls + player.boats
 }
 
 /// "12" or "12.5".
@@ -68,12 +68,12 @@ pub fn format_half_points(half_points: u32) -> String {
     }
 }
 
-/// Returns a comparable ranking tuple: (half points, completed_sell_cards_count, color_wheel_total).
+/// Returns a comparable ranking tuple: (half points, completed_orders_count, color_wheel_total).
 /// Rust tuples compare lexicographically, giving correct tiebreak order.
 pub fn player_ranking(player: &PlayerState) -> (u32, usize, u32) {
     (
         score_in_half_points(player),
-        player.completed_sell_cards.len(),
+        player.completed_orders.len(),
         player.color_wheel.counts.iter().map(|&c| c as u32).sum(),
     )
 }
@@ -97,7 +97,7 @@ pub fn compute_terminal_rewards(players: &FixedVec<PlayerState, MAX_PLAYERS>) ->
     for (i, p) in players.iter().enumerate() {
         rankings[i] = (
             cached_half_points(p),
-            p.completed_sell_cards.len(),
+            p.completed_orders.len(),
             p.color_wheel.counts.iter().map(|&c| c as u32).sum(),
         );
     }
@@ -112,7 +112,7 @@ pub fn compute_terminal_rewards(players: &FixedVec<PlayerState, MAX_PLAYERS>) ->
 
 fn card_quality(card: Card, params: &HeuristicParams) -> f64 {
     match card.kind() {
-        CardKind::Action => match card {
+        CardKind::Special => match card {
             Card::Chalk => params.chalk_quality,
             Card::Alum => params.alum_quality,
             Card::GumArabic => params.gum_arabic_quality,
@@ -122,13 +122,13 @@ fn card_quality(card: Card, params: &HeuristicParams) -> f64 {
             Card::Primaries => params.primaries_quality,
             _ => 0.0,
         },
-        // A dye's tier shows in how many colours it carries.
-        CardKind::Dye => match card.colors().len() {
-            3 => params.primary_dye_quality,
-            2 => params.secondary_dye_quality,
-            _ => params.tertiary_dye_quality,
+        // A pigment's tier shows in how many colours it carries.
+        CardKind::Pigment => match card.colors().len() {
+            3 => params.primary_pigment_quality,
+            2 => params.secondary_pigment_quality,
+            _ => params.tertiary_pigment_quality,
         },
-        CardKind::BasicDye => params.basic_dye_quality,
+        CardKind::StarterPigment => params.starter_pigment_quality,
         CardKind::Material => {
             let colors = card.colors();
             let mat_types = card.material_types();
@@ -147,26 +147,26 @@ fn card_quality(card: Card, params: &HeuristicParams) -> f64 {
     }
 }
 
-/// How well a sell card suits what a player already has stored.
+/// How well a buyer suits what a player already has stored.
 ///
 /// Shared by the evaluation function and by the rollout's buyers-phase policy,
 /// so the cards a rollout claims are the ones the evaluation would reward.
-pub fn buyer_alignment(player: &PlayerState, sell_card: SellCard, params: &HeuristicParams) -> f64 {
-    let stats = sell_card.stats();
+pub fn buyer_alignment(player: &PlayerState, buyer: Buyer, params: &HeuristicParams) -> f64 {
+    let stats = buyer.stats();
     let points = stats.points as f64;
     let mut alignment = 0.0;
 
-    if boats_to_sell(player, sell_card) <= player.boats {
-        alignment += params.sell_card_material_alignment * points;
+    if boats_to_sell(player, buyer) <= player.boats {
+        alignment += params.buyer_material_alignment * points;
     }
 
     let cost_len = stats.total_colors as f64;
     for &(color, needed) in stats.colors() {
-        if player.color_wheel.get(color) > 0 || (is_primary(color) && player.wild_primaries > 0) {
+        if player.color_wheel.get(color) > 0 || (is_primary(color) && player.bowls > 0) {
             // One addition per unit, as a sum over the cost's entries would
             // make: a product rounds differently.
             for _ in 0..needed {
-                alignment += (params.sell_card_color_alignment / cost_len) * points;
+                alignment += (params.buyer_color_alignment / cost_len) * points;
             }
         }
     }
@@ -180,18 +180,18 @@ pub fn heuristic_score(
     params: &HeuristicParams,
     card_table: &CardHeuristicTable,
 ) -> f64 {
-    // A ducat still in hand scores its point plus a premium for the Workshop,
-    // Mix or Sell it can still buy (`unspent_ducat_multiplier`). Ducats already
-    // banked in completed sell cards get no premium: that choice is spent.
+    // A gold_coin still in hand scores its point plus a premium for the Workshop,
+    // Mix or Sell it can still buy (`unspent_gold_coin_multiplier`). GoldCoins already
+    // banked in completed buyers get no premium: that choice is spent.
     let score = cached_half_points(player) as f64 / 2.0
-        + (params.unspent_ducat_multiplier - 1.0) * player.ducats as f64;
+        + (params.unspent_gold_coin_multiplier - 1.0) * player.gold_coins as f64;
 
-    // Beyond their half point, wild primaries and boats are worth what they can stand
+    // Beyond their half point, bowls and boats are worth what they can stand
     // in for: any primary, and whichever material is weighted highest. The
     // multipliers price the flexibility of a wild over the one resource it is
     // being compared against.
     let mut color_score =
-        params.primary_color_value * params.wild_primary_multiplier * player.wild_primaries as f64;
+        params.primary_color_value * params.bowl_multiplier * player.bowls as f64;
     for &c in &PRIMARIES {
         color_score += params.primary_color_value * player.color_wheel.get(c) as f64;
     }
@@ -202,9 +202,9 @@ pub fn heuristic_score(
         color_score += params.tertiary_color_value * player.color_wheel.get(c) as f64;
     }
 
-    let material_score = params.stored_ceramics_weight * player.materials.get(MaterialType::Ceramics) as f64
-        + params.stored_paintings_weight * player.materials.get(MaterialType::Paintings) as f64
-        + params.stored_textiles_weight * player.materials.get(MaterialType::Textiles) as f64
+    let material_score = params.stored_ceramics_weight * player.materials_wheel.get(MaterialType::Ceramics) as f64
+        + params.stored_paintings_weight * player.materials_wheel.get(MaterialType::Paintings) as f64
+        + params.stored_textiles_weight * player.materials_wheel.get(MaterialType::Textiles) as f64
         + params
             .stored_ceramics_weight
             .max(params.stored_paintings_weight)
@@ -214,7 +214,7 @@ pub fn heuristic_score(
 
     let mut total_quality = 0.0;
     let mut card_count = 0u32;
-    for cards in [player.deck.cards(), player.workshop_cards, player.workshopped_cards, player.drafted_cards] {
+    for cards in [player.deck.cards(), player.workshop_cards, player.used_cards, player.top_cards] {
         for id in cards.iter() {
             let idx = card_lookup[id as usize] as usize;
             total_quality += card_table.quality[idx];
@@ -234,7 +234,7 @@ pub fn heuristic_score(
     // shows up in the resulting position rather than needing its own term.
     let mut best_alignment = 0.0f64;
     for bi in player.buyers.iter() {
-        best_alignment = best_alignment.max(buyer_alignment(player, bi.sell_card, params));
+        best_alignment = best_alignment.max(buyer_alignment(player, bi.buyer, params));
     }
 
     score + color_score + material_score + deck_quality + deck_thinning_bonus + best_alignment
@@ -272,31 +272,31 @@ pub fn compute_heuristic_rewards(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{SellCard, SellCardInstance, ColorWheel, Materials, PlayerState};
+    use crate::types::{Buyer, BuyerInstance, ColorWheel, MaterialsWheel, PlayerState};
     use crate::deck::Deck;
     use crate::unordered_cards::UnorderedCards;
     use smallvec::SmallVec;
 
-    fn make_player(ducats: u32, sell_cards: &[SellCard], color_counts: [u32; 12]) -> PlayerState {
-        let completed_sell_cards: SmallVec<[SellCardInstance; 12]> = sell_cards
+    fn make_player(gold_coins: u32, buyers: &[Buyer], color_counts: [u32; 12]) -> PlayerState {
+        let completed_orders: SmallVec<[BuyerInstance; 12]> = buyers
             .iter()
             .enumerate()
-            .map(|(i, &sell_card)| SellCardInstance {
+            .map(|(i, &buyer)| BuyerInstance {
                 instance_id: i as u32,
-                sell_card,
+                buyer,
             })
             .collect();
         let mut p = PlayerState {
             deck: Deck::new(),
             buyers: FixedVec::new(),
-            workshopped_cards: UnorderedCards::new(),
+            used_cards: UnorderedCards::new(),
             workshop_cards: UnorderedCards::new(),
-            drafted_cards: UnorderedCards::new(),
+            top_cards: UnorderedCards::new(),
             color_wheel: ColorWheel { counts: color_counts.map(|c| c as u8) },
-            materials: Materials::new(),
-            completed_sell_cards,
-            ducats,
-            wild_primaries: 0,
+            materials_wheel: MaterialsWheel::new(),
+            completed_orders,
+            gold_coins,
+            bowls: 0,
             boats: 0,
             cached_whole_points: 0,
         };
@@ -317,24 +317,24 @@ mod tests {
     }
 
     #[test]
-    fn test_tie_broken_by_sell_cards() {
-        // p1: 2 3-point sell cards = 6 points, 2 sell cards
-        // p2: 1 3-point sell card + 3 ducats = 6 points, 1 sell card
-        let p1 = make_player(0, &[SellCard::PotterVermilion, SellCard::PotterAmber], [0; 12]);
-        let p2 = make_player(3, &[SellCard::PotterVermilion], [0; 12]);
+    fn test_tie_broken_by_buyers() {
+        // p1: 2 3-point buyers = 6 points, 2 buyers
+        // p2: 1 3-point buyer + 3 gold_coins = 6 points, 1 buyer
+        let p1 = make_player(0, &[Buyer::PotterVermilion, Buyer::PotterAmber], [0; 12]);
+        let p2 = make_player(3, &[Buyer::PotterVermilion], [0; 12]);
         assert_eq!(p1.cached_whole_points, 6);
         assert_eq!(p2.cached_whole_points, 6);
         let mut players = FixedVec::new();
         players.push(p1);
         players.push(p2);
         let rewards = compute_terminal_rewards(&players);
-        assert_eq!(rewards[0], 1.0); // p1 wins on sell card count
+        assert_eq!(rewards[0], 1.0); // p1 wins on buyer count
         assert_eq!(rewards[1], 0.0);
     }
 
     #[test]
     fn test_tie_broken_by_colors() {
-        // Same score, same sell card count, different color wheel totals
+        // Same score, same buyer count, different color wheel totals
         let p1 = make_player(3, &[], [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // total=3
         let p2 = make_player(3, &[], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // total=1
         let mut players = FixedVec::new();
@@ -347,7 +347,7 @@ mod tests {
 
     #[test]
     fn test_true_tie() {
-        // Same score, same sell card count, same color wheel total
+        // Same score, same buyer count, same color wheel total
         let p1 = make_player(3, &[], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
         let p2 = make_player(3, &[], [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
         let mut players = FixedVec::new();
@@ -359,9 +359,9 @@ mod tests {
     }
 
     #[test]
-    fn test_wild_primaries_and_boats_are_worth_half_a_point_each() {
+    fn test_bowls_and_boats_are_worth_half_a_point_each() {
         let mut p1 = make_player(3, &[], [0; 12]);
-        p1.wild_primaries = 1;
+        p1.bowls = 1;
         let mut p2 = make_player(3, &[], [0; 12]);
         assert_eq!(score_in_half_points(&p1), 7);
         assert_eq!(format_half_points(score_in_half_points(&p1)), "3.5");
@@ -372,7 +372,7 @@ mod tests {
         players.push(p2.clone());
         assert_eq!(compute_terminal_rewards(&players), [1.0, 0.0, 0.0, 0.0]);
 
-        // A boat is worth exactly what a wild primary is.
+        // A boat is worth exactly what a bowl is.
         p2.boats = 1;
         let mut players = FixedVec::new();
         players.push(p1);
@@ -383,31 +383,31 @@ mod tests {
     /// The three resource multipliers default to 1.0 on a params file written
     /// before they existed, and scaling one moves only the term it names.
     #[test]
-    fn test_wild_boat_and_ducat_multipliers_scale_their_own_term() {
+    fn test_wild_boat_and_gold_coin_multipliers_scale_their_own_term() {
         const BASELINE: &str =
             include_str!("../../../genetic-algorithm/batch-lki08w-gen-32.json");
         let mut params: HeuristicParams =
             serde_json::from_str(BASELINE).expect("baseline params parse");
-        assert_eq!(params.wild_primary_multiplier, 1.0);
+        assert_eq!(params.bowl_multiplier, 1.0);
         assert_eq!(params.boat_multiplier, 1.0);
-        assert_eq!(params.unspent_ducat_multiplier, 1.0);
+        assert_eq!(params.unspent_gold_coin_multiplier, 1.0);
 
         let lookup = [Card::BasicRed; 256];
         let mut player = make_player(3, &[], [0; 12]);
-        player.wild_primaries = 1;
+        player.bowls = 1;
         player.boats = 1;
         let base = heuristic_score(&player, &lookup, &params, &CardHeuristicTable::new(&params));
 
-        params.wild_primary_multiplier = 2.0;
+        params.bowl_multiplier = 2.0;
         params.boat_multiplier = 2.0;
-        params.unspent_ducat_multiplier = 2.0;
+        params.unspent_gold_coin_multiplier = 2.0;
         let boosted = heuristic_score(&player, &lookup, &params, &CardHeuristicTable::new(&params));
 
         let best_material = params
             .stored_ceramics_weight
             .max(params.stored_paintings_weight)
             .max(params.stored_textiles_weight);
-        let expected = base + params.primary_color_value + best_material + player.ducats as f64;
+        let expected = base + params.primary_color_value + best_material + player.gold_coins as f64;
         assert!((boosted - expected).abs() < 1e-9, "{boosted} != {expected}");
     }
 }

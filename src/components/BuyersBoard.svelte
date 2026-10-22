@@ -19,10 +19,10 @@
 
   let previousDisplay: (number | null)[] = [];
   let displaySlots = $derived.by(() => {
-    previousDisplay = assignSlots(previousDisplay, gameState.sellCardDisplay.map(c => c.instanceId), BUYERS_BOARD.display.length);
+    previousDisplay = assignSlots(previousDisplay, gameState.buyerDisplay.map(c => c.instanceId), BUYERS_BOARD.display.length);
     return previousDisplay;
   });
-  let displayById = $derived(new Map(gameState.sellCardDisplay.map(c => [c.instanceId, c])));
+  let displayById = $derived(new Map(gameState.buyerDisplay.map(c => [c.instanceId, c])));
 
   function roundTitle(round: number): string {
     const name = round === gameState.round ? `Round ${round} of ${gameState.maxRounds} (now)` : `Round ${round}`;
@@ -48,22 +48,22 @@
     </div>
   {/each}
 
-  <button class="sell-deck" class:claimable={!!market?.onDrawUnseen} style={place(BUYERS_BOARD.sellDeck)}
+  <button class="sell-deck" class:claimable={!!market?.onDrawUnseen} style={place(BUYERS_BOARD.buyerDeck)}
     disabled={!market?.onDrawUnseen}
     onclick={() => market?.onDrawUnseen?.()}
-    title={market?.onDrawUnseen ? 'Claim the top card of the sell deck, unseen' : `Sell deck: ${gameState.sellCardDeck.length} cards`}>
-    <span class="pile-count">{gameState.sellCardDeck.length}</span>
-    <span class="pile-label">{market?.onDrawUnseen ? 'draw unseen' : 'sell deck'}</span>
+    title={market?.onDrawUnseen ? 'Claim the top card of the buyer deck, unseen' : `Buyer deck: ${gameState.buyerDeck.length} cards`}>
+    <span class="pile-count">{gameState.buyerDeck.length}</span>
+    <span class="pile-label">{market?.onDrawUnseen ? 'draw unseen' : 'buyer deck'}</span>
   </button>
 
   {#each BUYERS_BOARD.display as slot, i}
     {@const id = displaySlots[i]}
-    {@const sellCard = id !== null ? displayById.get(id) : undefined}
-    <div class="display-slot" class:claimable={!!sellCard && !!market} style="{place(slot)}--card-height:calc({slot.height} * var(--u));">
-      {#if sellCard}
-        {#key sellCard.instanceId}
+    {@const buyer = id !== null ? displayById.get(id) : undefined}
+    <div class="display-slot" class:claimable={!!buyer && !!market} style="{place(slot)}--card-height:calc({slot.height} * var(--u));">
+      {#if buyer}
+        {#key buyer.instanceId}
           <div class="display-card" in:fly={{ y: -20, duration: 300 }}>
-            <CardDisplay card={sellCard.card} onclick={market ? () => market!.onClaim(sellCard.instanceId) : undefined} />
+            <CardDisplay card={buyer.card} onclick={market ? () => market!.onClaim(buyer.instanceId) : undefined} />
           </div>
         {/key}
       {/if}

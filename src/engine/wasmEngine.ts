@@ -1,9 +1,8 @@
-import type { GameState, Choice, PlayerState, Card, Color, DrawEvent, MaterialType, SellCard } from '../data/types';
+import type { GameState, Choice, PlayerState, Card, Color, DrawEvent, MaterialType, Buyer } from '../data/types';
 import { isPrimary } from '../data/colors';
-import { getSellCardData } from '../data/cards';
+import { getBuyerData } from '../data/cards';
 import init, {
   wasm_create_initial_game_state,
-  wasm_execute_draw_phase,
   wasm_apply_choice,
   wasm_simultaneous_pick,
   wasm_advance_draft,
@@ -19,12 +18,12 @@ export async function initEngine(): Promise<void> {
   initialized = true;
 }
 
-export function createInitialGameState(playerNames: string[], aiPlayers?: boolean[]): GameState {
-  const ai = aiPlayers ?? playerNames.map(() => false);
-  const aiJson = JSON.stringify(ai);
+export function createInitialGameState(playerNames: string[], botPlayers?: boolean[]): GameState {
+  const ai = botPlayers ?? playerNames.map(() => false);
+  const botJson = JSON.stringify(ai);
   const resultJson = engineCall(
-    () => wasm_create_initial_game_state(playerNames.length, aiJson),
-    { call: 'createInitialGameState', players: playerNames.length, ai: aiJson },
+    () => wasm_create_initial_game_state(playerNames.length, botJson),
+    { call: 'createInitialGameState', players: playerNames.length, ai: botJson },
   );
   const state: GameState = JSON.parse(resultJson);
   state.playerNames = playerNames;
@@ -36,17 +35,6 @@ export function createInitialGameState(playerNames: string[], aiPlayers?: boolea
 // TypeScript-only fields like `playerNames`. Object.assign preserves these existing
 // properties on `state` that are absent from the WASM output. If you change this to
 // direct assignment or structuredClone, those fields will be silently lost.
-
-export function executeDrawPhase(state: GameState): DrawEvent[] {
-  const stateJson = JSON.stringify(state);
-  const resultJson = engineCall(
-    () => wasm_execute_draw_phase(stateJson),
-    { call: 'executeDrawPhase', state: stateJson },
-  );
-  const result: { state: GameState; draws: DrawEvent[] } = JSON.parse(resultJson);
-  Object.assign(state, result.state);
-  return result.draws;
-}
 
 export function applyChoice(state: GameState, playerIndex: number, choice: Choice): DrawEvent[] {
   const stateJson = JSON.stringify(state);
@@ -99,29 +87,29 @@ export function determineWinners(players: PlayerState[], playerNames: string[]):
   const ranked = players.map((p, i) => ({
     name: playerNames[i],
     score: calculateScores([p], [playerNames[i]])[0].score,
-    sellCards: p.completedSellCards.length,
+    buyers: p.completedOrders.length,
     colors: Object.values(p.colorWheel).reduce((sum, c) => sum + (c as number), 0),
   }));
-  ranked.sort((a, b) => b.score - a.score || b.sellCards - a.sellCards || b.colors - a.colors);
+  ranked.sort((a, b) => b.score - a.score || b.buyers - a.buyers || b.colors - a.colors);
   const best = ranked[0];
   return ranked
-    .filter(r => r.score === best.score && r.sellCards === best.sellCards && r.colors === best.colors)
+    .filter(r => r.score === best.score && r.buyers === best.buyers && r.colors === best.colors)
     .map(r => r.name);
 }
 
-export function canSell(player: PlayerState, sellCardInstanceId: number): boolean {
+export function canSell(player: PlayerState, buyerInstanceId: number): boolean {
   // Only the player's own buyers are sellable; the shared display is claimed
   // from during the buyers phase and never sold to directly.
-  const sellCardInstance = player.buyers.find(g => g.instanceId === sellCardInstanceId);
-  return sellCardInstance !== undefined && saleShortfall(player, sellCardInstance.card).length === 0;
+  const buyerInstance = player.buyers.find(g => g.instanceId === buyerInstanceId);
+  return buyerInstance !== undefined && saleShortfall(player, buyerInstance.card).length === 0;
 }
 
-// What a sale to `sellCard` still lacks once boats and wild primaries have
+// What a sale to `buyer` still lacks once boats and bowls have
 // stood in where they can, one entry per missing item; empty when it can be
-// made. Mirrors `action_phase::can_afford_sell_card`: a boat stands in for
+// made. Mirrors `action_phase::can_afford_buyer`: a boat stands in for
 // each material the player lacks, on top of any the card asks for outright.
-export function saleShortfall(player: PlayerState, sellCard: SellCard): string[] {
-  const data = getSellCardData(sellCard);
+export function saleShortfall(player: PlayerState, buyer: Buyer): string[] {
+  const data = getBuyerData(buyer);
   const missing: string[] = [];
 
   let boats = player.boats;
@@ -132,17 +120,17 @@ export function saleShortfall(player: PlayerState, sellCard: SellCard): string[]
   const used: Partial<Record<MaterialType, number>> = {};
   for (const material of data.requiredMaterials) {
     const taken = used[material] ?? 0;
-    if (player.materials[material] > taken) used[material] = taken + 1;
+    if (player.materialsWheel[material] > taken) used[material] = taken + 1;
     else if (boats > 0) boats--;
     else missing.push(material);
   }
 
   const spent: Partial<Record<Color, number>> = {};
-  let wildPrimaries = player.wildPrimaries;
+  let bowls = player.bowls;
   for (const color of data.colorCost) {
     const taken = spent[color] ?? 0;
     if (player.colorWheel[color] > taken) spent[color] = taken + 1;
-    else if (isPrimary(color) && wildPrimaries > 0) wildPrimaries--;
+    else if (isPrimary(color) && bowls > 0) bowls--;
     else missing.push(color);
   }
   return missing;

@@ -25,7 +25,7 @@ export class GuestController {
   onHostDisconnected: ((reason: 'intentional' | 'crashed') => void) | null = null;
   onPlayerDisconnected: ((playerIndex: number, playerName: string) => void) | null = null;
   onPlayerReconnected: ((playerIndex: number, playerName: string) => void) | null = null;
-  onPlayerReplacedByAI: ((playerIndex: number, playerName: string) => void) | null = null;
+  onPlayerReplacedByBot: ((playerIndex: number, playerName: string) => void) | null = null;
   onLatencyChange: ((latencyMs: number, stalled: boolean) => void) | null = null;
 
   constructor(network: NetworkManager) {
@@ -157,8 +157,8 @@ export class GuestController {
       case 'playerReconnected':
         this.onPlayerReconnected?.(msg.playerIndex, msg.playerName);
         break;
-      case 'playerReplacedByAI':
-        this.onPlayerReplacedByAI?.(msg.playerIndex, msg.playerName);
+      case 'playerReplacedByBot':
+        this.onPlayerReplacedByBot?.(msg.playerIndex, msg.playerName);
         break;
       case 'pong': {
         const now = Date.now();

@@ -25,7 +25,7 @@ describe('the round track', () => {
     expect(roundNews(1)).toEqual([]);
     expect(roundNews(3)).toEqual(['Buyer slot 3 opens']);
     expect(roundNews(5)).toEqual(['Everyone gains a boat']);
-    expect(roundNews(7)).toEqual(['Everyone gains a ducat, a boat and a wild primary']);
+    expect(roundNews(7)).toEqual(['Everyone gains a gold coin, a boat and a bowl']);
   });
 });
 

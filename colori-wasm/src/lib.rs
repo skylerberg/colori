@@ -1,6 +1,5 @@
 use colori_core::apply_choice::apply_choice;
 use colori_core::draft_phase::{advance_draft, simultaneous_pick};
-use colori_core::draw_phase::execute_draw_phase;
 use colori_core::game_log::{DrawEvent, DrawLog};
 use colori_core::ismcts::{MctsConfig};
 use colori_core::mcts_impl::{search_refusal, TurnSearcher};
@@ -8,17 +7,17 @@ use colori_core::scoring::{calculate_whole_points, score_in_half_points, Heurist
 use colori_core::setup::create_initial_game_state;
 use colori_core::types::{Card, Choice, GameState, PlayerState};
 use colori_core::unordered_cards::{
-    get_card_registry, get_sell_card_registry, set_card_registry, set_sell_card_registry,
+    get_card_registry, get_buyer_registry, set_card_registry, set_buyer_registry,
 };
 use rand::SeedableRng;
 use serde::{Deserialize, Serialize};
 use wyrand::WyRand;
 use wasm_bindgen::prelude::*;
 
-/// The advanced AI settings picked on the setup screen; `{}` is the default AI.
+/// The advanced bot settings picked on the setup screen; `{}` is the default bot.
 #[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
-struct AiSettings {
+struct BotSettings {
     /// Which trained parameters to play with. Any name not in the menu gets
     /// the default, so a saved game resumes even after its choice is retired.
     params: String,
@@ -26,7 +25,7 @@ struct AiSettings {
     rollout_lookahead: Option<u32>,
 }
 
-impl AiSettings {
+impl BotSettings {
     fn mcts_config(&self, iterations: u32) -> MctsConfig {
         let params_json = match self.params.as_str() {
             "lki08w-gen-32" => include_str!("../../genetic-algorithm/batch-lki08w-gen-32.json"),
@@ -53,7 +52,7 @@ fn deserialize_state(json: &str) -> GameState {
     let mut state: GameState =
         serde_json::from_str(json).expect("Failed to parse game state JSON");
     state.card_lookup = get_card_registry();
-    state.sell_card_lookup = get_sell_card_registry();
+    state.buyer_lookup = get_buyer_registry();
     for p in state.players.iter_mut() {
         p.cached_whole_points = calculate_whole_points(p);
     }
@@ -62,23 +61,23 @@ fn deserialize_state(json: &str) -> GameState {
 
 fn serialize_state(state: &GameState) -> String {
     set_card_registry(&state.card_lookup);
-    set_sell_card_registry(&state.sell_card_lookup);
+    set_buyer_registry(&state.buyer_lookup);
     serde_json::to_string(state).expect("Failed to serialize game state")
 }
 
-/// One seat's AI, kept for its worker's lifetime so that each decision of a
+/// One seat's bot, kept for its worker's lifetime so that each decision of a
 /// turn inherits the search tree of the one before.
 #[wasm_bindgen]
-pub struct AiSearcher {
+pub struct BotSearcher {
     searcher: Option<TurnSearcher>,
     reused_iterations: u32,
 }
 
 #[wasm_bindgen]
-impl AiSearcher {
+impl BotSearcher {
     #[wasm_bindgen(constructor)]
-    pub fn new() -> AiSearcher {
-        AiSearcher {
+    pub fn new() -> BotSearcher {
+        BotSearcher {
             searcher: None,
             reused_iterations: 0,
         }
@@ -91,12 +90,12 @@ impl AiSearcher {
         iterations: u32,
         ai_settings_json: &str,
     ) -> Result<String, JsError> {
-        let ai_settings: AiSettings = serde_json::from_str(ai_settings_json)
-            .map_err(|e| JsError::new(&format!("invalid AI settings: {e}")))?;
+        let ai_settings: BotSettings = serde_json::from_str(ai_settings_json)
+            .map_err(|e| JsError::new(&format!("invalid bot settings: {e}")))?;
         let game_state = deserialize_state(game_state_json);
         let player_index = player_index as usize;
         if let Some(refusal) = search_refusal(&game_state, player_index) {
-            return Err(JsError::new(&format!("cannot run the AI here: {refusal}")));
+            return Err(JsError::new(&format!("cannot run the bot here: {refusal}")));
         }
 
         let max_rollout_round = std::cmp::max(8, game_state.round + 2);
@@ -124,11 +123,11 @@ impl AiSearcher {
 }
 
 #[wasm_bindgen]
-pub fn wasm_create_initial_game_state(num_players: u32, ai_players_json: &str) -> String {
-    let ai_players: Vec<bool> =
-        serde_json::from_str(ai_players_json).expect("Failed to parse ai players JSON");
+pub fn wasm_create_initial_game_state(num_players: u32, bot_players_json: &str) -> String {
+    let bot_players: Vec<bool> =
+        serde_json::from_str(bot_players_json).expect("Failed to parse bot players JSON");
     let mut rng = WyRand::from_rng(&mut rand::rng());
-    let state = create_initial_game_state(num_players as usize, &ai_players, &mut rng);
+    let state = create_initial_game_state(num_players as usize, &bot_players, &mut rng);
     serialize_state(&state)
 }
 
@@ -145,20 +144,11 @@ fn serialize_state_with_draws(state: &mut GameState) -> String {
     };
     let state_json = {
         set_card_registry(&state.card_lookup);
-        set_sell_card_registry(&state.sell_card_lookup);
+        set_buyer_registry(&state.buyer_lookup);
         serde_json::to_value(state).expect("Failed to serialize game state")
     };
     serde_json::to_string(&StateWithDraws { state: state_json, draws })
         .expect("Failed to serialize state with draws")
-}
-
-#[wasm_bindgen]
-pub fn wasm_execute_draw_phase(state_json: &str) -> String {
-    let mut state = deserialize_state(state_json);
-    let mut rng = WyRand::from_rng(&mut rand::rng());
-    state.draw_log = Some(DrawLog::Recording(Vec::new()));
-    execute_draw_phase(&mut state, &mut rng);
-    serialize_state_with_draws(&mut state)
 }
 
 #[wasm_bindgen]
@@ -207,7 +197,7 @@ mod tests {
     use super::*;
 
     fn config(settings_json: &str) -> MctsConfig {
-        serde_json::from_str::<AiSettings>(settings_json)
+        serde_json::from_str::<BotSettings>(settings_json)
             .unwrap()
             .mcts_config(100)
     }

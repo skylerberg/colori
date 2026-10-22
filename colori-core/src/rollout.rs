@@ -1,18 +1,15 @@
 use crate::action_phase::{
-    ability_stack, ability_stack_mut, boats_to_sell, can_afford_sell_card, can_buy_with_ducat,
-    trash_drafted_card, end_player_turn, initialize_action_phase, process_ability_stack,
-    resolve_gain_color, resolve_keep_card, resolve_move_to_draft_pool, resolve_select_sell_card,
-    resolve_spend_ducat, resolve_workshop_choice, sell_to_buyer, skip_workshop,
+    ability_stack, ability_stack_mut, boats_to_sell, can_afford_buyer, can_buy_with_gold_coin,
+    end_player_turn, process_ability_stack, resolve_gain_color, resolve_keep_card,
+    resolve_lift_card, resolve_sell_to_buyer, resolve_spend_gold_coin, resolve_workshop_choice,
+    sell_to_buyer, skip_workshop, trash_top_card,
 };
 use crate::colors::{
-    can_supply_mix, is_primary, mix_result, perform_mix_unchecked, PRIMARIES,
-    SECONDARIES, VALID_MIX_PAIRS,
+    can_supply_mix, is_primary, mix_result, perform_mix_unchecked, PRIMARIES, SECONDARIES,
+    VALID_MIX_PAIRS,
 };
-use crate::draw_phase::{collect_round_income, WORKSHOP_SIZE};
-use crate::draft_phase::{deal_draft_hand, player_pick};
-use crate::buyers_phase::{
-    anything_to_claim, claim_from_deck, claim_from_display, draw_buyer, needs_a_buyer, take_buyer,
-};
+use crate::draft_phase::player_pick;
+use crate::buyers_phase::{draw_buyer, take_buyer};
 use crate::scoring::{buyer_alignment, HeuristicParams};
 use crate::types::*;
 use crate::unordered_cards::UnorderedCards;
@@ -39,8 +36,8 @@ fn choose_buyer_claim<R: Rng>(
     params: Option<&HeuristicParams>,
     rng: &mut R,
 ) -> Option<BuyerClaim> {
-    let display = &state.sell_card_display;
-    let deck_available = !state.sell_card_deck.is_empty();
+    let display = &state.buyer_display;
+    let deck_available = !state.buyer_deck.is_empty();
     let params = params.filter(|p| !rng.random_bool(p.rollout_epsilon));
 
     if let Some(params) = params {
@@ -51,7 +48,7 @@ fn choose_buyer_claim<R: Rng>(
         let mut best_id = display[0].instance_id;
         let mut best = f64::NEG_INFINITY;
         for instance in display.iter() {
-            let score = buyer_alignment(player, instance.sell_card, params);
+            let score = buyer_alignment(player, instance.buyer, params);
             if score > best {
                 best = score;
                 best_id = instance.instance_id;
@@ -70,36 +67,6 @@ fn choose_buyer_claim<R: Rng>(
     } else {
         BuyerClaim::Deck
     })
-}
-
-/// Fill every player's buyers to capacity, round-robin in turn order, as the
-/// buyers phase does. The draw+draft shortcuts skip the phase machinery, so
-/// they drive the claims themselves.
-fn rollout_fill_buyers<R: Rng>(state: &mut GameState, params: Option<&HeuristicParams>, rng: &mut R) {
-    let num_players = state.players.len();
-    let starting_player = ((state.round - 1) as usize) % num_players;
-
-    loop {
-        let mut claimed = false;
-        for offset in 0..num_players {
-            let player_index = (starting_player + offset) % num_players;
-            if !needs_a_buyer(state, player_index) {
-                continue;
-            }
-            if !anything_to_claim(state) {
-                return;
-            }
-            match choose_buyer_claim(state, player_index, params, rng) {
-                Some(BuyerClaim::Display(id)) => claim_from_display(state, player_index, id, rng),
-                Some(BuyerClaim::Deck) => claim_from_deck(state, player_index, rng),
-                None => return,
-            }
-            claimed = true;
-        }
-        if !claimed {
-            return;
-        }
-    }
 }
 
 /// Play out an in-progress buyers phase, letting the phase machinery decide
@@ -129,50 +96,15 @@ fn rollout_resolve_buyers_phase<R: Rng>(
 /// the whole hand dealt to them: a draft only shares the dealt cards out, so
 /// with nobody choosing, dealing straight to the players is the same thing.
 /// `buyer_params` claims buyers by the heuristic instead of at random.
-fn rollout_draw_and_draft<R: Rng>(state: &mut GameState, buyer_params: Option<&HeuristicParams>, rng: &mut R) {
-    let num_players = state.players.len();
-
-    collect_round_income(state);
-
-    for i in 0..num_players {
-        let player = &mut state.players[i];
-        let count = WORKSHOP_SIZE.saturating_sub(player.workshop_cards.len());
-        player.deck.draw_into(&mut player.workshop_cards, count, rng);
-    }
-
-    rollout_fill_buyers(state, buyer_params, rng);
-
-    let mut dealt = [UnorderedCards::new(); MAX_PLAYERS];
-    for hand in &mut dealt[..num_players] {
-        *hand = deal_draft_hand(state, rng);
-    }
-
-    // As in `initialize_draft`, a player dealt nothing means no draft at all.
-    if dealt[..num_players].iter().any(|hand| hand.is_empty()) {
-        for hand in &dealt[..num_players] {
-            state.trash = state.trash.union(*hand);
-        }
-    } else {
-        for i in 0..num_players {
-            state.players[i].drafted_cards = dealt[i];
-        }
-    }
-
-    state.trash = state.trash.union(state.draft_deck);
-    state.draft_deck = UnorderedCards::new();
-
-    initialize_action_phase(state);
-}
-
 // ── Fused rollout step ──
 
-/// The mix pairs the stock can supply, with wild primaries covering missing ones.
+/// The mix pairs the stock can supply, with bowls covering missing ones.
 #[inline(always)]
-fn suppliable_mix_pairs(wheel: &ColorWheel, wild_primaries: u32) -> ([(Color, Color); 9], usize) {
+fn suppliable_mix_pairs(wheel: &ColorWheel, bowls: u32) -> ([(Color, Color); 9], usize) {
     let mut pairs = [(Color::Red, Color::Red); 9];
     let mut count = 0usize;
     for &(a, b) in &VALID_MIX_PAIRS {
-        if can_supply_mix(wheel, wild_primaries, a, b) {
+        if can_supply_mix(wheel, bowls, a, b) {
             pairs[count] = (a, b);
             count += 1;
         }
@@ -183,22 +115,22 @@ fn suppliable_mix_pairs(wheel: &ColorWheel, wild_primaries: u32) -> ([(Color, Co
 #[inline(always)]
 fn apply_mixes(player: &mut PlayerState, mixes: &MixSequence) {
     for &(a, b) in mixes {
-        perform_mix_unchecked(&mut player.color_wheel, &mut player.wild_primaries, a, b);
+        perform_mix_unchecked(&mut player.color_wheel, &mut player.bowls, a, b);
     }
 }
 
 #[inline(always)]
 fn random_mix_seq<R: Rng>(
     wheel: &ColorWheel,
-    wild_primaries: u32,
+    bowls: u32,
     remaining: u32,
     rng: &mut R,
 ) -> MixSequence {
     let mut mixes = MixSequence::new();
     let mut sim_wheel = wheel.clone();
-    let mut sim_wild_primaries = wild_primaries;
+    let mut sim_bowls = bowls;
     for _ in 0..remaining.min(MAX_MIX_SEQUENCE as u32) {
-        let (pairs, pair_count) = suppliable_mix_pairs(&sim_wheel, sim_wild_primaries);
+        let (pairs, pair_count) = suppliable_mix_pairs(&sim_wheel, sim_bowls);
         if pair_count == 0 {
             break;
         }
@@ -208,18 +140,18 @@ fn random_mix_seq<R: Rng>(
         }
         let (a, b) = pairs[target];
         mixes.push((a, b));
-        perform_mix_unchecked(&mut sim_wheel, &mut sim_wild_primaries, a, b);
+        perform_mix_unchecked(&mut sim_wheel, &mut sim_bowls, a, b);
     }
     mixes
 }
 
 #[inline(always)]
-fn pick_random_affordable_sell_card<R: Rng>(player: &PlayerState, rng: &mut R) -> Option<u32> {
+fn pick_random_affordable_buyer<R: Rng>(player: &PlayerState, rng: &mut R) -> Option<u32> {
     let mut affordable = [0u32; MAX_BUYERS];
     let mut count = 0usize;
-    for sell_card in player.buyers.iter() {
-        if can_afford_sell_card(player, &sell_card.sell_card) {
-            affordable[count] = sell_card.instance_id;
+    for buyer in player.buyers.iter() {
+        if can_afford_buyer(player, &buyer.buyer) {
+            affordable[count] = buyer.instance_id;
             count += 1;
         }
     }
@@ -231,12 +163,12 @@ fn pick_random_affordable_sell_card<R: Rng>(player: &PlayerState, rng: &mut R) -
 }
 
 
-/// Legal ducat purchases for the player, for the rollout policies.
-fn legal_ducat_purchases(player: &PlayerState) -> ([DucatPurchase; 3], usize) {
-    let mut out = [DucatPurchase::Workshop; 3];
+/// Legal gold_coin purchases for the player, for the rollout policies.
+fn legal_gold_coin_purchases(player: &PlayerState) -> ([GoldCoinPurchase; 3], usize) {
+    let mut out = [GoldCoinPurchase::Workshop; 3];
     let mut len = 0;
-    for purchase in ALL_DUCAT_PURCHASES {
-        if can_buy_with_ducat(player, purchase) {
+    for purchase in ALL_GOLD_COIN_PURCHASES {
+        if can_buy_with_gold_coin(player, purchase) {
             out[len] = purchase;
             len += 1;
         }
@@ -246,26 +178,23 @@ fn legal_ducat_purchases(player: &PlayerState) -> ([DucatPurchase; 3], usize) {
 
 #[inline(always)]
 fn handle_action_no_pending(state: &mut GameState, player_index: usize, rng: &mut impl Rng) {
-    // Spending a ducat is one of the things a turn can do, so a rollout that
-    // never did it would leave the search blind to what ducats are worth.
-    let (purchases, purchase_count) = legal_ducat_purchases(&state.players[player_index]);
+    // Spending a gold_coin is one of the things a turn can do, so a rollout that
+    // never did it would leave the search blind to what gold_coins are worth.
+    let (purchases, purchase_count) = legal_gold_coin_purchases(&state.players[player_index]);
     if purchase_count > 0 {
-        let drafted = state.players[player_index].drafted_cards.len() as usize;
+        let drafted = state.players[player_index].top_cards.len() as usize;
         let pick = rng.random_range(0..(purchase_count + drafted));
         if pick < purchase_count {
-            resolve_spend_ducat(state, player_index, purchases[pick]);
+            resolve_spend_gold_coin(state, player_index, purchases[pick]);
             return;
         }
     }
 
-    let drafted = state.players[player_index].drafted_cards;
+    let drafted = state.players[player_index].top_cards;
     if drafted.is_empty() {
-        // No drafted cards left — end turn, and the round with it if this
+        // No top cards left — end turn, and the round with it if this
         // was the last player still acting
-        end_player_turn(state, player_index, true);
-        if matches!(state.phase, GamePhase::Draw) {
-            rollout_draw_and_draft(state, None, rng);
-        }
+        end_player_turn(state, player_index, true, rng);
         return;
     }
 
@@ -279,44 +208,44 @@ fn handle_action_no_pending(state: &mut GameState, player_index: usize, rng: &mu
 
     // Trash the chosen card, activating its abilities. A lone Mix or Sell is
     // fused inline as an optimization; everything else goes through
-    // trash_drafted_card, which pushes onto the stack for resolution on the
+    // trash_top_card, which pushes onto the stack for resolution on the
     // next step.
     let card = state.card_lookup[card_id as usize];
-    match card.trash_abilities() {
+    match card.top_actions() {
         &[Ability::MixColors { count }] => {
             let player = &mut state.players[player_index];
-            let mixes = random_mix_seq(&player.color_wheel, player.wild_primaries, count, rng);
-            player.drafted_cards.remove(card_id);
+            let mixes = random_mix_seq(&player.color_wheel, player.bowls, count, rng);
+            player.top_cards.remove(card_id);
             apply_mixes(player, &mixes);
             state.trash.insert(card_id);
         }
         [Ability::Sell] => {
-            if let Some(sell_card_id) =
-                pick_random_affordable_sell_card(&state.players[player_index], rng)
+            if let Some(buyer_id) =
+                pick_random_affordable_buyer(&state.players[player_index], rng)
             {
-                fused_buy(state, player_index, card_id, sell_card_id);
+                fused_buy(state, player_index, card_id, buyer_id);
             } else {
-                trash_drafted_card(state, player_index, card_id as u32);
+                trash_top_card(state, player_index, card_id as u32);
             }
         }
         _ => {
-            trash_drafted_card(state, player_index, card_id as u32);
+            trash_top_card(state, player_index, card_id as u32);
         }
     }
 }
 
-/// Fused sell card purchase (no ability stack involvement).
+/// Fused buyer purchase (no ability stack involvement).
 #[inline(always)]
-fn fused_buy(state: &mut GameState, player_index: usize, card_id: u8, sell_card_id: u32) {
-    state.players[player_index].drafted_cards.remove(card_id);
+fn fused_buy(state: &mut GameState, player_index: usize, card_id: u8, buyer_id: u32) {
+    state.players[player_index].top_cards.remove(card_id);
     state.trash.insert(card_id);
     let player = &mut state.players[player_index];
-    let sell_card_index = player
+    let buyer_index = player
         .buyers
         .iter()
-        .position(|c| c.instance_id == sell_card_id)
+        .position(|c| c.instance_id == buyer_id)
         .unwrap();
-    sell_to_buyer(player, sell_card_index);
+    sell_to_buyer(player, buyer_index);
 }
 
 pub fn apply_rollout_step<R: Rng>(
@@ -382,24 +311,24 @@ fn random_action_step<R: Rng>(state: &mut GameState, player_index: usize, rng: &
                 resolve_workshop_choice(state, player_index, selected);
             }
         }
-        Some(Ability::MoveToDraftPool) => {
+        Some(Ability::LiftCard) => {
             let target = state.players[player_index].workshop_cards.pick_random(rng);
-            resolve_move_to_draft_pool(state, player_index, target);
+            resolve_lift_card(state, player_index, target);
         }
         Some(Ability::MixColors { count }) => {
             let remaining_mixes = *count;
             let player = &mut state.players[player_index];
             let mixes =
-                random_mix_seq(&player.color_wheel, player.wild_primaries, remaining_mixes, rng);
+                random_mix_seq(&player.color_wheel, player.bowls, remaining_mixes, rng);
             apply_mixes(player, &mixes);
             ability_stack_mut(state, player_index).pop();
             process_ability_stack(state, player_index);
         }
         Some(Ability::Sell) => {
-            if let Some(sell_card_id) =
-                pick_random_affordable_sell_card(&state.players[player_index], rng)
+            if let Some(buyer_id) =
+                pick_random_affordable_buyer(&state.players[player_index], rng)
             {
-                resolve_select_sell_card(state, player_index, sell_card_id);
+                resolve_sell_to_buyer(state, player_index, buyer_id);
             } else {
                 ability_stack_mut(state, player_index).pop();
                 process_ability_stack(state, player_index);
@@ -446,7 +375,7 @@ fn ability_category(ability: Ability) -> (u8, u32) {
         Ability::Workshop { count } => (0, count),
         Ability::MixColors { .. } => (1, 0),
         Ability::Sell => (2, 0),
-        Ability::MoveToDraftPool => (3, 0),
+        Ability::LiftCard => (3, 0),
         _ => (4, 0),
     }
 }
@@ -471,7 +400,7 @@ fn pick_card_to_pass<R: Rng>(
     let mut count = 0usize;
     for id in hand.iter() {
         let card = card_lookup[id as usize];
-        let (cat, wc) = ability_category(card.trash_abilities()[0]);
+        let (cat, wc) = ability_category(card.top_actions()[0]);
         cards[count] = (id, cat, wc);
         count += 1;
     }
@@ -544,10 +473,10 @@ fn heuristic_draft_loop<R: Rng>(state: &mut GameState, params: &HeuristicParams,
     }
 }
 
-// ── Sell card cache for heuristic rollout performance ──
+// ── Buyer card cache for heuristic rollout performance ──
 
 #[derive(Clone, Copy)]
-struct SellCardCacheEntry {
+struct BuyerCacheEntry {
     points: u32,
     /// Units of each material, indexed by `MaterialType`.
     materials: [u8; 3],
@@ -556,14 +485,14 @@ struct SellCardCacheEntry {
     total_colors: u32,
 }
 
-struct SellCardCache {
+struct BuyerCache {
     flat_demand: [u32; 12],
     proximity_demand: [u32; 12],
-    entries: [SellCardCacheEntry; MAX_BUYERS],
+    entries: [BuyerCacheEntry; MAX_BUYERS],
     len: usize,
 }
 
-impl SellCardCache {
+impl BuyerCache {
     #[inline(always)]
     fn new(player: &PlayerState) -> Self {
         let buyers = &player.buyers;
@@ -571,14 +500,14 @@ impl SellCardCache {
         let mut flat_demand = [0u32; 12];
         let mut proximity_demand = [0u32; 12];
         let len = buyers.len();
-        const EMPTY_ENTRY: SellCardCacheEntry = SellCardCacheEntry { points: 0, materials: [0; 3], colors_met: false, have_colors: 0, total_colors: 0 };
-        let mut entries: [SellCardCacheEntry; MAX_BUYERS] = [EMPTY_ENTRY; MAX_BUYERS];
+        const EMPTY_ENTRY: BuyerCacheEntry = BuyerCacheEntry { points: 0, materials: [0; 3], colors_met: false, have_colors: 0, total_colors: 0 };
+        let mut entries: [BuyerCacheEntry; MAX_BUYERS] = [EMPTY_ENTRY; MAX_BUYERS];
 
         for (i, sc) in buyers.iter().enumerate() {
-            let stats = sc.sell_card.stats();
+            let stats = sc.buyer.stats();
             let points = stats.points;
             let total_colors = stats.total_colors as u32;
-            let has_material = boats_to_sell(player, sc.sell_card) <= player.boats;
+            let has_material = boats_to_sell(player, sc.buyer) <= player.boats;
 
             let mut have = 0u32;
             let mut primaries_short = 0u32;
@@ -589,7 +518,7 @@ impl SellCardCache {
                     primaries_short += needed as u32 - stored;
                 }
             }
-            have += primaries_short.min(player.wild_primaries);
+            have += primaries_short.min(player.bowls);
             let missing = total_colors - have;
 
             let colors_met = missing == 0;
@@ -603,16 +532,16 @@ impl SellCardCache {
                 proximity_demand[idx] += prox_weight * needed as u32;
             }
 
-            entries[i] = SellCardCacheEntry {
+            entries[i] = BuyerCacheEntry {
                 points,
-                materials: stats.materials,
+                materials: stats.material_units,
                 colors_met,
                 have_colors: have,
                 total_colors,
             };
         }
 
-        SellCardCache {
+        BuyerCache {
             flat_demand,
             proximity_demand,
             entries,
@@ -626,7 +555,7 @@ impl SellCardCache {
     }
 
     /// How much one stored unit of a material type is worth, summed over the
-    /// sell cards on display that require it.
+    /// buyers on display that require it.
     #[inline(always)]
     fn material_demand(&self, material: MaterialType, params: &HeuristicParams) -> u32 {
         let mut score = 0u32;
@@ -648,13 +577,13 @@ impl SellCardCache {
 
 /// The buyer the player can sell to now for the most points, the first in slot
 /// order on a tie. The Sell and trash-priority decisions read only this, so
-/// they skip the demand tables [`SellCardCache`] builds.
+/// they skip the demand tables [`BuyerCache`] builds.
 #[derive(Clone, Copy)]
 struct BestSale {
     points: u32,
     id: Option<u32>,
     /// Whether any buyer on the board is affordable at all, which is a
-    /// different question from which one pays best: a ducat buys the first,
+    /// different question from which one pays best: a gold_coin buys the first,
     /// the Sell priority reads the second.
     affordable: bool,
 }
@@ -668,16 +597,16 @@ impl BestSale {
             affordable: false,
         };
         for sc in player.buyers.iter() {
-            let points = sc.sell_card.stats().points;
+            let points = sc.buyer.stats().points;
             if points > best.points {
-                if can_afford_sell_card(player, &sc.sell_card) {
+                if can_afford_buyer(player, &sc.buyer) {
                     best = BestSale {
                         points,
                         id: Some(sc.instance_id),
                         affordable: true,
                     };
                 }
-            } else if !best.affordable && can_afford_sell_card(player, &sc.sell_card) {
+            } else if !best.affordable && can_afford_buyer(player, &sc.buyer) {
                 best.affordable = true;
             }
         }
@@ -691,7 +620,7 @@ impl BestSale {
 /// The player does not change while a hand is scored, so the best sale, the
 /// mix pairs the stock can supply, and whether the workshop is empty are the
 /// same for every card. The first two are worked out on first use, so a hand
-/// with no Sell card never looks at the buyers and one with no Mix card never
+/// with no Buyer card never looks at the buyers and one with no Mix card never
 /// scans the mix pairs.
 struct PriorityMemo {
     sale: Option<BestSale>,
@@ -724,7 +653,7 @@ impl PriorityMemo {
     #[inline(always)]
     fn mix_pairs(&mut self, player: &PlayerState) -> u32 {
         *self.mix_pairs.get_or_insert_with(|| {
-            suppliable_mix_pairs(&player.color_wheel, player.wild_primaries).1 as u32
+            suppliable_mix_pairs(&player.color_wheel, player.bowls).1 as u32
         })
     }
 }
@@ -738,7 +667,7 @@ fn destruction_priority(
     memo: &mut PriorityMemo,
     params: &HeuristicParams,
 ) -> u32 {
-    card.trash_abilities()
+    card.top_actions()
         .iter()
         .map(|&ability| ability_priority(ability, player, memo, params))
         .sum()
@@ -775,7 +704,7 @@ fn ability_priority(
                 params.rollout_workshop_base + count.min(3) * params.rollout_workshop_count_weight
             }
         }
-        Ability::MoveToDraftPool => {
+        Ability::LiftCard => {
             if memo.workshop_empty {
                 params.rollout_trash_no_targets
             } else {
@@ -794,14 +723,14 @@ fn ability_priority(
 fn action_workshop_value(
     card: Card,
     player: &PlayerState,
-    cache: &SellCardCache,
+    cache: &BuyerCache,
     params: &HeuristicParams,
 ) -> u32 {
     let mult = params.rollout_ws_action_color_demand_multiplier;
     for &ability in card.workshop_abilities() {
         match ability {
-            Ability::GainDucats { count } => {
-                return count * params.rollout_ws_action_gain_ducats_value;
+            Ability::GainGoldCoins { count } => {
+                return count * params.rollout_ws_action_gain_gold_coins_value;
             }
             Ability::GainSecondary => {
                 let mut best = 0u32;
@@ -814,36 +743,28 @@ fn action_workshop_value(
                 // Score based on best mix output demands for valid pairs
                 let mut best_total = 0u32;
                 for &(a, b) in &VALID_MIX_PAIRS {
-                    if can_supply_mix(&player.color_wheel, player.wild_primaries, a, b) {
+                    if can_supply_mix(&player.color_wheel, player.bowls, a, b) {
                         let output = mix_result(a, b);
                         best_total = best_total.max(cache.color_demand(output) * count);
                     }
                 }
                 return best_total * mult / 10;
             }
-            // Wild primaries and boats are half a ducat each, plus whatever the
+            // Bowls and boats are half a point each, plus whatever the
             // primary or material they can stand in for is worth.
-            Ability::GainWildPrimaries { count } => {
+            Ability::GainBowls { count } => {
                 let mut best = 0u32;
                 for &c in &PRIMARIES {
                     best = best.max(cache.color_demand(c));
                 }
-                return count * (params.rollout_ws_action_gain_ducats_value / 2 + best * mult / 10);
-            }
-            // One of each primary: three colors, each worth what its demand says.
-            Ability::GainPrimaries => {
-                let mut total = 0u32;
-                for &c in &PRIMARIES {
-                    total += cache.color_demand(c);
-                }
-                return total * mult / 10;
+                return count * (params.rollout_ws_action_gain_gold_coins_value / 2 + best * mult / 10);
             }
             Ability::GainBoats { count } => {
                 let mut best = 0u32;
                 for &m in &ALL_MATERIAL_TYPES {
                     best = best.max(cache.material_demand(m, params));
                 }
-                return count * (params.rollout_ws_action_gain_ducats_value / 2 + best);
+                return count * (params.rollout_ws_action_gain_gold_coins_value / 2 + best);
             }
             _ => {}
         }
@@ -856,7 +777,7 @@ fn action_workshop_value(
 fn workshop_card_score(
     card: Card,
     player: &PlayerState,
-    cache: &SellCardCache,
+    cache: &BuyerCache,
     params: &HeuristicParams,
 ) -> u32 {
     let mut score = 0u32;
@@ -872,18 +793,18 @@ fn workshop_card_score(
     }
 
     // Action cards: score based on their specific workshop abilities
-    if card.is_action() {
+    if card.is_special() {
         score += action_workshop_value(card, player, cache, params);
     }
 
     score
 }
 
-/// Pick the best color from a slice, preferring colors needed for sell cards.
+/// Pick the best color from a slice, preferring colors needed for buyers.
 #[inline(always)]
 fn pick_best_color<R: Rng>(
     colors: &[Color],
-    cache: &SellCardCache,
+    cache: &BuyerCache,
     params: &HeuristicParams,
     rng: &mut R,
 ) -> Color {
@@ -905,11 +826,11 @@ fn pick_best_color<R: Rng>(
 /// The suppliable mix whose output the player's buyers want most, if any want
 /// one at all.
 #[inline(always)]
-fn most_demanded_mix(wheel: &ColorWheel, wild_primaries: u32, cache: &SellCardCache) -> Option<(Color, Color)> {
+fn most_demanded_mix(wheel: &ColorWheel, bowls: u32, cache: &BuyerCache) -> Option<(Color, Color)> {
     let mut best_pair = None;
     let mut best_score = 0u32;
     for &(a, b) in &VALID_MIX_PAIRS {
-        if can_supply_mix(wheel, wild_primaries, a, b) {
+        if can_supply_mix(wheel, bowls, a, b) {
             let score = cache.color_demand(mix_result(a, b));
             if score > best_score {
                 best_score = score;
@@ -920,29 +841,29 @@ fn most_demanded_mix(wheel: &ColorWheel, wild_primaries: u32, cache: &SellCardCa
     best_pair
 }
 
-/// Heuristic mix sequence: prefer mixes whose output is useful for sell cards.
+/// Heuristic mix sequence: prefer mixes whose output is useful for buyers.
 #[inline(always)]
 fn heuristic_mix_seq<R: Rng>(
     wheel: &ColorWheel,
-    wild_primaries: u32,
+    bowls: u32,
     remaining: u32,
-    cache: &SellCardCache,
+    cache: &BuyerCache,
     params: &HeuristicParams,
     rng: &mut R,
 ) -> MixSequence {
     if rng.random_bool(params.rollout_epsilon) {
-        return random_mix_seq(wheel, wild_primaries, remaining, rng);
+        return random_mix_seq(wheel, bowls, remaining, rng);
     }
 
     let mut mixes = MixSequence::new();
     let mut sim_wheel = wheel.clone();
-    let mut sim_wild_primaries = wild_primaries;
+    let mut sim_bowls = bowls;
     for _ in 0..remaining.min(MAX_MIX_SEQUENCE as u32) {
-        let (pairs, pair_count) = suppliable_mix_pairs(&sim_wheel, sim_wild_primaries);
+        let (pairs, pair_count) = suppliable_mix_pairs(&sim_wheel, sim_bowls);
         if pair_count == 0 {
             break;
         }
-        let (a, b) = match most_demanded_mix(&sim_wheel, sim_wild_primaries, cache) {
+        let (a, b) = match most_demanded_mix(&sim_wheel, sim_bowls, cache) {
             Some(pair) => pair,
             // If no mix is useful, skip mixing (50% chance) or do random
             None => {
@@ -953,7 +874,7 @@ fn heuristic_mix_seq<R: Rng>(
             }
         };
         mixes.push((a, b));
-        perform_mix_unchecked(&mut sim_wheel, &mut sim_wild_primaries, a, b);
+        perform_mix_unchecked(&mut sim_wheel, &mut sim_bowls, a, b);
     }
     mixes
 }
@@ -963,21 +884,21 @@ fn heuristic_mix_seq<R: Rng>(
 #[inline(always)]
 fn two_step_heuristic_mix_seq<R: Rng>(
     wheel: &ColorWheel,
-    wild_primaries: u32,
+    bowls: u32,
     remaining: u32,
-    cache: &SellCardCache,
+    cache: &BuyerCache,
     params: &HeuristicParams,
     rng: &mut R,
 ) -> MixSequence {
     if remaining < 2 {
-        return heuristic_mix_seq(wheel, wild_primaries, remaining, cache, params, rng);
+        return heuristic_mix_seq(wheel, bowls, remaining, cache, params, rng);
     }
 
     if rng.random_bool(params.rollout_epsilon) {
-        return random_mix_seq(wheel, wild_primaries, remaining, rng);
+        return random_mix_seq(wheel, bowls, remaining, rng);
     }
 
-    let (pairs1, pair1_count) = suppliable_mix_pairs(wheel, wild_primaries);
+    let (pairs1, pair1_count) = suppliable_mix_pairs(wheel, bowls);
     if pair1_count == 0 {
         return MixSequence::new();
     }
@@ -998,11 +919,11 @@ fn two_step_heuristic_mix_seq<R: Rng>(
 
         // Simulate first mix and evaluate second using flat demand (avoids recomputing proximity)
         let mut sim_wheel = wheel.clone();
-        let mut sim_wild_primaries = wild_primaries;
-        perform_mix_unchecked(&mut sim_wheel, &mut sim_wild_primaries, a1, b1);
+        let mut sim_bowls = bowls;
+        perform_mix_unchecked(&mut sim_wheel, &mut sim_bowls, a1, b1);
 
         for &(a2, b2) in &VALID_MIX_PAIRS {
-            if can_supply_mix(&sim_wheel, sim_wild_primaries, a2, b2) {
+            if can_supply_mix(&sim_wheel, sim_bowls, a2, b2) {
                 let output2 = mix_result(a2, b2);
                 let score2 = cache.flat_demand[output2.index()];
                 let total = score1 + score2;
@@ -1019,21 +940,21 @@ fn two_step_heuristic_mix_seq<R: Rng>(
         if rng.random_bool(0.5) {
             return MixSequence::new();
         }
-        return random_mix_seq(wheel, wild_primaries, remaining, rng);
+        return random_mix_seq(wheel, bowls, remaining, rng);
     }
 
     if best_combo.len() == 2 && remaining > 2 {
         let mut sim_wheel = wheel.clone();
-        let mut sim_wild_primaries = wild_primaries;
+        let mut sim_bowls = bowls;
         for &(a, b) in &best_combo {
-            perform_mix_unchecked(&mut sim_wheel, &mut sim_wild_primaries, a, b);
+            perform_mix_unchecked(&mut sim_wheel, &mut sim_bowls, a, b);
         }
         while (best_combo.len() as u32) < remaining.min(MAX_MIX_SEQUENCE as u32) {
-            let Some((a, b)) = most_demanded_mix(&sim_wheel, sim_wild_primaries, cache) else {
+            let Some((a, b)) = most_demanded_mix(&sim_wheel, sim_bowls, cache) else {
                 break;
             };
             best_combo.push((a, b));
-            perform_mix_unchecked(&mut sim_wheel, &mut sim_wild_primaries, a, b);
+            perform_mix_unchecked(&mut sim_wheel, &mut sim_bowls, a, b);
         }
     }
 
@@ -1047,12 +968,9 @@ fn handle_action_no_pending_heuristic(
     params: &HeuristicParams,
     rng: &mut impl Rng,
 ) {
-    let drafted = state.players[player_index].drafted_cards;
+    let drafted = state.players[player_index].top_cards;
     if drafted.is_empty() {
-        end_player_turn(state, player_index, true);
-        if matches!(state.phase, GamePhase::Draw) {
-            rollout_draw_and_draft(state, Some(params), rng);
-        }
+        end_player_turn(state, player_index, true, rng);
         return;
     }
 
@@ -1063,25 +981,25 @@ fn handle_action_no_pending_heuristic(
     }
 
     // Buy a sale only when the player cannot already trigger one for free. A
-    // bought sale spends the same material and colours a drafted Sell card
-    // would have, so paying for it while holding one just burns a ducat.
+    // bought sale spends the same material and colours a drafted Buyer card
+    // would have, so paying for it while holding one just burns a gold_coin.
     //
-    // "Can a ducat buy a sale here?" is the same walk of the buyers the Sell
+    // "Can a gold_coin buy a sale here?" is the same walk of the buyers the Sell
     // priority below needs, so it is made once and both read it.
     let mut memo = PriorityMemo::new(&state.players[player_index]);
-    if state.players[player_index].ducats > 0
+    if state.players[player_index].gold_coins > 0
         && memo.any_affordable_sale(&state.players[player_index])
         && !drafted.iter().any(|id| {
             state.card_lookup[id as usize]
-                .trash_abilities()
+                .top_actions()
                 .contains(&Ability::Sell)
         })
     {
-        resolve_spend_ducat(state, player_index, DucatPurchase::Sell);
+        resolve_spend_gold_coin(state, player_index, GoldCoinPurchase::Sell);
         return;
     }
 
-    // Score each drafted card and pick the best to trash
+    // Score each top card and pick the best to trash
     let mut best_id: Option<u8> = None;
     let mut best_priority = 0u32;
     let mut seen: u64 = 0;
@@ -1113,12 +1031,12 @@ fn handle_action_no_pending_heuristic(
     // priority table scored at nothing still has to be decided.
     let card_id = best_id.or_else(|| drafted.lowest_bit()).expect("a card in the pool");
     let card = state.card_lookup[card_id as usize];
-    match card.trash_abilities() {
+    match card.top_actions() {
         &[Ability::MixColors { count }] => {
-            let cache = SellCardCache::new(&state.players[player_index]);
+            let cache = BuyerCache::new(&state.players[player_index]);
             let player = &mut state.players[player_index];
-            let mixes = two_step_heuristic_mix_seq(&player.color_wheel, player.wild_primaries, count, &cache, params, rng);
-            player.drafted_cards.remove(card_id);
+            let mixes = two_step_heuristic_mix_seq(&player.color_wheel, player.bowls, count, &cache, params, rng);
+            player.top_cards.remove(card_id);
             apply_mixes(player, &mixes);
             state.trash.insert(card_id);
         }
@@ -1126,14 +1044,14 @@ fn handle_action_no_pending_heuristic(
             let sale = memo
                 .sale
                 .unwrap_or_else(|| BestSale::of(&state.players[player_index]));
-            if let Some(sell_card_id) = sale.id {
-                fused_buy(state, player_index, card_id, sell_card_id);
+            if let Some(buyer_id) = sale.id {
+                fused_buy(state, player_index, card_id, buyer_id);
             } else {
-                trash_drafted_card(state, player_index, card_id as u32);
+                trash_top_card(state, player_index, card_id as u32);
             }
         }
         _ => {
-            trash_drafted_card(state, player_index, card_id as u32);
+            trash_top_card(state, player_index, card_id as u32);
         }
     }
 }
@@ -1214,7 +1132,7 @@ fn heuristic_action_step<R: Rng>(
             }
 
             // Score each workshop card and pick the top N
-            let cache = SellCardCache::new(&state.players[player_index]);
+            let cache = BuyerCache::new(&state.players[player_index]);
             let workshop = state.players[player_index].workshop_cards;
             let mut scored: [(u8, u32); 16] = [(0, 0); 16];
             let mut scored_count = 0usize;
@@ -1247,16 +1165,16 @@ fn heuristic_action_step<R: Rng>(
             }
             resolve_workshop_choice(state, player_index, selected);
         }
-        Some(Ability::MoveToDraftPool) => {
+        Some(Ability::LiftCard) => {
             let workshop = state.players[player_index].workshop_cards;
             if workshop.is_empty() {
-                resolve_move_to_draft_pool(state, player_index, None);
+                resolve_lift_card(state, player_index, None);
                 return;
             }
 
             // Epsilon: random
             if rng.random_bool(params.rollout_epsilon) {
-                resolve_move_to_draft_pool(state, player_index, workshop.pick_random(rng));
+                resolve_lift_card(state, player_index, workshop.pick_random(rng));
                 return;
             }
 
@@ -1276,13 +1194,13 @@ fn heuristic_action_step<R: Rng>(
                 }
             }
 
-            resolve_move_to_draft_pool(state, player_index, best_id);
+            resolve_lift_card(state, player_index, best_id);
         }
         Some(Ability::MixColors { count }) => {
             let remaining_mixes = *count;
-            let cache = SellCardCache::new(&state.players[player_index]);
+            let cache = BuyerCache::new(&state.players[player_index]);
             let player = &mut state.players[player_index];
-            let mixes = two_step_heuristic_mix_seq(&player.color_wheel, player.wild_primaries, remaining_mixes, &cache, params, rng);
+            let mixes = two_step_heuristic_mix_seq(&player.color_wheel, player.bowls, remaining_mixes, &cache, params, rng);
             apply_mixes(player, &mixes);
             ability_stack_mut(state, player_index).pop();
             process_ability_stack(state, player_index);
@@ -1290,10 +1208,10 @@ fn heuristic_action_step<R: Rng>(
         Some(Ability::Sell) => {
             // Epsilon: random
             if rng.random_bool(params.rollout_epsilon) {
-                if let Some(sell_card_id) =
-                    pick_random_affordable_sell_card(&state.players[player_index], rng)
+                if let Some(buyer_id) =
+                    pick_random_affordable_buyer(&state.players[player_index], rng)
                 {
-                    resolve_select_sell_card(state, player_index, sell_card_id);
+                    resolve_sell_to_buyer(state, player_index, buyer_id);
                 } else {
                     ability_stack_mut(state, player_index).pop();
                     process_ability_stack(state, player_index);
@@ -1301,16 +1219,16 @@ fn heuristic_action_step<R: Rng>(
                 return;
             }
 
-            // Heuristic: pick best sell card
-            if let Some(sell_card_id) = BestSale::of(&state.players[player_index]).id {
-                resolve_select_sell_card(state, player_index, sell_card_id);
+            // Heuristic: pick best buyer
+            if let Some(buyer_id) = BestSale::of(&state.players[player_index]).id {
+                resolve_sell_to_buyer(state, player_index, buyer_id);
             } else {
                 ability_stack_mut(state, player_index).pop();
                 process_ability_stack(state, player_index);
             }
         }
         Some(Ability::GainSecondary) => {
-            let color = pick_best_color(&SECONDARIES, &SellCardCache::new(&state.players[player_index]), params, rng);
+            let color = pick_best_color(&SECONDARIES, &BuyerCache::new(&state.players[player_index]), params, rng);
             resolve_gain_color(state, player_index, color);
         }
         Some(_) => panic!("Unexpected ability on stack top during rollout"),
@@ -1320,8 +1238,7 @@ fn heuristic_action_step<R: Rng>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::colori_game::apply_choice_to_state;
-    use crate::draw_phase::execute_draw_phase;
+    use crate::apply_choice::apply_choice;
     use crate::fixed_vec::FixedVec;
     use crate::setup::create_initial_game_state;
     use rand::SeedableRng;
@@ -1339,7 +1256,6 @@ mod tests {
     fn seat_zero_ends_round_one(seed: u64) -> GameState {
         let mut rng = WyRand::seed_from_u64(seed);
         let mut state = create_initial_game_state(2, &[true, true], &mut rng);
-        execute_draw_phase(&mut state, &mut rng);
         while !matches!(state.phase, GamePhase::Action { .. }) {
             let player = match &state.phase {
                 GamePhase::Buyers { buyers_state } => buyers_state.current_player_index,
@@ -1348,9 +1264,9 @@ mod tests {
             };
             let choices = crate::choices::enumerate_choices(&state, player);
             let choice = choices[rng.random_range(0..choices.len())].clone();
-            apply_choice_to_state(&mut state, player, &choice, &mut rng);
+            apply_choice(&mut state, player, &choice, &mut rng);
         }
-        end_player_turn(&mut state, 1, true);
+        end_player_turn(&mut state, 1, true, &mut rng);
         state
     }
 
@@ -1360,8 +1276,8 @@ mod tests {
         let seat_one = &state.players[1];
         let mut expected = None;
         let mut best = f64::NEG_INFINITY;
-        for instance in state.sell_card_display.iter() {
-            let score = buyer_alignment(seat_one, instance.sell_card, params);
+        for instance in state.buyer_display.iter() {
+            let score = buyer_alignment(seat_one, instance.buyer, params);
             if score > best {
                 best = score;
                 expected = Some(instance.instance_id);
@@ -1370,12 +1286,17 @@ mod tests {
         expected.expect("round 1 leaves the display stocked")
     }
 
-    /// Ends the round with one heuristic step and checks the first claim of
-    /// round 2.
+    /// Ends the round with a heuristic step, then claims with the next, and
+    /// checks round 2 opened with the claim it should.
     fn assert_round_two_opens_with_heuristic_claim(mut state: GameState, params: &HeuristicParams) {
         let expected = expected_claim(&state, params);
         apply_heuristic_rollout_step(&mut state, false, params, &mut WyRand::seed_from_u64(0));
         assert_eq!(state.round, 2, "seat 0's step should have ended the round");
+        assert!(
+            matches!(state.phase, GamePhase::Buyers { .. }),
+            "opening round 2 lands in its buyers phase"
+        );
+        apply_heuristic_rollout_step(&mut state, false, params, &mut WyRand::seed_from_u64(0));
         assert!(
             state.players[1].buyers.iter().any(|b| b.instance_id == expected),
             "seat 1 should have claimed the best-aligned face-up card"
@@ -1387,7 +1308,7 @@ mod tests {
         let params = greedy_params();
         for seed in 0..20 {
             let mut state = seat_zero_ends_round_one(seed);
-            state.players[0].drafted_cards = UnorderedCards::new();
+            state.players[0].top_cards = UnorderedCards::new();
             assert_round_two_opens_with_heuristic_claim(state, &params);
         }
     }
@@ -1397,7 +1318,7 @@ mod tests {
     #[test]
     fn heuristic_rollouts_claim_by_alignment_after_a_turn_keeps_its_cards() {
         let mut params = greedy_params();
-        // Every drafted card falls under the threshold, so the heuristic keeps
+        // Every top card falls under the threshold, so the heuristic keeps
         // each one rather than using it.
         params.rollout_end_turn_threshold = u32::MAX;
         params.rollout_end_turn_probability_early = 1.0;
@@ -1405,7 +1326,7 @@ mod tests {
             let mut state = seat_zero_ends_round_one(seed);
             // With no buyers there is no sale to buy, which is tried first.
             state.players[0].buyers = FixedVec::new();
-            let drafted = state.players[0].drafted_cards;
+            let drafted = state.players[0].top_cards;
             assert!(!drafted.is_empty());
             let expected = expected_claim(&state, &params);
 
@@ -1416,6 +1337,7 @@ mod tests {
             }
             apply_heuristic_rollout_step(&mut state, false, &params, &mut WyRand::seed_from_u64(0));
             assert_eq!(state.round, 2, "the turn ends once every card is decided");
+            apply_heuristic_rollout_step(&mut state, false, &params, &mut WyRand::seed_from_u64(0));
             assert!(
                 state.players[1].buyers.iter().any(|b| b.instance_id == expected),
                 "seat 1 should have claimed the best-aligned face-up card"

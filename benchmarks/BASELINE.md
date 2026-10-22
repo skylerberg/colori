@@ -191,7 +191,7 @@ for the browser, and it buys the same ~15% speedup the native build measured.
 
 ### The lookup-table hoist, and why it was dropped
 
-The plan called for moving `card_lookup` and `sell_card_lookup` out of
+The plan called for moving `card_lookup` and `buyer_lookup` out of
 `GameState`, on the grounds that 512 bytes per iteration is ~51 MB of memcpy
 over a 100 000-iteration search. The arithmetic is right; the conclusion was
 not. Measured (`--bench ismcts_bench determinize`):

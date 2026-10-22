@@ -28,20 +28,20 @@ enum Gene {
     GumArabicQuality = 10,
     LinseedOilQuality = 11,
     WarehouseQuality = 12,
-    PrimaryDyeQuality = 13,
-    SecondaryDyeQuality = 14,
-    TertiaryDyeQuality = 15,
-    BasicDyeQuality = 16,
+    PrimaryPigmentQuality = 13,
+    SecondaryPigmentQuality = 14,
+    TertiaryPigmentQuality = 15,
+    StarterPigmentQuality = 16,
     StarterMaterialQuality = 17,
     CeramicsMaterialQuality = 18,
     PaintingsMaterialQuality = 19,
     TextilesMaterialQuality = 20,
     DualMaterialQuality = 21,
-    SellCardMaterialAlignment = 22,
-    SellCardColorAlignment = 23,
+    BuyerMaterialAlignment = 22,
+    BuyerColorAlignment = 23,
     WildPrimaryMultiplier = 24,
     BoatMultiplier = 25,
-    UnspentDucatMultiplier = 26,
+    UnspentGoldCoinMultiplier = 26,
     HeuristicLookahead = 27,
     RolloutEpsilon = 28,
     RolloutSellAffordableMultiplier = 29,
@@ -61,7 +61,7 @@ enum Gene {
     RolloutEndTurnMaxRound = 43,
     RolloutWsMaterialBaseMultiplier = 44,
     RolloutWsMaterialColorsMetMultiplier = 45,
-    RolloutWsActionGainDucatsValue = 46,
+    RolloutWsActionGainGoldCoinsValue = 46,
     RolloutWsActionColorDemandMultiplier = 47,
     PrimariesQuality = 48,
 }
@@ -92,20 +92,20 @@ impl GeneTarget for HeuristicParams {
         v[GumArabicQuality as usize] = self.gum_arabic_quality;
         v[WarehouseQuality as usize] = self.warehouse_quality;
         v[LinseedOilQuality as usize] = self.linseed_oil_quality;
-        v[PrimaryDyeQuality as usize] = self.primary_dye_quality;
-        v[SecondaryDyeQuality as usize] = self.secondary_dye_quality;
-        v[TertiaryDyeQuality as usize] = self.tertiary_dye_quality;
-        v[BasicDyeQuality as usize] = self.basic_dye_quality;
+        v[PrimaryPigmentQuality as usize] = self.primary_pigment_quality;
+        v[SecondaryPigmentQuality as usize] = self.secondary_pigment_quality;
+        v[TertiaryPigmentQuality as usize] = self.tertiary_pigment_quality;
+        v[StarterPigmentQuality as usize] = self.starter_pigment_quality;
         v[StarterMaterialQuality as usize] = self.starter_material_quality;
         v[CeramicsMaterialQuality as usize] = self.ceramics_material_quality;
         v[PaintingsMaterialQuality as usize] = self.paintings_material_quality;
         v[TextilesMaterialQuality as usize] = self.textiles_material_quality;
         v[DualMaterialQuality as usize] = self.dual_material_quality;
-        v[SellCardMaterialAlignment as usize] = self.sell_card_material_alignment;
-        v[SellCardColorAlignment as usize] = self.sell_card_color_alignment;
-        v[WildPrimaryMultiplier as usize] = self.wild_primary_multiplier;
+        v[BuyerMaterialAlignment as usize] = self.buyer_material_alignment;
+        v[BuyerColorAlignment as usize] = self.buyer_color_alignment;
+        v[WildPrimaryMultiplier as usize] = self.bowl_multiplier;
         v[BoatMultiplier as usize] = self.boat_multiplier;
-        v[UnspentDucatMultiplier as usize] = self.unspent_ducat_multiplier;
+        v[UnspentGoldCoinMultiplier as usize] = self.unspent_gold_coin_multiplier;
         v[HeuristicLookahead as usize] = self.heuristic_lookahead as f64;
         v[RolloutEpsilon as usize] = self.rollout_epsilon;
         v[RolloutSellAffordableMultiplier as usize] = self.rollout_sell_affordable_multiplier as f64;
@@ -125,7 +125,7 @@ impl GeneTarget for HeuristicParams {
         v[RolloutEndTurnMaxRound as usize] = self.rollout_end_turn_max_round as f64;
         v[RolloutWsMaterialBaseMultiplier as usize] = self.rollout_ws_material_base_multiplier as f64;
         v[RolloutWsMaterialColorsMetMultiplier as usize] = self.rollout_ws_material_colors_met_multiplier as f64;
-        v[RolloutWsActionGainDucatsValue as usize] = self.rollout_ws_action_gain_ducats_value as f64;
+        v[RolloutWsActionGainGoldCoinsValue as usize] = self.rollout_ws_action_gain_gold_coins_value as f64;
         v[RolloutWsActionColorDemandMultiplier as usize] = self.rollout_ws_action_color_demand_multiplier as f64;
         v[PrimariesQuality as usize] = self.primaries_quality;
         v
@@ -142,17 +142,17 @@ impl GeneTarget for HeuristicParams {
             stored_textiles_weight: v[StoredTextilesWeight as usize],
             deck_thinning_value: v[DeckThinningValue as usize],
             chalk_quality: v[ChalkQuality as usize],
-            basic_dye_quality: v[BasicDyeQuality as usize],
+            starter_pigment_quality: v[StarterPigmentQuality as usize],
             starter_material_quality: v[StarterMaterialQuality as usize],
             ceramics_material_quality: v[CeramicsMaterialQuality as usize],
             paintings_material_quality: v[PaintingsMaterialQuality as usize],
             textiles_material_quality: v[TextilesMaterialQuality as usize],
             dual_material_quality: v[DualMaterialQuality as usize],
-            sell_card_material_alignment: v[SellCardMaterialAlignment as usize],
-            sell_card_color_alignment: v[SellCardColorAlignment as usize],
-            wild_primary_multiplier: v[WildPrimaryMultiplier as usize].max(0.0),
+            buyer_material_alignment: v[BuyerMaterialAlignment as usize],
+            buyer_color_alignment: v[BuyerColorAlignment as usize],
+            bowl_multiplier: v[WildPrimaryMultiplier as usize].max(0.0),
             boat_multiplier: v[BoatMultiplier as usize].max(0.0),
-            unspent_ducat_multiplier: v[UnspentDucatMultiplier as usize].max(0.0),
+            unspent_gold_coin_multiplier: v[UnspentGoldCoinMultiplier as usize].max(0.0),
             heuristic_round_threshold: base.heuristic_round_threshold,
             heuristic_lookahead: (v[HeuristicLookahead as usize].round() as u32).max(1),
             alum_quality: v[AlumQuality as usize],
@@ -161,9 +161,9 @@ impl GeneTarget for HeuristicParams {
             warehouse_quality: v[WarehouseQuality as usize],
             linseed_oil_quality: v[LinseedOilQuality as usize],
             primaries_quality: v[PrimariesQuality as usize],
-            primary_dye_quality: v[PrimaryDyeQuality as usize],
-            secondary_dye_quality: v[SecondaryDyeQuality as usize],
-            tertiary_dye_quality: v[TertiaryDyeQuality as usize],
+            primary_pigment_quality: v[PrimaryPigmentQuality as usize],
+            secondary_pigment_quality: v[SecondaryPigmentQuality as usize],
+            tertiary_pigment_quality: v[TertiaryPigmentQuality as usize],
             rollout_epsilon: v[RolloutEpsilon as usize].clamp(0.0, 1.0),
             rollout_sell_affordable_multiplier: v[RolloutSellAffordableMultiplier as usize].round().max(0.0) as u32,
             rollout_sell_base: v[RolloutSellBase as usize].round().max(0.0) as u32,
@@ -182,7 +182,7 @@ impl GeneTarget for HeuristicParams {
             rollout_end_turn_max_round: v[RolloutEndTurnMaxRound as usize].round().max(2.0) as u32,
             rollout_ws_material_base_multiplier: v[RolloutWsMaterialBaseMultiplier as usize].round().max(0.0) as u32,
             rollout_ws_material_colors_met_multiplier: v[RolloutWsMaterialColorsMetMultiplier as usize].round().max(0.0) as u32,
-            rollout_ws_action_gain_ducats_value: v[RolloutWsActionGainDucatsValue as usize].round().max(0.0) as u32,
+            rollout_ws_action_gain_gold_coins_value: v[RolloutWsActionGainGoldCoinsValue as usize].round().max(0.0) as u32,
             rollout_ws_action_color_demand_multiplier: v[RolloutWsActionColorDemandMultiplier as usize].round().max(0.0) as u32,
         }
     }
@@ -205,7 +205,7 @@ impl GeneTarget for HeuristicParams {
             Gene::RolloutEndTurnMaxRound as usize,
             Gene::RolloutWsMaterialBaseMultiplier as usize,
             Gene::RolloutWsMaterialColorsMetMultiplier as usize,
-            Gene::RolloutWsActionGainDucatsValue as usize,
+            Gene::RolloutWsActionGainGoldCoinsValue as usize,
             Gene::RolloutWsActionColorDemandMultiplier as usize,
         ]
     }
@@ -259,7 +259,7 @@ fn run_ga_game(
 ) -> f64 {
     let variant = |params: &HeuristicParams| NamedVariant {
         name: None,
-        ai: MctsConfig {
+        bot: MctsConfig {
             iterations: eval_iterations,
             use_heuristic_eval: true,
             ..MctsConfig::new(params.clone())
@@ -302,7 +302,7 @@ pub fn run_genetic_algorithm(args: &TrainArgs, threads: usize, output: &str) {
             load_heuristic_params(path)
         }
         None => {
-            eprintln!("Seeding population from the params the AI plays with");
+            eprintln!("Seeding population from the params the bot plays with");
             default_heuristic_params()
         }
     };

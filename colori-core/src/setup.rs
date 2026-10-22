@@ -1,8 +1,9 @@
 use crate::cards::*;
 use crate::deck::Deck;
+use crate::round::{deal_opening_workshops, start_round};
 use crate::fixed_vec::FixedVec;
 use crate::types::*;
-use crate::unordered_cards::{set_sell_card_registry, set_card_registry, UnorderedSellCards, UnorderedCards};
+use crate::unordered_cards::{set_buyer_registry, set_card_registry, UnorderedBuyers, UnorderedCards};
 use rand::Rng;
 use smallvec::SmallVec;
 use std::cell::Cell;
@@ -20,7 +21,7 @@ fn next_card_id() -> u8 {
     })
 }
 
-fn next_sell_card_id() -> u8 {
+fn next_buyer_id() -> u8 {
     NEXT_SELL_CARD_ID.with(|c| {
         let id = c.get();
         c.set(id + 1);
@@ -33,11 +34,11 @@ fn reset_id_counters() {
     NEXT_SELL_CARD_ID.with(|c| c.set(0));
 }
 
-pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool], rng: &mut R) -> GameState {
+pub fn create_initial_game_state<R: Rng>(num_players: usize, bot_players: &[bool], rng: &mut R) -> GameState {
     reset_id_counters();
 
     let mut card_lookup = [Card::BasicRed; 256];
-    let mut sell_card_lookup = [ALL_SELL_CARDS[0]; 256];
+    let mut buyer_lookup = [ALL_BUYERS[0]; 256];
 
     // Starter cards take the first ids, a deck's worth per seat in seat order.
     // The frontend reads a starter card's character portrait off its id.
@@ -57,15 +58,15 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
 
             PlayerState {
                 deck: Deck::from_cards(starting_cards),
-                workshopped_cards: UnorderedCards::new(),
+                used_cards: UnorderedCards::new(),
                 workshop_cards: UnorderedCards::new(),
-                drafted_cards: UnorderedCards::new(),
+                top_cards: UnorderedCards::new(),
                 color_wheel,
-                materials: Materials::new(),
+                materials_wheel: MaterialsWheel::new(),
                 buyers: FixedVec::new(),
-                completed_sell_cards: SmallVec::new(),
-                ducats: 1,
-                wild_primaries: 0,
+                completed_orders: SmallVec::new(),
+                gold_coins: 1,
+                bowls: 0,
                 boats: 1,
                 cached_whole_points: 1,
             }
@@ -81,40 +82,48 @@ pub fn create_initial_game_state<R: Rng>(num_players: usize, ai_players: &[bool]
         }
     }
 
-    // Build sell card deck
-    let mut sell_card_deck = UnorderedSellCards::new();
-    for (sell_card, copies) in sell_deck_cards() {
+    // Build buyer deck
+    let mut buyer_deck = UnorderedBuyers::new();
+    for (buyer, copies) in buyer_deck_cards() {
         for _ in 0..copies {
-            let id = next_sell_card_id();
-            sell_card_lookup[id as usize] = sell_card;
-            sell_card_deck.insert(id);
+            let id = next_buyer_id();
+            buyer_lookup[id as usize] = buyer;
+            buyer_deck.insert(id);
         }
     }
 
-    let mut sell_card_display: FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY> = FixedVec::new();
-    let drawn_sell_cards = sell_card_deck.draw_multiple(MAX_SELL_CARD_DISPLAY as u32, rng);
-    for id in drawn_sell_cards.iter() {
-        sell_card_display.push(SellCardInstance {
+    let mut buyer_display: FixedVec<BuyerInstance, MAX_BUYER_DISPLAY> = FixedVec::new();
+    let drawn_buyers = buyer_deck.draw_multiple(MAX_BUYER_DISPLAY as u32, rng);
+    for id in drawn_buyers.iter() {
+        buyer_display.push(BuyerInstance {
             instance_id: id as u32,
-            sell_card: sell_card_lookup[id as usize],
+            buyer: buyer_lookup[id as usize],
         });
     }
 
     set_card_registry(&card_lookup);
-    set_sell_card_registry(&sell_card_lookup);
+    set_buyer_registry(&buyer_lookup);
 
-    GameState {
+    let mut state = GameState {
         players,
         draft_deck,
         trash: UnorderedCards::new(),
-        sell_card_deck,
-        sell_card_display,
-        phase: GamePhase::Draw,
+        buyer_deck,
+        buyer_display,
+        phase: GamePhase::Buyers {
+            buyers_state: BuyersState { current_player_index: 0 },
+        },
         round: 1,
         max_rounds: NUM_ROUNDS,
-        ai_players: FixedVec::from_slice(ai_players),
+        bot_players: FixedVec::from_slice(bot_players),
         card_lookup,
-        sell_card_lookup,
+        buyer_lookup,
         draw_log: None,
-    }
+    };
+
+    // Setup deals the opening workshop; from here a player only ever draws as
+    // the last act of their own turn. Round 1 then opens as every round does.
+    deal_opening_workshops(&mut state, rng);
+    start_round(&mut state, rng);
+    state
 }

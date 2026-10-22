@@ -1,12 +1,12 @@
 use crate::game_log::{DrawEvent, DrawLog};
-use crate::types::{GameState, SellCardInstance};
+use crate::types::{GameState, BuyerInstance};
 
-/// In replay mode, pop the next SellCardReveal event and apply it.
-pub fn replay_sell_card_reveal(state: &mut GameState) -> bool {
+/// In replay mode, pop the next BuyerReveal event and apply it.
+pub fn replay_buyer_reveal(state: &mut GameState) -> bool {
     let event = match &mut state.draw_log {
         Some(DrawLog::Replaying(queue)) => {
-            // Peek to check if next event is SellCardReveal
-            if matches!(queue.front(), Some(DrawEvent::SellCardReveal { .. })) {
+            // Peek to check if next event is BuyerReveal
+            if matches!(queue.front(), Some(DrawEvent::BuyerReveal { .. })) {
                 queue.pop_front()
             } else {
                 return false;
@@ -14,10 +14,10 @@ pub fn replay_sell_card_reveal(state: &mut GameState) -> bool {
         }
         _ => return false,
     };
-    if let Some(DrawEvent::SellCardReveal { sell_card }) = event {
-        let id = sell_card.instance_id as u8;
-        state.sell_card_deck.remove(id);
-        state.sell_card_display.push(sell_card);
+    if let Some(DrawEvent::BuyerReveal { buyer }) = event {
+        let id = buyer.instance_id as u8;
+        state.buyer_deck.remove(id);
+        state.buyer_display.push(buyer);
         return true;
     }
     false
@@ -30,18 +30,18 @@ pub fn is_replaying(state: &GameState) -> bool {
 
 /// Record a buyer claimed off the top of the deck. The display refill has its
 /// own event; this is the one nothing else can reconstruct.
-pub fn record_buyer_draw(state: &mut GameState, player_index: usize, sell_card: SellCardInstance) {
+pub fn record_buyer_draw(state: &mut GameState, player_index: usize, buyer: BuyerInstance) {
     if let Some(DrawLog::Recording(log)) = &mut state.draw_log {
         log.push(DrawEvent::BuyerDraw {
             player_index,
-            sell_card,
+            buyer,
         });
     }
 }
 
 /// In replay mode, consume this player's BuyerDraw event and return the card
 /// it recorded. Returns None when the recorded draw came up empty.
-pub fn replay_buyer_draw(state: &mut GameState, player_index: usize) -> Option<SellCardInstance> {
+pub fn replay_buyer_draw(state: &mut GameState, player_index: usize) -> Option<BuyerInstance> {
     let matches_player = matches!(
         &state.draw_log,
         Some(DrawLog::Replaying(queue))
@@ -55,9 +55,9 @@ pub fn replay_buyer_draw(state: &mut GameState, player_index: usize) -> Option<S
         _ => return None,
     };
     match event {
-        Some(DrawEvent::BuyerDraw { sell_card, .. }) => {
-            state.sell_card_deck.remove(sell_card.instance_id as u8);
-            Some(sell_card)
+        Some(DrawEvent::BuyerDraw { buyer, .. }) => {
+            state.buyer_deck.remove(buyer.instance_id as u8);
+            Some(buyer)
         }
         _ => None,
     }

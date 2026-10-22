@@ -1,9 +1,11 @@
-use crate::colors::{can_supply_mix, pay_cost, perform_mix, wild_primaries_to_cover_sale, PRIMARIES, VALID_MIX_PAIRS};
+use crate::colors::{bowls_to_cover_sale, can_supply_mix, pay_cost, perform_mix, VALID_MIX_PAIRS};
+use crate::round::{draw_into_workshop, end_round};
 use crate::types::{
-    Ability, AbilityStack, ActionState, Card, Color, DucatPurchase, GamePhase, GameState,
-    PlayerState, PlayerTurn, SellCard,
+    Ability, AbilityStack, ActionState, Buyer, Card, Color, GamePhase, GameState, GoldCoinPurchase,
+    PlayerState, PlayerTurn,
 };
 use crate::unordered_cards::UnorderedCards;
+use rand::Rng;
 use smallvec::SmallVec;
 
 /// Iterate over unique card types in a card set, deduplicating by card variant.
@@ -29,45 +31,45 @@ pub fn initialize_action_phase(state: &mut GameState) {
     };
 }
 
-/// Take a card out of the draft pool because it is being used.
+/// Take a card out of the top cards because it is being used.
 ///
-/// Every path that trashes a drafted card goes through here: the choice
+/// Every path that trashes a top card goes through here: the choice
 /// resolver, and the rollouts' fused mix and sale steps, which skip the ability
 /// stack.
 #[inline]
-pub(crate) fn take_drafted_card(state: &mut GameState, player_index: usize, id: u8) {
+pub(crate) fn take_top_card(state: &mut GameState, player_index: usize, id: u8) {
     assert!(
-        state.players[player_index].drafted_cards.contains(id),
-        "Card not found in player's draftedCards"
+        state.players[player_index].top_cards.contains(id),
+        "Card not found in player's topCards"
     );
-    state.players[player_index].drafted_cards.remove(id);
+    state.players[player_index].top_cards.remove(id);
 }
 
-/// Keep a drafted card instead of using it: it comes out of the draft pool and
+/// Keep a top card instead of using it: it comes out of the top cards and
 /// goes on top of the player's deck, to be drawn again next round.
 pub fn resolve_keep_card(state: &mut GameState, player_index: usize, card_instance_id: u32) {
     let id = card_instance_id as u8;
     let player = &mut state.players[player_index];
     assert!(
-        player.drafted_cards.contains(id),
-        "Card not found in player's draftedCards"
+        player.top_cards.contains(id),
+        "Card not found in player's topCards"
     );
-    player.drafted_cards.remove(id);
+    player.top_cards.remove(id);
     let mut kept = UnorderedCards::new();
     kept.insert(id);
     player.deck.push_top(kept);
 }
 
-pub fn trash_drafted_card(state: &mut GameState, player_index: usize, card_instance_id: u32) {
+pub fn trash_top_card(state: &mut GameState, player_index: usize, card_instance_id: u32) {
     let id = card_instance_id as u8;
-    take_drafted_card(state, player_index, id);
+    take_top_card(state, player_index, id);
 
     let card = state.card_lookup[id as usize];
     state.trash.insert(id);
 
     // The stack is LIFO, so the first ability listed goes on last.
     let stack = ability_stack_mut(state, player_index);
-    for &ability in card.trash_abilities().iter().rev() {
+    for &ability in card.top_actions().iter().rev() {
         stack.push(ability);
     }
     process_ability_stack(state, player_index);
@@ -88,23 +90,15 @@ pub fn process_ability_stack(state: &mut GameState, player_index: usize) {
                     return; // waiting for input
                 }
             }
-            Ability::GainDucats { count } => {
+            Ability::GainGoldCoins { count } => {
                 ability_stack_mut(state, player_index).pop();
-                state.players[player_index].ducats += count;
+                state.players[player_index].gold_coins += count;
                 state.players[player_index].cached_whole_points += count;
                 continue;
             }
-            Ability::GainWildPrimaries { count } => {
+            Ability::GainBowls { count } => {
                 ability_stack_mut(state, player_index).pop();
-                state.players[player_index].wild_primaries += count;
-                continue;
-            }
-            Ability::GainPrimaries => {
-                ability_stack_mut(state, player_index).pop();
-                let wheel = &mut state.players[player_index].color_wheel;
-                for color in PRIMARIES {
-                    wheel.increment(color);
-                }
+                state.players[player_index].bowls += count;
                 continue;
             }
             Ability::GainBoats { count } => {
@@ -124,7 +118,7 @@ pub fn process_ability_stack(state: &mut GameState, player_index: usize) {
                 ability_stack_mut(state, player_index).pop();
                 continue;
             }
-            Ability::MoveToDraftPool => {
+            Ability::LiftCard => {
                 return; // always needs input
             }
             Ability::Sell => {
@@ -145,42 +139,42 @@ pub fn process_ability_stack(state: &mut GameState, player_index: usize) {
 /// Boats a sale would take from `player`: those the card asks for outright,
 /// plus one for each material it asks for that the player has not stored.
 #[inline]
-pub(crate) fn boats_to_sell(player: &PlayerState, sell_card: SellCard) -> u32 {
-    let stats = sell_card.stats();
+pub(crate) fn boats_to_sell(player: &PlayerState, buyer: Buyer) -> u32 {
+    let stats = buyer.stats();
     let mut boats = stats.boats;
-    for (stored, &needed) in player.materials.counts.iter().zip(&stats.materials) {
+    for (stored, &needed) in player.materials_wheel.counts.iter().zip(&stats.material_units) {
         boats += (needed as u32).saturating_sub(*stored);
     }
     boats
 }
 
 #[inline]
-pub(crate) fn can_afford_sell_card(player: &PlayerState, sell_card: &SellCard) -> bool {
-    boats_to_sell(player, *sell_card) <= player.boats
-        && wild_primaries_to_cover_sale(&player.color_wheel, sell_card.stats())
-            .is_some_and(|needed| needed <= player.wild_primaries)
+pub(crate) fn can_afford_buyer(player: &PlayerState, buyer: &Buyer) -> bool {
+    boats_to_sell(player, *buyer) <= player.boats
+        && bowls_to_cover_sale(&player.color_wheel, buyer.stats())
+            .is_some_and(|needed| needed <= player.bowls)
 }
 
 /// Sell to the buyer at `index`, paying with the materials and colours it asks
-/// for before any boat or wild primary standing in for them.
+/// for before any boat or bowl standing in for them.
 pub(crate) fn sell_to_buyer(player: &mut PlayerState, index: usize) {
     // Order-preserving, so the slot a buyer occupied is not visibly shuffled
     // when an earlier one sells.
     let sold = player.buyers.remove(index);
 
-    let mut boats = sold.sell_card.required_boats();
-    for &material in sold.sell_card.required_materials() {
-        if !player.materials.decrement(material) {
+    let mut boats = sold.buyer.required_boats();
+    for &material in sold.buyer.required_materials() {
+        if !player.materials_wheel.decrement(material) {
             boats += 1;
         }
     }
     assert!(player.boats >= boats, "Not enough stored material or boats");
     player.boats -= boats;
-    let paid = pay_cost(&mut player.color_wheel, &mut player.wild_primaries, sold.sell_card.color_cost());
-    assert!(paid, "Cannot pay sell card color cost");
+    let paid = pay_cost(&mut player.color_wheel, &mut player.bowls, sold.buyer.color_cost());
+    assert!(paid, "Cannot pay buyer color cost");
 
-    player.cached_whole_points += sold.sell_card.points();
-    player.completed_sell_cards.push(sold);
+    player.cached_whole_points += sold.buyer.points();
+    player.completed_orders.push(sold);
 }
 
 /// Whether `player` can sell to one of their own buyers. The shared display is
@@ -190,44 +184,44 @@ pub fn can_sell_to_any_buyer(player: &PlayerState) -> bool {
     player
         .buyers
         .iter()
-        .any(|b| can_afford_sell_card(player, &b.sell_card))
+        .any(|b| can_afford_buyer(player, &b.buyer))
 }
 
-/// Whether the player can make any mix at all, counting a wild primary as whichever
+/// Whether the player can make any mix at all, counting a bowl as whichever
 /// primary is missing.
 #[inline]
 pub fn can_mix_any(player: &PlayerState) -> bool {
     VALID_MIX_PAIRS
         .iter()
-        .any(|&(a, b)| can_supply_mix(&player.color_wheel, player.wild_primaries, a, b))
+        .any(|&(a, b)| can_supply_mix(&player.color_wheel, player.bowls, a, b))
 }
 
-/// Whether spending a ducat on `purchase` would actually do something.
+/// Whether spending a gold_coin on `purchase` would actually do something.
 ///
 /// A purchase that cannot act would pop straight off the stack and burn the
-/// ducat, so it is never offered.
-pub fn can_buy_with_ducat(player: &PlayerState, purchase: DucatPurchase) -> bool {
-    if player.ducats == 0 {
+/// gold_coin, so it is never offered.
+pub fn can_buy_with_gold_coin(player: &PlayerState, purchase: GoldCoinPurchase) -> bool {
+    if player.gold_coins == 0 {
         return false;
     }
     match purchase {
-        DucatPurchase::Workshop => !player.workshop_cards.is_empty(),
-        DucatPurchase::MixColors => can_mix_any(player),
-        DucatPurchase::Sell => can_sell_to_any_buyer(player),
+        GoldCoinPurchase::Workshop => !player.workshop_cards.is_empty(),
+        GoldCoinPurchase::MixColors => can_mix_any(player),
+        GoldCoinPurchase::Sell => can_sell_to_any_buyer(player),
     }
 }
 
-/// Pay a ducat and put what it bought on the ability stack.
+/// Pay a gold_coin and put what it bought on the ability stack.
 ///
-/// Ducats are score, so the cached score has to move with them. The purchase
+/// GoldCoins are score, so the cached score has to move with them. The purchase
 /// is pushed rather than fused into the choice: the abilities it buys already
 /// have resolution paths and choice enumerators, and pushing keeps the
 /// top-level menu three choices wider instead of multiplying by what each
 /// ability could then do.
-pub fn resolve_spend_ducat(state: &mut GameState, player_index: usize, purchase: DucatPurchase) {
+pub fn resolve_spend_gold_coin(state: &mut GameState, player_index: usize, purchase: GoldCoinPurchase) {
     let player = &mut state.players[player_index];
-    assert!(player.ducats >= 1, "Cannot spend a ducat without one");
-    player.ducats -= 1;
+    assert!(player.gold_coins >= 1, "Cannot spend a gold_coin without one");
+    player.gold_coins -= 1;
     player.cached_whole_points -= 1;
 
     ability_stack_mut(state, player_index).push(purchase.ability());
@@ -257,9 +251,9 @@ pub fn resolve_workshop_choice(
     for id in selected_cards.iter() {
         let card = state.card_lookup[id as usize];
         player.workshop_cards.remove(id);
-        player.workshopped_cards.insert(id);
+        player.used_cards.insert(id);
         for &material in card.material_types() {
-            player.materials.increment(material);
+            player.materials_wheel.increment(material);
         }
         for &color in card.colors() {
             player.color_wheel.increment(color);
@@ -287,7 +281,7 @@ pub fn skip_workshop(state: &mut GameState, player_index: usize) {
 
 pub fn resolve_mix_colors(state: &mut GameState, player_index: usize, color_a: Color, color_b: Color) {
     let player = &mut state.players[player_index];
-    let success = perform_mix(&mut player.color_wheel, &mut player.wild_primaries, color_a, color_b);
+    let success = perform_mix(&mut player.color_wheel, &mut player.bowls, color_a, color_b);
     if !success {
         panic!("Cannot mix {:?} and {:?}", color_a, color_b);
     }
@@ -307,21 +301,22 @@ pub fn skip_mix(state: &mut GameState, player_index: usize) {
     process_ability_stack(state, player_index);
 }
 
-/// Move an unworkshopped card into the player's draft pool, or move nothing.
+/// Lift an unused card from the workshop onto the player's top cards, or move
+/// nothing when there is none.
 ///
 /// `None` is the fizzle when the workshop is empty, and also how a turn that
-/// is ending declines a move it could have made — see
+/// is ending declines a lift it could have made — see
 /// [`skip_pending_abilities`].
 ///
-/// Nothing is trashed here. A card in the draft pool can be trashed later
-/// in the turn through the ordinary drafted-card path, which triggers its
+/// Nothing is trashed here. A card in the top cards can be trashed later
+/// in the turn through the ordinary top-card path, which triggers its
 /// ability on the stack exactly as before — and when this ability resolves the
 /// stack beneath it is always empty, since no card's *workshop* abilities
 /// include this one, so trashing now and trashing later reach the same
-/// state. What is new is the option to leave the card in the pool, from where
+/// state. What is new is the option to leave the card there, from where
 /// ending the turn keeps it on top of the deck rather than letting the
 /// workshop's shuffle send it to the bottom.
-pub fn resolve_move_to_draft_pool(state: &mut GameState, player_index: usize, target: Option<u8>) {
+pub fn resolve_lift_card(state: &mut GameState, player_index: usize, target: Option<u8>) {
     ability_stack_mut(state, player_index).pop();
 
     if let Some(id) = target {
@@ -331,7 +326,7 @@ pub fn resolve_move_to_draft_pool(state: &mut GameState, player_index: usize, ta
             "Card not found in player's workshopCards"
         );
         player.workshop_cards.remove(id);
-        player.drafted_cards.insert(id);
+        player.top_cards.insert(id);
     }
 
     process_ability_stack(state, player_index);
@@ -346,17 +341,17 @@ pub fn skip_sell(state: &mut GameState, player_index: usize) {
     process_ability_stack(state, player_index);
 }
 
-pub fn resolve_select_sell_card(state: &mut GameState, player_index: usize, sell_card_instance_id: u32) {
+pub fn resolve_sell_to_buyer(state: &mut GameState, player_index: usize, buyer_instance_id: u32) {
     ability_stack_mut(state, player_index).pop();
 
     let player = &mut state.players[player_index];
-    let sell_card_index = player
+    let buyer_index = player
         .buyers
         .iter()
-        .position(|c| c.instance_id == sell_card_instance_id)
-        .expect("Sell card not found in the player's buyers");
+        .position(|c| c.instance_id == buyer_instance_id)
+        .expect("Buyer card not found in the player's buyers");
 
-    sell_to_buyer(player, sell_card_index);
+    sell_to_buyer(player, buyer_index);
 
     // The freed slot stays empty until the next buyers phase.
     process_ability_stack(state, player_index);
@@ -372,79 +367,90 @@ pub fn resolve_gain_color(state: &mut GameState, player_index: usize, color: Col
 /// possible.
 ///
 /// Workshop, Mix Colors and Any Secondary are declined by dropping them,
-/// exactly as their own skips do. Sell and Move to Draft Pool are declined
-/// here: while each can still act the rules leave no other way to say no, and
-/// a turn that is over has no decision left in it. Automatic abilities never
+/// exactly as their own skips do. Sell and Lift a Card are declined here:
+/// while each can still act the rules leave no other way to say no, and a
+/// turn that is over has no decision left in it. Automatic abilities never
 /// wait for an answer, so `process_ability_stack` has already resolved them.
 pub fn skip_pending_abilities(state: &mut GameState, player_index: usize) {
     while let Some(ability) = ability_stack(state, player_index).last().copied() {
         match ability {
             Ability::Sell => skip_sell(state, player_index),
-            Ability::MoveToDraftPool => resolve_move_to_draft_pool(state, player_index, None),
+            Ability::LiftCard => resolve_lift_card(state, player_index, None),
             // Instant abilities resolve as the stack is processed, so one is
             // never on top here.
             Ability::Workshop { .. } | Ability::MixColors { .. } | Ability::GainSecondary => {
                 ability_stack_mut(state, player_index).pop();
                 process_ability_stack(state, player_index);
             }
-            Ability::GainDucats { .. }
-            | Ability::GainWildPrimaries { .. }
-            | Ability::GainPrimaries
-            | Ability::GainBoats { .. } => unreachable!("an instant ability was waiting for a choice"),
+            Ability::GainGoldCoins { .. } | Ability::GainBowls { .. } | Ability::GainBoats { .. } => {
+                unreachable!("an instant ability was waiting for a choice")
+            }
         }
     }
 }
 
 /// End `player_index`'s turn. Everyone acts at once, so the round ends with
 /// whoever finishes last.
+/// End `player_index`'s turn. Everyone acts at once, so the round ends with
+/// whoever finishes last.
 ///
-/// `keep_remaining` decides what becomes of the drafted cards the turn never
+/// `keep_remaining` decides what becomes of the top cards the turn never
 /// decided. Kept, they go where keeping puts them: on top of the deck, to be
-/// drawn into the next workshop. Otherwise each is trashed, taking its action
-/// and skipping whatever that action asks — the same as trashing it and
-/// declining every choice it opens.
-pub fn end_player_turn(state: &mut GameState, player_index: usize, keep_remaining: bool) {
+/// drawn back into the workshop. Otherwise each is used, taking its top action
+/// and skipping whatever that action asks — the same as using it and declining
+/// every choice it opens.
+pub fn end_player_turn<R: Rng>(
+    state: &mut GameState,
+    player_index: usize,
+    keep_remaining: bool,
+    rng: &mut R,
+) {
     // Ending the turn declines whatever was still waiting on the player.
     skip_pending_abilities(state, player_index);
 
     if !keep_remaining {
-        while let Some(id) = state.players[player_index].drafted_cards.lowest_bit() {
-            trash_drafted_card(state, player_index, id as u32);
+        while let Some(id) = state.players[player_index].top_cards.lowest_bit() {
+            trash_top_card(state, player_index, id as u32);
             skip_pending_abilities(state, player_index);
         }
     }
 
-    let player = &mut state.players[player_index];
-    // The whole workshop area is shuffled onto the bottom of the deck.
-    player
-        .deck
-        .push_bottom(player.workshop_cards.union(player.workshopped_cards));
-    if keep_remaining {
-        player.deck.push_top(player.drafted_cards);
+    let round_is_over = {
+        let player = &mut state.players[player_index];
+
+        // The whole workshop area is shuffled onto the bottom of the deck. Any
+        // card the turn never decided is a card it kept, so it goes where
+        // keeping puts one: on top, to be drawn back into the workshop.
+        player
+            .deck
+            .push_bottom(player.workshop_cards.union(player.used_cards));
+        if keep_remaining {
+            player.deck.push_top(player.top_cards);
+        }
+        player.workshop_cards = UnorderedCards::new();
+        player.used_cards = UnorderedCards::new();
+        player.top_cards = UnorderedCards::new();
+
+        let action_state = get_action_state_mut(state);
+        let turn = &mut action_state.turns[player_index];
+        debug_assert!(
+            !turn.ended && turn.ability_stack.is_empty(),
+            "Player {player_index} ended a turn that was over or still had abilities pending"
+        );
+        turn.ended = true;
+        action_state.turns.iter().all(|turn| turn.ended)
+    };
+
+    // Draw straight away, as the turn's last act. A workshop is topped up
+    // rather than dealt, so this is also how a kept card comes back. The last
+    // round ends with this turn, so its workshop is never used again and
+    // nothing is drawn: a final turn stays free of randomness.
+    if state.round < state.max_rounds {
+        draw_into_workshop(state, player_index, rng);
     }
-    player.workshop_cards = UnorderedCards::new();
-    player.workshopped_cards = UnorderedCards::new();
-    player.drafted_cards = UnorderedCards::new();
 
-    let action_state = get_action_state_mut(state);
-    let turn = &mut action_state.turns[player_index];
-    debug_assert!(
-        !turn.ended && turn.ability_stack.is_empty(),
-        "Player {player_index} ended a turn that was over or still had abilities pending"
-    );
-    turn.ended = true;
-
-    if action_state.turns.iter().all(|turn| turn.ended) {
-        end_round(state);
-    }
-}
-
-pub fn end_round(state: &mut GameState) {
-    state.round += 1;
-    if state.round > state.max_rounds {
-        state.phase = GamePhase::GameOver;
-    } else {
-        state.phase = GamePhase::Draw;
+    if round_is_over {
+        end_round(state, rng);
     }
 }
 
