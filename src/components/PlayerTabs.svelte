@@ -37,7 +37,7 @@
         <span class="tab-name">
           {gameState.playerNames[i]}
           {#if i === viewerIndex}<span class="badge you">You</span>{/if}
-          {#if gameState.botPlayers[i]}<span class="badge ai">AI</span>{/if}
+          {#if gameState.botPlayers[i]}<span class="badge bot">Bot</span>{/if}
         </span>
         <span class="tab-meta">
           <span class="score">{formatScore(playerScore(player))} pts</span>
@@ -128,7 +128,7 @@
     letter-spacing: 0.05em;
   }
 
-  .badge.ai {
+  .badge.bot {
     background: rgba(139, 32, 32, 0.85);
     color: #f5ede0;
   }

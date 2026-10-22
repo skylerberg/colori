@@ -162,7 +162,7 @@ pub struct OpponentModel {
 ///
 /// The shared search panics when a position offers the searching player no
 /// choices, and a panic compiled to wasm reaches JS only as
-/// `RuntimeError: unreachable` — no message, no location. The web AI is asked
+/// `RuntimeError: unreachable` — no message, no location. The web bot is asked
 /// from an async view that can describe a turn that has already ended, so it
 /// checks here and reports a real error instead of trapping.
 ///

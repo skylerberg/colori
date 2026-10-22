@@ -1,11 +1,11 @@
 <script lang="ts">
   import type { BotSettings, GameState, Choice, Card, Ability, DrawEvent, StructuredLogEntry } from '../data/types';
-  import { executeDrawPhase, applyChoice, simultaneousPick, advanceDraft, cloneGameState } from '../engine/wasmEngine';
+  import { applyChoice, simultaneousPick, advanceDraft, cloneGameState } from '../engine/wasmEngine';
   import { getCardData } from '../data/cards';
-  import { AIController, type DraftPicker } from '../ai/aiController';
-  import { AIActionTurns } from '../ai/actionTurns';
+  import { BotController, type DraftPicker } from '../bots/botController';
+  import { BotActionTurns } from '../bots/actionTurns';
   import type { GameLogAccumulator } from '../gameLog';
-  import { type LogEntry, draftedEntries, playEntry, roundEntry, snapshot } from '../logEntries';
+  import { type LogEntry, topCardEntries, playEntry, roundEntry, snapshot } from '../logEntries';
   import { actingPlayers, isTakingActionTurn } from '../gameUtils';
   import GameLayout from './GameLayout.svelte';
   import BuyersPhaseView from './BuyersPhaseView.svelte';
@@ -16,14 +16,14 @@
   import { createErrorReport, type ErrorReport } from '../errorReport';
   import { untrack } from 'svelte';
 
-  let { gameState, gameStartTime, onGameUpdated, initialGameLog, onLeaveGame, gameLogAccumulator, aiIterations, botSettings }: {
+  let { gameState, gameStartTime, onGameUpdated, initialGameLog, onLeaveGame, gameLogAccumulator, botIterations, botSettings }: {
     gameState: GameState;
     gameStartTime: number | null;
     onGameUpdated: (state: GameState, log: LogEntry[]) => void;
     initialGameLog: LogEntry[];
     onLeaveGame: () => void;
     gameLogAccumulator: GameLogAccumulator | null;
-    aiIterations: number[];
+    botIterations: number[];
     botSettings: BotSettings;
   } = $props();
 
@@ -40,17 +40,16 @@
 
   // svelte-ignore state_referenced_locally
   let draftCardOrder: number[][] = $state(gameState.players.map(() => []));
-  let drawExecutedForRound: number | null = $state(null);
   // A buyers claim or draft pick being searched for.
-  let aiThinking = $state(false);
-  let aiError: ErrorReport | null = $state(null);
+  let botThinking = $state(false);
+  let botError: ErrorReport | null = $state(null);
   // svelte-ignore state_referenced_locally
   let gameLog: LogEntry[] = $state(initialGameLog);
 
   // Start tutorial on first mount (checks localStorage internally)
   let tutorialStarted = false;
   $effect(() => {
-    if (!tutorialStarted && gameState.phase.type !== 'draw') {
+    if (!tutorialStarted) {
       tutorialStarted = true;
       startTutorial();
     }
@@ -65,43 +64,46 @@
     if (entry) gameLog = [...gameLog, entry];
   }
 
-  // Apply a choice outside the action phase, logging what it did.
+  // A round opens inside the choice that ends the last turn of the one before,
+  // so the log and the draft tracking are rolled over here rather than by a
+  // phase of their own.
+  function noteRoundChange(round: number) {
+    if (gameState.round === round) return;
+    addLog(roundEntry(gameState.round));
+    humanPicked = false;
+    draftCardOrder = gameState.players.map(() => []);
+  }
+
+  // Apply a choice, logging what it did.
   function applyLogged(playerIndex: number, choice: Choice): DrawEvent[] {
     const before = snapshot(gameState.players[playerIndex]);
     const round = gameState.round;
     const draws = applyChoice(gameState, playerIndex, choice);
     addLog(playEntry(round, playerIndex, choice, before, gameState.players[playerIndex]));
+    noteRoundChange(round);
     return draws;
   }
 
-  const aiController = new AIController();
+  // Nothing draws a round in any more, so the log opens at round 1.
+  $effect(() => {
+    if (gameLog.length === 0) addLog(roundEntry(gameState.round));
+  });
+
+  const botController = new BotController();
   // svelte-ignore state_referenced_locally
-  aiController.botSettings = botSettings;
-  const aiActionTurns = new AIActionTurns(aiController);
+  botController.botSettings = botSettings;
+  const botActionTurns = new BotActionTurns(botController);
   let thinkingInActionPhase: number[] = $state([]);
 
   $effect(() => {
     return () => {
-      aiActionTurns.cancel();
-      aiController.terminate();
+      botActionTurns.cancel();
+      botController.terminate();
     };
   });
 
   let humanPicked = $state(false);
-  let humanPlayerIndex = $derived(gameState.botPlayers.findIndex(ai => !ai));
-
-  // When the phase is 'draw', automatically execute the draw phase.
-  $effect(() => {
-    if (gameState.phase.type === 'draw' && drawExecutedForRound !== gameState.round) {
-      drawExecutedForRound = gameState.round;
-      addLog(roundEntry(gameState.round));
-      const drawPhaseDraws = executeDrawPhase(gameState);
-      gameLogAccumulator?.recordDrawPhaseDraws(drawPhaseDraws);
-      humanPicked = false;
-      draftCardOrder = gameState.players.map(() => []);
-      onGameUpdated(gameState, gameLog);
-    }
-  });
+  let humanPlayerIndex = $derived(gameState.botPlayers.findIndex(bot => !bot));
 
   let selectedPlayerIndex = $state(0);
 
@@ -111,7 +113,7 @@
 
   // The human whose action controls are showing: the one whose board is
   // being looked at if they still have a turn to take, and otherwise the
-  // first who does. It stays put while an AI's board is looked at, so a
+  // first who does. It stays put while a bot's board is looked at, so a
   // half-planned move survives the visit.
   let actionViewSeat = $state(-1);
   $effect(() => {
@@ -154,9 +156,9 @@
   let thinkingPlayers = $derived.by(() => {
     switch (gameState.phase.type) {
       case 'buyers':
-        return aiThinking ? [gameState.phase.buyersState.currentPlayerIndex] : [];
+        return botThinking ? [gameState.phase.buyersState.currentPlayerIndex] : [];
       case 'draft':
-        return aiThinking ? gameState.botPlayers.flatMap((ai, i) => (ai ? [i] : [])) : [];
+        return botThinking ? gameState.botPlayers.flatMap((ai, i) => (ai ? [i] : [])) : [];
       case 'action':
         return thinkingInActionPhase;
       default:
@@ -281,6 +283,7 @@
       if (isCompoundableTrash(choice)) awaitingFollowUp.set(playerIndex, step);
     }
 
+    noteRoundChange(round);
     syncActionLog();
     onGameUpdated(gameState, gameLog);
   }
@@ -332,9 +335,9 @@
     onGameUpdated(gameState, gameLog);
   }
 
-  // Start each AI's turn as the phase opens, and again after a failed one is retried.
+  // Start each bot's turn as the phase opens, and again after a failed one is retried.
   $effect(() => {
-    if (gameState.phase.type !== 'action' || aiError) return;
+    if (gameState.phase.type !== 'action' || botError) return;
     untrack(() => {
       if (actionPhase?.round !== gameState.round) beginActionPhase();
       startAITurns();
@@ -342,27 +345,27 @@
   });
 
   function startAITurns() {
-    const aiSeats = gameState.botPlayers.flatMap((ai, i) => (ai ? [i] : []));
-    aiActionTurns.start(
+    const botSeats = gameState.botPlayers.flatMap((ai, i) => (ai ? [i] : []));
+    botActionTurns.start(
       gameState,
-      aiSeats,
-      seat => aiIterations[seat],
+      botSeats,
+      seat => botIterations[seat],
       (seat, choice) => {
         if (!isTakingActionTurn(gameState, seat)) return false;
         playActionChoice(seat, choice);
         return true;
       },
-      () => { thinkingInActionPhase = aiActionTurns.thinking; },
+      () => { thinkingInActionPhase = botActionTurns.thinking; },
       e => {
-        console.error('AI action error:', e);
-        aiError = createErrorReport('An AI turn failed', e, gameState);
+        console.error('bot action error:', e);
+        botError = createErrorReport("A bot's turn failed", e, gameState);
       },
     );
   }
 
   // ── Buyers and draft ──
 
-  // Unified action handler for both human UI and AI choices
+  // Unified action handler for both the human UI and bot choices
   function handleAction(playerIndex: number, choice: Choice) {
     // Draft picks use simultaneous picking
     if (gameState.phase.type === 'draft' && choice.type === 'draftPick') {
@@ -396,25 +399,25 @@
     onGameUpdated(gameState, gameLog);
   }
 
-  function aiDraftPickers(): DraftPicker[] {
+  function botDraftPickers(): DraftPicker[] {
     if (gameState.phase.type !== 'draft') return [];
     const { hands } = gameState.phase.draftState;
-    return gameState.botPlayers.flatMap((isAI, playerIndex) =>
-      isAI && hands[playerIndex].length > 0 ? [{ playerIndex, iterations: aiIterations[playerIndex] }] : []
+    return gameState.botPlayers.flatMap((isBot, playerIndex) =>
+      isBot && hands[playerIndex].length > 0 ? [{ playerIndex, iterations: botIterations[playerIndex] }] : []
     );
   }
 
   async function resolveAIDraftPicks() {
-    aiThinking = true;
+    botThinking = true;
     try {
       const results = await Promise.all(
-        aiDraftPickers().map(async (picker) => ({
+        botDraftPickers().map(async (picker) => ({
           playerIdx: picker.playerIndex,
-          choice: await aiController.draftPick(gameState, picker),
+          choice: await botController.draftPick(gameState, picker),
         }))
       );
 
-      // Apply all AI picks
+      // Apply every bot's pick
       for (const { playerIdx, choice } of results) {
         gameLogAccumulator?.recordChoice(gameState, choice, playerIdx);
         simultaneousPick(gameState, playerIdx, (choice as { type: 'draftPick'; card: any }).card);
@@ -431,55 +434,55 @@
       // Advance draft (rotate hands)
       advanceDraft(gameState);
       if (gameState.phase.type !== 'draft') {
-        for (const entry of draftedEntries(gameState, draftCardOrder)) addLog(entry);
+        for (const entry of topCardEntries(gameState, draftCardOrder)) addLog(entry);
       }
       humanPicked = false;
       onGameUpdated(gameState, gameLog);
     } catch (e) {
-      console.error('AI draft error:', e);
-      aiError = createErrorReport('An AI draft pick failed', e, gameState);
+      console.error('bot draft error:', e);
+      botError = createErrorReport("A bot's draft pick failed", e, gameState);
     } finally {
-      aiThinking = false;
+      botThinking = false;
     }
   }
 
-  // The AI players' draft picks are searched while the human decides and
+  // The bots' draft picks are searched while the human decides and
   // applied once they have picked, or straight away when nobody is human.
   $effect(() => {
     if (gameState.phase.type !== 'draft') {
-      aiController.cancelDraftPicks();
+      botController.cancelDraftPicks();
       return;
     }
-    if (aiThinking || aiError) return;
+    if (botThinking || botError) return;
     if (humanPlayerIndex >= 0 && !humanPicked) {
-      aiController.startDraftPicks(gameState, aiDraftPickers());
+      botController.startDraftPicks(gameState, botDraftPickers());
     } else {
       resolveAIDraftPicks();
     }
   });
 
-  // Trigger the AI's claim when an AI is seated in the buyers phase
+  // Trigger a bot's claim when a bot is seated in the buyers phase
   $effect(() => {
-    if (aiThinking || aiError) return;
+    if (botThinking || botError) return;
     if (gameState.phase.type !== 'buyers') return;
 
     const playerIdx = gameState.phase.buyersState.currentPlayerIndex;
     if (!gameState.botPlayers[playerIdx]) return;
 
-    aiThinking = true;
+    botThinking = true;
 
-    aiController.getAIChoice(gameState, playerIdx, aiIterations[playerIdx]).then((choice) => {
-      aiThinking = false;
+    botController.getBotChoice(gameState, playerIdx, botIterations[playerIdx]).then((choice) => {
+      botThinking = false;
       handleAction(playerIdx, choice);
     }).catch((e) => {
-      console.error('AI buyers error:', e);
-      aiThinking = false;
-      aiError = createErrorReport('An AI buyer claim failed', e, gameState);
+      console.error('bot buyers error:', e);
+      botThinking = false;
+      botError = createErrorReport("A bot's buyer claim failed", e, gameState);
     });
   });
 </script>
 
-<GameLayout {gameState} actingPlayers={shownActingPlayers} {thinkingPlayers} {viewerIndex} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} {selectedPlayerIndex} onSelectPlayer={selectPlayer} {aiError} onRetryAI={() => { aiError = null; }} {draftCardOrder}>
+<GameLayout {gameState} actingPlayers={shownActingPlayers} {thinkingPlayers} {viewerIndex} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} {selectedPlayerIndex} onSelectPlayer={selectPlayer} {botError} onRetryAI={() => { botError = null; }} {draftCardOrder}>
   {#if gameState.phase.type === 'buyers'}
     {#if !gameState.botPlayers[buyersClaimant]}
       <BuyersPhaseView {gameState} playerIndex={buyersClaimant} onAction={(choice) => handleAction(buyersClaimant, choice)} />
@@ -493,7 +496,7 @@
         <WaitingNotice text="Waiting for the others to pick" />
       {/if}
     {:else}
-      <WaitingNotice text="The AI players are drafting" />
+      <WaitingNotice text="The bots are drafting" />
     {/if}
   {:else if gameState.phase.type === 'action'}
     {#if actionViewSeat >= 0 && isActingHuman(actionViewSeat)}
@@ -508,7 +511,7 @@
       {/key}
     {:else}
       <WaitingNotice
-        text={humanPlayerIndex >= 0 ? 'Your turn is over' : 'The AI players are taking their turns'}
+        text={humanPlayerIndex >= 0 ? 'Your turn is over' : 'The bots are taking their turns'}
         detail={stillPlaying ? `Waiting for ${stillPlaying}…` : undefined}
       />
     {/if}

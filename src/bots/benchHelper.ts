@@ -1,10 +1,9 @@
 import type { GameState } from '../data/types';
-import { createInitialGameState, executeDrawPhase, applyChoice } from '../engine/wasmEngine';
+import { createInitialGameState, applyChoice } from '../engine/wasmEngine';
 
 export function setupDraftGame(numPlayers: number): GameState {
   const names = Array.from({ length: numPlayers }, (_, i) => `Player ${i + 1}`);
   const state = createInitialGameState(names, names.map(() => true));
-  executeDrawPhase(state);
   resolveBuyers(state);
   return state;
 }

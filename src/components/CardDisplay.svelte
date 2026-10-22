@@ -5,7 +5,7 @@
   import { cardPreviewState } from '../stores/cardPreviewState.svelte';
 
   // The full card appears only once the pointer has rested on it a while.
-  // Sell cards are small, so theirs comes sooner.
+  // Buyer cards are small, so theirs comes sooner.
   const SELL_CARD_HOVER_MS = 700;
   const CARD_HOVER_MS = 1000;
   const LONG_PRESS_MS = 450;

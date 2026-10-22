@@ -48,10 +48,10 @@ export function mixInputs(color: Color): [Color, Color] | null {
   return [WHEEL_ORDER[(i - reach + n) % n], WHEEL_ORDER[(i + reach) % n]];
 }
 
-// A wild primary covers a Red, Yellow or Blue the wheel lacks, and stored
+// A bowl covers a Red, Yellow or Blue the color wheel lacks, and stored
 // colors are always spent first. These mirror `colori_core::colors`.
 
-// Mix a and b, or return null when the wheel and wild primaries cannot supply them.
+// Mix a and b, or return null when the color wheel and bowls cannot supply them.
 export function mixWithWildPrimaries(
   wheel: Record<Color, number>,
   bowls: number,

@@ -1,7 +1,7 @@
 import { describe, bench } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { initSync, AiSearcher } from '../wasm-pkg/colori_wasm';
+import { initSync, BotSearcher } from '../wasm-pkg/colori_wasm';
 import { setupDraftGame, setupActionGame } from './benchHelper';
 
 // Initialize WASM synchronously for Node.js (vitest) environment
@@ -10,7 +10,7 @@ const wasmBytes = readFileSync(wasmPath);
 initSync({ module: new WebAssembly.Module(wasmBytes) });
 
 function runWasm(state: object, playerIndex: number, iterations: number): object {
-  const searcher = new AiSearcher();
+  const searcher = new BotSearcher();
   try {
     return JSON.parse(searcher.search(JSON.stringify(state), playerIndex, iterations, '{}'));
   } finally {

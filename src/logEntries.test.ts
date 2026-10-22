@@ -11,8 +11,8 @@ function player(): PlayerState {
     workshopCards: [{ instanceId: 1, card: 'BasicRed' }, { instanceId: 8, card: 'StarterCeramics' }],
     topCards: [{ instanceId: 20, card: 'Cinnabar' }],
     colorWheel: Object.fromEntries(ALL_COLORS.map(c => [c, 0])) as Record<Color, number>,
-    materials: { Textiles: 0, Ceramics: 0, Paintings: 0 },
-    completedBuyers: [],
+    materialsWheel: { Textiles: 0, Ceramics: 0, Paintings: 0 },
+    completedOrders: [],
     goldCoins: 1,
     bowls: 0,
     boats: 1,
@@ -40,7 +40,7 @@ describe('playEntry', () => {
     after.workshopCards = [];
     after.usedCards = before.workshopCards;
     after.colorWheel.Red = 1;
-    after.materials.Ceramics = 1;
+    after.materialsWheel.Ceramics = 1;
 
     const entry = playEntry(2, 0, { type: 'trashAndWorkshop', card: 'Cinnabar', workshopCards: ['StarterCeramics', 'BasicRed'] }, before, after);
     expect(entry).toEqual({
@@ -48,7 +48,7 @@ describe('playEntry', () => {
       round: 2,
       player: 0,
       moves: [
-        { type: 'trash', card: { instanceId: 20, card: 'Cinnabar' } },
+        { type: 'topAction', card: { instanceId: 20, card: 'Cinnabar' } },
         { type: 'workshop', cards: [{ instanceId: 8, card: 'StarterCeramics' }, { instanceId: 1, card: 'BasicRed' }] },
       ],
       change: { colors: { Red: 1 }, materials: { Ceramics: 1 }, goldCoins: 0, boats: 0, bowls: 0, points: 0 },
@@ -70,7 +70,7 @@ describe('playEntry', () => {
     after.colorWheel.Amber = 0;
     after.boats = 0;
     after.buyers = [];
-    after.completedBuyers = [{ instanceId: 3, card: 'PotterAmber' }];
+    after.completedOrders = [{ instanceId: 3, card: 'PotterAmber' }];
     const change = logChange(before, after);
     expect(change).toEqual({ colors: { Amber: -1 }, materials: {}, goldCoins: 0, boats: -1, bowls: 0, points: 3 });
   });

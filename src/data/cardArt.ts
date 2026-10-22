@@ -53,7 +53,7 @@ export function getBuyerArtUrl(buyer: Buyer): string {
 }
 
 export const CARD_BACK_URL = CARD_ART_BASE_PATH + 'back.webp';
-export const SELL_CARD_BACK_URL = CARD_ART_BASE_PATH + 'sell/back.webp';
+export const BUYER_CARD_BACK_URL = CARD_ART_BASE_PATH + 'sell/back.webp';
 
 export function playerBoardArtUrl(seat: number): string {
   return `/boards/${seatCharacter(seat)}.webp`;

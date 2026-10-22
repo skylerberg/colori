@@ -6,7 +6,7 @@ use serde::Deserialize;
 // ── Top-level CLI ──
 
 #[derive(Parser)]
-#[command(name = "colori-runner", about = "Colori game simulation and AI training tool")]
+#[command(name = "colori-runner", about = "Colori game simulation and bot training tool")]
 pub struct Cli {
     /// Number of threads to use
     #[arg(long, default_value_t = 10, global = true)]
@@ -46,7 +46,7 @@ pub struct SimulateArgs {
     #[arg(long)]
     pub variants: Option<String>,
 
-    /// Path to heuristic params JSON file [default: the params the AI plays with]
+    /// Path to heuristic params JSON file [default: the params the bot plays with]
     #[arg(long)]
     pub heuristic_params_file: Option<String>,
 
@@ -104,7 +104,7 @@ pub struct TrainArgs {
     #[arg(long, default_value_t = 4000)]
     pub eval_iterations: u32,
 
-    /// Path to seed heuristic params JSON file [default: the params the AI plays with]
+    /// Path to seed heuristic params JSON file [default: the params the bot plays with]
     #[arg(long)]
     pub seed_params: Option<String>,
 
@@ -118,7 +118,7 @@ pub struct TrainArgs {
 #[derive(Clone)]
 pub struct NamedVariant {
     pub name: Option<String>,
-    pub ai: MctsConfig,
+    pub bot: MctsConfig,
 }
 
 #[derive(Deserialize)]
@@ -170,7 +170,7 @@ impl VariantFileEntry {
         let base = MctsConfig::new(heuristic_params);
         NamedVariant {
             name: self.name,
-            ai: MctsConfig {
+            bot: MctsConfig {
                 iterations: self.iterations.unwrap_or(base.iterations),
                 exploration_constant: self.exploration_constant.unwrap_or(base.exploration_constant),
                 max_rollout_steps: self.max_rollout_steps.unwrap_or(base.max_rollout_steps),
@@ -209,7 +209,7 @@ pub fn parse_inline_variants(variants_str: &str, heuristic_params: HeuristicPara
             let iters: u32 = s.trim().parse().expect("Invalid --variants value");
             NamedVariant {
                 name: None,
-                ai: MctsConfig { iterations: iters, ..MctsConfig::new(heuristic_params.clone()) },
+                bot: MctsConfig { iterations: iters, ..MctsConfig::new(heuristic_params.clone()) },
             }
         })
         .collect()

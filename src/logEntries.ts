@@ -19,13 +19,13 @@ export interface LogChange {
 
 export type LogMove =
   | { type: 'claim'; buyer: Buyer; unseen: boolean }
-  | { type: 'drafted'; cards: CardInstance[] }
-  | { type: 'trash'; card: CardInstance }
+  | { type: 'picked'; cards: CardInstance[] }
+  | { type: 'topAction'; card: CardInstance }
   | { type: 'keep'; card: CardInstance }
   | { type: 'workshop'; cards: CardInstance[] }
   | { type: 'mix'; mixes: [Color, Color][] }
   | { type: 'sell'; buyer: Buyer }
-  | { type: 'move'; card: CardInstance | null }
+  | { type: 'lift'; card: CardInstance | null }
   | { type: 'secondary'; color: Color }
   | { type: 'spendGoldCoin'; purchase: GoldCoinPurchase }
   | { type: 'endTurn' };
@@ -58,10 +58,10 @@ export function logChange(before: PlayerState, after: PlayerState): LogChange {
   }
   const materials: LogChange['materials'] = {};
   for (const material of MATERIALS) {
-    const delta = after.materials[material] - before.materials[material];
+    const delta = after.materialsWheel[material] - before.materialsWheel[material];
     if (delta !== 0) materials[material] = delta;
   }
-  const sold = (p: PlayerState) => p.completedBuyers.reduce((sum, s) => sum + getBuyerData(s.card).points, 0);
+  const sold = (p: PlayerState) => p.completedOrders.reduce((sum, s) => sum + getBuyerData(s.card).points, 0);
   return {
     colors,
     materials,
@@ -88,10 +88,10 @@ function instancesOf(cards: string[], from: CardInstance[]): CardInstance[] {
 }
 
 function movesFor(choice: Choice, before: PlayerState, after: PlayerState): LogMove[] {
-  const trashed = (card: string): LogMove => ({ type: 'trash', card: instancesOf([card], before.topCards)[0] });
+  const used = (card: string): LogMove => ({ type: 'topAction', card: instancesOf([card], before.topCards)[0] });
   const workshopped = (cards: string[]): LogMove => ({ type: 'workshop', cards: instancesOf(cards, before.workshopCards) });
   const moved = (card: string | null): LogMove => ({
-    type: 'move',
+    type: 'lift',
     card: card === null ? null : instancesOf([card], before.workshopCards)[0],
   });
   switch (choice.type) {
@@ -105,17 +105,17 @@ function movesFor(choice: Choice, before: PlayerState, after: PlayerState): LogM
       return drawn ? [{ type: 'claim', buyer: drawn.card, unseen: true }] : [];
     }
     case 'trashTopCard':
-      return [trashed(choice.card)];
+      return [used(choice.card)];
     case 'keepCard':
       return [{ type: 'keep', card: instancesOf([choice.card], before.topCards)[0] }];
     case 'trashAndWorkshop':
-      return [trashed(choice.card), workshopped(choice.workshopCards)];
+      return [used(choice.card), workshopped(choice.workshopCards)];
     case 'trashAndMix':
-      return [trashed(choice.card), { type: 'mix', mixes: choice.mixes }];
+      return [used(choice.card), { type: 'mix', mixes: choice.mixes }];
     case 'trashAndSell':
-      return [trashed(choice.card), { type: 'sell', buyer: choice.buyer }];
+      return [used(choice.card), { type: 'sell', buyer: choice.buyer }];
     case 'trashAndLift':
-      return [trashed(choice.card), moved(choice.target)];
+      return [used(choice.card), moved(choice.target)];
     case 'workshop':
       return [workshopped(choice.cardTypes)];
     case 'skipWorkshop':
@@ -144,12 +144,12 @@ export function playEntry(round: number, player: number, choice: Choice, before:
 }
 
 // Everyone's draft, once it is over and the cards are face up.
-export function draftedEntries(state: GameState, draftOrder?: number[][]): LogEntry[] {
+export function topCardEntries(state: GameState, draftOrder?: number[][]): LogEntry[] {
   return state.players.map((player, i) => {
     const order = draftOrder?.[i] ?? [];
     const cards = [...player.topCards].sort((a, b) => rank(order, a) - rank(order, b));
     const none = logChange(player, player);
-    return { kind: 'play', round: state.round, player: i, moves: [{ type: 'drafted', cards }], change: none };
+    return { kind: 'play', round: state.round, player: i, moves: [{ type: 'picked', cards }], change: none };
   });
 }
 

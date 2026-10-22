@@ -11,8 +11,8 @@ export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
     workshopCards: sp.workshopCards,
     topCards: sp.topCards,
     colorWheel: sp.colorWheel,
-    materials: sp.materials,
-    completedBuyers: sp.completedBuyers,
+    materialsWheel: sp.materialsWheel,
+    completedOrders: sp.completedOrders,
     goldCoins: sp.goldCoins,
     bowls: sp.bowls,
     boats: sp.boats,
@@ -34,10 +34,8 @@ export function sanitizedToGameState(sanitized: SanitizedGameState): GameState {
       type: 'action',
       actionState: { ...sanitized.phase.actionState },
     };
-  } else if (sanitized.phase.type === 'gameOver') {
-    phase = { type: 'gameOver' };
   } else {
-    phase = { type: 'draw' };
+    phase = { type: 'gameOver' };
   }
 
   return {

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { initSync, AiSearcher } from '../wasm-pkg/colori_wasm';
+import { initSync, BotSearcher } from '../wasm-pkg/colori_wasm';
 import { setupDraftGame, setupActionGame } from './benchHelper';
-import { AI_PARAMS_CHOICES } from '../data/gameSetup';
+import { BOT_PARAMS_CHOICES } from '../data/gameSetup';
 import { applyChoice, cloneGameState } from '../engine/wasmEngine';
 import { isTakingActionTurn } from '../gameUtils';
 import type { BotSettings, Choice, GameState } from '../data/types';
@@ -12,12 +12,12 @@ import type { BotSettings, Choice, GameState } from '../data/types';
 const wasmPath = resolve(__dirname, '../wasm-pkg/colori_wasm_bg.wasm');
 initSync({ module: new WebAssembly.Module(readFileSync(wasmPath)) });
 
-function search(searcher: AiSearcher, state: GameState, playerIndex: number, iterations: number, botSettings: BotSettings = {}): Choice {
+function search(searcher: BotSearcher, state: GameState, playerIndex: number, iterations: number, botSettings: BotSettings = {}): Choice {
   return JSON.parse(searcher.search(JSON.stringify(state), playerIndex, iterations, JSON.stringify(botSettings)));
 }
 
 function runSearch(state: GameState, playerIndex: number, iterations: number, botSettings: BotSettings = {}): Choice {
-  const searcher = new AiSearcher();
+  const searcher = new BotSearcher();
   try {
     return search(searcher, state, playerIndex, iterations, botSettings);
   } finally {
@@ -31,7 +31,7 @@ function runSearch(state: GameState, playerIndex: number, iterations: number, bo
  * crate boundary, so a break in serialisation, in wasm-bindgen glue, or in a
  * feature that is only disabled for wasm would not have shown up anywhere.
  */
-describe('AiSearcher', () => {
+describe('BotSearcher', () => {
   it('returns a legal-looking choice during the draft', () => {
     const state = setupDraftGame(3);
     const choice = runSearch(state, 0, 200);
@@ -48,10 +48,10 @@ describe('AiSearcher', () => {
     }
   });
 
-  it('searches with each kind of advanced AI setting', () => {
+  it('searches with each kind of advanced bot setting', () => {
     const state = setupDraftGame(2);
     const settings: BotSettings[] = [
-      ...AI_PARAMS_CHOICES.map(choice => ({ params: choice.value })),
+      ...BOT_PARAMS_CHOICES.map(choice => ({ params: choice.value })),
       { rolloutLookahead: 0 },
       { rolloutLookahead: 6 },
     ];
@@ -66,11 +66,11 @@ describe('AiSearcher', () => {
   });
 
   // Each seat plays its turn on its own view, applying its choices as
-  // `AIActionTurns` does, so the next request has been through the same JSON
+  // `BotActionTurns` does, so the next request has been through the same JSON
   // round trip as in the browser.
   it('carries its tree from one decision of a turn to the next', () => {
     const state = setupActionGame(3);
-    const searcher = new AiSearcher();
+    const searcher = new BotSearcher();
     const firsts: number[] = [];
     const laters: number[] = [];
     try {
@@ -93,7 +93,7 @@ describe('AiSearcher', () => {
 
   it('starts afresh at any position but the one its last choice led to', () => {
     const state = setupActionGame(3);
-    const searcher = new AiSearcher();
+    const searcher = new BotSearcher();
     try {
       search(searcher, state, 0, 300);
       search(searcher, state, 0, 300);

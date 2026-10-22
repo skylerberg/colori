@@ -3,7 +3,6 @@ import { isPrimary } from '../data/colors';
 import { getBuyerData } from '../data/cards';
 import init, {
   wasm_create_initial_game_state,
-  wasm_execute_draw_phase,
   wasm_apply_choice,
   wasm_simultaneous_pick,
   wasm_advance_draft,
@@ -21,10 +20,10 @@ export async function initEngine(): Promise<void> {
 
 export function createInitialGameState(playerNames: string[], botPlayers?: boolean[]): GameState {
   const ai = botPlayers ?? playerNames.map(() => false);
-  const aiJson = JSON.stringify(ai);
+  const botJson = JSON.stringify(ai);
   const resultJson = engineCall(
-    () => wasm_create_initial_game_state(playerNames.length, aiJson),
-    { call: 'createInitialGameState', players: playerNames.length, ai: aiJson },
+    () => wasm_create_initial_game_state(playerNames.length, botJson),
+    { call: 'createInitialGameState', players: playerNames.length, ai: botJson },
   );
   const state: GameState = JSON.parse(resultJson);
   state.playerNames = playerNames;
@@ -36,17 +35,6 @@ export function createInitialGameState(playerNames: string[], botPlayers?: boole
 // TypeScript-only fields like `playerNames`. Object.assign preserves these existing
 // properties on `state` that are absent from the WASM output. If you change this to
 // direct assignment or structuredClone, those fields will be silently lost.
-
-export function executeDrawPhase(state: GameState): DrawEvent[] {
-  const stateJson = JSON.stringify(state);
-  const resultJson = engineCall(
-    () => wasm_execute_draw_phase(stateJson),
-    { call: 'executeDrawPhase', state: stateJson },
-  );
-  const result: { state: GameState; draws: DrawEvent[] } = JSON.parse(resultJson);
-  Object.assign(state, result.state);
-  return result.draws;
-}
 
 export function applyChoice(state: GameState, playerIndex: number, choice: Choice): DrawEvent[] {
   const stateJson = JSON.stringify(state);
@@ -99,7 +87,7 @@ export function determineWinners(players: PlayerState[], playerNames: string[]):
   const ranked = players.map((p, i) => ({
     name: playerNames[i],
     score: calculateScores([p], [playerNames[i]])[0].score,
-    buyers: p.completedBuyers.length,
+    buyers: p.completedOrders.length,
     colors: Object.values(p.colorWheel).reduce((sum, c) => sum + (c as number), 0),
   }));
   ranked.sort((a, b) => b.score - a.score || b.buyers - a.buyers || b.colors - a.colors);
@@ -116,7 +104,7 @@ export function canSell(player: PlayerState, buyerInstanceId: number): boolean {
   return buyerInstance !== undefined && saleShortfall(player, buyerInstance.card).length === 0;
 }
 
-// What a sale to `buyer` still lacks once boats and wild primaries have
+// What a sale to `buyer` still lacks once boats and bowls have
 // stood in where they can, one entry per missing item; empty when it can be
 // made. Mirrors `action_phase::can_afford_sell_card`: a boat stands in for
 // each material the player lacks, on top of any the card asks for outright.
@@ -132,7 +120,7 @@ export function saleShortfall(player: PlayerState, buyer: Buyer): string[] {
   const used: Partial<Record<MaterialType, number>> = {};
   for (const material of data.requiredMaterials) {
     const taken = used[material] ?? 0;
-    if (player.materials[material] > taken) used[material] = taken + 1;
+    if (player.materialsWheel[material] > taken) used[material] = taken + 1;
     else if (boats > 0) boats--;
     else missing.push(material);
   }

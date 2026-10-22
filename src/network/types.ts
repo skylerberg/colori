@@ -14,8 +14,8 @@ export interface SanitizedPlayerState {
   workshopCards: CardInstance[];
   topCards: CardInstance[];
   colorWheel: Record<Color, number>;
-  materials: Record<MaterialType, number>;
-  completedBuyers: BuyerInstance[];
+  materialsWheel: Record<MaterialType, number>;
+  completedOrders: BuyerInstance[];
   goldCoins: number;
   bowls: number;
   boats: number;
@@ -78,7 +78,7 @@ export type HostMessage =
   | { type: 'hostLeft'; reason: 'intentional' | 'crashed' }
   | { type: 'playerDisconnected'; playerIndex: number; playerName: string }
   | { type: 'playerReconnected'; playerIndex: number; playerName: string }
-  | { type: 'playerReplacedByAI'; playerIndex: number; playerName: string }
+  | { type: 'playerReplacedByBot'; playerIndex: number; playerName: string }
   | { type: 'pong'; t: number };
 
 export type GuestMessage =

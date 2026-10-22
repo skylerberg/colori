@@ -62,7 +62,7 @@ pub struct HeuristicParams {
 }
 
 impl HeuristicParams {
-    /// What the AI plays with unless told otherwise, and what a genetic
+    /// What the bot plays with unless told otherwise, and what a genetic
     /// algorithm run tunes from unless given a seed.
     pub const DEFAULT_JSON: &str =
         include_str!("../../../genetic-algorithm/batch-alobyo-gen-45.json");

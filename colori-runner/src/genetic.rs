@@ -259,7 +259,7 @@ fn run_ga_game(
 ) -> f64 {
     let variant = |params: &HeuristicParams| NamedVariant {
         name: None,
-        ai: MctsConfig {
+        bot: MctsConfig {
             iterations: eval_iterations,
             use_heuristic_eval: true,
             ..MctsConfig::new(params.clone())
@@ -302,7 +302,7 @@ pub fn run_genetic_algorithm(args: &TrainArgs, threads: usize, output: &str) {
             load_heuristic_params(path)
         }
         None => {
-            eprintln!("Seeding population from the params the AI plays with");
+            eprintln!("Seeding population from the params the bot plays with");
             default_heuristic_params()
         }
     };

@@ -12,7 +12,6 @@ export type Ability =
   | { type: 'gainGoldCoins'; count: number }
   | { type: 'gainSecondary' }
   | { type: 'gainBowls'; count: number }
-  | { type: 'gainPrimaries' }
   | { type: 'gainBoats'; count: number };
 
 // Card variant name strings from Rust
@@ -115,15 +114,16 @@ export interface PlayerState {
   // because a round's leftover workshop goes to the bottom as one. See
   // `colori_core::deck::Deck`.
   deck: CardInstance[][];
-  // Sell cards claimed for this player alone. Only these can be sold to; the
+  // Buyers claimed for this player alone. Only these can be sold to; the
   // shared display is claimed from during the buyers phase.
   buyers: BuyerInstance[];
   usedCards: CardInstance[];
   workshopCards: CardInstance[];
   topCards: CardInstance[];
   colorWheel: Record<Color, number>;
-  materials: Record<MaterialType, number>;
-  completedBuyers: BuyerInstance[];
+  // Stored materials, on the materials wheel.
+  materialsWheel: Record<MaterialType, number>;
+  completedOrders: BuyerInstance[];
   goldCoins: number;
   // Wild primaries and wild materials. Each is worth half a point unspent.
   bowls: number;
@@ -154,7 +154,6 @@ export interface BuyersState {
 }
 
 export type GamePhase =
-  | { type: 'draw' }
   | { type: 'buyers'; buyersState: BuyersState }
   | { type: 'draft'; draftState: DraftState }
   | { type: 'action'; actionState: ActionState }
@@ -220,7 +219,7 @@ export interface PlayerVariant {
   botSettings?: BotSettings;
 }
 
-/** The advanced AI settings from the setup screen; `{}` is the default AI. Mirrors `BotSettings` in colori-wasm. */
+/** The advanced bot settings from the setup screen; `{}` is the default bot. Mirrors `BotSettings` in colori-wasm. */
 export interface BotSettings {
   /** Which trained parameters to play with. */
   params?: string;
@@ -235,7 +234,7 @@ export interface StructuredGameLog {
   playerNames: string[];
   botPlayers: boolean[];
   initialState: GameState;
-  finalScores: { name: string; score: number; completedBuyers?: number; colorWheelTotal?: number }[] | null;
+  finalScores: { name: string; score: number; completedOrders?: number; colorWheelTotal?: number }[] | null;
   finalPlayerStats: FinalPlayerStats[] | null;
   entries: StructuredLogEntry[];
   initialDraws?: DrawEvent[];
@@ -248,10 +247,10 @@ export interface StructuredGameLog {
 export interface FinalPlayerStats {
   name: string;
   deckSize: number;
-  completedBuyers: BuyerInstance[];
+  completedOrders: BuyerInstance[];
   goldCoins: number;
   bowls?: number;
   boats?: number;
   colorWheel: Record<Color, number>;
-  materials: Record<MaterialType, number>;
+  materialsWheel: Record<MaterialType, number>;
 }

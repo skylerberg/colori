@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { BotSettings, GameState, StructuredGameLog } from './data/types';
-  import { DEFAULT_AI_ITERATIONS } from './data/aiDifficulty';
+  import { DEFAULT_BOT_ITERATIONS } from './data/botDifficulty';
   import type { LobbyPlayer, SanitizedGameState } from './network/types';
   import SetupScreen from './components/SetupScreen.svelte';
   import GameScreen from './components/GameScreen.svelte';
@@ -41,7 +41,7 @@
   let gameState: GameState | null = $state(saved?.gameState ?? null);
   let gameStartTime: number | null = $state(saved?.gameStartTime ?? null);
   let savedGameLog: LogEntry[] = $state(saved?.gameLog ?? []);
-  let aiIterations: number[] | null = $state(saved?.aiIterations ?? null);
+  let botIterations: number[] | null = $state(saved?.botIterations ?? null);
   let botSettings: BotSettings | null = $state(saved?.botSettings ?? null);
   let hasSavedGame = $state(saved !== null && saved.gameState.phase.type !== 'gameOver');
 
@@ -147,7 +147,7 @@
 
   function handleGameStarted(state: GameState, iterations: number[], settings: BotSettings) {
     gameState = state;
-    aiIterations = iterations;
+    botIterations = iterations;
     botSettings = settings;
     gameStartTime = Date.now();
     savedGameLog = [];
@@ -168,7 +168,7 @@
       }
       replaceScreen({ type: 'score' });
     } else {
-      saveGame(state, gameStartTime!, log, aiIterations ?? undefined, gameLogAccumulator?.getLog(), botSettings ?? undefined);
+      saveGame(state, gameStartTime!, log, botIterations ?? undefined, gameLogAccumulator?.getLog(), botSettings ?? undefined);
     }
   }
 
@@ -176,7 +176,7 @@
     gameState = null;
     gameStartTime = null;
     savedGameLog = [];
-    aiIterations = null;
+    botIterations = null;
     botSettings = null;
     gameLogAccumulator = null;
     finalGameLog = null;
@@ -190,7 +190,7 @@
     gameState = null;
     gameStartTime = null;
     savedGameLog = [];
-    aiIterations = null;
+    botIterations = null;
     botSettings = null;
     gameLogAccumulator = null;
     finalGameLog = null;
@@ -430,7 +430,7 @@
       onBack={goToMainMenu}
     />
   {:else if screen.type === 'localGame' && gameState !== null}
-    <GameScreen {gameState} {gameStartTime} onGameUpdated={handleGameUpdated} initialGameLog={savedGameLog} onLeaveGame={handleLeaveGame} {gameLogAccumulator} aiIterations={aiIterations ?? gameState.botPlayers.map(() => DEFAULT_AI_ITERATIONS)} botSettings={botSettings ?? {}} />
+    <GameScreen {gameState} {gameStartTime} onGameUpdated={handleGameUpdated} initialGameLog={savedGameLog} onLeaveGame={handleLeaveGame} {gameLogAccumulator} botIterations={botIterations ?? gameState.botPlayers.map(() => DEFAULT_BOT_ITERATIONS)} botSettings={botSettings ?? {}} />
   {:else if screen.type === 'onlineGame' && gameState !== null}
     <OnlineGameScreen
       role={screen.role}

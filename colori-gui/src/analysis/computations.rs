@@ -601,10 +601,10 @@ pub fn compute_trashed_from_draft(
     counts
 }
 
-/// Which cards the Move to Draft Pool abilities raise, by the card that was
+/// Which cards the Lift abilities raise, by the card that was
 /// trashed to trigger the ability.
 #[derive(Default)]
-pub struct DraftPoolMoves {
+pub struct LiftMoves {
     /// Trashed card -> raised card -> times. A move with no trashed card behind
     /// it is filed under `OTHER_SOURCE`.
     pub raised_by: BTreeMap<String, BTreeMap<String, usize>>,
@@ -614,13 +614,13 @@ pub struct DraftPoolMoves {
 
 pub const OTHER_SOURCE: &str = "Other";
 
-/// Count the cards moved from the workshop to the top cards, and by which
+/// Count the cards lifted from the workshop to the top cards, and by which
 /// trashed card.
-pub fn compute_draft_pool_moves(
+pub fn compute_lift_moves(
     logs: &[StructuredGameLog],
     filter: Option<&PlayerFilter>,
-) -> DraftPoolMoves {
-    let mut moves = DraftPoolMoves::default();
+) -> LiftMoves {
+    let mut moves = LiftMoves::default();
     for (log_idx, log) in logs.iter().enumerate() {
         let allowed = filter.and_then(|f| f.get(&log_idx));
         for entry in &log.entries {

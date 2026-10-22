@@ -96,12 +96,12 @@
   <span class="move">
     {#if m.type === 'claim'}
       <span class="verb">{m.unseen ? 'drew' : 'claimed'}</span> {@render buyer(m.buyer)}
-      {#if m.unseen}<span class="aside">unseen, from the sell deck</span>{/if}
-    {:else if m.type === 'drafted'}
-      <span class="verb">drafted</span>
+      {#if m.unseen}<span class="aside">unseen, from the buyer deck</span>{/if}
+    {:else if m.type === 'picked'}
+      <span class="verb">picked</span>
       {#each m.cards as ci (ci.instanceId)}{@render card(ci)}{/each}
-    {:else if m.type === 'trash'}
-      <span class="verb">trashed</span> {@render card(m.card)}
+    {:else if m.type === 'topAction'}
+      <span class="verb">used</span> {@render card(m.card)} <span class="aside">top action</span>
       {#each topActions(m.card.card) as ability}
         <span class="ability">{formatSingleAbility(ability)}</span>
       {/each}
@@ -128,17 +128,17 @@
       {/if}
     {:else if m.type === 'sell'}
       <span class="verb">sold to</span> {@render buyer(m.buyer)}
-    {:else if m.type === 'move'}
+    {:else if m.type === 'lift'}
       {#if m.card}
-        <span class="verb">moved</span> {@render card(m.card)} <span class="aside">up to the top cards</span>
+        <span class="verb">lifted</span> {@render card(m.card)} <span class="aside">to their top cards</span>
       {:else}
-        <span class="verb">had no card to move</span>
+        <span class="verb">had no card to lift</span>
       {/if}
     {:else if m.type === 'secondary'}
       <span class="verb">took</span>
       <span class="chip mix-chip">{@render swatch(m.color)}<span class="chip-name">{m.color}</span></span>
     {:else if m.type === 'spendGoldCoin'}
-      <span class="verb">spent</span> <img class="icon" src="/icons/goldCoin.webp" alt="a goldCoin" />
+      <span class="verb">spent</span> <img class="icon" src="/icons/gold-coin.webp" alt="a gold coin" />
       <span class="aside">on {PURCHASES[m.purchase]}</span>
     {:else if m.type === 'endTurn'}
       <span class="verb muted">ended their turn</span>
@@ -163,9 +163,9 @@
         </span>
       {/if}
     {/each}
-    {#if c.goldCoins}<span class="delta" class:minus={c.goldCoins < 0} title="GoldCoins">{signed(c.goldCoins)}<img class="icon" src="/icons/goldCoin.webp" alt="goldCoins" /></span>{/if}
+    {#if c.goldCoins}<span class="delta" class:minus={c.goldCoins < 0} title="Gold coins">{signed(c.goldCoins)}<img class="icon" src="/icons/gold-coin.webp" alt="gold coins" /></span>{/if}
     {#if c.boats}<span class="delta" class:minus={c.boats < 0} title="Boats">{signed(c.boats)}<img class="icon boat" src="/icons/boat.webp" alt="boats" /></span>{/if}
-    {#if c.bowls}<span class="delta" class:minus={c.bowls < 0} title="Wild primaries">{signed(c.bowls)}<span class="wild"></span></span>{/if}
+    {#if c.bowls}<span class="delta" class:minus={c.bowls < 0} title="Bowls">{signed(c.bowls)}<span class="wild"></span></span>{/if}
   </div>
 {/snippet}
 

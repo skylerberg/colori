@@ -359,17 +359,17 @@ mod tests {
                     i
                 );
             }
-            // In round 2, starting player is (2-1) % 3 = player 1 (AI)
+            // In round 2, starting player is (2-1) % 3 = player 1 (a bot)
             assert_eq!(draft_state.current_player_index, 1);
         }
 
-        // Simulate the frontend's WASM round-trip pattern for AI picks.
+        // Simulate the frontend's WASM round-trip pattern for bot picks.
         // The frontend does: serialize -> deserialize -> applyChoice -> serialize -> deserialize
-        // for each AI pick.
+        // for each bot pick.
 
-        // AI player 1 picks
+        // bot player 1 picks
         let choices = enumerate_choices(&state, 1);
-        assert!(!choices.is_empty(), "AI player 1 should have draft choices");
+        assert!(!choices.is_empty(), "bot player 1 should have draft choices");
         // Round trip before applying choice (simulating frontend state passing)
         state = round_trip(&state);
         apply_choice(&mut state, 1, &choices[0], &mut rng);
@@ -384,9 +384,9 @@ mod tests {
             );
         }
 
-        // AI player 2 picks
+        // bot player 2 picks
         let choices = enumerate_choices(&state, 2);
-        assert!(!choices.is_empty(), "AI player 2 should have draft choices");
+        assert!(!choices.is_empty(), "bot player 2 should have draft choices");
         state = round_trip(&state);
         apply_choice(&mut state, 2, &choices[0], &mut rng);
         state = round_trip(&state);

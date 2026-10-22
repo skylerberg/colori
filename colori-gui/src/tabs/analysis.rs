@@ -20,7 +20,7 @@ pub struct CachedAnalysis {
     pub cards_added: HashMap<String, usize>,
     pub cards_added_normalized: HashMap<String, f64>,
     pub trashed_draft: HashMap<String, usize>,
-    pub draft_pool_moves: DraftPoolMoves,
+    pub lift_moves: LiftMoves,
     pub buyer_acq: BuyerAcquisitions,
     pub deck_stats: DeckSizeStats,
     /// Keyed by half points.
@@ -63,7 +63,7 @@ impl CachedAnalysis {
         let cards_added = compute_cards_added_to_deck(logs, filter_ref);
         let cards_added_normalized = normalize_by_draft_copies(&cards_added);
         let trashed_draft = compute_trashed_from_draft(logs, filter_ref);
-        let draft_pool_moves = compute_draft_pool_moves(logs, filter_ref);
+        let lift_moves = compute_lift_moves(logs, filter_ref);
         let buyer_acq = compute_buyer_acquisitions(logs, filter_ref);
         let deck_stats = compute_deck_size_stats(logs, filter_ref);
         let score_dist = compute_score_distribution(logs, filter_ref);
@@ -134,7 +134,7 @@ impl CachedAnalysis {
             cards_added,
             cards_added_normalized,
             trashed_draft,
-            draft_pool_moves,
+            lift_moves,
             buyer_acq,
             deck_stats,
             score_dist,
@@ -481,7 +481,7 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
             });
 
         // 13. Cards raised to the top cards
-        render_draft_pool_moves(ui, &analysis.draft_pool_moves);
+        render_lift_moves(ui, &analysis.lift_moves);
 
         // 14. Sell Card Acquisitions
         let id = ui.make_persistent_id("buyer_acquisitions");
@@ -672,10 +672,10 @@ fn render_btree_bar_section(
         });
 }
 
-/// Which cards the Move to Draft Pool abilities raise, and which trashed card
+/// Which cards the Lift abilities raise, and which trashed card
 /// raised them.
-fn render_draft_pool_moves(ui: &mut egui::Ui, moves: &DraftPoolMoves) {
-    let id = ui.make_persistent_id("draft_pool_moves");
+fn render_lift_moves(ui: &mut egui::Ui, moves: &LiftMoves) {
+    let id = ui.make_persistent_id("lift_moves");
     egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
         .show_header(ui, |ui| {
             ui.strong("Cards Raised to the Draft Pool");

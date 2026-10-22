@@ -18,7 +18,7 @@ pub fn is_taking_turn(state: &GameState, player_index: usize) -> bool {
 /// only that player's own choices applied since.
 ///
 /// Everyone acts at once, and the search models each opponent as unable to
-/// see the searcher's moves. An AI is held to the same by searching its view
+/// see the searcher's moves. A bot is held to the same by searching its view
 /// rather than the live state, where turns others have already finished would
 /// tell it what they did.
 pub struct ActionPhaseViews {

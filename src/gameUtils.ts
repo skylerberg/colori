@@ -20,11 +20,11 @@ export function isTakingActionTurn(gs: GameState, playerIndex: number): boolean 
   return gs.phase.type === 'action' && !gs.phase.actionState.turns[playerIndex].ended;
 }
 
-// Mirrors `colori_core::scoring::score_in_half_points`: the points on sold
-// cards and a point a goldCoin, plus half a point for each unspent wild primary
-// and boat.
-export function playerScore(player: Pick<PlayerState, 'completedBuyers' | 'goldCoins' | 'bowls' | 'boats'>): number {
-  const sold = player.completedBuyers.reduce((sum, buyer) => sum + getBuyerData(buyer.card).points, 0);
+// Mirrors `colori_core::scoring::score_in_half_points`: the points on
+// Completed Orders and a point a gold coin, plus half a point for each unspent
+// bowl and boat.
+export function playerScore(player: Pick<PlayerState, 'completedOrders' | 'goldCoins' | 'bowls' | 'boats'>): number {
+  const sold = player.completedOrders.reduce((sum, buyer) => sum + getBuyerData(buyer.card).points, 0);
   return sold + player.goldCoins + (player.bowls + player.boats) / 2;
 }
 
@@ -56,9 +56,9 @@ export function roundNews(round: number): string[] {
   const news: string[] = [];
   const income = roundIncome(round);
   const gains = [
-    income.goldCoins > 0 && 'a goldCoin',
+    income.goldCoins > 0 && 'a gold coin',
     income.boats > 0 && 'a boat',
-    income.bowls > 0 && 'a wild primary',
+    income.bowls > 0 && 'a bowl',
   ].filter((gain): gain is string => !!gain);
   if (gains.length > 0) {
     news.push(`Everyone gains ${gains.length > 1 ? `${gains.slice(0, -1).join(', ')} and ${gains.at(-1)}` : gains[0]}`);
@@ -79,7 +79,7 @@ export function formatScore(score: number): string {
 // seat's board shows only the picks from rounds already done; the one it is
 // picking right now stays hidden. Your own seat shows each pick as you make it,
 // which is what the count of `Infinity` means.
-export function revealedDraftedCount(phase: GamePhase, seat: number, viewerIndex: number): number {
+export function revealedTopCardCount(phase: GamePhase, seat: number, viewerIndex: number): number {
   if (phase.type !== 'draft' || seat === viewerIndex) return Infinity;
   // One pick per seat per round, and `pickNumber` counts the rounds that have
   // finished, so it is also how many of that seat's picks are face up.

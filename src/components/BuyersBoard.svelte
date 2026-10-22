@@ -48,12 +48,12 @@
     </div>
   {/each}
 
-  <button class="sell-deck" class:claimable={!!market?.onDrawUnseen} style={place(BUYERS_BOARD.sellDeck)}
+  <button class="sell-deck" class:claimable={!!market?.onDrawUnseen} style={place(BUYERS_BOARD.buyerDeck)}
     disabled={!market?.onDrawUnseen}
     onclick={() => market?.onDrawUnseen?.()}
-    title={market?.onDrawUnseen ? 'Claim the top card of the sell deck, unseen' : `Sell deck: ${gameState.buyerDeck.length} cards`}>
+    title={market?.onDrawUnseen ? 'Claim the top card of the buyer deck, unseen' : `Buyer deck: ${gameState.buyerDeck.length} cards`}>
     <span class="pile-count">{gameState.buyerDeck.length}</span>
-    <span class="pile-label">{market?.onDrawUnseen ? 'draw unseen' : 'sell deck'}</span>
+    <span class="pile-label">{market?.onDrawUnseen ? 'draw unseen' : 'buyer deck'}</span>
   </button>
 
   {#each BUYERS_BOARD.display as slot, i}

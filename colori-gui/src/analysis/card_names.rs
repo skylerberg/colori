@@ -32,13 +32,12 @@ pub fn format_ability(ability: &Ability) -> String {
     match ability {
         Ability::Workshop { count } => format!("Workshop x{}", count),
         Ability::MixColors { count } => format!("Mix x{}", count),
-        Ability::LiftCard => "Move to Draft Pool".to_string(),
-        Ability::Sell => "Sell".to_string(),
-        Ability::GainGoldCoins { count } => format!("Gain {} GoldCoins", count),
+        Ability::LiftCard => "Lift a Card".to_string(),
+        Ability::Sell => "Sell to a Buyer".to_string(),
+        Ability::GainGoldCoins { count } => format!("Gain {count} Gold Coin(s)"),
         Ability::GainSecondary => "Gain Secondary".to_string(),
-        Ability::GainBowls { count: 1 } => "Gain 1 Wild Primary".to_string(),
-        Ability::GainBowls { count } => format!("Gain {} Wild Primaries", count),
-        Ability::GainBoats { count } => format!("Gain {} Boat(s)", count),
+        Ability::GainBowls { count } => format!("Gain {count} Bowl(s)"),
+        Ability::GainBoats { count } => format!("Gain {count} Boat(s)"),
     }
 }
 

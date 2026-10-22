@@ -1,7 +1,7 @@
-# Cost of the gold_coin economy
+# Cost of the gold coin economy
 
-Players collect a gold_coin at the start of rounds 3, 5 and 6, and can spend a
-gold_coin during their turn for a Workshop pick, a Mix, or a Sell. That adds a
+Players collect a gold coin at the start of rounds 4, 5 and 6, and can spend a
+gold coin during their turn for a Workshop pick, a Mix, or a Sell. That adds a
 class of turn action that did not exist, so this records what it costs.
 
 Method and machine as in `DECK-ORDERING.md`: retired instructions via
@@ -26,7 +26,7 @@ Baseline is that harness at `46ac2336`, the commit before this change.
 
 12 seeded 3-player games, 1 000 iterations per move, production config.
 
-**+11.0% per game**, and no state growth at all: `gold_coins` was already a field,
+**+11.0% per game**, and no state growth at all: the coins were already a field,
 so the whole feature is behaviour rather than data.
 
 ## Where it goes
@@ -37,7 +37,7 @@ slowly.
 **More decisions (+4.4%).** A purchase is two nodes, not one: `SpendGoldCoin`,
 then the bought ability's own choice. That is deliberate. Fusing them — a
 `SpendGoldCoinAndWorkshop { card_types }` in the style of the existing
-`DestroyAnd*` choices — would halve the node count per purchase but multiply
+`TrashAnd*` choices — would halve the node count per purchase but multiply
 the top-level menu by everything each ability could then do, at the most
 visited nodes in the tree. Pushing the ability instead keeps the top-level
 menu at most three choices wider and reuses every existing resolution path.
@@ -48,12 +48,12 @@ per game. Not extra work per decision.
 **Slightly dearer iterations (+3.4%).** The extra top-level choices, and
 `can_buy_with_gold_coin` being evaluated three times per top-level enumeration.
 
-## What the gold_coins are actually worth
+## What the gold coins are actually worth
 
-Mean score went from 13.97 to 14.14 — **+1.2%, against +3 gold_coins of income per
+Mean score went from 13.97 to 14.14 — **+1.2%, against +3 gold coins of income per
 player**. That looks wrong until you see what buying a Sell does: it spends the
-same material and the same colors a drafted Buyer card would have spent. It does
-not add a sale, it moves one. The gold_coin buys the *opportunity* to sell in a
+same material and the same colors a drafted buyer card would have spent. It does
+not add a sale, it moves one. The gold coin buys the *opportunity* to sell in a
 round where nothing drafted allows it, and the rest of the income goes back out
 as spent points.
 
@@ -68,8 +68,8 @@ measurement is what said so.
 ## Caveats
 
 **The GA weights predate this and the two changes before it.** Nothing values a
-gold_coin as anything but the point it is worth at scoring: `heuristic_score` reads
-`cached_score`, which counts gold_coins at face value and knows nothing about what
+gold coin as anything but the point it is worth at scoring: `heuristic_score` reads
+`cached_score`, which counts gold coins at face value and knows nothing about what
 one can buy. A retrained set would be the first thing to change these numbers,
 and the rollout's purchase policy above is hand-written for the same reason.
 

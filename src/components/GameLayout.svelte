@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { GameState } from '../data/types';
-  import { formatTime, revealedDraftedCount } from '../gameUtils';
+  import { formatTime, revealedTopCardCount } from '../gameUtils';
   import type { Snippet } from 'svelte';
   import BuyersBoard from './BuyersBoard.svelte';
   import PlayerBoard from './PlayerBoard.svelte';
@@ -11,7 +11,7 @@
   import type { ErrorReport as Report } from '../errorReport';
   import { emptyTableInteraction, provideTableInteraction } from '../stores/tableInteraction';
 
-  let { gameState, actingPlayers, thinkingPlayers, viewerIndex, elapsedSeconds, gameLog, onLeaveGame, selectedPlayerIndex = 0, onSelectPlayer, aiError, onRetryAI, draftCardOrder, children }: {
+  let { gameState, actingPlayers, thinkingPlayers, viewerIndex, elapsedSeconds, gameLog, onLeaveGame, selectedPlayerIndex = 0, onSelectPlayer, botError, onRetryAI, draftCardOrder, children }: {
     gameState: GameState;
     // Players with a decision to make; in the action phase, everyone whose
     // turn is not over.
@@ -24,7 +24,7 @@
     onLeaveGame: () => void;
     selectedPlayerIndex?: number;
     onSelectPlayer?: (index: number) => void;
-    aiError?: Report | null;
+    botError?: Report | null;
     onRetryAI?: () => void;
     draftCardOrder?: number[][];
     // The controls panel: the phase view for the viewer.
@@ -46,7 +46,7 @@
   let shownPlayer = $derived(gameState.players[selectedPlayerIndex]);
   // Another seat's picks stay face down until everyone has picked for that
   // round; the viewer's own picks show as they are made.
-  let revealedDrafted = $derived(revealedDraftedCount(gameState.phase, selectedPlayerIndex, viewerIndex));
+  let revealedTopCards = $derived(revealedTopCardCount(gameState.phase, selectedPlayerIndex, viewerIndex));
   let boardInteraction = $derived(interaction.seat === selectedPlayerIndex ? interaction : null);
   // The viewer has a move to make on a board they are not looking at.
   let awayFromOwnBoard = $derived(
@@ -95,8 +95,8 @@
 
     <div class="table" class:market-first={gameState.phase.type === 'buyers'}>
       <section class="controls" aria-label="Your move">
-        {#if aiError}
-          <ErrorReport report={aiError}>
+        {#if botError}
+          <ErrorReport report={botError}>
             {#snippet actions()}
               {#if onRetryAI}
                 <button class="retry-btn" onclick={onRetryAI}>Retry</button>
@@ -125,7 +125,7 @@
                 seat={selectedPlayerIndex}
                 round={gameState.round}
                 draftOrder={draftCardOrder?.[selectedPlayerIndex]}
-                revealedDrafted={revealedDrafted}
+                revealedTopCards={revealedTopCards}
                 claiming={gameState.phase.type === 'buyers' && gameState.phase.buyersState.currentPlayerIndex === selectedPlayerIndex}
                 interaction={boardInteraction}
               />

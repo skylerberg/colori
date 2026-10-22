@@ -41,8 +41,8 @@ fn params() -> HeuristicParams {
 /// Walk a fresh game forward, choosing uniformly at random from a seeded RNG.
 fn position(players: usize, seed: u64, steps: usize) -> Option<GameState> {
     let mut rng = WyRand::seed_from_u64(seed);
-    let ai = vec![true; players];
-    let mut state = colori_core::setup::create_initial_game_state(players, &ai, &mut rng);
+    let bots = vec![true; players];
+    let mut state = colori_core::setup::create_initial_game_state(players, &bots, &mut rng);
 
     for _ in 0..steps {
         match &state.phase {

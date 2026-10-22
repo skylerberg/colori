@@ -80,7 +80,7 @@ pub fn run_tournament(args: &TournamentArgs, threads: usize, output: &str) {
         .zip(labels.iter())
         .map(|(v, label)| NamedVariant {
             name: Some(label.clone()),
-            ai: v.ai.clone(),
+            bot: v.bot.clone(),
         })
         .collect();
 

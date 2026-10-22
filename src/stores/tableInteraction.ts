@@ -7,7 +7,7 @@ import type { Color, GoldCoinPurchase } from '../data/types';
 export interface TableInteraction {
   // Whose player board the board handlers act on, or -1.
   seat: number;
-  trashDrafted: ((instanceId: number) => void) | null;
+  trashTopCard: ((instanceId: number) => void) | null;
   workshop: {
     selectable: number[];
     selected: number[];
@@ -40,7 +40,7 @@ export interface TableInteraction {
 const KEY = Symbol('tableInteraction');
 
 export function emptyTableInteraction(): TableInteraction {
-  return { seat: -1, trashDrafted: null, workshop: null, buyers: null, wheel: null, goldCoins: null, market: null };
+  return { seat: -1, trashTopCard: null, workshop: null, buyers: null, wheel: null, goldCoins: null, market: null };
 }
 
 export function provideTableInteraction(interaction: TableInteraction): void {

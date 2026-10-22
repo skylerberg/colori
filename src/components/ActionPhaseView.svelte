@@ -89,13 +89,13 @@
     else plannedMixes = mixes;
   }
 
-  let bowlyHint = $derived.by(() => {
+  let bowlHint = $derived.by(() => {
     if (mixedStock.bowls === 0) return '';
     const n = mixedStock.bowls;
-    return `Your ${n} wild ${n === 1 ? 'primary stands' : 'primaries stand'} in for a Red, Yellow or Blue you lack.`;
+    return `Your ${n} ${n === 1 ? 'bowl stands' : 'bowls stand'} in for a Red, Yellow or Blue you lack.`;
   });
 
-  // ── Selling ──
+  // ── Selling to a buyer ──
 
   let sellableBuyerIds = $derived(player.buyers.filter(b => canSell(player, b.instanceId)).map(b => b.instanceId));
 
@@ -104,15 +104,15 @@
     if (buyer) onAction({ type: 'selectBuyer', buyer: buyer.card });
   }
 
-  // ── Between trashes ──
+  // ── Between top actions ──
 
-  function trashDrafted(instanceId: number) {
+  function trashTopCard(instanceId: number) {
     const ci = player.topCards.find(c => c.instanceId === instanceId);
     if (ci) onAction({ type: 'trashTopCard', card: ci.card });
   }
 
   // Mirrors the engine: a purchase is offered only when it can act, and only
-  // between trashes. See `action_phase::can_buy_with_goldCoin`.
+  // between trashes. See `action_phase::can_buy_with_gold_coin`.
   let purchasable = $derived.by((): GoldCoinPurchase[] => {
     if (topAbility || player.goldCoins < 1) return [];
     const options: GoldCoinPurchase[] = [];
@@ -122,7 +122,7 @@
     return options;
   });
 
-  const PURCHASE_LABELS: Record<GoldCoinPurchase, string> = { workshop: 'Workshop ×1', mixColors: 'Mix ×1', sell: 'Sell' };
+  const PURCHASE_LABELS: Record<GoldCoinPurchase, string> = { workshop: 'Workshop ×1', mixColors: 'Mix ×1', sell: 'Sell to a buyer' };
 
   function spendGoldCoin(purchase: GoldCoinPurchase) {
     onAction({ type: 'spendGoldCoin', purchase });
@@ -132,7 +132,7 @@
 
   $effect(() => {
     interaction.seat = playerIndex;
-    interaction.trashDrafted = turn && !topAbility ? trashDrafted : null;
+    interaction.trashTopCard = turn && !topAbility ? trashTopCard : null;
     const movable = player.workshopCards.map(c => c.instanceId);
     interaction.workshop =
       topAbility?.type === 'workshop' ? { selectable: movable, selected: selectedWorkshopIds, onClick: toggleWorkshopCard }
@@ -165,7 +165,7 @@
 
   $effect(() => () => {
     interaction.seat = -1;
-    interaction.trashDrafted = null;
+    interaction.trashTopCard = null;
     interaction.workshop = null;
     interaction.buyers = null;
     interaction.wheel = null;
@@ -180,11 +180,11 @@
     {#if topAbility === null}
       <p class="panel-text">
         {#if player.topCards.length > 0}
-          Every top card is decided one way or the other: <strong>use it</strong> — click one sticking out of
-          the top of your board — to take the ability on its banner, or <strong>keep it</strong> to put it on top of
-          your deck for next round.
+          Every top card is decided one way or the other: <strong>use its top action</strong> — click one sticking
+          out of the top of your board — and trash the card afterwards, or <strong>keep it</strong> on top of your
+          deck to use its workshop ability next round.
         {:else}
-          Your top cards is empty. Spend what you like, then end your turn.
+          Your top cards are all decided. Spend what you like, then end your turn.
         {/if}
       </p>
     {:else}
@@ -205,11 +205,11 @@
         {:else if topAbility.type === 'liftCard'}
           {#if player.workshopCards.length > 0}
             <p class="panel-text">
-              Click a card in your workshop (bottom of your board) to move it up to your top cards, where you can
-              trash it for its ability.
+              Click a card in your workshop (bottom of your board) to lift it to your top cards, where you can use
+              its top action.
             </p>
           {:else}
-            <p class="panel-text">Every card in your workshop has been used, so there is nothing to move.</p>
+            <p class="panel-text">Every card in your workshop has been used, so there is nothing to lift.</p>
             <div class="panel-actions">
               <button class="panel-btn primary" onclick={() => onAction({ type: 'liftCard', card: null })}>Continue</button>
             </div>
@@ -220,10 +220,10 @@
               Click the color you want to make. It uses one each of the two colors either side of it, outlined
               when you point at it. {mixesLeft} {mixesLeft === 1 ? 'mix' : 'mixes'} left.
             {:else}
-              Nothing on your wheel can be mixed.
+              Nothing on your color wheel can be mixed.
             {/if}
           </p>
-          {#if bowlyHint}<p class="panel-hint">{bowlyHint}</p>{/if}
+          {#if bowlHint}<p class="panel-hint">{bowlHint}</p>{/if}
           {#if plannedMixes.length > 0}
             <ul class="planned-mixes">
               {#each plannedMixes as [a, b]}
@@ -246,10 +246,10 @@
         {:else if topAbility.type === 'sell'}
           <p class="panel-text">Click a glowing buyer on your board to sell to them.</p>
           {#if player.boats > 0 || player.bowls > 0}
-            <p class="panel-hint">A boat covers a material you lack and a wild primary a primary you lack; what a buyer asks for is spent first.</p>
+            <p class="panel-hint">A boat covers a material you lack and a bowl a primary you lack; what a buyer asks for is spent first.</p>
           {/if}
         {:else if topAbility.type === 'gainSecondary'}
-          <p class="panel-text">Choose a secondary color to gain — here, or on a petal of your wheel.</p>
+          <p class="panel-text">Choose a secondary color to gain — here, or on a petal of your color wheel.</p>
           <div class="panel-actions">
             {#each SECONDARIES as color}
               <button
@@ -272,7 +272,7 @@
 
     {#if topAbility === null && player.topCards.length > 0}
       <div class="keeps">
-        <span class="panel-hint">Or keep a card — it goes on top of your deck and comes back next round:</span>
+        <span class="panel-hint">Or keep a card — it goes on top of your deck, to use its workshop ability next round:</span>
         <div class="panel-actions">
           {#each player.topCards as ci (ci.instanceId)}
             <button class="panel-btn" onclick={() => onAction({ type: 'keepCard', card: ci.card })}>
@@ -285,7 +285,7 @@
 
     {#if purchasable.length > 0}
       <div class="goldCoins">
-        <span class="panel-hint">Spend 1 of your {player.goldCoins} {player.goldCoins === 1 ? 'goldCoin' : 'goldCoins'} (a point each) for:</span>
+        <span class="panel-hint">Spend 1 of your {player.goldCoins} gold {player.goldCoins === 1 ? 'coin' : 'coins'} (a point each) for:</span>
         <div class="panel-actions">
           {#each purchasable as purchase}
             <button class="panel-btn" onclick={() => spendGoldCoin(purchase)}>{PURCHASE_LABELS[purchase]}</button>

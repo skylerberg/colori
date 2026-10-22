@@ -103,7 +103,7 @@ pub fn format_variant_label(variant: &NamedVariant, differing: &DifferingFields)
     if let Some(name) = &variant.name {
         return name.clone();
     }
-    let config = &variant.ai;
+    let config = &variant.bot;
     let mut parts = Vec::new();
     if differing.time_limit_differs {
         if let Some(tl) = config.time_limit_ms {
@@ -145,12 +145,12 @@ pub fn compute_differing_fields(variants: &[NamedVariant]) -> DifferingFields {
             time_limit_differs: false,
         };
     }
-    let first = &variants[0].ai;
+    let first = &variants[0].bot;
     DifferingFields {
-        iterations_differs: variants.iter().any(|v| v.ai.iterations != first.iterations),
-        exploration_constant_differs: variants.iter().any(|v| v.ai.exploration_constant != first.exploration_constant),
-        max_rollout_steps_differs: variants.iter().any(|v| v.ai.max_rollout_steps != first.max_rollout_steps),
-        time_limit_differs: variants.iter().any(|v| v.ai.time_limit_ms != first.time_limit_ms),
+        iterations_differs: variants.iter().any(|v| v.bot.iterations != first.iterations),
+        exploration_constant_differs: variants.iter().any(|v| v.bot.exploration_constant != first.exploration_constant),
+        max_rollout_steps_differs: variants.iter().any(|v| v.bot.max_rollout_steps != first.max_rollout_steps),
+        time_limit_differs: variants.iter().any(|v| v.bot.time_limit_ms != first.time_limit_ms),
     }
 }
 
@@ -166,8 +166,8 @@ pub fn has_any_difference(variants: &[NamedVariant]) -> bool {
 }
 
 fn variant_to_player_variant(variant: &NamedVariant) -> PlayerVariant {
-    let base = MctsConfig::new(variant.ai.heuristic_params.clone());
-    let config = &variant.ai;
+    let base = MctsConfig::new(variant.bot.heuristic_params.clone());
+    let config = &variant.bot;
     PlayerVariant {
         name: variant.name.clone(),
         algorithm: Some("ucb".to_string()),
@@ -276,7 +276,7 @@ pub fn run_game(
     let mut player_iterations_count = vec![0u64; num_players];
 
     let mut decide = |searcher: &mut TurnSearcher, state: &GameState, player_index: usize, rng: &mut WyRand| {
-        let config = &shuffled_variants[player_index].ai;
+        let config = &shuffled_variants[player_index].bot;
         let is_first_pick = state.round == 1
             && matches!(&state.phase, GamePhase::Draft { draft_state } if draft_state.pick_number == 0);
         if is_first_pick && config.random_first_pick {
@@ -375,7 +375,7 @@ pub fn run_game(
             ),
         )
     } else {
-        (Some(shuffled_variants[0].ai.iterations), None)
+        (Some(shuffled_variants[0].bot.iterations), None)
     };
 
     GameRunOutput {
@@ -416,7 +416,7 @@ pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str) {
     if solo {
         eprintln!(
             "Running {} solo games ({} rounds, {} MCTS iterations, {} threads)",
-            args.games, args.max_rounds, player_variants[0].ai.iterations, threads
+            args.games, args.max_rounds, player_variants[0].bot.iterations, threads
         );
     } else if has_any_difference(&player_variants) {
         let differing = compute_differing_fields(&player_variants);
@@ -427,7 +427,7 @@ pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str) {
             labels.join(", "),
             threads
         );
-    } else if let Some(tl) = player_variants[0].ai.time_limit_ms {
+    } else if let Some(tl) = player_variants[0].bot.time_limit_ms {
         eprintln!(
             "Running {} games with {} players, {}ms MCTS time limit, {} threads",
             args.games, num_players, tl, threads
@@ -436,7 +436,7 @@ pub fn run_simulation(args: &SimulateArgs, threads: usize, output: &str) {
         eprintln!(
             "Running {} games with {} players, {} ISMCTS iterations, {} threads",
             args.games, num_players,
-            player_variants[0].ai.iterations,
+            player_variants[0].bot.iterations,
             threads
         );
     }

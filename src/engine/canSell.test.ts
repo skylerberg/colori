@@ -16,7 +16,7 @@ function playerWith(
   return {
     buyers: [{ instanceId: 7, card: buyer }],
     colorWheel,
-    materials,
+    materialsWheel: materials,
     boats: stock.boats ?? 0,
     bowls: stock.bowls ?? 0,
   } as unknown as PlayerState;
@@ -35,7 +35,7 @@ describe('canSell', () => {
     expect(canSell(playerWith('GlassmakerAmberBlue', { colors: ['Amber', 'Blue'] }), 7)).toBe(false);
   });
 
-  it('lets a wild primary cover a missing primary but not a tertiary', () => {
+  it('lets a bowl cover a missing primary but not a tertiary', () => {
     expect(canSell(playerWith('GlassmakerAmberBlue', { colors: ['Amber', 'Blue'], bowls: 1 }), 7)).toBe(true);
     expect(canSell(playerWith('GlassmakerAmberBlue', { colors: ['Blue', 'Blue'], bowls: 3 }), 7)).toBe(false);
   });
@@ -61,7 +61,7 @@ describe('saleShortfall', () => {
     expect(saleShortfall(player, 'TilemakerTeal')).toEqual(['Ceramics', 'Ceramics', 'Teal']);
   });
 
-  it('spends boats and wild primaries before calling anything missing', () => {
+  it('spends boats and bowls before calling anything missing', () => {
     const player = playerWith('GlassmakerAmberBlue', { colors: ['Amber'], bowls: 1 });
     expect(saleShortfall(player, 'GlassmakerAmberBlue')).toEqual(['Blue']);
     expect(saleShortfall(playerWith('PotterAmber', { colors: ['Amber'], boats: 1 }), 'PotterAmber')).toEqual([]);

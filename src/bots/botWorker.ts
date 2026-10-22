@@ -1,8 +1,8 @@
-import init, { AiSearcher } from '../wasm-pkg/colori_wasm.js';
+import init, { BotSearcher } from '../wasm-pkg/colori_wasm.js';
 import type { BotSettings, GameState } from '../data/types';
 import { engineCall } from '../engine/engineCall';
 
-export interface AIWorkerRequest {
+export interface BotWorkerRequest {
   gameState: GameState;
   playerIndex: number;
   iterations: number;
@@ -19,11 +19,11 @@ export interface AIWorkerError {
   message: string;
 }
 
-export type AIWorkerResponse = AIWorkerSuccess | AIWorkerError;
+export type BotWorkerResponse = AIWorkerSuccess | AIWorkerError;
 
 let wasmReady: Promise<unknown> | null = null;
 // Held for the worker's lifetime, so a turn's decisions share one search tree.
-let searcher: AiSearcher | null = null;
+let searcher: BotSearcher | null = null;
 
 function ensureInit(): Promise<unknown> {
   if (!wasmReady) {
@@ -32,14 +32,14 @@ function ensureInit(): Promise<unknown> {
   return wasmReady;
 }
 
-self.onmessage = async (event: MessageEvent<AIWorkerRequest>) => {
+self.onmessage = async (event: MessageEvent<BotWorkerRequest>) => {
   try {
     await ensureInit();
     const { gameState, playerIndex, iterations, botSettings } = event.data;
     const gameStateJson = JSON.stringify(gameState);
 
     const botSettingsJson = JSON.stringify(botSettings);
-    const ai = (searcher ??= new AiSearcher());
+    const ai = (searcher ??= new BotSearcher());
     const resultJson = engineCall(() => ai.search(gameStateJson, playerIndex, iterations, botSettingsJson));
 
     const choice = JSON.parse(resultJson);

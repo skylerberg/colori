@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use wyrand::WyRand;
 use wasm_bindgen::prelude::*;
 
-/// The advanced AI settings picked on the setup screen; `{}` is the default AI.
+/// The advanced bot settings picked on the setup screen; `{}` is the default bot.
 #[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
 struct BotSettings {
@@ -65,7 +65,7 @@ fn serialize_state(state: &GameState) -> String {
     serde_json::to_string(state).expect("Failed to serialize game state")
 }
 
-/// One seat's AI, kept for its worker's lifetime so that each decision of a
+/// One seat's bot, kept for its worker's lifetime so that each decision of a
 /// turn inherits the search tree of the one before.
 #[wasm_bindgen]
 pub struct BotSearcher {
@@ -91,11 +91,11 @@ impl BotSearcher {
         ai_settings_json: &str,
     ) -> Result<String, JsError> {
         let ai_settings: BotSettings = serde_json::from_str(ai_settings_json)
-            .map_err(|e| JsError::new(&format!("invalid AI settings: {e}")))?;
+            .map_err(|e| JsError::new(&format!("invalid bot settings: {e}")))?;
         let game_state = deserialize_state(game_state_json);
         let player_index = player_index as usize;
         if let Some(refusal) = search_refusal(&game_state, player_index) {
-            return Err(JsError::new(&format!("cannot run the AI here: {refusal}")));
+            return Err(JsError::new(&format!("cannot run the bot here: {refusal}")));
         }
 
         let max_rollout_round = std::cmp::max(8, game_state.round + 2);
@@ -125,7 +125,7 @@ impl BotSearcher {
 #[wasm_bindgen]
 pub fn wasm_create_initial_game_state(num_players: u32, bot_players_json: &str) -> String {
     let bot_players: Vec<bool> =
-        serde_json::from_str(bot_players_json).expect("Failed to parse ai players JSON");
+        serde_json::from_str(bot_players_json).expect("Failed to parse bot players JSON");
     let mut rng = WyRand::from_rng(&mut rand::rng());
     let state = create_initial_game_state(num_players as usize, &bot_players, &mut rng);
     serialize_state(&state)
