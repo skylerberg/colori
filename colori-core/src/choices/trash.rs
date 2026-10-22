@@ -2,7 +2,7 @@ use crate::action_phase::{can_afford_sell_card, for_each_unique_card_type};
 use crate::types::*;
 
 use super::mix_sequences::enumerate_mix_sequences;
-use super::multiset::{count_card_types, enumerate_multiset_subsets, enumerate_multiset_subsets_exact};
+use super::multiset::{count_card_types, enumerate_multiset_subsets};
 use super::WorkshopPruning;
 
 /// What enumerating a copied card's Workshop ability needs, none of which
@@ -76,57 +76,31 @@ pub(super) fn enumerate_trash_choices(
         }
         Ability::Workshop { count } => {
             let tally = tally.get(state, player);
+            let (fewest, most) = tally.pruning.pick_range(count);
             let (card_types, type_counts, len) =
                 (&tally.card_types[..], &tally.type_counts[..], tally.len);
-            let total_available: usize = type_counts[..len].iter().map(|&c| c as usize).sum();
-            if tally.pruning.forces_max(count) {
-                if total_available == 0 {
-                    choices.push(Choice::TrashAndWorkshop {
-                        card,
-                        workshop_cards: WorkshopCards::new(),
-                    });
-                } else if total_available <= count as usize {
-                    let mut all_cards = WorkshopCards::new();
-                    for i in 0..len {
-                        for _ in 0..type_counts[i] {
-                            all_cards.push(card_types[i]);
-                        }
-                    }
-                    choices.push(Choice::TrashAndWorkshop {
-                        card,
-                        workshop_cards: all_cards,
-                    });
-                } else {
-                    enumerate_multiset_subsets_exact(
-                        &card_types[..len],
-                        &type_counts[..len],
-                        count as usize,
-                        &mut WorkshopCards::new(),
-                        choices,
-                        &|workshop_cards| Choice::TrashAndWorkshop {
-                            card,
-                            workshop_cards,
-                        },
-                    );
-                }
-            } else {
+            if fewest == 0 {
+                // Every card left could still be moved, so forfeiting the picks
+                // is a real option: the card is trashed either way, and only the
+                // picks are given up.
                 choices.push(Choice::TrashAndWorkshop {
                     card,
                     workshop_cards: WorkshopCards::new(),
                 });
-                if len > 0 {
-                    enumerate_multiset_subsets(
-                        &card_types[..len],
-                        &type_counts[..len],
-                        count as usize,
-                        &mut WorkshopCards::new(),
-                        choices,
-                        &|workshop_cards| Choice::TrashAndWorkshop {
-                            card,
-                            workshop_cards,
-                        },
-                    );
-                }
+            }
+            if most > 0 {
+                enumerate_multiset_subsets(
+                    &card_types[..len],
+                    &type_counts[..len],
+                    fewest.max(1),
+                    most,
+                    &mut WorkshopCards::new(),
+                    choices,
+                    &|workshop_cards| Choice::TrashAndWorkshop {
+                        card,
+                        workshop_cards,
+                    },
+                );
             }
         }
         Ability::MoveToDraftPool => {
