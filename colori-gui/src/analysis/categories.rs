@@ -1,6 +1,6 @@
 use colori_core::cards::{
     action_cards, basic_dye_cards, chalk_card, draft_copies, draft_dye_cards, dual_material_cards,
-    material_color_cards, starter_material_cards,
+    material_color_cards, primaries_card, starter_material_cards,
 };
 use colori_core::types::Card;
 
@@ -37,6 +37,7 @@ pub fn draft_card_categories() -> Vec<CardCategory> {
         draft_category("Primary Dyes", dyes_with(3)),
         draft_category("Secondary Dyes", dyes_with(2)),
         draft_category("Tertiary Dyes", dyes_with(1)),
+        draft_category("Primaries", [primaries_card()]),
         draft_category("Action Cards", action_cards()),
         draft_category("Material + Color", material_color_cards()),
         draft_category("Dual Materials", dual_material_cards()),

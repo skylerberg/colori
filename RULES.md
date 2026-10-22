@@ -25,10 +25,13 @@ Each player has their own color wheel that tracks how many of each color they ha
 - Yellow — 1 Yellow color | Trash: Workshop ×2
 - Blue — 1 Blue color | Trash: Workshop ×2
 
-**Dye Cards** (draft deck, 3 copies each):
+**Dye Cards** (draft deck, 3 copies each, except 2 of each tertiary dye):
 - Primary dyes — 2 colors of one primary + 1 color of a different primary | Trash: Mix Colors ×2
 - Secondary dyes — 1 secondary color + 1 adjacent primary | Trash: Sell
 - Tertiary dyes — 1 color of a tertiary color | Trash: Workshop ×3
+
+**The Primaries Card** (draft deck, 6 copies):
+- Gain one of each primary when workshopped | Trash: Workshop ×2
 
 **Material Cards** (starting decks, 1 of each per player; plus the Imports cards in the draft deck):
 Starting deck materials gain 1 material when workshopped. Imports cards gain a material and a color, or two different materials.
@@ -55,7 +58,7 @@ What is asked for is always spent first; wild primaries and boats only cover wha
 
 ### Decks
 
-- **Draft Deck**: 100 cards — 54 dye cards, 21 Imports cards and 25 action cards. Trashed cards go to the **trash**; when the draft deck runs out, shuffle the trash back in.
+- **Draft Deck**: 100 cards — 48 dye cards, 6 Primaries cards, 21 Imports cards and 25 action cards. Trashed cards go to the **trash**; when the draft deck runs out, shuffle the trash back in.
 - **Sell Card Deck**: Contains all sell cards. 7 sell cards are displayed face-up at all times, replaced from the deck as soon as one is claimed.
 - **Personal Deck**: Each player has their own deck that they draw from and build over the course of the game. There is no discard pile: cards return to the deck by being placed on the **bottom** at the end of a round, so a card you put down will not come back up until everything above it has been drawn.
 
@@ -213,6 +216,10 @@ Gain N ducats. Ducats count toward your final score, and can be spent during you
 
 Choose one of the three secondary colors (Orange, Green, or Purple) and add it to your color wheel. This ability never fizzles.
 
+### One of Each Primary
+
+Add one Red, one Yellow and one Blue to your color wheel. This ability never fizzles.
+
 ### Gain Wild Primaries ×N
 
 Gain N wild primaries. See Wild Primaries and Boats above.
@@ -247,7 +254,7 @@ One of each per player.
 
 ### Dye Cards
 
-3 copies of each.
+3 copies of each, except 2 copies of each tertiary dye.
 
 **Primary Dyes** (2 colors of one primary + 1 color of a different primary):
 
@@ -281,6 +288,14 @@ One of each per player.
 | Azurite | 1 Teal | Workshop ×3 |
 | Lapis Lazuli | 1 Ultramarine | Workshop ×3 |
 | Cochineal | 1 Fuchsia | Workshop ×3 |
+
+### The Primaries Card
+
+6 copies in the draft deck. Its workshop ability adds one Red, one Yellow and one Blue to your color wheel.
+
+| Name | Workshop Ability | Trash Ability |
+|------|------------------|----------------|
+| Primaries | One of each primary | Workshop ×2 |
 
 ### Imports Cards
 

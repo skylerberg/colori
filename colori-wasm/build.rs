@@ -13,6 +13,7 @@ fn format_ability(ability: &Ability) -> String {
         Ability::GainDucats { count } => format!("{{ type: 'gainDucats', count: {} }}", count),
         Ability::GainSecondary => "{ type: 'gainSecondary' }".to_string(),
         Ability::GainWildPrimaries { count } => format!("{{ type: 'gainWildPrimaries', count: {} }}", count),
+        Ability::GainPrimaries => "{ type: 'gainPrimaries' }".to_string(),
         Ability::GainBoats { count } => format!("{{ type: 'gainBoats', count: {} }}", count),
     }
 }
@@ -189,6 +190,19 @@ fn main() {
     .unwrap();
     out.push_str("};\n\n");
 
+    // PRIMARIES_CARD
+    let primaries = primaries_card();
+    out.push_str("export const PRIMARIES_CARD: ActionCardData = {\n");
+    write!(
+        out,
+        "  kind: 'action',\n  name: '{}',\n  trashAbilities: {},\n  workshopAbilities: {},\n",
+        primaries.name(),
+        format_abilities(primaries.trash_abilities()),
+        format_abilities(primaries.workshop_abilities()),
+    )
+    .unwrap();
+    out.push_str("};\n\n");
+
     let all_sell_cards = ALL_SELL_CARDS;
     out.push_str("export const SELL_CARDS: SellCardData[] = [\n");
     for sell_card in &all_sell_cards {
@@ -264,7 +278,8 @@ fn main() {
         let variant = card_variant_name(card);
         write!(out, "CARD_LOOKUP['{}'] = ACTION_CARDS[{}];\n", variant, i).unwrap();
     }
-    out.push_str("CARD_LOOKUP['Chalk'] = CHALK_CARD;\n\n");
+    out.push_str("CARD_LOOKUP['Chalk'] = CHALK_CARD;\n");
+    out.push_str("CARD_LOOKUP['Primaries'] = PRIMARIES_CARD;\n\n");
 
     // SELL_CARD_LOOKUP
     out.push_str("const SELL_CARD_LOOKUP: Record<string, SellCardData> = {};\n");
@@ -343,6 +358,7 @@ fn main() {
     format_category(&mut out, "Primary Dyes", &dyes_with(3));
     format_category(&mut out, "Secondary Dyes", &dyes_with(2));
     format_category(&mut out, "Tertiary Dyes", &dyes_with(1));
+    format_category(&mut out, "Primaries", &[primaries_card()]);
     format_category(&mut out, "Action Cards", &action_cards());
     format_category(&mut out, "Material + Color", &material_color_cards());
     format_category(&mut out, "Dual Materials", &dual_material_cards());

@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use eframe::egui;
 use colori_core::cards::{
     action_cards, basic_dye_cards, chalk_card, draft_copies, draft_deck_cards, draft_dye_cards,
-    draft_material_cards, sell_deck_cards, starter_material_cards,
+    draft_material_cards, primaries_card, sell_deck_cards, starter_material_cards,
 };
 use colori_core::types::{
     Buyer, Card, CardKind, Color, MaterialType, ALL_BUYERS, ALL_MATERIAL_TYPES, ALL_SELL_CARDS,
@@ -174,6 +174,11 @@ fn find_card_by_name(name: &str) -> Option<Card> {
         }
     }
     for card in action_cards() {
+        if card.name() == name {
+            return Some(card);
+        }
+    }
+    for card in [primaries_card()] {
         if card.name() == name {
             return Some(card);
         }

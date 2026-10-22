@@ -22,6 +22,7 @@ const ALL_CARDS: [Card; NUM_CARDS] = [
     Card::CanvasCeramics, Card::CeramicsFabric, Card::CanvasFabric,
     Card::Alum, Card::GumArabic, Card::LinseedOil,
     Card::Warehouse, Card::Gondola, Card::Chalk,
+    Card::Primaries,
 ];
 
 pub struct CardHeuristicTable {
@@ -118,6 +119,7 @@ fn card_quality(card: Card, params: &HeuristicParams) -> f64 {
             Card::LinseedOil => params.linseed_oil_quality,
             Card::Warehouse => params.warehouse_quality,
             Card::Gondola => params.gondola_quality,
+            Card::Primaries => params.primaries_quality,
             _ => 0.0,
         },
         // A dye's tier shows in how many colours it carries.

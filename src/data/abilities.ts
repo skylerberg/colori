@@ -9,6 +9,7 @@ export function formatSingleAbility(a: Ability): string {
     case 'gainDucats': return `Gain ${a.count} ${a.count === 1 ? 'ducat' : 'ducats'}`;
     case 'gainSecondary': return 'Any secondary';
     case 'gainWildPrimaries': return `Gain ${a.count} wild ${a.count === 1 ? 'primary' : 'primaries'}`;
+    case 'gainPrimaries': return 'Gain one of each primary';
     case 'gainBoats': return `Gain ${a.count} ${a.count === 1 ? 'boat' : 'boats'}`;
   }
 }

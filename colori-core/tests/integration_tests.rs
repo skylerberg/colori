@@ -379,6 +379,7 @@ fn generate_invalid_choices(state: &GameState, player: usize) -> Vec<Choice> {
                     }
                     Ability::GainDucats { .. }
                     | Ability::GainWildPrimaries { .. }
+                    | Ability::GainPrimaries
                     | Ability::GainBoats { .. } => {
                         // Auto-resolved, but just in case
                         invalid.push(Choice::EndTurn);
@@ -1268,6 +1269,54 @@ fn test_workshopping_chalk_gains_one_wild_primary() {
 }
 
 #[test]
+fn test_workshopping_primaries_gains_one_of_each_primary() {
+    let state = state_after_workshopping(Card::Primaries);
+    let wheel = &state.players[0].color_wheel;
+    assert_eq!(
+        (wheel.get(Color::Red), wheel.get(Color::Yellow), wheel.get(Color::Blue)),
+        (2, 2, 2),
+        "the wheel starts with one of each primary"
+    );
+    for color in [Color::Vermilion, Color::Orange, Color::Green] {
+        assert_eq!(wheel.get(color), 0, "{:?} is not a primary", color);
+    }
+    assert_eq!(pending_ability(&state), None, "the primaries arrive without a choice");
+}
+
+/// The Primaries card trashes for Workshop ×2, so at most two cards come out
+/// of the workshop with it.
+#[test]
+fn test_trashing_primaries_grants_two_workshop_picks() {
+    let mut state = state_with_drafted(Card::Primaries);
+    for card in [Card::StarterCeramics, Card::StarterCanvas, Card::StarterFabric] {
+        let id = find_card_id(&state, card);
+        remove_card_anywhere(&mut state, id);
+        state.players[0].workshop_cards.insert(id);
+    }
+
+    let two_picks = Choice::TrashAndWorkshop {
+        card: Card::Primaries,
+        workshop_cards: CopyVec::from_slice(&[Card::StarterCanvas, Card::StarterFabric]),
+    };
+    let three_picks = Choice::TrashAndWorkshop {
+        card: Card::Primaries,
+        workshop_cards: CopyVec::from_slice(&[Card::StarterCeramics, Card::StarterCanvas, Card::StarterFabric]),
+    };
+    let choices = enumerate_choices(&state, 0);
+    assert!(choices.contains(&two_picks), "two picks are on offer");
+    assert!(!choices.contains(&three_picks), "a third pick is not");
+
+    let mut rng = WyRand::seed_from_u64(3);
+    apply_choice_to_state(&mut state, 0, &two_picks, &mut rng);
+
+    let player = &state.players[0];
+    assert_eq!((player.materials.get(MaterialType::Textiles), player.materials.get(MaterialType::Paintings)), (1, 1));
+    assert_eq!(player.workshop_cards.len(), 1, "the unpicked card stays in the workshop");
+    assert_eq!(state.trash.len(), 1, "the card is trashed, not kept");
+    assert_eq!(pending_ability(&state), None);
+}
+
+#[test]
 fn test_workshopping_gondola_gains_a_boat() {
     let state = state_after_workshopping(Card::Gondola);
     assert_eq!(state.players[0].boats, 1);
@@ -1726,6 +1775,17 @@ fn test_draft_deck_composition() {
     assert_eq!(draft_copies(Card::CeramicsRed), 2);
     assert_eq!(draft_copies(Card::CanvasCeramics), 1);
     assert_eq!(draft_copies(Card::Realgar), 3);
+    assert_eq!(draft_copies(Card::Primaries), 6);
+    for tertiary in [
+        Card::Cinnabar,
+        Card::Saffron,
+        Card::CopperResinate,
+        Card::Azurite,
+        Card::LapisLazuli,
+        Card::Cochineal,
+    ] {
+        assert_eq!(draft_copies(tertiary), 2, "{:?} is a tertiary dye", tertiary);
+    }
     for card in starter_deck() {
         assert_eq!(draft_copies(card), 0, "{:?} is a starter card", card);
     }

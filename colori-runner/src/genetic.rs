@@ -63,9 +63,10 @@ enum Gene {
     RolloutWsMaterialColorsMetMultiplier = 45,
     RolloutWsActionGainDucatsValue = 46,
     RolloutWsActionColorDemandMultiplier = 47,
+    PrimariesQuality = 48,
 }
 
-const NUM_GENES: usize = 48;
+const NUM_GENES: usize = 49;
 
 trait GeneTarget: Clone {
     fn to_genes(&self) -> Vec<f64>;
@@ -126,6 +127,7 @@ impl GeneTarget for HeuristicParams {
         v[RolloutWsMaterialColorsMetMultiplier as usize] = self.rollout_ws_material_colors_met_multiplier as f64;
         v[RolloutWsActionGainDucatsValue as usize] = self.rollout_ws_action_gain_ducats_value as f64;
         v[RolloutWsActionColorDemandMultiplier as usize] = self.rollout_ws_action_color_demand_multiplier as f64;
+        v[PrimariesQuality as usize] = self.primaries_quality;
         v
     }
 
@@ -158,6 +160,7 @@ impl GeneTarget for HeuristicParams {
             gum_arabic_quality: v[GumArabicQuality as usize],
             warehouse_quality: v[WarehouseQuality as usize],
             linseed_oil_quality: v[LinseedOilQuality as usize],
+            primaries_quality: v[PrimariesQuality as usize],
             primary_dye_quality: v[PrimaryDyeQuality as usize],
             secondary_dye_quality: v[SecondaryDyeQuality as usize],
             tertiary_dye_quality: v[TertiaryDyeQuality as usize],

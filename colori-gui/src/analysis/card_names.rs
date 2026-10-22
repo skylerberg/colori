@@ -38,6 +38,7 @@ pub fn format_ability(ability: &Ability) -> String {
         Ability::GainSecondary => "Gain Secondary".to_string(),
         Ability::GainWildPrimaries { count: 1 } => "Gain 1 Wild Primary".to_string(),
         Ability::GainWildPrimaries { count } => format!("Gain {} Wild Primaries", count),
+        Ability::GainPrimaries => "Gain One of Each Primary".to_string(),
         Ability::GainBoats { count } => format!("Gain {} Boat(s)", count),
     }
 }

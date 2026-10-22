@@ -830,6 +830,14 @@ fn action_workshop_value(
                 }
                 return count * (params.rollout_ws_action_gain_ducats_value / 2 + best * mult / 10);
             }
+            // One of each primary: three colors, each worth what its demand says.
+            Ability::GainPrimaries => {
+                let mut total = 0u32;
+                for &c in &PRIMARIES {
+                    total += cache.color_demand(c);
+                }
+                return total * mult / 10;
+            }
             Ability::GainBoats { count } => {
                 let mut best = 0u32;
                 for &m in &ALL_MATERIAL_TYPES {
