@@ -98,7 +98,7 @@ At the start of the later rounds, every player collects income:
 
 ### 1. Draw Phase
 
-Each player draws from their personal deck until their workshop holds 5 cards. Cards carried over from the previous round's draft pool are already there, so keeping a card costs you a fresh draw. If the personal deck runs out you draw fewer cards — there is nothing to reshuffle.
+Each player draws from their personal deck until their workshop holds 5 cards. Cards you kept last round sit on top of your personal deck, so they are drawn first: keeping a card costs you a fresh draw. If the personal deck runs out you draw fewer cards — there is nothing to reshuffle.
 
 Workshop cards are face-up and visible to all players.
 
@@ -136,7 +136,9 @@ If both the display and the deck are empty there is nothing to claim, and the sl
 
 Everyone takes their turn at the same time. Nothing you do on your turn touches anyone else's cards, colors, materials or buyers, so there is no turn order: you can watch the others play, but nothing they do changes what you can do. The round ends once everyone has ended their turn.
 
-On your turn, you may trash any number of your **drafted** cards, one at a time. Each trashed card triggers its trash ability (see Abilities below); a card with two resolves them in the order printed. You must fully resolve a card's abilities before trashing another card. When you are done trashing cards (or choose to stop), your turn ends.
+On your turn, you may trash any number of your **drafted** cards, one at a time. Each trashed card triggers its trash ability (see Abilities below); a card with two resolves them in the order printed. You must fully resolve a card's abilities before trashing another card.
+
+Every drafted card is decided one way or the other: trashed for its action, or **kept**, which puts it on top of your personal deck to be drawn again next round. You may end your turn whenever you like, without deciding every card. Anything still waiting on you when the turn ends is set aside: an ability you have not answered is not resolved, and every drafted card you have not decided is kept — or, if you choose that when ending the turn, trashed without using its action.
 
 **Spending ducats.** Between trashes — whenever no ability is waiting on you — you may spend **1 ducat** for any of:
 
@@ -154,7 +156,7 @@ You cannot buy something that would do nothing: Sell needs an affordable buyer, 
 
 At the end of your turn:
 - Every card in your workshop — including the rotated ones already used this round — is shuffled together and placed on the **bottom** of your personal deck.
-- Any un-trashed drafted cards move into your workshop, where they are available from the start of the next round.
+- Every drafted card you have not decided is kept (on top of your personal deck) or trashed without using its action, as you choose when the turn ends.
 
 All player information (workshop, drafted cards, color wheel, stored materials, ducats) is public during the action phase.
 

@@ -156,8 +156,8 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, player_index: usize, choice: 
             let card_instance_id = get_drafted_card_instance(state, player_index, card);
             resolve_keep_card(state, player_index, card_instance_id);
         }
-        Choice::EndTurn => {
-            end_player_turn(state, player_index);
+        Choice::EndTurn { keep_remaining } => {
+            end_player_turn(state, player_index, *keep_remaining);
         }
         Choice::Workshop { card_types } => {
             resolve_workshop_card_types(state, player_index, card_types);
