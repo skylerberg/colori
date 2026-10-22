@@ -1,4 +1,4 @@
-use crate::colors::{can_supply_mix, pay_cost, perform_mix, wild_primaries_to_cover_sale, VALID_MIX_PAIRS};
+use crate::colors::{can_supply_mix, pay_cost, perform_mix, wild_primaries_to_cover_sale, PRIMARIES, VALID_MIX_PAIRS};
 use crate::types::{
     Ability, AbilityStack, ActionState, Card, Color, DucatPurchase, GamePhase, GameState,
     PlayerState, PlayerTurn, SellCard,
@@ -97,6 +97,14 @@ pub fn process_ability_stack(state: &mut GameState, player_index: usize) {
             Ability::GainWildPrimaries { count } => {
                 ability_stack_mut(state, player_index).pop();
                 state.players[player_index].wild_primaries += count;
+                continue;
+            }
+            Ability::GainPrimaries => {
+                ability_stack_mut(state, player_index).pop();
+                let wheel = &mut state.players[player_index].color_wheel;
+                for color in PRIMARIES {
+                    wheel.increment(color);
+                }
                 continue;
             }
             Ability::GainBoats { count } => {

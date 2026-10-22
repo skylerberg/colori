@@ -158,6 +158,7 @@ fn ceiling(state: &GameState, player_index: usize) -> Ranking {
 
     let (mut ducats, mut wilds, mut boats) = (player.ducats, player.wild_primaries, player.boats);
     let (mut free_sells, mut free_mixes, mut moves, mut any_secondaries) = (0, 0, 0, 0);
+    let mut primary_sets = 0u32;
     let pending = match &state.phase {
         GamePhase::Action { action_state } => {
             action_state.turns[player_index].ability_stack.as_slice()
@@ -199,11 +200,18 @@ fn ceiling(state: &GameState, player_index: usize) -> Ranking {
                 any_secondaries += 1;
                 colors += 1;
             }
+            Ability::GainPrimaries => {
+                primary_sets += 1;
+                colors += 3;
+            }
             Ability::Workshop { .. } => {}
         }
     }
 
     let mut supply = player.color_wheel.counts.map(u32::from);
+    for primary in PRIMARIES {
+        supply[primary.index()] += primary_sets;
+    }
     let mut materials = player.materials.counts;
     let (mut movable_sells, mut movable_mixes) = (0, 0);
     for card in workshop() {

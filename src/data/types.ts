@@ -12,6 +12,7 @@ export type Ability =
   | { type: 'gainDucats'; count: number }
   | { type: 'gainSecondary' }
   | { type: 'gainWildPrimaries'; count: number }
+  | { type: 'gainPrimaries' }
   | { type: 'gainBoats'; count: number };
 
 // Card variant name strings from Rust
@@ -24,7 +25,8 @@ export type Card = 'BasicRed' | 'BasicYellow' | 'BasicBlue'
   | 'CanvasRed' | 'CanvasYellow' | 'CanvasBlue'
   | 'FabricOrange' | 'FabricGreen' | 'FabricPurple'
   | 'CanvasCeramics' | 'CeramicsFabric' | 'CanvasFabric'
-  | 'Alum' | 'GumArabic' | 'LinseedOil' | 'Warehouse' | 'Gondola' | 'Chalk';
+  | 'Alum' | 'GumArabic' | 'LinseedOil' | 'Warehouse' | 'Gondola' | 'Chalk'
+  | 'Primaries';
 
 export type SellCard =
   | 'ShipwrightPurpleGreen' | 'ShipwrightOrangeGreen' | 'ShipwrightPurpleOrange'

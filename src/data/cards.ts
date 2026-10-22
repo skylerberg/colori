@@ -282,6 +282,13 @@ export const CHALK_CARD: ActionCardData = {
   workshopAbilities: [{ type: 'gainWildPrimaries', count: 1 }],
 };
 
+export const PRIMARIES_CARD: ActionCardData = {
+  kind: 'action',
+  name: 'Primaries',
+  trashAbilities: [{ type: 'workshop', count: 2 }],
+  workshopAbilities: [{ type: 'gainPrimaries' }],
+};
+
 export const SELL_CARDS: SellCardData[] = [
   { kind: 'sellCard', name: 'Shipwright', points: 4, requiredMaterials: ['Textiles'], requiredBoats: 1, colorCost: ['Purple', 'Green'] },
   { kind: 'sellCard', name: 'Shipwright', points: 4, requiredMaterials: ['Textiles'], requiredBoats: 1, colorCost: ['Orange', 'Green'] },
@@ -393,6 +400,7 @@ CARD_LOOKUP['LinseedOil'] = ACTION_CARDS[2];
 CARD_LOOKUP['Warehouse'] = ACTION_CARDS[3];
 CARD_LOOKUP['Gondola'] = ACTION_CARDS[4];
 CARD_LOOKUP['Chalk'] = CHALK_CARD;
+CARD_LOOKUP['Primaries'] = PRIMARIES_CARD;
 
 const SELL_CARD_LOOKUP: Record<string, SellCardData> = {};
 SELL_CARD_LOOKUP['ShipwrightPurpleGreen'] = SELL_CARDS[0];
@@ -493,12 +501,12 @@ DRAFT_COPY_COUNTS['Green Earth'] = 3;
 DRAFT_COPY_COUNTS['Verdigris'] = 3;
 DRAFT_COPY_COUNTS['Brazilwood'] = 3;
 DRAFT_COPY_COUNTS['Indigo'] = 3;
-DRAFT_COPY_COUNTS['Cinnabar'] = 3;
-DRAFT_COPY_COUNTS['Saffron'] = 3;
-DRAFT_COPY_COUNTS['Copper Resinate'] = 3;
-DRAFT_COPY_COUNTS['Azurite'] = 3;
-DRAFT_COPY_COUNTS['Lapis Lazuli'] = 3;
-DRAFT_COPY_COUNTS['Cochineal'] = 3;
+DRAFT_COPY_COUNTS['Cinnabar'] = 2;
+DRAFT_COPY_COUNTS['Saffron'] = 2;
+DRAFT_COPY_COUNTS['Copper Resinate'] = 2;
+DRAFT_COPY_COUNTS['Azurite'] = 2;
+DRAFT_COPY_COUNTS['Lapis Lazuli'] = 2;
+DRAFT_COPY_COUNTS['Cochineal'] = 2;
 DRAFT_COPY_COUNTS['Ceramics & Red'] = 2;
 DRAFT_COPY_COUNTS['Ceramics & Yellow'] = 2;
 DRAFT_COPY_COUNTS['Ceramics & Blue'] = 2;
@@ -516,6 +524,7 @@ DRAFT_COPY_COUNTS['Gum Arabic'] = 5;
 DRAFT_COPY_COUNTS['Linseed Oil'] = 5;
 DRAFT_COPY_COUNTS['Warehouse'] = 5;
 DRAFT_COPY_COUNTS['Gondola'] = 5;
+DRAFT_COPY_COUNTS['Primaries'] = 6;
 
 export function getDraftCopies(name: string): number {
   return DRAFT_COPY_COUNTS[name] ?? 1;
@@ -530,7 +539,8 @@ export interface CardCategory {
 export const DRAFT_CARD_CATEGORIES: CardCategory[] = [
   { label: 'Primary Dyes', cardNames: ['Realgar', 'Kermes', 'Litharge', 'Malachite', 'Woad', 'Logwood'], totalCopies: 18 },
   { label: 'Secondary Dyes', cardNames: ['Dragon\'s Blood', 'Orpiment', 'Green Earth', 'Verdigris', 'Brazilwood', 'Indigo'], totalCopies: 18 },
-  { label: 'Tertiary Dyes', cardNames: ['Cinnabar', 'Saffron', 'Copper Resinate', 'Azurite', 'Lapis Lazuli', 'Cochineal'], totalCopies: 18 },
+  { label: 'Tertiary Dyes', cardNames: ['Cinnabar', 'Saffron', 'Copper Resinate', 'Azurite', 'Lapis Lazuli', 'Cochineal'], totalCopies: 12 },
+  { label: 'Primaries', cardNames: ['Primaries'], totalCopies: 6 },
   { label: 'Action Cards', cardNames: ['Alum', 'Gum Arabic', 'Linseed Oil', 'Warehouse', 'Gondola'], totalCopies: 25 },
   { label: 'Material + Color', cardNames: ['Ceramics & Red', 'Ceramics & Yellow', 'Ceramics & Blue', 'Canvas & Red', 'Canvas & Yellow', 'Canvas & Blue', 'Fabric & Orange', 'Fabric & Green', 'Fabric & Purple'], totalCopies: 18 },
   { label: 'Dual Materials', cardNames: ['Canvas & Ceramics', 'Ceramics & Fabric', 'Canvas & Fabric'], totalCopies: 3 },

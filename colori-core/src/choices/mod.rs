@@ -152,9 +152,9 @@ pub fn enumerate_choices_into(state: &GameState, player_index: usize, choices: &
                         choices.push(Choice::GainSecondary { color: c });
                     }
                 }
-                // Instant abilities (GainDucats, GainWildPrimaries, GainBoats)
-                // should never be on top when waiting for a choice — they get
-                // processed immediately.
+                // Instant abilities (GainDucats, GainWildPrimaries, GainPrimaries,
+                // GainBoats) should never be on top when waiting for a choice —
+                // they get processed immediately.
                 Some(_) => {}
             }
         }

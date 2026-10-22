@@ -61,7 +61,7 @@ const PARAM_GROUPS: &[(&str, &[&str])] = &[
     ]),
     ("Action Card Overrides", &[
         "alum_quality", "gum_arabic_quality", "warehouse_quality",
-        "gondola_quality", "linseed_oil_quality",
+        "gondola_quality", "linseed_oil_quality", "primaries_quality",
     ]),
     ("Dye Type Overrides", &[
         "primary_dye_quality",
@@ -121,6 +121,7 @@ fn get_param_value(params: &HeuristicParams, name: &str) -> Option<f64> {
         "gondola_quality" => Some(params.gondola_quality),
         "warehouse_quality" => Some(params.warehouse_quality),
         "linseed_oil_quality" => Some(params.linseed_oil_quality),
+        "primaries_quality" => Some(params.primaries_quality),
         "primary_dye_quality" => Some(params.primary_dye_quality),
         "secondary_dye_quality" => Some(params.secondary_dye_quality),
         "tertiary_dye_quality" => Some(params.tertiary_dye_quality),

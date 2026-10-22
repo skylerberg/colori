@@ -134,6 +134,9 @@ pub enum Ability {
     GainSecondary,
     #[serde(rename = "gainWildPrimaries")]
     GainWildPrimaries { count: u32 },
+    /// One of each primary colour — Red, Yellow and Blue — added to the wheel.
+    #[serde(rename = "gainPrimaries")]
+    GainPrimaries,
     #[serde(rename = "gainBoats")]
     GainBoats { count: u32 },
 }
@@ -152,7 +155,7 @@ pub enum CardKind {
     Action,
 }
 
-// ── Card enum (42 variants) ──
+// ── Card enum (43 variants) ──
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Card {
@@ -208,9 +211,11 @@ pub enum Card {
     Warehouse,
     Gondola,
     Chalk,
+    // The Primaries card (1)
+    Primaries,
 }
 
-pub const NUM_CARDS: usize = 42;
+pub const NUM_CARDS: usize = 43;
 
 struct CardProperties {
     name: &'static str,
@@ -293,6 +298,7 @@ const CARD_DATA: [CardProperties; NUM_CARDS] = [
     action("Warehouse", MOVE_TO_DRAFT_POOL, &[Ability::GainWildPrimaries { count: 2 }]),
     action("Gondola", MOVE_TO_DRAFT_POOL, &[Ability::GainBoats { count: 1 }]),
     action("Chalk", MIX_2, &[Ability::GainWildPrimaries { count: 1 }]),
+    action("Primaries", WORKSHOP_2, &[Ability::GainPrimaries]),
 ];
 
 impl Card {

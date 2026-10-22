@@ -33,6 +33,8 @@ pub struct HeuristicParams {
     pub warehouse_quality: f64,
     pub gondola_quality: f64,
     pub linseed_oil_quality: f64,
+    /// The Primaries card, whose workshop ability gives a primary of each kind.
+    pub primaries_quality: f64,
     pub primary_dye_quality: f64,
     pub secondary_dye_quality: f64,
     pub tertiary_dye_quality: f64,
@@ -119,6 +121,10 @@ struct HeuristicParamsRaw {
     #[serde(default)]
     gondola_quality: f64,
     linseed_oil_quality: f64,
+    /// Left out by parameters trained before the Primaries card existed, which
+    /// prices it as the three-colour dye it plays like.
+    #[serde(default)]
+    primaries_quality: Option<f64>,
     primary_dye_quality: f64,
     secondary_dye_quality: f64,
     tertiary_dye_quality: f64,
@@ -182,6 +188,7 @@ impl From<HeuristicParamsRaw> for HeuristicParams {
             warehouse_quality: raw.warehouse_quality,
             gondola_quality: raw.gondola_quality,
             linseed_oil_quality: raw.linseed_oil_quality,
+            primaries_quality: raw.primaries_quality.unwrap_or(raw.primary_dye_quality),
             primary_dye_quality: raw.primary_dye_quality,
             secondary_dye_quality: raw.secondary_dye_quality,
             tertiary_dye_quality: raw.tertiary_dye_quality,
