@@ -262,7 +262,7 @@ fn generate_invalid_choices(state: &GameState, player: usize) -> Vec<Choice> {
     match &state.phase {
         GamePhase::Draft { draft_state } => {
             // Wrong-phase choices
-            invalid.push(Choice::EndTurn);
+            invalid.push(Choice::EndTurn { keep_remaining: true });
             invalid.push(Choice::SkipWorkshop);
             invalid.push(Choice::SellToBuyer {
                 buyer: Buyer::IlluminatorVermilion,
@@ -318,7 +318,6 @@ fn generate_invalid_choices(state: &GameState, player: usize) -> Vec<Choice> {
                 let top = stack.last().unwrap();
                 match top {
                     Ability::Workshop { .. } => {
-                        invalid.push(Choice::EndTurn);
                         invalid.push(Choice::SellToBuyer {
                             buyer: Buyer::IlluminatorVermilion,
                         });
@@ -345,31 +344,26 @@ fn generate_invalid_choices(state: &GameState, player: usize) -> Vec<Choice> {
                         invalid.push(Choice::GainSecondary {
                             color: Color::Vermilion,
                         });
-                        invalid.push(Choice::EndTurn);
                     }
                     Ability::MixColors { .. } => {
                         // Non-adjacent colors are invalid
                         invalid.push(Choice::MixAll {
                             mixes: CopyVec::from_slice(&[(Color::Orange, Color::Green)]),
                         });
-                        invalid.push(Choice::EndTurn);
                     }
                     Ability::Sell => {
-                        invalid.push(Choice::EndTurn);
                         invalid.push(Choice::SkipWorkshop);
                         invalid.push(Choice::GainSecondary {
                             color: Color::Orange,
                         });
                     }
                     Ability::LiftCard => {
-                        invalid.push(Choice::EndTurn);
                         invalid.push(Choice::SkipWorkshop);
                     }
                     Ability::GainGoldCoins { .. }
                     | Ability::GainBowls { .. }
                     | Ability::GainBoats { .. } => {
                         // Auto-resolved, but just in case
-                        invalid.push(Choice::EndTurn);
                     }
                 }
             }
@@ -1416,7 +1410,7 @@ fn a_mix_the_wheel_cannot_supply_never_becomes_a_decision() {
         "the mix ability went with the trash that could not use it"
     );
     assert!(
-        enumerate_choices(&state, 0).contains(&Choice::EndTurn),
+        enumerate_choices(&state, 0).contains(&Choice::EndTurn { keep_remaining: true }),
         "what is left is the turn's own menu"
     );
 }
@@ -1800,7 +1794,7 @@ fn state_at_first_end_of_turn(seed: u64) -> (GameState, UnorderedCards, Unordere
     let drafted = state.players[0].top_cards;
     assert!(!workshop_area.is_empty() && !drafted.is_empty());
 
-    apply_choice(&mut state, 0, &Choice::EndTurn, &mut rng);
+    apply_choice(&mut state, 0, &Choice::EndTurn { keep_remaining: true }, &mut rng);
     (state, workshop_area, drafted)
 }
 
@@ -2432,7 +2426,7 @@ fn random_turns(state: &GameState, rng: &mut WyRand) -> Vec<Vec<Choice>> {
                 let choices = enumerate_choices(views.view(player), player);
                 let choice = choices[rng.random_range(0..choices.len())].clone();
                 views.apply(player, &choice, rng);
-                let ended = matches!(choice, Choice::EndTurn);
+                let ended = matches!(choice, Choice::EndTurn { .. });
                 turn.push(choice);
                 if ended {
                     return turn;
@@ -2471,7 +2465,7 @@ fn test_interleaving_turns_does_not_change_the_outcome() {
             let mut interleaved_rng = WyRand::seed_from_u64(0);
             let mut next = vec![0usize; num_players];
             let is_ending = |player: usize, next: &[usize], turns: &[Vec<Choice>]| {
-                matches!(turns[player].get(next[player]), Some(Choice::EndTurn))
+                matches!(turns[player].get(next[player]), Some(Choice::EndTurn { .. }))
             };
             while next.iter().zip(&turns).any(|(&i, turn)| i < turn.len()) {
                 let open: Vec<usize> = (0..num_players)
@@ -2531,7 +2525,7 @@ fn test_a_player_whose_turn_is_over_has_nothing_left_to_choose() {
     if let GamePhase::Action { ref mut action_state } = state.phase {
         action_state.turns[1].ability_stack = stack;
     }
-    apply_choice(&mut state, 0, &Choice::EndTurn, &mut rng);
+    apply_choice(&mut state, 0, &Choice::EndTurn { keep_remaining: true }, &mut rng);
     // Enough to buy a workshop pick, were the turn still open, and a card in
     // the workshop for it to take.
     state.players[0].gold_coins = 3;
@@ -2544,15 +2538,49 @@ fn test_a_player_whose_turn_is_over_has_nothing_left_to_choose() {
     assert!(!state.players[0].workshop_cards.is_empty());
 
     assert!(enumerate_choices(&state, 0).is_empty());
-    assert!(!check_choice_available(&state, 0, &Choice::EndTurn));
+    assert!(!check_choice_available(&state, 0, &Choice::EndTurn { keep_remaining: true }));
     assert!(!check_choice_available(
         &state,
         0,
         &Choice::SpendGoldCoin { purchase: GoldCoinPurchase::Workshop }
     ));
     assert!(
-        !check_choice_available(&state, 1, &Choice::EndTurn),
-        "player 1's own pending ability still stands in the way of ending"
+        check_choice_available(&state, 1, &Choice::EndTurn { keep_remaining: true }),
+        "a pending ability no longer stands in the way of ending a turn"
+    );
+}
+
+/// A turn left mid-ability can end: what it was answering is skipped rather
+/// than resolved, so a sale the rules would otherwise demand never happens.
+#[test]
+fn test_ending_a_turn_skips_the_ability_it_was_answering() {
+    let (mut state, mut rng) = state_at_first_action_phase(12, 2);
+    // A wheel, boats and wilds that can pay for any buyer, so the pending Sell
+    // is one the rules would make mandatory.
+    state.players[0].color_wheel = ColorWheel {
+        counts: [9; colori_core::types::NUM_COLORS],
+    };
+    state.players[0].boats = 9;
+    state.players[0].bowls = 9;
+    let buyers = state.players[0].buyers.clone();
+    assert!(!buyers.is_empty(), "round one claims a buyer");
+    let mut stack = AbilityStack::new();
+    stack.push(Ability::Sell);
+    if let GamePhase::Action { ref mut action_state } = state.phase {
+        action_state.turns[0].ability_stack = stack;
+    }
+
+    apply_choice(&mut state, 0, &Choice::EndTurn { keep_remaining: true }, &mut rng);
+
+    assert!(matches!(
+        &state.phase,
+        GamePhase::Action { action_state } if action_state.turns[0].ended
+    ));
+    assert_eq!(state.players[0].buyers, buyers, "the sale was skipped, not made");
+    assert_eq!(
+        state.players[0].color_wheel.counts,
+        [9; colori_core::types::NUM_COLORS],
+        "nothing was spent to pay for it"
     );
 }
 

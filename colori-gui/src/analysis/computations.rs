@@ -276,7 +276,7 @@ pub fn format_choice(choice: &Choice) -> String {
         Choice::TrashTopCard { card } => {
             format!("Trashed {} from draft", card_name(card))
         }
-        Choice::EndTurn => "Ended turn".to_string(),
+        Choice::EndTurn { .. } => "Ended turn".to_string(),
         Choice::Workshop { card_types } => {
             if card_types.is_empty() {
                 "Workshopped nothing".to_string()
@@ -397,7 +397,7 @@ fn choice_type_name(choice: &Choice) -> String {
         Choice::DraftPick { .. } => "draftPick".to_string(),
         Choice::TrashTopCard { .. } => "trashTopCard".to_string(),
         Choice::KeepCard { .. } => "keepCard".to_string(),
-        Choice::EndTurn => "endTurn".to_string(),
+        Choice::EndTurn { .. } => "endTurn".to_string(),
         Choice::Workshop { .. } => "workshop".to_string(),
         Choice::SkipWorkshop => "skipWorkshop".to_string(),
         Choice::LiftCard { .. } => "liftCard".to_string(),

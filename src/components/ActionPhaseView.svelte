@@ -5,6 +5,7 @@
   import { getCardData, SECONDARIES } from '../data/cards';
   import { formatSingleAbility } from '../data/abilities';
   import { tableInteraction } from '../stores/tableInteraction';
+  import { actionPrefs } from '../stores/actionPrefs.svelte';
 
   let { gameState, playerIndex, onAction, onUndo, undoAvailable }: {
     gameState: GameState;
@@ -37,19 +38,30 @@
 
   // ── Workshop ──
 
+  // The most picks this workshop can actually take: the action's count, or the
+  // cards there are if there are fewer.
+  let maxWorkshopPicks = $derived(
+    topAbility?.type === 'workshop' ? Math.min(topAbility.count, player.workshopCards.length) : 0,
+  );
+
   function toggleWorkshopCard(instanceId: number) {
     if (topAbility?.type !== 'workshop') return;
+    let next: number[];
     if (selectedWorkshopIds.includes(instanceId)) {
-      selectedWorkshopIds = selectedWorkshopIds.filter(id => id !== instanceId);
+      next = selectedWorkshopIds.filter(id => id !== instanceId);
     } else if (selectedWorkshopIds.length < topAbility.count) {
-      selectedWorkshopIds = [...selectedWorkshopIds, instanceId];
+      next = [...selectedWorkshopIds, instanceId];
     } else if (topAbility.count === 1) {
-      selectedWorkshopIds = [instanceId];
+      next = [instanceId];
+    } else {
+      return;
     }
+    selectedWorkshopIds = next;
+    if (actionPrefs.autoWorkshop && next.length >= maxWorkshopPicks) confirmWorkshop(next);
   }
 
-  function confirmWorkshop() {
-    const cardTypes = selectedWorkshopIds.map(id => player.workshopCards.find(c => c.instanceId === id)!.card);
+  function confirmWorkshop(ids: number[] = selectedWorkshopIds) {
+    const cardTypes = ids.map(id => player.workshopCards.find(c => c.instanceId === id)!.card);
     onAction(cardTypes.length > 0 ? { type: 'workshop', cardTypes } : { type: 'skipWorkshop' });
   }
 
@@ -60,7 +72,7 @@
 
   // ── Mixing ──
 
-  // The wheel as the planned mixes would leave it.
+  // The color wheel as the planned mixes would leave it.
   let mixedStock = $derived.by(() => {
     let stock = { wheel: { ...player.colorWheel }, bowls: player.bowls };
     for (const [a, b] of plannedMixes) {
@@ -112,7 +124,7 @@
   }
 
   // Mirrors the engine: a purchase is offered only when it can act, and only
-  // between trashes. See `action_phase::can_buy_with_gold_coin`.
+  // between top actions. See `action_phase::can_buy_with_gold_coin`.
   let purchasable = $derived.by((): GoldCoinPurchase[] => {
     if (topAbility || player.goldCoins < 1) return [];
     const options: GoldCoinPurchase[] = [];
@@ -127,6 +139,17 @@
   function spendGoldCoin(purchase: GoldCoinPurchase) {
     onAction({ type: 'spendGoldCoin', purchase });
   }
+
+  // What the always-available End turn button will do with what is left.
+  let endTurnTitle = $derived.by(() => {
+    if (topAbility) return 'Leave this ability unfinished and end your turn';
+    const left = player.topCards.length;
+    if (left === 0) return 'End your turn';
+    const cards = left === 1 ? 'the top card you have left' : `the ${left} top cards you have left`;
+    return actionPrefs.keepRemaining
+      ? `End your turn, keeping ${cards}`
+      : `End your turn, trashing ${cards} without using ${left === 1 ? 'it' : 'them'}`;
+  });
 
   // ── What the boards offer ──
 
@@ -180,9 +203,9 @@
     {#if topAbility === null}
       <p class="panel-text">
         {#if player.topCards.length > 0}
-          Every top card is decided one way or the other: <strong>use its top action</strong> — click one sticking
-          out of the top of your board — and trash the card afterwards, or <strong>keep it</strong> on top of your
-          deck to use its workshop ability next round.
+          Click a top card sticking out of the top of your board to <strong>use its top action</strong> and take the ability
+          on its banner, or <strong>keep it</strong> to put it on top of your deck for next round. Any you leave
+          undecided are handled by the Keep remaining box when you end your turn.
         {:else}
           Your top cards are all decided. Spend what you like, then end your turn.
         {/if}
@@ -196,11 +219,26 @@
             Choose up to {topAbility.count} {topAbility.count === 1 ? 'card' : 'cards'} along the bottom of your board.
             Each gives you what its lower half shows.
           </p>
+          <label class="panel-check">
+            <input
+              type="checkbox"
+              checked={actionPrefs.autoWorkshop}
+              onchange={(e) => actionPrefs.setAutoWorkshop(e.currentTarget.checked)}
+            />
+            Workshop as soon as I have picked the most I can
+          </label>
           <div class="panel-actions">
-            <button class="panel-btn primary" onclick={confirmWorkshop} disabled={selectedWorkshopIds.length === 0}>
+            <button class="panel-btn primary" onclick={() => confirmWorkshop()} disabled={selectedWorkshopIds.length === 0}>
               Workshop {selectedWorkshopIds.length || ''} {selectedWorkshopIds.length === 1 ? 'card' : 'cards'}
             </button>
-            <button class="panel-btn" onclick={() => onAction({ type: 'skipWorkshop' })}>Skip</button>
+            <button
+              class="panel-btn"
+              onclick={() => onAction({ type: 'skipWorkshop' })}
+              disabled={selectedWorkshopIds.length > 0}
+              title={selectedWorkshopIds.length > 0
+                ? 'Clear the cards you picked first, so they are not skipped'
+                : 'Workshop nothing'}
+            >Skip</button>
           </div>
         {:else if topAbility.type === 'liftCard'}
           {#if player.workshopCards.length > 0}
@@ -236,12 +274,18 @@
             </ul>
           {/if}
           <div class="panel-actions">
-            <button class="panel-btn primary" onclick={() => submitMixes(plannedMixes)}>
-              {plannedMixes.length > 0 ? 'Done mixing' : 'Skip mixing'}
-            </button>
             {#if plannedMixes.length > 0}
+              <button class="panel-btn primary" onclick={() => submitMixes(plannedMixes)}>
+                Mix {plannedMixes.length} {plannedMixes.length === 1 ? 'color' : 'colors'}
+              </button>
               <button class="panel-btn" onclick={() => plannedMixes = plannedMixes.slice(0, -1)}>Undo last mix</button>
             {/if}
+            <button
+              class="panel-btn"
+              onclick={() => submitMixes([])}
+              disabled={plannedMixes.length > 0}
+              title={plannedMixes.length > 0 ? 'Undo the mixes you planned first, so they are not skipped' : 'Mix nothing'}
+            >Skip mixing</button>
           </div>
         {:else if topAbility.type === 'sell'}
           <p class="panel-text">Click a glowing buyer on your board to sell to them.</p>
@@ -272,7 +316,7 @@
 
     {#if topAbility === null && player.topCards.length > 0}
       <div class="keeps">
-        <span class="panel-hint">Or keep a card — it goes on top of your deck, to use its workshop ability next round:</span>
+        <span class="panel-hint">Or keep a card — it goes on top of your deck and comes back next round:</span>
         <div class="panel-actions">
           {#each player.topCards as ci (ci.instanceId)}
             <button class="panel-btn" onclick={() => onAction({ type: 'keepCard', card: ci.card })}>
@@ -294,20 +338,30 @@
       </div>
     {/if}
 
-    <div class="panel-actions footer">
-      {#if onUndo}
-        <button class="panel-btn" onclick={onUndo} disabled={!undoAvailable}>Undo</button>
-      {/if}
-      <button
-        class="panel-btn danger"
-        onclick={() => onAction({ type: 'endTurn' })}
-        disabled={topAbility !== null || player.topCards.length > 0}
-        title={topAbility
-          ? 'Finish the ability first'
-          : player.topCards.length > 0
-            ? 'Use or keep every top card first'
-            : 'End your turn'}
-      >End turn</button>
+    <div class="footer">
+      <label class="panel-check">
+        <input
+          type="checkbox"
+          checked={actionPrefs.keepRemaining}
+          onchange={(e) => actionPrefs.setKeepRemaining(e.currentTarget.checked)}
+        />
+        Keep remaining
+        <span class="panel-check-hint">
+          {actionPrefs.keepRemaining
+            ? 'top cards you have not used go on top of your deck'
+            : 'top cards you have not used are trashed without their top actions'}
+        </span>
+      </label>
+      <div class="panel-actions">
+        {#if onUndo}
+          <button class="panel-btn" onclick={onUndo} disabled={!undoAvailable}>Undo</button>
+        {/if}
+        <button
+          class="panel-btn danger"
+          onclick={() => onAction({ type: 'endTurn', keepRemaining: actionPrefs.keepRemaining })}
+          title={endTurnTitle}
+        >End turn</button>
+      </div>
     </div>
   </div>
 {/if}
@@ -388,8 +442,12 @@
   }
 
   .footer {
-    justify-content: flex-end;
-    padding-top: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-top: 8px;
     border-top: 1px solid rgba(201, 168, 76, 0.2);
   }
 </style>

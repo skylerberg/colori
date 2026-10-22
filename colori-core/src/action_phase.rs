@@ -301,16 +301,21 @@ pub fn skip_mix(state: &mut GameState, player_index: usize) {
     process_ability_stack(state, player_index);
 }
 
-/// Move an unworkshopped card into the player's top cards, or fizzle when
-/// there is none.
+/// Lift an unused card from the workshop onto the player's top cards, or move
+/// nothing when there is none.
+///
+/// `None` is the fizzle when the workshop is empty, and also how a turn that
+/// is ending declines a lift it could have made — see
+/// [`skip_pending_abilities`].
 ///
 /// Nothing is trashed here. A card in the top cards can be trashed later
-/// in the turn through the ordinary drafted-card path, which triggers its
+/// in the turn through the ordinary top-card path, which triggers its
 /// ability on the stack exactly as before — and when this ability resolves the
 /// stack beneath it is always empty, since no card's *workshop* abilities
 /// include this one, so trashing now and trashing later reach the same
-/// state. What is new is the option to leave the card in the pool, from where
-/// end of turn returns it to the workshop instead of the bottom of the deck.
+/// state. What is new is the option to leave the card there, from where
+/// ending the turn keeps it on top of the deck rather than letting the
+/// workshop's shuffle send it to the bottom.
 pub fn resolve_lift_card(state: &mut GameState, player_index: usize, target: Option<u8>) {
     ability_stack_mut(state, player_index).pop();
 
@@ -327,7 +332,16 @@ pub fn resolve_lift_card(state: &mut GameState, player_index: usize, target: Opt
     process_ability_stack(state, player_index);
 }
 
-pub fn resolve_select_buyer(state: &mut GameState, player_index: usize, buyer_instance_id: u32) {
+/// Decline a sale. The rules make a sale mandatory while a buyer is
+/// affordable, so this is only for a turn that is ending: see
+/// [`skip_pending_abilities`].
+pub fn skip_sell(state: &mut GameState, player_index: usize) {
+    let popped = ability_stack_mut(state, player_index).pop();
+    debug_assert!(matches!(popped, Some(Ability::Sell)), "No pending sell to skip");
+    process_ability_stack(state, player_index);
+}
+
+pub fn resolve_sell_to_buyer(state: &mut GameState, player_index: usize, buyer_instance_id: u32) {
     ability_stack_mut(state, player_index).pop();
 
     let player = &mut state.players[player_index];
@@ -349,9 +363,58 @@ pub fn resolve_gain_color(state: &mut GameState, player_index: usize, color: Col
     process_ability_stack(state, player_index);
 }
 
+/// Decline whatever is waiting on the player, so that ending a turn is always
+/// possible.
+///
+/// Workshop, Mix Colors and Any Secondary are declined by dropping them,
+/// exactly as their own skips do. Sell and Lift a Card are declined here:
+/// while each can still act the rules leave no other way to say no, and a
+/// turn that is over has no decision left in it. Automatic abilities never
+/// wait for an answer, so `process_ability_stack` has already resolved them.
+pub fn skip_pending_abilities(state: &mut GameState, player_index: usize) {
+    while let Some(ability) = ability_stack(state, player_index).last().copied() {
+        match ability {
+            Ability::Sell => skip_sell(state, player_index),
+            Ability::LiftCard => resolve_lift_card(state, player_index, None),
+            // Instant abilities resolve as the stack is processed, so one is
+            // never on top here.
+            Ability::Workshop { .. } | Ability::MixColors { .. } | Ability::GainSecondary => {
+                ability_stack_mut(state, player_index).pop();
+                process_ability_stack(state, player_index);
+            }
+            Ability::GainGoldCoins { .. } | Ability::GainBowls { .. } | Ability::GainBoats { .. } => {
+                unreachable!("an instant ability was waiting for a choice")
+            }
+        }
+    }
+}
+
 /// End `player_index`'s turn. Everyone acts at once, so the round ends with
 /// whoever finishes last.
-pub fn end_player_turn<R: Rng>(state: &mut GameState, player_index: usize, rng: &mut R) {
+/// End `player_index`'s turn. Everyone acts at once, so the round ends with
+/// whoever finishes last.
+///
+/// `keep_remaining` decides what becomes of the top cards the turn never
+/// decided. Kept, they go where keeping puts them: on top of the deck, to be
+/// drawn back into the workshop. Otherwise each is used, taking its top action
+/// and skipping whatever that action asks — the same as using it and declining
+/// every choice it opens.
+pub fn end_player_turn<R: Rng>(
+    state: &mut GameState,
+    player_index: usize,
+    keep_remaining: bool,
+    rng: &mut R,
+) {
+    // Ending the turn declines whatever was still waiting on the player.
+    skip_pending_abilities(state, player_index);
+
+    if !keep_remaining {
+        while let Some(id) = state.players[player_index].top_cards.lowest_bit() {
+            trash_top_card(state, player_index, id as u32);
+            skip_pending_abilities(state, player_index);
+        }
+    }
+
     let round_is_over = {
         let player = &mut state.players[player_index];
 
@@ -361,7 +424,9 @@ pub fn end_player_turn<R: Rng>(state: &mut GameState, player_index: usize, rng: 
         player
             .deck
             .push_bottom(player.workshop_cards.union(player.used_cards));
-        player.deck.push_top(player.top_cards);
+        if keep_remaining {
+            player.deck.push_top(player.top_cards);
+        }
         player.workshop_cards = UnorderedCards::new();
         player.used_cards = UnorderedCards::new();
         player.top_cards = UnorderedCards::new();

@@ -105,6 +105,10 @@
       {#each topActions(m.card.card) as ability}
         <span class="ability">{formatSingleAbility(ability)}</span>
       {/each}
+    {:else if m.type === 'trashWithoutUsing'}
+      <span class="verb">trashed</span>
+      {#each m.cards as ci (ci.instanceId)}{@render card(ci)}{/each}
+      <span class="aside">without using {m.cards.length === 1 ? 'it' : 'them'}</span>
     {:else if m.type === 'keep'}
       <span class="verb">kept</span> {@render card(m.card)} <span class="aside">on top of their deck</span>
     {:else if m.type === 'workshop'}

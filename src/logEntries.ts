@@ -21,6 +21,8 @@ export type LogMove =
   | { type: 'claim'; buyer: Buyer; unseen: boolean }
   | { type: 'picked'; cards: CardInstance[] }
   | { type: 'topAction'; card: CardInstance }
+  // Cards a turn trashed on its way out, without using their top actions.
+  | { type: 'trashWithoutUsing'; cards: CardInstance[] }
   | { type: 'keep'; card: CardInstance }
   | { type: 'workshop'; cards: CardInstance[] }
   | { type: 'mix'; mixes: [Color, Color][] }
@@ -131,7 +133,9 @@ function movesFor(choice: Choice, before: PlayerState, after: PlayerState): LogM
     case 'spendGoldCoin':
       return [{ type: 'spendGoldCoin', purchase: choice.purchase }];
     case 'endTurn':
-      return [{ type: 'endTurn' }];
+      return choice.keepRemaining === false && before.topCards.length > 0
+        ? [{ type: 'trashWithoutUsing', cards: before.topCards }, { type: 'endTurn' }]
+        : [{ type: 'endTurn' }];
   }
 }
 

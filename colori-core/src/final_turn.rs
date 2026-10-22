@@ -90,7 +90,7 @@ impl Solver {
     }
 
     fn try_choice(&mut self, state: &GameState, choice: &Choice) {
-        if *choice == Choice::EndTurn {
+        if matches!(choice, Choice::EndTurn { .. }) {
             // Ending the turn moves cards about, but nothing that ranks.
             let ranking = player_ranking(&state.players[self.player]);
             self.best = self.best.max(Some(ranking));
@@ -331,7 +331,7 @@ fn worth_trying(state: &GameState, player_index: usize) -> Vec<Choice> {
     });
     // Sales first, so a good line is found early and bounds the rest.
     choices.sort_by_key(|choice| match choice {
-        Choice::EndTurn => 0,
+        Choice::EndTurn { .. } => 0,
         Choice::TrashAndSell { .. } | Choice::SellToBuyer { .. } => 1,
         Choice::SpendGoldCoin {
             purchase: GoldCoinPurchase::Sell,
@@ -512,7 +512,7 @@ mod tests {
         let mut ranking = (0, 0, 0);
         for choice in all_choices(state, player) {
             *budget = budget.checked_sub(1)?;
-            let after = if choice == Choice::EndTurn {
+            let after = if matches!(choice, Choice::EndTurn { .. }) {
                 player_ranking(&state.players[player])
             } else {
                 let mut next = state.clone();
@@ -569,7 +569,7 @@ mod tests {
                     }
                     let mut choices = enumerate_choices(&position, player);
                     if choices.len() > 1 {
-                        choices.retain(|choice| *choice != Choice::EndTurn);
+                        choices.retain(|choice| !matches!(choice, Choice::EndTurn { .. }));
                     }
                     let choice = choices[rng.random_range(0..choices.len())];
                     apply_choice(&mut position, player, &choice, &mut rng);
@@ -612,7 +612,7 @@ mod tests {
             !player.workshop_cards.is_empty(),
             "a gold_coin could buy a workshop"
         );
-        assert_eq!(solve(&state, 0), Some(Choice::EndTurn));
+        assert_eq!(solve(&state, 0), Some(Choice::EndTurn { keep_remaining: true }));
     }
 
     /// What the pruning takes on trust about the cards: a Sell is the only

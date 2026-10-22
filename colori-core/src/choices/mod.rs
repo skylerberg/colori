@@ -107,9 +107,13 @@ pub fn enumerate_choices_into(state: &GameState, player_index: usize, choices: &
                         }
                     }
                     // The turn ends once nothing is left to decide, which is
-                    // when the last gold_coins can still be spent on a purchase.
+                    // when the last gold coins can still be spent on a
+                    // purchase. Ending it earlier is always available to the
+                    // player — keeping or trashing what is left — but it only
+                    // repeats lines keeping each card already reaches, so the
+                    // search is not offered it.
                     if player.top_cards.is_empty() {
-                        choices.push(Choice::EndTurn);
+                        choices.push(Choice::EndTurn { keep_remaining: true });
                     }
                 }
                 Some(Ability::Workshop { count }) => {
@@ -223,7 +227,8 @@ fn pending_ability(state: &GameState, player_index: usize) -> Option<Ability> {
 
 /// Whether `target` is a legal answer to Lift a Card. The lift is
 /// mandatory when the workshop has a card to move, so `None` stands only for
-/// the fizzle.
+/// the fizzle. (A turn that is ending declines the move through
+/// `skip_pending_abilities`, which answers no choice at all.)
 fn lift_target_is_valid(state: &GameState, player: &PlayerState, target: &Option<Card>) -> bool {
     match target {
         None => player.workshop_cards.is_empty(),
@@ -269,10 +274,7 @@ pub fn check_choice_available(state: &GameState, player_index: usize, choice: &C
                 _ => true,
             }
         }
-        Choice::EndTurn => {
-            open_turn_stack(state, player_index).is_some_and(|stack| stack.is_empty())
-                && player.top_cards.is_empty()
-        }
+        Choice::EndTurn { .. } => open_turn_stack(state, player_index).is_some(),
         Choice::KeepCard { card } => check_trash_preconditions(state, player_index, card),
         Choice::Workshop { card_types } => {
             matches!(pending_ability(state, player_index), Some(Ability::Workshop { .. }))
@@ -400,22 +402,24 @@ mod tests {
         enumerate_choices(state, player)
     }
 
-    /// Every top card is used or kept, the turn cannot end until the pool is
-    /// empty, and a kept card goes on top of the deck — the segment the draw
-    /// the turn ends with takes its cards from.
+    /// The search uses or keeps every top card before it ends a turn, and a kept
+    /// card goes on top of the deck. Ending early is the player's own move, and
+    /// keeping what is left is the same as keeping each card.
     #[test]
-    fn a_turn_decides_every_top_card_before_it_can_end() {
+    fn a_turn_decides_every_top_card_by_using_or_keeping_it() {
         for seed in 0..4 {
             let state = action_phase(3, seed);
             let player = 0;
             let drafted = state.players[player].top_cards;
             assert!(!drafted.is_empty(), "seed {seed}: a hand to decide");
 
-            // A use and a keep for every card, and no ending yet.
+            // A use and a keep for every card. The search is not handed an
+            // early end — keeping every card already reaches it — but the
+            // player may end the turn whenever they like.
             let offered = choices_for(&state, player);
             assert!(
-                !offered.contains(&Choice::EndTurn),
-                "seed {seed}: a turn with cards left to decide cannot end"
+                !offered.iter().any(|choice| matches!(choice, Choice::EndTurn { .. })),
+                "seed {seed}: the search decides every card"
             );
             for_each_unique_card_type(&drafted, &state.card_lookup, |card| {
                 assert!(
@@ -423,10 +427,14 @@ mod tests {
                     "seed {seed}: {card:?} can be kept"
                 );
             });
-            assert!(!check_choice_available(&state, player, &Choice::EndTurn));
+            assert!(check_choice_available(
+                &state,
+                player,
+                &Choice::EndTurn { keep_remaining: true }
+            ));
 
             // Keep everything: the pool empties, the deck grows by the kept
-            // cards, and only then may the turn end.
+            // cards, and only then does the enumeration offer the end.
             let mut kept = state.clone();
             let mut kept_ids = UnorderedCards::new();
             let deck_before = state.players[player].deck.len();
@@ -446,19 +454,18 @@ mod tests {
                 deck_before + kept_ids.len(),
                 "seed {seed}: kept cards go into the deck"
             );
-            assert!(choices_for(&kept, player).contains(&Choice::EndTurn));
-
-            for id in kept_ids.iter() {
-                assert!(
-                    kept.players[player].deck.contains(id),
-                    "seed {seed}: a kept card goes on top of the deck"
-                );
-            }
+            assert!(choices_for(&kept, player)
+                .contains(&Choice::EndTurn { keep_remaining: true }));
 
             let workshop_before = kept.players[player].workshop_cards.len();
             let deck_before = kept.players[player].deck.len();
             let mut ended = kept.clone();
-            apply_choice(&mut ended, player, &Choice::EndTurn, &mut WyRand::seed_from_u64(0));
+            apply_choice(
+                &mut ended,
+                player,
+                &Choice::EndTurn { keep_remaining: true },
+                &mut WyRand::seed_from_u64(0),
+            );
             assert_eq!(
                 ended.players[player].workshop_cards.len() as u32,
                 WORKSHOP_SIZE,
@@ -469,13 +476,88 @@ mod tests {
                 deck_before + workshop_before - WORKSHOP_SIZE,
                 "seed {seed}: the top-up draw comes out of the deck, one card per missing one"
             );
+            for id in kept_ids.iter() {
+                assert!(
+                    kept.players[player].deck.contains(id),
+                    "seed {seed}: a kept card goes on top of the deck"
+                );
+            }
+
+            // Ending while the cards are still undecided keeps exactly what
+            // keeping them one at a time does.
+            let mut ended_early = state.clone();
+            apply_choice(
+                &mut ended_early,
+                player,
+                &Choice::EndTurn { keep_remaining: true },
+                &mut WyRand::seed_from_u64(0),
+            );
+            assert_eq!(
+                format!("{:?}", ended_early.players[player]),
+                format!("{:?}", ended.players[player]),
+                "seed {seed}: keeping is the same whichever way it is done"
+            );
         }
     }
 
-    /// A card moved into the top cards is just another card to decide: use it
+    /// Ending a turn without keeping trashes the cards it leaves and skips
+    /// what each one's top action asks. That includes the two the rules
+    /// otherwise leave no way to decline: a sale while a buyer is affordable,
+    /// and a lift while the workshop holds a card.
+    #[test]
+    fn ending_without_keeping_trashes_what_is_left_and_skips_its_actions() {
+        let state = open_turn(
+            position(&[Card::Realgar], &[Card::DragonsBlood, Card::Alum]),
+            &[],
+        );
+        let mut with_buyer = state;
+        with_buyer.players[0].color_wheel.set(Color::Red, 2);
+        let mut buyers: FixedVec<BuyerInstance, MAX_BUYERS> = FixedVec::new();
+        buyers.push(BuyerInstance {
+            instance_id: 0,
+            buyer: Buyer::DyerRedRed,
+        });
+        with_buyer.players[0].buyers = buyers;
+        let drafted = with_buyer.players[0].top_cards;
+        let workshop = with_buyer.players[0].workshop_cards;
+
+        let mut ended = with_buyer.clone();
+        apply_choice(
+            &mut ended,
+            0,
+            &Choice::EndTurn { keep_remaining: false },
+            &mut WyRand::seed_from_u64(0),
+        );
+
+        let player = &ended.players[0];
+        assert!(player.top_cards.is_empty(), "every card left was trashed");
+        for id in drafted.iter() {
+            assert!(!player.deck.contains(id), "a trashed card is not kept");
+            assert!(ended.trash.contains(id), "the trashed card went to the trash");
+        }
+        assert_eq!(
+            player.completed_orders.len(),
+            0,
+            "the sale the Dragon's Blood can afford is skipped"
+        );
+        assert_eq!(player.buyers, with_buyer.players[0].buyers, "the buyer is untouched");
+        assert_eq!(player.color_wheel.get(Color::Red), 2, "nothing paid for it");
+        // The workshop card was never lifted, so it went to the bottom of the
+        // deck rather than joining the cards the turn trashed — and the draw
+        // the turn ends with may well have brought it straight back.
+        for id in workshop.iter() {
+            assert!(
+                player.deck.contains(id) || player.workshop_cards.contains(id),
+                "the workshop card went to the deck, not the trash"
+            );
+            assert!(!ended.trash.contains(id), "the workshop card was not trashed");
+        }
+    }
+
+    /// A card lifted into the top cards is just another card to decide: use it
     /// this turn, or keep it for the next.
     #[test]
-    fn a_card_moved_into_the_pool_is_used_or_kept() {
+    fn a_card_lifted_into_the_top_cards_is_used_or_kept() {
         let (state, moving) = (0..40)
             .find_map(|seed| {
                 let state = action_phase(4, seed);

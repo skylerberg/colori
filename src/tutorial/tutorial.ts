@@ -144,7 +144,7 @@ function createTour(): Tour {
   newTour.addStep({
     id: 'action-phase',
     title: 'Action Phase',
-    text: 'Everyone plays at once. Click a top card to use its top action and then trash it: Workshop, Mix, Sell to a buyer, or lift a workshop card up to your top cards. This panel says what each ability needs, and the board lights up what you can click. A card you keep goes on top of your deck to come back as a workshop card, and your used workshop goes to the bottom of your deck.',
+    text: "Everyone plays at once. Click a top card to use its top action and then trash it: Workshop, Mix, Sell to a buyer, or lift a workshop card up to your top cards. This panel says what each ability needs, and the board lights up what you can click. A card you keep goes on top of your deck to come back as a workshop card, and your used workshop goes to the bottom of your deck. End turn is always there when you are done, and the Keep remaining box says what becomes of any top cards you have not decided.",
     attachTo: { element: '.controls', on: 'right' },
     buttons: [backButton, nextButton],
   });

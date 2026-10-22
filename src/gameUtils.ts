@@ -20,6 +20,12 @@ export function isTakingActionTurn(gs: GameState, playerIndex: number): boolean 
   return gs.phase.type === 'action' && !gs.phase.actionState.turns[playerIndex].ended;
 }
 
+// The starting player, who claims first in the buyers phase: the seat rotates
+// one a round. Mirrors `colori_core::buyers_phase::initialize_buyers_phase`.
+export function startingPlayerIndex(round: number, numPlayers: number): number {
+  return (round - 1) % numPlayers;
+}
+
 // Mirrors `colori_core::scoring::score_in_half_points`: the points on
 // Completed Orders and a point a gold coin, plus half a point for each unspent
 // bowl and boat.

@@ -285,7 +285,7 @@ mod tests {
         let mut rng = WyRand::seed_from_u64(1);
         let first = crate::choices::enumerate_choices(&moved, 1)
             .into_iter()
-            .find(|choice| !matches!(choice, Choice::EndTurn))
+            .find(|choice| !matches!(choice, Choice::EndTurn { .. }))
             .expect("a first-round turn has something to do");
         apply_choice(&mut moved, 1, &first, &mut rng);
 

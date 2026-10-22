@@ -177,6 +177,33 @@ input:focus, select:focus {
   color: rgba(245, 237, 224, 0.6);
 }
 
+/* A setting that changes what a click does, rather than what the rules allow. */
+.panel-check {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  color: rgba(245, 237, 224, 0.8);
+  cursor: pointer;
+  user-select: none;
+}
+
+.panel-check input {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: #c9a84c;
+  cursor: pointer;
+}
+
+.panel-check-hint {
+  font-style: italic;
+  color: rgba(245, 237, 224, 0.55);
+}
+
 .panel-actions {
   display: flex;
   flex-wrap: wrap;

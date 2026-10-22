@@ -1,7 +1,7 @@
 use crate::action_phase::{
     ability_stack, ability_stack_mut, boats_to_sell, can_afford_buyer, can_buy_with_gold_coin,
     end_player_turn, process_ability_stack, resolve_gain_color, resolve_keep_card,
-    resolve_lift_card, resolve_select_buyer, resolve_spend_gold_coin, resolve_workshop_choice,
+    resolve_lift_card, resolve_sell_to_buyer, resolve_spend_gold_coin, resolve_workshop_choice,
     sell_to_buyer, skip_workshop, trash_top_card,
 };
 use crate::colors::{
@@ -194,7 +194,7 @@ fn handle_action_no_pending(state: &mut GameState, player_index: usize, rng: &mu
     if drafted.is_empty() {
         // No top cards left — end turn, and the round with it if this
         // was the last player still acting
-        end_player_turn(state, player_index, rng);
+        end_player_turn(state, player_index, true, rng);
         return;
     }
 
@@ -328,7 +328,7 @@ fn random_action_step<R: Rng>(state: &mut GameState, player_index: usize, rng: &
             if let Some(buyer_id) =
                 pick_random_affordable_buyer(&state.players[player_index], rng)
             {
-                resolve_select_buyer(state, player_index, buyer_id);
+                resolve_sell_to_buyer(state, player_index, buyer_id);
             } else {
                 ability_stack_mut(state, player_index).pop();
                 process_ability_stack(state, player_index);
@@ -970,7 +970,7 @@ fn handle_action_no_pending_heuristic(
 ) {
     let drafted = state.players[player_index].top_cards;
     if drafted.is_empty() {
-        end_player_turn(state, player_index, rng);
+        end_player_turn(state, player_index, true, rng);
         return;
     }
 
@@ -1211,7 +1211,7 @@ fn heuristic_action_step<R: Rng>(
                 if let Some(buyer_id) =
                     pick_random_affordable_buyer(&state.players[player_index], rng)
                 {
-                    resolve_select_buyer(state, player_index, buyer_id);
+                    resolve_sell_to_buyer(state, player_index, buyer_id);
                 } else {
                     ability_stack_mut(state, player_index).pop();
                     process_ability_stack(state, player_index);
@@ -1221,7 +1221,7 @@ fn heuristic_action_step<R: Rng>(
 
             // Heuristic: pick best buyer
             if let Some(buyer_id) = BestSale::of(&state.players[player_index]).id {
-                resolve_select_buyer(state, player_index, buyer_id);
+                resolve_sell_to_buyer(state, player_index, buyer_id);
             } else {
                 ability_stack_mut(state, player_index).pop();
                 process_ability_stack(state, player_index);
@@ -1266,7 +1266,7 @@ mod tests {
             let choice = choices[rng.random_range(0..choices.len())].clone();
             apply_choice(&mut state, player, &choice, &mut rng);
         }
-        end_player_turn(&mut state, 1, &mut rng);
+        end_player_turn(&mut state, 1, true, &mut rng);
         state
     }
 

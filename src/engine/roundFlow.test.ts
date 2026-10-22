@@ -75,7 +75,7 @@ function endTurn(state: GameState, seat: number) {
     if (turn.ended) return;
     const top = state.players[seat].topCards[0];
     // Keep what is left and end the turn: nothing about this card matters.
-    applyChoice(state, seat, top ? { type: 'keepCard', card: top.card } : { type: 'endTurn' });
+    applyChoice(state, seat, top ? { type: 'keepCard', card: top.card } : { type: 'endTurn', keepRemaining: true });
   }
 }
 

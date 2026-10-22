@@ -155,8 +155,8 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, player_index: usize, choice: 
             let card_instance_id = get_top_card_instance(state, player_index, card);
             resolve_keep_card(state, player_index, card_instance_id);
         }
-        Choice::EndTurn => {
-            end_player_turn(state, player_index, rng);
+        Choice::EndTurn { keep_remaining } => {
+            end_player_turn(state, player_index, *keep_remaining, rng);
         }
         Choice::Workshop { card_types } => {
             resolve_workshop_card_types(state, player_index, card_types);
@@ -170,7 +170,7 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, player_index: usize, choice: 
         }
         Choice::SellToBuyer { buyer } => {
             let buyer_instance_id = find_buyer_instance(state, player_index, buyer);
-            resolve_select_buyer(state, player_index, buyer_instance_id);
+            resolve_sell_to_buyer(state, player_index, buyer_instance_id);
         }
         Choice::GainSecondary { color } => {
             resolve_gain_color(state, player_index, *color);
@@ -187,7 +187,7 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, player_index: usize, choice: 
             let card_instance_id = get_top_card_instance(state, player_index, card);
             let buyer_instance_id = find_buyer_instance(state, player_index, buyer);
             trash_top_card(state, player_index, card_instance_id);
-            resolve_select_buyer(state, player_index, buyer_instance_id);
+            resolve_sell_to_buyer(state, player_index, buyer_instance_id);
         }
         Choice::TrashAndWorkshop { card, workshop_cards } => {
             let card_instance_id = get_top_card_instance(state, player_index, card);

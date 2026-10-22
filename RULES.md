@@ -142,7 +142,9 @@ On your turn, each of your **top cards** is decided one of two ways:
 - **Use its top action**, then trash the card. A card with two top actions resolves them in the order printed.
 - **Keep it.** The card goes on top of your personal deck, to be drawn back into your workshop and workshopped next round.
 
-You may use or keep your top cards in any order, one at a time, but the turn cannot end until every one of them is decided. A top action must be fully resolved, including any abilities it pushes onto the stack, before another card is decided.
+You may use or keep your top cards in any order, one at a time. A top action must be fully resolved, including any abilities it pushes onto the stack, before another card is decided.
+
+You may end your turn whenever you like, without deciding every card. Anything still waiting on you is set aside: an ability you have not answered is not resolved, and every top card you have not decided is kept — or, if you say so when ending the turn, trashed without using its top action.
 
 **Spending gold coins.** Between top actions — whenever no ability is waiting on you — you may spend **1 gold coin** for any of:
 

@@ -231,7 +231,7 @@ mod tests {
             while moves.len() < 4 {
                 let choices: Vec<Choice> = enumerate_choices(&walk, perspective)
                     .into_iter()
-                    .filter(|choice| !matches!(choice, Choice::EndTurn))
+                    .filter(|choice| !matches!(choice, Choice::EndTurn { .. }))
                     .collect();
                 if choices.is_empty() {
                     break;
