@@ -1,6 +1,6 @@
 # Cost of the buyers phase
 
-Sell cards are no longer completed out of the shared display. A new phase runs
+Buyer cards are no longer completed out of the shared display. A new phase runs
 before each draft in which players claim cards into a personal buyers section,
 and only those can be sold to. That adds a phase, adds decisions per round, and
 changes what evaluation looks at — so this records what it costs.
@@ -41,11 +41,11 @@ typical action node.
 
 Two things, both consequences of selling moving off the shared display.
 
-**Evaluation scans less.** `heuristic_score` finds the best-aligned sell card by
+**Evaluation scans less.** `heuristic_score` finds the best-aligned buyer by
 scanning them one at a time. It used to scan the six-card display; it now scans
 a player's at most three buyers. That runs at every leaf.
 
-**So does the rollout.** `SellCardCache` is rebuilt at every action node of a
+**So does the rollout.** `BuyerCache` is rebuilt at every action node of a
 heuristic rollout and was sized to the display; it is now sized to the buyers.
 
 **And the new phase is cheap per node.** The rollout resolves an entire buyers
@@ -74,13 +74,13 @@ What the rules do constrain is *when* a sale can be planned. Selling now needs a
 commitment made a phase in advance, to at most three cards, rather than
 opportunistic buying from six whenever the colors happened to line up. The
 one-slot first round is the tightest point: a player can complete at most one
-sell card in round 1, whatever they draw.
+buyer in round 1, whatever they draw.
 
 ## Caveats
 
 **The AI is playing new rules with old weights, again.**
 `batch-lki08w-gen-32.json` predates both this change and the deck rework.
-`sell_card_material_alignment` and `sell_card_color_alignment` now score a
+`buyer_material_alignment` and `buyer_color_alignment` now score a
 player's own buyers rather than a shared display — the same terms measuring a
 different thing — and nothing has been retrained against it. The buyers-phase
 rollout policy uses those same weights to decide what to claim, so a retrained

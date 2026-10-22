@@ -7,11 +7,11 @@ export type MaterialType = 'Textiles' | 'Ceramics' | 'Paintings';
 export type Ability =
   | { type: 'workshop'; count: number }
   | { type: 'mixColors'; count: number }
-  | { type: 'moveToDraftPool' }
+  | { type: 'liftCard' }
   | { type: 'sell' }
-  | { type: 'gainDucats'; count: number }
+  | { type: 'gainGoldCoins'; count: number }
   | { type: 'gainSecondary' }
-  | { type: 'gainWildPrimaries'; count: number }
+  | { type: 'gainBowls'; count: number }
   | { type: 'gainPrimaries' }
   | { type: 'gainBoats'; count: number };
 
@@ -28,7 +28,7 @@ export type Card = 'BasicRed' | 'BasicYellow' | 'BasicBlue'
   | 'Alum' | 'GumArabic' | 'LinseedOil' | 'Warehouse' | 'Gondola' | 'Chalk'
   | 'Primaries';
 
-export type SellCard =
+export type Buyer =
   | 'ShipwrightPurpleGreen' | 'ShipwrightOrangeGreen' | 'ShipwrightPurpleOrange'
   | 'GlassmakerVermilionBlue' | 'GlassmakerAmberBlue' | 'GlassmakerChartreuseRed'
   | 'GlassmakerTealRed' | 'GlassmakerUltramarineYellow' | 'GlassmakerFuchsiaYellow'
@@ -51,20 +51,20 @@ export type SellCard =
   | 'MasterPainterChartreuseAmber' | 'MasterPainterChartreuseFuchsia' | 'MasterPainterUltramarineTeal';
 
 // Card data interfaces (for the lookup maps)
-export interface DyeCardData {
-  kind: 'dye';
+export interface PigmentCardData {
+  kind: 'pigment';
   name: string;
   colors: Color[];
-  // Resolved in order when the card is trashed.
-  trashAbilities: Ability[];
+  // Resolved in order, then the card is trashed.
+  topActions: Ability[];
 }
 
-export interface BasicDyeCardData {
-  kind: 'basicDye';
+export interface StarterPigmentCardData {
+  kind: 'starterPigment';
   name: string;
   color: Color;
-  // Resolved in order when the card is trashed.
-  trashAbilities: Ability[];
+  // Resolved in order, then the card is trashed.
+  topActions: Ability[];
 }
 
 export interface MaterialCardData {
@@ -74,20 +74,20 @@ export interface MaterialCardData {
   color?: Color;
   colorCount?: number;
   // Resolved in order when the card is trashed.
-  trashAbilities: Ability[];
+  topActions: Ability[];
 }
 
-export interface ActionCardData {
-  kind: 'action';
+export interface SpecialCardData {
+  kind: 'special';
   name: string;
-  // Resolved in order when the card is trashed.
-  trashAbilities: Ability[];
+  // Resolved in order, then the card is trashed.
+  topActions: Ability[];
   workshopAbilities: Ability[];
 }
 
-export interface SellCardData {
-  kind: 'sellCard';
-  // The buyer's trade, e.g. "Potter". Several sell cards share one.
+export interface BuyerData {
+  kind: 'buyer';
+  // The buyer's trade, e.g. "Potter". Several buyers share one.
   name: string;
   // Printed on the seal; scored once the sale is made.
   points: number;
@@ -98,16 +98,16 @@ export interface SellCardData {
   colorCost: Color[];
 }
 
-export type AnyCardData = DyeCardData | BasicDyeCardData | MaterialCardData | ActionCardData | SellCardData;
+export type AnyCardData = PigmentCardData | StarterPigmentCardData | MaterialCardData | SpecialCardData | BuyerData;
 
 export interface CardInstance {
   instanceId: number;
   card: Card;
 }
 
-export interface SellCardInstance {
+export interface BuyerInstance {
   instanceId: number;
-  card: SellCard;
+  card: Buyer;
 }
 
 export interface PlayerState {
@@ -117,16 +117,16 @@ export interface PlayerState {
   deck: CardInstance[][];
   // Sell cards claimed for this player alone. Only these can be sold to; the
   // shared display is claimed from during the buyers phase.
-  buyers: SellCardInstance[];
-  workshoppedCards: CardInstance[];
+  buyers: BuyerInstance[];
+  usedCards: CardInstance[];
   workshopCards: CardInstance[];
-  draftedCards: CardInstance[];
+  topCards: CardInstance[];
   colorWheel: Record<Color, number>;
   materials: Record<MaterialType, number>;
-  completedSellCards: SellCardInstance[];
-  ducats: number;
+  completedBuyers: BuyerInstance[];
+  goldCoins: number;
   // Wild primaries and wild materials. Each is worth half a point unspent.
-  wildPrimaries: number;
+  bowls: number;
   boats: number;
 }
 
@@ -147,7 +147,7 @@ export interface ActionState {
   turns: PlayerTurn[];
 }
 
-export type DucatPurchase = 'workshop' | 'mixColors' | 'sell';
+export type GoldCoinPurchase = 'workshop' | 'mixColors' | 'sell';
 
 export interface BuyersState {
   currentPlayerIndex: number;
@@ -165,31 +165,31 @@ export interface GameState {
   players: PlayerState[];
   draftDeck: CardInstance[];
   trash: CardInstance[];
-  sellCardDeck: SellCardInstance[];
-  sellCardDisplay: SellCardInstance[];
+  buyerDeck: BuyerInstance[];
+  buyerDisplay: BuyerInstance[];
   phase: GamePhase;
   round: number;
   maxRounds: number;
-  aiPlayers: boolean[];
+  botPlayers: boolean[];
 }
 
 export type Choice =
   | { type: 'draftPick'; card: Card }
-  | { type: 'trashDraftedCard'; card: Card }
+  | { type: 'trashTopCard'; card: Card }
   | { type: 'keepCard'; card: Card }
   | { type: 'endTurn' }
   | { type: 'workshop'; cardTypes: Card[] }
   | { type: 'skipWorkshop' }
-  | { type: 'moveToDraftPool'; card: Card | null }
-  | { type: 'selectSellCard'; sellCard: SellCard }
+  | { type: 'liftCard'; card: Card | null }
+  | { type: 'selectBuyer'; buyer: Buyer }
   | { type: 'gainSecondary'; color: Color }
   | { type: 'mixAll'; mixes: [Color, Color][] }
   | { type: 'trashAndMix'; card: Card; mixes: [Color, Color][] }
-  | { type: 'trashAndSell'; card: Card; sellCard: SellCard }
+  | { type: 'trashAndSell'; card: Card; buyer: Buyer }
   | { type: 'trashAndWorkshop'; card: Card; workshopCards: Card[] }
-  | { type: 'trashAndMoveToDraftPool'; card: Card; target: Card | null }
-  | { type: 'spendDucat'; purchase: DucatPurchase }
-  | { type: 'takeBuyer'; sellCard: SellCard }
+  | { type: 'trashAndLift'; card: Card; target: Card | null }
+  | { type: 'spendGoldCoin'; purchase: GoldCoinPurchase }
+  | { type: 'takeBuyer'; buyer: Buyer }
   | { type: 'drawBuyer' };
 
 // ── Draw Event Types ──
@@ -197,8 +197,8 @@ export type Choice =
 export type DrawEvent =
   | { type: 'playerDeckDraw'; playerIndex: number; cards: CardInstance[] }
   | { type: 'draftDeal'; playerIndex: number; cards: CardInstance[] }
-  | { type: 'sellCardReveal'; sellCard: SellCardInstance }
-  | { type: 'buyerDraw'; playerIndex: number; sellCard: SellCardInstance };
+  | { type: 'buyerReveal'; buyer: BuyerInstance }
+  | { type: 'buyerDraw'; playerIndex: number; buyer: BuyerInstance };
 
 // ── Game Log Types ──
 
@@ -217,11 +217,11 @@ export interface PlayerVariant {
   iterations: number;
   explorationConstant?: number;
   maxRolloutSteps?: number;
-  aiSettings?: AiSettings;
+  botSettings?: BotSettings;
 }
 
-/** The advanced AI settings from the setup screen; `{}` is the default AI. Mirrors `AiSettings` in colori-wasm. */
-export interface AiSettings {
+/** The advanced AI settings from the setup screen; `{}` is the default AI. Mirrors `BotSettings` in colori-wasm. */
+export interface BotSettings {
   /** Which trained parameters to play with. */
   params?: string;
   /** Rounds a rollout plays before the heuristic scores it; one that reaches the end of the game gets its real score. Unset keeps the trained lookahead. */
@@ -233,9 +233,9 @@ export interface StructuredGameLog {
   gameStartedAt: string;
   gameEndedAt: string | null;
   playerNames: string[];
-  aiPlayers: boolean[];
+  botPlayers: boolean[];
   initialState: GameState;
-  finalScores: { name: string; score: number; completedSellCards?: number; colorWheelTotal?: number }[] | null;
+  finalScores: { name: string; score: number; completedBuyers?: number; colorWheelTotal?: number }[] | null;
   finalPlayerStats: FinalPlayerStats[] | null;
   entries: StructuredLogEntry[];
   initialDraws?: DrawEvent[];
@@ -248,9 +248,9 @@ export interface StructuredGameLog {
 export interface FinalPlayerStats {
   name: string;
   deckSize: number;
-  completedSellCards: SellCardInstance[];
-  ducats: number;
-  wildPrimaries?: number;
+  completedBuyers: BuyerInstance[];
+  goldCoins: number;
+  bowls?: number;
   boats?: number;
   colorWheel: Record<Color, number>;
   materials: Record<MaterialType, number>;

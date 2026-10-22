@@ -1,7 +1,7 @@
 use crate::action_phase::*;
 use crate::buyers_phase::{draw_buyer, take_buyer};
 use crate::draft_phase::player_pick;
-use crate::types::{Ability, Card, Choice, Color, GamePhase, GameState, SellCard};
+use crate::types::{Ability, Card, Choice, Color, GamePhase, GameState, Buyer};
 use crate::unordered_cards::UnorderedCards;
 use rand::Rng;
 
@@ -21,7 +21,6 @@ fn find_card_instance(state: &GameState, card: &Card, cards: &UnorderedCards) ->
 
 fn phase_name(phase: &GamePhase) -> &'static str {
     match phase {
-        GamePhase::Draw => "Draw",
         GamePhase::Buyers { .. } => "Buyers",
         GamePhase::Draft { .. } => "Draft",
         GamePhase::Action { .. } => "Action",
@@ -29,32 +28,32 @@ fn phase_name(phase: &GamePhase) -> &'static str {
     }
 }
 
-fn get_drafted_card_instance(state: &GameState, player_index: usize, card: &Card) -> u32 {
-    find_card_instance(state, card, &state.players[player_index].drafted_cards)
+fn get_top_card_instance(state: &GameState, player_index: usize, card: &Card) -> u32 {
+    find_card_instance(state, card, &state.players[player_index].top_cards)
 }
 
-/// Find the first instance of a sell card type among the player's buyers.
-fn find_sell_card_instance(state: &GameState, player_index: usize, sell_card: &SellCard) -> u32 {
-    for sell_card_instance in state.players[player_index].buyers.iter() {
-        if sell_card_instance.sell_card == *sell_card {
-            return sell_card_instance.instance_id;
+/// Find the first instance of a buyer card among the player's buyers.
+fn find_buyer_instance(state: &GameState, player_index: usize, buyer: &Buyer) -> u32 {
+    for buyer_instance in state.players[player_index].buyers.iter() {
+        if buyer_instance.buyer == *buyer {
+            return buyer_instance.instance_id;
         }
     }
-    panic!("Sell card type {:?} not found in the player's buyers", sell_card);
+    panic!("Buyer card type {:?} not found in the player's buyers", buyer);
 }
 
-/// Find the first instance of a sell card type in the shared display.
-fn find_display_sell_card_instance(state: &GameState, sell_card: &SellCard) -> u32 {
-    for sell_card_instance in state.sell_card_display.iter() {
-        if sell_card_instance.sell_card == *sell_card {
-            return sell_card_instance.instance_id;
+/// Find the first instance of a buyer card in the shared display.
+fn find_display_buyer_instance(state: &GameState, buyer: &Buyer) -> u32 {
+    for buyer_instance in state.buyer_display.iter() {
+        if buyer_instance.buyer == *buyer {
+            return buyer_instance.instance_id;
         }
     }
-    panic!("Sell card type {:?} not found in sell card display", sell_card);
+    panic!("Buyer card type {:?} not found in buyer display", buyer);
 }
 
-/// The workshop card a Move to Draft Pool takes; `None` when it fizzles.
-fn move_target(state: &GameState, player_index: usize, card: &Option<Card>) -> Option<u8> {
+/// The workshop card a Lift takes; `None` when it fizzles.
+fn lift_target(state: &GameState, player_index: usize, card: &Option<Card>) -> Option<u8> {
     card.map(|card| {
         find_card_instance(state, &card, &state.players[player_index].workshop_cards) as u8
     })
@@ -136,7 +135,7 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, player_index: usize, choice: 
             !action_state.turns[player_index].ended,
             "Player {player_index} acted after ending their turn"
         ),
-        GamePhase::Draw | GamePhase::GameOver => {}
+        GamePhase::GameOver => {}
     }
 
     match choice {
@@ -148,16 +147,16 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, player_index: usize, choice: 
             let card_instance_id = find_card_instance(state, card, &hand);
             player_pick(state, card_instance_id, rng);
         }
-        Choice::TrashDraftedCard { card } => {
-            let card_instance_id = get_drafted_card_instance(state, player_index, card);
-            trash_drafted_card(state, player_index, card_instance_id);
+        Choice::TrashTopCard { card } => {
+            let card_instance_id = get_top_card_instance(state, player_index, card);
+            trash_top_card(state, player_index, card_instance_id);
         }
         Choice::KeepCard { card } => {
-            let card_instance_id = get_drafted_card_instance(state, player_index, card);
+            let card_instance_id = get_top_card_instance(state, player_index, card);
             resolve_keep_card(state, player_index, card_instance_id);
         }
         Choice::EndTurn => {
-            end_player_turn(state, player_index);
+            end_player_turn(state, player_index, rng);
         }
         Choice::Workshop { card_types } => {
             resolve_workshop_card_types(state, player_index, card_types);
@@ -165,13 +164,13 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, player_index: usize, choice: 
         Choice::SkipWorkshop => {
             skip_workshop(state, player_index);
         }
-        Choice::MoveToDraftPool { card } => {
-            let target = move_target(state, player_index, card);
-            resolve_move_to_draft_pool(state, player_index, target);
+        Choice::LiftCard { card } => {
+            let target = lift_target(state, player_index, card);
+            resolve_lift_card(state, player_index, target);
         }
-        Choice::SelectSellCard { sell_card } => {
-            let sell_card_instance_id = find_sell_card_instance(state, player_index, sell_card);
-            resolve_select_sell_card(state, player_index, sell_card_instance_id);
+        Choice::SellToBuyer { buyer } => {
+            let buyer_instance_id = find_buyer_instance(state, player_index, buyer);
+            resolve_select_buyer(state, player_index, buyer_instance_id);
         }
         Choice::GainSecondary { color } => {
             resolve_gain_color(state, player_index, *color);
@@ -180,19 +179,19 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, player_index: usize, choice: 
             resolve_mix_sequence(state, player_index, mixes);
         }
         Choice::TrashAndMix { card, mixes } => {
-            let card_instance_id = get_drafted_card_instance(state, player_index, card);
-            trash_drafted_card(state, player_index, card_instance_id);
+            let card_instance_id = get_top_card_instance(state, player_index, card);
+            trash_top_card(state, player_index, card_instance_id);
             resolve_mix_sequence(state, player_index, mixes);
         }
-        Choice::TrashAndSell { card, sell_card } => {
-            let card_instance_id = get_drafted_card_instance(state, player_index, card);
-            let sell_card_instance_id = find_sell_card_instance(state, player_index, sell_card);
-            trash_drafted_card(state, player_index, card_instance_id);
-            resolve_select_sell_card(state, player_index, sell_card_instance_id);
+        Choice::TrashAndSell { card, buyer } => {
+            let card_instance_id = get_top_card_instance(state, player_index, card);
+            let buyer_instance_id = find_buyer_instance(state, player_index, buyer);
+            trash_top_card(state, player_index, card_instance_id);
+            resolve_select_buyer(state, player_index, buyer_instance_id);
         }
         Choice::TrashAndWorkshop { card, workshop_cards } => {
-            let card_instance_id = get_drafted_card_instance(state, player_index, card);
-            trash_drafted_card(state, player_index, card_instance_id);
+            let card_instance_id = get_top_card_instance(state, player_index, card);
+            trash_top_card(state, player_index, card_instance_id);
             // With nothing in the workshop the ability has already fizzled, and
             // whatever is on top now is not this choice's to skip.
             let pending = matches!(
@@ -207,17 +206,17 @@ pub fn apply_choice<R: Rng>(state: &mut GameState, player_index: usize, choice: 
                 resolve_workshop_card_types(state, player_index, workshop_cards);
             }
         }
-        Choice::TrashAndMoveToDraftPool { card, target } => {
-            let card_instance_id = get_drafted_card_instance(state, player_index, card);
-            trash_drafted_card(state, player_index, card_instance_id);
-            let target = move_target(state, player_index, target);
-            resolve_move_to_draft_pool(state, player_index, target);
+        Choice::TrashAndLift { card, target } => {
+            let card_instance_id = get_top_card_instance(state, player_index, card);
+            trash_top_card(state, player_index, card_instance_id);
+            let target = lift_target(state, player_index, target);
+            resolve_lift_card(state, player_index, target);
         }
-        Choice::SpendDucat { purchase } => {
-            resolve_spend_ducat(state, player_index, *purchase);
+        Choice::SpendGoldCoin { purchase } => {
+            resolve_spend_gold_coin(state, player_index, *purchase);
         }
-        Choice::TakeBuyer { sell_card } => {
-            let instance_id = find_display_sell_card_instance(state, sell_card);
+        Choice::ClaimBuyer { buyer } => {
+            let instance_id = find_display_buyer_instance(state, buyer);
             take_buyer(state, instance_id, rng);
         }
         Choice::DrawBuyer => {

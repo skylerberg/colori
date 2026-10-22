@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { AiSettings, GameState, Choice, Card, Ability, DrawEvent, StructuredLogEntry } from '../data/types';
+  import type { BotSettings, GameState, Choice, Card, Ability, DrawEvent, StructuredLogEntry } from '../data/types';
   import { executeDrawPhase, applyChoice, simultaneousPick, advanceDraft, cloneGameState } from '../engine/wasmEngine';
   import { getCardData } from '../data/cards';
   import { AIController, type DraftPicker } from '../ai/aiController';
@@ -16,7 +16,7 @@
   import { createErrorReport, type ErrorReport } from '../errorReport';
   import { untrack } from 'svelte';
 
-  let { gameState, gameStartTime, onGameUpdated, initialGameLog, onLeaveGame, gameLogAccumulator, aiIterations, aiSettings }: {
+  let { gameState, gameStartTime, onGameUpdated, initialGameLog, onLeaveGame, gameLogAccumulator, aiIterations, botSettings }: {
     gameState: GameState;
     gameStartTime: number | null;
     onGameUpdated: (state: GameState, log: LogEntry[]) => void;
@@ -24,7 +24,7 @@
     onLeaveGame: () => void;
     gameLogAccumulator: GameLogAccumulator | null;
     aiIterations: number[];
-    aiSettings: AiSettings;
+    botSettings: BotSettings;
   } = $props();
 
   let elapsedSeconds = $state(0);
@@ -76,7 +76,7 @@
 
   const aiController = new AIController();
   // svelte-ignore state_referenced_locally
-  aiController.aiSettings = aiSettings;
+  aiController.botSettings = botSettings;
   const aiActionTurns = new AIActionTurns(aiController);
   let thinkingInActionPhase: number[] = $state([]);
 
@@ -88,7 +88,7 @@
   });
 
   let humanPicked = $state(false);
-  let humanPlayerIndex = $derived(gameState.aiPlayers.findIndex(ai => !ai));
+  let humanPlayerIndex = $derived(gameState.botPlayers.findIndex(ai => !ai));
 
   // When the phase is 'draw', automatically execute the draw phase.
   $effect(() => {
@@ -106,7 +106,7 @@
   let selectedPlayerIndex = $state(0);
 
   function isActingHuman(playerIndex: number): boolean {
-    return playerIndex >= 0 && !gameState.aiPlayers[playerIndex] && isTakingActionTurn(gameState, playerIndex);
+    return playerIndex >= 0 && !gameState.botPlayers[playerIndex] && isTakingActionTurn(gameState, playerIndex);
   }
 
   // The human whose action controls are showing: the one whose board is
@@ -119,7 +119,7 @@
     if (isActingHuman(selectedPlayerIndex)) {
       actionViewSeat = selectedPlayerIndex;
     } else if (!isActingHuman(actionViewSeat)) {
-      actionViewSeat = gameState.aiPlayers.findIndex((ai, i) => !ai && isTakingActionTurn(gameState, i));
+      actionViewSeat = gameState.botPlayers.findIndex((ai, i) => !ai && isTakingActionTurn(gameState, i));
     }
   });
 
@@ -129,8 +129,8 @@
   let boardShownFor = '';
   $effect(() => {
     const seat = gameState.phase.type === 'action'
-      ? gameState.aiPlayers.findIndex((ai, i) => !ai && isTakingActionTurn(gameState, i))
-      : gameState.phase.type === 'buyers' && !gameState.aiPlayers[buyersClaimant] ? buyersClaimant
+      ? gameState.botPlayers.findIndex((ai, i) => !ai && isTakingActionTurn(gameState, i))
+      : gameState.phase.type === 'buyers' && !gameState.botPlayers[buyersClaimant] ? buyersClaimant
       : gameState.phase.type === 'draft' ? humanPlayerIndex
       : -1;
     const key = `${gameState.round}:${gameState.phase.type}:${seat}`;
@@ -141,7 +141,7 @@
 
   let viewerIndex = $derived(
     gameState.phase.type === 'action' && actionViewSeat >= 0 ? actionViewSeat
-      : buyersClaimant >= 0 && !gameState.aiPlayers[buyersClaimant] ? buyersClaimant
+      : buyersClaimant >= 0 && !gameState.botPlayers[buyersClaimant] ? buyersClaimant
       : humanPlayerIndex
   );
 
@@ -156,7 +156,7 @@
       case 'buyers':
         return aiThinking ? [gameState.phase.buyersState.currentPlayerIndex] : [];
       case 'draft':
-        return aiThinking ? gameState.aiPlayers.flatMap((ai, i) => (ai ? [i] : [])) : [];
+        return aiThinking ? gameState.botPlayers.flatMap((ai, i) => (ai ? [i] : [])) : [];
       case 'action':
         return thinkingInActionPhase;
       default:
@@ -173,27 +173,27 @@
   }
 
   // ── Compound choices ──
-  // When a human trashes a drafted card with a compound-able ability, the
+  // When a human trashes a top card with a compound-able ability, the
   // follow-up choice that answers it is logged together with the trash as a
   // single compound choice. The UI flow is unchanged.
 
   // The follow-up choices that answer each ability a trash can open with.
   const ANSWERS: Partial<Record<Choice['type'], Ability['type']>> = {
     mixAll: 'mixColors',
-    selectSellCard: 'sell',
+    selectBuyer: 'sell',
     workshop: 'workshop',
     skipWorkshop: 'workshop',
-    moveToDraftPool: 'moveToDraftPool',
+    liftCard: 'liftCard',
   };
   const COMPOUND_ABILITY_TYPES = new Set(Object.values(ANSWERS));
 
   function firstTrashAbility(card: Card): Ability | null {
     const data = getCardData(card);
-    return data != null && data.kind !== 'sellCard' ? data.trashAbilities[0] : null;
+    return data != null && data.kind !== 'buyer' ? data.topActions[0] : null;
   }
 
-  function isCompoundableTrash(choice: Choice): choice is { type: 'trashDraftedCard'; card: Card } {
-    if (choice.type !== 'trashDraftedCard') return false;
+  function isCompoundableTrash(choice: Choice): choice is { type: 'trashTopCard'; card: Card } {
+    if (choice.type !== 'trashTopCard') return false;
     const first = firstTrashAbility(choice.card as Card);
     return first !== null && COMPOUND_ABILITY_TYPES.has(first.type);
   }
@@ -205,14 +205,14 @@
     switch (followUp.type) {
       case 'mixAll':
         return { type: 'trashAndMix', card: trashCard, mixes: followUp.mixes };
-      case 'selectSellCard':
-        return { type: 'trashAndSell', card: trashCard, sellCard: followUp.sellCard };
+      case 'selectBuyer':
+        return { type: 'trashAndSell', card: trashCard, buyer: followUp.buyer };
       case 'workshop':
         return { type: 'trashAndWorkshop', card: trashCard, workshopCards: followUp.cardTypes };
       case 'skipWorkshop':
         return { type: 'trashAndWorkshop', card: trashCard, workshopCards: [] };
-      case 'moveToDraftPool':
-        return { type: 'trashAndMoveToDraftPool', card: trashCard, target: followUp.card };
+      case 'liftCard':
+        return { type: 'trashAndLift', card: trashCard, target: followUp.card };
       default:
         return null;
     }
@@ -342,7 +342,7 @@
   });
 
   function startAITurns() {
-    const aiSeats = gameState.aiPlayers.flatMap((ai, i) => (ai ? [i] : []));
+    const aiSeats = gameState.botPlayers.flatMap((ai, i) => (ai ? [i] : []));
     aiActionTurns.start(
       gameState,
       aiSeats,
@@ -384,9 +384,9 @@
   function handleDraftPick(choice: Choice) {
     gameLogAccumulator?.recordChoice(gameState, choice, humanPlayerIndex);
     simultaneousPick(gameState, humanPlayerIndex, (choice as { type: 'draftPick'; card: any }).card);
-    // Track the newly drafted card's order
+    // Track the newly top card's order
     const knownIds = new Set(draftCardOrder[humanPlayerIndex]);
-    const newCard = gameState.players[humanPlayerIndex].draftedCards.find(
+    const newCard = gameState.players[humanPlayerIndex].topCards.find(
       c => !knownIds.has(c.instanceId)
     );
     if (newCard) {
@@ -399,7 +399,7 @@
   function aiDraftPickers(): DraftPicker[] {
     if (gameState.phase.type !== 'draft') return [];
     const { hands } = gameState.phase.draftState;
-    return gameState.aiPlayers.flatMap((isAI, playerIndex) =>
+    return gameState.botPlayers.flatMap((isAI, playerIndex) =>
       isAI && hands[playerIndex].length > 0 ? [{ playerIndex, iterations: aiIterations[playerIndex] }] : []
     );
   }
@@ -418,9 +418,9 @@
       for (const { playerIdx, choice } of results) {
         gameLogAccumulator?.recordChoice(gameState, choice, playerIdx);
         simultaneousPick(gameState, playerIdx, (choice as { type: 'draftPick'; card: any }).card);
-        // Track the newly drafted card's order
+        // Track the newly top card's order
         const knownIds = new Set(draftCardOrder[playerIdx]);
-        const newCard = gameState.players[playerIdx].draftedCards.find(
+        const newCard = gameState.players[playerIdx].topCards.find(
           c => !knownIds.has(c.instanceId)
         );
         if (newCard) {
@@ -464,7 +464,7 @@
     if (gameState.phase.type !== 'buyers') return;
 
     const playerIdx = gameState.phase.buyersState.currentPlayerIndex;
-    if (!gameState.aiPlayers[playerIdx]) return;
+    if (!gameState.botPlayers[playerIdx]) return;
 
     aiThinking = true;
 
@@ -481,7 +481,7 @@
 
 <GameLayout {gameState} actingPlayers={shownActingPlayers} {thinkingPlayers} {viewerIndex} {elapsedSeconds} {gameLog} onLeaveGame={onLeaveGame} {selectedPlayerIndex} onSelectPlayer={selectPlayer} {aiError} onRetryAI={() => { aiError = null; }} {draftCardOrder}>
   {#if gameState.phase.type === 'buyers'}
-    {#if !gameState.aiPlayers[buyersClaimant]}
+    {#if !gameState.botPlayers[buyersClaimant]}
       <BuyersPhaseView {gameState} playerIndex={buyersClaimant} onAction={(choice) => handleAction(buyersClaimant, choice)} />
     {:else}
       <WaitingNotice text="{gameState.playerNames[buyersClaimant]} is claiming a buyer" detail="Players take one buyer each in turn until every open slot is full." />

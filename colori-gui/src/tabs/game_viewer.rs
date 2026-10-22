@@ -15,13 +15,13 @@ use colori_core::mcts_impl::{
 use colori_core::replay::{GameReplay, replay_to, replay_view_to};
 use colori_core::scoring::{format_half_points, score_in_half_points};
 use colori_core::types::{
-    Card, CardInstance, Choice, Color, GamePhase, GameState, SellCardInstance, ALL_COLORS, ALL_MATERIAL_TYPES,
+    Card, CardInstance, Choice, Color, GamePhase, GameState, BuyerInstance, ALL_COLORS, ALL_MATERIAL_TYPES,
 };
 
 use crate::analysis::log_loader::find_game_log_files;
 use crate::analysis::computations::{
-    build_card_instance_map, build_sell_card_instance_map, final_score_ranking, format_choice,
-    sell_card_name_from_instance,
+    build_card_instance_map, build_buyer_instance_map, final_score_ranking, format_choice,
+    buyer_name_from_instance,
 };
 
 const PLAYER_COLORS: [egui::Color32; 5] = [
@@ -83,7 +83,7 @@ pub struct GameViewerState {
     pub error: Option<String>,
     pub selected_player: Option<usize>,
     card_map: Option<HashMap<u32, CardInstance>>,
-    sell_card_map: Option<HashMap<u32, SellCardInstance>>,
+    buyer_map: Option<HashMap<u32, BuyerInstance>>,
     // Raw JSON initial state for replay
     initial_state_json: Option<serde_json::Value>,
     // Replay state
@@ -154,7 +154,7 @@ impl GameViewerState {
             error: None,
             selected_player: None,
             card_map: None,
-            sell_card_map: None,
+            buyer_map: None,
             initial_state_json: None,
             selected_entry_index: None,
             replayed_state: None,
@@ -188,9 +188,9 @@ impl GameViewerState {
                 match serde_json::from_str::<StructuredGameLog>(&contents) {
                     Ok(game) => {
                         let card_map = build_card_instance_map(&game);
-                        let sell_card_map = build_sell_card_instance_map(&game);
+                        let buyer_map = build_buyer_instance_map(&game);
                         self.card_map = Some(card_map);
-                        self.sell_card_map = Some(sell_card_map);
+                        self.buyer_map = Some(buyer_map);
                         self.initial_state_json = initial_state_json;
                         self.game = Some(game);
                         self.loaded_path = Some(path.display().to_string());
@@ -208,7 +208,7 @@ impl GameViewerState {
                         self.error = Some(format!("Failed to parse game log: {}", e));
                         self.game = None;
                         self.card_map = None;
-                        self.sell_card_map = None;
+                        self.buyer_map = None;
                         self.initial_state_json = None;
                     }
                 }
@@ -217,7 +217,7 @@ impl GameViewerState {
                 self.error = Some(format!("Failed to read file: {}", e));
                 self.game = None;
                 self.card_map = None;
-                self.sell_card_map = None;
+                self.buyer_map = None;
                 self.initial_state_json = None;
             }
         }
@@ -374,7 +374,9 @@ impl GameViewerState {
                 replay.apply_entry(entry);
                 if let (Some(round), Some((views_round, views))) = (action_round, views.as_mut()) {
                     if round == *views_round {
-                        views.apply(entry.player_index, &entry.choice);
+                        // Rebuilding the view draws nothing new; the generator only
+                        // serves a turn that ends here, which this pass reports rather than replays.
+                        views.apply(entry.player_index, &entry.choice, &mut WyRand::seed_from_u64(0));
                     }
                 }
             }
@@ -447,7 +449,7 @@ impl GameViewerState {
 
         let game = self.game.as_ref().unwrap();
         let card_map = self.card_map.as_ref().unwrap();
-        let sell_card_map = self.sell_card_map.as_ref().unwrap();
+        let buyer_map = self.buyer_map.as_ref().unwrap();
         let selected_player = self.selected_player;
         let selected_entry = self.selected_entry_index;
         let replayed_state = self.replayed_state.as_ref();
@@ -504,7 +506,7 @@ impl GameViewerState {
                             ui,
                             game,
                             card_map,
-                            sell_card_map,
+                            buyer_map,
                             selected_player,
                             selected_entry,
                             &mut clicked_entry,
@@ -667,21 +669,21 @@ fn render_final_state(
                     }
                     ui.label(format!("Deck size: {}", stats.deck_size));
                     ui.label(format!(
-                        "Ducats: {} | Wild primaries: {} | Boats: {}",
-                        stats.ducats, stats.wild_primaries, stats.boats
+                        "GoldCoins: {} | Wild primaries: {} | Boats: {}",
+                        stats.gold_coins, stats.bowls, stats.boats
                     ));
                     for &mt in &ALL_MATERIAL_TYPES {
-                        let count = stats.materials.get(mt);
+                        let count = stats.materials_wheel.get(mt);
                         if count > 0 {
                             ui.label(format!("{:?}: {}", mt, count));
                         }
                     }
-                    if !stats.completed_sell_cards.is_empty() {
-                        ui.label("Completed sell cards:");
-                        for sell_card in &stats.completed_sell_cards {
+                    if !stats.completed_orders.is_empty() {
+                        ui.label("Completed buyers:");
+                        for buyer in &stats.completed_orders {
                             ui.label(format!(
                                 "  {}",
-                                sell_card_name_from_instance(sell_card.sell_card)
+                                buyer_name_from_instance(buyer.buyer)
                             ));
                         }
                     }
@@ -731,7 +733,7 @@ fn render_timeline(
     ui: &mut egui::Ui,
     game: &StructuredGameLog,
     _card_map: &HashMap<u32, CardInstance>,
-    _sell_card_map: &HashMap<u32, SellCardInstance>,
+    _buyer_map: &HashMap<u32, BuyerInstance>,
     selected_player: Option<usize>,
     selected_entry: Option<usize>,
     clicked_entry: &mut Option<usize>,
@@ -816,7 +818,6 @@ fn render_replayed_state(
 
     // Phase info
     let phase_text = match &state.phase {
-        GamePhase::Draw => "Draw".to_string(),
         GamePhase::Buyers { buyers_state } => {
             let name = game
                 .player_names
@@ -845,13 +846,13 @@ fn render_replayed_state(
     ui.label(format!("Round {} — {}", state.round, phase_text));
     ui.add_space(4.0);
 
-    // Sell card display
-    if !state.sell_card_display.is_empty() {
+    // Buyer card display
+    if !state.buyer_display.is_empty() {
         egui::CollapsingHeader::new("Sell Card Display")
             .default_open(false)
             .show(ui, |ui| {
-                for sc in state.sell_card_display.iter() {
-                    ui.label(sell_card_name_from_instance(sc.sell_card));
+                for sc in state.buyer_display.iter() {
+                    ui.label(buyer_name_from_instance(sc.buyer));
                 }
             });
         ui.add_space(4.0);
@@ -873,19 +874,19 @@ fn render_replayed_state(
         .default_open(true)
         .show(ui, |ui| {
             ui.label(format!(
-                "Ducats: {} | Wild primaries: {} | Boats: {}",
-                player.ducats, player.wild_primaries, player.boats
+                "GoldCoins: {} | Wild primaries: {} | Boats: {}",
+                player.gold_coins, player.bowls, player.boats
             ));
 
             // Card counts
-            let workshop_area = player.workshop_cards.len() + player.workshopped_cards.len();
+            let workshop_area = player.workshop_cards.len() + player.used_cards.len();
             ui.label(format!(
                 "Deck: {} (draw pile {} in {} piles + workshop area {}) | Drafted: {}",
                 player.deck.len() + workshop_area,
                 player.deck.len(),
                 player.deck.segment_count(),
                 workshop_area,
-                player.drafted_cards.len()
+                player.top_cards.len()
             ));
 
             // Workshop cards (by name)
@@ -898,10 +899,10 @@ fn render_replayed_state(
                 ui.label(format!("  Workshop: {}", names.join(", ")));
             }
 
-            // Drafted cards (by name)
-            if !player.drafted_cards.is_empty() {
+            // Top cards (by name)
+            if !player.top_cards.is_empty() {
                 let names: Vec<String> = player
-                    .drafted_cards
+                    .top_cards
                     .iter()
                     .map(|id| format!("{:?}", state.card_lookup[id as usize]))
                     .collect();
@@ -921,8 +922,8 @@ fn render_replayed_state(
             // Materials (non-zero)
             let mats: Vec<String> = ALL_MATERIAL_TYPES
                 .iter()
-                .filter(|&&mt| player.materials.get(mt) > 0)
-                .map(|&mt| format!("{:?}: {}", mt, player.materials.get(mt)))
+                .filter(|&&mt| player.materials_wheel.get(mt) > 0)
+                .map(|&mt| format!("{:?}: {}", mt, player.materials_wheel.get(mt)))
                 .collect();
             if !mats.is_empty() {
                 ui.label(format!("Materials: {}", mats.join(", ")));
@@ -933,19 +934,19 @@ fn render_replayed_state(
                 let names: Vec<String> = player
                     .buyers
                     .iter()
-                    .map(|sc| sell_card_name_from_instance(sc.sell_card))
+                    .map(|sc| buyer_name_from_instance(sc.buyer))
                     .collect();
                 ui.label(format!("Buyers: {}", names.join(", ")));
             }
 
-            // Completed sell cards
-            if !player.completed_sell_cards.is_empty() {
+            // Completed buyers
+            if !player.completed_orders.is_empty() {
                 let names: Vec<String> = player
-                    .completed_sell_cards
+                    .completed_orders
                     .iter()
-                    .map(|sc| sell_card_name_from_instance(sc.sell_card))
+                    .map(|sc| buyer_name_from_instance(sc.buyer))
                     .collect();
-                ui.label(format!("Sell cards: {}", names.join(", ")));
+                ui.label(format!("Buyer cards: {}", names.join(", ")));
             }
         });
     }

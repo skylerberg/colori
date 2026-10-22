@@ -101,7 +101,7 @@
       case 'buyers':
         return aiThinking ? acting : [];
       case 'draft':
-        return aiThinking ? gameState.aiPlayers.flatMap((ai, i) => (ai ? [i] : [])) : [];
+        return aiThinking ? gameState.botPlayers.flatMap((ai, i) => (ai ? [i] : [])) : [];
       case 'action':
         return thinkingInActionPhase;
       default:
@@ -140,12 +140,12 @@
   let hasPicked = $state(false);
 
   function syncFromGameState(gs: GameState) {
-    // Keep draftCardOrder in sync with the latest drafted cards per player.
+    // Keep draftCardOrder in sync with the latest top cards per player.
     if (draftCardOrder.length !== gs.players.length) {
       draftCardOrder = gs.players.map(() => []);
     } else {
       for (let i = 0; i < gs.players.length; i++) {
-        const drafted = gs.players[i].draftedCards;
+        const drafted = gs.players[i].topCards;
         if (drafted.length === 0 && draftCardOrder[i].length > 0) {
           draftCardOrder[i] = [];
           continue;
@@ -258,7 +258,7 @@
 
     if (gameState.phase.type === 'draft') {
       const ds = gameState.phase.draftState;
-      const aiPlayerIndices = gameState.aiPlayers
+      const aiPlayerIndices = gameState.botPlayers
         .map((isAI, idx) => isAI ? idx : -1)
         .filter(idx => idx >= 0)
         .filter(idx => !hostController!.hasSubmittedDraftPick(idx))
@@ -268,7 +268,7 @@
 
       aiThinking = true;
       const mySeq = ++aiGenerationSeq;
-      const snapshotAI = [...gameState.aiPlayers];
+      const snapshotAI = [...gameState.botPlayers];
       Promise.all(
         aiPlayerIndices.map(playerIdx =>
           aiController!.draftPick(gameState!, { playerIndex: playerIdx, iterations: DEFAULT_AI_ITERATIONS }).then(choice => ({
@@ -286,7 +286,7 @@
             if (!hostController) break;
             const curState = hostController.getGameState();
             if (!curState || curState.phase.type !== 'draft') break;
-            if (!curState.aiPlayers[playerIdx]) continue;
+            if (!curState.botPlayers[playerIdx]) continue;
             if (!snapshotAI[playerIdx]) continue;
             if (hostController.hasSubmittedDraftPick(playerIdx)) continue;
             // Stale-pick guard: if hands rotated between when the AI computed this
@@ -317,7 +317,7 @@
 
     if (gameState.phase.type !== 'buyers') return;
     const playerIdx = gameState.phase.buyersState.currentPlayerIndex;
-    if (!gameState.aiPlayers[playerIdx]) return;
+    if (!gameState.botPlayers[playerIdx]) return;
     aiThinking = true;
     const mySeq = ++aiGenerationSeq;
 
@@ -328,7 +328,7 @@
       const curState = hostController.getGameState();
       if (!curState || curState.phase.type !== 'buyers') return;
       // Abandon if this player is no longer AI (reconnected) or no longer the one claiming.
-      if (!curState.aiPlayers[playerIdx]) return;
+      if (!curState.botPlayers[playerIdx]) return;
       if (curState.phase.buyersState.currentPlayerIndex !== playerIdx) return;
       hostController.applyAction(choice, playerIdx);
     }).catch((e) => {
@@ -341,7 +341,7 @@
   // as it takes over from a player who left.
   function startAITurns() {
     if (!gameState || !hostController || !aiActionTurns) return;
-    const aiSeats = gameState.aiPlayers.flatMap((ai, i) => (ai ? [i] : []));
+    const aiSeats = gameState.botPlayers.flatMap((ai, i) => (ai ? [i] : []));
     aiActionTurns.start(
       gameState,
       aiSeats,
@@ -349,7 +349,7 @@
       (seat, choice) => {
         const curState = hostController!.getGameState();
         // A player who reconnected takes their turn back.
-        if (!curState?.aiPlayers[seat] || !isTakingActionTurn(curState, seat)) return false;
+        if (!curState?.botPlayers[seat] || !isTakingActionTurn(curState, seat)) return false;
         return hostController!.applyAction(choice, seat);
       },
       () => { thinkingInActionPhase = aiActionTurns.thinking; },

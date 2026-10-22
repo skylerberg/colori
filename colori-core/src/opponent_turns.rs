@@ -13,7 +13,8 @@
 //! policy. So opponents improve as the search does, and none of it depends on
 //! what the searching player chose.
 
-use crate::colori_game::{apply_choice_to_state, enumerate_choices_into, is_taking_turn};
+use crate::apply_choice::apply_choice;
+use crate::colori_game::{enumerate_choices_into, is_taking_turn};
 use crate::rollout::play_out_action_turn;
 use crate::scoring::HeuristicParams;
 use crate::types::{Choice, GamePhase, GameState, MAX_PLAYERS};
@@ -165,7 +166,7 @@ impl OpponentTurns {
             }
             let child = moves[i].1;
             self.visited.push((tree_index, child));
-            apply_choice_to_state(state, player, &moves[i].0, rng);
+            apply_choice(state, player, &moves[i].0, rng);
 
             if tree.fixed {
                 tree.nodes[node as usize].moves = moves;
@@ -217,7 +218,6 @@ impl OpponentTurns {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::draw_phase::execute_draw_phase;
     use crate::setup::create_initial_game_state;
     use crate::types::ActionState;
     use rand::SeedableRng;
@@ -232,7 +232,6 @@ mod tests {
     fn action_phase(seed: u64) -> GameState {
         let mut rng = WyRand::seed_from_u64(seed);
         let mut state = create_initial_game_state(3, &[true, true, true], &mut rng);
-        execute_draw_phase(&mut state, &mut rng);
         while !matches!(state.phase, GamePhase::Action { .. }) {
             let player = match &state.phase {
                 GamePhase::Buyers { buyers_state } => buyers_state.current_player_index,
@@ -241,7 +240,7 @@ mod tests {
             };
             let choices = crate::choices::enumerate_choices(&state, player);
             let choice = choices[rng.random_range(0..choices.len())].clone();
-            apply_choice_to_state(&mut state, player, &choice, &mut rng);
+            apply_choice(&mut state, player, &choice, &mut rng);
         }
         state
     }
@@ -288,7 +287,7 @@ mod tests {
             .into_iter()
             .find(|choice| !matches!(choice, Choice::EndTurn))
             .expect("a first-round turn has something to do");
-        apply_choice_to_state(&mut moved, 1, &first, &mut rng);
+        apply_choice(&mut moved, 1, &first, &mut rng);
 
         let play = |mut state: GameState, fixed: bool| {
             let mut model = if fixed {

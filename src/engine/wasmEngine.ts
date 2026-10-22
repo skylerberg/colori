@@ -1,6 +1,6 @@
-import type { GameState, Choice, PlayerState, Card, Color, DrawEvent, MaterialType, SellCard } from '../data/types';
+import type { GameState, Choice, PlayerState, Card, Color, DrawEvent, MaterialType, Buyer } from '../data/types';
 import { isPrimary } from '../data/colors';
-import { getSellCardData } from '../data/cards';
+import { getBuyerData } from '../data/cards';
 import init, {
   wasm_create_initial_game_state,
   wasm_execute_draw_phase,
@@ -19,8 +19,8 @@ export async function initEngine(): Promise<void> {
   initialized = true;
 }
 
-export function createInitialGameState(playerNames: string[], aiPlayers?: boolean[]): GameState {
-  const ai = aiPlayers ?? playerNames.map(() => false);
+export function createInitialGameState(playerNames: string[], botPlayers?: boolean[]): GameState {
+  const ai = botPlayers ?? playerNames.map(() => false);
   const aiJson = JSON.stringify(ai);
   const resultJson = engineCall(
     () => wasm_create_initial_game_state(playerNames.length, aiJson),
@@ -99,29 +99,29 @@ export function determineWinners(players: PlayerState[], playerNames: string[]):
   const ranked = players.map((p, i) => ({
     name: playerNames[i],
     score: calculateScores([p], [playerNames[i]])[0].score,
-    sellCards: p.completedSellCards.length,
+    buyers: p.completedBuyers.length,
     colors: Object.values(p.colorWheel).reduce((sum, c) => sum + (c as number), 0),
   }));
-  ranked.sort((a, b) => b.score - a.score || b.sellCards - a.sellCards || b.colors - a.colors);
+  ranked.sort((a, b) => b.score - a.score || b.buyers - a.buyers || b.colors - a.colors);
   const best = ranked[0];
   return ranked
-    .filter(r => r.score === best.score && r.sellCards === best.sellCards && r.colors === best.colors)
+    .filter(r => r.score === best.score && r.buyers === best.buyers && r.colors === best.colors)
     .map(r => r.name);
 }
 
-export function canSell(player: PlayerState, sellCardInstanceId: number): boolean {
+export function canSell(player: PlayerState, buyerInstanceId: number): boolean {
   // Only the player's own buyers are sellable; the shared display is claimed
   // from during the buyers phase and never sold to directly.
-  const sellCardInstance = player.buyers.find(g => g.instanceId === sellCardInstanceId);
-  return sellCardInstance !== undefined && saleShortfall(player, sellCardInstance.card).length === 0;
+  const buyerInstance = player.buyers.find(g => g.instanceId === buyerInstanceId);
+  return buyerInstance !== undefined && saleShortfall(player, buyerInstance.card).length === 0;
 }
 
-// What a sale to `sellCard` still lacks once boats and wild primaries have
+// What a sale to `buyer` still lacks once boats and wild primaries have
 // stood in where they can, one entry per missing item; empty when it can be
 // made. Mirrors `action_phase::can_afford_sell_card`: a boat stands in for
 // each material the player lacks, on top of any the card asks for outright.
-export function saleShortfall(player: PlayerState, sellCard: SellCard): string[] {
-  const data = getSellCardData(sellCard);
+export function saleShortfall(player: PlayerState, buyer: Buyer): string[] {
+  const data = getBuyerData(buyer);
   const missing: string[] = [];
 
   let boats = player.boats;
@@ -138,11 +138,11 @@ export function saleShortfall(player: PlayerState, sellCard: SellCard): string[]
   }
 
   const spent: Partial<Record<Color, number>> = {};
-  let wildPrimaries = player.wildPrimaries;
+  let bowls = player.bowls;
   for (const color of data.colorCost) {
     const taken = spent[color] ?? 0;
     if (player.colorWheel[color] > taken) spent[color] = taken + 1;
-    else if (isPrimary(color) && wildPrimaries > 0) wildPrimaries--;
+    else if (isPrimary(color) && bowls > 0) bowls--;
     else missing.push(color);
   }
   return missing;

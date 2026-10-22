@@ -21,7 +21,7 @@ pub struct CachedAnalysis {
     pub cards_added_normalized: HashMap<String, f64>,
     pub trashed_draft: HashMap<String, usize>,
     pub draft_pool_moves: DraftPoolMoves,
-    pub sell_card_acq: SellCardAcquisitions,
+    pub buyer_acq: BuyerAcquisitions,
     pub deck_stats: DeckSizeStats,
     /// Keyed by half points.
     pub score_dist: std::collections::BTreeMap<u32, usize>,
@@ -43,7 +43,7 @@ pub struct CachedAnalysis {
     pub trash_rate: HashMap<String, f64>,
     pub trash_rate_categories: Vec<CategoryStat>,
     pub trash_rate_cat_normalized: Vec<CategoryStat>,
-    pub winner_sell_card_breakdown: WinnerSellCardBreakdown,
+    pub winner_buyer_breakdown: WinnerBuyerBreakdown,
     pub num_games: usize,
     pub num_players: usize,
 }
@@ -64,7 +64,7 @@ impl CachedAnalysis {
         let cards_added_normalized = normalize_by_draft_copies(&cards_added);
         let trashed_draft = compute_trashed_from_draft(logs, filter_ref);
         let draft_pool_moves = compute_draft_pool_moves(logs, filter_ref);
-        let sell_card_acq = compute_sell_card_acquisitions(logs, filter_ref);
+        let buyer_acq = compute_buyer_acquisitions(logs, filter_ref);
         let deck_stats = compute_deck_size_stats(logs, filter_ref);
         let score_dist = compute_score_distribution(logs, filter_ref);
         let win_rate_position = compute_win_rate_by_position(logs, filter_ref);
@@ -78,7 +78,7 @@ impl CachedAnalysis {
         let card_win_rate = compute_win_rate_by_card(logs, filter_ref);
         let buyer_type_win_rates = compute_win_rate_by_buyer_claims(logs, filter_ref);
         let draft_win_rate = compute_win_rate_if_drafted(logs, filter_ref);
-        let winner_sell_card_breakdown = compute_winner_sell_card_breakdown(logs, filter_ref);
+        let winner_buyer_breakdown = compute_winner_buyer_breakdown(logs, filter_ref);
 
         let num_players = if !logs.is_empty() {
             logs[0].player_names.len()
@@ -135,7 +135,7 @@ impl CachedAnalysis {
             cards_added_normalized,
             trashed_draft,
             draft_pool_moves,
-            sell_card_acq,
+            buyer_acq,
             deck_stats,
             score_dist,
             win_rate_position,
@@ -155,7 +155,7 @@ impl CachedAnalysis {
             trash_rate,
             trash_rate_categories,
             trash_rate_cat_normalized,
-            winner_sell_card_breakdown,
+            winner_buyer_breakdown,
             num_games,
             num_players,
         }
@@ -480,29 +480,29 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
                 render_f64_hashmap_bar_rows_pct(ui, &analysis.trash_rate, "Trash Rate");
             });
 
-        // 13. Cards raised to the draft pool
+        // 13. Cards raised to the top cards
         render_draft_pool_moves(ui, &analysis.draft_pool_moves);
 
         // 14. Sell Card Acquisitions
-        let id = ui.make_persistent_id("sell_card_acquisitions");
+        let id = ui.make_persistent_id("buyer_acquisitions");
         egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
             .show_header(ui, |ui| {
                 ui.strong("Sell Card Acquisitions");
             })
             .body(|ui| {
                 ui.strong("By Sell Card");
-                render_usize_hashmap_bar_rows(ui, &analysis.sell_card_acq.by_sell_card, "Count");
+                render_usize_hashmap_bar_rows(ui, &analysis.buyer_acq.by_buyer, "Count");
                 ui.add_space(8.0);
                 ui.strong("By Points");
                 render_u32_hashmap_bar_rows(
                     ui,
-                    &analysis.sell_card_acq.by_points,
+                    &analysis.buyer_acq.by_points,
                     "Points",
                     "Count",
                 );
                 ui.add_space(8.0);
                 ui.strong("By Material");
-                render_usize_hashmap_bar_rows(ui, &analysis.sell_card_acq.by_material, "Count");
+                render_usize_hashmap_bar_rows(ui, &analysis.buyer_acq.by_material, "Count");
             });
 
         // --- End State ---
@@ -519,13 +519,13 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
             });
 
         // Winner Sell Card Breakdown
-        let id = ui.make_persistent_id("winner_sell_card_breakdown");
+        let id = ui.make_persistent_id("winner_buyer_breakdown");
         egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
             .show_header(ui, |ui| {
                 ui.strong("Winner Sell Card Breakdown");
             })
             .body(|ui| {
-                let wb = &analysis.winner_sell_card_breakdown;
+                let wb = &analysis.winner_buyer_breakdown;
                 let cards = vec![
                     StatCard {
                         value: format!("{:.1}", wb.avg_textiles),
@@ -540,8 +540,8 @@ pub fn render_analysis_tab(ui: &mut egui::Ui, analysis: &CachedAnalysis) {
                         label: "Avg Paintings".into(),
                     },
                     StatCard {
-                        value: format!("{:.1}", wb.avg_ducats),
-                        label: "Avg Ducats".into(),
+                        value: format!("{:.1}", wb.avg_gold_coins),
+                        label: "Avg GoldCoins".into(),
                     },
                 ];
                 stat_grid(ui, &cards);
@@ -569,7 +569,7 @@ fn render_buyer_type_win_rates(ui: &mut egui::Ui, rates: &[BuyerTypeWinRates]) {
     let id = ui.make_persistent_id("buyer_type_win_rates");
     egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false)
         .show_header(ui, |ui| {
-            ui.strong("Win Rate by Buyer Type Claimed");
+            ui.strong("Win Rate by Trade Type Claimed");
         })
         .body(|ui| {
             ui.label("Claims are the cards a player took in the buyers phases, off the display or unseen off the deck. The difference is claimed minus never claimed, \u{b1} its 95% margin.");
@@ -578,7 +578,7 @@ fn render_buyer_type_win_rates(ui: &mut egui::Ui, rates: &[BuyerTypeWinRates]) {
                 .striped(true)
                 .min_col_width(70.0)
                 .show(ui, |ui| {
-                    for header in ["Buyer", "Claimed: Games", "Win %", "Never: Games", "Win %", "Difference"] {
+                    for header in ["Trade", "Claimed: Games", "Win %", "Never: Games", "Win %", "Difference"] {
                         ui.strong(header);
                     }
                     ui.end_row();
@@ -588,7 +588,7 @@ fn render_buyer_type_win_rates(ui: &mut egui::Ui, rates: &[BuyerTypeWinRates]) {
                             wins: rate.by_claims[1..].iter().map(|e| e.wins).sum(),
                             games: rate.by_claims[1..].iter().map(|e| e.games).sum(),
                         };
-                        ui.label(rate.buyer.name());
+                        ui.label(rate.trade.name());
                         ui.label(format!("{}", claimed.games as i64));
                         ui.label(if claimed.games > 0.0 { format!("{:.1}%", pct(&claimed)) } else { "\u{2013}".into() });
                         ui.label(format!("{}", never.games as i64));
@@ -611,14 +611,14 @@ fn render_buyer_type_win_rates(ui: &mut egui::Ui, rates: &[BuyerTypeWinRates]) {
                 .striped(true)
                 .min_col_width(70.0)
                 .show(ui, |ui| {
-                    ui.strong("Buyer");
+                    ui.strong("Trade");
                     for claims in 0..CLAIM_COUNT_BUCKETS {
                         let plus = if claims == CLAIM_COUNT_BUCKETS - 1 { "+" } else { "" };
                         ui.strong(format!("{}{}", claims, plus));
                     }
                     ui.end_row();
                     for rate in rates {
-                        ui.label(rate.buyer.name());
+                        ui.label(rate.trade.name());
                         for entry in &rate.by_claims {
                             ui.label(if entry.games > 0.0 {
                                 format!("{:.1}% ({})", pct(entry), entry.games as i64)
@@ -685,7 +685,7 @@ fn render_draft_pool_moves(ui: &mut egui::Ui, moves: &DraftPoolMoves) {
                 ui.label("No data available.");
                 return;
             }
-            ui.label("A card in the workshop moved to the draft pool by the ability of a card that was trashed.");
+            ui.label("A card in the workshop moved to the top cards by the ability of a card that was trashed.");
 
             let source_total = |source: &String| -> usize {
                 moves.raised_by.get(source).map_or(0, |t| t.values().sum())

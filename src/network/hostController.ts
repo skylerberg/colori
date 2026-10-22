@@ -223,7 +223,7 @@ export class HostController {
     player.isConnected = true;
     this.peerToPlayerIndex.set(peerId, player.playerIndex);
     this.playerIndexToPeer.set(player.playerIndex, peerId);
-    this.gameState.aiPlayers[player.playerIndex] = false;
+    this.gameState.botPlayers[player.playerIndex] = false;
 
     const sanitized = sanitizeGameState(this.gameState, player.playerIndex, [...this.gameLog]);
     sanitized.resync = true;
@@ -278,7 +278,7 @@ export class HostController {
 
   private replaceWithAI(playerIndex: number) {
     if (!this.gameState) return;
-    this.gameState.aiPlayers[playerIndex] = true;
+    this.gameState.botPlayers[playerIndex] = true;
     this.disconnectTimers.delete(playerIndex);
     const name = this.gameState.playerNames[playerIndex];
     this.addLog(`${name} was replaced by an AI`, playerIndex);
@@ -295,12 +295,12 @@ export class HostController {
     this.submittedDraftPicks.clear();
     this.rejoinTokens.clear();
     const playerNames: string[] = new Array(this.playerCount);
-    const aiPlayers: boolean[] = new Array(this.playerCount).fill(true);
+    const botPlayers: boolean[] = new Array(this.playerCount).fill(true);
 
     for (const lp of this.lobbyPlayers) {
       if (lp.playerIndex < this.playerCount) {
         playerNames[lp.playerIndex] = lp.name;
-        aiPlayers[lp.playerIndex] = false;
+        botPlayers[lp.playerIndex] = false;
       }
     }
 
@@ -311,7 +311,7 @@ export class HostController {
     }
 
     try {
-      this.gameState = createInitialGameState(playerNames, aiPlayers);
+      this.gameState = createInitialGameState(playerNames, botPlayers);
     } catch (e) {
       reportError('Starting the game failed', e);
       return;

@@ -94,10 +94,10 @@ function createTour(): Tour {
   });
 
   newTour.addStep({
-    id: 'ducats',
-    title: 'Ducats',
-    text: 'Each ducat is worth a point. You start with one and collect more in rounds 4, 6 and 7. On your turn you can also spend one, through the strip beside the purse, for a single Workshop pick, a Mix or a Sale. The strip lights up when you can.',
-    attachTo: { element: '.board-area [data-tour="ducats"]', on: 'top' },
+    id: 'goldCoins',
+    title: 'GoldCoins',
+    text: 'Each goldCoin is worth a point. You start with one and collect more in rounds 4, 6 and 7. On your turn you can also spend one, through the strip beside the purse, for a single Workshop pick, a Mix or a Sale. The strip lights up when you can.',
+    attachTo: { element: '.board-area [data-tour="goldCoins"]', on: 'top' },
     buttons: [backButton, nextButton],
   });
 
@@ -128,7 +128,7 @@ function createTour(): Tour {
   newTour.addStep({
     id: 'draft-phase',
     title: 'Draft Phase',
-    text: "You're dealt 4 cards. Keep one and the rest pass on; after 3 picks the last card passed to you is yours too. Drafted cards tuck under the top of your board, showing the banner that says what trashing them does.",
+    text: "You're dealt 4 cards. Keep one and the rest pass on; after 3 picks the last card passed to you is yours too. Top cards tuck under the top of your board, showing the banner that says what trashing them does.",
     attachTo: { element: '.board-area [data-tour="drafted"]', on: 'bottom' },
     buttons: [backButton, nextButton],
   });
@@ -144,7 +144,7 @@ function createTour(): Tour {
   newTour.addStep({
     id: 'action-phase',
     title: 'Action Phase',
-    text: 'Everyone plays at once. Click a drafted card to trash it and use its ability: Workshop, Mix, Sell, or move a workshop card up to your draft pool. This panel says what each ability needs, and the board lights up what you can click. Cards you keep move into your workshop, and your used workshop goes to the bottom of your deck.',
+    text: 'Everyone plays at once. Click a top card to trash it and use its ability: Workshop, Mix, Sell, or move a workshop card up to your top cards. This panel says what each ability needs, and the board lights up what you can click. Cards you keep move into your workshop, and your used workshop goes to the bottom of your deck.',
     attachTo: { element: '.controls', on: 'right' },
     buttons: [backButton, nextButton],
   });
@@ -152,7 +152,7 @@ function createTour(): Tour {
   newTour.addStep({
     id: 'end-game',
     title: 'Good Luck!',
-    text: 'The game ends after 7 rounds. Most points wins: the points on the buyers you sold to, a point for each ducat, and half a point for each wild primary and boat. Rest the pointer on a card, or press and hold it, to see all of it. Good luck, vendecolori!',
+    text: 'The game ends after 7 rounds. Most points wins: the points on the buyers you sold to, a point for each goldCoin, and half a point for each wild primary and boat. Rest the pointer on a card, or press and hold it, to see all of it. Good luck, vendecolori!',
     buttons: [
       backButton,
       {

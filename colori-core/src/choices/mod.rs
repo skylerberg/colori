@@ -3,7 +3,7 @@ mod mix_sequences;
 mod multiset;
 
 use crate::action_phase::{
-    can_afford_sell_card, can_buy_with_ducat, can_sell_to_any_buyer, for_each_unique_card_type,
+    can_afford_buyer, can_buy_with_gold_coin, can_sell_to_any_buyer, for_each_unique_card_type,
 };
 use crate::apply_choice::resolve_card_types_to_ids;
 use crate::colors::{can_mix, can_supply_mix, perform_mix_unchecked, SECONDARIES};
@@ -14,11 +14,11 @@ use mix_sequences::enumerate_mix_sequences;
 use multiset::{count_card_types, enumerate_multiset_subsets};
 
 /// What deciding which workshop picks are worth taking turns on: how many
-/// cards there are to take, and how many moves of a card into the draft pool
+/// cards there are to take, and how many moves of a card into the top cards
 /// the turn still has in it.
 ///
 /// Nothing enters the workshop mid-turn, so holding a pick back only pays off
-/// when a card in the draft pool could still move the card it left behind into
+/// when a card in the top cards could still move the card it left behind into
 /// the pool, to be used this turn or kept for the next. Each such move takes
 /// one card out of the workshop, and a card it takes that moves cards itself
 /// can move another, so a mover in the workshop counts too — once a drafted
@@ -32,10 +32,10 @@ impl WorkshopPruning {
     pub(crate) fn new(state: &GameState, player: &PlayerState) -> Self {
         let moves_to_pool = |id: &u8| {
             state.card_lookup[*id as usize]
-                .trash_abilities()
-                .contains(&Ability::MoveToDraftPool)
+                .top_actions()
+                .contains(&Ability::LiftCard)
         };
-        let drafted_movers = player.drafted_cards.iter().filter(moves_to_pool).count();
+        let drafted_movers = player.top_cards.iter().filter(moves_to_pool).count();
         let workshop_movers = if drafted_movers == 0 {
             0
         } else {
@@ -50,7 +50,7 @@ impl WorkshopPruning {
     /// The picks worth taking: the fewest that leaves no card idle, up to the
     /// most the ability allows.
     ///
-    /// At most `movers` cards can leave the workshop for the draft pool, so a
+    /// At most `movers` cards can leave the workshop for the top cards, so a
     /// workspace smaller than `available - movers` picks leaves a card behind
     /// that nothing will ever move: it sits in the workshop and drops to the
     /// bottom of the deck. Taking it instead costs nothing, and gains its
@@ -93,22 +93,22 @@ pub fn enumerate_choices_into(state: &GameState, player_index: usize, choices: &
 
             match turn.ability_stack.last() {
                 None => {
-                    // Every drafted card is decided: used for its action, or
+                    // Every top card is decided: used for its action, or
                     // kept on top of the deck. Keeping costs nothing and can
                     // be done at any point, so it is offered beside using.
                     let mut tally = WorkshopTally::default();
-                    for_each_unique_card_type(&player.drafted_cards, &state.card_lookup, |card| {
+                    for_each_unique_card_type(&player.top_cards, &state.card_lookup, |card| {
                         enumerate_trash_choices(state, player, card, &mut tally, choices);
                         choices.push(Choice::KeepCard { card });
                     });
-                    for purchase in ALL_DUCAT_PURCHASES {
-                        if can_buy_with_ducat(player, purchase) {
-                            choices.push(Choice::SpendDucat { purchase });
+                    for purchase in ALL_GOLD_COIN_PURCHASES {
+                        if can_buy_with_gold_coin(player, purchase) {
+                            choices.push(Choice::SpendGoldCoin { purchase });
                         }
                     }
                     // The turn ends once nothing is left to decide, which is
-                    // when the last ducats can still be spent on a purchase.
-                    if player.drafted_cards.is_empty() {
+                    // when the last gold_coins can still be spent on a purchase.
+                    if player.top_cards.is_empty() {
                         choices.push(Choice::EndTurn);
                     }
                 }
@@ -117,7 +117,7 @@ pub fn enumerate_choices_into(state: &GameState, player_index: usize, choices: &
                     let (card_types, type_counts, len) = count_card_types(player.workshop_cards, &state.card_lookup);
                     if fewest == 0 {
                         // Every card left could still be moved, so forfeiting the
-                        // picks is a real option — even when a ducat paid for
+                        // picks is a real option — even when a gold_coin paid for
                         // them, since a search can begin, and the last turn be
                         // solved, at this position rather than at the purchase.
                         // It is also the only answer to an empty workshop, which
@@ -136,29 +136,29 @@ pub fn enumerate_choices_into(state: &GameState, player_index: usize, choices: &
                         );
                     }
                 }
-                Some(Ability::MoveToDraftPool) => {
+                Some(Ability::LiftCard) => {
                     if player.workshop_cards.is_empty() {
-                        choices.push(Choice::MoveToDraftPool { card: None });
+                        choices.push(Choice::LiftCard { card: None });
                     } else {
                         for_each_unique_card_type(&player.workshop_cards, &state.card_lookup, |card| {
-                            choices.push(Choice::MoveToDraftPool { card: Some(card) });
+                            choices.push(Choice::LiftCard { card: Some(card) });
                         });
                     }
                 }
                 Some(Ability::MixColors { count }) => {
                     enumerate_mix_sequences(
                         &player.color_wheel,
-                        player.wild_primaries,
+                        player.bowls,
                         *count,
                         choices,
                         |mixes| Choice::MixAll { mixes },
                     );
                 }
                 Some(Ability::Sell) => {
-                    for sell_card in player.buyers.iter() {
-                        if can_afford_sell_card(player, &sell_card.sell_card) {
-                            choices.push(Choice::SelectSellCard {
-                                sell_card: sell_card.sell_card,
+                    for buyer in player.buyers.iter() {
+                        if can_afford_buyer(player, &buyer.buyer) {
+                            choices.push(Choice::SellToBuyer {
+                                buyer: buyer.buyer,
                             });
                         }
                     }
@@ -168,7 +168,7 @@ pub fn enumerate_choices_into(state: &GameState, player_index: usize, choices: &
                         choices.push(Choice::GainSecondary { color: c });
                     }
                 }
-                // Instant abilities (GainDucats, GainWildPrimaries, GainPrimaries,
+                // Instant abilities (GainGoldCoins, GainBowls, GainPrimaries,
                 // GainBoats) should never be on top when waiting for a choice —
                 // they get processed immediately.
                 Some(_) => {}
@@ -193,12 +193,12 @@ fn mix_sequence_is_valid(player: &PlayerState, mixes: &[(Color, Color)], granted
         return false;
     }
     let mut wheel = player.color_wheel.clone();
-    let mut wild_primaries = player.wild_primaries;
+    let mut bowls = player.bowls;
     for &(a, b) in mixes {
-        if !can_mix(a, b) || !can_supply_mix(&wheel, wild_primaries, a, b) {
+        if !can_mix(a, b) || !can_supply_mix(&wheel, bowls, a, b) {
             return false;
         }
-        perform_mix_unchecked(&mut wheel, &mut wild_primaries, a, b);
+        perform_mix_unchecked(&mut wheel, &mut bowls, a, b);
     }
     true
 }
@@ -224,7 +224,7 @@ fn pending_ability(state: &GameState, player_index: usize) -> Option<Ability> {
 /// Whether `target` is a legal answer to Move to Draft Pool. The move is
 /// mandatory when the workshop has a card to move, so `None` stands only for
 /// the fizzle.
-fn move_target_is_valid(state: &GameState, player: &PlayerState, target: &Option<Card>) -> bool {
+fn lift_target_is_valid(state: &GameState, player: &PlayerState, target: &Option<Card>) -> bool {
     match target {
         None => player.workshop_cards.is_empty(),
         Some(card) => player
@@ -235,11 +235,11 @@ fn move_target_is_valid(state: &GameState, player: &PlayerState, target: &Option
 }
 
 /// Check common preconditions for all trash-drafted-card variants: the
-/// player is between abilities and holds the card in their draft pool.
+/// player is between abilities and holds the card in their top cards.
 fn check_trash_preconditions(state: &GameState, player_index: usize, card: &Card) -> bool {
     open_turn_stack(state, player_index).is_some_and(|stack| stack.is_empty())
         && state.players[player_index]
-            .drafted_cards
+            .top_cards
             .iter()
             .any(|id| state.card_lookup[id as usize] == *card)
 }
@@ -257,21 +257,21 @@ pub fn check_choice_available(state: &GameState, player_index: usize, choice: &C
                 false
             }
         }
-        Choice::TrashDraftedCard { card } => {
+        Choice::TrashTopCard { card } => {
             if !check_trash_preconditions(state, player_index, card) {
                 return false;
             }
-            match card.trash_abilities()[0] {
+            match card.top_actions()[0] {
                 Ability::Sell => !can_sell_to_any_buyer(player),
                 Ability::MixColors { .. } => false,
                 Ability::Workshop { .. } => false,
-                Ability::MoveToDraftPool => false,
+                Ability::LiftCard => false,
                 _ => true,
             }
         }
         Choice::EndTurn => {
             open_turn_stack(state, player_index).is_some_and(|stack| stack.is_empty())
-                && player.drafted_cards.is_empty()
+                && player.top_cards.is_empty()
         }
         Choice::KeepCard { card } => check_trash_preconditions(state, player_index, card),
         Choice::Workshop { card_types } => {
@@ -282,15 +282,15 @@ pub fn check_choice_available(state: &GameState, player_index: usize, choice: &C
         Choice::SkipWorkshop => {
             matches!(pending_ability(state, player_index), Some(Ability::Workshop { .. }))
         }
-        Choice::MoveToDraftPool { card } => {
-            if !matches!(pending_ability(state, player_index), Some(Ability::MoveToDraftPool)) {
+        Choice::LiftCard { card } => {
+            if !matches!(pending_ability(state, player_index), Some(Ability::LiftCard)) {
                 return false;
             }
-            move_target_is_valid(state, player, card)
+            lift_target_is_valid(state, player, card)
         }
-        Choice::SelectSellCard { sell_card } => {
+        Choice::SellToBuyer { buyer } => {
             matches!(pending_ability(state, player_index), Some(Ability::Sell))
-                && player.buyers.iter().any(|b| b.sell_card == *sell_card && can_afford_sell_card(player, &b.sell_card))
+                && player.buyers.iter().any(|b| b.buyer == *buyer && can_afford_buyer(player, &b.buyer))
         }
         Choice::GainSecondary { color } => {
             matches!(pending_ability(state, player_index), Some(Ability::GainSecondary))
@@ -304,45 +304,45 @@ pub fn check_choice_available(state: &GameState, player_index: usize, choice: &C
             if !check_trash_preconditions(state, player_index, card) {
                 return false;
             }
-            let Ability::MixColors { count } = card.trash_abilities()[0] else {
+            let Ability::MixColors { count } = card.top_actions()[0] else {
                 return false;
             };
             mix_sequence_is_valid(player, mixes, count)
         }
-        Choice::TrashAndSell { card, sell_card } => {
+        Choice::TrashAndSell { card, buyer } => {
             check_trash_preconditions(state, player_index, card)
-                && player.buyers.iter().any(|b| b.sell_card == *sell_card && can_afford_sell_card(player, &b.sell_card))
+                && player.buyers.iter().any(|b| b.buyer == *buyer && can_afford_buyer(player, &b.buyer))
         }
         Choice::TrashAndWorkshop { card, workshop_cards } => {
             check_trash_preconditions(state, player_index, card)
                 && (workshop_cards.is_empty()
                     || resolve_card_types_to_ids(workshop_cards, &player.workshop_cards, &state.card_lookup).is_some())
         }
-        Choice::TrashAndMoveToDraftPool { card, target } => {
+        Choice::TrashAndLift { card, target } => {
             if !check_trash_preconditions(state, player_index, card) {
                 return false;
             }
-            move_target_is_valid(state, player, target)
+            lift_target_is_valid(state, player, target)
         }
-        Choice::SpendDucat { purchase } => {
+        Choice::SpendGoldCoin { purchase } => {
             open_turn_stack(state, player_index).is_some_and(|stack| stack.is_empty())
-                && can_buy_with_ducat(player, *purchase)
+                && can_buy_with_gold_coin(player, *purchase)
         }
-        Choice::TakeBuyer { sell_card } => {
+        Choice::ClaimBuyer { buyer } => {
             matches!(&state.phase, GamePhase::Buyers { buyers_state } if buyers_state.current_player_index == player_index)
                 && state
-                    .sell_card_display
+                    .buyer_display
                     .iter()
-                    .any(|c| c.sell_card == *sell_card)
+                    .any(|c| c.buyer == *buyer)
         }
         Choice::DrawBuyer => {
             matches!(&state.phase, GamePhase::Buyers { buyers_state } if buyers_state.current_player_index == player_index)
-                && !state.sell_card_deck.is_empty()
+                && !state.buyer_deck.is_empty()
         }
     }
 }
 
-/// What the acting player may claim: one entry per distinct face-up sell card,
+/// What the acting player may claim: one entry per distinct face-up buyer,
 /// plus the top of the deck when there is one.
 ///
 /// Deduplicating by card type keeps the tree from branching on which of two
@@ -351,18 +351,18 @@ pub fn check_choice_available(state: &GameState, player_index: usize, choice: &C
 /// piles can run dry, and then there is nothing to enumerate and the phase
 /// ends without seating anyone.
 fn enumerate_buyer_choices(state: &GameState, choices: &mut Vec<Choice>) {
-    let display = &state.sell_card_display;
+    let display = &state.buyer_display;
     for (i, instance) in display.iter().enumerate() {
-        // At most `MAX_SELL_CARD_DISPLAY` entries, so a scan beats any
+        // At most `MAX_BUYER_DISPLAY` entries, so a scan beats any
         // bookkeeping.
-        if display[..i].iter().any(|c| c.sell_card == instance.sell_card) {
+        if display[..i].iter().any(|c| c.buyer == instance.buyer) {
             continue;
         }
-        choices.push(Choice::TakeBuyer {
-            sell_card: instance.sell_card,
+        choices.push(Choice::ClaimBuyer {
+            buyer: instance.buyer,
         });
     }
-    if !state.sell_card_deck.is_empty() {
+    if !state.buyer_deck.is_empty() {
         choices.push(Choice::DrawBuyer);
     }
 }
@@ -374,28 +374,24 @@ mod tests {
     use wyrand::WyRand;
 
     use super::*;
-    use crate::colori_game::{apply_choice_to_state, get_game_status, GameStatus};
+    use crate::apply_choice::apply_choice;
+    use crate::colori_game::{get_game_status, GameStatus};
     use crate::fixed_vec::FixedVec;
+    use crate::round::WORKSHOP_SIZE;
     use crate::unordered_cards::UnorderedCards;
-    use crate::draw_phase::execute_draw_phase;
     use crate::setup::create_initial_game_state;
 
     /// Random play from a fresh game to its first action phase.
     fn action_phase(players: usize, seed: u64) -> GameState {
         let mut rng = WyRand::seed_from_u64(seed);
         let mut state = create_initial_game_state(players, &vec![true; players], &mut rng);
-        execute_draw_phase(&mut state, &mut rng);
         while !matches!(state.phase, GamePhase::Action { .. }) {
-            if matches!(state.phase, GamePhase::Draw) {
-                execute_draw_phase(&mut state, &mut rng);
-                continue;
-            }
             let GameStatus::AwaitingAction { player_index } = get_game_status(&state, None) else {
                 panic!("seed {seed}: the game ended before its first action phase");
             };
             let choices = enumerate_choices(&state, player_index);
             let choice = choices[rng.random_range(0..choices.len())];
-            apply_choice_to_state(&mut state, player_index, &choice, &mut rng);
+            apply_choice(&mut state, player_index, &choice, &mut rng);
         }
         state
     }
@@ -404,14 +400,15 @@ mod tests {
         enumerate_choices(state, player)
     }
 
-    /// Every drafted card is used or kept, the turn cannot end until the pool
-    /// is empty, and a kept card goes on top of the deck.
+    /// Every top card is used or kept, the turn cannot end until the pool is
+    /// empty, and a kept card goes on top of the deck — the segment the draw
+    /// the turn ends with takes its cards from.
     #[test]
-    fn a_turn_decides_every_drafted_card_before_it_can_end() {
+    fn a_turn_decides_every_top_card_before_it_can_end() {
         for seed in 0..4 {
             let state = action_phase(3, seed);
             let player = 0;
-            let drafted = state.players[player].drafted_cards;
+            let drafted = state.players[player].top_cards;
             assert!(!drafted.is_empty(), "seed {seed}: a hand to decide");
 
             // A use and a keep for every card, and no ending yet.
@@ -433,17 +430,17 @@ mod tests {
             let mut kept = state.clone();
             let mut kept_ids = UnorderedCards::new();
             let deck_before = state.players[player].deck.len();
-            while let Some(id) = kept.players[player].drafted_cards.lowest_bit() {
+            while let Some(id) = kept.players[player].top_cards.lowest_bit() {
                 let card = kept.card_lookup[id as usize];
                 kept_ids.insert(id);
-                apply_choice_to_state(
+                apply_choice(
                     &mut kept,
                     player,
                     &Choice::KeepCard { card },
                     &mut WyRand::seed_from_u64(0),
                 );
             }
-            assert!(kept.players[player].drafted_cards.is_empty());
+            assert!(kept.players[player].top_cards.is_empty());
             assert_eq!(
                 kept.players[player].deck.len(),
                 deck_before + kept_ids.len(),
@@ -451,22 +448,31 @@ mod tests {
             );
             assert!(choices_for(&kept, player).contains(&Choice::EndTurn));
 
-            let mut ended = kept.clone();
-            apply_choice_to_state(&mut ended, player, &Choice::EndTurn, &mut WyRand::seed_from_u64(0));
-            assert!(
-                ended.players[player].workshop_cards.is_empty(),
-                "seed {seed}: nothing is left to become the workshop"
-            );
             for id in kept_ids.iter() {
                 assert!(
-                    ended.players[player].deck.contains(id),
-                    "seed {seed}: a kept card stays in the deck"
+                    kept.players[player].deck.contains(id),
+                    "seed {seed}: a kept card goes on top of the deck"
                 );
             }
+
+            let workshop_before = kept.players[player].workshop_cards.len();
+            let deck_before = kept.players[player].deck.len();
+            let mut ended = kept.clone();
+            apply_choice(&mut ended, player, &Choice::EndTurn, &mut WyRand::seed_from_u64(0));
+            assert_eq!(
+                ended.players[player].workshop_cards.len() as u32,
+                WORKSHOP_SIZE,
+                "seed {seed}: the turn ending draws the workshop back up"
+            );
+            assert_eq!(
+                ended.players[player].deck.len(),
+                deck_before + workshop_before - WORKSHOP_SIZE,
+                "seed {seed}: the top-up draw comes out of the deck, one card per missing one"
+            );
         }
     }
 
-    /// A card moved into the draft pool is just another card to decide: use it
+    /// A card moved into the top cards is just another card to decide: use it
     /// this turn, or keep it for the next.
     #[test]
     fn a_card_moved_into_the_pool_is_used_or_kept() {
@@ -477,31 +483,31 @@ mod tests {
                 choices_for(&state, player)
                     .into_iter()
                     .find(|choice| {
-                        matches!(choice, Choice::TrashAndMoveToDraftPool { target: Some(_), .. })
-                            || matches!(choice, Choice::TrashAndMoveToDraftPool { target: None, .. })
+                        matches!(choice, Choice::TrashAndLift { target: Some(_), .. })
+                            || matches!(choice, Choice::TrashAndLift { target: None, .. })
                                 && !state.players[player].workshop_cards.is_empty()
                     })
                     .map(|choice| (state, choice))
             })
-            .expect("some turn can move a card into the draft pool");
-        let Choice::TrashAndMoveToDraftPool { card, target } = moving else {
+            .expect("some turn can move a card into the top cards");
+        let Choice::TrashAndLift { card, target } = moving else {
             unreachable!("the found choice moves a card into the pool");
         };
         let moved = target.expect("a workshop card to move");
 
         let mut used = state.clone();
-        apply_choice_to_state(
+        apply_choice(
             &mut used,
             0,
-            &Choice::TrashAndMoveToDraftPool { card, target: Some(moved) },
+            &Choice::TrashAndLift { card, target: Some(moved) },
             &mut WyRand::seed_from_u64(0),
         );
         let offered = choices_for(&used, 0);
         assert!(
             offered.contains(&Choice::KeepCard { card: moved })
-                || !used.players[0].drafted_cards.contains(
+                || !used.players[0].top_cards.contains(
                     used.players[0]
-                        .drafted_cards
+                        .top_cards
                         .iter()
                         .find(|id| used.card_lookup[*id as usize] == moved)
                         .expect("the moved card is in the pool")
@@ -511,7 +517,7 @@ mod tests {
         assert!(
             offered.iter().any(|choice| matches!(
                 choice,
-                Choice::TrashDraftedCard { card } | Choice::TrashAndWorkshop { card, .. }
+                Choice::TrashTopCard { card } | Choice::TrashAndWorkshop { card, .. }
                     | Choice::TrashAndMix { card, .. } | Choice::TrashAndSell { card, .. }
                 if *card == moved
             )),
@@ -533,7 +539,7 @@ mod tests {
             .collect()
     }
 
-    /// A position whose workshop and draft pool hold exactly these cards, for
+    /// A position whose workshop and top cards hold exactly these cards, for
     /// asking what the workshop enumeration may skip.
     fn position(workshop: &[Card], drafted: &[Card]) -> GameState {
         let mut rng = WyRand::seed_from_u64(0);
@@ -543,12 +549,12 @@ mod tests {
         let drafted_ids = card_ids(&state.card_lookup, drafted, &mut taken);
         let player = &mut state.players[0];
         player.workshop_cards = UnorderedCards::new();
-        player.drafted_cards = UnorderedCards::new();
+        player.top_cards = UnorderedCards::new();
         for id in workshop_ids {
             player.workshop_cards.insert(id);
         }
         for id in drafted_ids {
-            player.drafted_cards.insert(id);
+            player.top_cards.insert(id);
         }
         state
     }
@@ -586,7 +592,7 @@ mod tests {
             .collect()
     }
 
-    /// With nothing that moves a card into the draft pool, no card can go idle
+    /// With nothing that moves a card into the top cards, no card can go idle
     /// and the workshop always takes its maximum.
     #[test]
     fn a_turn_that_cannot_move_a_card_workshops_the_maximum() {
@@ -676,7 +682,7 @@ mod tests {
 
         // Every card can be moved, so taking none is coherent: the position can
         // be reached (by the last turn's solver, or a re-rooted search) with
-        // the ducat that bought the picks already spent.
+        // the gold_coin that bought the picks already spent.
         let state = open_turn(
             position(&workshop[..2], &[Card::Alum, Card::Gondola]),
             &[Ability::Workshop { count: 3 }],

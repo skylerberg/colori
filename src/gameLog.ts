@@ -1,24 +1,24 @@
-import type { AiSettings, GameState, Choice, DrawEvent, StructuredGameLog, StructuredLogEntry } from './data/types';
+import type { BotSettings, GameState, Choice, DrawEvent, StructuredGameLog, StructuredLogEntry } from './data/types';
 import { calculateScores } from './engine/wasmEngine';
 
 export class GameLogAccumulator {
   private log: StructuredGameLog;
   private seq = 0;
 
-  constructor(initialState: GameState, aiIterations?: number[], aiSettings?: AiSettings) {
+  constructor(initialState: GameState, aiIterations?: number[], botSettings?: BotSettings) {
     this.log = {
       version: 1,
       gameStartedAt: new Date().toISOString(),
       gameEndedAt: null,
       playerNames: [...initialState.playerNames],
-      aiPlayers: [...initialState.aiPlayers],
+      botPlayers: [...initialState.botPlayers],
       initialState: structuredClone(initialState),
       finalScores: null,
       finalPlayerStats: null,
       entries: [],
     };
     if (aiIterations) {
-      this.log.playerVariants = aiIterations.map(iterations => ({ iterations, aiSettings }));
+      this.log.playerVariants = aiIterations.map(iterations => ({ iterations, botSettings }));
     }
   }
 
@@ -75,15 +75,15 @@ export class GameLogAccumulator {
     this.log.gameEndedAt = new Date().toISOString();
     this.log.finalScores = calculateScores(state.players, state.playerNames).map((s, i) => ({
       ...s,
-      completedSellCards: state.players[i].completedSellCards.length,
+      completedBuyers: state.players[i].completedBuyers.length,
       colorWheelTotal: Object.values(state.players[i].colorWheel).reduce((sum, c) => sum + (c as number), 0),
     }));
     this.log.finalPlayerStats = state.players.map((p, i) => ({
       name: state.playerNames[i],
-      deckSize: p.deck.reduce((n, segment) => n + segment.length, 0) + p.workshopCards.length + p.draftedCards.length + p.workshoppedCards.length,
-      completedSellCards: p.completedSellCards,
-      ducats: p.ducats,
-      wildPrimaries: p.wildPrimaries,
+      deckSize: p.deck.reduce((n, segment) => n + segment.length, 0) + p.workshopCards.length + p.topCards.length + p.usedCards.length,
+      completedBuyers: p.completedBuyers,
+      goldCoins: p.goldCoins,
+      bowls: p.bowls,
       boats: p.boats,
       colorWheel: { ...p.colorWheel },
       materials: { ...p.materials },

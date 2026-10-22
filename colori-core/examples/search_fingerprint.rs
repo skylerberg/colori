@@ -22,8 +22,8 @@
 use std::fmt::Write as _;
 
 use colori_core::choices::enumerate_choices;
-use colori_core::colori_game::{apply_choice_to_state, get_game_status, GameStatus};
-use colori_core::draw_phase::execute_draw_phase;
+use colori_core::apply_choice::apply_choice;
+use colori_core::colori_game::{get_game_status, GameStatus};
 use colori_core::ismcts::MctsConfig;
 use colori_core::mcts_impl::{ColoriSearcher, SearchGraph, SearchNode, StopReason};
 use colori_core::scoring::HeuristicParams;
@@ -43,15 +43,10 @@ fn position(players: usize, seed: u64, steps: usize) -> Option<GameState> {
     let mut rng = WyRand::seed_from_u64(seed);
     let ai = vec![true; players];
     let mut state = colori_core::setup::create_initial_game_state(players, &ai, &mut rng);
-    execute_draw_phase(&mut state, &mut rng);
 
     for _ in 0..steps {
         match &state.phase {
             GamePhase::GameOver => return None,
-            GamePhase::Draw => {
-                execute_draw_phase(&mut state, &mut rng);
-                continue;
-            }
             _ => {}
         }
         let player = match get_game_status(&state, None) {
@@ -63,7 +58,7 @@ fn position(players: usize, seed: u64, steps: usize) -> Option<GameState> {
             return None;
         }
         let choice = choices[rng.random_range(0..choices.len())].clone();
-        apply_choice_to_state(&mut state, player, &choice, &mut rng);
+        apply_choice(&mut state, player, &choice, &mut rng);
     }
 
     match get_game_status(&state, None) {
@@ -219,7 +214,7 @@ fn fingerprint_reuse(
         describe(out, &searcher, searched(outcome.stop_reason));
 
         let choice = outcome.choice.clone();
-        apply_choice_to_state(&mut state, player, &choice, &mut rng);
+        apply_choice(&mut state, player, &choice, &mut rng);
         // Carry the subtree forward, which is what makes this a reuse test at
         // all. A searcher that is never re-rooted never exercises the paths
         // where the bugs have actually lived. The tree is the searching

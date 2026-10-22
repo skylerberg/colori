@@ -4,7 +4,7 @@ use smallvec::SmallVec;
 use crate::deck::Deck;
 use crate::fixed_vec::{CopyVec, FixedVec};
 use crate::game_log::DrawLog;
-use crate::unordered_cards::{UnorderedSellCards, UnorderedCards};
+use crate::unordered_cards::{UnorderedBuyers, UnorderedCards};
 
 pub type AbilityStack = SmallVec<[Ability; 4]>;
 
@@ -23,11 +23,11 @@ pub const MAX_PLAYERS: usize = 4;
 /// Rounds in a game. Solo simulations can set their own `GameState::max_rounds`.
 pub const NUM_ROUNDS: u32 = 7;
 
-/// Size of the face-up sell card display: the number revealed at setup, and the
+/// Size of the face-up buyer display: the number revealed at setup, and the
 /// count each claim is replaced back up to.
-pub const MAX_SELL_CARD_DISPLAY: usize = 7;
+pub const MAX_BUYER_DISPLAY: usize = 7;
 
-/// Buyer slots a player can ever hold. See `buyers_phase::buyer_capacity`.
+/// Trade slots a player can ever hold. See `buyers_phase::buyer_capacity`.
 pub const MAX_BUYERS: usize = 3;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -88,10 +88,10 @@ pub const ALL_MATERIAL_TYPES: [MaterialType; 3] = [
     MaterialType::Paintings,
 ];
 
-/// The three things a ducat buys, each the smallest unit of the matching
+/// The three things a gold coin buys, each the smallest unit of the matching
 /// ability.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum DucatPurchase {
+pub enum GoldCoinPurchase {
     #[serde(rename = "workshop")]
     Workshop,
     #[serde(rename = "mixColors")]
@@ -100,19 +100,19 @@ pub enum DucatPurchase {
     Sell,
 }
 
-pub const ALL_DUCAT_PURCHASES: [DucatPurchase; 3] = [
-    DucatPurchase::Workshop,
-    DucatPurchase::MixColors,
-    DucatPurchase::Sell,
+pub const ALL_GOLD_COIN_PURCHASES: [GoldCoinPurchase; 3] = [
+    GoldCoinPurchase::Workshop,
+    GoldCoinPurchase::MixColors,
+    GoldCoinPurchase::Sell,
 ];
 
-impl DucatPurchase {
-    /// What lands on the ability stack when the ducat is paid.
+impl GoldCoinPurchase {
+    /// What lands on the ability stack when the gold coin is paid.
     pub fn ability(self) -> Ability {
         match self {
-            DucatPurchase::Workshop => Ability::Workshop { count: 1 },
-            DucatPurchase::MixColors => Ability::MixColors { count: 1 },
-            DucatPurchase::Sell => Ability::Sell,
+            GoldCoinPurchase::Workshop => Ability::Workshop { count: 1 },
+            GoldCoinPurchase::MixColors => Ability::MixColors { count: 1 },
+            GoldCoinPurchase::Sell => Ability::Sell,
         }
     }
 }
@@ -124,60 +124,63 @@ pub enum Ability {
     Workshop { count: u32 },
     #[serde(rename = "mixColors")]
     MixColors { count: u32 },
-    #[serde(rename = "moveToDraftPool")]
-    MoveToDraftPool,
+    #[serde(rename = "liftCard", alias = "moveToDraftPool")]
+    LiftCard,
+    /// Sell to one of the player's own buyers.
     #[serde(rename = "sell")]
     Sell,
-    #[serde(rename = "gainDucats")]
-    GainDucats { count: u32 },
+    #[serde(rename = "gainGoldCoins", alias = "gainDucats")]
+    GainGoldCoins { count: u32 },
     #[serde(rename = "gainSecondary")]
     GainSecondary,
-    #[serde(rename = "gainWildPrimaries")]
-    GainWildPrimaries { count: u32 },
-    /// One of each primary colour — Red, Yellow and Blue — added to the wheel.
-    #[serde(rename = "gainPrimaries")]
-    GainPrimaries,
+    /// Bowls, each covering a primary the color wheel lacks.
+    #[serde(rename = "gainBowls", alias = "gainWildPrimaries")]
+    GainBowls { count: u32 },
     #[serde(rename = "gainBoats")]
     GainBoats { count: u32 },
 }
 
 // ── CardKind ──
 
+/// How a card is used. A pigment card stores its colors when workshopped, a
+/// material card its materials, and a special card whatever its workshop
+/// ability prints. Every card also has top actions, which resolve when the
+/// card is trashed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CardKind {
-    #[serde(rename = "dye")]
-    Dye,
-    #[serde(rename = "basicDye")]
-    BasicDye,
+    #[serde(rename = "pigment", alias = "pigment")]
+    Pigment,
+    #[serde(rename = "starterPigment", alias = "basicPigment")]
+    StarterPigment,
     #[serde(rename = "material")]
     Material,
-    #[serde(rename = "action")]
-    Action,
+    #[serde(rename = "special", alias = "action")]
+    Special,
 }
 
 // ── Card enum (43 variants) ──
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Card {
-    // Starter dyes (3)
+    // Starter pigment cards (3)
     BasicRed,
     BasicYellow,
     BasicBlue,
-    // Primary dyes (6)
+    // Primary pigment cards (6)
     Realgar,
     Kermes,
     Litharge,
     Malachite,
     Woad,
     Logwood,
-    // Secondary dyes (6)
+    // Secondary pigment cards (6)
     DragonsBlood,
     Orpiment,
     GreenEarth,
     Verdigris,
     Brazilwood,
     Indigo,
-    // Tertiary dyes (6)
+    // Tertiary pigment cards (6)
     Cinnabar,
     Saffron,
     CopperResinate,
@@ -204,7 +207,7 @@ pub enum Card {
     CanvasCeramics,
     CeramicsFabric,
     CanvasFabric,
-    // Actions (6)
+    // Special cards (6)
     Alum,
     GumArabic,
     LinseedOil,
@@ -221,7 +224,7 @@ struct CardProperties {
     name: &'static str,
     kind: CardKind,
     /// Resolved in order when the card is trashed.
-    trash_abilities: &'static [Ability],
+    top_actions: &'static [Ability],
     colors: &'static [Color],
     material_types: &'static [MaterialType],
     workshop_abilities: &'static [Ability],
@@ -232,51 +235,51 @@ const WORKSHOP_2: &[Ability] = &[Ability::Workshop { count: 2 }];
 const WORKSHOP_3: &[Ability] = &[Ability::Workshop { count: 3 }];
 const MIX_2: &[Ability] = &[Ability::MixColors { count: 2 }];
 const WORKSHOP_2_MIX_1: &[Ability] = &[Ability::Workshop { count: 2 }, Ability::MixColors { count: 1 }];
-const MOVE_TO_DRAFT_POOL: &[Ability] = &[Ability::MoveToDraftPool];
+const LIFT_CARD: &[Ability] = &[Ability::LiftCard];
 
-const fn dye(name: &'static str, trash_abilities: &'static [Ability], colors: &'static [Color]) -> CardProperties {
-    CardProperties { name, kind: CardKind::Dye, trash_abilities, colors, material_types: &[], workshop_abilities: &[] }
+const fn pigment(name: &'static str, top_actions: &'static [Ability], colors: &'static [Color]) -> CardProperties {
+    CardProperties { name, kind: CardKind::Pigment, top_actions, colors, material_types: &[], workshop_abilities: &[] }
 }
 
-const fn basic_dye(name: &'static str, colors: &'static [Color]) -> CardProperties {
-    CardProperties { name, kind: CardKind::BasicDye, trash_abilities: WORKSHOP_2, colors, material_types: &[], workshop_abilities: &[] }
+const fn starter_pigment(name: &'static str, colors: &'static [Color]) -> CardProperties {
+    CardProperties { name, kind: CardKind::StarterPigment, top_actions: WORKSHOP_2, colors, material_types: &[], workshop_abilities: &[] }
 }
 
 const fn material(
     name: &'static str,
-    trash_abilities: &'static [Ability],
+    top_actions: &'static [Ability],
     material_types: &'static [MaterialType],
     colors: &'static [Color],
 ) -> CardProperties {
-    CardProperties { name, kind: CardKind::Material, trash_abilities, colors, material_types, workshop_abilities: &[] }
+    CardProperties { name, kind: CardKind::Material, top_actions, colors, material_types, workshop_abilities: &[] }
 }
 
-const fn action(name: &'static str, trash_abilities: &'static [Ability], workshop_abilities: &'static [Ability]) -> CardProperties {
-    CardProperties { name, kind: CardKind::Action, trash_abilities, colors: &[], material_types: &[], workshop_abilities }
+const fn special(name: &'static str, top_actions: &'static [Ability], workshop_abilities: &'static [Ability]) -> CardProperties {
+    CardProperties { name, kind: CardKind::Special, top_actions, colors: &[], material_types: &[], workshop_abilities }
 }
 
 const CARD_DATA: [CardProperties; NUM_CARDS] = [
-    basic_dye("Red", &[Color::Red]),
-    basic_dye("Yellow", &[Color::Yellow]),
-    basic_dye("Blue", &[Color::Blue]),
-    dye("Realgar", MIX_2, &[Color::Red, Color::Red, Color::Yellow]),
-    dye("Kermes", MIX_2, &[Color::Red, Color::Red, Color::Blue]),
-    dye("Litharge", MIX_2, &[Color::Yellow, Color::Yellow, Color::Red]),
-    dye("Malachite", MIX_2, &[Color::Yellow, Color::Yellow, Color::Blue]),
-    dye("Woad", MIX_2, &[Color::Blue, Color::Blue, Color::Red]),
-    dye("Logwood", MIX_2, &[Color::Blue, Color::Blue, Color::Yellow]),
-    dye("Dragon's Blood", SELL, &[Color::Orange, Color::Red]),
-    dye("Orpiment", SELL, &[Color::Orange, Color::Yellow]),
-    dye("Green Earth", SELL, &[Color::Green, Color::Yellow]),
-    dye("Verdigris", SELL, &[Color::Green, Color::Blue]),
-    dye("Brazilwood", SELL, &[Color::Purple, Color::Red]),
-    dye("Indigo", SELL, &[Color::Purple, Color::Blue]),
-    dye("Cinnabar", WORKSHOP_3, &[Color::Vermilion]),
-    dye("Saffron", WORKSHOP_3, &[Color::Amber]),
-    dye("Copper Resinate", WORKSHOP_3, &[Color::Chartreuse]),
-    dye("Azurite", WORKSHOP_3, &[Color::Teal]),
-    dye("Lapis Lazuli", WORKSHOP_3, &[Color::Ultramarine]),
-    dye("Cochineal", WORKSHOP_3, &[Color::Fuchsia]),
+    starter_pigment("Red", &[Color::Red]),
+    starter_pigment("Yellow", &[Color::Yellow]),
+    starter_pigment("Blue", &[Color::Blue]),
+    pigment("Realgar", MIX_2, &[Color::Red, Color::Red, Color::Yellow]),
+    pigment("Kermes", MIX_2, &[Color::Red, Color::Red, Color::Blue]),
+    pigment("Litharge", MIX_2, &[Color::Yellow, Color::Yellow, Color::Red]),
+    pigment("Malachite", MIX_2, &[Color::Yellow, Color::Yellow, Color::Blue]),
+    pigment("Woad", MIX_2, &[Color::Blue, Color::Blue, Color::Red]),
+    pigment("Logwood", MIX_2, &[Color::Blue, Color::Blue, Color::Yellow]),
+    pigment("Dragon's Blood", SELL, &[Color::Orange, Color::Red]),
+    pigment("Orpiment", SELL, &[Color::Orange, Color::Yellow]),
+    pigment("Green Earth", SELL, &[Color::Green, Color::Yellow]),
+    pigment("Verdigris", SELL, &[Color::Green, Color::Blue]),
+    pigment("Brazilwood", SELL, &[Color::Purple, Color::Red]),
+    pigment("Indigo", SELL, &[Color::Purple, Color::Blue]),
+    pigment("Cinnabar", WORKSHOP_3, &[Color::Vermilion]),
+    pigment("Saffron", WORKSHOP_3, &[Color::Amber]),
+    pigment("Copper Resinate", WORKSHOP_3, &[Color::Chartreuse]),
+    pigment("Azurite", WORKSHOP_3, &[Color::Teal]),
+    pigment("Lapis Lazuli", WORKSHOP_3, &[Color::Ultramarine]),
+    pigment("Cochineal", WORKSHOP_3, &[Color::Fuchsia]),
     material("Ceramics", SELL, &[MaterialType::Ceramics], &[]),
     material("Canvas", SELL, &[MaterialType::Paintings], &[]),
     material("Fabric", SELL, &[MaterialType::Textiles], &[]),
@@ -292,13 +295,15 @@ const CARD_DATA: [CardProperties; NUM_CARDS] = [
     material("Canvas & Ceramics", WORKSHOP_2_MIX_1, &[MaterialType::Paintings, MaterialType::Ceramics], &[]),
     material("Ceramics & Fabric", WORKSHOP_2_MIX_1, &[MaterialType::Ceramics, MaterialType::Textiles], &[]),
     material("Canvas & Fabric", WORKSHOP_2_MIX_1, &[MaterialType::Paintings, MaterialType::Textiles], &[]),
-    action("Alum", MOVE_TO_DRAFT_POOL, &[Ability::GainDucats { count: 1 }]),
-    action("Gum Arabic", MOVE_TO_DRAFT_POOL, &[Ability::GainSecondary]),
-    action("Linseed Oil", MOVE_TO_DRAFT_POOL, &[Ability::MixColors { count: 3 }]),
-    action("Warehouse", MOVE_TO_DRAFT_POOL, &[Ability::GainWildPrimaries { count: 2 }]),
-    action("Gondola", MOVE_TO_DRAFT_POOL, &[Ability::GainBoats { count: 1 }]),
-    action("Chalk", MIX_2, &[Ability::GainWildPrimaries { count: 1 }]),
-    action("Primaries", WORKSHOP_2, &[Ability::GainPrimaries]),
+    special("Alum", LIFT_CARD, &[Ability::GainGoldCoins { count: 1 }]),
+    special("Gum Arabic", LIFT_CARD, &[Ability::GainSecondary]),
+    special("Linseed Oil", LIFT_CARD, &[Ability::MixColors { count: 3 }]),
+    special("Warehouse", LIFT_CARD, &[Ability::GainBowls { count: 2 }]),
+    special("Gondola", LIFT_CARD, &[Ability::GainBoats { count: 1 }]),
+    special("Chalk", MIX_2, &[Ability::GainBowls { count: 1 }]),
+    // The Primaries card is an ordinary three-color pigment card: its workshop
+    // ability is to store its colors, one of each primary.
+    pigment("Primaries", WORKSHOP_2, &[Color::Red, Color::Yellow, Color::Blue]),
 ];
 
 impl Card {
@@ -318,8 +323,8 @@ impl Card {
     }
 
     #[inline]
-    pub fn trash_abilities(&self) -> &'static [Ability] {
-        self.props().trash_abilities
+    pub fn top_actions(&self) -> &'static [Ability] {
+        self.props().top_actions
     }
 
     #[inline]
@@ -338,17 +343,17 @@ impl Card {
     }
 
     #[inline]
-    pub fn is_action(&self) -> bool {
-        self.kind() == CardKind::Action
+    pub fn is_special(&self) -> bool {
+        self.kind() == CardKind::Special
     }
 }
 
-// ── Buyer ──
+// ── Trade ──
 
-/// Who a sell card sells to. The trade sets what the sale is worth and which
+/// Who a buyer sells to. The trade sets what the sale is worth and which
 /// materials it takes; the colours are what tell two cards of a trade apart.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum Buyer {
+pub enum Trade {
     Shipwright,
     Glassmaker,
     Dyer,
@@ -359,38 +364,38 @@ pub enum Buyer {
     MasterPainter,
 }
 
-pub const ALL_BUYERS: [Buyer; 8] = [
-    Buyer::Shipwright,
-    Buyer::Glassmaker,
-    Buyer::Dyer,
-    Buyer::Illuminator,
-    Buyer::Potter,
-    Buyer::Tilemaker,
-    Buyer::Painter,
-    Buyer::MasterPainter,
+pub const ALL_TRADES: [Trade; 8] = [
+    Trade::Shipwright,
+    Trade::Glassmaker,
+    Trade::Dyer,
+    Trade::Illuminator,
+    Trade::Potter,
+    Trade::Tilemaker,
+    Trade::Painter,
+    Trade::MasterPainter,
 ];
 
-impl Buyer {
+impl Trade {
     pub fn name(self) -> &'static str {
         match self {
-            Buyer::Shipwright => "Shipwright",
-            Buyer::Glassmaker => "Glassmaker",
-            Buyer::Dyer => "Dyer",
-            Buyer::Illuminator => "Illuminator",
-            Buyer::Potter => "Potter",
-            Buyer::Tilemaker => "Tilemaker",
-            Buyer::Painter => "Painter",
-            Buyer::MasterPainter => "Master Painter",
+            Trade::Shipwright => "Shipwright",
+            Trade::Glassmaker => "Glassmaker",
+            Trade::Dyer => "Dyer",
+            Trade::Illuminator => "Illuminator",
+            Trade::Potter => "Potter",
+            Trade::Tilemaker => "Tilemaker",
+            Trade::Painter => "Painter",
+            Trade::MasterPainter => "Master Painter",
         }
     }
 
     #[inline]
     pub const fn points(self) -> u32 {
         match self {
-            Buyer::Dyer | Buyer::Illuminator => 2,
-            Buyer::Glassmaker | Buyer::Potter => 3,
-            Buyer::Shipwright | Buyer::Tilemaker | Buyer::Painter => 4,
-            Buyer::MasterPainter => 5,
+            Trade::Dyer | Trade::Illuminator => 2,
+            Trade::Glassmaker | Trade::Potter => 3,
+            Trade::Shipwright | Trade::Tilemaker | Trade::Painter => 4,
+            Trade::MasterPainter => 5,
         }
     }
 
@@ -398,11 +403,11 @@ impl Buyer {
     #[inline]
     pub const fn materials(self) -> &'static [MaterialType] {
         match self {
-            Buyer::Glassmaker | Buyer::Illuminator => &[],
-            Buyer::Shipwright | Buyer::Dyer => &[MaterialType::Textiles],
-            Buyer::Potter => &[MaterialType::Ceramics],
-            Buyer::Tilemaker => &[MaterialType::Ceramics, MaterialType::Ceramics],
-            Buyer::Painter | Buyer::MasterPainter => &[MaterialType::Paintings],
+            Trade::Glassmaker | Trade::Illuminator => &[],
+            Trade::Shipwright | Trade::Dyer => &[MaterialType::Textiles],
+            Trade::Potter => &[MaterialType::Ceramics],
+            Trade::Tilemaker => &[MaterialType::Ceramics, MaterialType::Ceramics],
+            Trade::Painter | Trade::MasterPainter => &[MaterialType::Paintings],
         }
     }
 
@@ -410,16 +415,16 @@ impl Buyer {
     #[inline]
     pub const fn boats(self) -> u32 {
         match self {
-            Buyer::Shipwright => 1,
+            Trade::Shipwright => 1,
             _ => 0,
         }
     }
 }
 
-// ── SellCard enum (60 variants) ──
+// ── Buyer enum (60 variants) ──
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum SellCard {
+pub enum Buyer {
     // Shipwrights: a boat, Textiles and two secondaries (3)
     ShipwrightPurpleGreen,
     ShipwrightOrangeGreen,
@@ -490,111 +495,111 @@ pub enum SellCard {
     MasterPainterUltramarineTeal,
 }
 
-pub const NUM_SELL_CARDS: usize = 60;
+pub const NUM_BUYERS: usize = 60;
 
-pub const ALL_SELL_CARDS: [SellCard; NUM_SELL_CARDS] = [
-    SellCard::ShipwrightPurpleGreen, SellCard::ShipwrightOrangeGreen, SellCard::ShipwrightPurpleOrange,
-    SellCard::GlassmakerVermilionBlue, SellCard::GlassmakerAmberBlue, SellCard::GlassmakerChartreuseRed, SellCard::GlassmakerTealRed, SellCard::GlassmakerUltramarineYellow, SellCard::GlassmakerFuchsiaYellow,
-    SellCard::DyerRedRed, SellCard::DyerRedYellow, SellCard::DyerRedBlue, SellCard::DyerYellowYellow, SellCard::DyerBlueYellow, SellCard::DyerBlueBlue, SellCard::DyerOrange, SellCard::DyerGreen, SellCard::DyerPurple,
-    SellCard::IlluminatorVermilion, SellCard::IlluminatorAmber, SellCard::IlluminatorChartreuse, SellCard::IlluminatorTeal, SellCard::IlluminatorUltramarine, SellCard::IlluminatorFuchsia,
-    SellCard::PotterVermilion, SellCard::PotterAmber, SellCard::PotterChartreuse, SellCard::PotterTeal, SellCard::PotterUltramarine, SellCard::PotterFuchsia,
-    SellCard::TilemakerVermilion, SellCard::TilemakerAmber, SellCard::TilemakerChartreuse, SellCard::TilemakerTeal, SellCard::TilemakerUltramarine, SellCard::TilemakerFuchsia,
-    SellCard::PainterVermilionOrange, SellCard::PainterVermilionGreen, SellCard::PainterVermilionPurple, SellCard::PainterAmberOrange, SellCard::PainterAmberGreen, SellCard::PainterAmberPurple, SellCard::PainterChartreuseOrange, SellCard::PainterChartreuseGreen, SellCard::PainterChartreusePurple, SellCard::PainterTealOrange, SellCard::PainterTealGreen, SellCard::PainterTealPurple, SellCard::PainterUltramarineOrange, SellCard::PainterUltramarineGreen, SellCard::PainterUltramarinePurple, SellCard::PainterFuchsiaOrange, SellCard::PainterFuchsiaGreen, SellCard::PainterFuchsiaPurple,
-    SellCard::MasterPainterVermilionTeal, SellCard::MasterPainterVermilionFuchsia, SellCard::MasterPainterAmberUltramarine, SellCard::MasterPainterChartreuseAmber, SellCard::MasterPainterChartreuseFuchsia, SellCard::MasterPainterUltramarineTeal,
+pub const ALL_BUYERS: [Buyer; NUM_BUYERS] = [
+    Buyer::ShipwrightPurpleGreen, Buyer::ShipwrightOrangeGreen, Buyer::ShipwrightPurpleOrange,
+    Buyer::GlassmakerVermilionBlue, Buyer::GlassmakerAmberBlue, Buyer::GlassmakerChartreuseRed, Buyer::GlassmakerTealRed, Buyer::GlassmakerUltramarineYellow, Buyer::GlassmakerFuchsiaYellow,
+    Buyer::DyerRedRed, Buyer::DyerRedYellow, Buyer::DyerRedBlue, Buyer::DyerYellowYellow, Buyer::DyerBlueYellow, Buyer::DyerBlueBlue, Buyer::DyerOrange, Buyer::DyerGreen, Buyer::DyerPurple,
+    Buyer::IlluminatorVermilion, Buyer::IlluminatorAmber, Buyer::IlluminatorChartreuse, Buyer::IlluminatorTeal, Buyer::IlluminatorUltramarine, Buyer::IlluminatorFuchsia,
+    Buyer::PotterVermilion, Buyer::PotterAmber, Buyer::PotterChartreuse, Buyer::PotterTeal, Buyer::PotterUltramarine, Buyer::PotterFuchsia,
+    Buyer::TilemakerVermilion, Buyer::TilemakerAmber, Buyer::TilemakerChartreuse, Buyer::TilemakerTeal, Buyer::TilemakerUltramarine, Buyer::TilemakerFuchsia,
+    Buyer::PainterVermilionOrange, Buyer::PainterVermilionGreen, Buyer::PainterVermilionPurple, Buyer::PainterAmberOrange, Buyer::PainterAmberGreen, Buyer::PainterAmberPurple, Buyer::PainterChartreuseOrange, Buyer::PainterChartreuseGreen, Buyer::PainterChartreusePurple, Buyer::PainterTealOrange, Buyer::PainterTealGreen, Buyer::PainterTealPurple, Buyer::PainterUltramarineOrange, Buyer::PainterUltramarineGreen, Buyer::PainterUltramarinePurple, Buyer::PainterFuchsiaOrange, Buyer::PainterFuchsiaGreen, Buyer::PainterFuchsiaPurple,
+    Buyer::MasterPainterVermilionTeal, Buyer::MasterPainterVermilionFuchsia, Buyer::MasterPainterAmberUltramarine, Buyer::MasterPainterChartreuseAmber, Buyer::MasterPainterChartreuseFuchsia, Buyer::MasterPainterUltramarineTeal,
 ];
 
-struct SellCardProperties {
-    buyer: Buyer,
+struct BuyerProperties {
+    trade: Trade,
     color_cost: &'static [Color],
 }
 
-const SELL_CARD_DATA: [SellCardProperties; NUM_SELL_CARDS] = [
-    SellCardProperties { buyer: Buyer::Shipwright, color_cost: &[Color::Purple, Color::Green] },
-    SellCardProperties { buyer: Buyer::Shipwright, color_cost: &[Color::Orange, Color::Green] },
-    SellCardProperties { buyer: Buyer::Shipwright, color_cost: &[Color::Purple, Color::Orange] },
-    SellCardProperties { buyer: Buyer::Glassmaker, color_cost: &[Color::Vermilion, Color::Blue, Color::Blue] },
-    SellCardProperties { buyer: Buyer::Glassmaker, color_cost: &[Color::Amber, Color::Blue, Color::Blue] },
-    SellCardProperties { buyer: Buyer::Glassmaker, color_cost: &[Color::Chartreuse, Color::Red, Color::Red] },
-    SellCardProperties { buyer: Buyer::Glassmaker, color_cost: &[Color::Teal, Color::Red, Color::Red] },
-    SellCardProperties { buyer: Buyer::Glassmaker, color_cost: &[Color::Ultramarine, Color::Yellow, Color::Yellow] },
-    SellCardProperties { buyer: Buyer::Glassmaker, color_cost: &[Color::Fuchsia, Color::Yellow, Color::Yellow] },
-    SellCardProperties { buyer: Buyer::Dyer, color_cost: &[Color::Red, Color::Red] },
-    SellCardProperties { buyer: Buyer::Dyer, color_cost: &[Color::Red, Color::Yellow] },
-    SellCardProperties { buyer: Buyer::Dyer, color_cost: &[Color::Red, Color::Blue] },
-    SellCardProperties { buyer: Buyer::Dyer, color_cost: &[Color::Yellow, Color::Yellow] },
-    SellCardProperties { buyer: Buyer::Dyer, color_cost: &[Color::Blue, Color::Yellow] },
-    SellCardProperties { buyer: Buyer::Dyer, color_cost: &[Color::Blue, Color::Blue] },
-    SellCardProperties { buyer: Buyer::Dyer, color_cost: &[Color::Orange] },
-    SellCardProperties { buyer: Buyer::Dyer, color_cost: &[Color::Green] },
-    SellCardProperties { buyer: Buyer::Dyer, color_cost: &[Color::Purple] },
-    SellCardProperties { buyer: Buyer::Illuminator, color_cost: &[Color::Vermilion] },
-    SellCardProperties { buyer: Buyer::Illuminator, color_cost: &[Color::Amber] },
-    SellCardProperties { buyer: Buyer::Illuminator, color_cost: &[Color::Chartreuse] },
-    SellCardProperties { buyer: Buyer::Illuminator, color_cost: &[Color::Teal] },
-    SellCardProperties { buyer: Buyer::Illuminator, color_cost: &[Color::Ultramarine] },
-    SellCardProperties { buyer: Buyer::Illuminator, color_cost: &[Color::Fuchsia] },
-    SellCardProperties { buyer: Buyer::Potter, color_cost: &[Color::Vermilion] },
-    SellCardProperties { buyer: Buyer::Potter, color_cost: &[Color::Amber] },
-    SellCardProperties { buyer: Buyer::Potter, color_cost: &[Color::Chartreuse] },
-    SellCardProperties { buyer: Buyer::Potter, color_cost: &[Color::Teal] },
-    SellCardProperties { buyer: Buyer::Potter, color_cost: &[Color::Ultramarine] },
-    SellCardProperties { buyer: Buyer::Potter, color_cost: &[Color::Fuchsia] },
-    SellCardProperties { buyer: Buyer::Tilemaker, color_cost: &[Color::Vermilion] },
-    SellCardProperties { buyer: Buyer::Tilemaker, color_cost: &[Color::Amber] },
-    SellCardProperties { buyer: Buyer::Tilemaker, color_cost: &[Color::Chartreuse] },
-    SellCardProperties { buyer: Buyer::Tilemaker, color_cost: &[Color::Teal] },
-    SellCardProperties { buyer: Buyer::Tilemaker, color_cost: &[Color::Ultramarine] },
-    SellCardProperties { buyer: Buyer::Tilemaker, color_cost: &[Color::Fuchsia] },
-    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Vermilion, Color::Orange] },
-    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Vermilion, Color::Green] },
-    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Vermilion, Color::Purple] },
-    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Amber, Color::Orange] },
-    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Amber, Color::Green] },
-    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Amber, Color::Purple] },
-    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Chartreuse, Color::Orange] },
-    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Chartreuse, Color::Green] },
-    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Chartreuse, Color::Purple] },
-    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Teal, Color::Orange] },
-    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Teal, Color::Green] },
-    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Teal, Color::Purple] },
-    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Ultramarine, Color::Orange] },
-    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Ultramarine, Color::Green] },
-    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Ultramarine, Color::Purple] },
-    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Fuchsia, Color::Orange] },
-    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Fuchsia, Color::Green] },
-    SellCardProperties { buyer: Buyer::Painter, color_cost: &[Color::Fuchsia, Color::Purple] },
-    SellCardProperties { buyer: Buyer::MasterPainter, color_cost: &[Color::Vermilion, Color::Teal] },
-    SellCardProperties { buyer: Buyer::MasterPainter, color_cost: &[Color::Vermilion, Color::Fuchsia] },
-    SellCardProperties { buyer: Buyer::MasterPainter, color_cost: &[Color::Amber, Color::Ultramarine] },
-    SellCardProperties { buyer: Buyer::MasterPainter, color_cost: &[Color::Chartreuse, Color::Amber] },
-    SellCardProperties { buyer: Buyer::MasterPainter, color_cost: &[Color::Chartreuse, Color::Fuchsia] },
-    SellCardProperties { buyer: Buyer::MasterPainter, color_cost: &[Color::Ultramarine, Color::Teal] },
+const BUYER_DATA: [BuyerProperties; NUM_BUYERS] = [
+    BuyerProperties { trade: Trade::Shipwright, color_cost: &[Color::Purple, Color::Green] },
+    BuyerProperties { trade: Trade::Shipwright, color_cost: &[Color::Orange, Color::Green] },
+    BuyerProperties { trade: Trade::Shipwright, color_cost: &[Color::Purple, Color::Orange] },
+    BuyerProperties { trade: Trade::Glassmaker, color_cost: &[Color::Vermilion, Color::Blue, Color::Blue] },
+    BuyerProperties { trade: Trade::Glassmaker, color_cost: &[Color::Amber, Color::Blue, Color::Blue] },
+    BuyerProperties { trade: Trade::Glassmaker, color_cost: &[Color::Chartreuse, Color::Red, Color::Red] },
+    BuyerProperties { trade: Trade::Glassmaker, color_cost: &[Color::Teal, Color::Red, Color::Red] },
+    BuyerProperties { trade: Trade::Glassmaker, color_cost: &[Color::Ultramarine, Color::Yellow, Color::Yellow] },
+    BuyerProperties { trade: Trade::Glassmaker, color_cost: &[Color::Fuchsia, Color::Yellow, Color::Yellow] },
+    BuyerProperties { trade: Trade::Dyer, color_cost: &[Color::Red, Color::Red] },
+    BuyerProperties { trade: Trade::Dyer, color_cost: &[Color::Red, Color::Yellow] },
+    BuyerProperties { trade: Trade::Dyer, color_cost: &[Color::Red, Color::Blue] },
+    BuyerProperties { trade: Trade::Dyer, color_cost: &[Color::Yellow, Color::Yellow] },
+    BuyerProperties { trade: Trade::Dyer, color_cost: &[Color::Blue, Color::Yellow] },
+    BuyerProperties { trade: Trade::Dyer, color_cost: &[Color::Blue, Color::Blue] },
+    BuyerProperties { trade: Trade::Dyer, color_cost: &[Color::Orange] },
+    BuyerProperties { trade: Trade::Dyer, color_cost: &[Color::Green] },
+    BuyerProperties { trade: Trade::Dyer, color_cost: &[Color::Purple] },
+    BuyerProperties { trade: Trade::Illuminator, color_cost: &[Color::Vermilion] },
+    BuyerProperties { trade: Trade::Illuminator, color_cost: &[Color::Amber] },
+    BuyerProperties { trade: Trade::Illuminator, color_cost: &[Color::Chartreuse] },
+    BuyerProperties { trade: Trade::Illuminator, color_cost: &[Color::Teal] },
+    BuyerProperties { trade: Trade::Illuminator, color_cost: &[Color::Ultramarine] },
+    BuyerProperties { trade: Trade::Illuminator, color_cost: &[Color::Fuchsia] },
+    BuyerProperties { trade: Trade::Potter, color_cost: &[Color::Vermilion] },
+    BuyerProperties { trade: Trade::Potter, color_cost: &[Color::Amber] },
+    BuyerProperties { trade: Trade::Potter, color_cost: &[Color::Chartreuse] },
+    BuyerProperties { trade: Trade::Potter, color_cost: &[Color::Teal] },
+    BuyerProperties { trade: Trade::Potter, color_cost: &[Color::Ultramarine] },
+    BuyerProperties { trade: Trade::Potter, color_cost: &[Color::Fuchsia] },
+    BuyerProperties { trade: Trade::Tilemaker, color_cost: &[Color::Vermilion] },
+    BuyerProperties { trade: Trade::Tilemaker, color_cost: &[Color::Amber] },
+    BuyerProperties { trade: Trade::Tilemaker, color_cost: &[Color::Chartreuse] },
+    BuyerProperties { trade: Trade::Tilemaker, color_cost: &[Color::Teal] },
+    BuyerProperties { trade: Trade::Tilemaker, color_cost: &[Color::Ultramarine] },
+    BuyerProperties { trade: Trade::Tilemaker, color_cost: &[Color::Fuchsia] },
+    BuyerProperties { trade: Trade::Painter, color_cost: &[Color::Vermilion, Color::Orange] },
+    BuyerProperties { trade: Trade::Painter, color_cost: &[Color::Vermilion, Color::Green] },
+    BuyerProperties { trade: Trade::Painter, color_cost: &[Color::Vermilion, Color::Purple] },
+    BuyerProperties { trade: Trade::Painter, color_cost: &[Color::Amber, Color::Orange] },
+    BuyerProperties { trade: Trade::Painter, color_cost: &[Color::Amber, Color::Green] },
+    BuyerProperties { trade: Trade::Painter, color_cost: &[Color::Amber, Color::Purple] },
+    BuyerProperties { trade: Trade::Painter, color_cost: &[Color::Chartreuse, Color::Orange] },
+    BuyerProperties { trade: Trade::Painter, color_cost: &[Color::Chartreuse, Color::Green] },
+    BuyerProperties { trade: Trade::Painter, color_cost: &[Color::Chartreuse, Color::Purple] },
+    BuyerProperties { trade: Trade::Painter, color_cost: &[Color::Teal, Color::Orange] },
+    BuyerProperties { trade: Trade::Painter, color_cost: &[Color::Teal, Color::Green] },
+    BuyerProperties { trade: Trade::Painter, color_cost: &[Color::Teal, Color::Purple] },
+    BuyerProperties { trade: Trade::Painter, color_cost: &[Color::Ultramarine, Color::Orange] },
+    BuyerProperties { trade: Trade::Painter, color_cost: &[Color::Ultramarine, Color::Green] },
+    BuyerProperties { trade: Trade::Painter, color_cost: &[Color::Ultramarine, Color::Purple] },
+    BuyerProperties { trade: Trade::Painter, color_cost: &[Color::Fuchsia, Color::Orange] },
+    BuyerProperties { trade: Trade::Painter, color_cost: &[Color::Fuchsia, Color::Green] },
+    BuyerProperties { trade: Trade::Painter, color_cost: &[Color::Fuchsia, Color::Purple] },
+    BuyerProperties { trade: Trade::MasterPainter, color_cost: &[Color::Vermilion, Color::Teal] },
+    BuyerProperties { trade: Trade::MasterPainter, color_cost: &[Color::Vermilion, Color::Fuchsia] },
+    BuyerProperties { trade: Trade::MasterPainter, color_cost: &[Color::Amber, Color::Ultramarine] },
+    BuyerProperties { trade: Trade::MasterPainter, color_cost: &[Color::Chartreuse, Color::Amber] },
+    BuyerProperties { trade: Trade::MasterPainter, color_cost: &[Color::Chartreuse, Color::Fuchsia] },
+    BuyerProperties { trade: Trade::MasterPainter, color_cost: &[Color::Ultramarine, Color::Teal] },
 ];
 
-impl SellCard {
+impl Buyer {
     #[inline]
-    fn props(&self) -> &'static SellCardProperties {
-        &SELL_CARD_DATA[*self as usize]
+    fn props(&self) -> &'static BuyerProperties {
+        &BUYER_DATA[*self as usize]
     }
 
     #[inline]
-    pub fn buyer(&self) -> Buyer {
-        self.props().buyer
+    pub fn trade(&self) -> Trade {
+        self.props().trade
     }
 
     #[inline]
     pub fn points(&self) -> u32 {
-        self.buyer().points()
+        self.trade().points()
     }
 
     #[inline]
     pub fn required_materials(&self) -> &'static [MaterialType] {
-        self.buyer().materials()
+        self.trade().materials()
     }
 
     #[inline]
     pub fn required_boats(&self) -> u32 {
-        self.buyer().boats()
+        self.trade().boats()
     }
 
     #[inline]
@@ -603,26 +608,26 @@ impl SellCard {
     }
 
     #[inline]
-    pub fn stats(self) -> &'static SellCardStats {
-        &SELL_CARD_STATS[self as usize]
+    pub fn stats(self) -> &'static BuyerStats {
+        &BUYER_STATS[self as usize]
     }
 }
 
-/// What a sale takes and pays, worked out once per sell card, so the checks a
+/// What a sale takes and pays, worked out once per buyer, so the checks a
 /// rollout makes on every step read one record instead of the buyer's tables.
 #[derive(Clone, Copy)]
-pub struct SellCardStats {
+pub struct BuyerStats {
     pub points: u32,
     /// Boats the sale takes outright, before any standing in for a material.
     pub boats: u32,
-    /// Units of each material, indexed by `MaterialType`.
-    pub materials: [u8; 3],
+    /// Units of each material the sale takes, indexed by `MaterialType`.
+    pub material_units: [u8; 3],
     pub total_colors: u8,
     colors: [(Color, u8); 4],
     distinct_colors: u8,
 }
 
-impl SellCardStats {
+impl BuyerStats {
     /// Each color the sale takes, once, with how many of it.
     #[inline]
     pub fn colors(&self) -> &[(Color, u8)] {
@@ -630,26 +635,26 @@ impl SellCardStats {
     }
 }
 
-const SELL_CARD_STATS: [SellCardStats; NUM_SELL_CARDS] = {
-    let empty = SellCardStats {
+const BUYER_STATS: [BuyerStats; NUM_BUYERS] = {
+    let empty = BuyerStats {
         points: 0,
         boats: 0,
-        materials: [0; 3],
+        material_units: [0; 3],
         total_colors: 0,
         colors: [(Color::Red, 0); 4],
         distinct_colors: 0,
     };
-    let mut table = [empty; NUM_SELL_CARDS];
+    let mut table = [empty; NUM_BUYERS];
     let mut i = 0;
-    while i < NUM_SELL_CARDS {
-        let props = &SELL_CARD_DATA[i];
+    while i < NUM_BUYERS {
+        let props = &BUYER_DATA[i];
         let mut stats = empty;
-        stats.points = props.buyer.points();
-        stats.boats = props.buyer.boats();
-        let materials = props.buyer.materials();
+        stats.points = props.trade.points();
+        stats.boats = props.trade.boats();
+        let materials = props.trade.materials();
         let mut m = 0;
         while m < materials.len() {
-            stats.materials[materials[m] as usize] += 1;
+            stats.material_units[materials[m] as usize] += 1;
             m += 1;
         }
         let cost = props.color_cost;
@@ -673,7 +678,7 @@ const SELL_CARD_STATS: [SellCardStats; NUM_SELL_CARDS] = {
     table
 };
 
-// ── CardInstance / SellCardInstance ──
+// ── CardInstance / BuyerInstance ──
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -684,10 +689,10 @@ pub struct CardInstance {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SellCardInstance {
+pub struct BuyerInstance {
     pub instance_id: u32,
     #[serde(rename = "card")]
-    pub sell_card: SellCard,
+    pub buyer: Buyer,
 }
 
 /// Color wheel represented as counts for each of 12 colors.
@@ -755,16 +760,16 @@ impl<'de> Deserialize<'de> for ColorWheel {
     }
 }
 
-/// Materials stored as counts for each of 3 material types.
+/// The materials wheel: stored materials as counts for each of 3 material types.
 /// Serialized as Record<MaterialType, number> in JSON.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Materials {
+pub struct MaterialsWheel {
     pub counts: [u32; 3],
 }
 
-impl Materials {
+impl MaterialsWheel {
     pub fn new() -> Self {
-        Materials { counts: [0; 3] }
+        MaterialsWheel { counts: [0; 3] }
     }
 
     #[inline]
@@ -788,7 +793,7 @@ impl Materials {
     }
 }
 
-impl Serialize for Materials {
+impl Serialize for MaterialsWheel {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         use serde::ser::SerializeMap;
         let mut map = serializer.serialize_map(Some(3))?;
@@ -799,15 +804,15 @@ impl Serialize for Materials {
     }
 }
 
-impl<'de> Deserialize<'de> for Materials {
+impl<'de> Deserialize<'de> for MaterialsWheel {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let map: std::collections::HashMap<MaterialType, u32> =
             std::collections::HashMap::deserialize(deserializer)?;
-        let mut materials = Materials::new();
+        let mut materials_wheel = MaterialsWheel::new();
         for (&material_type, &count) in &map {
-            materials.counts[material_type as usize] = count;
+            materials_wheel.counts[material_type as usize] = count;
         }
-        Ok(materials)
+        Ok(materials_wheel)
     }
 }
 
@@ -815,28 +820,41 @@ impl<'de> Deserialize<'de> for Materials {
 #[serde(rename_all = "camelCase")]
 pub struct PlayerState {
     pub deck: Deck,
-    #[serde(default)]
-    pub workshopped_cards: UnorderedCards,
+    /// Workshop cards already used this round. Their colors, materials and
+    /// workshop abilities are spent, so they cannot be used again or lifted.
+    #[serde(default, alias = "workshoppedCards")]
+    pub used_cards: UnorderedCards,
     pub workshop_cards: UnorderedCards,
-    pub drafted_cards: UnorderedCards,
+    /// The cards at the top of the player's board: this round's draft picks,
+    /// plus any card lifted out of the workshop. Each is decided by using its
+    /// top action, which trashes it, or by keeping it on top of the deck.
+    #[serde(alias = "draftedCards")]
+    pub top_cards: UnorderedCards,
     pub color_wheel: ColorWheel,
-    pub materials: Materials,
-    /// Sell cards claimed from the shared display and now sellable only by
+    /// Stored materials, on the materials wheel.
+    #[serde(alias = "materials")]
+    pub materials_wheel: MaterialsWheel,
+    /// Buyer cards claimed from the shared display and now sellable only by
     /// this player. A sale empties the slot; the next buyers phase refills it.
     #[serde(default)]
-    pub buyers: FixedVec<SellCardInstance, MAX_BUYERS>,
-    pub completed_sell_cards: SmallVec<[SellCardInstance; 12]>,
-    pub ducats: u32,
-    /// Wild primaries: each covers a Red, Yellow or Blue the wheel lacks, in a
+    pub buyers: FixedVec<BuyerInstance, MAX_BUYERS>,
+    /// Completed Orders: the buyers this player has sold to, face down.
+    #[serde(alias = "completedSellCards")]
+    pub completed_orders: SmallVec<[BuyerInstance; 12]>,
+    /// Points in hand: each gold coin scores a point, and can be spent on a
+    /// workshop pick, a mix or a sale.
+    #[serde(alias = "ducats")]
+    pub gold_coins: u32,
+    /// Bowls: each covers a Red, Yellow or Blue the color wheel lacks, in a
     /// mix or a sale. Unspent, each is worth half a point.
-    #[serde(default)]
-    pub wild_primaries: u32,
-    /// Wild materials: each covers the material a sale needs. Unspent, each is
-    /// worth half a point.
+    #[serde(default, alias = "wildPrimaries")]
+    pub bowls: u32,
+    /// Boats: wild materials, each covering the material a sale needs.
+    /// Unspent, each is worth half a point.
     #[serde(default)]
     pub boats: u32,
-    /// Points from sell cards plus ducats. The half points for wild primaries and boats
-    /// are not in here; `scoring::score_in_half_points` adds them.
+    /// Points from completed orders plus gold coins. The half points for bowls
+    /// and boats are not in here; `scoring::score_in_half_points` adds them.
     #[serde(skip)]
     pub cached_whole_points: u32,
 }
@@ -918,8 +936,6 @@ impl ActionState {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum GamePhase {
-    #[serde(rename = "draw")]
-    Draw,
     #[serde(rename = "buyers")]
     Buyers {
         #[serde(rename = "buyersState")]
@@ -946,17 +962,20 @@ pub struct GameState {
     pub draft_deck: UnorderedCards,
     #[serde(alias = "destroyedPile")]
     pub trash: UnorderedCards,
-    pub sell_card_deck: UnorderedSellCards,
-    pub sell_card_display: FixedVec<SellCardInstance, MAX_SELL_CARD_DISPLAY>,
+    #[serde(alias = "sellCardDeck")]
+    pub buyer_deck: UnorderedBuyers,
+    #[serde(alias = "sellCardDisplay")]
+    pub buyer_display: FixedVec<BuyerInstance, MAX_BUYER_DISPLAY>,
     pub phase: GamePhase,
     pub round: u32,
     #[serde(default = "default_max_rounds")]
     pub max_rounds: u32,
-    pub ai_players: FixedVec<bool, MAX_PLAYERS>,
+    #[serde(alias = "aiPlayers")]
+    pub bot_players: FixedVec<bool, MAX_PLAYERS>,
     #[serde(skip, default = "default_card_lookup")]
     pub card_lookup: [Card; 256],
-    #[serde(skip, default = "default_sell_card_lookup")]
-    pub sell_card_lookup: [SellCard; 256],
+    #[serde(skip, default = "default_buyer_lookup")]
+    pub buyer_lookup: [Buyer; 256],
     #[serde(skip)]
     pub draw_log: Option<DrawLog>,
 }
@@ -969,27 +988,27 @@ impl PartialEq for GameState {
             players,
             draft_deck,
             trash,
-            sell_card_deck,
-            sell_card_display,
+            buyer_deck,
+            buyer_display,
             phase,
             round,
             max_rounds,
-            ai_players,
+            bot_players,
             card_lookup,
-            sell_card_lookup,
+            buyer_lookup,
             draw_log: _,
         } = self;
         *players == other.players
             && *draft_deck == other.draft_deck
             && *trash == other.trash
-            && *sell_card_deck == other.sell_card_deck
-            && *sell_card_display == other.sell_card_display
+            && *buyer_deck == other.buyer_deck
+            && *buyer_display == other.buyer_display
             && *phase == other.phase
             && *round == other.round
             && *max_rounds == other.max_rounds
-            && *ai_players == other.ai_players
+            && *bot_players == other.bot_players
             && *card_lookup == other.card_lookup
-            && *sell_card_lookup == other.sell_card_lookup
+            && *buyer_lookup == other.buyer_lookup
     }
 }
 
@@ -1001,8 +1020,8 @@ fn default_card_lookup() -> [Card; 256] {
     [Card::BasicRed; 256]
 }
 
-fn default_sell_card_lookup() -> [SellCard; 256] {
-    [ALL_SELL_CARDS[0]; 256]
+fn default_buyer_lookup() -> [Buyer; 256] {
+    [ALL_BUYERS[0]; 256]
 }
 
 // ── Choice ──
@@ -1012,10 +1031,11 @@ fn default_sell_card_lookup() -> [SellCard; 256] {
 pub enum Choice {
     #[serde(rename = "draftPick")]
     DraftPick { card: Card },
-    #[serde(rename = "trashDraftedCard", alias = "destroyDraftedCard")]
-    TrashDraftedCard { card: Card },
-    /// Keep a drafted card instead of using it, putting it on top of your deck
-    /// rather than trashing it for its action.
+    /// Use a top card's top action. The card is trashed once they resolve.
+    #[serde(rename = "trashTopCard", alias = "trashDraftedCard", alias = "destroyDraftedCard")]
+    TrashTopCard { card: Card },
+    /// Keep a top card instead of using it: it goes on top of the player's
+    /// deck, to be drawn back into the workshop and workshopped next round.
     #[serde(rename = "keepCard")]
     KeepCard { card: Card },
     #[serde(rename = "endTurn")]
@@ -1027,12 +1047,14 @@ pub enum Choice {
     },
     #[serde(rename = "skipWorkshop")]
     SkipWorkshop,
-    #[serde(rename = "moveToDraftPool")]
-    MoveToDraftPool { card: Option<Card> },
-    #[serde(rename = "selectSellCard")]
-    SelectSellCard {
-        #[serde(rename = "sellCard", alias = "sell_card")]
-        sell_card: SellCard,
+    /// Lift a workshop card out of the bottom of the board onto the top.
+    #[serde(rename = "liftCard", alias = "moveToDraftPool")]
+    LiftCard { card: Option<Card> },
+    /// Sell to one of the player's own buyers.
+    #[serde(rename = "sellToBuyer", alias = "selectSellCard", alias = "selectBuyer")]
+    SellToBuyer {
+        #[serde(rename = "buyer", alias = "sellCard", alias = "sell_card")]
+        buyer: Buyer,
     },
     #[serde(rename = "gainSecondary")]
     GainSecondary { color: Color },
@@ -1043,8 +1065,8 @@ pub enum Choice {
     #[serde(rename = "trashAndSell", alias = "destroyAndSell")]
     TrashAndSell {
         card: Card,
-        #[serde(rename = "sellCard", alias = "sell_card")]
-        sell_card: SellCard,
+        #[serde(rename = "buyer", alias = "sellCard", alias = "sell_card")]
+        buyer: Buyer,
     },
     #[serde(rename = "trashAndWorkshop", alias = "destroyAndWorkshop")]
     TrashAndWorkshop {
@@ -1052,22 +1074,25 @@ pub enum Choice {
         #[serde(rename = "workshopCards")]
         workshop_cards: WorkshopCards,
     },
-    #[serde(rename = "trashAndMoveToDraftPool", alias = "destroyAndMoveToDraftPool")]
-    TrashAndMoveToDraftPool {
-        card: Card,
-        target: Option<Card>,
-    },
-    /// What a ducat can be exchanged for during your own turn. Deliberately
+    #[serde(
+        rename = "trashAndLift",
+        alias = "trashAndMoveToDraftPool",
+        alias = "destroyAndMoveToDraftPool",
+        alias = "destroyAndLiftCard"
+    )]
+    TrashAndLift { card: Card, target: Option<Card> },
+    /// What a gold coin can be exchanged for during your own turn. Deliberately
     /// not `Ability`, which carries counts a purchase must not be able to set.
-    #[serde(rename = "spendDucat")]
-    SpendDucat { purchase: DucatPurchase },
-    #[serde(rename = "takeBuyer")]
-    TakeBuyer {
-        #[serde(rename = "sellCard")]
-        sell_card: SellCard,
+    #[serde(rename = "spendGoldCoin", alias = "spendDucat")]
+    SpendGoldCoin { purchase: GoldCoinPurchase },
+    /// Claim a face-up buyer card into an empty slot.
+    #[serde(rename = "claimBuyer", alias = "takeBuyer")]
+    ClaimBuyer {
+        #[serde(rename = "buyer", alias = "sellCard")]
+        buyer: Buyer,
     },
-    /// Take the top of the sell card deck unseen, rather than one of the
-    /// face-up cards on display.
+    /// Claim the top of the buyer deck unseen, rather than one of the face-up
+    /// cards on display.
     #[serde(rename = "drawBuyer")]
     DrawBuyer,
 }
@@ -1081,7 +1106,7 @@ mod tests {
     #[test]
     fn no_ability_grants_more_workshop_picks_than_a_choice_can_hold() {
         for card in CARD_DATA {
-            let abilities = card.trash_abilities.iter().chain(card.workshop_abilities);
+            let abilities = card.top_actions.iter().chain(card.workshop_abilities);
             for ability in abilities {
                 if let Ability::Workshop { count } = ability {
                     assert!(
@@ -1095,22 +1120,22 @@ mod tests {
     }
 
     #[test]
-    fn sell_card_stats_agree_with_the_buyer_tables() {
-        for sell_card in ALL_SELL_CARDS {
-            let stats = sell_card.stats();
-            assert_eq!(stats.points, sell_card.points());
-            assert_eq!(stats.boats, sell_card.required_boats());
+    fn buyer_stats_agree_with_the_buyer_tables() {
+        for buyer in ALL_BUYERS {
+            let stats = buyer.stats();
+            assert_eq!(stats.points, buyer.points());
+            assert_eq!(stats.boats, buyer.required_boats());
             for material in ALL_MATERIAL_TYPES {
-                let units = sell_card.required_materials().iter().filter(|&&m| m == material).count();
-                assert_eq!(stats.materials[material as usize] as usize, units, "{sell_card:?}");
+                let units = buyer.required_materials().iter().filter(|&&m| m == material).count();
+                assert_eq!(stats.material_units[material as usize] as usize, units, "{buyer:?}");
             }
-            let cost = sell_card.color_cost();
+            let cost = buyer.color_cost();
             assert_eq!(stats.total_colors as usize, cost.len());
             for &color in cost {
                 let units = cost.iter().filter(|&&c| c == color).count();
                 let listed: Vec<_> = stats.colors().iter().filter(|&&(c, _)| c == color).collect();
-                assert_eq!(listed.len(), 1, "{sell_card:?} lists {color:?} once");
-                assert_eq!(listed[0].1 as usize, units, "{sell_card:?}");
+                assert_eq!(listed.len(), 1, "{buyer:?} lists {color:?} once");
+                assert_eq!(listed[0].1 as usize, units, "{buyer:?}");
             }
         }
     }

@@ -1,4 +1,4 @@
-import type { Ability, AiSettings, GameState, PlayerTurn, StructuredGameLog } from './data/types';
+import type { Ability, BotSettings, GameState, PlayerTurn, StructuredGameLog } from './data/types';
 import { type GameSetup, restoreSetup } from './data/gameSetup';
 import { type LogEntry, migrateLog } from './logEntries';
 
@@ -11,12 +11,12 @@ export interface SavedGame {
   gameLog: LogEntry[];
   aiIterations?: number[];
   structuredLog?: StructuredGameLog;
-  aiSettings?: AiSettings;
+  botSettings?: BotSettings;
 }
 
-export function saveGame(gameState: GameState, gameStartTime: number, gameLog: LogEntry[], aiIterations?: number[], structuredLog?: StructuredGameLog, aiSettings?: AiSettings): void {
+export function saveGame(gameState: GameState, gameStartTime: number, gameLog: LogEntry[], aiIterations?: number[], structuredLog?: StructuredGameLog, botSettings?: BotSettings): void {
   try {
-    const data: SavedGame = { gameState, gameStartTime, gameLog, aiIterations, structuredLog, aiSettings };
+    const data: SavedGame = { gameState, gameStartTime, gameLog, aiIterations, structuredLog, botSettings };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch {
     // localStorage full or unavailable — silently ignore

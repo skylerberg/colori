@@ -13,11 +13,11 @@
   const interaction = tableInteraction();
 
   let player = $derived(gameState.players[playerIndex]);
-  let deckCount = $derived(gameState.sellCardDeck.length);
+  let deckCount = $derived(gameState.buyerDeck.length);
 
   function claim(instanceId: number) {
-    const instance = gameState.sellCardDisplay.find(c => c.instanceId === instanceId);
-    if (instance) onAction({ type: 'takeBuyer', sellCard: instance.card });
+    const instance = gameState.buyerDisplay.find(c => c.instanceId === instanceId);
+    if (instance) onAction({ type: 'takeBuyer', buyer: instance.card });
   }
 
   function drawUnseen() {

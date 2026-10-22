@@ -6,20 +6,20 @@ import { setupDraftGame, setupActionGame } from './benchHelper';
 import { AI_PARAMS_CHOICES } from '../data/gameSetup';
 import { applyChoice, cloneGameState } from '../engine/wasmEngine';
 import { isTakingActionTurn } from '../gameUtils';
-import type { AiSettings, Choice, GameState } from '../data/types';
+import type { BotSettings, Choice, GameState } from '../data/types';
 
 // Initialise WASM synchronously, as the bench does, for the Node environment.
 const wasmPath = resolve(__dirname, '../wasm-pkg/colori_wasm_bg.wasm');
 initSync({ module: new WebAssembly.Module(readFileSync(wasmPath)) });
 
-function search(searcher: AiSearcher, state: GameState, playerIndex: number, iterations: number, aiSettings: AiSettings = {}): Choice {
-  return JSON.parse(searcher.search(JSON.stringify(state), playerIndex, iterations, JSON.stringify(aiSettings)));
+function search(searcher: AiSearcher, state: GameState, playerIndex: number, iterations: number, botSettings: BotSettings = {}): Choice {
+  return JSON.parse(searcher.search(JSON.stringify(state), playerIndex, iterations, JSON.stringify(botSettings)));
 }
 
-function runSearch(state: GameState, playerIndex: number, iterations: number, aiSettings: AiSettings = {}): Choice {
+function runSearch(state: GameState, playerIndex: number, iterations: number, botSettings: BotSettings = {}): Choice {
   const searcher = new AiSearcher();
   try {
-    return search(searcher, state, playerIndex, iterations, aiSettings);
+    return search(searcher, state, playerIndex, iterations, botSettings);
   } finally {
     searcher.free();
   }
@@ -50,13 +50,13 @@ describe('AiSearcher', () => {
 
   it('searches with each kind of advanced AI setting', () => {
     const state = setupDraftGame(2);
-    const settings: AiSettings[] = [
+    const settings: BotSettings[] = [
       ...AI_PARAMS_CHOICES.map(choice => ({ params: choice.value })),
       { rolloutLookahead: 0 },
       { rolloutLookahead: 6 },
     ];
-    for (const aiSettings of settings) {
-      expect(runSearch(state, 0, 200, aiSettings).type).toBe('draftPick');
+    for (const botSettings of settings) {
+      expect(runSearch(state, 0, 200, botSettings).type).toBe('draftPick');
     }
   });
 

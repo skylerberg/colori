@@ -1,5 +1,5 @@
 import type { GameState, CardInstance, GamePhase, PlayerState } from './data/types';
-import { getSellCardData } from './data/cards';
+import { getBuyerData } from './data/cards';
 
 // Players with a decision to make: one at a time in the buyers phase and the
 // draft, and everyone still taking their turn in the action phase.
@@ -21,11 +21,11 @@ export function isTakingActionTurn(gs: GameState, playerIndex: number): boolean 
 }
 
 // Mirrors `colori_core::scoring::score_in_half_points`: the points on sold
-// cards and a point a ducat, plus half a point for each unspent wild primary
+// cards and a point a goldCoin, plus half a point for each unspent wild primary
 // and boat.
-export function playerScore(player: Pick<PlayerState, 'completedSellCards' | 'ducats' | 'wildPrimaries' | 'boats'>): number {
-  const sold = player.completedSellCards.reduce((sum, sellCard) => sum + getSellCardData(sellCard.card).points, 0);
-  return sold + player.ducats + (player.wildPrimaries + player.boats) / 2;
+export function playerScore(player: Pick<PlayerState, 'completedBuyers' | 'goldCoins' | 'bowls' | 'boats'>): number {
+  const sold = player.completedBuyers.reduce((sum, buyer) => sum + getBuyerData(buyer.card).points, 0);
+  return sold + player.goldCoins + (player.bowls + player.boats) / 2;
 }
 
 // Mirrors `colori_core::buyers_phase::buyer_capacity`.
@@ -37,17 +37,17 @@ export function buyerCapacity(round: number): number {
 
 // Mirrors `colori_core::draw_phase::round_income`: what everyone collects at
 // the start of `round`, as the round track shows.
-export function roundIncome(round: number): { ducats: number; boats: number; wildPrimaries: number } {
+export function roundIncome(round: number): { goldCoins: number; boats: number; bowls: number } {
   switch (round) {
     case 4:
     case 6:
-      return { ducats: 1, boats: 0, wildPrimaries: 0 };
+      return { goldCoins: 1, boats: 0, bowls: 0 };
     case 5:
-      return { ducats: 0, boats: 1, wildPrimaries: 0 };
+      return { goldCoins: 0, boats: 1, bowls: 0 };
     case 7:
-      return { ducats: 1, boats: 1, wildPrimaries: 1 };
+      return { goldCoins: 1, boats: 1, bowls: 1 };
     default:
-      return { ducats: 0, boats: 0, wildPrimaries: 0 };
+      return { goldCoins: 0, boats: 0, bowls: 0 };
   }
 }
 
@@ -56,9 +56,9 @@ export function roundNews(round: number): string[] {
   const news: string[] = [];
   const income = roundIncome(round);
   const gains = [
-    income.ducats > 0 && 'a ducat',
+    income.goldCoins > 0 && 'a goldCoin',
     income.boats > 0 && 'a boat',
-    income.wildPrimaries > 0 && 'a wild primary',
+    income.bowls > 0 && 'a wild primary',
   ].filter((gain): gain is string => !!gain);
   if (gains.length > 0) {
     news.push(`Everyone gains ${gains.length > 1 ? `${gains.slice(0, -1).join(', ')} and ${gains.at(-1)}` : gains[0]}`);

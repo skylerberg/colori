@@ -1,4 +1,4 @@
-import type { Card, SellCard } from './types';
+import type { Card, Buyer } from './types';
 import { STARTER_DECK_SIZE } from './cards';
 
 const CARD_ART_BASE_PATH = '/cards/';
@@ -40,16 +40,16 @@ export function getCardArtFilename(card: Card, instanceId?: number): string {
   return pascalToKebab(card) + '.webp';
 }
 
-export function getSellCardArtFilename(sellCard: SellCard): string {
-  return `sell/${pascalToKebab(sellCard)}.webp`;
+export function getBuyerArtFilename(buyer: Buyer): string {
+  return `sell/${pascalToKebab(buyer)}.webp`;
 }
 
 export function getCardArtUrl(card: Card, instanceId?: number): string {
   return CARD_ART_BASE_PATH + getCardArtFilename(card, instanceId);
 }
 
-export function getSellCardArtUrl(sellCard: SellCard): string {
-  return CARD_ART_BASE_PATH + getSellCardArtFilename(sellCard);
+export function getBuyerArtUrl(buyer: Buyer): string {
+  return CARD_ART_BASE_PATH + getBuyerArtFilename(buyer);
 }
 
 export const CARD_BACK_URL = CARD_ART_BASE_PATH + 'back.webp';

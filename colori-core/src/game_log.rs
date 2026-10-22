@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::scoring::HeuristicParams;
-use crate::types::{SellCardInstance, CardInstance, Choice, ColorWheel, Materials};
+use crate::types::{BuyerInstance, CardInstance, Choice, ColorWheel, MaterialsWheel};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -16,16 +16,16 @@ pub enum DrawEvent {
         player_index: usize,
         cards: Vec<CardInstance>,
     },
-    #[serde(rename = "sellCardReveal", rename_all = "camelCase")]
-    SellCardReveal {
-        sell_card: SellCardInstance,
+    #[serde(rename = "buyerReveal", alias = "sellCardReveal", rename_all = "camelCase")]
+    BuyerReveal {
+        buyer: BuyerInstance,
     },
     /// A buyer claimed off the top of the deck rather than the display, so the
     /// card is not derivable from the visible state.
     #[serde(rename = "buyerDraw", rename_all = "camelCase")]
     BuyerDraw {
         player_index: usize,
-        sell_card: SellCardInstance,
+        buyer: BuyerInstance,
     },
     #[serde(rename = "phantomDraftRemoval", rename_all = "camelCase")]
     PhantomDraftRemoval {
@@ -47,7 +47,8 @@ pub struct StructuredGameLog {
     pub game_started_at: String,
     pub game_ended_at: Option<String>,
     pub player_names: Vec<String>,
-    pub ai_players: Vec<bool>,
+    #[serde(alias = "aiPlayers")]
+    pub bot_players: Vec<bool>,
     pub initial_state: LogGameState,
     pub final_scores: Option<Vec<FinalScore>>,
     pub final_player_stats: Option<Vec<FinalPlayerStats>>,
@@ -75,8 +76,10 @@ pub struct LogGameState {
     pub draft_deck: Vec<CardInstance>,
     #[serde(alias = "destroyedPile")]
     pub trash: Vec<CardInstance>,
-    pub sell_card_deck: Vec<SellCardInstance>,
-    pub sell_card_display: Vec<SellCardInstance>,
+    #[serde(alias = "sellCardDeck")]
+    pub buyer_deck: Vec<BuyerInstance>,
+    #[serde(alias = "sellCardDisplay")]
+    pub buyer_display: Vec<BuyerInstance>,
     pub round: u32,
 }
 
@@ -86,25 +89,29 @@ pub struct LogPlayerState {
     /// Front segment first; see `colori_core::deck::Deck`.
     pub deck: Vec<Vec<CardInstance>>,
     #[serde(default)]
-    pub buyers: Vec<SellCardInstance>,
-    #[serde(default)]
-    pub workshopped_cards: Vec<CardInstance>,
+    pub buyers: Vec<BuyerInstance>,
+    #[serde(default, alias = "workshoppedCards")]
+    pub used_cards: Vec<CardInstance>,
     pub workshop_cards: Vec<CardInstance>,
-    pub drafted_cards: Vec<CardInstance>,
+    #[serde(alias = "draftedCards")]
+    pub top_cards: Vec<CardInstance>,
     pub color_wheel: ColorWheel,
-    pub materials: Materials,
-    pub completed_sell_cards: Vec<SellCardInstance>,
-    pub ducats: u32,
+    #[serde(alias = "materials")]
+    pub materials_wheel: MaterialsWheel,
+    #[serde(alias = "completedSellCards")]
+    pub completed_orders: Vec<BuyerInstance>,
+    #[serde(alias = "ducats")]
+    pub gold_coins: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FinalScore {
     pub name: String,
-    /// Points, which end in .5 when wild primaries and boats add an odd half.
+    /// Points, which end in .5 when bowls and boats add an odd half.
     pub score: f64,
-    #[serde(default)]
-    pub completed_sell_cards: u32,
+    #[serde(default, alias = "completedSellCards")]
+    pub completed_orders: u32,
     #[serde(default)]
     pub color_wheel_total: u32,
 }
@@ -121,14 +128,17 @@ impl FinalScore {
 pub struct FinalPlayerStats {
     pub name: String,
     pub deck_size: usize,
-    pub completed_sell_cards: Vec<SellCardInstance>,
-    pub ducats: u32,
-    #[serde(default)]
-    pub wild_primaries: u32,
+    #[serde(alias = "completedSellCards")]
+    pub completed_orders: Vec<BuyerInstance>,
+    #[serde(alias = "ducats")]
+    pub gold_coins: u32,
+    #[serde(default, alias = "wildPrimaries")]
+    pub bowls: u32,
     #[serde(default)]
     pub boats: u32,
     pub color_wheel: ColorWheel,
-    pub materials: Materials,
+    #[serde(alias = "materials")]
+    pub materials_wheel: MaterialsWheel,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

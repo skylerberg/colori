@@ -82,7 +82,7 @@ through, cutting `GameState` by 128 bytes, and instructions per game moved
 0.07% — inside the noise floor. **Deck memory is not where the time is.**
 
 **Mostly bigger decks and wider positions.** Players own more cards now, because
-what they keep in the draft pool survives into the workshop and thence into the
+what they keep in the top cards survives into the workshop and thence into the
 deck instead of being spent: mean deck size went from 4.90 to 5.58 (+13.9%).
 Mean branching went from 8.95 to 9.38 (+4.8%). Both are the *rules* costing
 more, not the representation.

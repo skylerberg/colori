@@ -2,9 +2,9 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use colori_core::game_log::{FinalScore, PlayerVariant, StructuredGameLog};
 use colori_core::game_log::DrawEvent;
-use colori_core::types::{Buyer, SellCard, SellCardInstance, CardInstance, Choice, DucatPurchase, MaterialType, ALL_BUYERS, ALL_COLORS};
+use colori_core::types::{Trade, Buyer, BuyerInstance, CardInstance, Choice, GoldCoinPurchase, MaterialType, ALL_TRADES, ALL_COLORS};
 
-use super::card_names::{sell_card_display_name, card_display_name, get_draft_copies_by_name};
+use super::card_names::{buyer_display_name, card_display_name, get_draft_copies_by_name};
 use super::categories::CardCategory;
 
 // ── Types ──
@@ -22,7 +22,7 @@ pub const CLAIM_COUNT_BUCKETS: usize = 4;
 
 /// One buyer type's win rates, split by how many of that type a player claimed.
 pub struct BuyerTypeWinRates {
-    pub buyer: Buyer,
+    pub trade: Trade,
     pub by_claims: [WinRateEntry; CLAIM_COUNT_BUCKETS],
 }
 
@@ -54,18 +54,18 @@ pub struct DurationStats {
     pub max_ms: u64,
 }
 
-pub struct SellCardAcquisitions {
-    pub by_sell_card: HashMap<String, usize>,
+pub struct BuyerAcquisitions {
+    pub by_buyer: HashMap<String, usize>,
     pub by_points: HashMap<u32, usize>,
     pub by_material: HashMap<String, usize>,
 }
 
 #[allow(dead_code)]
-pub struct WinnerSellCardBreakdown {
+pub struct WinnerBuyerBreakdown {
     pub avg_textiles: f64,
     pub avg_ceramics: f64,
     pub avg_paintings: f64,
-    pub avg_ducats: f64,
+    pub avg_gold_coins: f64,
     pub num_games: usize,
 }
 
@@ -86,9 +86,9 @@ pub fn build_card_instance_map(log: &StructuredGameLog) -> HashMap<u32, CardInst
         for segment in &p.deck {
             add_cards(&mut map, segment);
         }
-        add_cards(&mut map, &p.workshopped_cards);
+        add_cards(&mut map, &p.used_cards);
         add_cards(&mut map, &p.workshop_cards);
-        add_cards(&mut map, &p.drafted_cards);
+        add_cards(&mut map, &p.top_cards);
     }
     add_cards(&mut map, &state.draft_deck);
     add_cards(&mut map, &state.trash);
@@ -96,23 +96,23 @@ pub fn build_card_instance_map(log: &StructuredGameLog) -> HashMap<u32, CardInst
     map
 }
 
-/// Build a map from sell card instance ID to SellCardInstance from a log's initial state.
-pub fn build_sell_card_instance_map(log: &StructuredGameLog) -> HashMap<u32, SellCardInstance> {
+/// Build a map from buyer instance ID to BuyerInstance from a log's initial state.
+pub fn build_buyer_instance_map(log: &StructuredGameLog) -> HashMap<u32, BuyerInstance> {
     let mut map = HashMap::new();
     let state = &log.initial_state;
 
-    let add_sell_cards = |map: &mut HashMap<u32, SellCardInstance>, sell_cards: &[SellCardInstance]| {
-        for b in sell_cards {
+    let add_buyers = |map: &mut HashMap<u32, BuyerInstance>, buyers: &[BuyerInstance]| {
+        for b in buyers {
             map.insert(b.instance_id, *b);
         }
     };
 
     for p in &state.players {
-        add_sell_cards(&mut map, &p.buyers);
-        add_sell_cards(&mut map, &p.completed_sell_cards);
+        add_buyers(&mut map, &p.buyers);
+        add_buyers(&mut map, &p.completed_orders);
     }
-    add_sell_cards(&mut map, &state.sell_card_deck);
-    add_sell_cards(&mut map, &state.sell_card_display);
+    add_buyers(&mut map, &state.buyer_deck);
+    add_buyers(&mut map, &state.buyer_display);
 
     map
 }
@@ -122,9 +122,9 @@ pub fn card_name_from_instance(card: colori_core::types::Card) -> String {
     card_display_name(card).to_string()
 }
 
-/// Get the display name for a sell card.
-pub fn sell_card_name_from_instance(sell_card: SellCard) -> String {
-    sell_card_display_name(sell_card)
+/// Get the display name for a buyer.
+pub fn buyer_name_from_instance(buyer: Buyer) -> String {
+    buyer_display_name(buyer)
 }
 
 /// Look up a card instance ID and return its display name.
@@ -136,17 +136,17 @@ pub fn get_card_name(card_map: &HashMap<u32, CardInstance>, id: u32) -> String {
     }
 }
 
-/// Look up a sell card instance ID and return its display name.
+/// Look up a buyer instance ID and return its display name.
 #[allow(dead_code)]
-pub fn get_sell_card_name(sell_card_map: &HashMap<u32, SellCardInstance>, id: u32) -> String {
-    match sell_card_map.get(&id) {
-        Some(inst) => sell_card_name_from_instance(inst.sell_card),
+pub fn get_buyer_name(buyer_map: &HashMap<u32, BuyerInstance>, id: u32) -> String {
+    match buyer_map.get(&id) {
+        Some(inst) => buyer_name_from_instance(inst.buyer),
         None => format!("Sell Card #{}", id),
     }
 }
 
 pub fn final_score_ranking(fs: &FinalScore) -> (u32, u32, u32) {
-    (fs.half_points(), fs.completed_sell_cards, fs.color_wheel_total)
+    (fs.half_points(), fs.completed_orders, fs.color_wheel_total)
 }
 
 fn compute_winners(final_scores: &[FinalScore]) -> (Box<dyn Fn(&str) -> bool + '_>, usize) {
@@ -247,7 +247,7 @@ pub fn format_variant_label(
 /// Format a choice as a human-readable string.
 pub fn format_choice(choice: &Choice) -> String {
     let card_name = |card: &colori_core::types::Card| card_name_from_instance(*card);
-    let sell_card_name = |sell_card: &SellCard| sell_card_name_from_instance(*sell_card);
+    let buyer_name = |buyer: &Buyer| buyer_name_from_instance(*buyer);
     let card_names = |cards: &[colori_core::types::Card]| {
         cards
             .iter()
@@ -257,23 +257,23 @@ pub fn format_choice(choice: &Choice) -> String {
     };
 
     match choice {
-        Choice::SpendDucat { purchase } => {
+        Choice::SpendGoldCoin { purchase } => {
             let bought = match purchase {
-                DucatPurchase::Workshop => "a workshop pick",
-                DucatPurchase::MixColors => "a mix",
-                DucatPurchase::Sell => "a sale",
+                GoldCoinPurchase::Workshop => "a workshop pick",
+                GoldCoinPurchase::MixColors => "a mix",
+                GoldCoinPurchase::Sell => "a sale",
             };
-            format!("Spent a ducat for {bought}")
+            format!("Spent a gold_coin for {bought}")
         }
-        Choice::TakeBuyer { sell_card } => {
-            format!("Claimed buyer {}", sell_card_display_name(*sell_card))
+        Choice::ClaimBuyer { buyer } => {
+            format!("Claimed buyer {}", buyer_display_name(*buyer))
         }
         Choice::DrawBuyer => "Claimed a buyer off the deck".to_string(),
         Choice::DraftPick { card } => {
             format!("Drafted {}", card_name(card))
         }
         Choice::KeepCard { card } => format!("Kept {}", card_name(card)),
-        Choice::TrashDraftedCard { card } => {
+        Choice::TrashTopCard { card } => {
             format!("Trashed {} from draft", card_name(card))
         }
         Choice::EndTurn => "Ended turn".to_string(),
@@ -285,12 +285,12 @@ pub fn format_choice(choice: &Choice) -> String {
             }
         }
         Choice::SkipWorkshop => "Skipped workshop".to_string(),
-        Choice::MoveToDraftPool { card } => match card {
+        Choice::LiftCard { card } => match card {
             Some(c) => format!("Trashed {} from workshop", card_name(c)),
             None => "Trashed nothing from workshop".to_string(),
         }
-        Choice::SelectSellCard { sell_card } => {
-            format!("Sold to {}", sell_card_name(sell_card))
+        Choice::SellToBuyer { buyer } => {
+            format!("Sold to {}", buyer_name(buyer))
         }
         Choice::GainSecondary { color } => {
             format!("Gained {:?} (secondary)", color)
@@ -325,12 +325,12 @@ pub fn format_choice(choice: &Choice) -> String {
         }
         Choice::TrashAndSell {
             card,
-            sell_card,
+            buyer,
         } => {
             format!(
                 "Trashed {} and sold to {}",
                 card_name(card),
-                sell_card_name(sell_card)
+                buyer_name(buyer)
             )
         }
         Choice::TrashAndWorkshop {
@@ -347,7 +347,7 @@ pub fn format_choice(choice: &Choice) -> String {
                 )
             }
         }
-        Choice::TrashAndMoveToDraftPool {
+        Choice::TrashAndLift {
             card,
             target,
         } => {
@@ -391,23 +391,23 @@ pub fn compute_action_distribution(
 
 fn choice_type_name(choice: &Choice) -> String {
     match choice {
-        Choice::SpendDucat { .. } => "spendDucat".to_string(),
-        Choice::TakeBuyer { .. } => "takeBuyer".to_string(),
+        Choice::SpendGoldCoin { .. } => "spendGoldCoin".to_string(),
+        Choice::ClaimBuyer { .. } => "takeBuyer".to_string(),
         Choice::DrawBuyer => "drawBuyer".to_string(),
         Choice::DraftPick { .. } => "draftPick".to_string(),
-        Choice::TrashDraftedCard { .. } => "trashDraftedCard".to_string(),
+        Choice::TrashTopCard { .. } => "trashTopCard".to_string(),
         Choice::KeepCard { .. } => "keepCard".to_string(),
         Choice::EndTurn => "endTurn".to_string(),
         Choice::Workshop { .. } => "workshop".to_string(),
         Choice::SkipWorkshop => "skipWorkshop".to_string(),
-        Choice::MoveToDraftPool { .. } => "moveToDraftPool".to_string(),
-        Choice::SelectSellCard { .. } => "selectSellCard".to_string(),
+        Choice::LiftCard { .. } => "liftCard".to_string(),
+        Choice::SellToBuyer { .. } => "selectBuyer".to_string(),
         Choice::GainSecondary { .. } => "gainSecondary".to_string(),
         Choice::MixAll { .. } => "mixAll".to_string(),
         Choice::TrashAndMix { .. } => "trashAndMix".to_string(),
         Choice::TrashAndSell { .. } => "trashAndSell".to_string(),
         Choice::TrashAndWorkshop { .. } => "trashAndWorkshop".to_string(),
-        Choice::TrashAndMoveToDraftPool { .. } => "trashAndMoveToDraftPool".to_string(),
+        Choice::TrashAndLift { .. } => "trashAndLift".to_string(),
     }
 }
 
@@ -502,11 +502,11 @@ pub fn compute_cards_added_to_deck(
                     let name = card_name_from_instance(*card);
                     *player_drafted.entry(pi).or_default().entry(name).or_insert(0) += 1;
                 }
-                Choice::TrashDraftedCard { card }
+                Choice::TrashTopCard { card }
                 | Choice::TrashAndMix { card, .. }
                 | Choice::TrashAndSell { card, .. }
                 | Choice::TrashAndWorkshop { card, .. }
-                | Choice::TrashAndMoveToDraftPool { card, .. } => {
+                | Choice::TrashAndLift { card, .. } => {
                     let name = card_name_from_instance(*card);
                     *player_trashed.entry(pi).or_default().entry(name).or_insert(0) += 1;
                 }
@@ -570,7 +570,7 @@ pub fn compute_category_stats(
 
 // ── Trash analysis ──
 
-/// Count cards trashed from the draft phase (trashDraftedCard, trashAndMix, trashAndSell).
+/// Count cards trashed from the draft phase (trashTopCard, trashAndMix, trashAndSell).
 pub fn compute_trashed_from_draft(
     logs: &[StructuredGameLog],
     filter: Option<&PlayerFilter>,
@@ -585,11 +585,11 @@ pub fn compute_trashed_from_draft(
                 }
             }
             let card = match &entry.choice {
-                Choice::TrashDraftedCard { card }
+                Choice::TrashTopCard { card }
                 | Choice::TrashAndMix { card, .. }
                 | Choice::TrashAndSell { card, .. }
                 | Choice::TrashAndWorkshop { card, .. }
-                | Choice::TrashAndMoveToDraftPool { card, .. } => Some(card),
+                | Choice::TrashAndLift { card, .. } => Some(card),
                 _ => None,
             };
             if let Some(card) = card {
@@ -614,7 +614,7 @@ pub struct DraftPoolMoves {
 
 pub const OTHER_SOURCE: &str = "Other";
 
-/// Count the cards moved from the workshop to the draft pool, and by which
+/// Count the cards moved from the workshop to the top cards, and by which
 /// trashed card.
 pub fn compute_draft_pool_moves(
     logs: &[StructuredGameLog],
@@ -628,8 +628,8 @@ pub fn compute_draft_pool_moves(
                 continue;
             }
             let (source, target) = match entry.choice {
-                Choice::TrashAndMoveToDraftPool { card, target } => (card_name_from_instance(card), target),
-                Choice::MoveToDraftPool { card } => (OTHER_SOURCE.to_string(), card),
+                Choice::TrashAndLift { card, target } => (card_name_from_instance(card), target),
+                Choice::LiftCard { card } => (OTHER_SOURCE.to_string(), card),
                 _ => continue,
             };
             match target {
@@ -698,11 +698,11 @@ pub fn compute_win_rate_by_card(
                     let name = card_name_from_instance(*card);
                     *player_drafted.entry(pi).or_default().entry(name).or_insert(0) += 1;
                 }
-                Choice::TrashDraftedCard { card }
+                Choice::TrashTopCard { card }
                 | Choice::TrashAndMix { card, .. }
                 | Choice::TrashAndSell { card, .. }
                 | Choice::TrashAndWorkshop { card, .. }
-                | Choice::TrashAndMoveToDraftPool { card, .. } => {
+                | Choice::TrashAndLift { card, .. } => {
                     let name = card_name_from_instance(*card);
                     *player_trashed.entry(pi).or_default().entry(name).or_insert(0) += 1;
                 }
@@ -767,7 +767,7 @@ pub fn compute_win_rate_if_drafted(
         };
         let allowed = filter.and_then(|f| f.get(&log_idx));
 
-        // Track per-player drafted card names (no destruction filtering)
+        // Track per-player top card names (no destruction filtering)
         let mut player_drafted: HashMap<usize, HashSet<String>> = HashMap::new();
 
         for entry in &log.entries {
@@ -788,7 +788,7 @@ pub fn compute_win_rate_if_drafted(
         // Compute winners
         let (is_winner_fn, num_winners) = compute_winners(final_scores);
 
-        // For each player, tally win rate by drafted card names
+        // For each player, tally win rate by top card names
         for i in 0..log.player_names.len() {
             if let Some(allowed) = allowed {
                 if !allowed.contains(&i) {
@@ -1230,10 +1230,10 @@ pub fn compute_win_rate_by_buyer_claims(
     logs: &[StructuredGameLog],
     filter: Option<&PlayerFilter>,
 ) -> Vec<BuyerTypeWinRates> {
-    let mut rates: Vec<BuyerTypeWinRates> = ALL_BUYERS
+    let mut rates: Vec<BuyerTypeWinRates> = ALL_TRADES
         .iter()
-        .map(|&buyer| BuyerTypeWinRates {
-            buyer,
+        .map(|&trade| BuyerTypeWinRates {
+            trade,
             by_claims: std::array::from_fn(|_| WinRateEntry { wins: 0.0, games: 0.0 }),
         })
         .collect();
@@ -1245,22 +1245,25 @@ pub fn compute_win_rate_by_buyer_claims(
         let allowed = filter.and_then(|f| f.get(&log_idx));
         let (is_winner_fn, num_winners) = compute_winners(final_scores);
 
-        let mut claims = vec![[0usize; ALL_BUYERS.len()]; log.player_names.len()];
+        let mut claims = vec![[0usize; ALL_TRADES.len()]; log.player_names.len()];
         for entry in &log.entries {
-            let sell_card = match &entry.choice {
-                Choice::TakeBuyer { sell_card } => Some(*sell_card),
+            let claimed = match &entry.choice {
+                Choice::ClaimBuyer { buyer } => Some(*buyer),
                 Choice::DrawBuyer => entry.draws.iter().find_map(|draw| match draw {
-                    DrawEvent::BuyerDraw { sell_card, .. } => Some(sell_card.sell_card),
+                    DrawEvent::BuyerDraw { buyer, .. } => Some(buyer.buyer),
                     _ => None,
                 }),
                 _ => None,
             };
-            let Some(sell_card) = sell_card else {
+            let Some(claimed) = claimed else {
                 continue;
             };
-            let buyer = ALL_BUYERS.iter().position(|&b| b == sell_card.buyer()).expect("every buyer is listed");
+            let trade = ALL_TRADES
+                .iter()
+                .position(|&b| b == claimed.trade())
+                .expect("every buyer is listed");
             if let Some(player_claims) = claims.get_mut(entry.player_index) {
-                player_claims[buyer] += 1;
+                player_claims[trade] += 1;
             }
         }
 
@@ -1296,7 +1299,7 @@ pub fn compute_unseen_buyer_share(
                 continue;
             }
             match entry.choice {
-                Choice::TakeBuyer { .. } => claims += 1,
+                Choice::ClaimBuyer { .. } => claims += 1,
                 Choice::DrawBuyer => {
                     claims += 1;
                     unseen += 1;
@@ -1396,7 +1399,7 @@ pub fn compute_penultimate_round_deck_sizes(
             .iter()
             .map(|p| {
                 (p.deck.iter().map(|segment| segment.len()).sum::<usize>()
-                    + p.workshopped_cards.len()
+                    + p.used_cards.len()
                     + p.workshop_cards.len()) as i32
             })
             .collect();
@@ -1417,11 +1420,11 @@ pub fn compute_penultimate_round_deck_sizes(
                         player_deck_sizes[pi] += 1;
                     }
                 }
-                Choice::TrashDraftedCard { .. }
+                Choice::TrashTopCard { .. }
                 | Choice::TrashAndMix { .. }
                 | Choice::TrashAndSell { .. }
                 | Choice::TrashAndWorkshop { .. }
-                | Choice::TrashAndMoveToDraftPool { .. } => {
+                | Choice::TrashAndLift { .. } => {
                     player_deck_sizes[pi] -= 1;
                 }
                 _ => {}
@@ -1442,14 +1445,14 @@ pub fn compute_penultimate_round_deck_sizes(
     counts
 }
 
-// ── Sell card analysis ──
+// ── Buyer card analysis ──
 
-/// Compute sell card acquisition counts by sell card name, star count, and material type.
-pub fn compute_sell_card_acquisitions(
+/// Compute buyer acquisition counts by buyer name, star count, and material type.
+pub fn compute_buyer_acquisitions(
     logs: &[StructuredGameLog],
     filter: Option<&PlayerFilter>,
-) -> SellCardAcquisitions {
-    let mut by_sell_card = HashMap::new();
+) -> BuyerAcquisitions {
+    let mut by_buyer = HashMap::new();
     let mut by_points = HashMap::new();
     let mut by_material = HashMap::new();
 
@@ -1462,16 +1465,16 @@ pub fn compute_sell_card_acquisitions(
                     continue;
                 }
             }
-            let sell_card = match &entry.choice {
-                Choice::SelectSellCard { sell_card } => Some(sell_card),
-                Choice::TrashAndSell { sell_card, .. } => Some(sell_card),
+            let buyer = match &entry.choice {
+                Choice::SellToBuyer { buyer } => Some(buyer),
+                Choice::TrashAndSell { buyer, .. } => Some(buyer),
                 _ => None,
             };
-            if let Some(sell_card) = sell_card {
-                let name = sell_card_name_from_instance(*sell_card);
-                *by_sell_card.entry(name).or_insert(0) += 1;
-                *by_points.entry(sell_card.points()).or_insert(0) += 1;
-                let material_name = sell_card
+            if let Some(buyer) = buyer {
+                let name = buyer_name_from_instance(*buyer);
+                *by_buyer.entry(name).or_insert(0) += 1;
+                *by_points.entry(buyer.points()).or_insert(0) += 1;
+                let material_name = buyer
                     .required_materials()
                     .first()
                     .map_or("None".to_string(), |m| format!("{:?}", m));
@@ -1480,8 +1483,8 @@ pub fn compute_sell_card_acquisitions(
         }
     }
 
-    SellCardAcquisitions {
-        by_sell_card,
+    BuyerAcquisitions {
+        by_buyer,
         by_points,
         by_material,
     }
@@ -1489,15 +1492,15 @@ pub fn compute_sell_card_acquisitions(
 
 // ── Color analysis ──
 
-/// Compute average sell card breakdown (Textiles/Ceramics/Paintings) for game winners.
-pub fn compute_winner_sell_card_breakdown(
+/// Compute average buyer breakdown (Textiles/Ceramics/Paintings) for game winners.
+pub fn compute_winner_buyer_breakdown(
     logs: &[StructuredGameLog],
     filter: Option<&PlayerFilter>,
-) -> WinnerSellCardBreakdown {
+) -> WinnerBuyerBreakdown {
     let mut total_textiles: f64 = 0.0;
     let mut total_ceramics: f64 = 0.0;
     let mut total_paintings: f64 = 0.0;
-    let mut total_ducats: f64 = 0.0;
+    let mut total_gold_coins: f64 = 0.0;
     let mut num_games: usize = 0;
 
     for (log_idx, log) in logs.iter().enumerate() {
@@ -1509,7 +1512,7 @@ pub fn compute_winner_sell_card_breakdown(
         let (is_winner_fn, num_winners) = compute_winners(final_scores);
         let weight = 1.0 / num_winners as f64;
 
-        // Track sell card acquisitions per player
+        // Track buyer acquisitions per player
         let mut player_textiles: HashMap<usize, u32> = HashMap::new();
         let mut player_ceramics: HashMap<usize, u32> = HashMap::new();
         let mut player_paintings: HashMap<usize, u32> = HashMap::new();
@@ -1517,13 +1520,13 @@ pub fn compute_winner_sell_card_breakdown(
         let allowed = filter.and_then(|f| f.get(&log_idx));
 
         for entry in &log.entries {
-            let sell_card = match &entry.choice {
-                Choice::SelectSellCard { sell_card } => Some(sell_card),
-                Choice::TrashAndSell { sell_card, .. } => Some(sell_card),
+            let buyer = match &entry.choice {
+                Choice::SellToBuyer { buyer } => Some(buyer),
+                Choice::TrashAndSell { buyer, .. } => Some(buyer),
                 _ => None,
             };
-            if let Some(sell_card) = sell_card {
-                match sell_card.required_materials().first() {
+            if let Some(buyer) = buyer {
+                match buyer.required_materials().first() {
                     Some(MaterialType::Textiles) => {
                         *player_textiles.entry(entry.player_index).or_insert(0) += 1;
                     }
@@ -1554,7 +1557,7 @@ pub fn compute_winner_sell_card_breakdown(
                 total_paintings += *player_paintings.get(&i).unwrap_or(&0) as f64 * weight;
                 if let Some(ref final_player_stats) = log.final_player_stats {
                     if let Some(stats) = final_player_stats.iter().find(|p| &p.name == player_name) {
-                        total_ducats += stats.ducats as f64 * weight;
+                        total_gold_coins += stats.gold_coins as f64 * weight;
                     }
                 }
             }
@@ -1566,11 +1569,11 @@ pub fn compute_winner_sell_card_breakdown(
     }
 
     let divisor = if num_games > 0 { num_games as f64 } else { 1.0 };
-    WinnerSellCardBreakdown {
+    WinnerBuyerBreakdown {
         avg_textiles: total_textiles / divisor,
         avg_ceramics: total_ceramics / divisor,
         avg_paintings: total_paintings / divisor,
-        avg_ducats: total_ducats / divisor,
+        avg_gold_coins: total_gold_coins / divisor,
         num_games,
     }
 }

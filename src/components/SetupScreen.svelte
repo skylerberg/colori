@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { AiSettings, GameState } from '../data/types';
+  import type { BotSettings, GameState } from '../data/types';
   import { AI_DIFFICULTY_LEVELS, aiPlayerName, humanPlayerName } from '../data/aiDifficulty';
   import { AI_PARAMS_CHOICES, END_OF_GAME_LOOKAHEAD, PLAYER_COUNTS } from '../data/gameSetup';
   import { createInitialGameState } from '../engine/wasmEngine';
@@ -7,7 +7,7 @@
   import CharacterPortrait from './CharacterPortrait.svelte';
 
   let { onGameStarted }: {
-    onGameStarted: (state: GameState, aiIterations: number[], aiSettings: AiSettings) => void;
+    onGameStarted: (state: GameState, aiIterations: number[], botSettings: BotSettings) => void;
   } = $props();
 
   const lastSetup = loadSetup();
@@ -64,8 +64,8 @@
       rolloutLookahead,
     });
     const names = playerNames.slice(0, playerCount).map((n, i) => n.trim() || defaultName(i));
-    const aiPlayers = isAI.slice(0, playerCount);
-    const state = createInitialGameState(names, aiPlayers);
+    const botPlayers = isAI.slice(0, playerCount);
+    const state = createInitialGameState(names, botPlayers);
     onGameStarted(state, aiIterations.slice(0, playerCount), { params: aiParams, rolloutLookahead });
   }
 </script>

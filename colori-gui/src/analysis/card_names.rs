@@ -1,21 +1,21 @@
 use colori_core::cards::draft_deck_cards;
-use colori_core::types::{Ability, SellCard, Card};
+use colori_core::types::{Ability, Buyer, Card};
 
 /// Get human-readable display name for a card.
 pub fn card_display_name(card: Card) -> &'static str {
     card.name()
 }
 
-/// Get human-readable display name for a sell card.
+/// Get human-readable display name for a buyer.
 /// Format: "Potter [Amber]" or "Painter [Teal, Green]"
-pub fn sell_card_display_name(sell_card: SellCard) -> String {
-    let colors = sell_card
+pub fn buyer_display_name(buyer: Buyer) -> String {
+    let colors = buyer
         .color_cost()
         .iter()
         .map(|c| format!("{:?}", c))
         .collect::<Vec<_>>()
         .join(", ");
-    format!("{} [{}]", sell_card.buyer().name(), colors)
+    format!("{} [{}]", buyer.trade().name(), colors)
 }
 
 /// Get draft copies by card name string (used in normalization).
@@ -32,13 +32,12 @@ pub fn format_ability(ability: &Ability) -> String {
     match ability {
         Ability::Workshop { count } => format!("Workshop x{}", count),
         Ability::MixColors { count } => format!("Mix x{}", count),
-        Ability::MoveToDraftPool => "Move to Draft Pool".to_string(),
+        Ability::LiftCard => "Move to Draft Pool".to_string(),
         Ability::Sell => "Sell".to_string(),
-        Ability::GainDucats { count } => format!("Gain {} Ducats", count),
+        Ability::GainGoldCoins { count } => format!("Gain {} GoldCoins", count),
         Ability::GainSecondary => "Gain Secondary".to_string(),
-        Ability::GainWildPrimaries { count: 1 } => "Gain 1 Wild Primary".to_string(),
-        Ability::GainWildPrimaries { count } => format!("Gain {} Wild Primaries", count),
-        Ability::GainPrimaries => "Gain One of Each Primary".to_string(),
+        Ability::GainBowls { count: 1 } => "Gain 1 Wild Primary".to_string(),
+        Ability::GainBowls { count } => format!("Gain {} Wild Primaries", count),
         Ability::GainBoats { count } => format!("Gain {} Boat(s)", count),
     }
 }

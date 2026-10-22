@@ -131,7 +131,7 @@ pub fn player_pick<R: Rng>(state: &mut GameState, card_instance_id: u32, rng: &m
         }
         _ => panic!("Expected draft phase"),
     };
-    state.players[pi].drafted_cards.insert(id);
+    state.players[pi].top_cards.insert(id);
 
     // Solo mode: remove a random card from each phantom hand
     if num_players == 1 {
@@ -235,7 +235,7 @@ fn end_draft_if_no_choice_left(state: &mut GameState) {
     for (i, hand) in hands[..num_hands].iter().enumerate() {
         if i < state.players.len() {
             let player = &mut state.players[i];
-            player.drafted_cards = player.drafted_cards.union(*hand);
+            player.top_cards = player.top_cards.union(*hand);
         } else {
             state.trash = state.trash.union(*hand);
         }
@@ -264,7 +264,7 @@ pub fn simultaneous_pick(state: &mut GameState, player_index: usize, card: crate
         }
         _ => unreachable!(),
     }
-    state.players[player_index].drafted_cards.insert(id);
+    state.players[player_index].top_cards.insert(id);
 }
 
 #[cfg(test)]
@@ -272,26 +272,25 @@ mod tests {
     use super::DRAFT_HAND_SIZE;
     use crate::apply_choice::apply_choice;
     use crate::colori_game::{enumerate_choices, get_game_status, GameStatus};
-    use crate::draw_phase::execute_draw_phase;
     use crate::scoring::calculate_whole_points;
     use crate::setup::create_initial_game_state;
     use crate::types::*;
     use crate::unordered_cards::{
-        get_sell_card_registry, get_card_registry, set_sell_card_registry, set_card_registry,
+        get_buyer_registry, get_card_registry, set_buyer_registry, set_card_registry,
     };
     use rand::SeedableRng;
     use wyrand::WyRand;
 
     fn test_serialize(state: &GameState) -> String {
         set_card_registry(&state.card_lookup);
-        set_sell_card_registry(&state.sell_card_lookup);
+        set_buyer_registry(&state.buyer_lookup);
         serde_json::to_string(state).unwrap()
     }
 
     fn test_deserialize(json: &str) -> GameState {
         let mut state: GameState = serde_json::from_str(json).unwrap();
         state.card_lookup = get_card_registry();
-        state.sell_card_lookup = get_sell_card_registry();
+        state.buyer_lookup = get_buyer_registry();
         for p in state.players.iter_mut() {
             p.cached_whole_points = calculate_whole_points(p);
         }
@@ -323,21 +322,20 @@ mod tests {
     #[test]
     fn test_round2_draft_hands_after_serde_round_trips() {
         let mut rng = WyRand::seed_from_u64(42);
-        let ai_players = vec![false, true, true];
-        let mut state = create_initial_game_state(3, &ai_players, &mut rng);
+        let bot_players = vec![false, true, true];
+        let mut state = create_initial_game_state(3, &bot_players, &mut rng);
 
         // Play through round 1 fully using enumerate_choices + apply_choice
         assert_eq!(state.round, 1);
 
-        // Execute draw phase to start round 1; the buyers phase comes first.
-        execute_draw_phase(&mut state, &mut rng);
+        // Setup dealt the workshops and opened round 1's buyers phase.
         assert!(matches!(state.phase, GamePhase::Buyers { .. }));
         resolve_buyers(&mut state, &mut rng);
         assert!(matches!(state.phase, GamePhase::Draft { .. }));
 
-        // Play through all phases until round 2
+        // Play through all phases until round 2 opens
         loop {
-            if state.round == 2 && matches!(state.phase, GamePhase::Draw) {
+            if state.round == 2 && matches!(state.phase, GamePhase::Buyers { .. }) {
                 break;
             }
 
@@ -347,7 +345,6 @@ mod tests {
         }
 
         // Now at round 2 draw phase - execute draw, then claim buyers
-        execute_draw_phase(&mut state, &mut rng);
         resolve_buyers(&mut state, &mut rng);
         assert!(matches!(state.phase, GamePhase::Draft { .. }));
         assert_eq!(state.round, 2);

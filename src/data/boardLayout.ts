@@ -17,7 +17,7 @@ const BUYERS_PX_PER_MM = BOARD_ART_WIDTH / 304.8;
 export const PLAYER_BOARD_HEIGHT = 1111;
 export const PLAYER_CARD = { width: 57 * PLAYER_PX_PER_MM, height: 87 * PLAYER_PX_PER_MM };
 export const PLAYER_SELL_CARD = { width: 44 * PLAYER_PX_PER_MM, height: 67 * PLAYER_PX_PER_MM };
-// Drafted cards tuck halfway under the top edge, workshop cards under the bottom.
+// Top cards tuck halfway under the top edge, workshop cards under the bottom.
 export const TUCK = PLAYER_CARD.height / 2;
 
 export const DRAFT_SLOT_X = [273, 650, 1027, 1405];
@@ -43,7 +43,7 @@ export const MATERIALS: Record<MaterialType, Point> = {
   Ceramics: { x: 395, y: 276 },
   Textiles: { x: 269, y: 415 },
 };
-// The reminder strip: a ducat buys a workshop pick, a mix or a sale.
+// The reminder strip: a goldCoin buys a workshop pick, a mix or a sale.
 export const DUCAT_PURCHASE_ICONS = {
   workshop: { x: 1488, y: 996 },
   mixColors: { x: 1567, y: 996 },

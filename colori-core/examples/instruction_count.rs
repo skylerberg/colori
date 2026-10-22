@@ -22,8 +22,8 @@
 //! figure stops meaning anything.
 
 use colori_core::choices::enumerate_choices;
-use colori_core::colori_game::{apply_choice_to_state, get_game_status, GameStatus};
-use colori_core::draw_phase::execute_draw_phase;
+use colori_core::apply_choice::apply_choice;
+use colori_core::colori_game::{get_game_status, GameStatus};
 use colori_core::ismcts::MctsConfig;
 use colori_core::mcts_impl::ColoriSearcher;
 use colori_core::scoring::HeuristicParams;
@@ -231,17 +231,12 @@ fn max_rollout_round(state: &GameState) -> Option<u32> {
 /// printed so any remaining drift is visible rather than assumed away.
 fn position(seed: u64, round: u32, min_branching: usize) -> Option<GameState> {
     let mut rng = WyRand::seed_from_u64(seed);
-    let ai_players = vec![true; PLAYERS];
-    let mut state = create_initial_game_state(PLAYERS, &ai_players, &mut rng);
-    execute_draw_phase(&mut state, &mut rng);
+    let bot_players = vec![true; PLAYERS];
+    let mut state = create_initial_game_state(PLAYERS, &bot_players, &mut rng);
 
     loop {
         match &state.phase {
             GamePhase::GameOver => return None,
-            GamePhase::Draw => {
-                execute_draw_phase(&mut state, &mut rng);
-                continue;
-            }
             _ => {}
         }
         let player = match get_game_status(&state, None) {
@@ -260,7 +255,7 @@ fn position(seed: u64, round: u32, min_branching: usize) -> Option<GameState> {
             return Some(state);
         }
         let choice = choices[rng.random_range(0..choices.len())].clone();
-        apply_choice_to_state(&mut state, player, &choice, &mut rng);
+        apply_choice(&mut state, player, &choice, &mut rng);
     }
 }
 
@@ -394,7 +389,7 @@ impl GameStats {
         self.iterations += iterations as u64;
         self.branching += branching as u64;
         for player in state.players.iter() {
-            self.workshop += (player.workshop_cards.len() + player.workshopped_cards.len()) as u64;
+            self.workshop += (player.workshop_cards.len() + player.used_cards.len()) as u64;
             let deck = deck_len(player);
             self.deck += deck as u64;
             self.max_deck = self.max_deck.max(deck);
@@ -416,9 +411,8 @@ fn deck_segments(player: &PlayerState) -> u32 {
 
 fn play_game(seed: u64, config: &MctsConfig, stats: &mut GameStats) {
     let mut rng = WyRand::seed_from_u64(seed);
-    let ai_players = vec![true; PLAYERS];
-    let mut state = create_initial_game_state(PLAYERS, &ai_players, &mut rng);
-    execute_draw_phase(&mut state, &mut rng);
+    let bot_players = vec![true; PLAYERS];
+    let mut state = create_initial_game_state(PLAYERS, &bot_players, &mut rng);
 
     let mut searchers: Vec<ColoriSearcher> =
         (0..PLAYERS).map(|_| ColoriSearcher::new(&state)).collect();
@@ -426,10 +420,6 @@ fn play_game(seed: u64, config: &MctsConfig, stats: &mut GameStats) {
     loop {
         match &state.phase {
             GamePhase::GameOver => break,
-            GamePhase::Draw => {
-                execute_draw_phase(&mut state, &mut rng);
-                continue;
-            }
             _ => {}
         }
         let player = match get_game_status(&state, None) {
@@ -440,7 +430,7 @@ fn play_game(seed: u64, config: &MctsConfig, stats: &mut GameStats) {
         let horizon = max_rollout_round(&state);
         let outcome = searchers[player].search(&state, player, config, horizon, &mut rng);
         stats.observe(&state, enumerate_choices(&state, player).len(), outcome.iterations_used);
-        apply_choice_to_state(&mut state, player, &outcome.choice, &mut rng);
+        apply_choice(&mut state, player, &outcome.choice, &mut rng);
     }
 
     for player in state.players.iter() {

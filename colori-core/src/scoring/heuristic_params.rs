@@ -11,21 +11,21 @@ pub struct HeuristicParams {
     pub stored_textiles_weight: f64,
     pub deck_thinning_value: f64,
     pub chalk_quality: f64,
-    pub basic_dye_quality: f64,
+    pub starter_pigment_quality: f64,
     pub starter_material_quality: f64,
     pub ceramics_material_quality: f64,
     pub paintings_material_quality: f64,
     pub textiles_material_quality: f64,
     pub dual_material_quality: f64,
-    pub sell_card_material_alignment: f64,
-    pub sell_card_color_alignment: f64,
-    /// Premium on a wild primary over the stored primary it stands in for.
-    pub wild_primary_multiplier: f64,
+    pub buyer_material_alignment: f64,
+    pub buyer_color_alignment: f64,
+    /// Premium on a bowl over the stored primary it stands in for.
+    pub bowl_multiplier: f64,
     /// Premium on a boat over the best stored material it stands in for.
     pub boat_multiplier: f64,
-    /// Premium on a ducat still in hand, over the point it scores at game
-    /// end: a held ducat is also the option to buy a Workshop, Mix or Sell.
-    pub unspent_ducat_multiplier: f64,
+    /// Premium on a gold_coin still in hand, over the point it scores at game
+    /// end: a held gold_coin is also the option to buy a Workshop, Mix or Sell.
+    pub unspent_gold_coin_multiplier: f64,
     pub heuristic_round_threshold: u32,
     pub heuristic_lookahead: u32,
     pub alum_quality: f64,
@@ -35,9 +35,9 @@ pub struct HeuristicParams {
     pub linseed_oil_quality: f64,
     /// The Primaries card, whose workshop ability gives a primary of each kind.
     pub primaries_quality: f64,
-    pub primary_dye_quality: f64,
-    pub secondary_dye_quality: f64,
-    pub tertiary_dye_quality: f64,
+    pub primary_pigment_quality: f64,
+    pub secondary_pigment_quality: f64,
+    pub tertiary_pigment_quality: f64,
     // Rollout policy parameters
     pub rollout_epsilon: f64,
     pub rollout_sell_affordable_multiplier: u32,
@@ -57,7 +57,7 @@ pub struct HeuristicParams {
     pub rollout_end_turn_max_round: u32,
     pub rollout_ws_material_base_multiplier: u32,
     pub rollout_ws_material_colors_met_multiplier: u32,
-    pub rollout_ws_action_gain_ducats_value: u32,
+    pub rollout_ws_action_gain_gold_coins_value: u32,
     pub rollout_ws_action_color_demand_multiplier: u32,
 }
 
@@ -93,7 +93,8 @@ struct HeuristicParamsRaw {
     #[serde(default)]
     deck_thinning_value: f64,
     chalk_quality: f64,
-    basic_dye_quality: f64,
+    #[serde(alias = "basicDyeQuality")]
+    starter_pigment_quality: f64,
     starter_material_quality: f64,
     #[serde(default)]
     ceramics_material_quality: f64,
@@ -102,16 +103,16 @@ struct HeuristicParamsRaw {
     #[serde(default)]
     textiles_material_quality: f64,
     dual_material_quality: f64,
-    #[serde(alias = "buyerMaterialWeight")]
-    sell_card_material_alignment: f64,
-    #[serde(alias = "buyerColorWeight")]
-    sell_card_color_alignment: f64,
-    #[serde(default)]
-    wild_primary_multiplier: Option<f64>,
+    #[serde(alias = "buyerMaterialWeight", alias = "sellCardMaterialAlignment")]
+    buyer_material_alignment: f64,
+    #[serde(alias = "buyerColorWeight", alias = "sellCardColorAlignment")]
+    buyer_color_alignment: f64,
+    #[serde(default, alias = "wildPrimaryMultiplier")]
+    bowl_multiplier: Option<f64>,
     #[serde(default)]
     boat_multiplier: Option<f64>,
-    #[serde(default)]
-    unspent_ducat_multiplier: Option<f64>,
+    #[serde(default, alias = "unspentDucatMultiplier")]
+    unspent_gold_coin_multiplier: Option<f64>,
     heuristic_round_threshold: u32,
     heuristic_lookahead: u32,
     alum_quality: f64,
@@ -122,12 +123,15 @@ struct HeuristicParamsRaw {
     gondola_quality: f64,
     linseed_oil_quality: f64,
     /// Left out by parameters trained before the Primaries card existed, which
-    /// prices it as the three-colour dye it plays like.
+    /// prices it as the three-colour pigment it plays like.
     #[serde(default)]
     primaries_quality: Option<f64>,
-    primary_dye_quality: f64,
-    secondary_dye_quality: f64,
-    tertiary_dye_quality: f64,
+    #[serde(alias = "primaryDyeQuality")]
+    primary_pigment_quality: f64,
+    #[serde(alias = "secondaryDyeQuality")]
+    secondary_pigment_quality: f64,
+    #[serde(alias = "tertiaryDyeQuality")]
+    tertiary_pigment_quality: f64,
     // Rollout policy parameters
     rollout_epsilon: f64,
     rollout_sell_affordable_multiplier: u32,
@@ -152,8 +156,8 @@ struct HeuristicParamsRaw {
     // Legacy unified field — used as fallback for the per-ability fields below
     #[serde(default)]
     rollout_ws_action_bonus: Option<u32>,
-    #[serde(default)]
-    rollout_ws_action_gain_ducats_value: Option<u32>,
+    #[serde(default, alias = "rolloutWsActionGainDucatsValue")]
+    rollout_ws_action_gain_gold_coins_value: Option<u32>,
     #[serde(default)]
     rollout_ws_action_color_demand_multiplier: Option<u32>,
 }
@@ -170,17 +174,17 @@ impl From<HeuristicParamsRaw> for HeuristicParams {
             stored_textiles_weight: raw.stored_textiles_weight,
             deck_thinning_value: raw.deck_thinning_value,
             chalk_quality: raw.chalk_quality,
-            basic_dye_quality: raw.basic_dye_quality,
+            starter_pigment_quality: raw.starter_pigment_quality,
             starter_material_quality: raw.starter_material_quality,
             ceramics_material_quality: raw.ceramics_material_quality,
             paintings_material_quality: raw.paintings_material_quality,
             textiles_material_quality: raw.textiles_material_quality,
             dual_material_quality: raw.dual_material_quality,
-            sell_card_material_alignment: raw.sell_card_material_alignment,
-            sell_card_color_alignment: raw.sell_card_color_alignment,
-            wild_primary_multiplier: raw.wild_primary_multiplier.unwrap_or(1.0).max(0.0),
+            buyer_material_alignment: raw.buyer_material_alignment,
+            buyer_color_alignment: raw.buyer_color_alignment,
+            bowl_multiplier: raw.bowl_multiplier.unwrap_or(1.0).max(0.0),
             boat_multiplier: raw.boat_multiplier.unwrap_or(1.0).max(0.0),
-            unspent_ducat_multiplier: raw.unspent_ducat_multiplier.unwrap_or(1.0).max(0.0),
+            unspent_gold_coin_multiplier: raw.unspent_gold_coin_multiplier.unwrap_or(1.0).max(0.0),
             heuristic_round_threshold: raw.heuristic_round_threshold,
             heuristic_lookahead: raw.heuristic_lookahead,
             alum_quality: raw.alum_quality,
@@ -188,10 +192,10 @@ impl From<HeuristicParamsRaw> for HeuristicParams {
             warehouse_quality: raw.warehouse_quality,
             gondola_quality: raw.gondola_quality,
             linseed_oil_quality: raw.linseed_oil_quality,
-            primaries_quality: raw.primaries_quality.unwrap_or(raw.primary_dye_quality),
-            primary_dye_quality: raw.primary_dye_quality,
-            secondary_dye_quality: raw.secondary_dye_quality,
-            tertiary_dye_quality: raw.tertiary_dye_quality,
+            primaries_quality: raw.primaries_quality.unwrap_or(raw.primary_pigment_quality),
+            primary_pigment_quality: raw.primary_pigment_quality,
+            secondary_pigment_quality: raw.secondary_pigment_quality,
+            tertiary_pigment_quality: raw.tertiary_pigment_quality,
             rollout_epsilon: raw.rollout_epsilon,
             rollout_sell_affordable_multiplier: raw.rollout_sell_affordable_multiplier,
             rollout_sell_base: raw.rollout_sell_base,
@@ -210,7 +214,7 @@ impl From<HeuristicParamsRaw> for HeuristicParams {
             rollout_end_turn_max_round: raw.rollout_end_turn_max_round,
             rollout_ws_material_base_multiplier: raw.rollout_ws_material_base_multiplier,
             rollout_ws_material_colors_met_multiplier: raw.rollout_ws_material_colors_met_multiplier,
-            rollout_ws_action_gain_ducats_value: raw.rollout_ws_action_gain_ducats_value.unwrap_or(bonus),
+            rollout_ws_action_gain_gold_coins_value: raw.rollout_ws_action_gain_gold_coins_value.unwrap_or(bonus),
             rollout_ws_action_color_demand_multiplier: raw.rollout_ws_action_color_demand_multiplier.unwrap_or(bonus),
         }
     }

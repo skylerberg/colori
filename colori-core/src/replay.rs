@@ -1,6 +1,5 @@
-use crate::colori_game::apply_choice_to_state;
+use crate::apply_choice::apply_choice;
 use crate::draft_phase::{simultaneous_pick, advance_draft};
-use crate::draw_phase::execute_draw_phase;
 use crate::game_log::{DrawEvent, DrawLog, StructuredLogEntry};
 use crate::scoring::calculate_whole_points;
 use crate::types::{Choice, GamePhase, GameState};
@@ -9,13 +8,13 @@ use wyrand::WyRand;
 use rand::SeedableRng;
 
 /// Reconstruct a full GameState from a raw JSON initial_state value.
-/// Rebuilds card_lookup and sell_card_lookup from the card instances in the state.
+/// Rebuilds card_lookup and buyer_lookup from the card instances in the state.
 pub fn reconstruct_initial_state(initial_state_json: &serde_json::Value) -> GameState {
     let mut state: GameState = serde_json::from_value(initial_state_json.clone())
         .expect("Failed to deserialize initial state");
 
     state.card_lookup = crate::unordered_cards::get_card_registry();
-    state.sell_card_lookup = crate::unordered_cards::get_sell_card_registry();
+    state.buyer_lookup = crate::unordered_cards::get_buyer_registry();
 
     for player in state.players.iter_mut() {
         player.cached_whole_points = calculate_whole_points(player);
@@ -40,12 +39,22 @@ impl GameReplay {
     /// Create a new replayer from an initial state JSON and initial draw events.
     pub fn new(initial_state_json: &serde_json::Value, initial_draws: &[DrawEvent]) -> Self {
         let mut state = reconstruct_initial_state(initial_state_json);
-        let mut rng = WyRand::seed_from_u64(0);
+        let rng = WyRand::seed_from_u64(0);
 
-        let queue: VecDeque<DrawEvent> = initial_draws.iter().cloned().collect();
-        state.draw_log = Some(DrawLog::Replaying(queue));
-        execute_draw_phase(&mut state, &mut rng);
-        state.draw_log = None;
+        // Setup deals each player's opening workshop, so a log captured since
+        // then already holds those cards. Logs from before the deal moved into
+        // setup record the draws instead, and applying them puts the cards back
+        // where the recorded state had them still in the deck.
+        for event in initial_draws {
+            if let DrawEvent::PlayerDeckDraw { player_index, cards } = event {
+                let player = &mut state.players[*player_index];
+                for card in cards {
+                    let id = card.instance_id as u8;
+                    player.deck.remove(id);
+                    player.workshop_cards.insert(id);
+                }
+            }
+        }
 
         let num_players = state.players.len();
         GameReplay { state, rng, num_players, draft_picks_in_round: 0 }
@@ -57,10 +66,10 @@ impl GameReplay {
         self.state.draw_log = Some(DrawLog::Replaying(queue));
 
         if self.num_players == 1 {
-            // Solo mode: use apply_choice_to_state so phantom draft removals
+            // Solo mode: use apply_choice so phantom draft removals
             // are replayed correctly via player_pick's draw log handling.
             self.draft_picks_in_round = 0;
-            apply_choice_to_state(&mut self.state, entry.player_index, &entry.choice, &mut self.rng);
+            apply_choice(&mut self.state, entry.player_index, &entry.choice, &mut self.rng);
         } else if let Choice::DraftPick { card } = &entry.choice {
             simultaneous_pick(&mut self.state, entry.player_index, *card);
             self.draft_picks_in_round += 1;
@@ -70,7 +79,7 @@ impl GameReplay {
             }
         } else {
             self.draft_picks_in_round = 0;
-            apply_choice_to_state(&mut self.state, entry.player_index, &entry.choice, &mut self.rng);
+            apply_choice(&mut self.state, entry.player_index, &entry.choice, &mut self.rng);
         }
 
         self.state.draw_log = None;

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { Card, SellCard } from '../data/types';
+  import type { Card, Buyer } from '../data/types';
   import { getAnyCardData } from '../data/cards';
-  import { CARD_BACK_URL, getCardArtUrl, getSellCardArtUrl } from '../data/cardArt';
+  import { CARD_BACK_URL, getCardArtUrl, getBuyerArtUrl } from '../data/cardArt';
   import { cardPreviewState } from '../stores/cardPreviewState.svelte';
 
   // The full card appears only once the pointer has rested on it a while.
@@ -28,8 +28,8 @@
     faceDown
       ? CARD_BACK_URL
       : data
-        ? data.kind === 'sellCard'
-          ? getSellCardArtUrl(card as SellCard)
+        ? data.kind === 'buyer'
+          ? getBuyerArtUrl(card as Buyer)
           : getCardArtUrl(card as Card, instanceId)
         : ''
   );
@@ -64,7 +64,7 @@
     if (e.pointerType !== 'mouse' || faceDown) return;
     hoverTimer = setTimeout(() => {
       if (element) cardPreviewState.showHover(artUrl, cardLabel, element.getBoundingClientRect());
-    }, data?.kind === 'sellCard' ? SELL_CARD_HOVER_MS : CARD_HOVER_MS);
+    }, data?.kind === 'buyer' ? SELL_CARD_HOVER_MS : CARD_HOVER_MS);
   }
 
   function endHover() {

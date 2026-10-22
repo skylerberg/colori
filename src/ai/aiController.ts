@@ -1,4 +1,4 @@
-import type { AiSettings, GameState, Choice } from '../data/types';
+import type { BotSettings, GameState, Choice } from '../data/types';
 import { EngineError } from '../engine/engineCall';
 import type { AIWorkerRequest, AIWorkerResponse } from './aiWorker';
 import AIWorkerModule from './aiWorker?worker';
@@ -12,7 +12,7 @@ export class AIController {
   // One per seat, so seats can think at the same time: a worker serves one
   // search at a time, and a second would take over the first's reply.
   private workers = new Map<number, Worker>();
-  aiSettings: AiSettings = {};
+  botSettings: BotSettings = {};
 
   private draftWorkers = new Set<Worker>();
   private startedDraftPicks = new Map<string, Promise<Choice>>();
@@ -108,7 +108,7 @@ export class AIController {
 
   // A plain copy: Svelte state proxies can't be posted to a worker.
   private request(gameState: GameState, playerIndex: number, iterations: number): AIWorkerRequest {
-    return JSON.parse(JSON.stringify({ gameState, playerIndex, iterations, aiSettings: this.aiSettings }));
+    return JSON.parse(JSON.stringify({ gameState, playerIndex, iterations, botSettings: this.botSettings }));
   }
 }
 

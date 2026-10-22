@@ -1,8 +1,8 @@
 import type {
-  CardInstance, Choice, Color, DucatPurchase, GameState, MaterialType, PlayerState, SellCard,
+  CardInstance, Choice, Color, GoldCoinPurchase, GameState, MaterialType, PlayerState, Buyer,
 } from './data/types';
 import { ALL_COLORS } from './data/colors';
-import { getSellCardData } from './data/cards';
+import { getBuyerData } from './data/cards';
 
 // The game log shown to players. Each entry is one move by one player, with
 // what it changed for them, so a view can be filtered to a single player and
@@ -11,23 +11,23 @@ import { getSellCardData } from './data/cards';
 export interface LogChange {
   colors: Partial<Record<Color, number>>;
   materials: Partial<Record<MaterialType, number>>;
-  ducats: number;
+  goldCoins: number;
   boats: number;
-  wildPrimaries: number;
+  bowls: number;
   points: number;
 }
 
 export type LogMove =
-  | { type: 'claim'; buyer: SellCard; unseen: boolean }
+  | { type: 'claim'; buyer: Buyer; unseen: boolean }
   | { type: 'drafted'; cards: CardInstance[] }
   | { type: 'trash'; card: CardInstance }
   | { type: 'keep'; card: CardInstance }
   | { type: 'workshop'; cards: CardInstance[] }
   | { type: 'mix'; mixes: [Color, Color][] }
-  | { type: 'sell'; buyer: SellCard }
+  | { type: 'sell'; buyer: Buyer }
   | { type: 'move'; card: CardInstance | null }
   | { type: 'secondary'; color: Color }
-  | { type: 'spendDucat'; purchase: DucatPurchase }
+  | { type: 'spendGoldCoin'; purchase: GoldCoinPurchase }
   | { type: 'endTurn' };
 
 export type LogEntry =
@@ -61,20 +61,20 @@ export function logChange(before: PlayerState, after: PlayerState): LogChange {
     const delta = after.materials[material] - before.materials[material];
     if (delta !== 0) materials[material] = delta;
   }
-  const sold = (p: PlayerState) => p.completedSellCards.reduce((sum, s) => sum + getSellCardData(s.card).points, 0);
+  const sold = (p: PlayerState) => p.completedBuyers.reduce((sum, s) => sum + getBuyerData(s.card).points, 0);
   return {
     colors,
     materials,
-    ducats: after.ducats - before.ducats,
+    goldCoins: after.goldCoins - before.goldCoins,
     boats: after.boats - before.boats,
-    wildPrimaries: after.wildPrimaries - before.wildPrimaries,
+    bowls: after.bowls - before.bowls,
     points: sold(after) - sold(before),
   };
 }
 
 export function isEmptyChange(change: LogChange): boolean {
   return Object.keys(change.colors).length === 0 && Object.keys(change.materials).length === 0
-    && change.ducats === 0 && change.boats === 0 && change.wildPrimaries === 0 && change.points === 0;
+    && change.goldCoins === 0 && change.boats === 0 && change.bowls === 0 && change.points === 0;
 }
 
 // The instances of `cards` among `from`, each used once, so a starter card
@@ -88,7 +88,7 @@ function instancesOf(cards: string[], from: CardInstance[]): CardInstance[] {
 }
 
 function movesFor(choice: Choice, before: PlayerState, after: PlayerState): LogMove[] {
-  const trashed = (card: string): LogMove => ({ type: 'trash', card: instancesOf([card], before.draftedCards)[0] });
+  const trashed = (card: string): LogMove => ({ type: 'trash', card: instancesOf([card], before.topCards)[0] });
   const workshopped = (cards: string[]): LogMove => ({ type: 'workshop', cards: instancesOf(cards, before.workshopCards) });
   const moved = (card: string | null): LogMove => ({
     type: 'move',
@@ -98,23 +98,23 @@ function movesFor(choice: Choice, before: PlayerState, after: PlayerState): LogM
     case 'draftPick':
       return [];
     case 'takeBuyer':
-      return [{ type: 'claim', buyer: choice.sellCard, unseen: false }];
+      return [{ type: 'claim', buyer: choice.buyer, unseen: false }];
     case 'drawBuyer': {
       const had = new Set(before.buyers.map(b => b.instanceId));
       const drawn = after.buyers.find(b => !had.has(b.instanceId));
       return drawn ? [{ type: 'claim', buyer: drawn.card, unseen: true }] : [];
     }
-    case 'trashDraftedCard':
+    case 'trashTopCard':
       return [trashed(choice.card)];
     case 'keepCard':
-      return [{ type: 'keep', card: instancesOf([choice.card], before.draftedCards)[0] }];
+      return [{ type: 'keep', card: instancesOf([choice.card], before.topCards)[0] }];
     case 'trashAndWorkshop':
       return [trashed(choice.card), workshopped(choice.workshopCards)];
     case 'trashAndMix':
       return [trashed(choice.card), { type: 'mix', mixes: choice.mixes }];
     case 'trashAndSell':
-      return [trashed(choice.card), { type: 'sell', buyer: choice.sellCard }];
-    case 'trashAndMoveToDraftPool':
+      return [trashed(choice.card), { type: 'sell', buyer: choice.buyer }];
+    case 'trashAndLift':
       return [trashed(choice.card), moved(choice.target)];
     case 'workshop':
       return [workshopped(choice.cardTypes)];
@@ -122,14 +122,14 @@ function movesFor(choice: Choice, before: PlayerState, after: PlayerState): LogM
       return [workshopped([])];
     case 'mixAll':
       return [{ type: 'mix', mixes: choice.mixes }];
-    case 'selectSellCard':
-      return [{ type: 'sell', buyer: choice.sellCard }];
-    case 'moveToDraftPool':
+    case 'selectBuyer':
+      return [{ type: 'sell', buyer: choice.buyer }];
+    case 'liftCard':
       return [moved(choice.card)];
     case 'gainSecondary':
       return [{ type: 'secondary', color: choice.color }];
-    case 'spendDucat':
-      return [{ type: 'spendDucat', purchase: choice.purchase }];
+    case 'spendGoldCoin':
+      return [{ type: 'spendGoldCoin', purchase: choice.purchase }];
     case 'endTurn':
       return [{ type: 'endTurn' }];
   }
@@ -147,7 +147,7 @@ export function playEntry(round: number, player: number, choice: Choice, before:
 export function draftedEntries(state: GameState, draftOrder?: number[][]): LogEntry[] {
   return state.players.map((player, i) => {
     const order = draftOrder?.[i] ?? [];
-    const cards = [...player.draftedCards].sort((a, b) => rank(order, a) - rank(order, b));
+    const cards = [...player.topCards].sort((a, b) => rank(order, a) - rank(order, b));
     const none = logChange(player, player);
     return { kind: 'play', round: state.round, player: i, moves: [{ type: 'drafted', cards }], change: none };
   });

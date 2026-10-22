@@ -36,13 +36,13 @@ const BINOM_CUM: [[u64; 10]; 257] = {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CardMarker {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum SellCardMarker {}
+pub enum BuyerMarker {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct BitSet<T>(pub [u128; 2], PhantomData<T>);
 
 pub type UnorderedCards = BitSet<CardMarker>;
-pub type UnorderedSellCards = BitSet<SellCardMarker>;
+pub type UnorderedBuyers = BitSet<BuyerMarker>;
 
 impl<T> Default for BitSet<T> {
     fn default() -> Self {

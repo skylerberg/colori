@@ -7,14 +7,14 @@ function player(): PlayerState {
   return {
     deck: [],
     buyers: [{ instanceId: 3, card: 'PotterAmber' }],
-    workshoppedCards: [],
+    usedCards: [],
     workshopCards: [{ instanceId: 1, card: 'BasicRed' }, { instanceId: 8, card: 'StarterCeramics' }],
-    draftedCards: [{ instanceId: 20, card: 'Cinnabar' }],
+    topCards: [{ instanceId: 20, card: 'Cinnabar' }],
     colorWheel: Object.fromEntries(ALL_COLORS.map(c => [c, 0])) as Record<Color, number>,
     materials: { Textiles: 0, Ceramics: 0, Paintings: 0 },
-    completedSellCards: [],
-    ducats: 1,
-    wildPrimaries: 0,
+    completedBuyers: [],
+    goldCoins: 1,
+    bowls: 0,
     boats: 1,
   };
 }
@@ -36,9 +36,9 @@ describe('playEntry', () => {
   it('records a trash and the workshop answering it, with what they gave', () => {
     const before = player();
     const after = snapshot(before);
-    after.draftedCards = [];
+    after.topCards = [];
     after.workshopCards = [];
-    after.workshoppedCards = before.workshopCards;
+    after.usedCards = before.workshopCards;
     after.colorWheel.Red = 1;
     after.materials.Ceramics = 1;
 
@@ -51,7 +51,7 @@ describe('playEntry', () => {
         { type: 'trash', card: { instanceId: 20, card: 'Cinnabar' } },
         { type: 'workshop', cards: [{ instanceId: 8, card: 'StarterCeramics' }, { instanceId: 1, card: 'BasicRed' }] },
       ],
-      change: { colors: { Red: 1 }, materials: { Ceramics: 1 }, ducats: 0, boats: 0, wildPrimaries: 0, points: 0 },
+      change: { colors: { Red: 1 }, materials: { Ceramics: 1 }, goldCoins: 0, boats: 0, bowls: 0, points: 0 },
     });
   });
 
@@ -70,9 +70,9 @@ describe('playEntry', () => {
     after.colorWheel.Amber = 0;
     after.boats = 0;
     after.buyers = [];
-    after.completedSellCards = [{ instanceId: 3, card: 'PotterAmber' }];
+    after.completedBuyers = [{ instanceId: 3, card: 'PotterAmber' }];
     const change = logChange(before, after);
-    expect(change).toEqual({ colors: { Amber: -1 }, materials: {}, ducats: 0, boats: -1, wildPrimaries: 0, points: 3 });
+    expect(change).toEqual({ colors: { Amber: -1 }, materials: {}, goldCoins: 0, boats: -1, bowls: 0, points: 3 });
   });
 
   it('leaves draft picks out', () => {

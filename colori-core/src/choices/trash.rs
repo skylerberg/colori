@@ -1,4 +1,4 @@
-use crate::action_phase::{can_afford_sell_card, for_each_unique_card_type};
+use crate::action_phase::{can_afford_buyer, for_each_unique_card_type};
 use crate::types::*;
 
 use super::mix_sequences::enumerate_mix_sequences;
@@ -48,30 +48,30 @@ pub(super) fn enumerate_trash_choices(
 ) {
     // What follows the first ability is left on the stack and chosen for on
     // its own once this choice has resolved.
-    match card.trash_abilities()[0] {
+    match card.top_actions()[0] {
         Ability::MixColors { count } => {
             enumerate_mix_sequences(
                 &player.color_wheel,
-                player.wild_primaries,
+                player.bowls,
                 count,
                 choices,
                 |mixes| Choice::TrashAndMix { card, mixes },
             );
         }
         Ability::Sell => {
-            let mut has_sell_card = false;
-            for sell_card in player.buyers.iter() {
-                if can_afford_sell_card(player, &sell_card.sell_card) {
-                    has_sell_card = true;
+            let mut has_buyer = false;
+            for buyer in player.buyers.iter() {
+                if can_afford_buyer(player, &buyer.buyer) {
+                    has_buyer = true;
                     choices.push(Choice::TrashAndSell {
                         card,
-                        sell_card: sell_card.sell_card,
+                        buyer: buyer.buyer,
                     });
                 }
             }
 
-            if !has_sell_card {
-                choices.push(Choice::TrashDraftedCard { card });
+            if !has_buyer {
+                choices.push(Choice::TrashTopCard { card });
             }
         }
         Ability::Workshop { count } => {
@@ -103,15 +103,15 @@ pub(super) fn enumerate_trash_choices(
                 );
             }
         }
-        Ability::MoveToDraftPool => {
+        Ability::LiftCard => {
             if player.workshop_cards.is_empty() {
-                choices.push(Choice::TrashAndMoveToDraftPool {
+                choices.push(Choice::TrashAndLift {
                     card,
                     target: None,
                 });
             } else {
                 for_each_unique_card_type(&player.workshop_cards, &state.card_lookup, |target_card| {
-                    choices.push(Choice::TrashAndMoveToDraftPool {
+                    choices.push(Choice::TrashAndLift {
                         card,
                         target: Some(target_card),
                     });
@@ -119,7 +119,7 @@ pub(super) fn enumerate_trash_choices(
             }
         }
         _ => {
-            choices.push(Choice::TrashDraftedCard { card });
+            choices.push(Choice::TrashTopCard { card });
         }
     }
 }

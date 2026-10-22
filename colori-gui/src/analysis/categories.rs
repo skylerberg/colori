@@ -1,5 +1,5 @@
 use colori_core::cards::{
-    action_cards, basic_dye_cards, chalk_card, draft_copies, draft_dye_cards, dual_material_cards,
+    action_cards, starter_pigment_cards, chalk_card, draft_copies, draft_pigment_cards, dual_material_cards,
     material_color_cards, primaries_card, starter_material_cards,
 };
 use colori_core::types::Card;
@@ -30,13 +30,13 @@ fn starter_category(
 }
 
 pub fn draft_card_categories() -> Vec<CardCategory> {
-    // A dye's tier shows in how many colours it carries.
-    let dyes_with =
-        |color_count: usize| draft_dye_cards().into_iter().filter(move |c| c.colors().len() == color_count);
+    // A pigment's tier shows in how many colours it carries.
+    let pigments_with =
+        |color_count: usize| draft_pigment_cards().into_iter().filter(move |c| c.colors().len() == color_count);
     vec![
-        draft_category("Primary Dyes", dyes_with(3)),
-        draft_category("Secondary Dyes", dyes_with(2)),
-        draft_category("Tertiary Dyes", dyes_with(1)),
+        draft_category("Primary Pigments", pigments_with(3)),
+        draft_category("Secondary Pigments", pigments_with(2)),
+        draft_category("Tertiary Pigments", pigments_with(1)),
         draft_category("Primaries", [primaries_card()]),
         draft_category("Action Cards", action_cards()),
         draft_category("Material + Color", material_color_cards()),
@@ -46,7 +46,7 @@ pub fn draft_card_categories() -> Vec<CardCategory> {
 
 pub fn get_starter_card_categories(num_players: usize) -> Vec<CardCategory> {
     vec![
-        starter_category("Starter Dyes", basic_dye_cards(), num_players),
+        starter_category("Starter Pigments", starter_pigment_cards(), num_players),
         starter_category("Starter Materials", starter_material_cards(), num_players),
         starter_category("Chalk", [chalk_card()], num_players),
     ]

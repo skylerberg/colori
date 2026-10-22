@@ -23,7 +23,7 @@ use wyrand::WyRand;
 
 use crate::apply_choice::apply_choice;
 use crate::choices::{enumerate_choices, enumerate_choices_into};
-use crate::colori_game::{apply_choice_to_state, determinize_in_place, is_taking_turn};
+use crate::colori_game::{determinize_in_place, is_taking_turn};
 use crate::final_turn;
 use crate::ismcts::MctsConfig;
 use crate::ismcts::{advance_past_opponent_draft_picks, OpponentDraftStats};
@@ -176,7 +176,6 @@ pub fn search_refusal(state: &GameState, player_index: usize) -> Option<String> 
     }
     if enumerate_choices(state, player_index).is_empty() {
         let phase = match &state.phase {
-            GamePhase::Draw => "draw",
             GamePhase::Buyers { .. } => "buyers",
             GamePhase::Draft { .. } => "draft",
             GamePhase::Action { .. } => "action",
@@ -205,7 +204,7 @@ impl GameState {
                 );
                 ctx.perspective
             }
-            GamePhase::Draw | GamePhase::GameOver => 0,
+            GamePhase::GameOver => 0,
         }
     }
 }
@@ -258,7 +257,7 @@ impl Game for GameState {
         mut rng: &mut R,
     ) {
         let actor = self.search_actor(ctx);
-        apply_choice_to_state(self, actor, choice, &mut rng);
+        apply_choice(self, actor, choice, &mut rng);
     }
 
     fn rollout<R: Rng + ?Sized>(&mut self, ctx: &SearchContext, mut rng: &mut R) -> Rewards {
@@ -678,7 +677,6 @@ mod tests {
     use super::*;
     use crate::choices::{check_choice_available, enumerate_choices_into};
     use crate::colori_game::{get_game_status, ActionPhaseViews, GameStatus};
-    use crate::draw_phase::execute_draw_phase;
     use crate::setup::create_initial_game_state;
     use rand::SeedableRng;
     use wyrand::WyRand;
@@ -706,9 +704,8 @@ mod tests {
     /// search.
     fn play_full_game(num_players: usize, seed: u64, config: &MctsConfig, reuse: bool) {
         let mut rng = WyRand::seed_from_u64(seed);
-        let ai_players = vec![true; num_players];
-        let mut state = create_initial_game_state(num_players, &ai_players, &mut rng);
-        execute_draw_phase(&mut state, &mut rng);
+        let bot_players = vec![true; num_players];
+        let mut state = create_initial_game_state(num_players, &bot_players, &mut rng);
 
         let mut searchers: Vec<ColoriSearcher> = (0..num_players)
             .map(|_| ColoriSearcher::new(&state))
@@ -718,10 +715,6 @@ mod tests {
         for step in 0..5_000 {
             match &state.phase {
                 GamePhase::GameOver => return,
-                GamePhase::Draw => {
-                    execute_draw_phase(&mut state, &mut rng);
-                    continue;
-                }
                 _ => {}
             }
 
@@ -758,7 +751,7 @@ mod tests {
                 state.phase
             );
 
-            apply_choice_to_state(&mut state, player_index, &choice, &mut rng);
+            apply_choice(&mut state, player_index, &choice, &mut rng);
             if reuse {
                 let same_player = matches!(
                     get_game_status(&state, None),
@@ -802,18 +795,13 @@ mod tests {
     fn search_refuses_a_position_with_no_choices() {
         let mut rng = WyRand::seed_from_u64(3);
         let mut state = create_initial_game_state(3, &[true; 3], &mut rng);
-        execute_draw_phase(&mut state, &mut rng);
         while !matches!(state.phase, GamePhase::Action { .. }) {
-            if matches!(state.phase, GamePhase::Draw) {
-                execute_draw_phase(&mut state, &mut rng);
-                continue;
-            }
             let GameStatus::AwaitingAction { player_index } = get_game_status(&state, None) else {
                 unreachable!("round 1 reaches its action phase");
             };
             let choices = enumerate_choices(&state, player_index);
             let pick = rng.next_u64() % choices.len() as u64;
-            apply_choice_to_state(&mut state, player_index, &choices[pick as usize], &mut rng);
+            apply_choice(&mut state, player_index, &choices[pick as usize], &mut rng);
         }
         assert!(search_refusal(&state, 0).is_none());
 
@@ -822,7 +810,7 @@ mod tests {
         {
             let choices = enumerate_choices(&state, 0);
             let pick = rng.next_u64() % choices.len() as u64;
-            apply_choice_to_state(&mut state, 0, &choices[pick as usize], &mut rng);
+            apply_choice(&mut state, 0, &choices[pick as usize], &mut rng);
         }
         assert!(matches!(state.phase, GamePhase::Action { .. }));
         let refusal = search_refusal(&state, 0).expect("an ended turn has no choices");
@@ -836,14 +824,13 @@ mod tests {
         let mut rng = WyRand::seed_from_u64(5);
         let mut state = create_initial_game_state(2, &[true; 2], &mut rng);
         state.max_rounds = 1;
-        execute_draw_phase(&mut state, &mut rng);
         while !matches!(state.phase, GamePhase::Action { .. }) {
             let GameStatus::AwaitingAction { player_index } = get_game_status(&state, None) else {
                 unreachable!("round 1 reaches its action phase");
             };
             let choices = enumerate_choices(&state, player_index);
             let pick = rng.next_u64() % choices.len() as u64;
-            apply_choice_to_state(&mut state, player_index, &choices[pick as usize], &mut rng);
+            apply_choice(&mut state, player_index, &choices[pick as usize], &mut rng);
         }
 
         let mut searcher = ColoriSearcher::new(&state);
@@ -874,21 +861,16 @@ mod tests {
     fn a_graph_search_merges_a_turns_positions() {
         let mut rng = WyRand::seed_from_u64(19);
         let mut state = create_initial_game_state(3, &[true; 3], &mut rng);
-        execute_draw_phase(&mut state, &mut rng);
         // Random play to the start of round 2's action phase: every player's
         // view of it, since nobody has moved.
         while !(state.round == 2 && matches!(state.phase, GamePhase::Action { .. })) {
-            if matches!(state.phase, GamePhase::Draw) {
-                execute_draw_phase(&mut state, &mut rng);
-                continue;
-            }
             let GameStatus::AwaitingAction { player_index } = get_game_status(&state, None) else {
                 unreachable!("round 2 is reached");
             };
             let mut choices = Vec::new();
             enumerate_choices_into(&state, player_index, &mut choices);
             let choice = choices[(rng.next_u64() % choices.len() as u64) as usize].clone();
-            apply_choice_to_state(&mut state, player_index, &choice, &mut rng);
+            apply_choice(&mut state, player_index, &choice, &mut rng);
         }
         let player = 1;
         let config = MctsConfig {
@@ -944,9 +926,8 @@ mod tests {
     #[test]
     fn same_seed_gives_the_same_choice() {
         let mut setup = WyRand::seed_from_u64(41);
-        let ai_players = vec![true; 3];
-        let mut state = create_initial_game_state(3, &ai_players, &mut setup);
-        execute_draw_phase(&mut state, &mut setup);
+        let bot_players = vec![true; 3];
+        let state = create_initial_game_state(3, &bot_players, &mut setup);
 
         let config = config(200);
         let run = || {
@@ -965,14 +946,13 @@ mod tests {
             };
             let choices = enumerate_choices(state, player_index);
             let choice = choices[(rng.next_u64() % choices.len() as u64) as usize];
-            apply_choice_to_state(state, player_index, &choice, rng);
+            apply_choice(state, player_index, &choice, rng);
         }
     }
 
     fn action_phase(seed: u64, round: u32) -> GameState {
         let mut rng = WyRand::seed_from_u64(seed);
         let mut state = create_initial_game_state(3, &[true; 3], &mut rng);
-        execute_draw_phase(&mut state, &mut rng);
         play_randomly_until(&mut state, &mut rng, |s| {
             s.round == round && matches!(s.phase, GamePhase::Action { .. })
         });
@@ -990,7 +970,7 @@ mod tests {
         let mut decisions = Vec::new();
         while is_taking_turn(views.view(player), player) {
             let decision = decide(views.view(player));
-            views.apply(player, &decision.0);
+            views.apply(player, &decision.0, &mut WyRand::seed_from_u64(0));
             decisions.push(decision);
         }
         decisions
@@ -1009,7 +989,7 @@ mod tests {
             let expected = play_turn(&state, player, |view| {
                 let outcome = by_hand.search(view, player, &config, Some(8), &mut rng);
                 let mut next = view.clone();
-                apply_choice_to_state(&mut next, player, &outcome.choice, &mut WyRand::seed_from_u64(0));
+                apply_choice(&mut next, player, &outcome.choice, &mut WyRand::seed_from_u64(0));
                 if is_taking_turn(&next, player) {
                     by_hand.reuse_subtree(&outcome.choice);
                 } else {
@@ -1039,7 +1019,7 @@ mod tests {
     fn first_decision(searcher: &mut TurnSearcher, state: &GameState, player: usize) -> GameState {
         let outcome = searcher.search(state, player, &config(400), Some(8), &mut WyRand::seed_from_u64(1));
         let mut next = state.clone();
-        apply_choice_to_state(&mut next, player, &outcome.choice, &mut WyRand::seed_from_u64(0));
+        apply_choice(&mut next, player, &outcome.choice, &mut WyRand::seed_from_u64(0));
         assert!(
             searcher.continuation.is_some(),
             "the first decision, {:?}, ended the turn; pick another position",
@@ -1079,7 +1059,6 @@ mod tests {
         let config = config(400);
         let mut rng = WyRand::seed_from_u64(3);
         let mut state = create_initial_game_state(3, &[true; 3], &mut rng);
-        execute_draw_phase(&mut state, &mut rng);
         let mut searcher = TurnSearcher::new(&state);
 
         let GamePhase::Buyers { buyers_state } = &state.phase else {

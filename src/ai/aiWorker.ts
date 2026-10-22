@@ -1,12 +1,12 @@
 import init, { AiSearcher } from '../wasm-pkg/colori_wasm.js';
-import type { AiSettings, GameState } from '../data/types';
+import type { BotSettings, GameState } from '../data/types';
 import { engineCall } from '../engine/engineCall';
 
 export interface AIWorkerRequest {
   gameState: GameState;
   playerIndex: number;
   iterations: number;
-  aiSettings: AiSettings;
+  botSettings: BotSettings;
 }
 
 export interface AIWorkerSuccess {
@@ -35,12 +35,12 @@ function ensureInit(): Promise<unknown> {
 self.onmessage = async (event: MessageEvent<AIWorkerRequest>) => {
   try {
     await ensureInit();
-    const { gameState, playerIndex, iterations, aiSettings } = event.data;
+    const { gameState, playerIndex, iterations, botSettings } = event.data;
     const gameStateJson = JSON.stringify(gameState);
 
-    const aiSettingsJson = JSON.stringify(aiSettings);
+    const botSettingsJson = JSON.stringify(botSettings);
     const ai = (searcher ??= new AiSearcher());
-    const resultJson = engineCall(() => ai.search(gameStateJson, playerIndex, iterations, aiSettingsJson));
+    const resultJson = engineCall(() => ai.search(gameStateJson, playerIndex, iterations, botSettingsJson));
 
     const choice = JSON.parse(resultJson);
     self.postMessage({ type: 'success', choice } satisfies AIWorkerSuccess);
