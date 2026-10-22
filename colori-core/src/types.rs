@@ -1008,6 +1008,10 @@ pub enum Choice {
     DraftPick { card: Card },
     #[serde(rename = "trashDraftedCard", alias = "destroyDraftedCard")]
     TrashDraftedCard { card: Card },
+    /// Keep a drafted card instead of using it, putting it on top of your deck
+    /// rather than trashing it for its action.
+    #[serde(rename = "keepCard")]
+    KeepCard { card: Card },
     #[serde(rename = "endTurn")]
     EndTurn,
     #[serde(rename = "workshop")]

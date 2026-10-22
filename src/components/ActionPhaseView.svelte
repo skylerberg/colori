@@ -2,7 +2,7 @@
   import type { GameState, Choice, Ability, Color, DucatPurchase } from '../data/types';
   import { canSell } from '../engine/wasmEngine';
   import { canMixAny, colorToHex, mixInputs, mixResult, mixWithWildPrimaries, textColorForBackground, WHEEL_ORDER } from '../data/colors';
-  import { SECONDARIES } from '../data/cards';
+  import { getCardData, SECONDARIES } from '../data/cards';
   import { formatSingleAbility } from '../data/abilities';
   import { tableInteraction } from '../stores/tableInteraction';
 
@@ -180,10 +180,11 @@
     {#if topAbility === null}
       <p class="panel-text">
         {#if player.draftedCards.length > 0}
-          <strong>Trash a drafted card</strong> — click one sticking out of the top of your board — to use the
-          ability on its banner. Cards you keep move into your workshop for next round.
+          Every drafted card is decided one way or the other: <strong>use it</strong> — click one sticking out of
+          the top of your board — to take the ability on its banner, or <strong>keep it</strong> to put it on top of
+          your deck for next round.
         {:else}
-          You have no drafted cards left to trash.
+          Your draft pool is empty. Spend what you like, then end your turn.
         {/if}
       </p>
     {:else}
@@ -269,6 +270,19 @@
       {/if}
     {/if}
 
+    {#if topAbility === null && player.draftedCards.length > 0}
+      <div class="keeps">
+        <span class="panel-hint">Or keep a card — it goes on top of your deck and comes back next round:</span>
+        <div class="panel-actions">
+          {#each player.draftedCards as ci (ci.instanceId)}
+            <button class="panel-btn" onclick={() => onAction({ type: 'keepCard', card: ci.card })}>
+              Keep {getCardData(ci.card).name}
+            </button>
+          {/each}
+        </div>
+      </div>
+    {/if}
+
     {#if purchasable.length > 0}
       <div class="ducats">
         <span class="panel-hint">Spend 1 of your {player.ducats} {player.ducats === 1 ? 'ducat' : 'ducats'} (a point each) for:</span>
@@ -284,8 +298,16 @@
       {#if onUndo}
         <button class="panel-btn" onclick={onUndo} disabled={!undoAvailable}>Undo</button>
       {/if}
-      <button class="panel-btn danger" onclick={() => onAction({ type: 'endTurn' })} disabled={topAbility !== null}
-        title={topAbility ? 'Finish the ability first' : 'End your turn'}>End turn</button>
+      <button
+        class="panel-btn danger"
+        onclick={() => onAction({ type: 'endTurn' })}
+        disabled={topAbility !== null || player.draftedCards.length > 0}
+        title={topAbility
+          ? 'Finish the ability first'
+          : player.draftedCards.length > 0
+            ? 'Use or keep every drafted card first'
+            : 'End your turn'}
+      >End turn</button>
     </div>
   </div>
 {/if}

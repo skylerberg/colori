@@ -676,7 +676,7 @@ impl Retained {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::choices::check_choice_available;
+    use crate::choices::{check_choice_available, enumerate_choices_into};
     use crate::colori_game::{get_game_status, ActionPhaseViews, GameStatus};
     use crate::draw_phase::execute_draw_phase;
     use crate::setup::create_initial_game_state;

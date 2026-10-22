@@ -21,6 +21,7 @@ export type LogMove =
   | { type: 'claim'; buyer: SellCard; unseen: boolean }
   | { type: 'drafted'; cards: CardInstance[] }
   | { type: 'trash'; card: CardInstance }
+  | { type: 'keep'; card: CardInstance }
   | { type: 'workshop'; cards: CardInstance[] }
   | { type: 'mix'; mixes: [Color, Color][] }
   | { type: 'sell'; buyer: SellCard }
@@ -105,6 +106,8 @@ function movesFor(choice: Choice, before: PlayerState, after: PlayerState): LogM
     }
     case 'trashDraftedCard':
       return [trashed(choice.card)];
+    case 'keepCard':
+      return [{ type: 'keep', card: instancesOf([choice.card], before.draftedCards)[0] }];
     case 'trashAndWorkshop':
       return [trashed(choice.card), workshopped(choice.workshopCards)];
     case 'trashAndMix':

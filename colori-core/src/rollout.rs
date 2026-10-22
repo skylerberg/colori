@@ -1,7 +1,7 @@
 use crate::action_phase::{
     ability_stack, ability_stack_mut, boats_to_sell, can_afford_sell_card, can_buy_with_ducat,
     trash_drafted_card, end_player_turn, initialize_action_phase, process_ability_stack,
-    resolve_gain_color, resolve_move_to_draft_pool, resolve_select_sell_card,
+    resolve_gain_color, resolve_keep_card, resolve_move_to_draft_pool, resolve_select_sell_card,
     resolve_spend_ducat, resolve_workshop_choice, sell_to_buyer, skip_workshop,
 };
 use crate::colors::{
@@ -258,9 +258,8 @@ fn handle_action_no_pending(state: &mut GameState, player_index: usize, rng: &mu
         }
     }
 
-    let mut copy = state.players[player_index].drafted_cards;
-    let sel = copy.draw_up_to(1, rng);
-    if sel.is_empty() {
+    let drafted = state.players[player_index].drafted_cards;
+    if drafted.is_empty() {
         // No drafted cards left — end turn, and the round with it if this
         // was the last player still acting
         end_player_turn(state, player_index);
@@ -270,11 +269,18 @@ fn handle_action_no_pending(state: &mut GameState, player_index: usize, rng: &mu
         return;
     }
 
+    // Every card in the pool is decided, so the policy picks a card and then
+    // whether to use it or keep it.
+    let card_id = drafted.pick_random(rng).expect("a card in the pool");
+    if rng.random_bool(0.5) {
+        resolve_keep_card(state, player_index, card_id as u32);
+        return;
+    }
+
     // Trash the chosen card, activating its abilities. A lone Mix or Sell is
     // fused inline as an optimization; everything else goes through
     // trash_drafted_card, which pushes onto the stack for resolution on the
     // next step.
-    let card_id = sel.lowest_bit().unwrap();
     let card = state.card_lookup[card_id as usize];
     match card.trash_abilities() {
         &[Ability::MixColors { count }] => {
@@ -313,7 +319,12 @@ fn fused_buy(state: &mut GameState, player_index: usize, card_id: u8, sell_card_
     sell_to_buyer(player, sell_card_index);
 }
 
-pub fn apply_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, params: &HeuristicParams, rng: &mut R) {
+pub fn apply_rollout_step<R: Rng>(
+    state: &mut GameState,
+    heuristic_draft: bool,
+    params: &HeuristicParams,
+    rng: &mut R,
+) {
     // Fast path: finish the whole buyers phase in one step
     if matches!(&state.phase, GamePhase::Buyers { .. }) {
         rollout_resolve_buyers_phase(state, None, rng);
@@ -1022,7 +1033,12 @@ fn two_step_heuristic_mix_seq<R: Rng>(
 }
 
 #[inline(always)]
-fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize, params: &HeuristicParams, rng: &mut impl Rng) {
+fn handle_action_no_pending_heuristic(
+    state: &mut GameState,
+    player_index: usize,
+    params: &HeuristicParams,
+    rng: &mut impl Rng,
+) {
     let drafted = state.players[player_index].drafted_cards;
     if drafted.is_empty() {
         end_player_turn(state, player_index);
@@ -1078,15 +1094,16 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     let t = ((state.round as f64 - 1.0) / (end_turn_max - 1.0)).clamp(0.0, 1.0);
     let end_turn_prob = params.rollout_end_turn_probability_early * (1.0 - t) + params.rollout_end_turn_probability_late * t;
     if best_priority <= params.rollout_end_turn_threshold && rng.random_bool(end_turn_prob) {
-        end_player_turn(state, player_index);
-        if matches!(state.phase, GamePhase::Draw) {
-            rollout_draw_and_draft(state, Some(params), rng);
+        // What "stop here" used to be is "keep this one and decide the rest".
+        if let Some(id) = best_id {
+            resolve_keep_card(state, player_index, id as u32);
+            return;
         }
-        return;
     }
 
-    // As in the random policy, a lone Mix or Sell is fused inline.
-    let card_id = best_id.unwrap();
+    // As in the random policy, a lone Mix or Sell is fused inline. A card the
+    // priority table scored at nothing still has to be decided.
+    let card_id = best_id.or_else(|| drafted.lowest_bit()).expect("a card in the pool");
     let card = state.card_lookup[card_id as usize];
     match card.trash_abilities() {
         &[Ability::MixColors { count }] => {
@@ -1113,7 +1130,12 @@ fn handle_action_no_pending_heuristic(state: &mut GameState, player_index: usize
     }
 }
 
-pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_draft: bool, params: &HeuristicParams, rng: &mut R) {
+pub fn apply_heuristic_rollout_step<R: Rng>(
+    state: &mut GameState,
+    heuristic_draft: bool,
+    params: &HeuristicParams,
+    rng: &mut R,
+) {
     // Buyers phase
     if matches!(&state.phase, GamePhase::Buyers { .. }) {
         rollout_resolve_buyers_phase(state, Some(params), rng);
@@ -1156,7 +1178,12 @@ pub fn apply_heuristic_rollout_step<R: Rng>(state: &mut GameState, heuristic_dra
 }
 
 /// One step of `player_index`'s action turn, chosen by the heuristic policy.
-fn heuristic_action_step<R: Rng>(state: &mut GameState, player_index: usize, params: &HeuristicParams, rng: &mut R) {
+fn heuristic_action_step<R: Rng>(
+    state: &mut GameState,
+    player_index: usize,
+    params: &HeuristicParams,
+    rng: &mut R,
+) {
     // Each branch works out only what it reads, the best sale or the demand
     // tables, and only once it is past the returns that read neither.
     match ability_stack(state, player_index).last() {
@@ -1319,10 +1346,9 @@ mod tests {
         state
     }
 
-    /// Ends the round with one heuristic step and checks the first claim of
-    /// round 2. Seat 1 makes it, from the display as round 1 left it, and a
-    /// greedy heuristic claim is the best-aligned face-up card.
-    fn assert_round_two_opens_with_heuristic_claim(mut state: GameState, params: &HeuristicParams) {
+    /// The claim seat 1's first heuristic step should make: the best-aligned
+    /// face-up card, from the display as round 1 left it.
+    fn expected_claim(state: &GameState, params: &HeuristicParams) -> u32 {
         let seat_one = &state.players[1];
         let mut expected = None;
         let mut best = f64::NEG_INFINITY;
@@ -1333,10 +1359,14 @@ mod tests {
                 expected = Some(instance.instance_id);
             }
         }
-        let expected = expected.expect("round 1 leaves the display stocked");
+        expected.expect("round 1 leaves the display stocked")
+    }
 
+    /// Ends the round with one heuristic step and checks the first claim of
+    /// round 2.
+    fn assert_round_two_opens_with_heuristic_claim(mut state: GameState, params: &HeuristicParams) {
+        let expected = expected_claim(&state, params);
         apply_heuristic_rollout_step(&mut state, false, params, &mut WyRand::seed_from_u64(0));
-
         assert_eq!(state.round, 2, "seat 0's step should have ended the round");
         assert!(
             state.players[1].buyers.iter().any(|b| b.instance_id == expected),
@@ -1354,19 +1384,34 @@ mod tests {
         }
     }
 
+    /// A turn that keeps everything still ends — one card at a time — and the
+    /// round rolls over into an aligned claim.
     #[test]
-    fn heuristic_rollouts_claim_by_alignment_after_a_turn_ends_early() {
+    fn heuristic_rollouts_claim_by_alignment_after_a_turn_keeps_its_cards() {
         let mut params = greedy_params();
-        // Every drafted card falls under the threshold, and a round-1 turn
-        // under it always ends.
+        // Every drafted card falls under the threshold, so the heuristic keeps
+        // each one rather than using it.
         params.rollout_end_turn_threshold = u32::MAX;
         params.rollout_end_turn_probability_early = 1.0;
         for seed in 0..20 {
             let mut state = seat_zero_ends_round_one(seed);
             // With no buyers there is no sale to buy, which is tried first.
             state.players[0].buyers = FixedVec::new();
-            assert!(!state.players[0].drafted_cards.is_empty());
-            assert_round_two_opens_with_heuristic_claim(state, &params);
+            let drafted = state.players[0].drafted_cards;
+            assert!(!drafted.is_empty());
+            let expected = expected_claim(&state, &params);
+
+            // Keeping a card never ends the turn while another is still undecided.
+            for _ in 0..drafted.len() {
+                apply_heuristic_rollout_step(&mut state, false, &params, &mut WyRand::seed_from_u64(0));
+                assert_eq!(state.round, 1, "the turn cannot end with cards left to decide");
+            }
+            apply_heuristic_rollout_step(&mut state, false, &params, &mut WyRand::seed_from_u64(0));
+            assert_eq!(state.round, 2, "the turn ends once every card is decided");
+            assert!(
+                state.players[1].buyers.iter().any(|b| b.instance_id == expected),
+                "seat 1 should have claimed the best-aligned face-up card"
+            );
         }
     }
 }

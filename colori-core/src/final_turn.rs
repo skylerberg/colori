@@ -304,9 +304,13 @@ fn worth_trying(state: &GameState, player_index: usize) -> Vec<Choice> {
         // A trash that mixes nothing, sells to nobody or moves nothing does
         // nothing at all.
         Choice::TrashAndMix { mixes, .. } => !mixes.is_empty() && mixes_are_needed(mixes, &need),
-        Choice::TrashDraftedCard { .. } | Choice::TrashAndMoveToDraftPool { target: None, .. } => {
-            false
+        Choice::TrashDraftedCard { card } => {
+            // A Sell card nobody can buy from trashes for nothing; a card that
+            // trashes for what it gives is worth taking.
+            !matches!(card.trash_abilities()[0], Ability::Sell)
         }
+        Choice::TrashAndMoveToDraftPool { target: None, .. } => false,
+
         Choice::SpendDucat {
             purchase: DucatPurchase::MixColors,
         } => VALID_MIX_PAIRS.iter().any(|&(a, b)| {
