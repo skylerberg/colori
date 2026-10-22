@@ -174,6 +174,7 @@ export interface GameState {
 export type Choice =
   | { type: 'draftPick'; card: Card }
   | { type: 'trashDraftedCard'; card: Card }
+  | { type: 'keepCard'; card: Card }
   | { type: 'endTurn' }
   | { type: 'workshop'; cardTypes: Card[] }
   | { type: 'skipWorkshop' }

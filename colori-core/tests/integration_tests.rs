@@ -1772,15 +1772,19 @@ fn test_end_of_turn_sends_the_workshop_to_the_bottom_of_the_deck() {
 }
 
 #[test]
-fn test_end_of_turn_moves_the_draft_pool_into_the_workshop() {
+fn test_end_of_turn_puts_undecided_draft_pool_cards_on_top_of_the_deck() {
     let (state, _, drafted) = state_at_first_end_of_turn(4);
     let player = &state.players[0];
 
-    assert_eq!(player.workshop_cards, drafted);
     assert!(player.drafted_cards.is_empty());
     assert!(
-        player.deck.cards().intersection(drafted).is_empty(),
-        "kept draft-pool cards go to the workshop, not into the deck"
+        player.workshop_cards.is_empty(),
+        "the workshop area goes to the deck, so the turn leaves no workshop behind"
+    );
+    let top = player.deck.segments()[0];
+    assert!(
+        drafted.difference(top).is_empty(),
+        "a card the turn never decided is a card it kept: it waits on top of the deck"
     );
 }
 
@@ -1820,8 +1824,10 @@ fn test_draw_phase_tops_the_workshop_up_to_five() {
         let choices = enumerate_choices(&state, player);
         apply_choice(&mut state, player, &choices[0], &mut rng);
     }
-    let carried = state.players[0].workshop_cards;
-    assert_eq!(carried, drafted);
+    assert!(
+        state.players[0].workshop_cards.is_empty(),
+        "a finished turn leaves no workshop: its cards sit on top of the deck"
+    );
 
     execute_draw_phase(&mut state, &mut rng);
     assert_eq!(
@@ -1830,8 +1836,8 @@ fn test_draw_phase_tops_the_workshop_up_to_five() {
         "the draw phase should top the workshop up to five, not add five to it"
     );
     assert!(
-        carried.difference(state.players[0].workshop_cards).is_empty(),
-        "carried-over cards should still be in the workshop"
+        drafted.difference(state.players[0].workshop_cards).is_empty(),
+        "the cards kept last round are drawn straight back into the workshop"
     );
 }
 
@@ -2473,9 +2479,15 @@ fn test_a_player_whose_turn_is_over_has_nothing_left_to_choose() {
         action_state.turns[1].ability_stack = stack;
     }
     apply_choice_to_state(&mut state, 0, &Choice::EndTurn, &mut rng);
-    // Enough to buy a workshop pick, were the turn still open.
+    // Enough to buy a workshop pick, were the turn still open, and a card in
+    // the workshop for it to take.
     state.players[0].ducats = 3;
     state.players[0].cached_whole_points = calculate_whole_points(&state.players[0]);
+    let mut drawn = UnorderedCards::new();
+    state.players[0]
+        .deck
+        .draw_into(&mut drawn, 1, &mut rng);
+    state.players[0].workshop_cards = drawn;
     assert!(!state.players[0].workshop_cards.is_empty());
 
     assert!(enumerate_choices(&state, 0).is_empty());

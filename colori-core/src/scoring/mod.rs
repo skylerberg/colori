@@ -290,7 +290,6 @@ mod tests {
             workshopped_cards: UnorderedCards::new(),
             workshop_cards: UnorderedCards::new(),
             drafted_cards: UnorderedCards::new(),
-            kept_cards: UnorderedCards::new(),
             color_wheel: ColorWheel { counts: color_counts.map(|c| c as u8) },
             materials: Materials::new(),
             completed_sell_cards,

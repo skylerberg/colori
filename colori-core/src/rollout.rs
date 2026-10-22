@@ -245,12 +245,7 @@ fn legal_ducat_purchases(player: &PlayerState) -> ([DucatPurchase; 3], usize) {
 }
 
 #[inline(always)]
-fn handle_action_no_pending(
-    state: &mut GameState,
-    player_index: usize,
-    rng: &mut impl Rng,
-    keep_cards: bool,
-) {
+fn handle_action_no_pending(state: &mut GameState, player_index: usize, rng: &mut impl Rng) {
     // Spending a ducat is one of the things a turn can do, so a rollout that
     // never did it would leave the search blind to what ducats are worth.
     let (purchases, purchase_count) = legal_ducat_purchases(&state.players[player_index]);
@@ -274,27 +269,13 @@ fn handle_action_no_pending(
         return;
     }
 
-    let card_id = if keep_cards {
-        // Every card in the pool is decided, so the policy picks a card and
-        // then whether to use it or keep it — there is no stopping here.
-        let card_id = drafted.pick_random(rng).expect("a card in the pool");
-        if rng.random_bool(0.5) {
-            resolve_keep_card(state, player_index, card_id as u32);
-            return;
-        }
-        card_id
-    } else {
-        let mut copy = drafted;
-        let sel = copy.draw_up_to(1, rng);
-        if sel.is_empty() {
-            end_player_turn(state, player_index);
-            if matches!(state.phase, GamePhase::Draw) {
-                rollout_draw_and_draft(state, None, rng);
-            }
-            return;
-        }
-        sel.lowest_bit().unwrap()
-    };
+    // Every card in the pool is decided, so the policy picks a card and then
+    // whether to use it or keep it.
+    let card_id = drafted.pick_random(rng).expect("a card in the pool");
+    if rng.random_bool(0.5) {
+        resolve_keep_card(state, player_index, card_id as u32);
+        return;
+    }
 
     // Trash the chosen card, activating its abilities. A lone Mix or Sell is
     // fused inline as an optimization; everything else goes through
@@ -343,7 +324,6 @@ pub fn apply_rollout_step<R: Rng>(
     heuristic_draft: bool,
     params: &HeuristicParams,
     rng: &mut R,
-    keep_cards: bool,
 ) {
     // Fast path: finish the whole buyers phase in one step
     if matches!(&state.phase, GamePhase::Buyers { .. }) {
@@ -380,22 +360,17 @@ pub fn apply_rollout_step<R: Rng>(
             let player_index = action_state
                 .first_unended()
                 .expect("The round ends as the last turn does");
-            random_action_step(state, player_index, rng, keep_cards);
+            random_action_step(state, player_index, rng);
         }
         _ => panic!("Cannot apply rollout step for current state"),
     }
 }
 
 /// One step of `player_index`'s action turn, chosen at random.
-fn random_action_step<R: Rng>(
-    state: &mut GameState,
-    player_index: usize,
-    rng: &mut R,
-    keep_cards: bool,
-) {
+fn random_action_step<R: Rng>(state: &mut GameState, player_index: usize, rng: &mut R) {
     match ability_stack(state, player_index).last() {
         None => {
-            handle_action_no_pending(state, player_index, rng, keep_cards);
+            handle_action_no_pending(state, player_index, rng);
         }
         Some(Ability::Workshop { count }) => {
             let count = *count;
@@ -449,13 +424,12 @@ pub(crate) fn play_out_action_turn<R: Rng>(
     heuristic: bool,
     params: &HeuristicParams,
     rng: &mut R,
-    keep_cards: bool,
 ) {
     while matches!(&state.phase, GamePhase::Action { action_state } if !action_state.turns[player_index].ended) {
         if heuristic {
-            heuristic_action_step(state, player_index, params, rng, keep_cards);
+            heuristic_action_step(state, player_index, params, rng);
         } else {
-            random_action_step(state, player_index, rng, keep_cards);
+            random_action_step(state, player_index, rng);
         }
     }
 }
@@ -1064,7 +1038,6 @@ fn handle_action_no_pending_heuristic(
     player_index: usize,
     params: &HeuristicParams,
     rng: &mut impl Rng,
-    keep_cards: bool,
 ) {
     let drafted = state.players[player_index].drafted_cards;
     if drafted.is_empty() {
@@ -1077,7 +1050,7 @@ fn handle_action_no_pending_heuristic(
 
     // Epsilon: random fallback
     if rng.random_bool(params.rollout_epsilon) {
-        handle_action_no_pending(state, player_index, rng, keep_cards);
+        handle_action_no_pending(state, player_index, rng);
         return;
     }
 
@@ -1121,19 +1094,11 @@ fn handle_action_no_pending_heuristic(
     let t = ((state.round as f64 - 1.0) / (end_turn_max - 1.0)).clamp(0.0, 1.0);
     let end_turn_prob = params.rollout_end_turn_probability_early * (1.0 - t) + params.rollout_end_turn_probability_late * t;
     if best_priority <= params.rollout_end_turn_threshold && rng.random_bool(end_turn_prob) {
-        // In a turn that decides every card, what used to be "stop here" is
-        // "keep this one and decide the rest".
-        if keep_cards {
-            if let Some(id) = best_id {
-                resolve_keep_card(state, player_index, id as u32);
-                return;
-            }
+        // What "stop here" used to be is "keep this one and decide the rest".
+        if let Some(id) = best_id {
+            resolve_keep_card(state, player_index, id as u32);
+            return;
         }
-        end_player_turn(state, player_index);
-        if matches!(state.phase, GamePhase::Draw) {
-            rollout_draw_and_draft(state, Some(params), rng);
-        }
-        return;
     }
 
     // As in the random policy, a lone Mix or Sell is fused inline. A card the
@@ -1170,7 +1135,6 @@ pub fn apply_heuristic_rollout_step<R: Rng>(
     heuristic_draft: bool,
     params: &HeuristicParams,
     rng: &mut R,
-    keep_cards: bool,
 ) {
     // Buyers phase
     if matches!(&state.phase, GamePhase::Buyers { .. }) {
@@ -1207,7 +1171,7 @@ pub fn apply_heuristic_rollout_step<R: Rng>(
             let player_index = action_state
                 .first_unended()
                 .expect("The round ends as the last turn does");
-            heuristic_action_step(state, player_index, params, rng, keep_cards);
+            heuristic_action_step(state, player_index, params, rng);
         }
         _ => panic!("Cannot apply heuristic rollout step for current state"),
     }
@@ -1219,13 +1183,12 @@ fn heuristic_action_step<R: Rng>(
     player_index: usize,
     params: &HeuristicParams,
     rng: &mut R,
-    keep_cards: bool,
 ) {
     // Each branch works out only what it reads, the best sale or the demand
     // tables, and only once it is past the returns that read neither.
     match ability_stack(state, player_index).last() {
         None => {
-            handle_action_no_pending_heuristic(state, player_index, params, rng, keep_cards);
+            handle_action_no_pending_heuristic(state, player_index, params, rng);
         }
         Some(Ability::Workshop { count }) => {
             let count = *count;
@@ -1383,10 +1346,9 @@ mod tests {
         state
     }
 
-    /// Ends the round with one heuristic step and checks the first claim of
-    /// round 2. Seat 1 makes it, from the display as round 1 left it, and a
-    /// greedy heuristic claim is the best-aligned face-up card.
-    fn assert_round_two_opens_with_heuristic_claim(mut state: GameState, params: &HeuristicParams) {
+    /// The claim seat 1's first heuristic step should make: the best-aligned
+    /// face-up card, from the display as round 1 left it.
+    fn expected_claim(state: &GameState, params: &HeuristicParams) -> u32 {
         let seat_one = &state.players[1];
         let mut expected = None;
         let mut best = f64::NEG_INFINITY;
@@ -1397,10 +1359,14 @@ mod tests {
                 expected = Some(instance.instance_id);
             }
         }
-        let expected = expected.expect("round 1 leaves the display stocked");
+        expected.expect("round 1 leaves the display stocked")
+    }
 
-        apply_heuristic_rollout_step(&mut state, false, params, &mut WyRand::seed_from_u64(0), false);
-
+    /// Ends the round with one heuristic step and checks the first claim of
+    /// round 2.
+    fn assert_round_two_opens_with_heuristic_claim(mut state: GameState, params: &HeuristicParams) {
+        let expected = expected_claim(&state, params);
+        apply_heuristic_rollout_step(&mut state, false, params, &mut WyRand::seed_from_u64(0));
         assert_eq!(state.round, 2, "seat 0's step should have ended the round");
         assert!(
             state.players[1].buyers.iter().any(|b| b.instance_id == expected),
@@ -1418,19 +1384,34 @@ mod tests {
         }
     }
 
+    /// A turn that keeps everything still ends — one card at a time — and the
+    /// round rolls over into an aligned claim.
     #[test]
-    fn heuristic_rollouts_claim_by_alignment_after_a_turn_ends_early() {
+    fn heuristic_rollouts_claim_by_alignment_after_a_turn_keeps_its_cards() {
         let mut params = greedy_params();
-        // Every drafted card falls under the threshold, and a round-1 turn
-        // under it always ends.
+        // Every drafted card falls under the threshold, so the heuristic keeps
+        // each one rather than using it.
         params.rollout_end_turn_threshold = u32::MAX;
         params.rollout_end_turn_probability_early = 1.0;
         for seed in 0..20 {
             let mut state = seat_zero_ends_round_one(seed);
             // With no buyers there is no sale to buy, which is tried first.
             state.players[0].buyers = FixedVec::new();
-            assert!(!state.players[0].drafted_cards.is_empty());
-            assert_round_two_opens_with_heuristic_claim(state, &params);
+            let drafted = state.players[0].drafted_cards;
+            assert!(!drafted.is_empty());
+            let expected = expected_claim(&state, &params);
+
+            // Keeping a card never ends the turn while another is still undecided.
+            for _ in 0..drafted.len() {
+                apply_heuristic_rollout_step(&mut state, false, &params, &mut WyRand::seed_from_u64(0));
+                assert_eq!(state.round, 1, "the turn cannot end with cards left to decide");
+            }
+            apply_heuristic_rollout_step(&mut state, false, &params, &mut WyRand::seed_from_u64(0));
+            assert_eq!(state.round, 2, "the turn ends once every card is decided");
+            assert!(
+                state.players[1].buyers.iter().any(|b| b.instance_id == expected),
+                "seat 1 should have claimed the best-aligned face-up card"
+            );
         }
     }
 }

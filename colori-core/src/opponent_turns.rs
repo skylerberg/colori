@@ -174,8 +174,7 @@ impl OpponentTurns {
             }
 
             if expanding {
-                // Opponents play the game's own model: nothing is declared for them.
-                play_out_action_turn(state, player, policy.heuristic, policy.params, rng, false);
+                play_out_action_turn(state, player, policy.heuristic, policy.params, rng);
                 return;
             }
             node = child;

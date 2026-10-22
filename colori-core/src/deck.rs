@@ -124,6 +124,21 @@ impl Deck {
         self.segments.push(cards);
     }
 
+    /// Put `cards` on top of the deck, where the next draw starts. They join
+    /// the front segment rather than making one of their own: a segment is a
+    /// set, so the deck keeps no order within it, and the segment bound is
+    /// about rounds rather than kept cards.
+    pub fn push_top(&mut self, cards: UnorderedCards) {
+        if cards.is_empty() {
+            return;
+        }
+        if self.segments.is_empty() {
+            self.segments.push(cards);
+        } else {
+            self.segments[0] = self.segments[0].union(cards);
+        }
+    }
+
     /// Draw up to `count` cards into `destination`, taking from the front
     /// segment and moving on when it runs out. Returns how many were drawn,
     /// which is short of `count` only when the deck ran dry — there is no

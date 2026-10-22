@@ -105,6 +105,8 @@
       {#each trashAbilities(m.card.card) as ability}
         <span class="ability">{formatSingleAbility(ability)}</span>
       {/each}
+    {:else if m.type === 'keep'}
+      <span class="verb">kept</span> {@render card(m.card)} <span class="aside">on top of their deck</span>
     {:else if m.type === 'workshop'}
       {#if m.cards.length > 0}
         <span class="verb">workshopped</span>
