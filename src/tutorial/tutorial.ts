@@ -144,7 +144,7 @@ function createTour(): Tour {
   newTour.addStep({
     id: 'action-phase',
     title: 'Action Phase',
-    text: 'Everyone plays at once. Click a drafted card to trash it and use its ability: Workshop, Mix, Sell, or move a workshop card up to your draft pool. This panel says what each ability needs, and the board lights up what you can click. Cards you keep move into your workshop, and your used workshop goes to the bottom of your deck.',
+    text: 'Everyone plays at once. Click a drafted card to trash it and use its ability: Workshop, Mix, Sell, or move a workshop card up to your draft pool. This panel says what each ability needs, and the board lights up what you can click. A card you keep goes on top of your deck, to be drawn again next round, and your used workshop goes to the bottom. End turn is always there when you are done, and the Keep remaining box says what becomes of any drafted cards you have not used.',
     attachTo: { element: '.controls', on: 'right' },
     buttons: [backButton, nextButton],
   });

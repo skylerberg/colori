@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { GameState } from '../data/types';
-  import { formatScore, isTakingActionTurn, playerScore } from '../gameUtils';
+  import { formatScore, isTakingActionTurn, playerScore, startingPlayerIndex } from '../gameUtils';
   import CharacterPortrait from './CharacterPortrait.svelte';
 
   let { gameState, selectedPlayerIndex, onSelect, actingPlayers, thinkingPlayers, viewerIndex }: {
@@ -12,6 +12,9 @@
     // The seat this screen plays, or -1.
     viewerIndex: number;
   } = $props();
+
+  // The seat that claims first in this round's buyers phase.
+  let firstPlayer = $derived(startingPlayerIndex(gameState.round, gameState.players.length));
 
   function status(i: number): { text: string; kind: string } | null {
     if (thinkingPlayers.includes(i)) return { text: 'Thinking', kind: 'thinking' };
@@ -37,6 +40,7 @@
         <span class="tab-name">
           {gameState.playerNames[i]}
           {#if i === viewerIndex}<span class="badge you">You</span>{/if}
+          {#if i === firstPlayer}<span class="badge first" title="This round's starting player — first to claim a buyer">First</span>{/if}
           {#if gameState.aiPlayers[i]}<span class="badge ai">AI</span>{/if}
         </span>
         <span class="tab-meta">
@@ -136,6 +140,11 @@
   .badge.you {
     background: rgba(201, 168, 76, 0.85);
     color: #2c1e12;
+  }
+
+  .badge.first {
+    background: rgba(58, 107, 58, 0.9);
+    color: #e6f2e2;
   }
 
   .status {

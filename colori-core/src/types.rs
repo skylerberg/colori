@@ -1005,6 +1005,12 @@ fn default_sell_card_lookup() -> [SellCard; 256] {
     [ALL_SELL_CARDS[0]; 256]
 }
 
+/// Ending a turn keeps what it did not decide unless it is told otherwise,
+/// which is what logs written before the choice carried the flag meant.
+fn keep_remaining_by_default() -> bool {
+    true
+}
+
 // ── Choice ──
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -1018,8 +1024,15 @@ pub enum Choice {
     /// rather than trashing it for its action.
     #[serde(rename = "keepCard")]
     KeepCard { card: Card },
+    /// End the turn. `keep_remaining` decides what becomes of drafted cards
+    /// the turn did not decide: kept on top of the deck for the next round, or
+    /// trashed without using them. It defaults to keeping, which is what an
+    /// `endTurn` choice written before the flag meant.
     #[serde(rename = "endTurn")]
-    EndTurn,
+    EndTurn {
+        #[serde(rename = "keepRemaining", default = "keep_remaining_by_default")]
+        keep_remaining: bool,
+    },
     #[serde(rename = "workshop")]
     Workshop {
         #[serde(rename = "cardTypes")]
@@ -1075,6 +1088,18 @@ pub enum Choice {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A log written before the end turn carried what to do with the cards it
+    /// left decided nothing at all, which was keeping them.
+    #[test]
+    fn an_end_turn_without_the_flag_keeps_the_cards_it_leaves() {
+        let old: Choice = serde_json::from_str(r#"{"type":"endTurn"}"#).unwrap();
+        assert_eq!(old, Choice::EndTurn { keep_remaining: true });
+
+        let trash: Choice =
+            serde_json::from_str(r#"{"type":"endTurn","keepRemaining":false}"#).unwrap();
+        assert_eq!(trash, Choice::EndTurn { keep_remaining: false });
+    }
 
     /// A workshop choice carries its cards in a fixed-size array, so no ability
     /// may grant more picks than that array holds.

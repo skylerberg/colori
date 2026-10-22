@@ -78,6 +78,24 @@ describe('playEntry', () => {
   it('leaves draft picks out', () => {
     expect(playEntry(1, 0, { type: 'draftPick', card: 'Alum' }, player(), player())).toBeNull();
   });
+
+  it('shows the cards a turn trashed on its way out', () => {
+    const before = player();
+    const after = snapshot(before);
+    after.draftedCards = [];
+    const entry = playEntry(3, 0, { type: 'endTurn', keepRemaining: false }, before, after);
+    expect(entry?.kind === 'play' && entry.moves).toEqual([
+      { type: 'trashWithoutUsing', cards: [{ instanceId: 20, card: 'Cinnabar' }] },
+      { type: 'endTurn' },
+    ]);
+  });
+
+  it('keeps a turn that ends empty quiet', () => {
+    const before = player();
+    before.draftedCards = [];
+    const entry = playEntry(3, 0, { type: 'endTurn', keepRemaining: false }, before, before);
+    expect(entry?.kind === 'play' && entry.moves).toEqual([{ type: 'endTurn' }]);
+  });
 });
 
 describe('migrateLog', () => {

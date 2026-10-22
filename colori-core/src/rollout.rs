@@ -262,7 +262,7 @@ fn handle_action_no_pending(state: &mut GameState, player_index: usize, rng: &mu
     if drafted.is_empty() {
         // No drafted cards left — end turn, and the round with it if this
         // was the last player still acting
-        end_player_turn(state, player_index);
+        end_player_turn(state, player_index, true);
         if matches!(state.phase, GamePhase::Draw) {
             rollout_draw_and_draft(state, None, rng);
         }
@@ -1049,7 +1049,7 @@ fn handle_action_no_pending_heuristic(
 ) {
     let drafted = state.players[player_index].drafted_cards;
     if drafted.is_empty() {
-        end_player_turn(state, player_index);
+        end_player_turn(state, player_index, true);
         if matches!(state.phase, GamePhase::Draw) {
             rollout_draw_and_draft(state, Some(params), rng);
         }
@@ -1350,7 +1350,7 @@ mod tests {
             let choice = choices[rng.random_range(0..choices.len())].clone();
             apply_choice_to_state(&mut state, player, &choice, &mut rng);
         }
-        end_player_turn(&mut state, 1);
+        end_player_turn(&mut state, 1, true);
         state
     }
 

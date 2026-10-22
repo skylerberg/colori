@@ -21,6 +21,8 @@ export type LogMove =
   | { type: 'claim'; buyer: SellCard; unseen: boolean }
   | { type: 'drafted'; cards: CardInstance[] }
   | { type: 'trash'; card: CardInstance }
+  // Cards a turn trashed on its way out, without using what they would do.
+  | { type: 'trashWithoutUsing'; cards: CardInstance[] }
   | { type: 'keep'; card: CardInstance }
   | { type: 'workshop'; cards: CardInstance[] }
   | { type: 'mix'; mixes: [Color, Color][] }
@@ -131,7 +133,9 @@ function movesFor(choice: Choice, before: PlayerState, after: PlayerState): LogM
     case 'spendDucat':
       return [{ type: 'spendDucat', purchase: choice.purchase }];
     case 'endTurn':
-      return [{ type: 'endTurn' }];
+      return choice.keepRemaining === false && before.draftedCards.length > 0
+        ? [{ type: 'trashWithoutUsing', cards: before.draftedCards }, { type: 'endTurn' }]
+        : [{ type: 'endTurn' }];
   }
 }
 

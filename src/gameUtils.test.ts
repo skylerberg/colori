@@ -1,12 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import type { GamePhase } from './data/types';
-import { revealedDraftedCount } from './gameUtils';
+import { revealedDraftedCount, startingPlayerIndex } from './gameUtils';
 
 function draft(pickNumber: number): GamePhase {
   return { type: 'draft', draftState: { pickNumber, currentPlayerIndex: 0, hands: [[], [], []] } };
 }
 
 const VIEWER = 0;
+
+describe('startingPlayerIndex', () => {
+  it('starts with the first seat and moves one each round', () => {
+    expect(startingPlayerIndex(1, 4)).toBe(0);
+    expect(startingPlayerIndex(2, 4)).toBe(1);
+    expect(startingPlayerIndex(4, 4)).toBe(3);
+  });
+
+  it('wraps after a full turn round the table', () => {
+    expect(startingPlayerIndex(5, 4)).toBe(0);
+    expect(startingPlayerIndex(7, 3)).toBe(0);
+    expect(startingPlayerIndex(7, 5)).toBe(1);
+  });
+});
 
 describe('revealedDraftedCount', () => {
   it('shows every pick of your own as you make it', () => {
