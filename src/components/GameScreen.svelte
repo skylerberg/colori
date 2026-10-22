@@ -182,7 +182,7 @@
   // The follow-up choices that answer each ability a trash can open with.
   const ANSWERS: Partial<Record<Choice['type'], Ability['type']>> = {
     mixAll: 'mixColors',
-    selectBuyer: 'sell',
+    sellToBuyer: 'sell',
     workshop: 'workshop',
     skipWorkshop: 'workshop',
     liftCard: 'liftCard',
@@ -207,7 +207,7 @@
     switch (followUp.type) {
       case 'mixAll':
         return { type: 'trashAndMix', card: trashCard, mixes: followUp.mixes };
-      case 'selectBuyer':
+      case 'sellToBuyer':
         return { type: 'trashAndSell', card: trashCard, buyer: followUp.buyer };
       case 'workshop':
         return { type: 'trashAndWorkshop', card: trashCard, workshopCards: followUp.cardTypes };

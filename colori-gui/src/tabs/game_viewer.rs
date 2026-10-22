@@ -669,7 +669,7 @@ fn render_final_state(
                     }
                     ui.label(format!("Deck size: {}", stats.deck_size));
                     ui.label(format!(
-                        "GoldCoins: {} | Wild primaries: {} | Boats: {}",
+                        "Gold coins: {} | Bowls: {} | Boats: {}",
                         stats.gold_coins, stats.bowls, stats.boats
                     ));
                     for &mt in &ALL_MATERIAL_TYPES {
@@ -874,7 +874,7 @@ fn render_replayed_state(
         .default_open(true)
         .show(ui, |ui| {
             ui.label(format!(
-                "GoldCoins: {} | Wild primaries: {} | Boats: {}",
+                "Gold coins: {} | Bowls: {} | Boats: {}",
                 player.gold_coins, player.bowls, player.boats
             ));
 

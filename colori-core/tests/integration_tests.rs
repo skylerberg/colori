@@ -2618,3 +2618,61 @@ fn test_logs_written_with_destroy_names_still_load() {
     let reloaded: GameState = serde_json::from_value(json).unwrap();
     assert_eq!(reloaded.trash.len(), state.trash.len());
 }
+
+/// Game logs and saved games from before the vocabulary changed still load:
+/// the old field and ability names are serde aliases of the new ones.
+#[test]
+fn states_and_abilities_written_with_the_old_names_still_load() {
+    let mut rng = WyRand::seed_from_u64(2);
+    let state = create_initial_game_state(2, &[true, false], &mut rng);
+    let json = serde_json::to_value(&state).unwrap();
+    let old_names = |name: &'static str| -> &'static str {
+        match name {
+            "usedCards" => "workshoppedCards",
+            "topCards" => "draftedCards",
+            "materialsWheel" => "materials",
+            "completedOrders" => "completedSellCards",
+            "goldCoins" => "ducats",
+            "bowls" => "wildPrimaries",
+            "buyerDeck" => "sellCardDeck",
+            "buyerDisplay" => "sellCardDisplay",
+            "botPlayers" => "aiPlayers",
+            other => other,
+        }
+    };
+    let rename = |value: &mut serde_json::Value| {
+        let Some(fields) = value.as_object_mut() else { return };
+        for new in [
+            "usedCards", "topCards", "materialsWheel", "completedOrders", "goldCoins", "bowls",
+            "buyerDeck", "buyerDisplay", "botPlayers",
+        ] {
+            if let Some(field) = fields.remove(new) {
+                fields.insert(old_names(new).to_string(), field);
+            }
+        }
+    };
+
+    let mut renamed = json.clone();
+    rename(&mut renamed);
+    if let Some(players) = renamed.get_mut("players").and_then(|p| p.as_array_mut()) {
+        for player in players {
+            rename(player);
+        }
+    }
+    let reloaded: GameState = serde_json::from_value(renamed)
+        .unwrap_or_else(|e| panic!("an old save should load: {e}"));
+    assert_eq!(
+        serde_json::to_value(&reloaded).unwrap(),
+        json,
+        "the old names say the same game",
+    );
+
+    for (old, expected) in [
+        (r#"{"type":"gainDucats","count":2}"#, Ability::GainGoldCoins { count: 2 }),
+        (r#"{"type":"gainWildPrimaries","count":1}"#, Ability::GainBowls { count: 1 }),
+        (r#"{"type":"moveToDraftPool"}"#, Ability::LiftCard),
+    ] {
+        let ability: Ability = serde_json::from_str(old).unwrap_or_else(|e| panic!("{old}: {e}"));
+        assert_eq!(ability, expected, "{old}");
+    }
+}

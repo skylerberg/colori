@@ -125,7 +125,8 @@ export interface PlayerState {
   materialsWheel: Record<MaterialType, number>;
   completedOrders: BuyerInstance[];
   goldCoins: number;
-  // Wild primaries and wild materials. Each is worth half a point unspent.
+  // Bowls (wild primaries) and boats (wild materials); each is worth half a
+  // point unspent.
   bowls: number;
   boats: number;
 }
@@ -180,7 +181,7 @@ export type Choice =
   | { type: 'workshop'; cardTypes: Card[] }
   | { type: 'skipWorkshop' }
   | { type: 'liftCard'; card: Card | null }
-  | { type: 'selectBuyer'; buyer: Buyer }
+  | { type: 'sellToBuyer'; buyer: Buyer }
   | { type: 'gainSecondary'; color: Color }
   | { type: 'mixAll'; mixes: [Color, Color][] }
   | { type: 'trashAndMix'; card: Card; mixes: [Color, Color][] }
@@ -188,7 +189,7 @@ export type Choice =
   | { type: 'trashAndWorkshop'; card: Card; workshopCards: Card[] }
   | { type: 'trashAndLift'; card: Card; target: Card | null }
   | { type: 'spendGoldCoin'; purchase: GoldCoinPurchase }
-  | { type: 'takeBuyer'; buyer: Buyer }
+  | { type: 'claimBuyer'; buyer: Buyer }
   | { type: 'drawBuyer' };
 
 // ── Draw Event Types ──

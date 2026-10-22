@@ -13,7 +13,7 @@ export function setupDraftGame(numPlayers: number): GameState {
 function resolveBuyers(state: GameState) {
   while (state.phase.type === 'buyers') {
     const claimant = state.phase.buyersState.currentPlayerIndex;
-    applyChoice(state, claimant, { type: 'takeBuyer', buyer: state.buyerDisplay[0].card });
+    applyChoice(state, claimant, { type: 'claimBuyer', buyer: state.buyerDisplay[0].card });
   }
 }
 

@@ -106,7 +106,7 @@ pub fn perform_unmix(wheel: &mut ColorWheel, color: Color) -> bool {
     true
 }
 
-/// Wild primaries needed for `color` to take part in a mix or a payment: none
+/// Bowls needed for `color` to take part in a mix or a payment: none
 /// if the wheel has it, one if it is a primary the wheel lacks, and `None` if it
 /// is a secondary or tertiary the wheel lacks.
 #[inline]
@@ -151,7 +151,7 @@ pub fn perform_mix_unchecked(wheel: &mut ColorWheel, bowls: &mut u32, a: Color, 
     wheel.increment(mix_result(a, b));
 }
 
-/// Wild primaries needed to cover the primaries in `cost` that the wheel lacks, or
+/// Bowls needed to cover the primaries in `cost` that the color wheel lacks, or
 /// `None` when a secondary or tertiary is missing.
 #[inline]
 pub fn bowls_to_cover_cost(wheel: &ColorWheel, cost: &[Color]) -> Option<u32> {

@@ -221,7 +221,7 @@ fn pending_ability(state: &GameState, player_index: usize) -> Option<Ability> {
     open_turn_stack(state, player_index).and_then(|stack| stack.last().copied())
 }
 
-/// Whether `target` is a legal answer to Move to Draft Pool. The move is
+/// Whether `target` is a legal answer to Lift a Card. The lift is
 /// mandatory when the workshop has a card to move, so `None` stands only for
 /// the fizzle.
 fn lift_target_is_valid(state: &GameState, player: &PlayerState, target: &Option<Card>) -> bool {

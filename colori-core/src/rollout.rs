@@ -1,17 +1,15 @@
 use crate::action_phase::{
     ability_stack, ability_stack_mut, boats_to_sell, can_afford_buyer, can_buy_with_gold_coin,
-    trash_top_card, end_player_turn, process_ability_stack,
-    resolve_gain_color, resolve_keep_card, resolve_lift_card, resolve_select_buyer,
-    resolve_spend_gold_coin, resolve_workshop_choice, sell_to_buyer, skip_workshop,
+    end_player_turn, process_ability_stack, resolve_gain_color, resolve_keep_card,
+    resolve_lift_card, resolve_select_buyer, resolve_spend_gold_coin, resolve_workshop_choice,
+    sell_to_buyer, skip_workshop, trash_top_card,
 };
 use crate::colors::{
-    can_supply_mix, is_primary, mix_result, perform_mix_unchecked, PRIMARIES,
-    SECONDARIES, VALID_MIX_PAIRS,
+    can_supply_mix, is_primary, mix_result, perform_mix_unchecked, PRIMARIES, SECONDARIES,
+    VALID_MIX_PAIRS,
 };
 use crate::draft_phase::player_pick;
-use crate::buyers_phase::{
-    draw_buyer, take_buyer,
-};
+use crate::buyers_phase::{draw_buyer, take_buyer};
 use crate::scoring::{buyer_alignment, HeuristicParams};
 use crate::types::*;
 use crate::unordered_cards::UnorderedCards;
@@ -752,7 +750,7 @@ fn action_workshop_value(
                 }
                 return best_total * mult / 10;
             }
-            // Wild primaries and boats are half a gold_coin each, plus whatever the
+            // Bowls and boats are half a point each, plus whatever the
             // primary or material they can stand in for is worth.
             Ability::GainBowls { count } => {
                 let mut best = 0u32;

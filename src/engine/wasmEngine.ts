@@ -106,7 +106,7 @@ export function canSell(player: PlayerState, buyerInstanceId: number): boolean {
 
 // What a sale to `buyer` still lacks once boats and bowls have
 // stood in where they can, one entry per missing item; empty when it can be
-// made. Mirrors `action_phase::can_afford_sell_card`: a boat stands in for
+// made. Mirrors `action_phase::can_afford_buyer`: a boat stands in for
 // each material the player lacks, on top of any the card asks for outright.
 export function saleShortfall(player: PlayerState, buyer: Buyer): string[] {
   const data = getBuyerData(buyer);

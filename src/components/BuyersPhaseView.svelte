@@ -17,7 +17,7 @@
 
   function claim(instanceId: number) {
     const instance = gameState.buyerDisplay.find(c => c.instanceId === instanceId);
-    if (instance) onAction({ type: 'takeBuyer', buyer: instance.card });
+    if (instance) onAction({ type: 'claimBuyer', buyer: instance.card });
   }
 
   function drawUnseen() {

@@ -101,7 +101,7 @@
 
   function sellTo(instanceId: number) {
     const buyer = player.buyers.find(b => b.instanceId === instanceId);
-    if (buyer) onAction({ type: 'selectBuyer', buyer: buyer.card });
+    if (buyer) onAction({ type: 'sellToBuyer', buyer: buyer.card });
   }
 
   // ── Between top actions ──

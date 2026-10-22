@@ -27,7 +27,7 @@ pub const NUM_ROUNDS: u32 = 7;
 /// count each claim is replaced back up to.
 pub const MAX_BUYER_DISPLAY: usize = 7;
 
-/// Trade slots a player can ever hold. See `buyers_phase::buyer_capacity`.
+/// Buyer slots a player can ever hold. See `buyers_phase::buyer_capacity`.
 pub const MAX_BUYERS: usize = 3;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -148,9 +148,9 @@ pub enum Ability {
 /// card is trashed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CardKind {
-    #[serde(rename = "pigment", alias = "pigment")]
+    #[serde(rename = "pigment", alias = "dye")]
     Pigment,
-    #[serde(rename = "starterPigment", alias = "basicPigment")]
+    #[serde(rename = "starterPigment", alias = "basicDye")]
     StarterPigment,
     #[serde(rename = "material")]
     Material,

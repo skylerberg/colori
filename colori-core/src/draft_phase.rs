@@ -344,7 +344,7 @@ mod tests {
             apply_choice(&mut state, player, &choices[0], &mut rng);
         }
 
-        // Now at round 2 draw phase - execute draw, then claim buyers
+        // Round 2 opened with its buyers phase; claim through it
         resolve_buyers(&mut state, &mut rng);
         assert!(matches!(state.phase, GamePhase::Draft { .. }));
         assert_eq!(state.round, 2);

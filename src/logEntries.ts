@@ -97,7 +97,7 @@ function movesFor(choice: Choice, before: PlayerState, after: PlayerState): LogM
   switch (choice.type) {
     case 'draftPick':
       return [];
-    case 'takeBuyer':
+    case 'claimBuyer':
       return [{ type: 'claim', buyer: choice.buyer, unseen: false }];
     case 'drawBuyer': {
       const had = new Set(before.buyers.map(b => b.instanceId));
@@ -122,7 +122,7 @@ function movesFor(choice: Choice, before: PlayerState, after: PlayerState): LogM
       return [workshopped([])];
     case 'mixAll':
       return [{ type: 'mix', mixes: choice.mixes }];
-    case 'selectBuyer':
+    case 'sellToBuyer':
       return [{ type: 'sell', buyer: choice.buyer }];
     case 'liftCard':
       return [moved(choice.card)];
