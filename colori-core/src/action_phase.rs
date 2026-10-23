@@ -391,8 +391,6 @@ pub fn skip_pending_abilities(state: &mut GameState, player_index: usize) {
 
 /// End `player_index`'s turn. Everyone acts at once, so the round ends with
 /// whoever finishes last.
-/// End `player_index`'s turn. Everyone acts at once, so the round ends with
-/// whoever finishes last.
 ///
 /// `keep_remaining` decides what becomes of the top cards the turn never
 /// decided. Kept, they go where keeping puts them: on top of the deck, to be
@@ -408,8 +406,12 @@ pub fn end_player_turn<R: Rng>(
     // Ending the turn declines whatever was still waiting on the player.
     skip_pending_abilities(state, player_index);
 
-    if !keep_remaining {
-        while let Some(id) = state.players[player_index].top_cards.lowest_bit() {
+    while let Some(id) = state.players[player_index].top_cards.lowest_bit() {
+        if keep_remaining {
+            // Keeping what is left is keeping each card, so it takes the same
+            // path and leaves the same deck.
+            resolve_keep_card(state, player_index, id as u32);
+        } else {
             trash_top_card(state, player_index, id as u32);
             skip_pending_abilities(state, player_index);
         }
@@ -418,15 +420,12 @@ pub fn end_player_turn<R: Rng>(
     let round_is_over = {
         let player = &mut state.players[player_index];
 
-        // The whole workshop area is shuffled onto the bottom of the deck. Any
-        // card the turn never decided is a card it kept, so it goes where
-        // keeping puts one: on top, to be drawn back into the workshop.
+        // The whole workshop area is shuffled onto the bottom of the deck,
+        // below every card the turn decided and the workshop's own top-up
+        // draw.
         player
             .deck
             .push_bottom(player.workshop_cards.union(player.used_cards));
-        if keep_remaining {
-            player.deck.push_top(player.top_cards);
-        }
         player.workshop_cards = UnorderedCards::new();
         player.used_cards = UnorderedCards::new();
         player.top_cards = UnorderedCards::new();
@@ -478,4 +477,52 @@ pub(crate) fn ability_stack(state: &GameState, player_index: usize) -> &AbilityS
 #[inline]
 pub(crate) fn ability_stack_mut(state: &mut GameState, player_index: usize) -> &mut AbilityStack {
     &mut get_action_state_mut(state).turns[player_index].ability_stack
+}
+
+#[cfg(test)]
+mod tests {
+    use rand::SeedableRng;
+    use wyrand::WyRand;
+
+    use super::*;
+    use crate::deck::Deck;
+    use crate::round::WORKSHOP_SIZE;
+    use crate::setup::create_initial_game_state;
+
+    fn cards(ids: &[u8]) -> UnorderedCards {
+        let mut set = UnorderedCards::new();
+        for &id in ids {
+            set.insert(id);
+        }
+        set
+    }
+
+    /// A kept card goes on top of the deck, so the top-up draw takes it back
+    /// before the cards that were already there — even when those are more
+    /// cards than the draw takes.
+    #[test]
+    fn a_kept_card_comes_back_before_what_was_already_on_top_of_the_deck() {
+        for seed in 0..8 {
+            let mut rng = WyRand::seed_from_u64(seed);
+            let mut state = create_initial_game_state(2, &[false, false], &mut rng);
+            initialize_action_phase(&mut state);
+
+            let player = &mut state.players[0];
+            // More cards already on top of the deck than the top-up draws.
+            player.deck = Deck::from_cards(cards(&[20, 21, 22, 23, 24, 25]));
+            player.workshop_cards = UnorderedCards::new();
+            player.used_cards = UnorderedCards::new();
+            let kept = 26;
+            player.top_cards = cards(&[kept]);
+
+            end_player_turn(&mut state, 0, true, &mut rng);
+
+            let player = &state.players[0];
+            assert!(
+                player.workshop_cards.contains(kept),
+                "seed {seed}: the kept card was not drawn back into the workshop"
+            );
+            assert_eq!(player.workshop_cards.len(), WORKSHOP_SIZE, "seed {seed}");
+        }
+    }
 }

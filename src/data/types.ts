@@ -110,9 +110,9 @@ export interface BuyerInstance {
 }
 
 export interface PlayerState {
-  // Ordered front-first: the deck is a queue of independently shuffled piles,
-  // because a round's leftover workshop goes to the bottom as one. See
-  // `colori_core::deck::Deck`.
+  // Ordered front-first: the deck is a queue of piles — the cards kept on top
+  // of it, then independently shuffled piles, because a round's leftover
+  // workshop goes to the bottom as one. See `colori_core::deck::Deck`.
   deck: CardInstance[][];
   // Buyers claimed for this player alone. Only these can be sold to; the
   // shared display is claimed from during the buyers phase.

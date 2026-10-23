@@ -5,6 +5,11 @@
 //! unordered *within* one — and nobody, the owner included, knows a segment's
 //! internal order.
 //!
+//! A kept card is the one card whose place in the queue its owner chooses: it
+//! goes on top of everything already there, as a segment of its own, so it is
+//! drawn back before any of them. A second card kept in the same turn goes
+//! above the first.
+//!
 //! Representing it as a queue of bitsets is therefore not a compromise but the
 //! exact information state, which is what keeps the engine fast:
 //!
@@ -25,12 +30,16 @@ use crate::unordered_cards::UnorderedCards;
 /// How many segments a deck can hold.
 ///
 /// This is the exact structural bound for the standard game rather than a
-/// round number: the only way to add a segment is to end a round, so each
-/// round can create at most one on top of the starting deck.
+/// round number: ending a turn shuffles the workshop onto the bottom as one
+/// segment, so each round can create at most one of those on top of the
+/// starting deck, and the segments a turn adds on top for kept cards are drawn
+/// back by that turn's own top-up draw.
 ///
-/// A longer game — `--max-rounds` in solo simulation — can outrun it, and a
-/// push onto a full deck then merges into the deepest segment. That loses the
-/// order between the last two pushes and nothing else, at the bottom of a deck
+/// A turn that keeps more cards than the top-up draw takes does leave kept
+/// segments behind, and a longer game — `--max-rounds` in solo simulation —
+/// can outrun the bound outright. A push onto a full deck then makes room at
+/// the bottom by merging the two deepest segments. That loses the order
+/// between the last two pushes and nothing else, at the bottom of a deck
 /// already deeper than the remaining rounds can draw.
 pub const MAX_DECK_SEGMENTS: usize = 1 + NUM_ROUNDS as usize;
 
@@ -124,19 +133,23 @@ impl Deck {
         self.segments.push(cards);
     }
 
-    /// Put `cards` on top of the deck, where the next draw starts. They join
-    /// the front segment rather than making one of their own: a segment is a
-    /// set, so the deck keeps no order within it, and the segment bound is
-    /// about rounds rather than kept cards.
+    /// Put `cards` on top of the deck, where the next draw starts: a kept card
+    /// makes a segment of its own ahead of everything else, because its owner
+    /// knows it goes above what was already on top. Keeping two in a turn
+    /// therefore leaves the later one to be drawn first.
     pub fn push_top(&mut self, cards: UnorderedCards) {
         if cards.is_empty() {
             return;
         }
-        if self.segments.is_empty() {
-            self.segments.push(cards);
-        } else {
-            self.segments[0] = self.segments[0].union(cards);
+        if self.segments.len() == MAX_DECK_SEGMENTS {
+            // See MAX_DECK_SEGMENTS: the kept cards still go on top, so make
+            // room by merging the two deepest segments.
+            let last = self.segments.len() - 1;
+            self.segments[last - 1] = self.segments[last - 1].union(self.segments[last]);
+            self.segments.remove(last);
         }
+        self.segments.push(cards);
+        self.segments[..].rotate_right(1);
     }
 
     /// Draw up to `count` cards into `destination`, taking from the front
@@ -273,6 +286,41 @@ mod tests {
         assert_eq!(deck.segment_count(), 2);
     }
 
+    /// Keeping puts a card above everything already in the deck, even when
+    /// that is more cards than the very next draw takes.
+    #[test]
+    fn a_kept_card_is_drawn_before_the_cards_already_on_top() {
+        let mut rng = WyRand::seed_from_u64(3);
+        for _ in 0..50 {
+            let mut deck = Deck::from_cards(cards(&[1, 2, 3, 4, 5, 6]));
+            deck.push_top(cards(&[10]));
+
+            let mut hand = UnorderedCards::new();
+            assert_eq!(deck.draw_into(&mut hand, 5, &mut rng), 5);
+            assert!(hand.contains(10), "the kept card was left below the others");
+            assert_eq!(hand.len(), 5);
+            assert_eq!(deck.len(), 2);
+        }
+    }
+
+    /// Keeping one card after another leaves the later one on top, the way
+    /// laying them on a physical deck does.
+    #[test]
+    fn the_last_card_kept_is_drawn_first() {
+        let mut rng = WyRand::seed_from_u64(11);
+        let mut deck = Deck::from_cards(cards(&[1, 2]));
+        deck.push_top(cards(&[10]));
+        deck.push_top(cards(&[11]));
+
+        let mut first = UnorderedCards::new();
+        assert_eq!(deck.draw_into(&mut first, 1, &mut rng), 1);
+        assert_eq!(first, cards(&[11]));
+
+        let mut next = UnorderedCards::new();
+        assert_eq!(deck.draw_into(&mut next, 1, &mut rng), 1);
+        assert_eq!(next, cards(&[10]));
+    }
+
     #[test]
     fn overflowing_the_segment_cap_merges_into_the_deepest() {
         let mut deck = Deck::new();
@@ -287,6 +335,25 @@ mod tests {
         let deepest = deck.segments()[MAX_DECK_SEGMENTS - 1];
         assert!(deepest.contains(100));
         assert!(deepest.contains(MAX_DECK_SEGMENTS as u8 - 1));
+    }
+
+    /// A full deck makes room at the bottom for a kept card: the card still
+    /// goes on top, and only two far-down segments lose their order.
+    #[test]
+    fn pushing_on_top_of_a_full_deck_keeps_the_kept_card_on_top() {
+        let mut deck = Deck::new();
+        for i in 0..MAX_DECK_SEGMENTS {
+            deck.push_bottom(cards(&[i as u8]));
+        }
+        deck.push_top(cards(&[100]));
+
+        assert_eq!(deck.segment_count(), MAX_DECK_SEGMENTS);
+        assert_eq!(deck.segments()[0], cards(&[100]));
+        let deepest = deck.segments()[MAX_DECK_SEGMENTS - 1];
+        assert_eq!(
+            deepest,
+            cards(&[MAX_DECK_SEGMENTS as u8 - 2, MAX_DECK_SEGMENTS as u8 - 1])
+        );
     }
 
     #[test]
