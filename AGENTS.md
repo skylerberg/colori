@@ -74,6 +74,6 @@ Rust workspace plus a Svelte frontend:
 
 ## CI/CD
 
-- GitHub Actions runs the Rust tests and the web build with its Vitest suite on pull requests (`.github/workflows/ci.yml`)
+- GitHub Actions runs the Rust tests and the web build with its Vitest suite on pull requests (`.github/workflows/ci.yml`); the Rust job excludes `colori-gui`, so run `cargo test -p colori-gui` yourself after changing `colori-core`
 - GitHub Actions deploys to S3 + CloudFront on push to `main` (`.github/workflows/deploy-to-s3.yml`)
 - Steps: install deps → build WASM → build web → deploy to S3

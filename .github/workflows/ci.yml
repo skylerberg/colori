@@ -27,18 +27,15 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      # colori-gui links eframe and rfd, which need GTK and X11 headers.
-      - name: Install GUI system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libxcb-render0-dev \
-            libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
-
+      # colori-gui is excluded from both commands. It links eframe and rfd, so
+      # building it means installing GTK and X11 headers and compiling the
+      # whole egui stack — most of this job's runtime for its one log-parsing
+      # test. Run `cargo test -p colori-gui` locally after touching it.
       - name: Build
-        run: cargo build --workspace --all-targets
+        run: cargo build --workspace --all-targets --exclude colori-gui
 
       - name: Test
-        run: cargo test --workspace
+        run: cargo test --workspace --exclude colori-gui
 
   web:
     name: Web
