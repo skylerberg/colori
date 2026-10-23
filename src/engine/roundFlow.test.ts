@@ -39,6 +39,26 @@ describe('the round life cycle', () => {
     expect(state.players[1 - seat].topCards.length).toBeGreaterThan(0);
   });
 
+  it('draws a kept card back into the workshop as the turn ends', () => {
+    const state = createInitialGameState(['a', 'b']);
+    playToActionPhase(state);
+    const seat = actingSeat(state, 0);
+    const before = state.players[seat].topCards.map(card => card.instanceId);
+
+    // Keep one card and trash whatever else the turn left undecided, so the
+    // kept card is the only one that goes on top of the deck.
+    applyChoice(state, seat, { type: 'keepCard', card: state.players[seat].topCards[0].card });
+    const kept = before.filter(
+      id => !state.players[seat].topCards.some(card => card.instanceId === id),
+    );
+    expect(kept).toHaveLength(1);
+    applyChoice(state, seat, { type: 'endTurn', keepRemaining: false });
+
+    const workshop = state.players[seat].workshopCards.map(card => card.instanceId);
+    expect(workshop).toHaveLength(WORKSHOP_SIZE);
+    expect(workshop).toContain(kept[0]);
+  });
+
   it('plays seven rounds and ends the game', () => {
     const state = createInitialGameState(['a', 'b', 'c']);
     playWholeGame(state);
