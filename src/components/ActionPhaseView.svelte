@@ -140,9 +140,13 @@
     onAction({ type: 'spendGoldCoin', purchase });
   }
 
-  // What the always-available End turn button will do with what is left.
+  // An ability waiting for an answer is finished (or skipped) first, so ending
+  // the turn never throws away what the player started.
+  let canEndTurn = $derived(topAbility === null);
+
+  // What the End turn button will do with what is left.
   let endTurnTitle = $derived.by(() => {
-    if (topAbility) return 'Leave this ability unfinished and end your turn';
+    if (topAbility) return `Answer ${formatSingleAbility(topAbility)} first, then end your turn`;
     const left = player.topCards.length;
     if (left === 0) return 'End your turn';
     const cards = left === 1 ? 'the top card you have left' : `the ${left} top cards you have left`;
@@ -359,6 +363,7 @@
         <button
           class="panel-btn danger"
           onclick={() => onAction({ type: 'endTurn', keepRemaining: actionPrefs.keepRemaining })}
+          disabled={!canEndTurn}
           title={endTurnTitle}
         >End turn</button>
       </div>
