@@ -144,7 +144,7 @@ On your turn, each of your **top cards** is decided one of two ways:
 
 You may use or keep your top cards in any order, one at a time. A top action must be fully resolved, including any abilities it pushes onto the stack, before another card is decided.
 
-You may end your turn whenever you like, without deciding every card. Anything still waiting on you is set aside: an ability you have not answered is not resolved, and every top card you have not decided is kept — or, if you say so when ending the turn, trashed without using its top action.
+You may end your turn whenever no ability is waiting on you, without deciding every card: answer what a top action asks — skipping it where the ability allows — before ending. Every top card you have not decided is kept — or, if you say so when ending the turn, trashed without using its top action.
 
 **Spending gold coins.** Between top actions — whenever no ability is waiting on you — you may spend **1 gold coin** for any of:
 
